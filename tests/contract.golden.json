@@ -446,19 +446,9 @@
         "nullable": true
       },
       {
-        "name": "source",
-        "data_type": "Utf8",
-        "nullable": false
-      },
-      {
-        "name": "fidelity_seconds",
+        "name": "fidelity_minutes",
         "data_type": "Int32",
         "nullable": true
-      },
-      {
-        "name": "ingested_at",
-        "data_type": "Timestamp(Millisecond, None)",
-        "nullable": false
       },
       {
         "name": "source",

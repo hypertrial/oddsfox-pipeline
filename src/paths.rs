@@ -6,6 +6,7 @@ use crate::config::Table;
 
 pub const LAKE_LAYOUT_VERSION: &str = "medallion-v2";
 
+#[derive(Clone)]
 pub struct LakePaths {
     pub root: PathBuf,
 }
@@ -96,6 +97,12 @@ impl LakePaths {
 
     pub fn time_series_file(&self, table: Table, date: NaiveDate, part: &str) -> PathBuf {
         self.date_partition_dir(table, date).join(format!("{part}.parquet"))
+    }
+
+    pub fn token_partition_file(&self, table: Table, token_id: &str) -> PathBuf {
+        self.bronze_table_dir(table)
+            .join(format!("token={token_id}"))
+            .join("part.parquet")
     }
 
     pub fn quarantine_bad_rows(&self, table: Table, run_id: &str) -> PathBuf {

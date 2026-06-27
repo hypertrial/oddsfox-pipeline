@@ -19,6 +19,8 @@ pub struct OddsfoxConfig {
     pub sync: SyncSection,
     #[serde(default)]
     pub duckdb: DuckDbSection,
+    #[serde(default)]
+    pub backfill: BackfillSection,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -140,6 +142,14 @@ impl Default for DuckDbSection {
 
 fn default_db() -> String {
     "catalog.duckdb".into()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BackfillSection {
+    pub fidelity_minutes: Option<u32>,
+    pub interval: Option<String>,
+    pub requests_per_second: Option<f64>,
+    pub concurrency: Option<usize>,
 }
 
 pub fn dirs_home() -> Option<String> {

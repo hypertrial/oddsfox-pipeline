@@ -1,3 +1,4 @@
+pub mod backfill;
 pub mod check;
 pub mod clean;
 pub mod cli;

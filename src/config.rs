@@ -14,6 +14,11 @@ pub const DEFAULT_REQUESTS_PER_SECOND: f64 = 2.0;
 pub const DEFAULT_MAX_RETRIES: u32 = 5;
 pub const DEFAULT_USER_AGENT: &str = "oddsfox/0.1.0";
 pub const DEFAULT_RAW_RETENTION_DAYS: u32 = 30;
+pub const DEFAULT_BACKFILL_REQUESTS_PER_SECOND: f64 = 5.0;
+pub const DEFAULT_BACKFILL_CONCURRENCY: usize = 4;
+pub const DEFAULT_BACKFILL_FIDELITY_MINUTES: u32 = 60;
+pub const DEFAULT_BACKFILL_INTERVAL: &str = "max";
+pub const DEFAULT_ACTIVE_PRICE_LIMIT: usize = 100;
 pub const BATCH_TOKEN_LIMIT: usize = 500;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, ValueEnum)]
@@ -134,10 +139,17 @@ pub struct SyncPricesOptions {
     pub out: PathBuf,
     pub market_id: Option<String>,
     pub active: bool,
+    pub all: bool,
+    pub filter_active: Option<bool>,
+    pub tag: Option<String>,
+    pub limit: Option<usize>,
+    pub top_limit: Option<usize>,
     pub interval: Option<String>,
     pub fidelity: Option<u32>,
     pub since: Option<NaiveDate>,
     pub until: Option<NaiveDate>,
+    pub overwrite: bool,
+    pub concurrency: usize,
     pub clob_base_url: String,
     pub requests_per_second: f64,
     pub max_retries: u32,
@@ -190,4 +202,35 @@ pub struct QuickstartOptions {
     pub db: PathBuf,
     pub port: u16,
     pub top_volume: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct BackfillOptions {
+    pub out: PathBuf,
+    pub db: PathBuf,
+    pub active: bool,
+    pub closed: bool,
+    pub all: bool,
+    pub tag: Option<String>,
+    pub limit: Option<usize>,
+    pub interval: Option<String>,
+    pub fidelity: Option<u32>,
+    pub since: Option<NaiveDate>,
+    pub until: Option<NaiveDate>,
+    pub requests_per_second: f64,
+    pub concurrency: usize,
+    pub overwrite: bool,
+    pub max_retries: u32,
+    pub user_agent: String,
+    pub gamma_base_url: String,
+    pub clob_base_url: String,
+    pub raw_retention_days: u32,
+    pub port: u16,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TokenPairFilter {
+    pub active: Option<bool>,
+    pub tag: Option<String>,
+    pub limit: Option<usize>,
 }

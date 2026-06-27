@@ -10,9 +10,7 @@ pub fn schema() -> Arc<Schema> {
         string_field("market_id", true),
         timestamp_field("ts", false),
         float64_field("price", true),
-        string_field("source", false),
-        int32_field("fidelity_seconds", true),
-        timestamp_field("ingested_at", false),
+        int32_field("fidelity_minutes", true),
     ];
     fields.extend(ingest_meta_fields());
     Arc::new(Schema::new(fields))

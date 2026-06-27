@@ -1,6 +1,6 @@
 use chrono::Utc;
 
-use crate::config::{SyncMarketsOptions, Table};
+use crate::config::{SyncMarketsOptions, Table, TokenPairFilter};
 use crate::error::Result;
 use crate::gamma::{fetch_all_events, FetchEventsParams, GammaEvent, GammaMarket};
 use crate::http::HttpClient;
@@ -129,21 +129,223 @@ pub async fn token_ids_for_market(out: &std::path::Path, market_id: &str) -> Res
 }
 
 pub async fn top_token_ids(out: &std::path::Path, limit: usize) -> Result<Vec<String>> {
+    Ok(top_token_pairs(out, limit)
+        .await?
+        .into_iter()
+        .map(|(token_id, _)| token_id)
+        .collect())
+}
+
+pub async fn top_token_pairs(out: &std::path::Path, limit: usize) -> Result<Vec<(String, String)>> {
     let paths = LakePaths::new(out);
     let markets_glob = paths.duckdb_parquet_glob(Table::Markets);
     let outcomes_glob = paths.duckdb_parquet_glob(Table::Outcomes);
     let conn = crate::duckdb_engine::open_connection(None)?;
     let sql = format!(
-        "SELECT o.token_id
+        "SELECT o.token_id, o.market_id
          FROM read_parquet('{outcomes_glob}') o
          JOIN read_parquet('{markets_glob}') m ON o.market_id = m.market_id
          WHERE m.active = true AND o.token_id IS NOT NULL
          ORDER BY m.volume_24h DESC NULLS LAST
          LIMIT {limit}"
     );
-    let mut stmt = crate::duckdb_engine::map_duckdb(conn.prepare(&sql))?;
-    let rows = crate::duckdb_engine::map_duckdb(stmt.query_map([], |row| row.get::<_, String>(0)))?;
+    query_token_pairs(&conn, &sql, &[])
+}
+
+pub async fn all_token_pairs(
+    out: &std::path::Path,
+    filter: &TokenPairFilter,
+) -> Result<Vec<(String, String)>> {
+    let paths = LakePaths::new(out);
+    let markets_glob = paths.duckdb_parquet_glob(Table::Markets);
+    let outcomes_glob = paths.duckdb_parquet_glob(Table::Outcomes);
+    let events_glob = paths.duckdb_parquet_glob(Table::Events);
+    let conn = crate::duckdb_engine::open_connection(None)?;
+
+    let mut sql = format!(
+        "SELECT DISTINCT o.token_id, o.market_id
+         FROM read_parquet('{outcomes_glob}') o
+         JOIN read_parquet('{markets_glob}') m ON o.market_id = m.market_id"
+    );
+    let mut params: Vec<String> = Vec::new();
+
+    if filter.tag.is_some() {
+        sql.push_str(&format!(
+            " JOIN read_parquet('{events_glob}') e ON m.event_id = e.event_id"
+        ));
+    }
+
+    sql.push_str(" WHERE o.token_id IS NOT NULL");
+
+    if let Some(active) = filter.active {
+        sql.push_str(if active {
+            " AND m.active = true"
+        } else {
+            " AND m.active = false"
+        });
+    }
+
+    if let Some(tag) = filter.tag.as_deref() {
+        sql.push_str(" AND e.tags LIKE ?");
+        params.push(format!("%{tag}%"));
+    }
+
+    sql.push_str(" ORDER BY o.token_id");
+
+    if let Some(limit) = filter.limit {
+        sql.push_str(&format!(" LIMIT {limit}"));
+    }
+
+    query_token_pairs(&conn, &sql, &params)
+}
+
+fn query_token_pairs(
+    conn: &duckdb::Connection,
+    sql: &str,
+    params: &[String],
+) -> Result<Vec<(String, String)>> {
+    let mut stmt = crate::duckdb_engine::map_duckdb(conn.prepare(sql))?;
+    let rows = crate::duckdb_engine::map_duckdb(stmt.query_map(
+        duckdb::params_from_iter(params.iter()),
+        |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+    ))?;
     Ok(rows.filter_map(|r| r.ok()).collect())
+}
+
+#[cfg(test)]
+mod token_pair_tests {
+    use super::*;
+    use crate::config::Table;
+    use crate::normalize::{markets_batch, outcomes_batch};
+    use crate::parquet::write_snapshot;
+
+    #[tokio::test]
+    async fn all_token_pairs_returns_distinct_pairs() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = LakePaths::new(dir.path());
+        paths.scaffold_dirs().unwrap();
+        let run_id = "run-test";
+
+        let markets = vec![crate::gamma::GammaMarket {
+            id: "m1".into(),
+            event_id: Some("e1".into()),
+            conditionId: None,
+            questionID: None,
+            slug: None,
+            question: Some("Q?".into()),
+            description: None,
+            active: Some(true),
+            closed: Some(false),
+            resolved: None,
+            enableOrderBook: None,
+            negRisk: None,
+            liquidity: None,
+            volume: None,
+            volume24hr: None,
+            openInterest: None,
+            endDate: None,
+            resolutionTime: None,
+            resolutionSource: None,
+            outcomes: Some("[\"Yes\",\"No\"]".into()),
+            outcomePrices: None,
+            clobTokenIds: Some("[\"tok-a\",\"tok-b\"]".into()),
+            winningOutcome: None,
+            winningOutcomeIndex: None,
+        }];
+        let markets_data =
+            markets_batch(&markets, "gamma", "http://test", "sha", run_id).unwrap();
+        let outcomes_data =
+            outcomes_batch(&markets, "gamma", "http://test", "sha", run_id).unwrap();
+        write_snapshot(&paths, Table::Markets, run_id, &[markets_data]).unwrap();
+        write_snapshot(&paths, Table::Outcomes, run_id, &[outcomes_data]).unwrap();
+
+        let pairs = all_token_pairs(dir.path(), &TokenPairFilter::default())
+            .await
+            .unwrap();
+        assert_eq!(pairs.len(), 2);
+        assert!(pairs.iter().any(|(t, m)| t == "tok-a" && m == "m1"));
+        assert!(pairs.iter().any(|(t, m)| t == "tok-b" && m == "m1"));
+    }
+
+    #[tokio::test]
+    async fn all_token_pairs_filters_by_active() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = LakePaths::new(dir.path());
+        paths.scaffold_dirs().unwrap();
+        let run_id = "run-test";
+
+        let markets = vec![
+            crate::gamma::GammaMarket {
+                id: "m-active".into(),
+                event_id: Some("e1".into()),
+                conditionId: None,
+                questionID: None,
+                slug: None,
+                question: Some("Active?".into()),
+                description: None,
+                active: Some(true),
+                closed: Some(false),
+                resolved: None,
+                enableOrderBook: None,
+                negRisk: None,
+                liquidity: None,
+                volume: None,
+                volume24hr: None,
+                openInterest: None,
+                endDate: None,
+                resolutionTime: None,
+                resolutionSource: None,
+                outcomes: Some("[\"Yes\"]".into()),
+                outcomePrices: None,
+                clobTokenIds: Some("[\"tok-active\"]".into()),
+                winningOutcome: None,
+                winningOutcomeIndex: None,
+            },
+            crate::gamma::GammaMarket {
+                id: "m-closed".into(),
+                event_id: Some("e2".into()),
+                conditionId: None,
+                questionID: None,
+                slug: None,
+                question: Some("Closed?".into()),
+                description: None,
+                active: Some(false),
+                closed: Some(true),
+                resolved: None,
+                enableOrderBook: None,
+                negRisk: None,
+                liquidity: None,
+                volume: None,
+                volume24hr: None,
+                openInterest: None,
+                endDate: None,
+                resolutionTime: None,
+                resolutionSource: None,
+                outcomes: Some("[\"Yes\"]".into()),
+                outcomePrices: None,
+                clobTokenIds: Some("[\"tok-closed\"]".into()),
+                winningOutcome: None,
+                winningOutcomeIndex: None,
+            },
+        ];
+        let markets_data =
+            markets_batch(&markets, "gamma", "http://test", "sha", run_id).unwrap();
+        let outcomes_data =
+            outcomes_batch(&markets, "gamma", "http://test", "sha", run_id).unwrap();
+        write_snapshot(&paths, Table::Markets, run_id, &[markets_data]).unwrap();
+        write_snapshot(&paths, Table::Outcomes, run_id, &[outcomes_data]).unwrap();
+
+        let active_pairs = all_token_pairs(
+            dir.path(),
+            &TokenPairFilter {
+                active: Some(true),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(active_pairs, vec![("tok-active".into(), "m-active".into())]);
+    }
 }
 
 #[derive(Debug, Clone)]

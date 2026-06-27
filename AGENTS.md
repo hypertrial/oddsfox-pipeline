@@ -23,6 +23,12 @@ oddsfox sync markets --active
 oddsfox serve
 ```
 
+Analyst backfill (needs network; long-running):
+
+```bash
+oddsfox backfill --fidelity 60 --limit 10
+```
+
 ## Architecture
 
 | Area | Key files | Responsibility |

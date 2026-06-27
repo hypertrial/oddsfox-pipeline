@@ -31,6 +31,38 @@ pub enum Commands {
         #[arg(long, default_value_t = 50)]
         top_volume: usize,
     },
+    Backfill {
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long)]
+        db: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        active: bool,
+        #[arg(long, default_value_t = false)]
+        closed: bool,
+        #[arg(long, default_value_t = true)]
+        all: bool,
+        #[arg(long)]
+        tag: Option<String>,
+        #[arg(long)]
+        limit: Option<usize>,
+        #[arg(long)]
+        fidelity: Option<u32>,
+        #[arg(long)]
+        interval: Option<String>,
+        #[arg(long)]
+        since: Option<String>,
+        #[arg(long)]
+        until: Option<String>,
+        #[arg(long)]
+        rps: Option<f64>,
+        #[arg(long)]
+        concurrency: Option<usize>,
+        #[arg(long, default_value_t = false)]
+        overwrite: bool,
+        #[arg(long, default_value_t = 8787)]
+        port: u16,
+    },
     Sync {
         #[command(subcommand)]
         target: SyncCommands,
@@ -159,6 +191,14 @@ pub enum SyncCommands {
         market: Option<String>,
         #[arg(long, default_value_t = false)]
         active: bool,
+        #[arg(long, default_value_t = false)]
+        all: bool,
+        #[arg(long)]
+        tag: Option<String>,
+        #[arg(long)]
+        limit: Option<usize>,
+        #[arg(long)]
+        top_limit: Option<usize>,
         #[arg(long)]
         interval: Option<String>,
         #[arg(long)]
@@ -167,6 +207,12 @@ pub enum SyncCommands {
         since: Option<String>,
         #[arg(long)]
         until: Option<String>,
+        #[arg(long, default_value_t = false)]
+        overwrite: bool,
+        #[arg(long)]
+        rps: Option<f64>,
+        #[arg(long)]
+        concurrency: Option<usize>,
         #[arg(long)]
         out: Option<PathBuf>,
     },

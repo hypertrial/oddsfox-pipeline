@@ -7,7 +7,10 @@ use oddsfox::cli::{
     lake_root_from_config, Cli, Commands, ComputeCommands, MetricsCommands, SnapshotCommands,
     SyncCommands,
 };
-use oddsfox::config::{parse_date, Table, TopBy};
+use oddsfox::config::{
+    parse_date, Table, TopBy, DEFAULT_BACKFILL_CONCURRENCY, DEFAULT_BACKFILL_FIDELITY_MINUTES,
+    DEFAULT_BACKFILL_INTERVAL, DEFAULT_BACKFILL_REQUESTS_PER_SECOND,
+};
 use oddsfox::error::Result;
 use oddsfox::duckdb::default_db_for_lake;
 use oddsfox::settings::resolve_config;
@@ -38,6 +41,60 @@ async fn main() -> Result<()> {
                 }),
                 port: *port,
                 top_volume: *top_volume,
+            })
+            .await?;
+        }
+        Commands::Backfill {
+            out,
+            db,
+            active,
+            closed,
+            all,
+            tag,
+            limit,
+            fidelity,
+            interval,
+            since,
+            until,
+            rps,
+            concurrency,
+            overwrite,
+            port,
+        } => {
+            let root = lake_root_from_config(cli.config.as_deref(), out.clone())?;
+            let db_path = db.clone().unwrap_or_else(|| {
+                default_db_for_lake(&oddsfox::paths::LakePaths::new(&root))
+            });
+            oddsfox::backfill::run(oddsfox::config::BackfillOptions {
+                out: root,
+                db: db_path,
+                active: *active,
+                closed: *closed,
+                all: *all,
+                tag: tag.clone(),
+                limit: *limit,
+                interval: interval
+                    .clone()
+                    .or_else(|| config.backfill.interval.clone())
+                    .or_else(|| Some(DEFAULT_BACKFILL_INTERVAL.to_string())),
+                fidelity: fidelity.or(config.backfill.fidelity_minutes).or(Some(
+                    DEFAULT_BACKFILL_FIDELITY_MINUTES,
+                )),
+                since: since.as_ref().map(|s| parse_date(s)).transpose()?,
+                until: until.as_ref().map(|s| parse_date(s)).transpose()?,
+                requests_per_second: rps
+                    .or(config.backfill.requests_per_second)
+                    .unwrap_or(DEFAULT_BACKFILL_REQUESTS_PER_SECOND),
+                concurrency: concurrency
+                    .or(config.backfill.concurrency)
+                    .unwrap_or(DEFAULT_BACKFILL_CONCURRENCY),
+                overwrite: *overwrite,
+                max_retries: config.sync.max_retries,
+                user_agent: config.sync.user_agent.clone(),
+                gamma_base_url: config.polymarket.gamma_base_url.clone(),
+                clob_base_url: config.polymarket.clob_base_url.clone(),
+                raw_retention_days: config.data.raw_retention_days,
+                port: *port,
             })
             .await?;
         }
@@ -73,23 +130,46 @@ async fn main() -> Result<()> {
             SyncCommands::Prices {
                 market,
                 active,
+                all,
+                tag,
+                limit,
+                top_limit,
                 interval,
                 fidelity,
                 since,
                 until,
+                overwrite,
+                rps,
+                concurrency,
                 out,
             } => {
                 let root = lake_root_from_config(cli.config.as_deref(), out.clone())?;
+                let filter_active = if *all {
+                    if *active {
+                        Some(true)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
                 oddsfox::prices::sync_prices(oddsfox::config::SyncPricesOptions {
                     out: root,
                     market_id: market.clone(),
-                    active: *active,
+                    active: *active && !*all,
+                    all: *all,
+                    filter_active,
+                    tag: tag.clone(),
+                    limit: *limit,
+                    top_limit: *top_limit,
                     interval: interval.clone(),
                     fidelity: *fidelity,
                     since: since.as_ref().map(|s| parse_date(s)).transpose()?,
                     until: until.as_ref().map(|s| parse_date(s)).transpose()?,
+                    overwrite: *overwrite,
+                    concurrency: concurrency.unwrap_or(1),
                     clob_base_url: config.polymarket.clob_base_url.clone(),
-                    requests_per_second: config.sync.requests_per_second,
+                    requests_per_second: rps.unwrap_or(config.sync.requests_per_second),
                     max_retries: config.sync.max_retries,
                     user_agent: config.sync.user_agent.clone(),
                 })

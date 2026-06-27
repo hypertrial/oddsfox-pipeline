@@ -29,6 +29,14 @@ First build compiles bundled DuckDB and may take several minutes.
 
 ## Quickstart
 
+For a full analyst lake (all markets + CLOB price history + DuckDB catalog):
+
+```bash
+oddsfox backfill --fidelity 60
+```
+
+For a quick demo with active markets only:
+
 ```bash
 oddsfox init
 oddsfox sync markets --active
@@ -38,7 +46,7 @@ oddsfox compute liquidity --active
 oddsfox serve
 ```
 
-Or one shot:
+Or one shot demo:
 
 ```bash
 oddsfox quickstart
@@ -49,6 +57,7 @@ oddsfox quickstart
 | Command | Description |
 |---------|-------------|
 | `init` | Scaffold lake at `~/.oddsfox` |
+| `backfill` | Init → sync all markets → sync all CLOB prices → DuckDB catalog |
 | `quickstart` | Init → sync → snapshot → compute → duckdb |
 | `sync markets` | Sync Gamma events/markets/outcomes |
 | `sync prices` | Sync CLOB price history |
