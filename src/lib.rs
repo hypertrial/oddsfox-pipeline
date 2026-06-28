@@ -14,6 +14,7 @@ pub mod gamma;
 pub mod http;
 pub mod ids;
 pub mod init;
+pub mod kalshi;
 pub mod manifest;
 pub mod metrics;
 pub mod normalize;

@@ -1,7 +1,7 @@
-# oddsfox v0.1 documentation
+# oddsfox v0.2 documentation
 
 Self-hosted, MIT-licensed FOSS data lake creator for prediction-market research.
-v0.1 builds a local Polymarket lake end-to-end; Kalshi support is planned as the next source adapter.
+v0.2 builds a local Polymarket and Kalshi lake end-to-end.
 
 ## Index
 

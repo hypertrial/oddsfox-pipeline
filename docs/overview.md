@@ -1,8 +1,7 @@
 # Overview
 
 **oddsfox** is a self-hosted, MIT-licensed FOSS data lake creator for prediction-market research.
-v0.1.0 builds a local Polymarket lake end-to-end: fetch, normalize, catalog, compute, query, and serve.
-The lake shape is intended to extend to Kalshi, but the Kalshi adapter is not implemented yet.
+v0.2.0 builds a local Polymarket and Kalshi lake end-to-end: fetch, normalize, catalog, compute, query, and serve.
 
 It answers five research questions locally:
 
@@ -16,7 +15,8 @@ It answers five research questions locally:
 
 - Trading, signing, wallets
 - Hosted data mirrors
-- Kalshi or on-chain archive reconstruction in v0.1.x
+- Order submission, portfolio, balances, fills, or user-specific exchange data
+- On-chain archive reconstruction
 
 ## Success demo
 

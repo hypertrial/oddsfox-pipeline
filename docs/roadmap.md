@@ -10,10 +10,18 @@
 - M5: HTTP API
 - M6: minimal UI
 
+## v0.2.0 (shipped)
+
+- Kalshi markets/events/outcomes/resolutions
+- Kalshi candlestick prices
+- Kalshi trades
+- Kalshi order book snapshots
+- Shared prediction-market lake contract
+
 ## Deferred (P2)
 
 - On-chain trade joins (Dune/Goldsky/CryptoHouse)
 - Tantivy full-text search
 - Advanced microstructure metrics
-- Kalshi adapter for the same self-hosted lake contract
+- Kalshi WebSocket recorder
 - LLM benchmark export

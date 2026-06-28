@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::Client;
+use reqwest::header::HeaderMap;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Instant};
 
@@ -43,10 +44,14 @@ impl HttpClient {
     }
 
     pub async fn get_bytes(&self, url: &str) -> Result<Vec<u8>> {
+        self.get_bytes_with_headers(url, HeaderMap::new()).await
+    }
+
+    pub async fn get_bytes_with_headers(&self, url: &str, headers: HeaderMap) -> Result<Vec<u8>> {
         let mut attempt = 0;
         loop {
             self.throttle().await;
-            let response = self.inner.get(url).send().await?;
+            let response = self.inner.get(url).headers(headers.clone()).send().await?;
             let status = response.status();
             if status.is_success() {
                 return Ok(response.bytes().await?.to_vec());

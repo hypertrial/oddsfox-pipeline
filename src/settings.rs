@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{
     DEFAULT_CLOB_BASE_URL, DEFAULT_DATA_BASE_URL, DEFAULT_GAMMA_BASE_URL,
+    DEFAULT_KALSHI_REST_BASE_URL, DEFAULT_KALSHI_WS_URL,
     DEFAULT_MAX_RETRIES, DEFAULT_RAW_RETENTION_DAYS, DEFAULT_REQUESTS_PER_SECOND,
     DEFAULT_USER_AGENT, DEFAULT_WS_MARKET_URL,
 };
@@ -15,6 +16,8 @@ pub struct OddsfoxConfig {
     pub data: DataSection,
     #[serde(default)]
     pub polymarket: PolymarketSection,
+    #[serde(default)]
+    pub kalshi: KalshiSection,
     #[serde(default)]
     pub sync: SyncSection,
     #[serde(default)]
@@ -92,6 +95,35 @@ fn default_data_url() -> String {
 
 fn default_ws_url() -> String {
     DEFAULT_WS_MARKET_URL.into()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KalshiSection {
+    #[serde(default = "default_kalshi_rest_url")]
+    pub rest_base_url: String,
+    #[serde(default = "default_kalshi_ws_url")]
+    pub ws_url: String,
+    pub key_id: Option<String>,
+    pub private_key_path: Option<String>,
+}
+
+impl Default for KalshiSection {
+    fn default() -> Self {
+        Self {
+            rest_base_url: default_kalshi_rest_url(),
+            ws_url: default_kalshi_ws_url(),
+            key_id: None,
+            private_key_path: None,
+        }
+    }
+}
+
+fn default_kalshi_rest_url() -> String {
+    DEFAULT_KALSHI_REST_BASE_URL.into()
+}
+
+fn default_kalshi_ws_url() -> String {
+    DEFAULT_KALSHI_WS_URL.into()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,5 +227,6 @@ mod tests {
         let raw = toml::to_string(&config).unwrap();
         let parsed: OddsfoxConfig = toml::from_str(&raw).unwrap();
         assert_eq!(parsed.polymarket.gamma_base_url, DEFAULT_GAMMA_BASE_URL);
+        assert_eq!(parsed.kalshi.rest_base_url, DEFAULT_KALSHI_REST_BASE_URL);
     }
 }

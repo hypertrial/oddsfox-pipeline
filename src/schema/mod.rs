@@ -28,7 +28,7 @@ pub fn arrow_schema(table: Table) -> Arc<Schema> {
 }
 
 pub fn schema_version() -> &'static str {
-    "polymarket-v1"
+    "prediction-market-v2"
 }
 
 pub fn lake_layout_version() -> &'static str {

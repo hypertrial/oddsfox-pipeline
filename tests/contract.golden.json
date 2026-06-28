@@ -1,8 +1,8 @@
 {
   "contract_version": "1.0.0",
-  "schema_version": "polymarket-v1",
+  "schema_version": "prediction-market-v2",
   "lake_layout_version": "medallion-v2",
-  "oddsfox_version": "0.1.0",
+  "oddsfox_version": "0.2.0",
   "bronze_tables": {
     "book_levels": [
       {

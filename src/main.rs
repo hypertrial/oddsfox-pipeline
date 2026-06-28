@@ -8,8 +8,9 @@ use oddsfox::cli::{
     SyncCommands,
 };
 use oddsfox::config::{
-    parse_date, Table, TopBy, DEFAULT_BACKFILL_CONCURRENCY, DEFAULT_BACKFILL_FIDELITY_MINUTES,
-    DEFAULT_BACKFILL_INTERVAL, DEFAULT_BACKFILL_REQUESTS_PER_SECOND,
+    parse_date, Source, Table, TopBy, DEFAULT_BACKFILL_CONCURRENCY,
+    DEFAULT_BACKFILL_FIDELITY_MINUTES, DEFAULT_BACKFILL_INTERVAL,
+    DEFAULT_BACKFILL_REQUESTS_PER_SECOND,
 };
 use oddsfox::error::Result;
 use oddsfox::duckdb::default_db_for_lake;
@@ -45,6 +46,7 @@ async fn main() -> Result<()> {
             .await?;
         }
         Commands::Backfill {
+            source,
             out,
             db,
             active,
@@ -68,6 +70,7 @@ async fn main() -> Result<()> {
             oddsfox::backfill::run(oddsfox::config::BackfillOptions {
                 out: root,
                 db: db_path,
+                source: *source,
                 active: *active,
                 closed: *closed,
                 all: *all,
@@ -93,6 +96,9 @@ async fn main() -> Result<()> {
                 user_agent: config.sync.user_agent.clone(),
                 gamma_base_url: config.polymarket.gamma_base_url.clone(),
                 clob_base_url: config.polymarket.clob_base_url.clone(),
+                kalshi_rest_base_url: config.kalshi.rest_base_url.clone(),
+                kalshi_key_id: config.kalshi.key_id.clone(),
+                kalshi_private_key_path: config.kalshi.private_key_path.clone().map(PathBuf::from),
                 raw_retention_days: config.data.raw_retention_days,
                 port: *port,
             })
@@ -100,6 +106,10 @@ async fn main() -> Result<()> {
         }
         Commands::Sync { target } => match target {
             SyncCommands::Markets {
+                source,
+                status,
+                series,
+                event,
                 active,
                 closed,
                 all,
@@ -109,26 +119,42 @@ async fn main() -> Result<()> {
                 out,
             } => {
                 let root = lake_root_from_config(cli.config.as_deref(), out.clone())?;
-                oddsfox::sync::sync_markets(oddsfox::config::SyncMarketsOptions {
+                let options = oddsfox::config::SyncMarketsOptions {
                     out: root,
+                    source: *source,
                     active: *active || (!*closed && !*all),
                     closed: *closed,
                     all: *all,
+                    status: *status,
+                    series: series.clone(),
+                    event: event.clone(),
                     tag: tag.clone(),
                     since: since.as_ref().map(|s| parse_date(s)).transpose()?,
                     limit: *limit,
                     resume: true,
                     overwrite: false,
                     gamma_base_url: config.polymarket.gamma_base_url.clone(),
+                    kalshi_rest_base_url: config.kalshi.rest_base_url.clone(),
+                    kalshi_key_id: config.kalshi.key_id.clone(),
+                    kalshi_private_key_path: config.kalshi.private_key_path.clone().map(PathBuf::from),
                     requests_per_second: config.sync.requests_per_second,
                     max_retries: config.sync.max_retries,
                     user_agent: config.sync.user_agent.clone(),
                     raw_retention_days: config.data.raw_retention_days,
-                })
-                .await?;
+                };
+                match source {
+                    Source::Polymarket => {
+                        oddsfox::sync::sync_markets(options).await?;
+                    }
+                    Source::Kalshi => {
+                        oddsfox::kalshi::sync_markets(options).await?;
+                    }
+                }
             }
             SyncCommands::Prices {
+                source,
                 market,
+                series,
                 active,
                 all,
                 tag,
@@ -136,6 +162,7 @@ async fn main() -> Result<()> {
                 top_limit,
                 interval,
                 fidelity,
+                period,
                 since,
                 until,
                 overwrite,
@@ -153,9 +180,11 @@ async fn main() -> Result<()> {
                 } else {
                     None
                 };
-                oddsfox::prices::sync_prices(oddsfox::config::SyncPricesOptions {
+                let options = oddsfox::config::SyncPricesOptions {
                     out: root,
+                    source: *source,
                     market_id: market.clone(),
+                    series: series.clone(),
                     active: *active && !*all,
                     all: *all,
                     filter_active,
@@ -164,39 +193,105 @@ async fn main() -> Result<()> {
                     top_limit: *top_limit,
                     interval: interval.clone(),
                     fidelity: *fidelity,
+                    period: *period,
                     since: since.as_ref().map(|s| parse_date(s)).transpose()?,
                     until: until.as_ref().map(|s| parse_date(s)).transpose()?,
                     overwrite: *overwrite,
                     concurrency: concurrency.unwrap_or(1),
                     clob_base_url: config.polymarket.clob_base_url.clone(),
+                    kalshi_rest_base_url: config.kalshi.rest_base_url.clone(),
+                    kalshi_key_id: config.kalshi.key_id.clone(),
+                    kalshi_private_key_path: config.kalshi.private_key_path.clone().map(PathBuf::from),
                     requests_per_second: rps.unwrap_or(config.sync.requests_per_second),
                     max_retries: config.sync.max_retries,
                     user_agent: config.sync.user_agent.clone(),
-                })
-                .await?;
+                };
+                match source {
+                    Source::Polymarket => {
+                        oddsfox::prices::sync_prices(options).await?;
+                    }
+                    Source::Kalshi => {
+                        oddsfox::kalshi::sync_prices(options).await?;
+                    }
+                }
+            }
+            SyncCommands::Trades {
+                source,
+                market,
+                since,
+                until,
+                limit,
+                rps,
+                out,
+            } => {
+                let root = lake_root_from_config(cli.config.as_deref(), out.clone())?;
+                let options = oddsfox::config::SyncPricesOptions {
+                    out: root,
+                    source: *source,
+                    market_id: market.clone(),
+                    series: None,
+                    active: false,
+                    all: false,
+                    filter_active: None,
+                    tag: None,
+                    limit: *limit,
+                    top_limit: None,
+                    interval: None,
+                    fidelity: None,
+                    period: None,
+                    since: since.as_ref().map(|s| parse_date(s)).transpose()?,
+                    until: until.as_ref().map(|s| parse_date(s)).transpose()?,
+                    overwrite: false,
+                    concurrency: 1,
+                    clob_base_url: config.polymarket.clob_base_url.clone(),
+                    kalshi_rest_base_url: config.kalshi.rest_base_url.clone(),
+                    kalshi_key_id: config.kalshi.key_id.clone(),
+                    kalshi_private_key_path: config.kalshi.private_key_path.clone().map(PathBuf::from),
+                    requests_per_second: rps.unwrap_or(config.sync.requests_per_second),
+                    max_retries: config.sync.max_retries,
+                    user_agent: config.sync.user_agent.clone(),
+                };
+                match source {
+                    Source::Kalshi => oddsfox::kalshi::sync_trades(options).await?,
+                    Source::Polymarket => {
+                        return Err(oddsfox::error::OddsfoxError::SyncIncomplete {
+                            message: "sync trades currently supports --source kalshi".into(),
+                        });
+                    }
+                }
             }
         },
         Commands::Snapshot { target } => match target {
             SnapshotCommands::Books {
+                source,
                 market,
                 active,
                 top_volume,
                 tokens,
+                depth,
                 out,
             } => {
                 let root = lake_root_from_config(cli.config.as_deref(), out.clone())?;
-                oddsfox::snapshot::snapshot_books(oddsfox::config::SnapshotBooksOptions {
+                let options = oddsfox::config::SnapshotBooksOptions {
                     out: root,
+                    source: *source,
                     market_id: market.clone(),
                     active: *active,
                     top_volume: *top_volume,
                     tokens_file: tokens.clone(),
+                    depth: *depth,
                     clob_base_url: config.polymarket.clob_base_url.clone(),
+                    kalshi_rest_base_url: config.kalshi.rest_base_url.clone(),
+                    kalshi_key_id: config.kalshi.key_id.clone(),
+                    kalshi_private_key_path: config.kalshi.private_key_path.clone().map(PathBuf::from),
                     requests_per_second: config.sync.requests_per_second,
                     max_retries: config.sync.max_retries,
                     user_agent: config.sync.user_agent.clone(),
-                })
-                .await?;
+                };
+                match source {
+                    Source::Polymarket => oddsfox::snapshot::snapshot_books(options).await?,
+                    Source::Kalshi => oddsfox::kalshi::snapshot_books(options).await?,
+                }
             }
         },
         Commands::Watch {

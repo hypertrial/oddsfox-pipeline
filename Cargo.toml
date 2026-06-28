@@ -1,14 +1,14 @@
 [package]
 name = "oddsfox"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "A local-first Rust research kit for Polymarket"
+description = "A self-hosted prediction-market data lake creator"
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/hypertrial/oddsfox"
 homepage = "https://github.com/hypertrial/oddsfox"
 documentation = "https://github.com/hypertrial/oddsfox/tree/main/docs"
-keywords = ["polymarket", "parquet", "lakehouse", "duckdb", "forecasting"]
+keywords = ["polymarket", "kalshi", "parquet", "lakehouse", "duckdb"]
 categories = ["command-line-utilities", "database"]
 
 [lib]
@@ -27,6 +27,7 @@ live-tests = []
 anyhow = "1"
 arrow = { version = "58", default-features = false, features = ["chrono-tz"] }
 axum = "0.8"
+base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive"] }
 duckdb = { version = "1.1", features = ["bundled"] }
@@ -34,10 +35,12 @@ fs2 = "0.4"
 futures-util = "0.3"
 parquet = { version = "58", default-features = false, features = ["arrow", "snap", "zstd"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rsa = { version = "0.9", features = ["getrandom", "pem", "sha2"] }
 rust_decimal = { version = "1", features = ["serde-with-str"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
+signature = "2"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }

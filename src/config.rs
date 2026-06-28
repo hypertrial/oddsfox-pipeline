@@ -10,9 +10,11 @@ pub const DEFAULT_GAMMA_BASE_URL: &str = "https://gamma-api.polymarket.com";
 pub const DEFAULT_CLOB_BASE_URL: &str = "https://clob.polymarket.com";
 pub const DEFAULT_DATA_BASE_URL: &str = "https://data-api.polymarket.com";
 pub const DEFAULT_WS_MARKET_URL: &str = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
+pub const DEFAULT_KALSHI_REST_BASE_URL: &str = "https://external-api.kalshi.com/trade-api/v2";
+pub const DEFAULT_KALSHI_WS_URL: &str = "wss://external-api-ws.kalshi.com/trade-api/ws/v2";
 pub const DEFAULT_REQUESTS_PER_SECOND: f64 = 2.0;
 pub const DEFAULT_MAX_RETRIES: u32 = 5;
-pub const DEFAULT_USER_AGENT: &str = "oddsfox/0.1.0";
+pub const DEFAULT_USER_AGENT: &str = "oddsfox/0.2.0";
 pub const DEFAULT_RAW_RETENTION_DAYS: u32 = 30;
 pub const DEFAULT_BACKFILL_REQUESTS_PER_SECOND: f64 = 5.0;
 pub const DEFAULT_BACKFILL_CONCURRENCY: usize = 4;
@@ -93,6 +95,27 @@ pub enum OutputFormat {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum Source {
+    Polymarket,
+    Kalshi,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum BackfillSource {
+    Polymarket,
+    Kalshi,
+    All,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum KalshiStatus {
+    Open,
+    Closed,
+    Settled,
+    All,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum TopBy {
     Volume24h,
     Spread,
@@ -119,15 +142,22 @@ pub struct DuckDbOptions {
 #[derive(Debug, Clone)]
 pub struct SyncMarketsOptions {
     pub out: PathBuf,
+    pub source: Source,
     pub active: bool,
     pub closed: bool,
     pub all: bool,
+    pub status: Option<KalshiStatus>,
+    pub series: Option<String>,
+    pub event: Option<String>,
     pub tag: Option<String>,
     pub since: Option<NaiveDate>,
     pub limit: Option<usize>,
     pub resume: bool,
     pub overwrite: bool,
     pub gamma_base_url: String,
+    pub kalshi_rest_base_url: String,
+    pub kalshi_key_id: Option<String>,
+    pub kalshi_private_key_path: Option<PathBuf>,
     pub requests_per_second: f64,
     pub max_retries: u32,
     pub user_agent: String,
@@ -137,7 +167,9 @@ pub struct SyncMarketsOptions {
 #[derive(Debug, Clone)]
 pub struct SyncPricesOptions {
     pub out: PathBuf,
+    pub source: Source,
     pub market_id: Option<String>,
+    pub series: Option<String>,
     pub active: bool,
     pub all: bool,
     pub filter_active: Option<bool>,
@@ -146,11 +178,15 @@ pub struct SyncPricesOptions {
     pub top_limit: Option<usize>,
     pub interval: Option<String>,
     pub fidelity: Option<u32>,
+    pub period: Option<u32>,
     pub since: Option<NaiveDate>,
     pub until: Option<NaiveDate>,
     pub overwrite: bool,
     pub concurrency: usize,
     pub clob_base_url: String,
+    pub kalshi_rest_base_url: String,
+    pub kalshi_key_id: Option<String>,
+    pub kalshi_private_key_path: Option<PathBuf>,
     pub requests_per_second: f64,
     pub max_retries: u32,
     pub user_agent: String,
@@ -159,11 +195,16 @@ pub struct SyncPricesOptions {
 #[derive(Debug, Clone)]
 pub struct SnapshotBooksOptions {
     pub out: PathBuf,
+    pub source: Source,
     pub market_id: Option<String>,
     pub active: bool,
     pub top_volume: Option<usize>,
     pub tokens_file: Option<PathBuf>,
+    pub depth: Option<u32>,
     pub clob_base_url: String,
+    pub kalshi_rest_base_url: String,
+    pub kalshi_key_id: Option<String>,
+    pub kalshi_private_key_path: Option<PathBuf>,
     pub requests_per_second: f64,
     pub max_retries: u32,
     pub user_agent: String,
@@ -208,6 +249,7 @@ pub struct QuickstartOptions {
 pub struct BackfillOptions {
     pub out: PathBuf,
     pub db: PathBuf,
+    pub source: BackfillSource,
     pub active: bool,
     pub closed: bool,
     pub all: bool,
@@ -224,6 +266,9 @@ pub struct BackfillOptions {
     pub user_agent: String,
     pub gamma_base_url: String,
     pub clob_base_url: String,
+    pub kalshi_rest_base_url: String,
+    pub kalshi_key_id: Option<String>,
+    pub kalshi_private_key_path: Option<PathBuf>,
     pub raw_retention_days: u32,
     pub port: u16,
 }

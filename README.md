@@ -4,11 +4,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A self-hosted, MIT-licensed FOSS data lake creator for prediction-market research.
-It builds a local Parquet + DuckDB lake so analysts can make sense of Polymarket end-to-end today, with Kalshi support planned as the next source adapter.
+It builds a local Parquet + DuckDB lake so analysts can make sense of Polymarket and Kalshi end-to-end.
 
 ## What it does
 
 - Syncs Polymarket events and markets from Gamma
+- Syncs Kalshi markets, candlesticks, trades, and order book snapshots
 - Stores prices, order books, trades, and resolutions locally in a medallion lake
 - Computes liquidity and forecasting metrics
 - Exposes CLI, SQL, local HTTP API, and minimal web UI
@@ -18,9 +19,8 @@ It builds a local Parquet + DuckDB lake so analysts can make sense of Polymarket
 
 - Does not place trades
 - Does not provide financial advice
-- Does not redistribute Polymarket data
+- Does not redistribute Polymarket or Kalshi data
 - Does not bypass API limits or geo restrictions
-- Does not support Kalshi yet; the lake is designed for a future adapter
 
 ## Install
 
@@ -36,6 +36,7 @@ For a full analyst lake (all markets + CLOB price history + DuckDB catalog):
 
 ```bash
 oddsfox backfill --fidelity 60
+oddsfox backfill --source kalshi --fidelity 60 --limit 25
 ```
 
 For a quick demo with active markets only:
@@ -49,6 +50,15 @@ oddsfox compute liquidity --active
 oddsfox serve
 ```
 
+For Kalshi:
+
+```bash
+oddsfox sync markets --source kalshi --status open --limit 100
+oddsfox sync prices --source kalshi --market KXEXAMPLE-26 --series KXEXAMPLE --period 60
+oddsfox sync trades --source kalshi --market KXEXAMPLE-26
+oddsfox snapshot books --source kalshi --market KXEXAMPLE-26 --depth 20
+```
+
 Or one shot demo:
 
 ```bash
@@ -60,10 +70,11 @@ oddsfox quickstart
 | Command | Description |
 |---------|-------------|
 | `init` | Scaffold lake at `~/.oddsfox` |
-| `backfill` | Init → sync all markets → sync all CLOB prices → DuckDB catalog |
+| `backfill` | Init → sync markets → sync price history → DuckDB catalog |
 | `quickstart` | Init → sync → snapshot → compute → duckdb |
-| `sync markets` | Sync Gamma events/markets/outcomes |
-| `sync prices` | Sync CLOB price history |
+| `sync markets` | Sync Polymarket or Kalshi events/markets/outcomes |
+| `sync prices` | Sync Polymarket CLOB or Kalshi candlestick price history |
+| `sync trades` | Sync Kalshi trades |
 | `snapshot books` | Fetch order book snapshots |
 | `watch` | Record WebSocket market events |
 | `compute liquidity/accuracy/calibration/all` | Derive gold metrics |

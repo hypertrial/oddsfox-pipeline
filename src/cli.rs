@@ -2,12 +2,12 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
-use crate::config::{LakeOptions, TopBy};
+use crate::config::{BackfillSource, KalshiStatus, LakeOptions, Source, TopBy};
 use crate::error::Result;
 use crate::settings::{resolve_config, OddsfoxConfig};
 
 #[derive(Parser, Debug)]
-#[command(name = "oddsfox", version, about = "Local-first Polymarket research kit")]
+#[command(name = "oddsfox", version, about = "Self-hosted prediction-market data lake creator")]
 pub struct Cli {
     #[arg(long, global = true)]
     pub config: Option<PathBuf>,
@@ -32,6 +32,8 @@ pub enum Commands {
         top_volume: usize,
     },
     Backfill {
+        #[arg(long, value_enum, default_value_t = BackfillSource::Polymarket)]
+        source: BackfillSource,
         #[arg(long)]
         out: Option<PathBuf>,
         #[arg(long)]
@@ -179,6 +181,14 @@ pub enum Commands {
 #[derive(Subcommand, Debug)]
 pub enum SyncCommands {
     Markets {
+        #[arg(long, value_enum, default_value_t = Source::Polymarket)]
+        source: Source,
+        #[arg(long, value_enum)]
+        status: Option<KalshiStatus>,
+        #[arg(long)]
+        series: Option<String>,
+        #[arg(long)]
+        event: Option<String>,
         #[arg(long, default_value_t = false)]
         active: bool,
         #[arg(long, default_value_t = false)]
@@ -195,8 +205,12 @@ pub enum SyncCommands {
         out: Option<PathBuf>,
     },
     Prices {
+        #[arg(long, value_enum, default_value_t = Source::Polymarket)]
+        source: Source,
         #[arg(long)]
         market: Option<String>,
+        #[arg(long)]
+        series: Option<String>,
         #[arg(long, default_value_t = false)]
         active: bool,
         #[arg(long, default_value_t = false)]
@@ -212,6 +226,8 @@ pub enum SyncCommands {
         #[arg(long)]
         fidelity: Option<u32>,
         #[arg(long)]
+        period: Option<u32>,
+        #[arg(long)]
         since: Option<String>,
         #[arg(long)]
         until: Option<String>,
@@ -224,11 +240,29 @@ pub enum SyncCommands {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    Trades {
+        #[arg(long, value_enum, default_value_t = Source::Kalshi)]
+        source: Source,
+        #[arg(long)]
+        market: Option<String>,
+        #[arg(long)]
+        since: Option<String>,
+        #[arg(long)]
+        until: Option<String>,
+        #[arg(long)]
+        limit: Option<usize>,
+        #[arg(long)]
+        rps: Option<f64>,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
 pub enum SnapshotCommands {
     Books {
+        #[arg(long, value_enum, default_value_t = Source::Polymarket)]
+        source: Source,
         #[arg(long)]
         market: Option<String>,
         #[arg(long, default_value_t = false)]
@@ -237,6 +271,8 @@ pub enum SnapshotCommands {
         top_volume: Option<usize>,
         #[arg(long)]
         tokens: Option<PathBuf>,
+        #[arg(long)]
+        depth: Option<u32>,
         #[arg(long)]
         out: Option<PathBuf>,
     },
@@ -330,5 +366,38 @@ pub fn default_db_for(out: &std::path::Path, config: &OddsfoxConfig) -> PathBuf 
         db
     } else {
         out.join(db)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_kalshi_sync_commands() {
+        Cli::try_parse_from([
+            "oddsfox", "sync", "markets", "--source", "kalshi", "--status", "open",
+            "--series", "KXTEST", "--limit", "2",
+        ])
+        .unwrap();
+        Cli::try_parse_from([
+            "oddsfox", "sync", "prices", "--source", "kalshi", "--market", "KXTEST-26",
+            "--series", "KXTEST", "--period", "60",
+        ])
+        .unwrap();
+        Cli::try_parse_from([
+            "oddsfox", "sync", "trades", "--source", "kalshi", "--market", "KXTEST-26",
+        ])
+        .unwrap();
+    }
+
+    #[test]
+    fn parses_kalshi_snapshot_and_backfill() {
+        Cli::try_parse_from([
+            "oddsfox", "snapshot", "books", "--source", "kalshi", "--market", "KXTEST-26",
+            "--depth", "10",
+        ])
+        .unwrap();
+        Cli::try_parse_from(["oddsfox", "backfill", "--source", "all"]).unwrap();
     }
 }

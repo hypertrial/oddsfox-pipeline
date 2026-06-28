@@ -2,7 +2,7 @@
 
 ## Project snapshot
 
-**oddsfox** is a read-only, local-first Polymarket analytics node (v0.1.0).
+**oddsfox** is a read-only, local-first prediction-market analytics node (v0.2.0).
 
 - **Stack:** Rust 2021, Tokio, Clap, Arrow/Parquet 58, bundled DuckDB, reqwest, axum, fixture integration tests
 - **Pattern:** Mirrors [gdeltlake](../gdeltlake/) medallion lake conventions
@@ -27,6 +27,7 @@ Analyst backfill (needs network; long-running):
 
 ```bash
 oddsfox backfill --fidelity 60 --limit 10
+oddsfox backfill --source kalshi --fidelity 60 --limit 25
 ```
 
 ## Architecture
@@ -34,7 +35,8 @@ oddsfox backfill --fidelity 60 --limit 10
 | Area | Key files | Responsibility |
 |------|-----------|----------------|
 | CLI | `src/main.rs`, `src/cli.rs` | Subcommands |
-| Gamma sync | `src/gamma/`, `src/sync.rs` | Events/markets metadata |
+| Gamma sync | `src/gamma/`, `src/sync.rs` | Polymarket events/markets metadata |
+| Kalshi sync | `src/kalshi/` | Kalshi markets, prices, trades, books |
 | CLOB | `src/clob/` | REST books/prices + WebSocket watch |
 | Normalize | `src/normalize/` | JSON → Arrow batches |
 | Metrics | `src/metrics/` | Liquidity, accuracy, calibration |
@@ -51,7 +53,7 @@ oddsfox backfill --fidelity 60 --limit 10
 
 ### Never do
 
-- Add trading, order submission, or wallet integration in v0.1.x
+- Add trading, order submission, or wallet integration in v0.2.x
 - Ship bundled Polymarket datasets
 - Skip clippy/tests to merge
 

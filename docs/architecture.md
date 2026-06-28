@@ -1,13 +1,14 @@
 # Architecture
 
 oddsfox is an end-to-end local data lake creator: public source APIs land in `_raw`, become bronze/silver/gold Parquet, are registered in DuckDB, and are exposed through CLI, SQL, HTTP API, and UI.
-The current source implementation is Polymarket; Kalshi is a planned adapter for the same lake contract.
+The current source implementations are Polymarket and Kalshi. Both write the same bronze tables using `source` and prefixed IDs.
 
 ```mermaid
 flowchart TB
     gamma[GammaREST]
     clob[CLOB_REST_WS]
     dataapi[DataAPI]
+    kalshi[KalshiREST]
     raw[_raw]
     bronze[bronze]
     silver[silver]
@@ -18,6 +19,7 @@ flowchart TB
     gamma --> raw
     clob --> raw
     dataapi --> raw
+    kalshi --> raw
     raw --> bronze
     bronze --> silver
     silver --> gold
