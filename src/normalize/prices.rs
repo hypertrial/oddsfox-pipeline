@@ -1,10 +1,8 @@
 use std::sync::Arc;
 
 use arrow::array::{
-    ArrayRef, Float64Builder, Int32Builder, RecordBatch, StringBuilder,
-    TimestampMillisecondBuilder,
+    ArrayRef, Float64Builder, Int32Builder, RecordBatch, StringBuilder, TimestampMillisecondBuilder,
 };
-use chrono::Utc;
 
 use crate::clob::rest::PriceHistoryPoint;
 use crate::error::Result;
@@ -24,12 +22,7 @@ pub fn prices_batch(
     let mut ts = TimestampMillisecondBuilder::new();
     let mut price = Float64Builder::new();
     let mut fidelity = Int32Builder::new();
-    let mut source_col = StringBuilder::new();
-    let mut raw_url = StringBuilder::new();
-    let mut raw_sha = StringBuilder::new();
-    let mut ingested_at = TimestampMillisecondBuilder::new();
-    let mut run_id_col = StringBuilder::new();
-    let now = Utc::now().timestamp_millis();
+    let mut meta = super::IngestMetaBuilders::new();
 
     for point in points {
         token_col.append_value(token_id);
@@ -46,25 +39,17 @@ pub fn prices_batch(
         } else {
             fidelity.append_null();
         }
-        source_col.append_value(source);
-        raw_url.append_null();
-        raw_sha.append_null();
-        ingested_at.append_value(now);
-        run_id_col.append_value(run_id);
+        meta.append(source, None, None, run_id);
     }
 
-    let columns: Vec<ArrayRef> = vec![
+    let mut columns: Vec<ArrayRef> = vec![
         Arc::new(token_col.finish()),
         Arc::new(market_col.finish()),
         Arc::new(ts.finish()),
         Arc::new(price.finish()),
         Arc::new(fidelity.finish()),
-        Arc::new(source_col.finish()),
-        Arc::new(raw_url.finish()),
-        Arc::new(raw_sha.finish()),
-        Arc::new(ingested_at.finish()),
-        Arc::new(run_id_col.finish()),
     ];
+    columns.extend(meta.finish());
     Ok(RecordBatch::try_new(schema, columns)?)
 }
 
@@ -105,7 +90,10 @@ mod tests {
     #[test]
     fn prices_batch_has_ten_columns_and_populated_market_id() {
         let points = vec![
-            PriceHistoryPoint { t: 1_700_000_000, p: 0.55 },
+            PriceHistoryPoint {
+                t: 1_700_000_000,
+                p: 0.55,
+            },
             PriceHistoryPoint {
                 t: 1_700_000_000_000,
                 p: 0.60,
@@ -124,6 +112,11 @@ mod tests {
         assert_eq!(batch.num_rows(), 2);
         assert_eq!(batch.schema().field(1).name(), "market_id");
         assert_eq!(batch.schema().field(4).name(), "fidelity_minutes");
+        assert_eq!(batch.schema().field(5).name(), "source");
+        assert_eq!(batch.schema().field(6).name(), "raw_url");
+        assert_eq!(batch.schema().field(7).name(), "raw_sha256");
+        assert_eq!(batch.schema().field(8).name(), "ingested_at");
+        assert_eq!(batch.schema().field(9).name(), "run_id");
     }
 
     #[test]

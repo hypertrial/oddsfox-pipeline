@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use arrow::array::{
-    ArrayRef, Float64Builder, Int32Builder, RecordBatch, StringBuilder,
-    TimestampMillisecondBuilder,
+    ArrayRef, Float64Builder, Int32Builder, RecordBatch, StringBuilder, TimestampMillisecondBuilder,
 };
 use chrono::Utc;
 use uuid::Uuid;
@@ -20,7 +19,11 @@ pub struct SnapshotRecord {
     pub parsed: ParsedBook,
 }
 
-pub fn orderbooks_batch(records: &[SnapshotRecord], source: &str, run_id: &str) -> Result<RecordBatch> {
+pub fn orderbooks_batch(
+    records: &[SnapshotRecord],
+    source: &str,
+    run_id: &str,
+) -> Result<RecordBatch> {
     let schema = orderbooks_schema::schema();
     let mut snapshot_id = StringBuilder::new();
     let mut token_id = StringBuilder::new();
@@ -36,12 +39,8 @@ pub fn orderbooks_batch(records: &[SnapshotRecord], source: &str, run_id: &str) 
     let mut bid_depth_5 = Float64Builder::new();
     let mut ask_depth_5 = Float64Builder::new();
     let mut raw_json = StringBuilder::new();
-    let mut source_col = StringBuilder::new();
-    let mut raw_url = StringBuilder::new();
-    let mut raw_sha = StringBuilder::new();
-    let mut ingested_at = TimestampMillisecondBuilder::new();
-    let mut run_id_col = StringBuilder::new();
     let now = Utc::now().timestamp_millis();
+    let mut meta = super::IngestMetaBuilders::new_at(now);
 
     for record in records {
         snapshot_id.append_value(&record.snapshot_id);
@@ -58,14 +57,10 @@ pub fn orderbooks_batch(records: &[SnapshotRecord], source: &str, run_id: &str) 
         bid_depth_5.append_value(record.parsed.bid_depth_5pct);
         ask_depth_5.append_value(record.parsed.ask_depth_5pct);
         raw_json.append_value(serde_json::to_string(&record.book).unwrap_or_else(|_| "{}".into()));
-        source_col.append_value(source);
-        raw_url.append_null();
-        raw_sha.append_null();
-        ingested_at.append_value(now);
-        run_id_col.append_value(run_id);
+        meta.append(source, None, None, run_id);
     }
 
-    let columns: Vec<ArrayRef> = vec![
+    let mut columns: Vec<ArrayRef> = vec![
         Arc::new(snapshot_id.finish()),
         Arc::new(token_id.finish()),
         Arc::new(market_id.finish()),
@@ -80,28 +75,24 @@ pub fn orderbooks_batch(records: &[SnapshotRecord], source: &str, run_id: &str) 
         Arc::new(bid_depth_5.finish()),
         Arc::new(ask_depth_5.finish()),
         Arc::new(raw_json.finish()),
-        Arc::new(source_col.finish()),
-        Arc::new(raw_url.finish()),
-        Arc::new(raw_sha.finish()),
-        Arc::new(ingested_at.finish()),
-        Arc::new(run_id_col.finish()),
     ];
+    columns.extend(meta.finish());
     Ok(RecordBatch::try_new(schema, columns)?)
 }
 
-pub fn book_levels_batch(records: &[SnapshotRecord], source: &str, run_id: &str) -> Result<RecordBatch> {
+pub fn book_levels_batch(
+    records: &[SnapshotRecord],
+    source: &str,
+    run_id: &str,
+) -> Result<RecordBatch> {
     let schema = book_levels_schema::schema();
     let mut snapshot_id = StringBuilder::new();
     let mut side = StringBuilder::new();
     let mut price = Float64Builder::new();
     let mut size = Float64Builder::new();
     let mut level_index = Int32Builder::new();
-    let mut source_col = StringBuilder::new();
-    let mut raw_url = StringBuilder::new();
-    let mut raw_sha = StringBuilder::new();
-    let mut ingested_at = TimestampMillisecondBuilder::new();
-    let mut run_id_col = StringBuilder::new();
     let now = Utc::now().timestamp_millis();
+    let mut meta = super::IngestMetaBuilders::new_at(now);
 
     for record in records {
         for (idx, (p, s)) in record.parsed.bids.iter().enumerate() {
@@ -110,11 +101,7 @@ pub fn book_levels_batch(records: &[SnapshotRecord], source: &str, run_id: &str)
             price.append_value(*p);
             size.append_value(*s);
             level_index.append_value(idx as i32);
-            source_col.append_value(source);
-            raw_url.append_null();
-            raw_sha.append_null();
-            ingested_at.append_value(now);
-            run_id_col.append_value(run_id);
+            meta.append(source, None, None, run_id);
         }
         for (idx, (p, s)) in record.parsed.asks.iter().enumerate() {
             snapshot_id.append_value(&record.snapshot_id);
@@ -122,26 +109,18 @@ pub fn book_levels_batch(records: &[SnapshotRecord], source: &str, run_id: &str)
             price.append_value(*p);
             size.append_value(*s);
             level_index.append_value(idx as i32);
-            source_col.append_value(source);
-            raw_url.append_null();
-            raw_sha.append_null();
-            ingested_at.append_value(now);
-            run_id_col.append_value(run_id);
+            meta.append(source, None, None, run_id);
         }
     }
 
-    let columns: Vec<ArrayRef> = vec![
+    let mut columns: Vec<ArrayRef> = vec![
         Arc::new(snapshot_id.finish()),
         Arc::new(side.finish()),
         Arc::new(price.finish()),
         Arc::new(size.finish()),
         Arc::new(level_index.finish()),
-        Arc::new(source_col.finish()),
-        Arc::new(raw_url.finish()),
-        Arc::new(raw_sha.finish()),
-        Arc::new(ingested_at.finish()),
-        Arc::new(run_id_col.finish()),
     ];
+    columns.extend(meta.finish());
     Ok(RecordBatch::try_new(schema, columns)?)
 }
 

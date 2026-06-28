@@ -12,8 +12,9 @@ pub use quality::run_quality_checks;
 use chrono::Utc;
 
 use crate::config::ComputeOptions;
+use crate::duckdb_engine::{open_connection, read_parquet_sql};
 use crate::error::Result;
-use crate::manifest::{new_run_id, ManifestStore, RunRecord};
+use crate::manifest::{new_run_id, ManifestStore};
 use crate::paths::LakePaths;
 
 pub async fn compute_all(options: ComputeOptions) -> Result<()> {
@@ -29,15 +30,7 @@ pub async fn compute_liquidity(options: &ComputeOptions) -> Result<()> {
     let run_id = new_run_id();
     let started = Utc::now();
     let rows = compute_liquidity_metrics(&options.out, options.active)?;
-    store.append_run(RunRecord {
-        run_id,
-        command: "compute liquidity".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: rows,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
+    store.append_completed_run("compute liquidity", &run_id, started, rows)?;
     println!("compute liquidity complete: {rows} metric points");
     Ok(())
 }
@@ -47,15 +40,7 @@ pub async fn compute_accuracy(options: &ComputeOptions) -> Result<()> {
     let run_id = new_run_id();
     let started = Utc::now();
     let rows = compute_accuracy_metrics(&options.out, options.since)?;
-    store.append_run(RunRecord {
-        run_id,
-        command: "compute accuracy".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: rows,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
+    store.append_completed_run("compute accuracy", &run_id, started, rows)?;
     println!("compute accuracy complete: {rows} metric points");
     Ok(())
 }
@@ -65,15 +50,7 @@ pub async fn compute_calibration_metrics(options: &ComputeOptions) -> Result<()>
     let run_id = new_run_id();
     let started = Utc::now();
     let rows = compute_calibration(&options.out, options.bucket_width)?;
-    store.append_run(RunRecord {
-        run_id,
-        command: "compute calibration".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: rows,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
+    store.append_completed_run("compute calibration", &run_id, started, rows)?;
     println!("compute calibration complete: {rows} buckets");
     Ok(())
 }
@@ -81,10 +58,11 @@ pub async fn compute_calibration_metrics(options: &ComputeOptions) -> Result<()>
 pub fn market_metrics(out: &std::path::Path, market_id: &str) -> Result<Vec<MetricRow>> {
     let paths = LakePaths::new(out);
     let glob = paths.layer_parquet_glob("gold", "metric_points");
-    let conn = crate::duckdb_engine::open_connection(None)?;
+    let source = read_parquet_sql(&glob);
+    let conn = open_connection(None)?;
     let sql = format!(
         "SELECT metric_name, market_id, token_id, ts, value, window_seconds
-         FROM read_parquet('{glob}')
+         FROM {source}
          WHERE market_id = ?
          ORDER BY ts DESC
          LIMIT 100"

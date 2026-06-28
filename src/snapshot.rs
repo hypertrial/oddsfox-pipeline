@@ -6,9 +6,10 @@ use chrono::Utc;
 use crate::clob::book::parse_book;
 use crate::clob::ClobClient;
 use crate::config::{SnapshotBooksOptions, Table, TopBy};
+use crate::duckdb_engine::{open_connection, read_parquet_sql};
 use crate::error::Result;
 use crate::http::HttpClient;
-use crate::manifest::{new_run_id, ManifestStore, RunRecord};
+use crate::manifest::{new_run_id, ManifestStore};
 use crate::normalize::{book_levels_batch, new_snapshot_id, orderbooks_batch, SnapshotRecord};
 use crate::parquet::write_snapshot;
 use crate::paths::LakePaths;
@@ -50,16 +51,11 @@ pub async fn snapshot_books(options: SnapshotBooksOptions) -> Result<()> {
     write_snapshot(&paths, Table::Orderbooks, &run_id, &[books_batch])?;
     write_snapshot(&paths, Table::BookLevels, &run_id, &[levels_batch])?;
 
-    store.append_run(RunRecord {
-        run_id: run_id.clone(),
-        command: "snapshot books".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: records.len() as i64,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
-    println!("snapshot books complete: {} snapshots (run={run_id})", records.len());
+    store.append_completed_run("snapshot books", &run_id, started, records.len() as i64)?;
+    println!(
+        "snapshot books complete: {} snapshots (run={run_id})",
+        records.len()
+    );
     Ok(())
 }
 
@@ -81,16 +77,17 @@ async fn resolve_tokens(options: &SnapshotBooksOptions) -> Result<Vec<String>> {
 pub fn top_markets(out: &std::path::Path, by: TopBy, limit: usize) -> Result<Vec<MarketSummary>> {
     let paths = LakePaths::new(out);
     let glob = paths.duckdb_parquet_glob(Table::Markets);
+    let source = read_parquet_sql(&glob);
     let order = match by {
         TopBy::Volume24h => "volume_24h DESC NULLS LAST",
         TopBy::Spread => "volume_24h DESC NULLS LAST",
         TopBy::Liquidity => "liquidity DESC NULLS LAST",
         TopBy::Volume => "volume DESC NULLS LAST",
     };
-    let conn = crate::duckdb_engine::open_connection(None)?;
+    let conn = open_connection(None)?;
     let sql = format!(
         "SELECT market_id, question, active, volume_24h, liquidity
-         FROM read_parquet('{glob}')
+         FROM {source}
          ORDER BY {order}
          LIMIT {limit}"
     );

@@ -6,6 +6,7 @@ use arrow::array::{
 use chrono::Utc;
 
 use crate::config::Table;
+use crate::duckdb_engine::{open_connection, read_parquet_sql};
 use crate::error::Result;
 use crate::paths::LakePaths;
 use crate::schema::metrics as metrics_schema;
@@ -13,18 +14,19 @@ use crate::schema::metrics as metrics_schema;
 pub fn compute_liquidity_metrics(out: &std::path::Path, active_only: bool) -> Result<i64> {
     let paths = LakePaths::new(out);
     let glob = paths.duckdb_parquet_glob(Table::Orderbooks);
-    let conn = crate::duckdb_engine::open_connection(None)?;
+    let source = read_parquet_sql(&glob);
+    let conn = open_connection(None)?;
     let filter = if active_only {
-        "WHERE ob.market_id IN (SELECT market_id FROM read_parquet('"
-            .to_string()
-            + &paths.duckdb_parquet_glob(Table::Markets)
-            + "') WHERE active = true)"
+        let markets_source = read_parquet_sql(&paths.duckdb_parquet_glob(Table::Markets));
+        format!(
+            "WHERE ob.market_id IN (SELECT market_id FROM {markets_source} WHERE active = true)"
+        )
     } else {
         String::new()
     };
     let sql = format!(
         "SELECT snapshot_id, token_id, market_id, spread, midpoint, bid_depth_1pct, ask_depth_1pct
-         FROM read_parquet('{glob}') ob {filter}"
+         FROM {source} ob {filter}"
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map([], |row| {

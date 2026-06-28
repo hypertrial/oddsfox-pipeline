@@ -13,9 +13,10 @@ use crate::config::{
     kalshi_period_interval, resolve_price_time_range, KalshiStatus, SnapshotBooksOptions,
     SyncMarketsOptions, SyncPricesOptions, Table,
 };
+use crate::duckdb_engine::{open_connection, read_parquet_sql};
 use crate::error::{OddsfoxError, Result};
 use crate::http::HttpClient;
-use crate::manifest::{new_run_id, ManifestStore, RunRecord, SyncStateRecord};
+use crate::manifest::{new_run_id, ManifestStore, SyncStateRecord};
 use crate::parquet::{write_snapshot, write_token_series};
 use crate::paths::LakePaths;
 use crate::quarantine::{sha256_hex, write_raw_json};
@@ -101,15 +102,12 @@ pub async fn sync_markets(options: SyncMarketsOptions) -> Result<crate::sync::Sy
     store.write_schema_records()?;
     crate::contract::refresh_contract(&paths)?;
 
-    store.append_run(RunRecord {
-        run_id: run_id.clone(),
-        command: "sync markets --source kalshi".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: (events.len() + markets.len()) as i64,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
+    store.append_completed_run(
+        "sync markets --source kalshi",
+        &run_id,
+        started,
+        (events.len() + markets.len()) as i64,
+    )?;
 
     println!(
         "sync kalshi markets complete: {} events, {} markets (run={run_id})",
@@ -211,27 +209,25 @@ pub async fn sync_prices(options: SyncPricesOptions) -> Result<()> {
         .await?;
 
     let rows = total_points.load(Ordering::Relaxed);
-    store.append_run(RunRecord {
-        run_id: run_id.clone(),
-        command: "sync prices --source kalshi".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: rows,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
+    store.append_completed_run("sync prices --source kalshi", &run_id, started, rows)?;
     println!("sync kalshi prices complete: {rows} points across {total} markets (run={run_id})");
     Ok(())
 }
 
-pub fn active_markets_for_prices(options: &SyncPricesOptions) -> Result<Vec<(String, Option<String>)>> {
+pub fn active_markets_for_prices(
+    options: &SyncPricesOptions,
+) -> Result<Vec<(String, Option<String>)>> {
     let paths = LakePaths::new(&options.out);
     let glob = paths.duckdb_parquet_glob(Table::Markets);
     if !crate::duckdb_engine::glob_exists(&glob) {
         return Ok(Vec::new());
     }
-    let conn = crate::duckdb_engine::open_connection(None)?;
-    let limit = options.limit.map(|n| format!(" LIMIT {n}")).unwrap_or_default();
+    let source = read_parquet_sql(&glob);
+    let conn = open_connection(None)?;
+    let limit = options
+        .limit
+        .map(|n| format!(" LIMIT {n}"))
+        .unwrap_or_default();
     let active_filter = if options.all {
         options
             .filter_active
@@ -242,7 +238,7 @@ pub fn active_markets_for_prices(options: &SyncPricesOptions) -> Result<Vec<(Str
     };
     let sql = format!(
         "SELECT market_id, json_extract_string(raw_json, '$.series_ticker')
-         FROM read_parquet('{glob}')
+         FROM {source}
          WHERE source = 'kalshi'{active_filter}
          ORDER BY market_id{limit}"
     );
@@ -260,11 +256,20 @@ async fn sync_market_prices(ctx: KalshiMarketPriceSync<'_>) -> Result<i64> {
         .map(str::to_string)
         .or_else(|| infer_series(ticker))
         .ok_or_else(|| OddsfoxError::SyncIncomplete {
-            message: format!("could not infer series for Kalshi market `{}`", ctx.market_id),
+            message: format!(
+                "could not infer series for Kalshi market `{}`",
+                ctx.market_id
+            ),
         })?;
     let candles = ctx
         .client
-        .get_candlesticks(&series, ticker, ctx.period, Some(ctx.start_ts), Some(ctx.end_ts))
+        .get_candlesticks(
+            &series,
+            ticker,
+            ctx.period,
+            Some(ctx.start_ts),
+            Some(ctx.end_ts),
+        )
         .await?;
     let (mut yes, mut no, _skipped) = normalize::price_points_from_candlesticks(&candles);
     let market = normalize::kalshi_market_id(ticker);
@@ -371,9 +376,12 @@ pub async fn sync_trades(options: SyncPricesOptions) -> Result<()> {
         options.max_retries,
         options.user_agent.clone(),
     )?;
-    let market_id = options.market_id.as_deref().ok_or_else(|| OddsfoxError::SyncIncomplete {
-        message: "pass --market <kalshi_ticker> for Kalshi trade sync".into(),
-    })?;
+    let market_id = options
+        .market_id
+        .as_deref()
+        .ok_or_else(|| OddsfoxError::SyncIncomplete {
+            message: "pass --market <kalshi_ticker> for Kalshi trade sync".into(),
+        })?;
     let ticker = normalize::strip_kalshi_market_id(market_id);
     let start_ts = options
         .since
@@ -381,7 +389,9 @@ pub async fn sync_trades(options: SyncPricesOptions) -> Result<()> {
     let end_ts = options
         .until
         .map(|d| d.and_hms_opt(23, 59, 59).unwrap().and_utc().timestamp());
-    let trades = client.get_trades(Some(ticker), start_ts, end_ts, options.limit).await?;
+    let trades = client
+        .get_trades(Some(ticker), start_ts, end_ts, options.limit)
+        .await?;
     if trades.is_empty() {
         println!("sync kalshi trades: no trades selected");
         return Ok(());
@@ -389,15 +399,7 @@ pub async fn sync_trades(options: SyncPricesOptions) -> Result<()> {
     let batch = normalize::trades_batch(&trades, &run_id)?;
     let rows = batch.num_rows() as i64;
     write_snapshot(&paths, Table::Trades, &run_id, &[batch])?;
-    store.append_run(RunRecord {
-        run_id: run_id.clone(),
-        command: "sync trades --source kalshi".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: rows,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
+    store.append_completed_run("sync trades --source kalshi", &run_id, started, rows)?;
     println!("sync kalshi trades complete: {rows} trades (run={run_id})");
     Ok(())
 }
@@ -415,9 +417,12 @@ pub async fn snapshot_books(options: SnapshotBooksOptions) -> Result<()> {
         options.max_retries,
         options.user_agent.clone(),
     )?;
-    let market_id = options.market_id.as_deref().ok_or_else(|| OddsfoxError::SyncIncomplete {
-        message: "pass --market <kalshi_ticker> for Kalshi orderbook snapshots".into(),
-    })?;
+    let market_id = options
+        .market_id
+        .as_deref()
+        .ok_or_else(|| OddsfoxError::SyncIncomplete {
+            message: "pass --market <kalshi_ticker> for Kalshi orderbook snapshots".into(),
+        })?;
     let ticker = normalize::strip_kalshi_market_id(market_id);
     let book = client.get_orderbook(ticker, options.depth).await?;
     let records = normalize::snapshot_records_from_orderbook(ticker, &book);
@@ -429,16 +434,16 @@ pub async fn snapshot_books(options: SnapshotBooksOptions) -> Result<()> {
     let levels_batch = crate::normalize::book_levels_batch(&records, "kalshi_orderbook", &run_id)?;
     write_snapshot(&paths, Table::Orderbooks, &run_id, &[books_batch])?;
     write_snapshot(&paths, Table::BookLevels, &run_id, &[levels_batch])?;
-    store.append_run(RunRecord {
-        run_id: run_id.clone(),
-        command: "snapshot books --source kalshi".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: records.len() as i64,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
-    println!("snapshot kalshi books complete: {} snapshots (run={run_id})", records.len());
+    store.append_completed_run(
+        "snapshot books --source kalshi",
+        &run_id,
+        started,
+        records.len() as i64,
+    )?;
+    println!(
+        "snapshot kalshi books complete: {} snapshots (run={run_id})",
+        records.len()
+    );
     Ok(())
 }
 
@@ -455,5 +460,9 @@ pub async fn historical_cutoff(options: &SyncMarketsOptions) -> Result<Option<i6
 }
 
 fn infer_series(ticker: &str) -> Option<String> {
-    ticker.split('-').next().map(str::to_string).filter(|s| !s.is_empty())
+    ticker
+        .split('-')
+        .next()
+        .map(str::to_string)
+        .filter(|s| !s.is_empty())
 }

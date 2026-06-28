@@ -23,7 +23,6 @@ pub const DEFAULT_BACKFILL_INTERVAL: &str = "max";
 pub const DEFAULT_ACTIVE_RECENT_HOURS: u32 = 24;
 pub const DEFAULT_ACTIVE_FIDELITY_MINUTES: u32 = 1;
 pub const DEFAULT_ACTIVE_PRICE_LIMIT: usize = 100;
-pub const BATCH_TOKEN_LIMIT: usize = 500;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, ValueEnum)]
 pub enum Table {
@@ -294,7 +293,6 @@ pub struct ComputeOptions {
 pub struct ServeOptions {
     pub out: PathBuf,
     pub port: u16,
-    pub db: PathBuf,
 }
 
 #[derive(Debug, Clone)]

@@ -11,7 +11,8 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 
-use crate::config::{ServeOptions, TopBy};
+use crate::config::{parse_date, ServeOptions, TopBy};
+use crate::duckdb_engine::{open_connection, read_parquet_sql};
 use crate::error::Result;
 use crate::explore::{event_detail, market_detail, resolved_markets, search};
 use crate::metrics::market_metrics;
@@ -20,19 +21,11 @@ use crate::snapshot::top_markets;
 #[derive(Clone)]
 pub struct AppState {
     pub out: PathBuf,
-    pub db: PathBuf,
 }
 
 pub async fn serve(options: ServeOptions) -> Result<()> {
-    let duckdb_options = crate::config::DuckDbOptions {
-        out: options.out.clone(),
-        db: options.db.clone(),
-    };
-    let _ = crate::duckdb::run(&duckdb_options);
-
     let state = AppState {
         out: options.out.clone(),
-        db: options.db.clone(),
     };
 
     let web_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/web/static");
@@ -43,7 +36,10 @@ pub async fn serve(options: ServeOptions) -> Result<()> {
         .route("/events", get(list_events))
         .route("/events/{event_id}", get(get_event))
         .route("/tokens/{token_id}/prices", get(token_prices))
-        .route("/markets/{market_id}/orderbook/latest", get(latest_orderbook))
+        .route(
+            "/markets/{market_id}/orderbook/latest",
+            get(latest_orderbook),
+        )
         .route("/markets/{market_id}/metrics", get(market_metrics_handler))
         .route("/metrics/calibration", get(calibration))
         .route("/metrics/liquidity", get(liquidity))
@@ -100,12 +96,14 @@ async fn get_market(
 }
 
 async fn list_events(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let glob = crate::paths::LakePaths::new(&state.out).duckdb_parquet_glob(crate::config::Table::Events);
-    let conn = match crate::duckdb_engine::open_connection(None) {
+    let glob =
+        crate::paths::LakePaths::new(&state.out).duckdb_parquet_glob(crate::config::Table::Events);
+    let source = read_parquet_sql(&glob);
+    let conn = match open_connection(None) {
         Ok(c) => c,
         Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     };
-    let sql = format!("SELECT event_id, title, active, closed FROM read_parquet('{glob}') LIMIT 50");
+    let sql = format!("SELECT event_id, title, active, closed FROM {source} LIMIT 50");
     let mut stmt = match conn.prepare(&sql) {
         Ok(s) => s,
         Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
@@ -141,15 +139,14 @@ async fn token_prices(
     State(state): State<Arc<AppState>>,
     Path(token_id): Path<String>,
 ) -> impl IntoResponse {
-    let glob = crate::paths::LakePaths::new(&state.out)
-        .duckdb_parquet_glob(crate::config::Table::Prices);
-    let conn = match crate::duckdb_engine::open_connection(None) {
+    let glob =
+        crate::paths::LakePaths::new(&state.out).duckdb_parquet_glob(crate::config::Table::Prices);
+    let source = read_parquet_sql(&glob);
+    let conn = match open_connection(None) {
         Ok(c) => c,
         Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     };
-    let sql = format!(
-        "SELECT ts, price FROM read_parquet('{glob}') WHERE token_id = ? ORDER BY ts"
-    );
+    let sql = format!("SELECT ts, price FROM {source} WHERE token_id = ? ORDER BY ts");
     let mut stmt = match conn.prepare(&sql) {
         Ok(s) => s,
         Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
@@ -173,13 +170,14 @@ async fn latest_orderbook(
 ) -> impl IntoResponse {
     let glob = crate::paths::LakePaths::new(&state.out)
         .duckdb_parquet_glob(crate::config::Table::Orderbooks);
-    let conn = match crate::duckdb_engine::open_connection(None) {
+    let source = read_parquet_sql(&glob);
+    let conn = match open_connection(None) {
         Ok(c) => c,
         Err(err) => return (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     };
     let sql = format!(
         "SELECT snapshot_id, best_bid, best_ask, spread, midpoint
-         FROM read_parquet('{glob}')
+         FROM {source}
          WHERE market_id = ?
          ORDER BY ts DESC LIMIT 1"
     );
@@ -231,10 +229,18 @@ async fn resolved(
     State(state): State<Arc<AppState>>,
     Query(query): Query<ResolvedQuery>,
 ) -> impl IntoResponse {
-    match resolved_markets(&state.out, query.since.as_deref()) {
+    let since = match parse_resolved_since(query.since.as_deref()) {
+        Ok(since) => since,
+        Err(err) => return (StatusCode::BAD_REQUEST, err.to_string()).into_response(),
+    };
+    match resolved_markets(&state.out, since) {
         Ok(markets) => Json(serde_json::json!({ "markets": markets })).into_response(),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     }
+}
+
+fn parse_resolved_since(raw: Option<&str>) -> Result<Option<chrono::NaiveDate>> {
+    raw.map(parse_date).transpose()
 }
 
 #[derive(Deserialize)]
@@ -254,4 +260,18 @@ async fn search_handler(
 
 pub fn index_html() -> Html<&'static str> {
     Html(include_str!("../web/static/index.html"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_resolved_since_rejects_invalid_dates() {
+        assert!(parse_resolved_since(Some("not-a-date")).is_err());
+        assert_eq!(
+            parse_resolved_since(Some("2024-01-31")).unwrap(),
+            Some(chrono::NaiveDate::from_ymd_opt(2024, 1, 31).unwrap())
+        );
+    }
 }

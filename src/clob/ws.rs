@@ -8,7 +8,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 use crate::config::WatchOptions;
 use crate::error::{OddsfoxError, Result};
-use crate::manifest::{new_run_id, ManifestStore, RunRecord};
+use crate::manifest::{new_run_id, ManifestStore};
 use crate::paths::LakePaths;
 use crate::quarantine::{sha256_hex, write_raw_json};
 
@@ -38,7 +38,9 @@ pub async fn watch_markets(options: WatchOptions) -> Result<()> {
         .await
         .map_err(|err| OddsfoxError::WebSocket(err.to_string()))?;
 
-    let raw_log = paths.raw_dir("websocket").join(format!("watch-{run_id}.jsonl"));
+    let raw_log = paths
+        .raw_dir("websocket")
+        .join(format!("watch-{run_id}.jsonl"));
     paths.ensure_parent(&raw_log)?;
 
     let mut seen = HashSet::new();
@@ -62,15 +64,7 @@ pub async fn watch_markets(options: WatchOptions) -> Result<()> {
         }
     }
 
-    store.append_run(RunRecord {
-        run_id: run_id.clone(),
-        command: "watch".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: events,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
+    store.append_completed_run("watch", &run_id, started, events)?;
 
     println!(
         "watch complete: recorded {events} websocket events ({})",

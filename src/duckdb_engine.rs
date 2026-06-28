@@ -27,13 +27,22 @@ pub fn open_connection(db_path: Option<&Path>) -> Result<Connection> {
     }
 }
 
+pub(crate) fn escape_sql_string(value: &str) -> String {
+    value.replace('\'', "''")
+}
+
+pub(crate) fn read_parquet_sql(glob: &str) -> String {
+    format!("read_parquet('{}')", escape_sql_string(glob))
+}
+
 pub fn register_layer_views(conn: &Connection, lake: &LakePaths) -> Result<usize> {
     let mut created = 0;
     for table in crate::config::Table::all() {
         let glob = lake.duckdb_parquet_glob(*table);
         if glob_exists(&glob) {
             let view = format!("bronze_{}", table.as_str());
-            let sql = format!("CREATE OR REPLACE VIEW {view} AS SELECT * FROM read_parquet('{glob}')");
+            let source = read_parquet_sql(&glob);
+            let sql = format!("CREATE OR REPLACE VIEW {view} AS SELECT * FROM {source}");
             map_duckdb(conn.execute(&sql, []))?;
             created += 1;
         }
@@ -42,7 +51,8 @@ pub fn register_layer_views(conn: &Connection, lake: &LakePaths) -> Result<usize
         let glob = lake.layer_parquet_glob("gold", name);
         if glob_exists(&glob) {
             let view = format!("gold_{name}");
-            let sql = format!("CREATE OR REPLACE VIEW {view} AS SELECT * FROM read_parquet('{glob}')");
+            let source = read_parquet_sql(&glob);
+            let sql = format!("CREATE OR REPLACE VIEW {view} AS SELECT * FROM {source}");
             map_duckdb(conn.execute(&sql, []))?;
             created += 1;
         }
@@ -51,7 +61,9 @@ pub fn register_layer_views(conn: &Connection, lake: &LakePaths) -> Result<usize
 }
 
 pub(crate) fn glob_exists(glob_pattern: &str) -> bool {
-    let root = glob_pattern.trim_end_matches("**/*.parquet").trim_end_matches('/');
+    let root = glob_pattern
+        .trim_end_matches("**/*.parquet")
+        .trim_end_matches('/');
     let root = std::path::Path::new(root);
     if !root.is_dir() {
         return false;
@@ -93,5 +105,14 @@ mod tests {
         std::fs::rename(part.with_extension("parquet.tmp"), &part).unwrap();
         let glob = paths.duckdb_parquet_glob(Table::Events);
         assert!(glob_exists(&glob));
+    }
+
+    #[test]
+    fn read_parquet_sql_escapes_apostrophes() {
+        let sql = read_parquet_sql("/tmp/lake's/bronze/events/**/*.parquet");
+        assert_eq!(
+            sql,
+            "read_parquet('/tmp/lake''s/bronze/events/**/*.parquet')"
+        );
     }
 }

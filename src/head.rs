@@ -4,7 +4,9 @@ use duckdb::types::ValueRef;
 use duckdb::Connection;
 
 use crate::config::Table;
-use crate::duckdb_engine::{glob_exists, map_duckdb, open_connection, GOLD_TABLES};
+use crate::duckdb_engine::{
+    escape_sql_string, glob_exists, map_duckdb, open_connection, read_parquet_sql, GOLD_TABLES,
+};
 use crate::error::Result;
 use crate::paths::LakePaths;
 use crate::schema;
@@ -29,14 +31,7 @@ pub fn run(options: &HeadOptions) -> Result<()> {
         let label = format!("bronze_{}", table.as_str());
         let glob = paths.duckdb_parquet_glob(*table);
         let csv_path = csv_file_path(&options.export_dir, &label);
-        process_table(
-            &conn,
-            &label,
-            &glob,
-            &csv_path,
-            options.limit,
-            Some(*table),
-        )?;
+        process_table(&conn, &label, &glob, &csv_path, options.limit, Some(*table))?;
     }
 
     for name in GOLD_TABLES {
@@ -65,25 +60,19 @@ fn process_table(
     if glob_exists(glob) {
         let row_count = print_preview(conn, glob, limit)?;
         export_populated_table(conn, glob, csv_path, limit)?;
-        println!(
-            "wrote {} ({row_count} rows)",
-            csv_path.display()
-        );
+        println!("wrote {} ({row_count} rows)", csv_path.display());
     } else {
         println!("(empty — no parquet files)");
         write_header_only_csv(csv_path, bronze_table)?;
-        println!(
-            "wrote {} (0 rows, header only)",
-            csv_path.display()
-        );
+        println!("wrote {} (0 rows, header only)", csv_path.display());
     }
     println!();
     Ok(())
 }
 
 fn print_preview(conn: &Connection, glob: &str, limit: usize) -> Result<usize> {
-    let glob = escape_sql_string(glob);
-    let sql = format!("SELECT * FROM read_parquet('{glob}') LIMIT {limit}");
+    let source = read_parquet_sql(glob);
+    let sql = format!("SELECT * FROM {source} LIMIT {limit}");
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query([])?;
     let column_names = rows
@@ -110,10 +99,10 @@ fn export_populated_table(
     csv_path: &Path,
     limit: usize,
 ) -> Result<()> {
-    let glob = escape_sql_string(glob);
+    let source = read_parquet_sql(glob);
     let csv_path = escape_sql_string(&csv_path.to_string_lossy());
     let sql = format!(
-        "COPY (SELECT * FROM read_parquet('{glob}') LIMIT {limit}) \
+        "COPY (SELECT * FROM {source} LIMIT {limit}) \
          TO '{csv_path}' (HEADER, DELIMITER ',')"
     );
     map_duckdb(conn.execute(&sql, []))?;
@@ -133,10 +122,6 @@ fn write_header_only_csv(csv_path: &Path, bronze_table: Option<Table>) -> Result
         .join(",");
     std::fs::write(csv_path, format!("{header}\n"))?;
     Ok(())
-}
-
-fn escape_sql_string(value: &str) -> String {
-    value.replace('\'', "''")
 }
 
 fn format_value(value: ValueRef<'_>) -> String {

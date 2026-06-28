@@ -38,12 +38,7 @@ pub fn markets_batch(
     let mut resolution_time = TimestampMillisecondBuilder::new();
     let mut resolution_source = StringBuilder::new();
     let mut raw_json = StringBuilder::new();
-    let mut source_col = StringBuilder::new();
-    let mut raw_url_col = StringBuilder::new();
-    let mut raw_sha_col = StringBuilder::new();
-    let mut ingested_at = TimestampMillisecondBuilder::new();
-    let mut run_id_col = StringBuilder::new();
-    let now = Utc::now().timestamp_millis();
+    let mut meta = super::IngestMetaBuilders::new();
 
     for market in markets {
         market_id.append_value(&market.id);
@@ -58,22 +53,30 @@ pub fn markets_batch(
         resolved.append_option(market.resolved);
         enable_order_book.append_option(market.enableOrderBook);
         neg_risk.append_option(market.negRisk);
-        append_f64(&mut liquidity, super::parse_f64(market.liquidity.as_deref()));
+        append_f64(
+            &mut liquidity,
+            super::parse_f64(market.liquidity.as_deref()),
+        );
         append_f64(&mut volume, super::parse_f64(market.volume.as_deref()));
-        append_f64(&mut volume_24h, super::parse_f64(market.volume24hr.as_deref()));
-        append_f64(&mut open_interest, super::parse_f64(market.openInterest.as_deref()));
+        append_f64(
+            &mut volume_24h,
+            super::parse_f64(market.volume24hr.as_deref()),
+        );
+        append_f64(
+            &mut open_interest,
+            super::parse_f64(market.openInterest.as_deref()),
+        );
         append_ts(&mut close_time, super::parse_ts(market.endDate.as_deref()));
-        append_ts(&mut resolution_time, super::parse_ts(market.resolutionTime.as_deref()));
+        append_ts(
+            &mut resolution_time,
+            super::parse_ts(market.resolutionTime.as_deref()),
+        );
         resolution_source.append_option(market.resolutionSource.as_deref());
         raw_json.append_value(serde_json::to_string(market).unwrap_or_else(|_| "{}".into()));
-        source_col.append_value(source);
-        raw_url_col.append_value(raw_url);
-        raw_sha_col.append_value(raw_sha256);
-        ingested_at.append_value(now);
-        run_id_col.append_value(run_id);
+        meta.append(source, Some(raw_url), Some(raw_sha256), run_id);
     }
 
-    let columns: Vec<ArrayRef> = vec![
+    let mut columns: Vec<ArrayRef> = vec![
         Arc::new(market_id.finish()),
         Arc::new(event_id.finish()),
         Arc::new(condition_id.finish()),
@@ -94,12 +97,8 @@ pub fn markets_batch(
         Arc::new(resolution_time.finish()),
         Arc::new(resolution_source.finish()),
         Arc::new(raw_json.finish()),
-        Arc::new(source_col.finish()),
-        Arc::new(raw_url_col.finish()),
-        Arc::new(raw_sha_col.finish()),
-        Arc::new(ingested_at.finish()),
-        Arc::new(run_id_col.finish()),
     ];
+    columns.extend(meta.finish());
     Ok(RecordBatch::try_new(schema, columns)?)
 }
 

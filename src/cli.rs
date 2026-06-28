@@ -24,7 +24,7 @@ pub enum Commands {
     Quickstart {
         #[arg(long)]
         out: Option<PathBuf>,
-        #[arg(long)]
+        #[arg(long, help = "Ignored for compatibility; serve reads Parquet directly")]
         db: Option<PathBuf>,
         #[arg(long, default_value_t = 8787)]
         port: u16,

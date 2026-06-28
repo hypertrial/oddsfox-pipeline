@@ -12,7 +12,7 @@ use crate::clob::ClobClient;
 use crate::config::{resolve_price_time_range, SyncPricesOptions, Table, TokenPairFilter};
 use crate::error::{OddsfoxError, Result};
 use crate::http::HttpClient;
-use crate::manifest::{new_run_id, ManifestStore, RunRecord};
+use crate::manifest::{new_run_id, ManifestStore};
 use crate::normalize::{merge_price_history, point_timestamp_secs, prices_batch};
 use crate::parquet::{read_all_batches, write_token_series};
 use crate::paths::LakePaths;
@@ -33,8 +33,9 @@ pub async fn sync_prices(options: SyncPricesOptions) -> Result<()> {
     let pairs = select_token_pairs(&options).await?;
     if pairs.is_empty() {
         return Err(OddsfoxError::SyncIncomplete {
-            message: "no tokens selected; run `sync markets` first or pass --market, --active, or --all"
-                .into(),
+            message:
+                "no tokens selected; run `sync markets` first or pass --market, --active, or --all"
+                    .into(),
         });
     }
 
@@ -70,13 +71,7 @@ pub async fn sync_prices(options: SyncPricesOptions) -> Result<()> {
                 }
 
                 let mut history = clob
-                    .get_prices_history(
-                        &token_id,
-                        interval.as_deref(),
-                        fidelity,
-                        start_ts,
-                        end_ts,
-                    )
+                    .get_prices_history(&token_id, interval.as_deref(), fidelity, start_ts, end_ts)
                     .await?;
                 if merge_window {
                     let (window_start, window_end) = time_range
@@ -119,18 +114,8 @@ pub async fn sync_prices(options: SyncPricesOptions) -> Result<()> {
         .await?;
 
     let points_written = total_points.load(Ordering::Relaxed);
-    store.append_run(RunRecord {
-        run_id: run_id.clone(),
-        command: "sync prices".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: points_written,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
-    println!(
-        "sync prices complete: {points_written} points across {total} tokens (run={run_id})"
-    );
+    store.append_completed_run("sync prices", &run_id, started, points_written)?;
+    println!("sync prices complete: {points_written} points across {total} tokens (run={run_id})");
     Ok(())
 }
 

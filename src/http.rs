@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use reqwest::Client;
 use reqwest::header::HeaderMap;
+use reqwest::Client;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Instant};
 
@@ -14,11 +14,14 @@ pub struct HttpClient {
     min_interval: Duration,
     last_request: Arc<Mutex<Instant>>,
     max_retries: u32,
-    user_agent: String,
 }
 
 impl HttpClient {
-    pub fn new(requests_per_second: f64, max_retries: u32, user_agent: impl Into<String>) -> Result<Self> {
+    pub fn new(
+        requests_per_second: f64,
+        max_retries: u32,
+        user_agent: impl Into<String>,
+    ) -> Result<Self> {
         let rps = requests_per_second.max(0.1);
         let user_agent = user_agent.into();
         let client = Client::builder()
@@ -30,12 +33,7 @@ impl HttpClient {
             min_interval: Duration::from_secs_f64(1.0 / rps),
             last_request: Arc::new(Mutex::new(Instant::now() - Duration::from_secs(1))),
             max_retries,
-            user_agent,
         })
-    }
-
-    pub fn user_agent(&self) -> &str {
-        &self.user_agent
     }
 
     pub async fn get_json(&self, url: &str) -> Result<serde_json::Value> {

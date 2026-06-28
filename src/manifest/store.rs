@@ -100,6 +100,24 @@ impl ManifestStore {
         append_json_line(&path, &run)
     }
 
+    pub fn append_completed_run(
+        &self,
+        command: impl Into<String>,
+        run_id: &str,
+        started_at: chrono::DateTime<Utc>,
+        rows_written: i64,
+    ) -> Result<()> {
+        self.append_run(RunRecord {
+            run_id: run_id.to_string(),
+            command: command.into(),
+            started_at,
+            finished_at: Some(Utc::now()),
+            status: "complete".into(),
+            rows_written,
+            oddsfox_version: env!("CARGO_PKG_VERSION").into(),
+        })
+    }
+
     pub fn upsert_sync_state(&self, record: SyncStateRecord) -> Result<()> {
         let path = self.paths.sync_state_manifest();
         let mut records: Vec<SyncStateRecord> = read_json_lines(&path);
@@ -160,10 +178,7 @@ fn append_json_line<T: serde::Serialize>(path: &std::path::Path, value: &T) -> R
         std::fs::create_dir_all(parent)?;
     }
     use std::io::Write;
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)?;
+    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
     let line = serde_json::to_string(value)?;
     writeln!(file, "{line}")?;
     Ok(())
@@ -182,4 +197,27 @@ fn read_json_lines<T: for<'de> serde::Deserialize<'de>>(path: &std::path::Path) 
         .filter(|line| !line.trim().is_empty())
         .filter_map(|line| serde_json::from_str(line).ok())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn append_completed_run_writes_complete_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ManifestStore::open(dir.path()).unwrap();
+        let started = Utc::now();
+        store
+            .append_completed_run("sync test", "run-1", started, 7)
+            .unwrap();
+
+        let raw = std::fs::read_to_string(store.paths().runs_manifest()).unwrap();
+        let run: RunRecord = serde_json::from_str(raw.trim()).unwrap();
+        assert_eq!(run.run_id, "run-1");
+        assert_eq!(run.command, "sync test");
+        assert_eq!(run.status, "complete");
+        assert_eq!(run.rows_written, 7);
+        assert!(run.finished_at.is_some());
+    }
 }

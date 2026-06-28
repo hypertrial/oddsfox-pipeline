@@ -1,10 +1,6 @@
 use std::sync::Arc;
 
-use arrow::array::{
-    ArrayRef, BooleanBuilder, Int32Builder, RecordBatch, StringBuilder,
-    TimestampMillisecondBuilder,
-};
-use chrono::Utc;
+use arrow::array::{ArrayRef, BooleanBuilder, Int32Builder, RecordBatch, StringBuilder};
 
 use crate::error::Result;
 use crate::gamma::GammaMarket;
@@ -23,12 +19,7 @@ pub fn outcomes_batch(
     let mut outcome_name = StringBuilder::new();
     let mut token_id = StringBuilder::new();
     let mut is_winner = BooleanBuilder::new();
-    let mut source_col = StringBuilder::new();
-    let mut raw_url_col = StringBuilder::new();
-    let mut raw_sha_col = StringBuilder::new();
-    let mut ingested_at = TimestampMillisecondBuilder::new();
-    let mut run_id_col = StringBuilder::new();
-    let now = Utc::now().timestamp_millis();
+    let mut meta = super::IngestMetaBuilders::new();
 
     for market in markets {
         for (idx, name, token) in market.parsed_outcomes() {
@@ -41,25 +32,17 @@ pub fn outcomes_batch(
                 .map(|win| win == idx)
                 .unwrap_or(false);
             is_winner.append_value(winner);
-            source_col.append_value(source);
-            raw_url_col.append_value(raw_url);
-            raw_sha_col.append_value(raw_sha256);
-            ingested_at.append_value(now);
-            run_id_col.append_value(run_id);
+            meta.append(source, Some(raw_url), Some(raw_sha256), run_id);
         }
     }
 
-    let columns: Vec<ArrayRef> = vec![
+    let mut columns: Vec<ArrayRef> = vec![
         Arc::new(market_id.finish()),
         Arc::new(outcome_index.finish()),
         Arc::new(outcome_name.finish()),
         Arc::new(token_id.finish()),
         Arc::new(is_winner.finish()),
-        Arc::new(source_col.finish()),
-        Arc::new(raw_url_col.finish()),
-        Arc::new(raw_sha_col.finish()),
-        Arc::new(ingested_at.finish()),
-        Arc::new(run_id_col.finish()),
     ];
+    columns.extend(meta.finish());
     Ok(RecordBatch::try_new(schema, columns)?)
 }

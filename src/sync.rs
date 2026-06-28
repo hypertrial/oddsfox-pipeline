@@ -1,10 +1,11 @@
 use chrono::Utc;
 
 use crate::config::{SyncMarketsOptions, Table, TokenPairFilter};
+use crate::duckdb_engine::{open_connection, read_parquet_sql};
 use crate::error::Result;
 use crate::gamma::{fetch_all_events, FetchEventsParams, GammaEvent, GammaMarket};
 use crate::http::HttpClient;
-use crate::manifest::{new_run_id, ManifestStore, RunRecord, SyncStateRecord};
+use crate::manifest::{new_run_id, ManifestStore, SyncStateRecord};
 use crate::normalize::{
     events_batch, markets_batch, outcomes_batch, resolutions_batch as build_resolutions_batch,
 };
@@ -54,8 +55,7 @@ pub async fn sync_markets(options: SyncMarketsOptions) -> Result<SyncSummary> {
     let events_data = events_batch(&events, "gamma", &url, &raw_sha, &run_id)?;
     let markets_data = markets_batch(&markets, "gamma", &url, &raw_sha, &run_id)?;
     let outcomes_data = outcomes_batch(&markets, "gamma", &url, &raw_sha, &run_id)?;
-    let resolutions_data =
-        build_resolutions_batch(&markets, "gamma", &url, &raw_sha, &run_id)?;
+    let resolutions_data = build_resolutions_batch(&markets, "gamma", &url, &raw_sha, &run_id)?;
 
     write_snapshot(&paths, Table::Events, &run_id, &[events_data])?;
     write_snapshot(&paths, Table::Markets, &run_id, &[markets_data])?;
@@ -75,15 +75,7 @@ pub async fn sync_markets(options: SyncMarketsOptions) -> Result<SyncSummary> {
     crate::contract::refresh_contract(&paths)?;
 
     let rows = events.len() as i64 + markets.len() as i64;
-    store.append_run(RunRecord {
-        run_id: run_id.clone(),
-        command: "sync markets".into(),
-        started_at: started,
-        finished_at: Some(Utc::now()),
-        status: "complete".into(),
-        rows_written: rows,
-        oddsfox_version: env!("CARGO_PKG_VERSION").into(),
-    })?;
+    store.append_completed_run("sync markets", &run_id, started, rows)?;
 
     println!(
         "sync markets complete: {} events, {} markets (run={run_id})",
@@ -119,12 +111,13 @@ fn collect_markets(events: &[GammaEvent]) -> Vec<GammaMarket> {
 pub async fn token_ids_for_market(out: &std::path::Path, market_id: &str) -> Result<Vec<String>> {
     let paths = LakePaths::new(out);
     let glob = paths.duckdb_parquet_glob(Table::Outcomes);
-    let conn = crate::duckdb_engine::open_connection(None)?;
-    let sql = format!(
-        "SELECT token_id FROM read_parquet('{glob}') WHERE market_id = ? AND token_id IS NOT NULL"
-    );
+    let source = read_parquet_sql(&glob);
+    let conn = open_connection(None)?;
+    let sql = format!("SELECT token_id FROM {source} WHERE market_id = ? AND token_id IS NOT NULL");
     let mut stmt = crate::duckdb_engine::map_duckdb(conn.prepare(&sql))?;
-    let rows = crate::duckdb_engine::map_duckdb(stmt.query_map([market_id], |row| row.get::<_, String>(0)))?;
+    let rows = crate::duckdb_engine::map_duckdb(
+        stmt.query_map([market_id], |row| row.get::<_, String>(0)),
+    )?;
     Ok(rows.filter_map(|r| r.ok()).collect())
 }
 
@@ -140,11 +133,13 @@ pub async fn top_token_pairs(out: &std::path::Path, limit: usize) -> Result<Vec<
     let paths = LakePaths::new(out);
     let markets_glob = paths.duckdb_parquet_glob(Table::Markets);
     let outcomes_glob = paths.duckdb_parquet_glob(Table::Outcomes);
-    let conn = crate::duckdb_engine::open_connection(None)?;
+    let markets_source = read_parquet_sql(&markets_glob);
+    let outcomes_source = read_parquet_sql(&outcomes_glob);
+    let conn = open_connection(None)?;
     let sql = format!(
         "SELECT o.token_id, o.market_id
-         FROM read_parquet('{outcomes_glob}') o
-         JOIN read_parquet('{markets_glob}') m ON o.market_id = m.market_id
+         FROM {outcomes_source} o
+         JOIN {markets_source} m ON o.market_id = m.market_id
          WHERE m.active = true AND o.token_id IS NOT NULL
          ORDER BY m.volume_24h DESC NULLS LAST
          LIMIT {limit}"
@@ -160,18 +155,21 @@ pub async fn all_token_pairs(
     let markets_glob = paths.duckdb_parquet_glob(Table::Markets);
     let outcomes_glob = paths.duckdb_parquet_glob(Table::Outcomes);
     let events_glob = paths.duckdb_parquet_glob(Table::Events);
-    let conn = crate::duckdb_engine::open_connection(None)?;
+    let markets_source = read_parquet_sql(&markets_glob);
+    let outcomes_source = read_parquet_sql(&outcomes_glob);
+    let events_source = read_parquet_sql(&events_glob);
+    let conn = open_connection(None)?;
 
     let mut sql = format!(
         "SELECT DISTINCT o.token_id, o.market_id
-         FROM read_parquet('{outcomes_glob}') o
-         JOIN read_parquet('{markets_glob}') m ON o.market_id = m.market_id"
+         FROM {outcomes_source} o
+         JOIN {markets_source} m ON o.market_id = m.market_id"
     );
     let mut params: Vec<String> = Vec::new();
 
     if filter.tag.is_some() {
         sql.push_str(&format!(
-            " JOIN read_parquet('{events_glob}') e ON m.event_id = e.event_id"
+            " JOIN {events_source} e ON m.event_id = e.event_id"
         ));
     }
 
@@ -205,10 +203,11 @@ fn query_token_pairs(
     params: &[String],
 ) -> Result<Vec<(String, String)>> {
     let mut stmt = crate::duckdb_engine::map_duckdb(conn.prepare(sql))?;
-    let rows = crate::duckdb_engine::map_duckdb(stmt.query_map(
-        duckdb::params_from_iter(params.iter()),
-        |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
-    ))?;
+    let rows = crate::duckdb_engine::map_duckdb(
+        stmt.query_map(duckdb::params_from_iter(params.iter()), |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }),
+    )?;
     Ok(rows.filter_map(|r| r.ok()).collect())
 }
 
@@ -252,8 +251,7 @@ mod token_pair_tests {
             winningOutcome: None,
             winningOutcomeIndex: None,
         }];
-        let markets_data =
-            markets_batch(&markets, "gamma", "http://test", "sha", run_id).unwrap();
+        let markets_data = markets_batch(&markets, "gamma", "http://test", "sha", run_id).unwrap();
         let outcomes_data =
             outcomes_batch(&markets, "gamma", "http://test", "sha", run_id).unwrap();
         write_snapshot(&paths, Table::Markets, run_id, &[markets_data]).unwrap();
@@ -328,8 +326,7 @@ mod token_pair_tests {
                 winningOutcomeIndex: None,
             },
         ];
-        let markets_data =
-            markets_batch(&markets, "gamma", "http://test", "sha", run_id).unwrap();
+        let markets_data = markets_batch(&markets, "gamma", "http://test", "sha", run_id).unwrap();
         let outcomes_data =
             outcomes_batch(&markets, "gamma", "http://test", "sha", run_id).unwrap();
         write_snapshot(&paths, Table::Markets, run_id, &[markets_data]).unwrap();

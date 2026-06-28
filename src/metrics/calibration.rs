@@ -1,4 +1,5 @@
 use crate::config::Table;
+use crate::duckdb_engine::{open_connection, read_parquet_sql};
 use crate::error::Result;
 use crate::paths::LakePaths;
 
@@ -8,15 +9,18 @@ pub fn compute_calibration(out: &std::path::Path, bucket_width: f64) -> Result<i
     let markets_glob = paths.duckdb_parquet_glob(Table::Markets);
     let outcomes_glob = paths.duckdb_parquet_glob(Table::Outcomes);
     let prices_glob = paths.duckdb_parquet_glob(Table::Prices);
-    let conn = crate::duckdb_engine::open_connection(None)?;
+    let markets_source = read_parquet_sql(&markets_glob);
+    let outcomes_source = read_parquet_sql(&outcomes_glob);
+    let prices_source = read_parquet_sql(&prices_glob);
+    let conn = open_connection(None)?;
     let sql = format!(
         "SELECT p.price, o.is_winner
-         FROM read_parquet('{markets_glob}') m
-         JOIN read_parquet('{outcomes_glob}') o ON m.market_id = o.market_id
+         FROM {markets_source} m
+         JOIN {outcomes_source} o ON m.market_id = o.market_id
          JOIN (
            SELECT token_id, price,
                   ROW_NUMBER() OVER (PARTITION BY token_id ORDER BY ts DESC) AS rn
-           FROM read_parquet('{prices_glob}')
+           FROM {prices_source}
          ) p ON p.token_id = o.token_id AND p.rn = 1
          WHERE m.resolved = true"
     );

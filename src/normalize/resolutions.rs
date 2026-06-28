@@ -22,16 +22,14 @@ pub fn resolutions_batch(
     let mut resolution_source = StringBuilder::new();
     let mut resolution_status = StringBuilder::new();
     let mut raw_json = StringBuilder::new();
-    let mut source_col = StringBuilder::new();
-    let mut raw_url_col = StringBuilder::new();
-    let mut raw_sha_col = StringBuilder::new();
-    let mut ingested_at = TimestampMillisecondBuilder::new();
-    let mut run_id_col = StringBuilder::new();
-    let now = Utc::now().timestamp_millis();
+    let mut meta = super::IngestMetaBuilders::new();
 
     for market in markets.iter().filter(|m| m.resolved.unwrap_or(false)) {
         market_id.append_value(&market.id);
-        append_ts(&mut resolved_at, super::parse_ts(market.resolutionTime.as_deref()));
+        append_ts(
+            &mut resolved_at,
+            super::parse_ts(market.resolutionTime.as_deref()),
+        );
         let outcomes = market.parsed_outcomes();
         let winner = market
             .winningOutcomeIndex
@@ -42,14 +40,10 @@ pub fn resolutions_batch(
         resolution_source.append_option(market.resolutionSource.as_deref());
         resolution_status.append_value("resolved");
         raw_json.append_value(serde_json::to_string(market).unwrap_or_else(|_| "{}".into()));
-        source_col.append_value(source);
-        raw_url_col.append_value(raw_url);
-        raw_sha_col.append_value(raw_sha256);
-        ingested_at.append_value(now);
-        run_id_col.append_value(run_id);
+        meta.append(source, Some(raw_url), Some(raw_sha256), run_id);
     }
 
-    let columns: Vec<ArrayRef> = vec![
+    let mut columns: Vec<ArrayRef> = vec![
         Arc::new(market_id.finish()),
         Arc::new(resolved_at.finish()),
         Arc::new(winning_token_id.finish()),
@@ -57,12 +51,8 @@ pub fn resolutions_batch(
         Arc::new(resolution_source.finish()),
         Arc::new(resolution_status.finish()),
         Arc::new(raw_json.finish()),
-        Arc::new(source_col.finish()),
-        Arc::new(raw_url_col.finish()),
-        Arc::new(raw_sha_col.finish()),
-        Arc::new(ingested_at.finish()),
-        Arc::new(run_id_col.finish()),
     ];
+    columns.extend(meta.finish());
     Ok(RecordBatch::try_new(schema, columns)?)
 }
 

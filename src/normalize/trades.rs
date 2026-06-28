@@ -9,11 +9,7 @@ use crate::data::DataTrade;
 use crate::error::Result;
 use crate::schema::trades as trades_schema;
 
-pub fn trades_batch(
-    trades: &[DataTrade],
-    source: &str,
-    run_id: &str,
-) -> Result<RecordBatch> {
+pub fn trades_batch(trades: &[DataTrade], source: &str, run_id: &str) -> Result<RecordBatch> {
     let schema = trades_schema::schema();
     let mut trade_id = StringBuilder::new();
     let mut market_id = StringBuilder::new();
@@ -26,12 +22,8 @@ pub fn trades_batch(
     let mut maker = StringBuilder::new();
     let mut taker = StringBuilder::new();
     let mut raw_json = StringBuilder::new();
-    let mut source_col = StringBuilder::new();
-    let mut raw_url = StringBuilder::new();
-    let mut raw_sha = StringBuilder::new();
-    let mut ingested_at = TimestampMillisecondBuilder::new();
-    let mut run_id_col = StringBuilder::new();
     let now = Utc::now().timestamp_millis();
+    let mut meta = super::IngestMetaBuilders::new_at(now);
 
     for trade in trades {
         trade_id.append_option(trade.id.as_deref().or(Some("unknown")));
@@ -54,14 +46,10 @@ pub fn trades_batch(
         maker.append_option(trade.maker_address.as_deref());
         taker.append_option(trade.taker_address.as_deref());
         raw_json.append_value(serde_json::to_string(trade).unwrap_or_else(|_| "{}".into()));
-        source_col.append_value(source);
-        raw_url.append_null();
-        raw_sha.append_null();
-        ingested_at.append_value(now);
-        run_id_col.append_value(run_id);
+        meta.append(source, None, None, run_id);
     }
 
-    let columns: Vec<ArrayRef> = vec![
+    let mut columns: Vec<ArrayRef> = vec![
         Arc::new(trade_id.finish()),
         Arc::new(market_id.finish()),
         Arc::new(token_id.finish()),
@@ -73,11 +61,7 @@ pub fn trades_batch(
         Arc::new(maker.finish()),
         Arc::new(taker.finish()),
         Arc::new(raw_json.finish()),
-        Arc::new(source_col.finish()),
-        Arc::new(raw_url.finish()),
-        Arc::new(raw_sha.finish()),
-        Arc::new(ingested_at.finish()),
-        Arc::new(run_id_col.finish()),
     ];
+    columns.extend(meta.finish());
     Ok(RecordBatch::try_new(schema, columns)?)
 }

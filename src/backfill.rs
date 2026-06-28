@@ -5,11 +5,8 @@ use crate::config::{
 use crate::error::Result;
 
 pub async fn run(mut options: BackfillOptions) -> Result<()> {
-    let (fidelity, recent_hours) = apply_active_minute_defaults(
-        options.active,
-        options.fidelity,
-        options.recent_hours,
-    );
+    let (fidelity, recent_hours) =
+        apply_active_minute_defaults(options.active, options.fidelity, options.recent_hours);
     options.fidelity = fidelity;
     options.recent_hours = recent_hours;
 
@@ -44,107 +41,22 @@ pub async fn run(mut options: BackfillOptions) -> Result<()> {
         db_path.display()
     );
     println!(
-        "or run `oddsfox serve --out {} --db {} --port {}`",
+        "or run `oddsfox serve --out {} --port {}`",
         options.out.display(),
-        db_path.display(),
         options.port
     );
     Ok(())
 }
 
-async fn backfill_polymarket(options: &BackfillOptions) -> Result<()> {
-    let sync_summary = crate::sync::sync_markets(SyncMarketsOptions {
+fn base_sync_markets_options(options: &BackfillOptions, source: Source) -> SyncMarketsOptions {
+    SyncMarketsOptions {
         out: options.out.clone(),
-        source: Source::Polymarket,
-        active: options.active || (!options.closed && !options.all),
-        closed: options.closed,
-        all: options.all && !options.active,
+        source,
+        active: false,
+        closed: false,
+        all: false,
         status: None,
         series: None,
-        event: None,
-        tag: options.tag.clone(),
-        since: None,
-        limit: options.limit,
-        resume: true,
-        overwrite: false,
-        gamma_base_url: options.gamma_base_url.clone(),
-        kalshi_rest_base_url: options.kalshi_rest_base_url.clone(),
-        kalshi_key_id: options.kalshi_key_id.clone(),
-        kalshi_private_key_path: options.kalshi_private_key_path.clone(),
-        requests_per_second: options.requests_per_second,
-        max_retries: options.max_retries,
-        user_agent: options.user_agent.clone(),
-        raw_retention_days: options.raw_retention_days,
-    })
-    .await?;
-
-    let filter_active = if options.active {
-        Some(true)
-    } else if options.all && !options.active && !options.closed {
-        None
-    } else if options.closed {
-        Some(false)
-    } else {
-        None
-    };
-
-    crate::prices::sync_prices(SyncPricesOptions {
-        out: options.out.clone(),
-        source: Source::Polymarket,
-        market_id: None,
-        series: None,
-        active: false,
-        all: true,
-        filter_active,
-        tag: options.tag.clone(),
-        limit: options.limit,
-        top_limit: None,
-        interval: if options.recent_hours.is_some() {
-            None
-        } else {
-            options
-                .interval
-                .clone()
-                .or_else(|| Some(DEFAULT_BACKFILL_INTERVAL.to_string()))
-        },
-        fidelity: options.fidelity,
-        period: None,
-        since: options.since,
-        until: options.until,
-        recent_hours: options.recent_hours,
-        overwrite: options.overwrite,
-        concurrency: options.concurrency,
-        clob_base_url: options.clob_base_url.clone(),
-        kalshi_rest_base_url: options.kalshi_rest_base_url.clone(),
-        kalshi_key_id: options.kalshi_key_id.clone(),
-        kalshi_private_key_path: options.kalshi_private_key_path.clone(),
-        requests_per_second: options.requests_per_second,
-        max_retries: options.max_retries,
-        user_agent: options.user_agent.clone(),
-    })
-    .await?;
-
-    println!(
-        "polymarket backfill complete: {} events, {} markets",
-        sync_summary.events,
-        sync_summary.markets
-    );
-    Ok(())
-}
-
-async fn backfill_kalshi(options: &BackfillOptions) -> Result<()> {
-    let markets_options = SyncMarketsOptions {
-        out: options.out.clone(),
-        source: Source::Kalshi,
-        active: options.active || !options.all,
-        closed: false,
-        all: options.all && !options.active,
-        status: if options.active {
-            Some(crate::config::KalshiStatus::Open)
-        } else {
-            None
-        },
-        series: options.tag.clone(),
         event: None,
         tag: None,
         since: None,
@@ -159,6 +71,93 @@ async fn backfill_kalshi(options: &BackfillOptions) -> Result<()> {
         max_retries: options.max_retries,
         user_agent: options.user_agent.clone(),
         raw_retention_days: options.raw_retention_days,
+    }
+}
+
+fn base_sync_prices_options(options: &BackfillOptions, source: Source) -> SyncPricesOptions {
+    SyncPricesOptions {
+        out: options.out.clone(),
+        source,
+        market_id: None,
+        series: None,
+        active: false,
+        all: false,
+        filter_active: None,
+        tag: None,
+        limit: options.limit,
+        top_limit: None,
+        interval: None,
+        fidelity: options.fidelity,
+        period: None,
+        since: options.since,
+        until: options.until,
+        recent_hours: options.recent_hours,
+        overwrite: options.overwrite,
+        concurrency: options.concurrency,
+        clob_base_url: options.clob_base_url.clone(),
+        kalshi_rest_base_url: options.kalshi_rest_base_url.clone(),
+        kalshi_key_id: options.kalshi_key_id.clone(),
+        kalshi_private_key_path: options.kalshi_private_key_path.clone(),
+        requests_per_second: options.requests_per_second,
+        max_retries: options.max_retries,
+        user_agent: options.user_agent.clone(),
+    }
+}
+
+async fn backfill_polymarket(options: &BackfillOptions) -> Result<()> {
+    let sync_summary = crate::sync::sync_markets(SyncMarketsOptions {
+        active: options.active || (!options.closed && !options.all),
+        closed: options.closed,
+        all: options.all && !options.active,
+        tag: options.tag.clone(),
+        ..base_sync_markets_options(options, Source::Polymarket)
+    })
+    .await?;
+
+    let filter_active = if options.active {
+        Some(true)
+    } else if options.all && !options.active && !options.closed {
+        None
+    } else if options.closed {
+        Some(false)
+    } else {
+        None
+    };
+
+    crate::prices::sync_prices(SyncPricesOptions {
+        all: true,
+        filter_active,
+        tag: options.tag.clone(),
+        interval: if options.recent_hours.is_some() {
+            None
+        } else {
+            options
+                .interval
+                .clone()
+                .or_else(|| Some(DEFAULT_BACKFILL_INTERVAL.to_string()))
+        },
+        ..base_sync_prices_options(options, Source::Polymarket)
+    })
+    .await?;
+
+    println!(
+        "polymarket backfill complete: {} events, {} markets",
+        sync_summary.events, sync_summary.markets
+    );
+    Ok(())
+}
+
+async fn backfill_kalshi(options: &BackfillOptions) -> Result<()> {
+    let markets_options = SyncMarketsOptions {
+        active: options.active || !options.all,
+        all: options.all && !options.active,
+        status: if options.active {
+            Some(crate::config::KalshiStatus::Open)
+        } else {
+            None
+        },
+        series: options.tag.clone(),
+        ..base_sync_markets_options(options, Source::Kalshi)
     };
     if let Some(cutoff) = crate::kalshi::historical_cutoff(&markets_options).await? {
         println!("kalshi historical cutoff: {cutoff}");
@@ -174,34 +173,10 @@ async fn backfill_kalshi(options: &BackfillOptions) -> Result<()> {
 
 fn kalshi_price_options(options: &BackfillOptions) -> SyncPricesOptions {
     SyncPricesOptions {
-        out: options.out.clone(),
-        source: Source::Kalshi,
-        market_id: None,
-        series: None,
         active: options.active || !options.all,
         all: options.all && !options.active,
-        filter_active: if options.active {
-            Some(true)
-        } else {
-            None
-        },
-        tag: None,
-        limit: options.limit,
-        top_limit: None,
-        interval: None,
-        fidelity: options.fidelity,
+        filter_active: if options.active { Some(true) } else { None },
         period: options.fidelity,
-        since: options.since,
-        until: options.until,
-        recent_hours: options.recent_hours,
-        overwrite: options.overwrite,
-        concurrency: options.concurrency,
-        clob_base_url: options.clob_base_url.clone(),
-        kalshi_rest_base_url: options.kalshi_rest_base_url.clone(),
-        kalshi_key_id: options.kalshi_key_id.clone(),
-        kalshi_private_key_path: options.kalshi_private_key_path.clone(),
-        requests_per_second: options.requests_per_second,
-        max_retries: options.max_retries,
-        user_agent: options.user_agent.clone(),
+        ..base_sync_prices_options(options, Source::Kalshi)
     }
 }
