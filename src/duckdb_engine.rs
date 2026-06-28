@@ -5,6 +5,13 @@ use duckdb::Connection;
 use crate::error::{OddsfoxError, Result};
 use crate::paths::LakePaths;
 
+pub const GOLD_TABLES: [&str; 4] = [
+    "metric_points",
+    "calibration",
+    "liquidity_rollup",
+    "accuracy",
+];
+
 pub fn lake_db_path(lake: &LakePaths) -> PathBuf {
     lake.catalog_db()
 }
@@ -31,7 +38,7 @@ pub fn register_layer_views(conn: &Connection, lake: &LakePaths) -> Result<usize
             created += 1;
         }
     }
-    for name in ["metric_points", "calibration", "liquidity_rollup", "accuracy"] {
+    for name in GOLD_TABLES {
         let glob = lake.layer_parquet_glob("gold", name);
         if glob_exists(&glob) {
             let view = format!("gold_{name}");
@@ -43,7 +50,7 @@ pub fn register_layer_views(conn: &Connection, lake: &LakePaths) -> Result<usize
     Ok(created)
 }
 
-fn glob_exists(glob_pattern: &str) -> bool {
+pub(crate) fn glob_exists(glob_pattern: &str) -> bool {
     let root = glob_pattern.trim_end_matches("**/*.parquet").trim_end_matches('/');
     let root = std::path::Path::new(root);
     if !root.is_dir() {

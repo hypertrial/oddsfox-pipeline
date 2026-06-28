@@ -327,6 +327,20 @@ async fn main() -> Result<()> {
             let root = lake_root_from_config(cli.config.as_deref(), out.clone())?;
             oddsfox::ops::stats(&root)?;
         }
+        Commands::Head {
+            out,
+            export_dir,
+            limit,
+        } => {
+            let root = lake_root_from_config(cli.config.as_deref(), out.clone())?;
+            let export_dir =
+                export_dir.clone().unwrap_or_else(|| oddsfox::head::default_export_dir(&root));
+            oddsfox::head::run(&oddsfox::head::HeadOptions {
+                out: root,
+                export_dir,
+                limit: *limit,
+            })?;
+        }
     }
 
     Ok(())

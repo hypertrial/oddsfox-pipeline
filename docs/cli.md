@@ -48,3 +48,13 @@ oddsfox event <event_id>
 oddsfox resolved --since 2024-01-01
 oddsfox top --by volume_24h
 ```
+
+## Maintenance
+
+```bash
+oddsfox stats
+oddsfox head
+oddsfox head --limit 30 --export-dir ./heads
+```
+
+`head` prints the first 30 rows of every registered bronze and gold table to stdout and writes one CSV per table. Empty tables get a header-only CSV. Default export directory: `{lake}/_exports/heads/`.

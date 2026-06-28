@@ -65,7 +65,7 @@ oddsfox quickstart
 | `watch` | Record WebSocket market events |
 | `compute liquidity/accuracy/calibration/all` | Derive gold metrics |
 | `search`, `market`, `event`, `resolved`, `top` | Explore local data |
-| `check`, `repair`, `clean`, `stats` | Lake maintenance |
+| `check`, `repair`, `clean`, `stats`, `head` | Lake maintenance |
 | `duckdb`, `sql` | Query via DuckDB |
 | `serve` | Local read-only HTTP API + UI |
 

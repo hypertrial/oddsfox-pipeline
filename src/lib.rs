@@ -17,6 +17,7 @@ pub mod init;
 pub mod manifest;
 pub mod metrics;
 pub mod normalize;
+pub mod head;
 pub mod ops;
 pub mod parquet;
 pub mod parquet_props;

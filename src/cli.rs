@@ -166,6 +166,14 @@ pub enum Commands {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    Head {
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long)]
+        export_dir: Option<PathBuf>,
+        #[arg(long, default_value_t = 30)]
+        limit: usize,
+    },
 }
 
 #[derive(Subcommand, Debug)]
