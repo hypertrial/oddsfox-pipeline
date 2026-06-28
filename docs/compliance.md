@@ -1,8 +1,9 @@
 # Compliance
 
-oddsfox is **code-only**. It does not ship Polymarket data.
+oddsfox is **code-only** FOSS. It does not ship Polymarket or Kalshi data.
 
 Users fetch data directly from Polymarket public APIs under their own access rights. Local caches are created on the user's machine.
+Kalshi support is planned but not implemented in v0.1.x.
 
 ## Out of scope
 

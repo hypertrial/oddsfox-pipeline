@@ -1,5 +1,8 @@
 # Architecture
 
+oddsfox is an end-to-end local data lake creator: public source APIs land in `_raw`, become bronze/silver/gold Parquet, are registered in DuckDB, and are exposed through CLI, SQL, HTTP API, and UI.
+The current source implementation is Polymarket; Kalshi is a planned adapter for the same lake contract.
+
 ```mermaid
 flowchart TB
     gamma[GammaREST]

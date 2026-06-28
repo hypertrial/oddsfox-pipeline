@@ -3,7 +3,8 @@
 [![CI](https://github.com/hypertrial/oddsfox/actions/workflows/ci.yml/badge.svg)](https://github.com/hypertrial/oddsfox/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A local-first Rust research kit for Polymarket.
+A self-hosted, MIT-licensed FOSS data lake creator for prediction-market research.
+It builds a local Parquet + DuckDB lake so analysts can make sense of Polymarket end-to-end today, with Kalshi support planned as the next source adapter.
 
 ## What it does
 
@@ -11,6 +12,7 @@ A local-first Rust research kit for Polymarket.
 - Stores prices, order books, trades, and resolutions locally in a medallion lake
 - Computes liquidity and forecasting metrics
 - Exposes CLI, SQL, local HTTP API, and minimal web UI
+- Keeps the full workflow local: fetch, normalize, catalog, compute, query, and serve
 
 ## What it does not do
 
@@ -18,6 +20,7 @@ A local-first Rust research kit for Polymarket.
 - Does not provide financial advice
 - Does not redistribute Polymarket data
 - Does not bypass API limits or geo restrictions
+- Does not support Kalshi yet; the lake is designed for a future adapter
 
 ## Install
 

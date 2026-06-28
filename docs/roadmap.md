@@ -15,5 +15,5 @@
 - On-chain trade joins (Dune/Goldsky/CryptoHouse)
 - Tantivy full-text search
 - Advanced microstructure metrics
-- Kalshi adapter
+- Kalshi adapter for the same self-hosted lake contract
 - LLM benchmark export
