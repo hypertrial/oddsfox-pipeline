@@ -44,10 +44,20 @@ For a quick demo with active markets only:
 ```bash
 oddsfox init
 oddsfox sync markets --active
+oddsfox sync prices --active
 oddsfox snapshot books --active --top-volume 50
-oddsfox sync prices --active --interval 1d --fidelity 60
 oddsfox compute liquidity --active
 oddsfox serve
+```
+
+For active 1-minute prices over the last 24 hours (both sources):
+
+```bash
+oddsfox sync markets --active
+oddsfox sync prices --active
+oddsfox sync markets --source kalshi --status open
+oddsfox sync prices --active --source kalshi
+# or: oddsfox backfill --source all --active
 ```
 
 For Kalshi:

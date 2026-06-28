@@ -9,7 +9,7 @@ mod resolutions;
 pub use events::events_batch;
 pub use markets::markets_batch;
 pub use outcomes::outcomes_batch;
-pub use prices::prices_batch;
+pub use prices::{merge_price_history, point_timestamp_secs, prices_batch};
 pub use orderbooks::{book_levels_batch, new_snapshot_id, orderbooks_batch, SnapshotRecord};
 pub use trades::trades_batch;
 pub use resolutions::resolutions_batch;

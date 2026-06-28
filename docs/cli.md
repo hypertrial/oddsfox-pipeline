@@ -2,6 +2,25 @@
 
 See `oddsfox --help` for full flags.
 
+## Active minute refresh (last 24 hours)
+
+Sync only active markets/events at 1-minute fidelity for the rolling last 24 hours:
+
+```bash
+oddsfox sync markets --active
+oddsfox sync prices --active --source polymarket
+oddsfox sync markets --source kalshi --status open
+oddsfox sync prices --active --source kalshi
+```
+
+`--active` defaults to `--fidelity 1 --recent-hours 24`. Existing price files are merged inside the 24-hour window instead of skipped.
+
+For both sources in one backfill:
+
+```bash
+oddsfox backfill --source all --active
+```
+
 ## Analyst workflow (recommended)
 
 One command builds a DuckDB catalog of all markets with full CLOB price history:

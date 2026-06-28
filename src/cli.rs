@@ -57,6 +57,8 @@ pub enum Commands {
         #[arg(long)]
         until: Option<String>,
         #[arg(long)]
+        recent_hours: Option<u32>,
+        #[arg(long)]
         rps: Option<f64>,
         #[arg(long)]
         concurrency: Option<usize>,
@@ -231,6 +233,8 @@ pub enum SyncCommands {
         since: Option<String>,
         #[arg(long)]
         until: Option<String>,
+        #[arg(long)]
+        recent_hours: Option<u32>,
         #[arg(long, default_value_t = false)]
         overwrite: bool,
         #[arg(long)]
@@ -399,5 +403,9 @@ mod tests {
         ])
         .unwrap();
         Cli::try_parse_from(["oddsfox", "backfill", "--source", "all"]).unwrap();
+        Cli::try_parse_from([
+            "oddsfox", "sync", "prices", "--source", "kalshi", "--active", "--recent-hours", "24",
+        ])
+        .unwrap();
     }
 }

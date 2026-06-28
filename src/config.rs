@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use clap::ValueEnum;
 
 use crate::error::{OddsfoxError, Result};
@@ -20,6 +20,8 @@ pub const DEFAULT_BACKFILL_REQUESTS_PER_SECOND: f64 = 5.0;
 pub const DEFAULT_BACKFILL_CONCURRENCY: usize = 4;
 pub const DEFAULT_BACKFILL_FIDELITY_MINUTES: u32 = 60;
 pub const DEFAULT_BACKFILL_INTERVAL: &str = "max";
+pub const DEFAULT_ACTIVE_RECENT_HOURS: u32 = 24;
+pub const DEFAULT_ACTIVE_FIDELITY_MINUTES: u32 = 1;
 pub const DEFAULT_ACTIVE_PRICE_LIMIT: usize = 100;
 pub const BATCH_TOKEN_LIMIT: usize = 500;
 
@@ -128,6 +130,63 @@ pub fn parse_date(raw: &str) -> Result<NaiveDate> {
         .map_err(|_| OddsfoxError::InvalidDate(raw.to_string()))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PriceTimeRange {
+    pub start_ts: Option<i64>,
+    pub end_ts: Option<i64>,
+}
+
+pub fn apply_active_minute_defaults(
+    active: bool,
+    fidelity: Option<u32>,
+    recent_hours: Option<u32>,
+) -> (Option<u32>, Option<u32>) {
+    match (fidelity, recent_hours) {
+        (None, None) if active => (
+            Some(DEFAULT_ACTIVE_FIDELITY_MINUTES),
+            Some(DEFAULT_ACTIVE_RECENT_HOURS),
+        ),
+        (Some(f), None) if active && f == DEFAULT_ACTIVE_FIDELITY_MINUTES => {
+            (Some(f), Some(DEFAULT_ACTIVE_RECENT_HOURS))
+        }
+        (None, Some(h)) if active && h == DEFAULT_ACTIVE_RECENT_HOURS => {
+            (Some(DEFAULT_ACTIVE_FIDELITY_MINUTES), Some(h))
+        }
+        _ => (fidelity, recent_hours),
+    }
+}
+
+pub fn resolve_price_time_range(
+    since: Option<NaiveDate>,
+    until: Option<NaiveDate>,
+    recent_hours: Option<u32>,
+) -> PriceTimeRange {
+    if let Some(hours) = recent_hours {
+        let end_ts = Utc::now().timestamp();
+        let start_ts = end_ts - i64::from(hours) * 3600;
+        return PriceTimeRange {
+            start_ts: Some(start_ts),
+            end_ts: Some(end_ts),
+        };
+    }
+
+    PriceTimeRange {
+        start_ts: since.map(|d| d.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp()),
+        end_ts: until.map(|d| d.and_hms_opt(23, 59, 59).unwrap().and_utc().timestamp()),
+    }
+}
+
+pub fn kalshi_period_interval(fidelity_minutes: Option<u32>) -> Result<u32> {
+    match fidelity_minutes.unwrap_or(DEFAULT_BACKFILL_FIDELITY_MINUTES) {
+        1 => Ok(1),
+        60 => Ok(60),
+        1440 => Ok(1440),
+        other => Err(OddsfoxError::Config(format!(
+            "Kalshi candlesticks require --fidelity/--period of 1, 60, or 1440 minutes (got {other})"
+        ))),
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LakeOptions {
     pub out: PathBuf,
@@ -181,6 +240,7 @@ pub struct SyncPricesOptions {
     pub period: Option<u32>,
     pub since: Option<NaiveDate>,
     pub until: Option<NaiveDate>,
+    pub recent_hours: Option<u32>,
     pub overwrite: bool,
     pub concurrency: usize,
     pub clob_base_url: String,
@@ -259,6 +319,7 @@ pub struct BackfillOptions {
     pub fidelity: Option<u32>,
     pub since: Option<NaiveDate>,
     pub until: Option<NaiveDate>,
+    pub recent_hours: Option<u32>,
     pub requests_per_second: f64,
     pub concurrency: usize,
     pub overwrite: bool,
@@ -271,6 +332,33 @@ pub struct BackfillOptions {
     pub kalshi_private_key_path: Option<PathBuf>,
     pub raw_retention_days: u32,
     pub port: u16,
+}
+
+#[cfg(test)]
+mod price_range_tests {
+    use super::*;
+
+    #[test]
+    fn active_defaults_apply_minute_window() {
+        let (fidelity, recent) = apply_active_minute_defaults(true, None, None);
+        assert_eq!(fidelity, Some(1));
+        assert_eq!(recent, Some(24));
+    }
+
+    #[test]
+    fn resolve_recent_hours_as_rolling_window() {
+        let range = resolve_price_time_range(None, None, Some(24));
+        let start = range.start_ts.unwrap();
+        let end = range.end_ts.unwrap();
+        assert_eq!(end - start, 24 * 3600);
+    }
+
+    #[test]
+    fn kalshi_period_accepts_minute_hour_day() {
+        assert_eq!(kalshi_period_interval(Some(1)).unwrap(), 1);
+        assert_eq!(kalshi_period_interval(Some(60)).unwrap(), 60);
+        assert!(kalshi_period_interval(Some(5)).is_err());
+    }
 }
 
 #[derive(Debug, Clone, Default)]

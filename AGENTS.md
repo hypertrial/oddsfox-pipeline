@@ -20,7 +20,14 @@ Optional smoke (needs network):
 ```bash
 oddsfox init
 oddsfox sync markets --active
+oddsfox sync prices --active
 oddsfox serve
+```
+
+Active minute refresh (last 24h, both sources):
+
+```bash
+oddsfox backfill --source all --active
 ```
 
 Analyst backfill (needs network; long-running):

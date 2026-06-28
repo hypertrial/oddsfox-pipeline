@@ -1,10 +1,18 @@
 use crate::config::{
-    BackfillOptions, BackfillSource, DuckDbOptions, Source, SyncMarketsOptions, SyncPricesOptions,
-    DEFAULT_BACKFILL_INTERVAL,
+    apply_active_minute_defaults, BackfillOptions, BackfillSource, DuckDbOptions, Source,
+    SyncMarketsOptions, SyncPricesOptions, DEFAULT_BACKFILL_INTERVAL,
 };
 use crate::error::Result;
 
-pub async fn run(options: BackfillOptions) -> Result<()> {
+pub async fn run(mut options: BackfillOptions) -> Result<()> {
+    let (fidelity, recent_hours) = apply_active_minute_defaults(
+        options.active,
+        options.fidelity,
+        options.recent_hours,
+    );
+    options.fidelity = fidelity;
+    options.recent_hours = recent_hours;
+
     crate::init::run(&options.out)?;
 
     match options.source {
@@ -50,7 +58,7 @@ async fn backfill_polymarket(options: &BackfillOptions) -> Result<()> {
         source: Source::Polymarket,
         active: options.active || (!options.closed && !options.all),
         closed: options.closed,
-        all: options.all,
+        all: options.all && !options.active,
         status: None,
         series: None,
         event: None,
@@ -70,10 +78,10 @@ async fn backfill_polymarket(options: &BackfillOptions) -> Result<()> {
     })
     .await?;
 
-    let filter_active = if options.all && !options.active && !options.closed {
-        None
-    } else if options.active {
+    let filter_active = if options.active {
         Some(true)
+    } else if options.all && !options.active && !options.closed {
+        None
     } else if options.closed {
         Some(false)
     } else {
@@ -91,14 +99,19 @@ async fn backfill_polymarket(options: &BackfillOptions) -> Result<()> {
         tag: options.tag.clone(),
         limit: options.limit,
         top_limit: None,
-        interval: options
-            .interval
-            .clone()
-            .or_else(|| Some(DEFAULT_BACKFILL_INTERVAL.to_string())),
+        interval: if options.recent_hours.is_some() {
+            None
+        } else {
+            options
+                .interval
+                .clone()
+                .or_else(|| Some(DEFAULT_BACKFILL_INTERVAL.to_string()))
+        },
         fidelity: options.fidelity,
         period: None,
         since: options.since,
         until: options.until,
+        recent_hours: options.recent_hours,
         overwrite: options.overwrite,
         concurrency: options.concurrency,
         clob_base_url: options.clob_base_url.clone(),
@@ -123,10 +136,14 @@ async fn backfill_kalshi(options: &BackfillOptions) -> Result<()> {
     let markets_options = SyncMarketsOptions {
         out: options.out.clone(),
         source: Source::Kalshi,
-        active: true,
+        active: options.active || !options.all,
         closed: false,
-        all: options.all,
-        status: None,
+        all: options.all && !options.active,
+        status: if options.active {
+            Some(crate::config::KalshiStatus::Open)
+        } else {
+            None
+        },
         series: options.tag.clone(),
         event: None,
         tag: None,
@@ -147,35 +164,7 @@ async fn backfill_kalshi(options: &BackfillOptions) -> Result<()> {
         println!("kalshi historical cutoff: {cutoff}");
     }
     let sync_summary = crate::kalshi::sync_markets(markets_options).await?;
-    for (market_id, series) in kalshi_markets_for_prices(options)? {
-        crate::kalshi::sync_prices(SyncPricesOptions {
-            out: options.out.clone(),
-            source: Source::Kalshi,
-            market_id: Some(market_id),
-            series,
-            active: false,
-            all: false,
-            filter_active: None,
-            tag: None,
-            limit: None,
-            top_limit: None,
-            interval: None,
-            fidelity: options.fidelity,
-            period: options.fidelity,
-            since: options.since,
-            until: options.until,
-            overwrite: options.overwrite,
-            concurrency: options.concurrency,
-            clob_base_url: options.clob_base_url.clone(),
-            kalshi_rest_base_url: options.kalshi_rest_base_url.clone(),
-            kalshi_key_id: options.kalshi_key_id.clone(),
-            kalshi_private_key_path: options.kalshi_private_key_path.clone(),
-            requests_per_second: options.requests_per_second,
-            max_retries: options.max_retries,
-            user_agent: options.user_agent.clone(),
-        })
-        .await?;
-    }
+    crate::kalshi::sync_prices(kalshi_price_options(options)).await?;
     println!(
         "kalshi backfill complete: {} events, {} markets",
         sync_summary.events, sync_summary.markets
@@ -183,23 +172,36 @@ async fn backfill_kalshi(options: &BackfillOptions) -> Result<()> {
     Ok(())
 }
 
-fn kalshi_markets_for_prices(options: &BackfillOptions) -> Result<Vec<(String, Option<String>)>> {
-    let paths = crate::paths::LakePaths::new(&options.out);
-    let glob = paths.duckdb_parquet_glob(crate::config::Table::Markets);
-    if !crate::duckdb_engine::glob_exists(&glob) {
-        return Ok(Vec::new());
+fn kalshi_price_options(options: &BackfillOptions) -> SyncPricesOptions {
+    SyncPricesOptions {
+        out: options.out.clone(),
+        source: Source::Kalshi,
+        market_id: None,
+        series: None,
+        active: options.active || !options.all,
+        all: options.all && !options.active,
+        filter_active: if options.active {
+            Some(true)
+        } else {
+            None
+        },
+        tag: None,
+        limit: options.limit,
+        top_limit: None,
+        interval: None,
+        fidelity: options.fidelity,
+        period: options.fidelity,
+        since: options.since,
+        until: options.until,
+        recent_hours: options.recent_hours,
+        overwrite: options.overwrite,
+        concurrency: options.concurrency,
+        clob_base_url: options.clob_base_url.clone(),
+        kalshi_rest_base_url: options.kalshi_rest_base_url.clone(),
+        kalshi_key_id: options.kalshi_key_id.clone(),
+        kalshi_private_key_path: options.kalshi_private_key_path.clone(),
+        requests_per_second: options.requests_per_second,
+        max_retries: options.max_retries,
+        user_agent: options.user_agent.clone(),
     }
-    let conn = crate::duckdb_engine::open_connection(None)?;
-    let limit = options.limit.map(|n| format!(" LIMIT {n}")).unwrap_or_default();
-    let sql = format!(
-        "SELECT market_id, json_extract_string(raw_json, '$.series_ticker')
-         FROM read_parquet('{glob}')
-         WHERE source = 'kalshi' AND active = true
-         ORDER BY market_id{limit}"
-    );
-    let mut stmt = crate::duckdb_engine::map_duckdb(conn.prepare(&sql))?;
-    let rows = crate::duckdb_engine::map_duckdb(stmt.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
-    }))?;
-    Ok(rows.filter_map(|row| row.ok()).collect())
 }

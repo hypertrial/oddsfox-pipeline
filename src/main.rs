@@ -8,7 +8,7 @@ use oddsfox::cli::{
     SyncCommands,
 };
 use oddsfox::config::{
-    parse_date, Source, Table, TopBy, DEFAULT_BACKFILL_CONCURRENCY,
+    apply_active_minute_defaults, parse_date, Source, Table, TopBy, DEFAULT_BACKFILL_CONCURRENCY,
     DEFAULT_BACKFILL_FIDELITY_MINUTES, DEFAULT_BACKFILL_INTERVAL,
     DEFAULT_BACKFILL_REQUESTS_PER_SECOND,
 };
@@ -58,6 +58,7 @@ async fn main() -> Result<()> {
             interval,
             since,
             until,
+            recent_hours,
             rps,
             concurrency,
             overwrite,
@@ -80,11 +81,14 @@ async fn main() -> Result<()> {
                     .clone()
                     .or_else(|| config.backfill.interval.clone())
                     .or_else(|| Some(DEFAULT_BACKFILL_INTERVAL.to_string())),
-                fidelity: fidelity.or(config.backfill.fidelity_minutes).or(Some(
-                    DEFAULT_BACKFILL_FIDELITY_MINUTES,
-                )),
+                fidelity: fidelity.or(config.backfill.fidelity_minutes).or(if *active {
+                    None
+                } else {
+                    Some(DEFAULT_BACKFILL_FIDELITY_MINUTES)
+                }),
                 since: since.as_ref().map(|s| parse_date(s)).transpose()?,
                 until: until.as_ref().map(|s| parse_date(s)).transpose()?,
+                recent_hours: *recent_hours,
                 requests_per_second: rps
                     .or(config.backfill.requests_per_second)
                     .unwrap_or(DEFAULT_BACKFILL_REQUESTS_PER_SECOND),
@@ -165,6 +169,7 @@ async fn main() -> Result<()> {
                 period,
                 since,
                 until,
+                recent_hours,
                 overwrite,
                 rps,
                 concurrency,
@@ -177,9 +182,16 @@ async fn main() -> Result<()> {
                     } else {
                         None
                     }
+                } else if *active {
+                    Some(true)
                 } else {
                     None
                 };
+                let (fidelity, recent_hours) = apply_active_minute_defaults(
+                    *active,
+                    *fidelity,
+                    *recent_hours,
+                );
                 let options = oddsfox::config::SyncPricesOptions {
                     out: root,
                     source: *source,
@@ -192,10 +204,11 @@ async fn main() -> Result<()> {
                     limit: *limit,
                     top_limit: *top_limit,
                     interval: interval.clone(),
-                    fidelity: *fidelity,
+                    fidelity,
                     period: *period,
                     since: since.as_ref().map(|s| parse_date(s)).transpose()?,
                     until: until.as_ref().map(|s| parse_date(s)).transpose()?,
+                    recent_hours,
                     overwrite: *overwrite,
                     concurrency: concurrency.unwrap_or(1),
                     clob_base_url: config.polymarket.clob_base_url.clone(),
@@ -241,6 +254,7 @@ async fn main() -> Result<()> {
                     period: None,
                     since: since.as_ref().map(|s| parse_date(s)).transpose()?,
                     until: until.as_ref().map(|s| parse_date(s)).transpose()?,
+                    recent_hours: None,
                     overwrite: false,
                     concurrency: 1,
                     clob_base_url: config.polymarket.clob_base_url.clone(),
