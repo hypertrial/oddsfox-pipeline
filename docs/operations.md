@@ -143,6 +143,18 @@ oddsfox --config /path/to/oddsfox.toml sync markets --active
 
 See [metadata.md](metadata.md) for manifest details.
 
+## Progress output
+
+Long-running sync and collection commands prefix progress and completion lines with an RFC3339 UTC timestamp and flush stdout after each line. Examples:
+
+```text
+2026-06-29T17:15:00.123456+00:00 sync markets complete: 2100 events, 20293 markets (run=...)
+2026-06-29T17:15:01.234567+00:00 sync prices progress: 25/22292 tokens, 510 points
+2026-06-29T17:15:02.345678+00:00 collect hourly progress (polymarket): 25/24600 tokens, 1800 windows, 14200 rows
+```
+
+`sync prices` and `backfill` report progress every 25 tokens/markets. `collect hourly` also logs every 100 hour-windows processed.
+
 ## Hourly Collector Operations
 
 Run forever:
@@ -165,7 +177,7 @@ oddsfox collect hourly --source all --once
 
 The first run for a source requires `--since`. After that, the seed date is stored; passing `--since` again overrides the stored seed and clears per-token cursors for that source so collection restarts from the new date. `--lag-minutes` defaults to `5`, so the collector waits for an hour to be safely closed before fetching it.
 
-During collection, oddsfox prints a start line per source (token count, since, horizon), timestamped progress every 25 tokens (`YYYY-MM-DDTHH:MM:SS±HH:MM collect hourly progress ...`), and window progress every 100 hours processed until the pass completes.
+During collection, oddsfox prints a start line per source (token count, since, horizon), timestamped progress every 25 tokens, and window progress every 100 hours processed until the pass completes.
 
 Each token is fetched in 7-day API chunks; results are split into hourly parquet files locally. Use `--active` when you only need open markets.
 

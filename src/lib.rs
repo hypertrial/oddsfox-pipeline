@@ -25,6 +25,7 @@ pub mod parquet;
 pub mod parquet_props;
 pub mod paths;
 pub mod prices;
+pub mod progress_log;
 pub mod quarantine;
 pub mod quickstart;
 pub mod repair;

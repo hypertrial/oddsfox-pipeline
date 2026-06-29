@@ -21,6 +21,7 @@ use crate::manifest::{new_run_id, ManifestStore, SyncStateRecord};
 use crate::parquet::{write_snapshot, write_token_series};
 use crate::paths::LakePaths;
 use crate::prices::{parse_price_checkpoint, price_cursor_key, PriceCheckpoint};
+use crate::progress_log::log_progress;
 use crate::quarantine::{sha256_hex, write_raw_json};
 
 use client::{KalshiAuth, KalshiClient};
@@ -211,10 +212,10 @@ pub async fn sync_prices(options: SyncPricesOptions) -> Result<()> {
                 total_points.fetch_add(rows, Ordering::Relaxed);
                 let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
                 if done == total || done.is_multiple_of(25) {
-                    println!(
+                    log_progress(format!(
                         "sync kalshi prices progress: {done}/{total} markets, {} points",
                         total_points.load(Ordering::Relaxed)
-                    );
+                    ));
                 }
                 Ok::<_, OddsfoxError>(states)
             }
@@ -229,7 +230,9 @@ pub async fn sync_prices(options: SyncPricesOptions) -> Result<()> {
 
     let rows = total_points.load(Ordering::Relaxed);
     run.complete(rows)?;
-    println!("sync kalshi prices complete: {rows} points across {total} markets (run={run_id})");
+    log_progress(format!(
+        "sync kalshi prices complete: {rows} points across {total} markets (run={run_id})"
+    ));
     Ok(())
 }
 

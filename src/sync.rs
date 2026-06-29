@@ -11,6 +11,7 @@ use crate::normalize::{
 };
 use crate::parquet::write_snapshot;
 use crate::paths::LakePaths;
+use crate::progress_log::log_progress;
 use crate::quarantine::{sha256_hex, write_raw_json};
 
 pub async fn sync_markets(options: SyncMarketsOptions) -> Result<SyncSummary> {
@@ -78,11 +79,11 @@ pub async fn sync_markets(options: SyncMarketsOptions) -> Result<SyncSummary> {
     let rows = events.len() as i64 + markets.len() as i64;
     run.complete(rows)?;
 
-    println!(
+    log_progress(format!(
         "sync markets complete: {} events, {} markets (run={run_id})",
         events.len(),
         markets.len()
-    );
+    ));
     Ok(SyncSummary {
         events: events.len(),
         markets: markets.len(),

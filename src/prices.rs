@@ -17,6 +17,7 @@ use crate::manifest::{new_run_id, ManifestStore, SyncStateRecord};
 use crate::normalize::{merge_price_history, point_timestamp_secs, prices_batch};
 use crate::parquet::{read_all_batches, write_token_series};
 use crate::paths::LakePaths;
+use crate::progress_log::log_progress;
 use crate::sync::{all_token_pairs, token_ids_for_market, top_token_pairs};
 
 pub async fn sync_prices(options: SyncPricesOptions) -> Result<()> {
@@ -134,7 +135,9 @@ pub async fn sync_prices(options: SyncPricesOptions) -> Result<()> {
 
     let points_written = total_points.load(Ordering::Relaxed);
     run.complete(points_written)?;
-    println!("sync prices complete: {points_written} points across {total} tokens (run={run_id})");
+    log_progress(format!(
+        "sync prices complete: {points_written} points across {total} tokens (run={run_id})"
+    ));
     Ok(())
 }
 
@@ -284,7 +287,9 @@ pub fn load_price_history(path: &Path) -> Result<Vec<PriceHistoryPoint>> {
 }
 
 fn print_progress(done: usize, total: usize, points: i64) {
-    println!("sync prices progress: {done}/{total} tokens, {points} points");
+    log_progress(format!(
+        "sync prices progress: {done}/{total} tokens, {points} points"
+    ));
 }
 
 #[cfg(test)]

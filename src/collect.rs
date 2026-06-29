@@ -673,7 +673,7 @@ fn print_collect_progress(
 }
 
 fn log_collect_progress(message: impl AsRef<str>) {
-    log_collect(format!("{} {}", Utc::now().to_rfc3339(), message.as_ref()));
+    crate::progress_log::log_progress(message);
 }
 
 fn log_collect(message: impl AsRef<str>) {
