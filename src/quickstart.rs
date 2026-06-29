@@ -1,5 +1,7 @@
 use crate::config::QuickstartOptions;
+use crate::duckdb::default_db_for_lake;
 use crate::error::Result;
+use crate::paths::LakePaths;
 
 pub async fn run(options: QuickstartOptions) -> Result<()> {
     crate::init::run(&options.out)?;
@@ -56,9 +58,10 @@ pub async fn run(options: QuickstartOptions) -> Result<()> {
     };
     let _ = crate::metrics::compute_liquidity(&compute_options).await;
 
+    let lake = LakePaths::new(&options.out);
     let duckdb_options = crate::config::DuckDbOptions {
         out: options.out.clone(),
-        db: options.db.clone(),
+        db: default_db_for_lake(&lake),
     };
     crate::duckdb::run(&duckdb_options)?;
 

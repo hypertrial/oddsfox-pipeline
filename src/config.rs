@@ -344,7 +344,6 @@ pub struct ServeOptions {
 #[derive(Debug, Clone)]
 pub struct QuickstartOptions {
     pub out: PathBuf,
-    pub db: PathBuf,
     pub port: u16,
     pub top_volume: usize,
 }

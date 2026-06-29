@@ -83,6 +83,8 @@ oddsfox duckdb --out ~/.oddsfox --db ~/.oddsfox/catalog.duckdb
 oddsfox serve --port 8787
 ```
 
+`serve` reads Parquet directly and does not accept `--db`. Build or refresh the DuckDB catalog with `duckdb` or `sql --db` when needed.
+
 ## Kalshi workflow
 
 Configure read-only API credentials in `oddsfox.toml` (or the lake copy at `{out}/oddsfox.toml`):

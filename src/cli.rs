@@ -31,8 +31,6 @@ pub enum Commands {
     Quickstart {
         #[arg(long)]
         out: Option<PathBuf>,
-        #[arg(long, help = "Ignored for compatibility; serve reads Parquet directly")]
-        db: Option<PathBuf>,
         #[arg(long, default_value_t = 8787)]
         port: u16,
         #[arg(long, default_value_t = 50)]
@@ -180,8 +178,6 @@ pub enum Commands {
         port: u16,
         #[arg(long)]
         out: Option<PathBuf>,
-        #[arg(long)]
-        db: Option<PathBuf>,
     },
     Stats {
         #[arg(long)]

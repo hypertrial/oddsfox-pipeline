@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Breaking
+
+- Removed ignored `--db` flags from `quickstart` and `serve`. Use `oddsfox duckdb` / `oddsfox sql --db` for catalog paths; `serve` reads Parquet directly.
+
 ## 0.1.0 — 2026-06-27
 
 Initial release:

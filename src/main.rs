@@ -37,7 +37,6 @@ async fn main() -> Result<()> {
         }
         Commands::Quickstart {
             out,
-            db,
             port,
             top_volume,
         } => {
@@ -46,12 +45,6 @@ async fn main() -> Result<()> {
                 .unwrap_or_else(|| PathBuf::from(&config.data.home));
             oddsfox::quickstart::run(oddsfox::config::QuickstartOptions {
                 out: root,
-                db: db.clone().unwrap_or_else(|| {
-                    let root = out
-                        .clone()
-                        .unwrap_or_else(|| PathBuf::from(&config.data.home));
-                    default_db_for_lake(&oddsfox::paths::LakePaths::new(&root))
-                }),
                 port: *port,
                 top_volume: *top_volume,
             })
@@ -455,14 +448,8 @@ async fn main() -> Result<()> {
                 .unwrap_or_else(|| default_db_for_lake(&oddsfox::paths::LakePaths::new(&root)));
             oddsfox::sql_cmd::run_adhoc(&root, &db_path, query)?;
         }
-        Commands::Serve { port, out, db } => {
+        Commands::Serve { port, out } => {
             let root = lake_root_from_config(cli.config.as_deref(), out.clone())?;
-            if let Some(db) = db {
-                eprintln!(
-                    "warning: `oddsfox serve --db {}` is ignored; serve reads Parquet directly",
-                    db.display()
-                );
-            }
             oddsfox::server::serve(oddsfox::config::ServeOptions {
                 out: root,
                 port: *port,
