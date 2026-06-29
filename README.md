@@ -134,6 +134,7 @@ oddsfox compute calibration --since 2024-01-01
 | First local demo | `oddsfox quickstart` |
 | Durable all-market hourly collection | `oddsfox collect hourly --source all --since YYYY-MM-DD` |
 | One collector catch-up pass | `oddsfox collect hourly --source all --once` |
+| Active-market hourly collection | `oddsfox collect hourly --source all --since YYYY-MM-DD --active` |
 | Rolling active-market refresh | `oddsfox backfill --source all --active` |
 | One source/range price fetch | `oddsfox sync prices ...` |
 | User PnL inputs and rollup | `oddsfox sync user`, then `oddsfox pnl` |
