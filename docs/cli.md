@@ -39,12 +39,18 @@ First run requires `--since` so historical collection starts from an explicit UT
 
 Use `--active` to collect only tokens from markets where `active = true` (open markets). Default is all discovered tokens. For open-market monitoring, `--active` is much faster than the full historical corpus.
 
-Restart behavior:
+Interrupt and resume:
 
-- Crash before a window write: the same hour is fetched again.
-- Crash after a write but before cursor update: the deterministic file is replaced, then the cursor advances.
-- Crash after cursor update: the next run starts at the next hour.
-- Closed or resolved tokens stop after their final hourly window.
+Ctrl+C, a crash, or killing the process is safe. Re-run the same `collect hourly` command; tokens already caught up are skipped. After the first run, `--since` is optional — omit it, or pass the **same** date. Only a **different** `--since` clears per-token cursors and restarts from scratch.
+
+Restart behavior (per token, 7-day chunks):
+
+- Crash mid-chunk before cursor save: the in-flight chunk is re-fetched; hourly files for those hours are replaced deterministically (no duplicate rows in `bronze_prices`).
+- Crash after cursor save: the next run starts at the next chunk boundary (`next_start_ts`).
+- Token already at horizon: skipped on restart.
+- Closed or resolved tokens: cursor marked `done` after their final window.
+
+See [operations.md](operations.md#hourly-collector-operations) and [metadata.md](metadata.md) for cursor inspection and reset.
 
 Useful bounded run for cron, CI, or manual catch-up:
 

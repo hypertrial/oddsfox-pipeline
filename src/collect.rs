@@ -390,7 +390,7 @@ where
             if let Some(windows_done) = &ctx.windows_done {
                 let total = windows_done.fetch_add(1, Ordering::Relaxed) + 1;
                 if total == 1 || total.is_multiple_of(100) {
-                    log_collect(format!(
+                    log_collect_progress(format!(
                         "collect hourly progress ({}): {} windows processed",
                         source_label(token.source),
                         total
@@ -666,10 +666,14 @@ fn print_collect_progress(
     windows: usize,
     rows: i64,
 ) {
-    log_collect(format!(
+    log_collect_progress(format!(
         "collect hourly progress ({}): {done}/{total} tokens, {windows} windows, {rows} rows",
         source_label(source)
     ));
+}
+
+fn log_collect_progress(message: impl AsRef<str>) {
+    log_collect(format!("{} {}", Utc::now().to_rfc3339(), message.as_ref()));
 }
 
 fn log_collect(message: impl AsRef<str>) {

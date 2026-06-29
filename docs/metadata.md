@@ -48,7 +48,7 @@ Tracks incremental cursors so reruns skip already-fetched data.
 
 Passing `--since` on `sync user` overrides the stored watermark. Price sync uses `--overwrite` to ignore checkpoints.
 
-For the hourly collector, the important field is `next_start_ts`: it is the next UTC hour the collector will request for that token. `done=true` means a closed or resolved token has reached its final window.
+For the hourly collector, the important field is `next_start_ts`: it is the next UTC hour the collector will request for that token. The cursor advances once per completed 7-day chunk, not per hour — a mid-run interrupt may re-fetch at most one in-flight chunk. `done=true` means a closed or resolved token has reached its final window.
 
 Inspect hourly cursors:
 
