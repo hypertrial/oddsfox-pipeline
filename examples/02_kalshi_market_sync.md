@@ -17,6 +17,7 @@ oddsfox sync trades --source kalshi --market $MARKET --since 2026-01-01 --out ./
 oddsfox snapshot books --source kalshi --market $MARKET --depth 20 --out ./lake
 
 oddsfox duckdb --out ./lake --db ./lake/catalog.duckdb
+oddsfox sql "SELECT market_id, question, volume_24h FROM bronze_markets WHERE market_id LIKE 'kalshi:%' ORDER BY volume_24h DESC NULLS LAST" --limit 10 --out ./lake
 ```
 
 Query in DuckDB:

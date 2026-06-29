@@ -2,6 +2,16 @@
 
 See `oddsfox --help` for full flags.
 
+## Quickstart
+
+Build a small active-market lake, create DuckDB views, and start the local UI:
+
+```bash
+oddsfox quickstart
+```
+
+Open <http://127.0.0.1:8787>. `quickstart` keeps serving until you stop it.
+
 ## Active minute refresh (last 24 hours)
 
 Sync only active markets/events at 1-minute fidelity for the rolling last 24 hours:
@@ -21,9 +31,9 @@ For both sources in one backfill:
 oddsfox backfill --source all --active
 ```
 
-## Analyst workflow (recommended)
+## Full analyst workflow
 
-One command builds a DuckDB catalog of all markets with full CLOB price history:
+These longer-running commands build a DuckDB catalog of all markets with full CLOB price history:
 
 ```bash
 oddsfox backfill --fidelity 60
@@ -44,6 +54,7 @@ Query the catalog:
 
 ```bash
 oddsfox sql "SELECT m.question, p.ts, p.price FROM bronze_prices p JOIN bronze_outcomes o ON p.token_id = o.token_id JOIN bronze_markets m ON o.market_id = m.market_id LIMIT 10"
+oddsfox sql "SELECT market_id, question, volume_24h FROM bronze_markets ORDER BY volume_24h DESC NULLS LAST" --limit 10
 oddsfox serve --port 8787
 ```
 

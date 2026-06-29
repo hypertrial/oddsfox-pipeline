@@ -168,6 +168,8 @@ pub enum Commands {
     },
     Sql {
         query: String,
+        #[arg(long, default_value_t = 100)]
+        limit: usize,
         #[arg(long)]
         out: Option<PathBuf>,
         #[arg(long)]
@@ -601,6 +603,11 @@ mod tests {
             "oddsfox", "pnl", "--source", "all", "--user", "0xabc", "--format", "json",
         ])
         .unwrap();
+    }
+
+    #[test]
+    fn parses_sql_limit() {
+        Cli::try_parse_from(["oddsfox", "sql", "SELECT 1", "--limit", "10"]).unwrap();
     }
 
     #[test]

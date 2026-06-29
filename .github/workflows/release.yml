@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: cargo-dist (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-14
+            target: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install cargo-dist
+        run: cargo install cargo-dist --version 0.32.0 --locked
+      - name: Build release artifacts
+        run: cargo dist build --target ${{ matrix.target }} --artifacts=all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: target/distrib/*
+
+  publish:
+    name: publish GitHub release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: target/distrib
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: target/distrib/*
+          fail_on_unmatched_files: true

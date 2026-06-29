@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use duckdb::types::ValueRef;
 use duckdb::Connection;
 
 use crate::config::Table;
@@ -36,6 +37,32 @@ pub(crate) fn escape_sql_string(value: &str) -> String {
 
 pub(crate) fn read_parquet_sql(glob: &str) -> String {
     format!("read_parquet('{}')", escape_sql_string(glob))
+}
+
+pub(crate) fn format_value(value: ValueRef<'_>) -> String {
+    match value {
+        ValueRef::Null => String::new(),
+        ValueRef::Boolean(v) => v.to_string(),
+        ValueRef::TinyInt(v) => v.to_string(),
+        ValueRef::SmallInt(v) => v.to_string(),
+        ValueRef::Int(v) => v.to_string(),
+        ValueRef::BigInt(v) => v.to_string(),
+        ValueRef::HugeInt(v) => v.to_string(),
+        ValueRef::UTinyInt(v) => v.to_string(),
+        ValueRef::USmallInt(v) => v.to_string(),
+        ValueRef::UInt(v) => v.to_string(),
+        ValueRef::UBigInt(v) => v.to_string(),
+        ValueRef::Float(v) => v.to_string(),
+        ValueRef::Double(v) => v.to_string(),
+        ValueRef::Text(v) => String::from_utf8_lossy(v).into_owned(),
+        ValueRef::Blob(v) => format!("<blob {} bytes>", v.len()),
+        ValueRef::Timestamp(_, v) => v.to_string(),
+        ValueRef::Date32(v) => v.to_string(),
+        ValueRef::Time64(_, v) => v.to_string(),
+        ValueRef::Interval { .. } => "?".into(),
+        ValueRef::Decimal(v) => v.to_string(),
+        _ => "?".into(),
+    }
 }
 
 pub fn bronze_source_sql(lake: &LakePaths, table: Table) -> String {

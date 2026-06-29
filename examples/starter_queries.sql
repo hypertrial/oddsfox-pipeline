@@ -1,6 +1,7 @@
 -- oddsfox starter queries
 -- Paste into: oddsfox duckdb --out ~/.oddsfox
 -- Or run one line: oddsfox sql "SELECT COUNT(*) FROM bronze_markets" --out ~/.oddsfox
+-- `oddsfox sql` prints TSV with headers; pass --limit 0 to print every row.
 
 -- 1. Top active markets by 24h volume
 SELECT question, volume_24h, liquidity, source

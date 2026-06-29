@@ -27,6 +27,14 @@ It builds a local Parquet + DuckDB lake so analysts can make sense of Polymarket
 
 ## Install
 
+Prebuilt release installer:
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/hypertrial/oddsfox/releases/latest/download/oddsfox-installer.sh | sh
+```
+
+From a source checkout:
+
 ```bash
 cargo install --path .
 ```
@@ -35,23 +43,13 @@ First build compiles bundled DuckDB and may take several minutes.
 
 ## Quickstart
 
-For a full analyst lake (all markets + CLOB price history + DuckDB catalog):
+One command builds a small active-market lake, creates DuckDB views, and starts the local UI:
 
 ```bash
-oddsfox backfill --fidelity 60
-oddsfox backfill --source kalshi --fidelity 60 --limit 25
+oddsfox quickstart
 ```
 
-For a quick demo with active markets only:
-
-```bash
-oddsfox init
-oddsfox sync markets --active
-oddsfox sync prices --active
-oddsfox snapshot books --active --top-volume 50
-oddsfox compute liquidity --active
-oddsfox serve
-```
+Open <http://127.0.0.1:8787>. `quickstart` keeps serving until you stop it.
 
 For active 1-minute prices over the last 24 hours (both sources):
 
@@ -61,6 +59,13 @@ oddsfox sync prices --active
 oddsfox sync markets --source kalshi --status open
 oddsfox sync prices --active --source kalshi
 # or: oddsfox backfill --source all --active
+```
+
+For a longer-running full analyst lake (all markets + CLOB price history + DuckDB catalog):
+
+```bash
+oddsfox backfill --fidelity 60
+oddsfox backfill --source kalshi --fidelity 60 --limit 25
 ```
 
 For Kalshi:
@@ -82,19 +87,13 @@ oddsfox pnl --source all --format json
 
 `sync user` is safe to rerun: fills are deduplicated, latest positions win, and stored watermarks avoid refetching old activity unless `--since` is passed.
 
-Or one shot demo:
-
-```bash
-oddsfox quickstart
-```
-
 ## CLI commands
 
 | Command | Description |
 |---------|-------------|
 | `init` | Scaffold lake at `~/.oddsfox` |
 | `backfill` | Init → sync markets → sync price history → DuckDB catalog |
-| `quickstart` | Init → sync → snapshot → compute → duckdb |
+| `quickstart` | Init → sync → snapshot → compute → DuckDB → serve |
 | `sync markets` | Sync Polymarket or Kalshi events/markets/outcomes |
 | `sync prices` | Sync Polymarket CLOB or Kalshi candlestick price history |
 | `sync trades` | Sync Kalshi trades |

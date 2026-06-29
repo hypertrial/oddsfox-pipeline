@@ -22,9 +22,7 @@ It answers six research questions locally:
 ## Success demo
 
 ```bash
-oddsfox init
-oddsfox sync markets --active
-oddsfox snapshot books --active --top-volume 100
-oddsfox compute liquidity --active
-oddsfox serve
+oddsfox quickstart
 ```
+
+Open <http://127.0.0.1:8787>. `quickstart` keeps serving until you stop it.

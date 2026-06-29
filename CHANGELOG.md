@@ -9,6 +9,9 @@
 
 ### Changed
 
+- `quickstart` now starts the local read-only UI after building the demo lake.
+- `sql` now prints tab-separated multi-column output with headers and a configurable `--limit`.
+- README and CLI docs now lead with quickstart and release installer usage for analyst onboarding.
 - Price sync resume now uses per-token range/fidelity checkpoints instead of file existence alone.
 - Raw JSON captures are written through temp files and atomically renamed into place.
 

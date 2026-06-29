@@ -17,6 +17,7 @@ oddsfox sync user --source kalshi --limit 100 --out ./lake
 oddsfox pnl --source all --format json --out ./lake
 
 oddsfox duckdb --out ./lake --db ./lake/catalog.duckdb
+oddsfox sql "SELECT source, user_id, market_id, total_pnl FROM gold_user_pnl ORDER BY total_pnl DESC" --limit 20 --out ./lake
 ```
 
 Query rolled-up PnL:

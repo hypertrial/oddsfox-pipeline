@@ -10,7 +10,7 @@ pub async fn run(mut options: BackfillOptions) -> Result<()> {
     options.fidelity = fidelity;
     options.recent_hours = recent_hours;
 
-    crate::init::run(&options.out)?;
+    crate::init::run_quiet(&options.out)?;
 
     match options.source {
         BackfillSource::Polymarket => backfill_polymarket(&options).await?,
@@ -36,12 +36,13 @@ pub async fn run(mut options: BackfillOptions) -> Result<()> {
 
     println!("backfill complete: catalog at `{}`", db_path.display());
     println!(
-        "query with `oddsfox sql \"SELECT * FROM bronze_prices LIMIT 5\" --out {} --db {}`",
+        "query: `oddsfox sql \"SELECT market_id, question, volume_24h FROM bronze_markets ORDER BY volume_24h DESC NULLS LAST\" --limit 10 --out {} --db {}`",
         options.out.display(),
         db_path.display()
     );
+    println!("inspect: `oddsfox head --out {}`", options.out.display());
     println!(
-        "or run `oddsfox serve --out {} --port {}`",
+        "serve: `oddsfox serve --out {} --port {}`",
         options.out.display(),
         options.port
     );

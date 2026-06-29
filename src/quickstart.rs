@@ -4,7 +4,7 @@ use crate::error::Result;
 use crate::paths::LakePaths;
 
 pub async fn run(options: QuickstartOptions) -> Result<()> {
-    crate::init::run(&options.out)?;
+    crate::init::run_quiet(&options.out)?;
 
     let sync_options = crate::config::SyncMarketsOptions {
         out: options.out.clone(),
@@ -71,10 +71,10 @@ pub async fn run(options: QuickstartOptions) -> Result<()> {
         }
     }
 
-    println!(
-        "quickstart: ok — run `oddsfox serve --out {} --port {}`",
-        options.out.display(),
-        options.port
-    );
-    Ok(())
+    println!("quickstart: serving http://127.0.0.1:{}", options.port);
+    crate::server::serve(crate::config::ServeOptions {
+        out: options.out,
+        port: options.port,
+    })
+    .await
 }

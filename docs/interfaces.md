@@ -13,9 +13,10 @@ Implementation: [`src/duckdb_engine.rs`](../src/duckdb_engine.rs), [`src/server/
 ```bash
 oddsfox duckdb --out ~/.oddsfox --db ~/.oddsfox/catalog.duckdb
 oddsfox sql "SELECT COUNT(*) FROM bronze_markets" --out ~/.oddsfox
+oddsfox sql "SELECT market_id, question, volume_24h FROM bronze_markets ORDER BY volume_24h DESC NULLS LAST" --limit 10
 ```
 
-`duckdb` creates or refreshes views over existing Parquet. Views are omitted when no files exist for that table.
+`duckdb` creates or refreshes views over existing Parquet. Views are omitted when no files exist for that table. `sql` prints tab-separated output with a header row; `--limit 0` removes the default 100-row print cap.
 
 ### Bronze views
 

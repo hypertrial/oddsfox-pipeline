@@ -441,12 +441,17 @@ async fn main() -> Result<()> {
                     .unwrap_or_else(|| default_db_for_lake(&oddsfox::paths::LakePaths::new(&root))),
             })?;
         }
-        Commands::Sql { query, out, db } => {
+        Commands::Sql {
+            query,
+            limit,
+            out,
+            db,
+        } => {
             let root = lake_root_from_config(cli.config.as_deref(), out.clone())?;
             let db_path = db
                 .clone()
                 .unwrap_or_else(|| default_db_for_lake(&oddsfox::paths::LakePaths::new(&root)));
-            oddsfox::sql_cmd::run_adhoc(&root, &db_path, query)?;
+            oddsfox::sql_cmd::run_adhoc(&root, &db_path, query, *limit)?;
         }
         Commands::Serve { port, out } => {
             let root = lake_root_from_config(cli.config.as_deref(), out.clone())?;
