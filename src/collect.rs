@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::io::{self, Write};
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -30,10 +31,10 @@ pub async fn run(options: CollectHourlyOptions) -> Result<()> {
     crate::init::run_quiet(&options.out)?;
     loop {
         let progress = run_once(&options).await?;
-        println!(
+        log_collect(format!(
             "collect hourly complete: {} windows, {} rows",
             progress.windows_written, progress.rows_written
-        );
+        ));
         if options.once {
             return Ok(());
         }
@@ -49,7 +50,12 @@ async fn run_once(options: &CollectHourlyOptions) -> Result<CollectProgress> {
     }
 
     let mut total = CollectProgress::default();
+    log_collect("collect hourly: market refresh complete, starting collection");
     for source in sources {
+        log_collect(format!(
+            "collect hourly: {} starting collection pass",
+            source_label(source)
+        ));
         let progress = collect_source_once(options, source).await?;
         total.windows_written += progress.windows_written;
         total.rows_written += progress.rows_written;
@@ -99,24 +105,33 @@ async fn collect_source_once(
     options: &CollectHourlyOptions,
     source: Source,
 ) -> Result<CollectProgress> {
-    let tokens = hourly_tokens(&options.out, source)?;
+    log_collect(format!(
+        "collect hourly: {} loading tokens from lake",
+        source_label(source)
+    ));
+    let out = options.out.clone();
+    let tokens = tokio::task::spawn_blocking(move || hourly_tokens(&out, source))
+        .await
+        .map_err(|err| OddsfoxError::SyncIncomplete {
+            message: format!("hourly token load failed: {err}"),
+        })??;
     if tokens.is_empty() {
-        println!(
+        log_collect(format!(
             "collect hourly: {} no tokens to collect",
             source_label(source)
-        );
+        ));
         return Ok(CollectProgress::default());
     }
     let horizon_ts = floor_to_hour(Utc::now().timestamp() - i64::from(options.lag_minutes) * 60);
     let seed_ts = seed_ts(options, source)?;
     let concurrency = options.concurrency.max(1);
-    println!(
+    log_collect(format!(
         "collect hourly: {} {} tokens, since {}, horizon {}",
         source_label(source),
         tokens.len(),
         format_ts(seed_ts),
         format_ts(horizon_ts),
-    );
+    ));
 
     match source {
         Source::Polymarket => {
@@ -146,6 +161,7 @@ async fn collect_polymarket(
     let processed = Arc::new(AtomicUsize::new(0));
     let total_windows = Arc::new(AtomicUsize::new(0));
     let total_rows = Arc::new(AtomicI64::new(0));
+    let windows_done = Arc::new(AtomicUsize::new(0));
 
     let results = stream::iter(tokens)
         .map(|token| {
@@ -156,6 +172,7 @@ async fn collect_polymarket(
             let processed = Arc::clone(&processed);
             let total_windows = Arc::clone(&total_windows);
             let total_rows = Arc::clone(&total_rows);
+            let windows_done = Arc::clone(&windows_done);
             async move {
                 let progress = collect_token_window(
                     &out,
@@ -164,6 +181,7 @@ async fn collect_polymarket(
                     token,
                     horizon_ts,
                     seed_ts,
+                    Some(windows_done),
                     |token, start, end| {
                         let clob = clob.clone();
                         async move {
@@ -184,7 +202,7 @@ async fn collect_polymarket(
                 total_windows.fetch_add(progress.windows_written, Ordering::Relaxed);
                 total_rows.fetch_add(progress.rows_written, Ordering::Relaxed);
                 let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
-                if done == total || done.is_multiple_of(25) {
+                if should_report_progress(done, total) {
                     print_collect_progress(
                         Source::Polymarket,
                         done,
@@ -224,6 +242,7 @@ async fn collect_kalshi(
     let processed = Arc::new(AtomicUsize::new(0));
     let total_windows = Arc::new(AtomicUsize::new(0));
     let total_rows = Arc::new(AtomicI64::new(0));
+    let windows_done = Arc::new(AtomicUsize::new(0));
 
     let results = stream::iter(tokens)
         .map(|token| {
@@ -234,6 +253,7 @@ async fn collect_kalshi(
             let processed = Arc::clone(&processed);
             let total_windows = Arc::clone(&total_windows);
             let total_rows = Arc::clone(&total_rows);
+            let windows_done = Arc::clone(&windows_done);
             async move {
                 let progress = collect_token_window(
                     &out,
@@ -242,6 +262,7 @@ async fn collect_kalshi(
                     token,
                     horizon_ts,
                     seed_ts,
+                    Some(windows_done),
                     |token, start, end| {
                         let client = client.clone();
                         async move {
@@ -271,7 +292,7 @@ async fn collect_kalshi(
                 total_windows.fetch_add(progress.windows_written, Ordering::Relaxed);
                 total_rows.fetch_add(progress.rows_written, Ordering::Relaxed);
                 let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
-                if done == total || done.is_multiple_of(25) {
+                if should_report_progress(done, total) {
                     print_collect_progress(
                         Source::Kalshi,
                         done,
@@ -289,6 +310,7 @@ async fn collect_kalshi(
     Ok(sum_progress(results))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn collect_token_window<F, Fut>(
     out: &std::path::Path,
     paths: &LakePaths,
@@ -296,6 +318,7 @@ async fn collect_token_window<F, Fut>(
     token: HourlyToken,
     horizon_ts: i64,
     seed_ts: i64,
+    windows_done: Option<Arc<AtomicUsize>>,
     fetch: F,
 ) -> Result<CollectProgress>
 where
@@ -341,6 +364,16 @@ where
         save_cursor_locked(out, &cursor, rows, cursor_lock).await?;
         progress.windows_written += 1;
         progress.rows_written += rows;
+        if let Some(windows_done) = &windows_done {
+            let total = windows_done.fetch_add(1, Ordering::Relaxed) + 1;
+            if total == 1 || total.is_multiple_of(100) {
+                log_collect(format!(
+                    "collect hourly progress ({}): {} windows fetched",
+                    source_label(token.source),
+                    total
+                ));
+            }
+        }
     }
 
     if cursor.next_start_ts >= end_limit && token.stop_ts.is_some() && !cursor.done {
@@ -398,22 +431,49 @@ fn hourly_tokens(out: &std::path::Path, source: Source) -> Result<Vec<HourlyToke
 fn ensure_seed_cursor(options: &CollectHourlyOptions, source: Source) -> Result<()> {
     let store = ManifestStore::open(&options.out)?;
     let key = seed_cursor_key(source);
-    if store.sync_state(COLLECT_SOURCE, &key).is_some() {
-        return Ok(());
+    let since_ts = match options.since {
+        Some(date) => date_start_ts(date),
+        None => {
+            if store.sync_state(COLLECT_SOURCE, &key).is_some() {
+                return Ok(());
+            }
+            return Err(OddsfoxError::Config(format!(
+                "`collect hourly --source {}` requires --since on first run",
+                source_label(source)
+            )));
+        }
+    };
+
+    if let Some(record) = store.sync_state(COLLECT_SOURCE, &key) {
+        let stored = record.cursor_value.parse::<i64>().unwrap_or(since_ts);
+        if stored == since_ts {
+            return Ok(());
+        }
+        let removed = clear_collect_token_cursors(&store, source)?;
+        log_collect(format!(
+            "collect hourly: {} seed {} -> {} (cleared {removed} token cursors)",
+            source_label(source),
+            format_ts(stored),
+            format_ts(since_ts),
+        ));
     }
-    let since = options.since.ok_or_else(|| {
-        OddsfoxError::Config(format!(
-            "`collect hourly --source {}` requires --since on first run",
-            source_label(source)
-        ))
-    })?;
-    let since_ts = date_start_ts(since);
+
     store.upsert_sync_state(SyncStateRecord {
         source: COLLECT_SOURCE.into(),
         cursor_key: key,
         cursor_value: since_ts.to_string(),
         last_ts: DateTime::from_timestamp(since_ts, 0),
         updated_at: Utc::now(),
+    })
+}
+
+fn clear_collect_token_cursors(store: &ManifestStore, source: Source) -> Result<usize> {
+    let prefix = format!("collect:hourly:{}:", source_label(source));
+    let config_key = seed_cursor_key(source);
+    store.remove_sync_states_where(|record| {
+        record.source == COLLECT_SOURCE
+            && record.cursor_key.starts_with(&prefix)
+            && record.cursor_key != config_key
     })
 }
 
@@ -559,10 +619,19 @@ fn print_collect_progress(
     windows: usize,
     rows: i64,
 ) {
-    println!(
+    log_collect(format!(
         "collect hourly progress ({}): {done}/{total} tokens, {windows} windows, {rows} rows",
         source_label(source)
-    );
+    ));
+}
+
+fn log_collect(message: impl AsRef<str>) {
+    println!("{}", message.as_ref());
+    let _ = io::stdout().flush();
+}
+
+fn should_report_progress(done: usize, total: usize) -> bool {
+    done == 1 || done == total || done.is_multiple_of(25)
 }
 
 #[derive(Clone, Debug)]
@@ -694,6 +763,15 @@ mod tests {
     }
 
     #[test]
+    fn progress_reports_first_last_and_every_25() {
+        assert!(should_report_progress(1, 100));
+        assert!(should_report_progress(25, 100));
+        assert!(should_report_progress(100, 100));
+        assert!(!should_report_progress(2, 100));
+        assert!(!should_report_progress(24, 100));
+    }
+
+    #[test]
     fn cursor_key_includes_source_and_token() {
         assert_eq!(
             cursor_key(Source::Kalshi, "kalshi:KX:yes"),
@@ -714,6 +792,7 @@ mod tests {
             token(),
             HOUR_SECS,
             0,
+            None,
             |_token, _start, _end| async { Ok(vec![PriceHistoryPoint { t: 0, p: 0.42 }]) },
         )
         .await
@@ -743,6 +822,7 @@ mod tests {
             token(),
             HOUR_SECS * 2,
             0,
+            None,
             |_token, start, _| async move { Ok(vec![PriceHistoryPoint { t: start, p: 0.42 }]) },
         )
         .await
@@ -769,6 +849,7 @@ mod tests {
             token(),
             HOUR_SECS,
             0,
+            None,
             |_token, _, _| async { Ok(Vec::new()) },
         )
         .await
@@ -801,6 +882,7 @@ mod tests {
             token,
             HOUR_SECS,
             0,
+            None,
             |_token, _, _| async { Ok(Vec::new()) },
         )
         .await

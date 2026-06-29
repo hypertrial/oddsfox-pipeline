@@ -34,7 +34,7 @@ Collect hourly price history across every discovered Polymarket and Kalshi marke
 oddsfox collect hourly --source all --since 2024-01-01
 ```
 
-First run requires `--since` so historical collection starts from an explicit UTC date. The collector refreshes market metadata, fetches one UTC hour per token at a time, writes deterministic hourly price files, and advances a per-token cursor only after the hour is handled.
+First run requires `--since` so historical collection starts from an explicit UTC date. Passing `--since` again overrides the stored seed and clears per-token cursors for that source. The collector refreshes market metadata, fetches one UTC hour per token at a time, writes deterministic hourly price files, and advances a per-token cursor only after the hour is handled.
 
 Restart behavior:
 

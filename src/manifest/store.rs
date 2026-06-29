@@ -219,6 +219,17 @@ impl ManifestStore {
             .find(|r| r.source == source && r.cursor_key == cursor_key)
     }
 
+    pub fn remove_sync_states_where(
+        &self,
+        pred: impl Fn(&SyncStateRecord) -> bool,
+    ) -> Result<usize> {
+        let path = self.paths.sync_state_manifest();
+        let records: Vec<SyncStateRecord> = read_json_lines(&path);
+        let (removed, kept): (Vec<_>, Vec<_>) = records.into_iter().partition(&pred);
+        write_json(&path, &kept)?;
+        Ok(removed.len())
+    }
+
     pub fn write_schema_records(&self) -> Result<()> {
         let records: Vec<crate::manifest::records::SchemaRecord> = Table::all()
             .iter()
@@ -373,5 +384,37 @@ mod tests {
             store.incomplete_run_ids().into_iter().collect::<Vec<_>>(),
             vec!["run-1", "run-2"]
         );
+    }
+
+    #[test]
+    fn remove_sync_states_where_drops_matching_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = ManifestStore::open(dir.path()).unwrap();
+        let now = Utc::now();
+        store
+            .upsert_sync_state(SyncStateRecord {
+                source: "collect".into(),
+                cursor_key: "collect:hourly:polymarket:config".into(),
+                cursor_value: "1".into(),
+                last_ts: None,
+                updated_at: now,
+            })
+            .unwrap();
+        store
+            .upsert_sync_state(SyncStateRecord {
+                source: "collect".into(),
+                cursor_key: "collect:hourly:polymarket:tok-1".into(),
+                cursor_value: "{}".into(),
+                last_ts: None,
+                updated_at: now,
+            })
+            .unwrap();
+
+        let removed = store
+            .remove_sync_states_where(|record| record.cursor_key.contains(":tok-"))
+            .unwrap();
+        assert_eq!(removed, 1);
+        assert!(store.sync_state("collect", "collect:hourly:polymarket:config").is_some());
+        assert!(store.sync_state("collect", "collect:hourly:polymarket:tok-1").is_none());
     }
 }
