@@ -18,6 +18,10 @@ POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
 
 See [docs/quickstart.md](docs/quickstart.md) and [docs/configuration.md](docs/configuration.md) for full operator setup.
 
+## AI-assisted development
+
+If you use Cursor, [Ponytail](https://github.com/DietrichGebert/ponytail) loads from [`.cursor/rules/ponytail.mdc`](.cursor/rules/ponytail.mdc). Repo-specific guardrails (layout, quality gate, orchestration limits) live in [AGENTS.md](AGENTS.md).
+
 ## Quality gate
 
 Run these before opening a pull request (they mirror [`.github/workflows/ci.yml`](.github/workflows/ci.yml)):

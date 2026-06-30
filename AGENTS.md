@@ -16,6 +16,12 @@ POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=false
 POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
 ```
 
+## AI agent guidance
+
+Cursor loads [Ponytail](https://github.com/DietrichGebert/ponytail) from [`.cursor/rules/ponytail.mdc`](.cursor/rules/ponytail.mdc) (`alwaysApply: true`). It complements this file: reuse existing code, prefer stdlib and installed deps, and keep diffs minimal. Do not cut validation, error handling, security, or tests that cover real behavior. Mark intentional shortcuts with a `ponytail:` comment (name the ceiling and upgrade path).
+
+Other agents should read this `AGENTS.md` at the repo root.
+
 ## Quality gate (run before finishing work)
 
 Mirrors [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Use `uv run make …` from the repo root.
@@ -55,6 +61,7 @@ uv run make dbt-build
 ## Project layout
 
 ```
+.cursor/rules/     # Cursor agent rules (ponytail)
 src/oddsfox/
   config/          # Settings barrel (settings.py re-exports warehouse + polymarket)
   ingestion/       # dlt sources, Polymarket fetch/sync/backfill, odds engine
