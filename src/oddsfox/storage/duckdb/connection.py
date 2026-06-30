@@ -20,6 +20,7 @@ from oddsfox.storage.duckdb.schemas.polymarket import (
     bootstrap_polymarket_tables,
     create_test_markets_table,
     drop_legacy_bootstrap_markets_table_if_needed,
+    drop_legacy_markets_unique_index,
     ensure_polymarket_indexes,
 )
 
@@ -121,6 +122,7 @@ def init_duck_db() -> None:
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_OPS_SCHEMA}"')
         bootstrap_polymarket_tables(conn)
         drop_legacy_bootstrap_markets_table_if_needed(conn)
+        drop_legacy_markets_unique_index(conn)
         create_test_markets_table(conn)
         ensure_polymarket_indexes(conn)
         _SCHEMA_INITIALIZED = True

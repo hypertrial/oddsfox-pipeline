@@ -31,6 +31,7 @@ from oddsfox.storage.duckdb.observability import (
 )
 from oddsfox.storage.duckdb.schemas.polymarket import (
     drop_legacy_bootstrap_markets_table_if_needed,
+    drop_legacy_markets_unique_index,
 )
 
 
@@ -127,6 +128,15 @@ def polymarket_markets_raw_dlt(
             context.log.info(
                 "Dropped legacy bootstrap polymarket_raw.markets; dlt will recreate it"
             )
+        if drop_legacy_markets_unique_index(conn):
+            context.log.info(
+                "Dropped legacy idx_markets_id unique index; dlt owns id uniqueness"
+            )
+    if _POLYMARKET_DLT_PIPELINE.has_pending_data:
+        context.log.info(
+            "Clearing pending dlt packages for polymarket_wc2026_raw before extract"
+        )
+        _POLYMARKET_DLT_PIPELINE.drop_pending_packages()
     yield from dlt.run(context=context)
 
 

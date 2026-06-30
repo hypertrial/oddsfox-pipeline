@@ -24,15 +24,45 @@ If running dbt directly:
 uv run python -m dbt.cli.main parse --project-dir dbt --profiles-dir dbt/profiles
 ```
 
+## dlt Market Merge Duplicate Key
+
+If `dlt_polymarket_markets` fails with:
+
+```text
+Constraint Error: Duplicate key "id: …" violates unique constraint.
+```
+
+the warehouse likely has a legacy app-owned unique index (`idx_markets_id`) on dlt-owned `polymarket_raw.markets`. dlt merge loads manage id uniqueness via `primary_key=id`; an external unique index rejects re-discovery of existing markets.
+
+Fix:
+
+1. Pull the latest code (schema init and the dlt asset drop the legacy index automatically).
+2. Stop Dagster, then rerun `dlt_polymarket_markets`.
+
+Manual recovery if needed:
+
+```sql
+DROP INDEX IF EXISTS polymarket_raw.idx_markets_id;
+```
+
+The dlt asset also clears pending failed load packages before re-extracting.
+
 ## dlt Market Schema Conflict
 
-If dlt cannot load `polymarket_raw.markets`, drop the existing table and rerun `dlt_polymarket_markets`:
+If dlt cannot load `polymarket_raw.markets` because of a bootstrap schema mismatch, drop the existing table and rerun `dlt_polymarket_markets`:
 
 ```sql
 DROP TABLE IF EXISTS polymarket_raw.markets;
 ```
 
 The dlt asset normally handles legacy bootstrap tables automatically.
+
+## Markets vs Snapshot Responsibilities
+
+- `dlt_polymarket_markets` owns `polymarket_raw.markets` rows (dlt merge on `id`).
+- `polymarket_markets_snapshot` refreshes the WC2026 registry and writes `polymarket_raw.market_tokens` only; it does not upsert markets rows.
+
+If markets metadata looks stale after a snapshot run, materialize `dlt_polymarket_markets` first.
 
 ## Stale Warehouse
 
@@ -49,16 +79,6 @@ Then rerun the quickstart.
 - Lower `MARKETS_REQUESTS_PER_SECOND` or `ODDS_REQUESTS_PER_SECOND`.
 - Re-run the failed Dagster job; token sync state is ledgered.
 - Check `polymarket_ops.pipeline_run_events` and `polymarket_ops.sync_run_metrics` for the latest run payloads.
-
-## `polymarket_markets_snapshot` Upsert Failures
-
-If `polymarket_markets_snapshot` fails with:
-
-```text
-Binder Error: The specified columns as conflict target are not referenced by a UNIQUE/PRIMARY KEY CONSTRAINT or INDEX
-```
-
-the warehouse has a dlt-owned `polymarket_raw.markets` table without a unique constraint on `id`. Restart Dagster after pulling the latest code; schema init and snapshot upserts now ensure `idx_markets_id` exists and populate dlt metadata columns for new rows.
 
 ## Large Warehouse File
 

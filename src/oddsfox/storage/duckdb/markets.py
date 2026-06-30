@@ -17,17 +17,11 @@ from oddsfox.storage.duckdb.connection import (
 
 logger = logging.getLogger(__name__)
 
-_MARKETS_TABLE_MISSING_MSG = (
-    "polymarket_raw.markets does not exist. Materialize the dlt_polymarket_markets "
-    "Dagster asset first (or use the test helper create_test_markets_table)."
-)
-
 _TAB_MARKETS = polymarket_raw_tbl("markets")
 _TAB_MARKET_TOKENS = polymarket_raw_tbl("market_tokens")
 _TAB_TOKEN_SYNC_LEDGER = polymarket_ops_tbl("token_sync_ledger")
 _TAB_TOKEN_SYNC_SKIPS = polymarket_ops_tbl("token_sync_skips")
 _TAB_MARKET_METADATA_UNRESOLVED = polymarket_ops_tbl("market_metadata_unresolved")
-_DLT_SNAPSHOT_LOAD_ID = "oddsfox_snapshot"
 
 
 def _utc_now() -> datetime:
@@ -108,43 +102,6 @@ def get_all_market_ids() -> set:
         return {row[0] for row in rows}
 
 
-def _markets_table_exists(conn) -> bool:
-    row = conn.execute(
-        """
-        SELECT COUNT(*)
-        FROM information_schema.tables
-        WHERE table_schema = 'polymarket_raw' AND table_name = 'markets'
-        """
-    ).fetchone()
-    return bool(row and row[0])
-
-
-def _require_markets_table(conn) -> None:
-    if not _markets_table_exists(conn):
-        raise RuntimeError(_MARKETS_TABLE_MISSING_MSG)
-
-
-def _markets_table_has_dlt_columns(conn) -> bool:
-    row = conn.execute(
-        """
-        SELECT COUNT(*)
-        FROM information_schema.columns
-        WHERE table_schema = 'polymarket_raw'
-          AND table_name = 'markets'
-          AND column_name = '_dlt_id'
-        """
-    ).fetchone()
-    return bool(row and row[0])
-
-
-def _ensure_markets_id_unique(conn) -> None:
-    if not _markets_table_has_dlt_columns(conn):
-        return
-    conn.execute(
-        f"CREATE UNIQUE INDEX IF NOT EXISTS idx_markets_id ON {_TAB_MARKETS}(id)"
-    )
-
-
 def _persist_market_tokens(conn, token_data: Iterable[Tuple]) -> None:
     token_data = list(token_data)
     if not token_data:
@@ -172,102 +129,18 @@ def save_market_tokens_batch(token_data: Iterable[Tuple]) -> None:
 
 
 def save_markets_batch(market_data: Iterable[Tuple], token_data: Iterable[Tuple]):
+    """Persist CLOB token mappings from a markets sync batch.
+
+    ``polymarket_raw.markets`` rows are owned by the dlt landing asset; this
+    helper writes ``market_tokens`` only. ``market_data`` is retained for caller
+    compatibility and metrics but is not written to DuckDB.
     """
-    Save a batch of markets and token mappings into DuckDB.
-    Args:
-        market_data: sequence matching markets table structure
-        token_data: sequence of (market_id, token_json)
-    """
-    market_data = list(market_data)
+    _ = market_data
     token_data = list(token_data)
-    if not market_data:
+    if not token_data:
         return
-
-    # Normalize tuples so they always match the markets schema (14 columns with event_id).
-    # Older callers (and some tests) still pass 10-13 tuples without newer metadata cols.
-    normalized_market_data: List[Tuple] = []
-    for row in market_data:
-        if len(row) == 14:
-            normalized_market_data.append(row)
-        elif len(row) == 13:
-            normalized_market_data.append((*row, None))
-        elif len(row) == 12:
-            expanded = list(row)
-            expanded.insert(10, None)
-            normalized_market_data.append((*expanded, None))
-        elif len(row) == 11:
-            expanded = list(row)
-            expanded.insert(10, None)
-            normalized_market_data.append((*expanded, None, None))
-        elif len(row) == 10:
-            normalized_market_data.append((*row, None, None, None, None))
-        else:
-            raise ValueError(
-                f"Expected 10-14 columns for markets insert, got {len(row)}"
-            )
-
-    # Normalize empty-string end_date to None to satisfy DuckDB timestamp parsing.
-    def _sanitize_end_date(rec: Tuple) -> Tuple:
-        rec_list = list(rec)
-        end_val = rec_list[10]
-        if not end_val or (isinstance(end_val, str) and end_val.strip() == ""):
-            rec_list[10] = None
-        return tuple(rec_list)
-
-    normalized_market_data = [_sanitize_end_date(r) for r in normalized_market_data]
-
     ensure_duck_db()
     with get_connection() as conn:
-        _require_markets_table(conn)
-        _ensure_markets_id_unique(conn)
-        upsert_set = """
-              question=excluded.question,
-              category=excluded.category,
-              description=excluded.description,
-              outcomes=excluded.outcomes,
-              volume=excluded.volume,
-              active=excluded.active,
-              closed=excluded.closed,
-              created_at=excluded.created_at,
-              scraped_at=excluded.scraped_at,
-             end_date=COALESCE(excluded.end_date, markets.end_date),
-             slug=COALESCE(NULLIF(excluded.slug, ''), markets.slug),
-             event_slug=COALESCE(NULLIF(excluded.event_slug, ''), markets.event_slug),
-             event_id=COALESCE(NULLIF(excluded.event_id, ''), markets.event_id)
-        """
-        if _markets_table_has_dlt_columns(conn):
-            dlt_market_data = [
-                (
-                    *row,
-                    _DLT_SNAPSHOT_LOAD_ID,
-                    f"{_DLT_SNAPSHOT_LOAD_ID}.{row[0]}",
-                )
-                for row in normalized_market_data
-            ]
-            conn.executemany(
-                f"""
-                INSERT INTO {_TAB_MARKETS}
-                (id, question, category, description, outcomes, volume, active,
-                 closed, created_at, scraped_at, end_date, slug, event_slug, event_id,
-                 _dlt_load_id, _dlt_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                {upsert_set}
-                """,
-                dlt_market_data,
-            )
-        else:
-            conn.executemany(
-                f"""
-                INSERT INTO {_TAB_MARKETS}
-                (id, question, category, description, outcomes, volume, active,
-                 closed, created_at, scraped_at, end_date, slug, event_slug, event_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                {upsert_set}
-                """,
-                normalized_market_data,
-            )
         _persist_market_tokens(conn, token_data)
 
 

@@ -512,6 +512,64 @@ def test_drop_legacy_bootstrap_markets_table_if_needed(tmp_path, monkeypatch):
         assert drop_legacy_bootstrap_markets_table_if_needed(conn) is False
 
 
+def test_drop_legacy_markets_unique_index(tmp_path, monkeypatch):
+    db = tmp_path / "legacy_index.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", str(db))
+    reload_all_settings_modules()
+
+    from oddsfox.storage.duckdb.schemas.polymarket import (
+        create_test_markets_table,
+        drop_legacy_markets_unique_index,
+    )
+
+    with duckdb.connect(str(db)) as conn:
+        conn.execute('CREATE SCHEMA IF NOT EXISTS "polymarket_raw"')
+        create_test_markets_table(conn)
+        conn.execute("CREATE UNIQUE INDEX idx_markets_id ON polymarket_raw.markets(id)")
+        assert drop_legacy_markets_unique_index(conn) is True
+        remaining = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM duckdb_indexes()
+            WHERE schema_name = 'polymarket_raw'
+              AND table_name = 'markets'
+              AND index_name = 'idx_markets_id'
+            """
+        ).fetchone()[0]
+        assert remaining == 0
+        assert drop_legacy_markets_unique_index(conn) is False
+
+
+def test_init_duck_db_drops_legacy_markets_unique_index(tmp_path, monkeypatch):
+    db = tmp_path / "init_drop_index.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", str(db))
+    reload_all_settings_modules()
+    conn = importlib.reload(connection)
+
+    with duckdb.connect(str(db)) as bootstrap:
+        bootstrap.execute('CREATE SCHEMA IF NOT EXISTS "polymarket_raw"')
+        polymarket_schema.create_test_markets_table(bootstrap)
+        bootstrap.execute(
+            "CREATE UNIQUE INDEX idx_markets_id ON polymarket_raw.markets(id)"
+        )
+
+    conn._SCHEMA_LOGGED = False
+    conn._SCHEMA_INITIALIZED = False
+    conn.init_duck_db()
+
+    with conn.get_connection() as c:
+        remaining = c.execute(
+            """
+            SELECT COUNT(*)
+            FROM duckdb_indexes()
+            WHERE schema_name = 'polymarket_raw'
+              AND table_name = 'markets'
+              AND index_name = 'idx_markets_id'
+            """
+        ).fetchone()[0]
+    assert remaining == 0
+
+
 def test_audit_legacy_warehouse_layout_detects_main(monkeypatch, tmp_path):
     db = tmp_path / "legacy_layout.duckdb"
     with duckdb.connect(str(db)) as bootstrap:

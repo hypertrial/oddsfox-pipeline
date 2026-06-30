@@ -74,7 +74,11 @@ def normalize_market_payloads_for_dlt(
         "event_slug",
         "event_id",
     )
-    return [dict(zip(cols, row, strict=True)) for row in market_rows]
+    rows_by_id: dict[str, dict[str, Any]] = {}
+    for row in market_rows:
+        payload = dict(zip(cols, row, strict=True))
+        rows_by_id[str(payload["id"])] = payload
+    return list(rows_by_id.values())
 
 
 @dlt.source(name="polymarket")

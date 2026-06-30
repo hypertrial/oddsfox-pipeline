@@ -92,130 +92,60 @@ def _insert_minimal_market(conn, mid="m1", **kwargs):
     )
 
 
-def test_save_markets_batch_requires_dlt_markets_table(duck):
-    import oddsfox.storage.duckdb.markets as markets_mod
+def _normalize_market_tuple(row: tuple) -> tuple:
+    if len(row) == 14:
+        normalized = row
+    elif len(row) == 13:
+        normalized = (*row, None)
+    elif len(row) == 12:
+        expanded = list(row)
+        expanded.insert(10, None)
+        normalized = (*expanded, None)
+    elif len(row) == 11:
+        expanded = list(row)
+        expanded.insert(10, None)
+        normalized = (*expanded, None, None)
+    elif len(row) == 10:
+        normalized = (*row, None, None, None, None)
+    else:
+        raise ValueError(f"Expected 10-14 columns for markets insert, got {len(row)}")
 
-    with duck.get_connection() as conn:
-        conn.execute(f"DROP TABLE IF EXISTS {T_M}")
-    with pytest.raises(RuntimeError, match="dlt_polymarket_markets"):
-        markets_mod.save_markets_batch(
-            [
-                (
-                    "a",
-                    "q",
-                    "c",
-                    "d",
-                    "[]",
-                    1.0,
-                    True,
-                    False,
-                    "2024-01-01 00:00:00",
-                    "2024-01-01 00:00:00",
-                    None,
-                    None,
-                    None,
-                    None,
-                )
-            ],
-            [],
-        )
+    rec = list(normalized)
+    end_val = rec[10]
+    if not end_val or (isinstance(end_val, str) and not end_val.strip()):
+        rec[10] = None
+    return tuple(rec)
 
 
-def test_save_markets_batch_upserts_dlt_owned_table(duck):
-    with duck.get_connection() as conn:
-        conn.execute(f"DROP TABLE IF EXISTS {T_M}")
-        conn.execute(
-            f"""
-            CREATE TABLE {T_M} (
-                id VARCHAR NOT NULL,
-                question VARCHAR,
-                category VARCHAR,
-                description VARCHAR,
-                outcomes VARCHAR,
-                volume DOUBLE,
-                active BOOLEAN,
-                closed BOOLEAN,
-                created_at TIMESTAMP,
-                scraped_at TIMESTAMP,
-                end_date TIMESTAMP,
-                slug VARCHAR,
-                event_slug VARCHAR,
-                event_id VARCHAR,
-                _dlt_load_id VARCHAR NOT NULL,
-                _dlt_id VARCHAR NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            f"""
-            INSERT INTO {T_M}
-            (id, question, category, description, outcomes, volume, active, closed,
-             created_at, scraped_at, end_date, slug, event_slug, event_id,
-             _dlt_load_id, _dlt_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                "m-dlt",
-                "old-q",
-                "c",
-                "d",
-                "[]",
-                1.0,
-                True,
-                False,
-                "2020-01-01 00:00:00",
-                "2020-01-01 00:00:00",
-                None,
-                None,
-                None,
-                None,
-                "dlt-load",
-                "dlt-load.m-dlt",
-            ],
-        )
-
-    markets.save_markets_batch(
-        [
-            (
-                "m-dlt",
-                "new-q",
-                "c",
-                "d",
-                "[]",
-                2.0,
-                True,
-                False,
-                "2020-01-01 00:00:00",
-                "2021-01-01 00:00:00",
-                None,
-                None,
-                None,
-            ),
-            (
-                "m-new",
-                "insert-q",
-                "c",
-                "d",
-                "[]",
-                3.0,
-                True,
-                False,
-                "2020-01-01 00:00:00",
-                "2021-01-01 00:00:00",
-                None,
-                None,
-                None,
-            ),
-        ],
-        [("m-new", '["tok"]')],
+def _insert_market_tuple(conn, row: tuple) -> None:
+    rec = _normalize_market_tuple(row)
+    conn.execute(
+        f"""INSERT OR REPLACE INTO {T_M}
+        (id, question, category, description, outcomes, volume, active, closed,
+         created_at, scraped_at, end_date, slug, event_slug, event_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        list(rec),
     )
 
+
+def _seed_markets(duck, market_rows=None, token_rows=None) -> None:
+    """Seed markets via direct insert; persist tokens through save_markets_batch."""
     with duck.get_connection() as conn:
-        updated = conn.execute(
-            f"SELECT question, volume FROM {T_M} WHERE id = 'm-dlt'"
-        ).fetchone()
-        inserted = conn.execute(
-            f"SELECT question, _dlt_load_id FROM {T_M} WHERE id = 'm-new'"
+        for row in market_rows or ():
+            _insert_market_tuple(conn, row)
+    if token_rows:
+        markets.save_markets_batch([], token_rows)
+
+
+def test_save_markets_batch_persists_tokens_only(duck):
+    with duck.get_connection() as conn:
+        _insert_minimal_market(conn, "m-tok")
+
+    markets.save_markets_batch([], [("m-tok", '["tok-a", "tok-b"]')])
+
+    with duck.get_connection() as conn:
+        row = conn.execute(
+            f"SELECT clobTokenIds FROM {T_MT} WHERE market_id = 'm-tok'"
         ).fetchone()
         index = conn.execute(
             """
@@ -226,132 +156,25 @@ def test_save_markets_batch_upserts_dlt_owned_table(duck):
               AND index_name = 'idx_markets_id'
             """
         ).fetchone()[0]
-    assert updated == ("new-q", 2.0)
-    assert inserted == ("insert-q", "oddsfox_snapshot")
-    assert index == 1
+    assert row == ('["tok-a", "tok-b"]',)
+    assert index == 0
+
+
+def test_save_markets_batch_noop_without_tokens(duck):
+    with duck.get_connection() as conn:
+        before = conn.execute(f"SELECT COUNT(*) FROM {T_MT}").fetchone()[0]
+    markets.save_markets_batch([("ignored",)], [])
+    with duck.get_connection() as conn:
+        after = conn.execute(f"SELECT COUNT(*) FROM {T_MT}").fetchone()[0]
+    assert before == after == 0
 
 
 def test_markets_count_and_ids(duck):
     assert markets.get_market_count() == 0
-    markets.save_markets_batch(
-        [
-            (
-                "a",
-                "q",
-                "c",
-                "d",
-                "[]",
-                1.0,
-                True,
-                False,
-                "2020-01-01 00:00:00",
-                "2020-01-01 00:00:00",
-                None,
-                None,
-                None,
-            )
-        ],
-        [],
-    )
+    with duck.get_connection() as conn:
+        _insert_minimal_market(conn, "a")
     assert markets.get_market_count() == 1
     assert "a" in markets.get_all_market_ids()
-
-
-def test_save_markets_batch_tuple_shapes_10_11_12(duck):
-    row10 = (
-        "x4",
-        "q",
-        "c",
-        "d",
-        "[]",
-        1.0,
-        True,
-        False,
-        "2020-01-01 00:00:00",
-        "2020-01-01 00:00:00",
-    )
-    row11 = row10 + ("s",)
-    row12 = row11 + ("es",)
-    markets.save_markets_batch([row10, row11, row12], [("x4", '["t"]')])
-
-
-def test_save_markets_batch_invalid_length_raises(duck):
-    with pytest.raises(ValueError, match="Expected 10-14"):
-        markets.save_markets_batch([("a", "b")], [])
-
-
-def test_save_markets_batch_empty_returns(duck):
-    markets.save_markets_batch([], [])
-
-
-def test_end_date_sanitize(duck):
-    markets.save_markets_batch(
-        [
-            (
-                "ed",
-                "q",
-                "c",
-                "d",
-                "[]",
-                1.0,
-                True,
-                False,
-                "2020-01-01 00:00:00",
-                "2020-01-01 00:00:00",
-                "",
-                None,
-                None,
-            )
-        ],
-        [],
-    )
-
-
-def test_end_date_sanitize_whitespace_only(duck):
-    """_sanitize_end_date: str with only whitespace -> None (73-77 branches)."""
-    markets.save_markets_batch(
-        [
-            (
-                "ew",
-                "q",
-                "c",
-                "d",
-                "[]",
-                1.0,
-                True,
-                False,
-                "2020-01-01 00:00:00",
-                "2020-01-01 00:00:00",
-                "   ",
-                None,
-                None,
-            )
-        ],
-        [],
-    )
-
-
-def test_end_date_preserved_when_present(duck):
-    markets.save_markets_batch(
-        [
-            (
-                "ep",
-                "q",
-                "c",
-                "d",
-                "[]",
-                1.0,
-                True,
-                False,
-                "2020-01-01 00:00:00",
-                "2020-01-01 00:00:00",
-                "2026-01-01 00:00:00",
-                None,
-                None,
-            )
-        ],
-        [],
-    )
 
 
 def test_get_markets_without_tokens_and_save_tokens(duck):
@@ -388,7 +211,8 @@ def test_save_tokens_batch_skips_unknown_market_id(duck, caplog):
 
 
 def test_get_markets_with_tokens_and_iter(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "gw",
@@ -512,7 +336,8 @@ def test_markets_empty_saves_noop(duck):
 
 
 def test_iter_markets_json_array_only_no_cutoff(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "ja",
@@ -537,7 +362,8 @@ def test_iter_markets_json_array_only_no_cutoff(duck):
 
 
 def test_iter_markets_with_cutoff_without_json_array_filter(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "jb",
@@ -568,7 +394,8 @@ def test_iter_markets_with_cutoff_without_json_array_filter(duck):
 
 
 def test_iter_due_market_tokens_filters_due_closed_and_skipped(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "due_market",
@@ -665,7 +492,8 @@ def test_iter_due_market_tokens_filters_due_closed_and_skipped(duck):
 
 
 def test_iter_due_market_tokens_without_cutoff(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "no_cutoff_market",
@@ -691,7 +519,8 @@ def test_iter_due_market_tokens_without_cutoff(duck):
 
 
 def test_iter_due_market_tokens_scopes_wc2026_and_counts_scope_skip(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "wc_market",
@@ -755,7 +584,8 @@ def test_iter_due_market_tokens_scopes_wc2026_and_counts_scope_skip(duck):
 
 
 def test_iter_due_market_tokens_skips_ended_markets_after_grace(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "ended_old",
@@ -809,7 +639,8 @@ def test_iter_due_market_tokens_skips_ended_markets_after_grace(duck):
 
 
 def test_count_candidate_market_tokens_due_only(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "due_market",
@@ -900,7 +731,8 @@ def test_count_candidate_market_tokens_due_only(duck):
 
 
 def test_count_candidate_market_tokens_force_mode(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "m_two_tok",
@@ -946,7 +778,8 @@ def test_count_candidate_market_tokens_force_mode(duck):
 
 
 def test_count_candidate_market_tokens_without_cutoff(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "m_nocutoff",
@@ -983,7 +816,8 @@ def test_volume_where_clause_helpers():
 
 
 def test_iter_markets_with_tokens_volume_bounds(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "m_whale",
@@ -1045,7 +879,8 @@ def test_iter_markets_with_tokens_volume_bounds(duck):
 
 
 def test_count_candidate_market_tokens_force_mode_without_cutoff(duck):
-    markets.save_markets_batch(
+    _seed_markets(
+        duck,
         [
             (
                 "m_force_nocutoff",
