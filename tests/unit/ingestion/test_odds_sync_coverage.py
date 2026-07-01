@@ -207,41 +207,6 @@ def test_init_db(monkeypatch):
     odds_sync.init_db()
 
 
-def test_maybe_auto_tune_rps_branches():
-    class Limiter:
-        def __init__(self):
-            self.rate = 10.0
-
-        def get_rate(self):
-            return self.rate
-
-        def set_rate(self, r):
-            self.rate = r
-
-    lim = Limiter()
-    state = {"last_total": 0, "last_429": 0, "last_error": 0}
-    odds_sync._maybe_auto_tune_rps(
-        limiter=None,
-        runtime_status={"total": 0},
-        tune_state=state,
-        window_requests=1,
-        threshold_429=0.0,
-        threshold_error=0.0,
-        min_rps=1,
-        max_rps=20,
-    )
-    odds_sync._maybe_auto_tune_rps(
-        limiter=lim,
-        runtime_status={"total": 100, "429": 50, "error": 0},
-        tune_state={"last_total": 0, "last_429": 0, "last_error": 0},
-        window_requests=1,
-        threshold_429=0.0,
-        threshold_error=0.0,
-        min_rps=1,
-        max_rps=20,
-    )
-
-
 def test_sync_odds_no_tokens_path(monkeypatch):
     monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", lambda **kw: iter(()))

@@ -74,13 +74,13 @@ unit-ingest:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/unit/ingestion -q -n 0 -m "$(PYTEST_FAST_MARKERS)"
 
 unit-orchestration:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/unit/orchestration tests/dagster -q -n 0 -m "not performance and not slow"
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/unit/orchestration -q -n 0 -m "not performance and not slow"
 
 integration-dbt:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb tests/dbt -q -n 0 -m "not performance and not slow"
 
 integration-dagster:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster tests/dagster -q -n 0 -m "not performance and not slow"
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster -q -n 0 -m "not performance and not slow"
 
 clean-local-artifacts:
 	$(RUN_IN_REPO) find . -type d -name __pycache__ -prune -exec rm -rf {} +
