@@ -37,10 +37,17 @@ uv run make integration-dbt
 uv run make docs-check
 uv run make dbt-parse
 uv run make dbt-build-ci
+uv run make costguard
 ```
 
 `dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
 running dbt build.
+Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
+Install the pinned local scanner with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/install.sh | sh -s -- v2.5.0
+```
 
 ### Targeted commands
 
@@ -53,6 +60,7 @@ running dbt build.
 | `make integration-dbt` | DuckDB + dbt integration smoke |
 | `make integration-dagster` | Dagster integration smoke |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
+| `make costguard` | Run the dbt cost guardrail |
 | `make dagster-dev` | Local Dagster UI |
 | `make docs-serve` | MkDocs dev server |
 

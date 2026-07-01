@@ -1,7 +1,8 @@
-.PHONY: dagster-dev duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test docs-serve docs-build docs-check clean-local-artifacts format lint test unit-core unit-ingest unit-orchestration integration-dbt integration-dagster check-secrets compact-warehouse prune-odds-history
+.PHONY: dagster-dev duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test costguard docs-serve docs-build docs-check clean-local-artifacts format lint test unit-core unit-ingest unit-orchestration integration-dbt integration-dagster check-secrets compact-warehouse prune-odds-history
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
+COSTGUARD ?= costguard
 RUN_IN_REPO := cd "$(REPO_ROOT)" &&
 DUCKDB_NAME ?= oddsfox.duckdb
 DBT_LINT_DUCKDB_PATH := $(REPO_ROOT)/.cache/dbt_lint.duckdb
@@ -36,6 +37,9 @@ dbt-build-ci:
 dbt-parse:
 	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
 	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m dbt.cli.main parse --project-dir dbt --profiles-dir dbt/profiles
+
+costguard: dbt-build-ci
+	$(RUN_IN_REPO) cd dbt && "$(COSTGUARD)" scan
 
 docs-serve:
 	$(RUN_IN_REPO) NO_MKDOCS_2_WARNING=true "$(PYTHON)" -m mkdocs serve -a 127.0.0.1:8000

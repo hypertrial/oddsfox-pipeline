@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  attestations: read
   contents: read
 
 concurrency:
@@ -23,6 +24,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -52,3 +55,25 @@ jobs:
 
       - name: dbt build
         run: uv run make dbt-build-ci
+
+      - name: Costguard
+        uses: hypertrial/costguard/.github/actions/costguard@v2.5.0
+        with:
+          base: origin/main
+          warehouse: duckdb
+          working-directory: dbt
+          manifest: target/manifest.json
+          fail-on: high
+          min-confidence: high
+          block-only-new: true
+          format: github
+          receipt-path: costguard-receipt.json
+
+      - name: Upload Costguard receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: costguard-receipt
+          path: dbt/costguard-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14

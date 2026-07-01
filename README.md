@@ -60,9 +60,17 @@ uv run make integration-dbt
 uv run make docs-check
 uv run make dbt-parse
 uv run make dbt-build-ci
+uv run make costguard
 ```
 
 `dbt-build-ci` uses a disposable DuckDB database under `.cache/` for CI parity.
+Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
+Install the pinned local scanner with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/install.sh | sh -s -- v2.5.0
+```
+
 See [Development](docs/development.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Community
