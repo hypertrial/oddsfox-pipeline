@@ -1,21 +1,10 @@
-import time
-from threading import Lock
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
 from oddsfox.ingestion.polymarket.odds import fetch as odds_fetch
-from oddsfox.ingestion.polymarket.odds import process as odds_process
-
-
-def test_status_hooks():
-    seen = []
-
-    odds_fetch.set_status_hook(lambda s: seen.append(s))
-    odds_fetch._emit_status(200)
-    odds_fetch._emit_status_via(lambda s: (_ for _ in ()).throw(RuntimeError("x")), 400)
-    odds_fetch.set_status_hook(None)
+from oddsfox.ingestion.polymarket.odds import support as odds_support
 
 
 def test_build_client():
@@ -205,150 +194,12 @@ def test_fetch_with_retry_clamps_end(monkeypatch):
         )
 
 
-def test_split_time_windows_and_token_heuristic():
-    assert list(odds_process.split_time_windows(0, 100, 30))[:2]
-    assert odds_process.is_probably_clob_token("") is False
-    assert odds_process.is_probably_clob_token("open_token_x") is False
-    assert odds_process.is_probably_clob_token("bad!") is False
-    assert odds_process.is_probably_clob_token("a" * 64) is True
-    assert odds_process.is_probably_clob_token("t1") is True
-
-
-def test_process_token_paths():
-    lock = Lock()
-    stats = {
-        "success": 0,
-        "empty": 0,
-        "error": 0,
-        "skipped": 0,
-        "fully_checked": 0,
-        "permanent_error": 0,
-    }
-    client = MagicMock()
-    client.get.return_value = {"history": [{"t": 200, "p": 0.5}]}
-
-    odds_process.process_token(
-        "t" * 40,
-        {("t" * 40): 100},
-        set(),
-        client,
-        lock,
-        stats,
-        skip_recent_hours=0,
-        force=False,
-    )
-
-    odds_process.process_token(
-        "t" * 40,
-        {("t" * 40): int(time.time())},
-        set(),
-        client,
-        lock,
-        stats,
-        skip_recent_hours=999,
-        force=False,
-    )
-
-    odds_process.process_token(
-        "t" * 40,
-        {},
-        set(),
-        client,
-        lock,
-        stats,
-        skip_recent_hours=0,
-        force=False,
-    )
-
-
-def test_process_token_fully_checked():
-    lock = Lock()
-    stats = {
-        k: 0
-        for k in (
-            "success",
-            "empty",
-            "error",
-            "skipped",
-            "fully_checked",
-            "permanent_error",
-        )
-    }
-    client = MagicMock()
-    odds_process.process_token(
-        "t" * 40,
-        {},
-        {"t" * 40},
-        client,
-        lock,
-        stats,
-        force=False,
-    )
-
-
-def test_process_token_bad_request():
-    lock = Lock()
-    stats = {
-        k: 0
-        for k in (
-            "success",
-            "empty",
-            "error",
-            "skipped",
-            "fully_checked",
-            "permanent_error",
-        )
-    }
-    client = MagicMock()
-
-    def boom(*a, **k):
-        raise odds_fetch.BadRequestError("b", status=400, body="")
-
-    client.get.side_effect = boom
-    odds_process.process_token(
-        "t" * 40,
-        {("t" * 40): 1},
-        set(),
-        client,
-        lock,
-        stats,
-        skip_recent_hours=0,
-        force=True,
-        max_range_seconds=3600,
-    )
-
-
-@pytest.mark.filterwarnings("ignore")
-def test_process_token_records_none_branch():
-    lock = Lock()
-    stats = {
-        k: 0
-        for k in (
-            "success",
-            "empty",
-            "error",
-            "skipped",
-            "fully_checked",
-            "permanent_error",
-        )
-    }
-    client = MagicMock()
-    client.get.return_value = None
-
-    with patch(
-        "oddsfox.ingestion.polymarket.odds.process.fetch_token_history_with_retry",
-        return_value=None,
-    ):
-        odds_process.process_token(
-            "t" * 40,
-            {},
-            set(),
-            client,
-            lock,
-            stats,
-            skip_recent_hours=0,
-            force=True,
-        )
+def test_is_probably_clob_token_heuristic():
+    assert odds_support.is_probably_clob_token("") is False
+    assert odds_support.is_probably_clob_token("open_token_x") is False
+    assert odds_support.is_probably_clob_token("bad!") is False
+    assert odds_support.is_probably_clob_token("a" * 64) is True
+    assert odds_support.is_probably_clob_token("t1") is True
 
 
 def test_helpers_response_status():

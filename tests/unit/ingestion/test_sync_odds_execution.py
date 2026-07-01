@@ -9,7 +9,7 @@ import pytest
 
 pytest.importorskip("duckdb")
 
-from tests.unit.ingestion._odds_sync_harness import (
+from tests.integration.ingestion._odds_sync_harness import (
     FakeClock,
     ImmediatePoolNoShutdown,
     NeverDonePool,
@@ -23,6 +23,9 @@ from tests.unit.ingestion._odds_sync_harness import (
 
 from oddsfox.config._reload_settings import reload_all_settings_modules
 from oddsfox.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox.storage.duckdb.connection import polymarket_raw_tbl
+
+_T_OH = polymarket_raw_tbl("odds_history")
 
 
 def _plan():
@@ -180,6 +183,67 @@ def test_flush_writer_buffers_rollback(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError):
         odds_sync._flush_writer_buffers(BadConn(), buf, st, 1, force=True)
+
+
+def test_flush_writer_buffers_atomic_rollback_odds_and_state(monkeypatch, tmp_path):
+    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "atomic.duckdb"))
+    import importlib
+
+    import oddsfox.storage.duckdb.connection as connection
+
+    reload_all_settings_modules()
+    connection._SCHEMA_INITIALIZED = False
+    connection._SCHEMA_LOGGED = False
+    importlib.reload(connection)
+    connection.ensure_duck_db()
+
+    token_id = "k" * 33 + "12"
+    buf = odds_sync.WriterBuffers(
+        odds_map={(token_id, 1): 0.5},
+        state_buffer=[(token_id, 1, None, None, 0, False)],
+        skip_buffer=[],
+    )
+    st = {
+        "saved": 0,
+        "saved_daily_rows": 0,
+        "deduped": 0,
+        "sync_rows": 0,
+        "skip_rows": 0,
+        "full_rows": 0,
+        "invalid_ts_dropped": 0,
+        "invalid_price_dropped": 0,
+    }
+
+    def fail_state_upsert(_rows, _conn):
+        raise RuntimeError("state upsert failed")
+
+    def simple_odds_upsert(records, conn, assume_deduped=False):
+        del assume_deduped
+        conn.executemany(
+            f"""
+            INSERT OR REPLACE INTO {_T_OH}
+            (clobTokenId, timestamp, price, ingested_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            """,
+            [(token_id, ts, price) for token_id, ts, price in records],
+        )
+
+    with connection.get_connection() as conn:
+        with pytest.raises(RuntimeError, match="state upsert failed"):
+            odds_sync._flush_writer_buffers(
+                conn,
+                buf,
+                st,
+                1,
+                force=True,
+                save_odds_bulk_upsert_fn=simple_odds_upsert,
+                upsert_token_sync_state_batch_fn=fail_state_upsert,
+            )
+
+    with connection.get_connection() as conn:
+        odds_count = conn.execute(f"SELECT count(*) FROM {_T_OH}").fetchone()[0]
+    assert odds_count == 0
+    assert st["sync_rows"] == 0
 
 
 def test_sync_odds_no_progress_hard_timeout_aborts_and_persists_metrics(monkeypatch):

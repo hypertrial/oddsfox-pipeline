@@ -86,6 +86,25 @@ def _due_token_base_where(
     return " AND ".join(predicates)
 
 
+def _due_token_routine_filters(
+    cutoff_created_at: Optional[str],
+    params: List,
+    *,
+    market_scope: str = "all",
+    ended_market_grace_days: int | None = None,
+    min_volume: float | None = None,
+    max_volume: float | None = None,
+    alias: str = "m",
+) -> str:
+    """Shared scope/volume/ended filters for due-token iterators and counts."""
+    return (
+        f"{_due_token_base_where(cutoff_created_at, params)}"
+        f"{_market_scope_where_clause(market_scope, alias)}"
+        f"{_volume_where_clause(min_volume, max_volume, alias)}"
+        f"{_ended_market_where_clause(ended_market_grace_days, alias)}"
+    )
+
+
 def _validate_volume_bound(value: float | None, *, name: str) -> float | None:
     if value is None:
         return None
@@ -321,10 +340,16 @@ def iter_due_market_tokens(
             m.created_at,
             m.closed
         {_DUE_TOKEN_JOIN_SQL}
-        WHERE {_due_token_base_where(cutoff_created_at, params)}
-        {_market_scope_where_clause(market_scope, "m")}
-        {_volume_where_clause(min_volume, max_volume, "m")}
-        {_ended_market_where_clause(ended_market_grace_days, "m")}
+        WHERE {
+        _due_token_routine_filters(
+            cutoff_created_at,
+            params,
+            market_scope=market_scope,
+            ended_market_grace_days=ended_market_grace_days,
+            min_volume=min_volume,
+            max_volume=max_volume,
+        )
+    }
     """
     with get_connection() as conn:
         cursor = conn.execute(query, params) if params else conn.execute(query)
@@ -348,6 +373,7 @@ def count_due_market_token_exclusions(
     ensure_duck_db()
     params: List = []
     base_sql = _due_token_base_where(cutoff_created_at, params)
+    volume_sql = _volume_where_clause(min_volume, max_volume, "m")
     scope_skip = 0
     ended_skip = 0
     scoped = scope == MARKET_SCOPE_WC2026
@@ -359,6 +385,7 @@ def count_due_market_token_exclusions(
                 SELECT COUNT(*)
                 {_DUE_TOKEN_JOIN_SQL}
                 WHERE {base_sql}
+                  {volume_sql}
                   AND NOT ({predicate})
                 """,
                 params,
@@ -374,6 +401,7 @@ def count_due_market_token_exclusions(
                 SELECT COUNT(*)
                 {_DUE_TOKEN_JOIN_SQL}
                 WHERE {base_sql}
+                  {volume_sql}
                   AND ({scope_condition})
                   AND m.end_date IS NOT NULL
                   AND m.end_date < CURRENT_TIMESTAMP - INTERVAL {days} DAY
@@ -406,10 +434,16 @@ def count_candidate_market_tokens(
         query = f"""
             SELECT COUNT(*), COUNT(DISTINCT mt.market_id)
             {_DUE_TOKEN_JOIN_SQL}
-            WHERE {_due_token_base_where(cutoff_created_at, params)}
-            {_market_scope_where_clause(market_scope, "m")}
-            {_volume_where_clause(min_volume, max_volume, "m")}
-            {_ended_market_where_clause(ended_market_grace_days, "m")}
+            WHERE {
+            _due_token_routine_filters(
+                cutoff_created_at,
+                params,
+                market_scope=market_scope,
+                ended_market_grace_days=ended_market_grace_days,
+                min_volume=min_volume,
+                max_volume=max_volume,
+            )
+        }
         """
     else:
         base_where = [
@@ -429,6 +463,7 @@ def count_candidate_market_tokens(
             WHERE {" AND ".join(base_where)}
             {_market_scope_where_clause(market_scope, "m")}
             {_volume_where_clause(min_volume, max_volume, "m")}
+            {_ended_market_where_clause(ended_market_grace_days, "m")}
         """
     with get_connection() as conn:
         row = conn.execute(query, params).fetchone()
@@ -444,25 +479,31 @@ def delete_orphan_market_tokens() -> int:
     """Remove raw ``market_tokens`` rows with no parent row in ``markets`` (referential repair)."""
     ensure_duck_db()
     with get_connection() as conn:
-        n = conn.execute(
-            f"""
-            SELECT COUNT(*)
-            FROM {_TAB_MARKET_TOKENS} mt
-            WHERE NOT EXISTS (SELECT 1 FROM {_TAB_MARKETS} m WHERE m.id = mt.market_id)
-            """
-        ).fetchone()[0]
-        n = int(n)
-        if n:
-            conn.execute(
+        conn.execute("BEGIN")
+        try:
+            n = conn.execute(
                 f"""
-                DELETE FROM {_TAB_MARKET_TOKENS} mt
+                SELECT COUNT(*)
+                FROM {_TAB_MARKET_TOKENS} mt
                 WHERE NOT EXISTS (SELECT 1 FROM {_TAB_MARKETS} m WHERE m.id = mt.market_id)
                 """
-            )
-            logger.info(
-                "Removed %s market_tokens row(s) with no matching markets.id",
-                n,
-            )
+            ).fetchone()[0]
+            n = int(n)
+            if n:
+                conn.execute(
+                    f"""
+                    DELETE FROM {_TAB_MARKET_TOKENS} mt
+                    WHERE NOT EXISTS (SELECT 1 FROM {_TAB_MARKETS} m WHERE m.id = mt.market_id)
+                    """
+                )
+                logger.info(
+                    "Removed %s market_tokens row(s) with no matching markets.id",
+                    n,
+                )
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
         return n
 
 
@@ -480,26 +521,21 @@ def save_tokens_batch(token_data: List[Tuple[str, str]]):
                 mids,
             ).fetchall()
         }
-    filtered = [(mid, toks) for mid, toks in token_data if mid in valid]
-    dropped = len(token_data) - len(filtered)
-    if dropped:
-        logger.warning(
-            "save_tokens_batch: skipping %s row(s) whose market_id is not in markets",
-            dropped,
-        )
-    if not filtered:
-        return
-    now = _utc_now()
-    rows = [(mid, toks, now) for mid, toks in filtered]
-    with get_connection() as conn:
-        conn.executemany(
-            f"""
-            INSERT OR REPLACE INTO {_TAB_MARKET_TOKENS}
-            (market_id, clobTokenIds, updated_at)
-            VALUES (?, ?, ?)
-            """,
-            rows,
-        )
+        filtered = [(mid, toks) for mid, toks in token_data if mid in valid]
+        dropped = len(token_data) - len(filtered)
+        if dropped:
+            logger.warning(
+                "save_tokens_batch: skipping %s row(s) whose market_id is not in markets",
+                dropped,
+            )
+        if not filtered:
+            return
+        now = _utc_now()
+        rows = [
+            {"market_id": mid, "clobTokenIds": toks, "updated_at": now}
+            for mid, toks in filtered
+        ]
+        load_market_tokens_stage(rows, conn)
 
 
 def get_markets_without_slugs(limit: Optional[int] = None) -> List[str]:
@@ -556,16 +592,23 @@ def save_event_slugs_batch(event_slug_data: List[Tuple[str, str]]):
         return
     ensure_duck_db()
     with get_connection() as conn:
-        conn.executemany(
-            f"UPDATE {_TAB_MARKETS} SET event_slug = ? WHERE id = ?", event_slug_data
-        )
-        conn.executemany(
-            f"""
-            DELETE FROM {_TAB_MARKET_METADATA_UNRESOLVED}
-            WHERE market_id = ? AND field_name = 'event_slug'
-            """,
-            [(market_id,) for _, market_id in event_slug_data],
-        )
+        conn.execute("BEGIN")
+        try:
+            conn.executemany(
+                f"UPDATE {_TAB_MARKETS} SET event_slug = ? WHERE id = ?",
+                event_slug_data,
+            )
+            conn.executemany(
+                f"""
+                DELETE FROM {_TAB_MARKET_METADATA_UNRESOLVED}
+                WHERE market_id = ? AND field_name = 'event_slug'
+                """,
+                [(market_id,) for _, market_id in event_slug_data],
+            )
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
 
 
 def save_end_dates_batch(end_date_data: List[Tuple[str, str]]):

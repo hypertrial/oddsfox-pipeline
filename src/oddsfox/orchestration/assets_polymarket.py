@@ -5,7 +5,6 @@ from dagster import AssetExecutionContext, MaterializeResult, MetadataValue, ass
 from dagster_dbt import DbtCliResource, dbt_assets
 from dagster_dlt import DagsterDltResource, dlt_assets
 
-from oddsfox.config.settings import DUCKDB_PATH
 from oddsfox.ingestion.polymarket.dlt_source import polymarket_markets_source
 from oddsfox.orchestration import polymarket_ops as ops
 from oddsfox.orchestration.config import (
@@ -19,7 +18,7 @@ from oddsfox.orchestration.config import (
 )
 from oddsfox.orchestration.dbt_project import DBT_PROJECT
 from oddsfox.orchestration.translators import PolymarketDagsterDbtTranslator
-from oddsfox.storage.duckdb.connection import get_connection
+from oddsfox.storage.duckdb.connection import _resolved_duckdb_path, get_connection
 from oddsfox.storage.duckdb.metadata import get_sync_run_metrics
 from oddsfox.storage.duckdb.observability import (
     delta_dbt_models,
@@ -106,15 +105,28 @@ def _materialize_odds_sync(
     return MaterializeResult(metadata=metadata)
 
 
-_POLYMARKET_DLT_PIPELINE = dlt.pipeline(
-    pipeline_name="polymarket_wc2026_raw",
-    destination=dlt.destinations.duckdb(credentials=str(DUCKDB_PATH)),
-    dataset_name="polymarket_raw",
-)
+_DLT_PIPELINE_BY_PATH: dict[str, dlt.Pipeline] = {}
+
+
+def get_polymarket_dlt_pipeline() -> dlt.Pipeline:
+    db_path = str(_resolved_duckdb_path())
+    cached = _DLT_PIPELINE_BY_PATH.get(db_path)
+    if cached is not None:
+        return cached
+    pipe = dlt.pipeline(
+        pipeline_name="polymarket_wc2026_raw",
+        destination=dlt.destinations.duckdb(credentials=db_path),
+        dataset_name="polymarket_raw",
+    )
+    _DLT_PIPELINE_BY_PATH[db_path] = pipe
+    return pipe
+
+
+_POLYMARKET_DLT_PIPELINE = get_polymarket_dlt_pipeline()
 
 
 @dlt_assets(
-    name="polymarket_markets_raw_dlt",
+    name="dlt_polymarket_markets",
     group_name="ingestion",
     dlt_source=polymarket_markets_source(),
     dlt_pipeline=_POLYMARKET_DLT_PIPELINE,
@@ -123,6 +135,7 @@ def polymarket_markets_raw_dlt(
     context: AssetExecutionContext,
     dlt: DagsterDltResource,
 ):
+    pipeline = get_polymarket_dlt_pipeline()
     with get_connection() as conn:
         if drop_legacy_bootstrap_markets_table_if_needed(conn):
             context.log.info(
@@ -132,12 +145,12 @@ def polymarket_markets_raw_dlt(
             context.log.info(
                 "Dropped legacy idx_markets_id unique index; dlt owns id uniqueness"
             )
-    if _POLYMARKET_DLT_PIPELINE.has_pending_data:
+    if pipeline.has_pending_data:
         context.log.info(
             "Clearing pending dlt packages for polymarket_wc2026_raw before extract"
         )
-        _POLYMARKET_DLT_PIPELINE.drop_pending_packages()
-    yield from dlt.run(context=context)
+        pipeline.drop_pending_packages()
+    yield from dlt.run(context=context, dlt_pipeline=pipeline)
 
 
 @asset(

@@ -40,6 +40,10 @@ models:
 - name: stg_polymarket_market_tokens
   description: One row per outcome token; expands raw `clobTokenIds` JSON array with
     zero-based outcome index.
+  tests:
+  - no_duplicate_grain:
+      arguments:
+        grain_columns: [market_id, outcome_index]
   columns:
   - name: market_id
     description: Polymarket market identifier for this outcome token.
@@ -65,6 +69,14 @@ models:
 - name: stg_polymarket_odds
   description: Point-in-time odds history for CLOB tokens; one row per recorded price
     observation from raw odds history.
+  tests:
+  - no_duplicate_grain:
+      arguments:
+        grain_columns: [clob_token_id, odds_timestamp_epoch]
+        where: clob_token_id is not null and odds_timestamp_epoch is not null
+  - price_in_unit_interval:
+      arguments:
+        identifier_columns: [clob_token_id, odds_timestamp_epoch]
   columns:
   - name: clob_token_id
     description: CLOB outcome token identifier for this price point.
@@ -90,6 +102,10 @@ models:
 - name: stg_polymarket_odds_daily
   description: Daily OHLC aggregates per CLOB token at UTC calendar-day grain from
     raw `token_odds_daily`.
+  tests:
+  - no_duplicate_grain:
+      arguments:
+        grain_columns: [clob_token_id, odds_date_utc]
   columns:
   - name: clob_token_id
     description: CLOB outcome token identifier for the daily row.

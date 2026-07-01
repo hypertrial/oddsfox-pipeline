@@ -1,4 +1,8 @@
-"""Dagster-free entrypoints used by Polymarket assets."""
+"""Dagster-free Polymarket sync implementations.
+
+Patch ``oddsfox.orchestration.polymarket_ops`` in tests; this module holds the
+real callables re-exported by that facade.
+"""
 
 from __future__ import annotations
 

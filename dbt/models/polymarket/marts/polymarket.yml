@@ -104,6 +104,23 @@ models:
       Full minutely odds time series for all WC2026 CLOB outcome tokens.
       One row per (clob_token_id, odds_timestamp_epoch) with market labels and volume from the WC2026 token universe.
       Materialized as a dbt view (not a table) to avoid duplicating raw odds_history on disk.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_timestamp_epoch]
+            where: clob_token_id is not null and odds_timestamp_epoch is not null
+      - price_in_unit_interval:
+          arguments:
+            identifier_columns: [clob_token_id, odds_timestamp_epoch]
+      - mart_matches_int_wc2026_scope:
+          arguments:
+            int_timeseries: int_polymarket_token_timeseries
+            token_universe: int_polymarket_wc2026_token_universe
+            grain_key_column: odds_timestamp_epoch
+            value_columns: [price]
+            expected_where: ts.price is not null and ts.odds_timestamp_epoch is not null
+            mismatch_type: price_mismatch
+            include_values_in_output: true
     columns:
       - name: clob_token_id
         description: CLOB outcome token identifier.
@@ -130,6 +147,25 @@ models:
       Full daily OHLC odds time series for all WC2026 CLOB outcome tokens.
       One row per (clob_token_id, odds_date_utc) with market labels and volume from the WC2026 token universe.
       Materialized as a dbt view (not a table) to avoid duplicating int daily history on disk.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_date_utc]
+            where: clob_token_id is not null and odds_date_utc is not null
+      - mart_matches_int_wc2026_scope:
+          arguments:
+            int_timeseries: int_polymarket_token_daily_timeseries
+            token_universe: int_polymarket_wc2026_token_universe
+            grain_key_column: odds_date_utc
+            value_columns:
+              - open_price
+              - high_price
+              - low_price
+              - close_price
+              - avg_price
+              - observed_points
+            expected_where: ts.odds_date_utc is not null
+            mismatch_type: value_mismatch
     columns:
       - name: clob_token_id
         description: CLOB outcome token identifier.
@@ -153,6 +189,14 @@ models:
       Minute-grain odds for high-liquidity WC2026 markets (volume >= polymarket_whale_min_volume_usd).
       Filtered view over wc2026_token_minutely_odds; one row per (clob_token_id, odds_timestamp_epoch).
       Materialized as a dbt view (not a table) to avoid duplicating raw odds_history on disk.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_timestamp_epoch]
+            where: clob_token_id is not null and odds_timestamp_epoch is not null
+      - price_in_unit_interval:
+          arguments:
+            identifier_columns: [clob_token_id, odds_timestamp_epoch]
     columns:
       - name: clob_token_id
         description: CLOB outcome token identifier.

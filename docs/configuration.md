@@ -30,7 +30,8 @@ Lower request rates when Polymarket APIs return transient failures or timeouts.
 - `POLYMARKET_WC2026_EVENT_SLUG_PREFIXES`
 - `POLYMARKET_WC2026_EVENT_TAGS`
 - `POLYMARKET_WC2026_KEYSET_CLOSED`
-- `POLYMARKET_WC2026_KEYSET_VOLUME_MIN`
+- `POLYMARKET_WC2026_KEYSET_VOLUME_MIN`: minimum Gamma keyset volume filter (default
+  `10000`); shared by dlt and markets sync entrypoints.
 - `POLYMARKET_WC2026_KEYSET_RELATED_TAGS`
 - `POLYMARKET_WC2026_TAG_DISCOVERY`
 - `POLYMARKET_WC2026_TAG_CLOSURE_ROUNDS`

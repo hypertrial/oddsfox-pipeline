@@ -86,7 +86,6 @@ from oddsfox.storage.duckdb import (
 _parse_created_at = _planning_mod.parse_created_at
 _parse_cutoff_date = _planning_mod.parse_cutoff_date
 _build_single_token_plan = _planning_mod.build_single_token_plan
-_build_token_plans = _planning_mod.build_token_plans
 _iter_windows = _execution_mod.iter_windows
 _default_rate_limiter_factory = _execution_mod.default_rate_limiter_factory
 _checked_at_from_plan = _execution_mod.checked_at_from_plan
@@ -251,7 +250,6 @@ def sync_odds(*args, **kwargs):
 
 
 build_single_token_plan = _build_single_token_plan
-build_token_plans = _build_token_plans
 iter_token_plans_paged = _iter_token_plans_paged
 iter_windows = _iter_windows
 
@@ -305,7 +303,6 @@ __all__ = [
     "_sync_token_plan",
     "_writer_loop",
     "build_single_token_plan",
-    "build_token_plans",
     "datetime",
     "count_candidate_market_tokens",
     "ensure_duck_db",

@@ -6,6 +6,7 @@ from typing import Any, Iterable
 
 import dlt
 
+from oddsfox.config.settings import POLYMARKET_WC2026_KEYSET_VOLUME_MIN
 from oddsfox.ingestion.polymarket.markets.fetch import build_client
 from oddsfox.ingestion.polymarket.markets.persistence import prepare_batch_for_db
 from oddsfox.ingestion.polymarket.markets.transform import process_markets_dataframe
@@ -28,7 +29,7 @@ def _collect_raw_markets(
     max_pages_without_progress: int | None = None,
     keyset_closed: bool | None = False,
     keyset_tag_slugs: list[str] | None = None,
-    keyset_volume_min: float | None = 10000.0,
+    keyset_volume_min: float | None = POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
 ) -> list[dict[str, Any]]:
     client = build_client()
     cfg = load_wc2026_config()
@@ -90,7 +91,7 @@ def polymarket_markets_source(
     max_pages_without_progress: int | None = None,
     keyset_closed: bool | None = False,
     keyset_tag_slugs: list[str] | None = None,
-    keyset_volume_min: float | None = 10000.0,
+    keyset_volume_min: float | None = POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
 ):
     @dlt.resource(
         name="markets",

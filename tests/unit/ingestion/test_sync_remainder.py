@@ -11,7 +11,7 @@ import pytest
 
 pytest.importorskip("duckdb")
 
-from tests.unit.ingestion._odds_sync_harness import (
+from tests.integration.ingestion._odds_sync_harness import (
     NoThread,
     immediate_executor,
 )
@@ -247,29 +247,6 @@ def test_build_single_token_plan_all_skips():
         recent_seconds=0,
     )
     assert sk3 == "persisted_skip"
-
-
-def test_build_token_plans_json_and_type_skips():
-    markets = [
-        ("m", "not-json", "2024-01-01 00:00:00", False),
-        ("m2", json.dumps("x"), "2024-01-01 00:00:00", False),
-        ("m3", json.dumps([]), "2024-01-01 00:00:00", False),
-    ]
-    plans, invalid, ctr = odds_sync.build_token_plans(
-        markets,
-        {},
-        set(),
-        {},
-        1_800_000_000,
-        "2020-01-01",
-        1,
-        True,
-        True,
-        0,
-        0,
-    )
-    assert isinstance(plans, list)
-    assert isinstance(ctr, dict)
 
 
 def test_iter_token_plans_paged_reconcile_and_invalid_batch(monkeypatch):

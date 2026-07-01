@@ -27,6 +27,8 @@ from oddsfox.storage.duckdb.odds.odds_ledger import (
 )
 from oddsfox.storage.duckdb.odds.odds_snapshot import get_token_sync_snapshot
 from oddsfox.storage.duckdb.odds.odds_writes import (
+    merge_odds_bulk_upsert,
+    prepare_odds_bulk_upsert,
     save_odds_batch,
     save_odds_bulk_appender,
     save_odds_bulk_upsert,
@@ -48,6 +50,8 @@ __all__ = [
     "get_tokens_with_data",
     "mark_tokens_fully_checked",
     "reconcile_token_sync_ledger_from_history",
+    "merge_odds_bulk_upsert",
+    "prepare_odds_bulk_upsert",
     "refresh_token_odds_daily",
     "save_odds_batch",
     "save_odds_bulk_appender",

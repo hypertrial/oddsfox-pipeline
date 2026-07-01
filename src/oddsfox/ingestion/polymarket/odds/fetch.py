@@ -15,7 +15,6 @@ from oddsfox.resources.http import APIClient
 from oddsfox.resources.http_retry import is_transient_status
 
 logger = logging.getLogger(__name__)
-_status_hook: Optional[Callable[[int], None]] = None
 
 
 class PermanentAPIError(Exception):
@@ -54,31 +53,14 @@ def _is_transient_client_status(status: Optional[int]) -> bool:
     return status is not None and is_transient_status(status)
 
 
-def set_status_hook(hook: Optional[Callable[[int], None]]) -> None:
-    """Set an optional status callback used for sync telemetry/autotuning."""
-    global _status_hook
-    _status_hook = hook
-
-
-def _emit_status(status: int) -> None:
-    hook = _status_hook
+def _emit_status_via(hook: Optional[Callable[[int], None]], status: int) -> None:
+    """Emit status to an explicit hook when provided."""
     if hook is None:
         return
     try:
         hook(int(status))
     except Exception:
-        # Telemetry should not interfere with data flow.
-        logger.debug("Ignoring status hook failure", exc_info=True)
-
-
-def _emit_status_via(hook: Optional[Callable[[int], None]], status: int) -> None:
-    """Emit status to an explicit hook first, then optional module-level hook."""
-    if hook is not None:
-        try:
-            hook(int(status))
-        except Exception:
-            logger.debug("Ignoring explicit status hook failure", exc_info=True)
-    _emit_status(status)
+        logger.debug("Ignoring explicit status hook failure", exc_info=True)
 
 
 def build_client(base_url: str, *, rate_limiter=None) -> APIClient:
@@ -90,6 +72,7 @@ def build_client(base_url: str, *, rate_limiter=None) -> APIClient:
     """
     return APIClient(
         base_url=base_url,
+        retries=0,
         requests_per_second=None,  # rely on shared limiter
         rate_limiter=rate_limiter,
         request_timeout=HTTP_REQUEST_TIMEOUT,

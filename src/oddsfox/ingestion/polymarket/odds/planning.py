@@ -5,11 +5,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional, Tuple
 
-from oddsfox.ingestion.polymarket.odds.process import is_probably_clob_token
 from oddsfox.ingestion.polymarket.odds.support import (
     DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
     PlanningState,
     TokenPlan,
+    is_probably_clob_token,
 )
 from oddsfox.storage.duckdb import (
     TokenSyncSchedulerState,
@@ -126,81 +126,6 @@ def build_single_token_plan(
         None,
         None,
     )
-
-
-def build_token_plans(
-    markets: List[Tuple[str, str, Optional[str], Optional[bool]]],
-    latest_timestamps: Dict[str, int],
-    fully_checked_tokens: set,
-    persisted_skips: Dict[str, str],
-    now_ts: int,
-    clob_cutoff_date: str,
-    fidelity: int,
-    force: bool,
-    rebuild_minutely: bool,
-    overlap_minutes: int,
-    skip_recent_minutes: int,
-    empty_token_skip_budgets: Optional[Dict[str, int]] = None,
-    empty_token_skip_runs: int = DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
-):
-    cutoff_dt = parse_cutoff_date(clob_cutoff_date)
-    overlap_seconds = max(0, int(overlap_minutes * 60))
-    recent_seconds = max(0, int(skip_recent_minutes * 60))
-    plans: List[TokenPlan] = []
-    invalid_tokens: List[Tuple[str, str]] = []
-    counters = {
-        "pre_clob_markets": 0,
-        "invalid_token": 0,
-        "closed_done": 0,
-        "persisted_skip": 0,
-        "recent_skip": 0,
-        "empty_cache_skip": 0,
-        "already_current": 0,
-        "dup_token": 0,
-    }
-    seen_tokens = set()
-    for market_id, tokens_json, created_at_raw, is_closed in markets:
-        created_at = parse_created_at(created_at_raw)
-        if not created_at:
-            continue
-        if created_at < cutoff_dt:
-            counters["pre_clob_markets"] += 1
-            continue
-        try:
-            tokens = json.loads(tokens_json)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(tokens, list):
-            continue
-        created_ts = int(created_at.timestamp())
-        closed = bool(is_closed)
-        for token_id in tokens:
-            token_plan, skip_key, invalid = build_single_token_plan(
-                token_id=str(token_id),
-                market_id=market_id,
-                closed=closed,
-                created_ts=created_ts,
-                latest_timestamps=latest_timestamps,
-                fully_checked_tokens=fully_checked_tokens,
-                persisted_skips=persisted_skips,
-                seen_tokens=seen_tokens,
-                now_ts=now_ts,
-                fidelity=fidelity,
-                force=force,
-                rebuild_minutely=rebuild_minutely,
-                overlap_seconds=overlap_seconds,
-                recent_seconds=recent_seconds,
-                empty_run_streak=0,
-                empty_token_skip_budgets=empty_token_skip_budgets,
-                empty_token_skip_runs=empty_token_skip_runs,
-            )
-            if skip_key:
-                counters[skip_key] += 1
-            if invalid:
-                invalid_tokens.append(invalid)
-            if token_plan:
-                plans.append(token_plan)
-    return plans, invalid_tokens, counters
 
 
 def iter_token_plans_paged(
@@ -408,7 +333,6 @@ def iter_token_plans_paged(
 
 __all__ = [
     "build_single_token_plan",
-    "build_token_plans",
     "iter_token_plans_paged",
     "parse_created_at",
     "parse_cutoff_date",

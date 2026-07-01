@@ -13,6 +13,7 @@ from oddsfox.resources.http_retry import (
     TRANSIENT_HTTP_STATUSES as TRANSIENT_STATUSES,
 )
 from oddsfox.resources.http_retry import (
+    exponential_backoff_seconds,
     is_transient_status,
     retry_after_seconds,
 )
@@ -144,12 +145,14 @@ class SnapshotHttpClient:
                         error=last_error,
                         url=validated,
                     )
-                time.sleep(min(2.0**attempt, 30.0))
+                time.sleep(exponential_backoff_seconds(attempt))
                 continue
             status = int(resp.status_code)
             body = bytes(resp.content or b"")
             if status in TRANSIENT_STATUSES and attempt <= self.max_retries:
-                retry_after = retry_after_seconds(resp) or min(2.0**attempt, 30.0)
+                retry_after = retry_after_seconds(resp) or exponential_backoff_seconds(
+                    attempt
+                )
                 time.sleep(retry_after)
                 continue
             return FetchResult(

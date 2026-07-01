@@ -8,6 +8,7 @@ implementation details to callers.
 import logging
 from typing import Any, Callable, Dict
 
+from oddsfox.config.settings import POLYMARKET_WC2026_KEYSET_VOLUME_MIN
 from oddsfox.ingestion.polymarket.markets.fetch import build_client
 from oddsfox.ingestion.polymarket.markets.persistence import (
     prepare_batch_for_db,
@@ -50,7 +51,7 @@ def _sync_markets_wc2026(
     max_pages_without_progress: int | None,
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
-    keyset_volume_min: float | None = None,
+    keyset_volume_min: float | None = POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> Dict[str, Any]:
     """Ingest WC 2026 markets via targeted or full keyset Gamma discovery."""
@@ -127,7 +128,7 @@ def sync_markets(
     max_pages_without_progress: int | None = None,
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
-    keyset_volume_min: float | None = None,
+    keyset_volume_min: float | None = POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
     progress_log_interval_pages: int = 10,
     progress_log_interval_seconds: int = 60,
@@ -167,6 +168,27 @@ def sync_markets(
         force_log=True,
     )
 
+    def _guardrailed_progress_callback(phase: str, diagnostics: dict[str, Any]) -> None:
+        work = int(
+            diagnostics.get("events_pages")
+            or diagnostics.get("api_requests")
+            or diagnostics.get("markets_fetched")
+            or 0
+        )
+        guardrail.record_progress(
+            work_increment=max(0, work),
+            phase=phase,
+            diagnostics=diagnostics,
+        )
+        guardrail.check(phase=phase, diagnostics=diagnostics)
+        if progress_callback:
+            try:
+                progress_callback(phase, diagnostics)
+            except Exception:
+                logger.debug(
+                    "Ignoring markets progress callback failure", exc_info=True
+                )
+
     ensure_duck_db()
     factory = client_factory or build_client
     client = factory()
@@ -178,7 +200,7 @@ def sync_markets(
         keyset_closed=keyset_closed,
         keyset_tag_slugs=keyset_tag_slugs,
         keyset_volume_min=keyset_volume_min,
-        progress_callback=progress_callback,
+        progress_callback=_guardrailed_progress_callback,
     )
     guardrail_snapshot = guardrail.snapshot()
     run_summary.update(

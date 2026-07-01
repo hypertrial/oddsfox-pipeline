@@ -8,7 +8,7 @@ from typing import Optional
 
 import duckdb
 
-from oddsfox.config.settings import BASE_DIR, DUCKDB_PATH
+from oddsfox.config import settings as _settings
 from oddsfox.storage.duckdb.schemas.constants import (
     POLYMARKET_OPS_SCHEMA,
     POLYMARKET_RAW_SCHEMA,
@@ -28,15 +28,15 @@ logger = logging.getLogger(__name__)
 
 _SCHEMA_LOGGED = False
 _SCHEMA_INITIALIZED = False
-_ACTIVE_DUCKDB_PATH: Path = DUCKDB_PATH
+_ACTIVE_DUCKDB_PATH: Path | None = None
 
 
 def _resolved_duckdb_path() -> Path:
     env_name = os.getenv("DUCKDB_NAME")
     if env_name:
         env_path = Path(env_name)
-        return env_path if env_path.is_absolute() else BASE_DIR / env_name
-    return DUCKDB_PATH
+        return env_path if env_path.is_absolute() else _settings.BASE_DIR / env_name
+    return _settings.DUCKDB_PATH
 
 
 def _connect_duckdb(
@@ -106,10 +106,11 @@ def open_writable_duckdb_connection(
 
 
 def init_duck_db() -> None:
-    global _SCHEMA_LOGGED, _SCHEMA_INITIALIZED
+    global _SCHEMA_LOGGED, _SCHEMA_INITIALIZED, _ACTIVE_DUCKDB_PATH
     if _SCHEMA_INITIALIZED:
         return
-    conn = open_writable_duckdb_connection(_resolved_duckdb_path())
+    _ACTIVE_DUCKDB_PATH = _resolved_duckdb_path()
+    conn = open_writable_duckdb_connection(_ACTIVE_DUCKDB_PATH)
     if not _SCHEMA_LOGGED:
         logger.info(
             "Ensuring DuckDB Polymarket schemas (%s, %s)",
@@ -141,7 +142,8 @@ def ensure_duck_db() -> None:
 @contextmanager
 def get_connection():
     ensure_duck_db()
-    conn = open_writable_duckdb_connection(_ACTIVE_DUCKDB_PATH)
+    path = _ACTIVE_DUCKDB_PATH or _resolved_duckdb_path()
+    conn = open_writable_duckdb_connection(path)
     try:
         yield conn
     finally:
@@ -150,7 +152,8 @@ def get_connection():
 
 def get_persistent_connection() -> duckdb.DuckDBPyConnection:
     ensure_duck_db()
-    return open_writable_duckdb_connection(_ACTIVE_DUCKDB_PATH)
+    path = _ACTIVE_DUCKDB_PATH or _resolved_duckdb_path()
+    return open_writable_duckdb_connection(path)
 
 
 @contextmanager

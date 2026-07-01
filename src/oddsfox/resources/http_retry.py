@@ -25,8 +25,14 @@ def retry_after_seconds(resp: Any, *, cap: float = 120.0) -> float | None:
         return None
 
 
+def exponential_backoff_seconds(attempt: int, *, cap: float = 30.0) -> float:
+    """Shared attempt backoff for snapshot-style HTTP retry loops."""
+    return min(2.0 ** max(1, int(attempt)), cap)
+
+
 __all__ = [
     "TRANSIENT_HTTP_STATUSES",
+    "exponential_backoff_seconds",
     "is_transient_status",
     "retry_after_seconds",
 ]

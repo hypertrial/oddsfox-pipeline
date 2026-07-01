@@ -70,7 +70,10 @@ def reset_dlt_batch_pipelines() -> None:
 
 def _pipeline(schema: str) -> dlt.Pipeline:
     duckdb_connection.ensure_duck_db()
-    db_path = str(duckdb_connection._ACTIVE_DUCKDB_PATH)
+    db_path = str(
+        duckdb_connection._ACTIVE_DUCKDB_PATH
+        or duckdb_connection._resolved_duckdb_path()
+    )
     key = (schema, db_path)
     if key not in _PIPELINES:
         path_hash = blake2b(db_path.encode("utf-8"), digest_size=4).hexdigest()
@@ -144,12 +147,21 @@ def load_odds_history_stage(
     rows: Sequence[dict[str, Any]],
     conn: duckdb.DuckDBPyConnection,
 ) -> None:
-    stage = load_stage_rows(
+    stage = prepare_odds_history_stage(rows)
+    merge_odds_history_stage(conn, stage)
+
+
+def prepare_odds_history_stage(rows: Sequence[dict[str, Any]]) -> str:
+    """Load odds rows into a dlt stage table; call before ``BEGIN`` on ``conn``."""
+    return load_stage_rows(
         schema=POLYMARKET_RAW_SCHEMA,
         stage_table="stage_odds_history_v1",
         rows=_with_row_order(rows),
         columns=ODDS_HISTORY_COLUMNS,
     )
+
+
+def merge_odds_history_stage(conn: duckdb.DuckDBPyConnection, stage: str) -> None:
     conn.execute(
         f"""
         INSERT OR REPLACE INTO {_TAB_ODDS_HISTORY}
@@ -247,5 +259,7 @@ __all__ = [
     "load_odds_history_stage",
     "load_stage_rows",
     "load_wc2026_registry_stage",
+    "merge_odds_history_stage",
+    "prepare_odds_history_stage",
     "reset_dlt_batch_pipelines",
 ]

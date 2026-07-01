@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from concurrent.futures import FIRST_COMPLETED, CancelledError
 from dataclasses import dataclass
+from datetime import timedelta
 from queue import Queue
 from threading import Lock, local
 from typing import Any, Callable, Dict, List
@@ -10,7 +11,10 @@ from typing import Any, Callable, Dict, List
 from oddsfox.config.settings import CLOB_API_URL, ODDS_REQUESTS_PER_SECOND
 from oddsfox.ingestion.polymarket.errors import ClobRequestError
 from oddsfox.ingestion.polymarket.odds.deps import OddsSyncRuntime
-from oddsfox.ingestion.polymarket.odds.execution import InflightTokenFuture
+from oddsfox.ingestion.polymarket.odds.execution import (
+    InflightTokenFuture,
+    checked_at_from_plan,
+)
 from oddsfox.ingestion.polymarket.odds.fetch import build_client
 from oddsfox.ingestion.polymarket.odds.support import (
     MAX_INFLIGHT_CAP,
@@ -295,6 +299,26 @@ def run_sync_pool(
                         RuntimeError,
                     ) as exc:
                         logger.error("Token %s failed: %s", plan.token_id[:24], exc)
+                        checked_at = checked_at_from_plan(plan)
+                        next_check_at = checked_at + timedelta(
+                            seconds=max(0, params.error_retry_seconds)
+                        )
+                        write_queue.put(("skipped_tokens", [(plan.token_id, str(exc))]))
+                        write_queue.put(
+                            (
+                                "token_state",
+                                [
+                                    (
+                                        plan.token_id,
+                                        None,
+                                        checked_at,
+                                        next_check_at,
+                                        0,
+                                        False,
+                                    )
+                                ],
+                            )
+                        )
                         totals["error"] += 1
                         pbar.update(1)
                         continue

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Dict, List, Tuple
@@ -27,6 +28,20 @@ DEFAULT_AUTOTUNE_ERROR_THRESHOLD = 0.01
 MAX_WORKERS_CAP = 128
 MAX_INFLIGHT_CAP = 4_096
 MAX_FLUSH_ROWS_CAP = 2_000_000
+MIN_CLOB_TOKEN_HEX_LENGTH = 30
+
+
+def is_probably_clob_token(token_id: str) -> bool:
+    """Heuristic filter to drop obvious placeholder/no-data tokens."""
+    if not token_id:
+        return False
+    if token_id.startswith(("open_token", "closed_token", "closed_no_data")):
+        return False
+    if not re.fullmatch(r"[0-9A-Za-z_]+", token_id):
+        return False
+    if re.fullmatch(r"[0-9a-fA-F]+", token_id):
+        return len(token_id) >= MIN_CLOB_TOKEN_HEX_LENGTH
+    return any(ch.isdigit() or ch == "_" for ch in token_id)
 
 
 @dataclass(frozen=True)
@@ -225,6 +240,7 @@ __all__ = [
     "WriterBuffers",
     "build_inflight_future_diagnostics",
     "build_planning_context",
+    "is_probably_clob_token",
     "log_planning_context",
     "log_planning_state",
     "planning_state_to_dict",

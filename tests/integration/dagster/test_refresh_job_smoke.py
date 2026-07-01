@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-import duckdb
 import pytest
 
 pytest.importorskip("dagster")
@@ -14,6 +13,8 @@ from dagster_dbt import DbtCliResource
 
 import oddsfox.storage.duckdb.connection as connection
 from oddsfox.config.settings import resolve_dbt_executable
+from oddsfox.ingestion.polymarket.markets.persistence import prepare_batch_for_db
+from oddsfox.ingestion.polymarket.markets.transform import process_markets_dataframe
 from oddsfox.orchestration.assets import (
     DBT_PROJECT,
     polymarket_dbt,
@@ -58,6 +59,34 @@ def _fake_sync_wc2026_registry(**kwargs):
     return {"registry_rows_upserted": 1, "discovered_event_slugs": []}
 
 
+def _seed_dlt_owned_markets(market_page: list[dict]) -> None:
+    """dlt owns polymarket_raw.markets; snapshot sync only writes tokens."""
+    df = process_markets_dataframe(market_page)
+    market_data, _token_data = prepare_batch_for_db(df)
+    if not market_data:
+        return
+    connection.ensure_duck_db()
+    with connection.get_connection() as conn:
+        conn.executemany(
+            """
+            INSERT OR REPLACE INTO "polymarket_raw"."markets"
+            (
+                id, question, category, description, outcomes, volume, active, closed,
+                created_at, scraped_at, end_date, slug, event_slug, event_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            market_data,
+        )
+        conn.execute(
+            'ALTER TABLE "polymarket_raw"."markets" '
+            "ADD COLUMN IF NOT EXISTS _dlt_id TEXT"
+        )
+        conn.execute(
+            'UPDATE "polymarket_raw"."markets" SET _dlt_id = id WHERE _dlt_id IS NULL'
+        )
+
+
 def _materialize_refresh_path(
     monkeypatch,
     tmp_path: Path,
@@ -84,6 +113,7 @@ oddsfox:
     )
 
     monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
     monkeypatch.setenv("DBT_PROFILES_DIR", str(profiles_dir))
     connection._SCHEMA_INITIALIZED = False
     connection._SCHEMA_LOGGED = False
@@ -181,6 +211,19 @@ oddsfox:
         "oddsfox.orchestration.polymarket_ops.sync_wc2026_registry",
         _fake_sync_wc2026_registry,
     )
+    monkeypatch.setattr(
+        "oddsfox.storage.duckdb.schemas.polymarket.drop_legacy_bootstrap_markets_table_if_needed",
+        lambda _conn: False,
+    )
+    monkeypatch.setattr(
+        "oddsfox.storage.duckdb.schemas.polymarket.drop_legacy_markets_unique_index",
+        lambda _conn: False,
+    )
+
+    _seed_dlt_owned_markets(market_page)
+
+    noop_dlt = MagicMock()
+    noop_dlt.run.return_value = iter([])
 
     result = materialize(
         [
@@ -195,7 +238,8 @@ oddsfox:
                 project_dir=DBT_PROJECT,
                 profiles_dir=str(profiles_dir),
                 dbt_executable=resolve_dbt_executable(),
-            )
+            ),
+            "dlt": noop_dlt,
         },
         run_config={
             "ops": {
@@ -244,7 +288,7 @@ def test_refresh_path_materializes(
 ) -> None:
     slug = "world-cup-2026-smoke-pipeline-pass"
     question = "Will the World Cup 2026 smoke pipeline pass?"
-    db_path = _materialize_refresh_path(
+    _materialize_refresh_path(
         monkeypatch,
         tmp_path,
         db_name=f"pipeline-{slug}.duckdb",
@@ -252,7 +296,7 @@ def test_refresh_path_materializes(
         question=question,
         transient_token=None,
     )
-    with duckdb.connect(str(db_path)) as conn:
+    with connection.get_connection() as conn:
         checks = (
             conn.execute('select count(*) from "polymarket_raw"."markets"').fetchone()
             == (1,),
@@ -269,12 +313,11 @@ def test_refresh_path_materializes(
             ).fetchone()[0]
             > 0,
             conn.execute(
-                "select count(*) from polymarket_marts.market_coverage"
+                "select count(*) from polymarket_staging.stg_polymarket_markets"
             ).fetchone()
             == (1,),
             conn.execute(
-                "select count(*) from polymarket_marts.token_coverage "
-                "where max_gap_days >= 0 and market_token_count >= market_fully_checked_tokens"
+                "select count(*) from polymarket_staging.stg_polymarket_market_tokens"
             ).fetchone()
             == (2,),
         )

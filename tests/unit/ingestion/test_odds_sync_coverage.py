@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import importlib
-import json
 from queue import Queue
 from unittest.mock import MagicMock, patch
 
 import pytest
-from tests.unit.ingestion._odds_sync_harness import make_binding, make_runtime
+from tests.integration.ingestion._odds_sync_harness import make_binding, make_runtime
 
 from oddsfox.config._reload_settings import reload_all_settings_modules
 
@@ -125,32 +124,6 @@ def test_build_single_token_plan_keys():
         empty_token_skip_runs=0,
     )
     assert sk2 == "closed_done" or plan2 is None
-
-
-def test_build_token_plans_smoke():
-    tid = "1" * 35
-    markets = [
-        (
-            "m1",
-            json.dumps([tid]),
-            "2024-01-01 00:00:00",
-            False,
-        )
-    ]
-    plans, invalid, ctr = odds_sync.build_token_plans(
-        markets,
-        latest_timestamps={},
-        fully_checked_tokens=set(),
-        persisted_skips={},
-        now_ts=1_800_000_000,
-        clob_cutoff_date="2020-01-01",
-        fidelity=1440,
-        force=True,
-        rebuild_minutely=True,
-        overlap_minutes=0,
-        skip_recent_minutes=0,
-    )
-    assert isinstance(plans, list)
 
 
 def test_iter_token_plans_paged_uses_current_market_iterator_signature(monkeypatch):

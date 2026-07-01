@@ -6,15 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Sequence
 
-from oddsfox.config.settings import (
-    POLYMARKET_WC2026_KEYSET_CLOSED,
-    POLYMARKET_WC2026_KEYSET_RELATED_TAGS,
-    POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
-    POLYMARKET_WC2026_TAG_CLOSURE_KEYWORD_GATE,
-    POLYMARKET_WC2026_TAG_CRAWL_DENYLIST,
-    POLYMARKET_WC2026_TAG_DISCOVERY,
-    POLYMARKET_WC2026_TAG_DISCOVERY_KEYWORDS,
-)
+from oddsfox.config import settings as _settings
 from oddsfox.ingestion.polymarket.scope_sql import (
     MARKET_SCOPE_ALL,
     MARKET_SCOPE_WC2026,
@@ -43,19 +35,19 @@ def _event_tag_slugs(event: dict[str, Any]) -> frozenset[str]:
 def _resolve_keyset_closed(keyset_closed: bool | None) -> bool | None:
     if keyset_closed is not None:
         return keyset_closed
-    return POLYMARKET_WC2026_KEYSET_CLOSED
+    return _settings.POLYMARKET_WC2026_KEYSET_CLOSED
 
 
 def _resolve_keyset_volume_min(keyset_volume_min: float | None) -> float | None:
     if keyset_volume_min is not None:
         return keyset_volume_min
-    return POLYMARKET_WC2026_KEYSET_VOLUME_MIN
+    return _settings.POLYMARKET_WC2026_KEYSET_VOLUME_MIN
 
 
 def _resolve_keyset_related_tags(keyset_related_tags: bool | None) -> bool:
     if keyset_related_tags is not None:
         return keyset_related_tags
-    return POLYMARKET_WC2026_KEYSET_RELATED_TAGS
+    return _settings.POLYMARKET_WC2026_KEYSET_RELATED_TAGS
 
 
 def _parse_tag_discovery_keywords(raw: str | None) -> tuple[str, ...]:
@@ -90,7 +82,9 @@ def _crawl_tag_allowed(
         return True
 
     effective_denylist = (
-        denylist if denylist is not None else POLYMARKET_WC2026_TAG_CRAWL_DENYLIST
+        denylist
+        if denylist is not None
+        else _settings.POLYMARKET_WC2026_TAG_CRAWL_DENYLIST
     )
     if normalized in frozenset(
         str(d).strip().lower() for d in effective_denylist if str(d).strip()
@@ -98,7 +92,7 @@ def _crawl_tag_allowed(
         return False
 
     effective_gate = (
-        POLYMARKET_WC2026_TAG_CLOSURE_KEYWORD_GATE
+        _settings.POLYMARKET_WC2026_TAG_CLOSURE_KEYWORD_GATE
         if keyword_gate is None
         else keyword_gate
     )
@@ -110,7 +104,9 @@ def _crawl_tag_allowed(
     effective_keywords = (
         keywords
         if keywords is not None
-        else _parse_tag_discovery_keywords(POLYMARKET_WC2026_TAG_DISCOVERY_KEYWORDS)
+        else _parse_tag_discovery_keywords(
+            _settings.POLYMARKET_WC2026_TAG_DISCOVERY_KEYWORDS
+        )
     )
     return tag_matches_keywords({"slug": normalized}, effective_keywords)
 
@@ -196,7 +192,9 @@ def resolve_keyset_crawl_tags(
     base = list(cfg.default_keyset_tag_slugs)
     sources: dict[str, set[str]] = {slug: {"seed"} for slug in base}
     discovery_enabled = (
-        POLYMARKET_WC2026_TAG_DISCOVERY if tag_discovery is None else tag_discovery
+        _settings.POLYMARKET_WC2026_TAG_DISCOVERY
+        if tag_discovery is None
+        else tag_discovery
     )
     if not discovery_enabled or client is None:
         return base, sources
@@ -209,7 +207,7 @@ def resolve_keyset_crawl_tags(
             client,
             seed_slugs=base,
             keywords=_parse_tag_discovery_keywords(
-                POLYMARKET_WC2026_TAG_DISCOVERY_KEYWORDS
+                _settings.POLYMARKET_WC2026_TAG_DISCOVERY_KEYWORDS
             ),
         )
     except Exception:

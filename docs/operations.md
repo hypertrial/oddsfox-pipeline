@@ -48,6 +48,10 @@ POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
 
 Enable `POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED` only during intentional live operation.
 
+If both `POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED` and
+`POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED` are true, only the live schedule
+runs; the five-minute and hourly schedules stay stopped and a warning is logged.
+
 ## Recovery
 
 - Re-run `polymarket_ingest_incremental` for routine gaps.

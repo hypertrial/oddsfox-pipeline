@@ -100,31 +100,6 @@ def test_build_single_token_plan_budget_and_latest_branches():
     assert skip == "already_current"
 
 
-def test_build_token_plans_counts_preclob_invalid_and_valid():
-    valid = "v" * 33 + "12"
-    plans, invalid, counters = odds_sync.build_token_plans(
-        [
-            ("old", '["x"]', "2020-01-01 00:00:00", False),
-            ("bad", '["short"]', "2024-01-01 00:00:00", False),
-            ("good", f'["{valid}"]', "2024-01-01 00:00:00", False),
-        ],
-        latest_timestamps={},
-        fully_checked_tokens=set(),
-        persisted_skips={},
-        now_ts=1_800_000_000,
-        clob_cutoff_date="2023-01-01",
-        fidelity=1440,
-        force=True,
-        rebuild_minutely=True,
-        overlap_minutes=0,
-        skip_recent_minutes=0,
-    )
-    assert counters["pre_clob_markets"] == 1
-    assert counters["invalid_token"] == 1
-    assert invalid == [("short", "invalid token id format")]
-    assert len(plans) == 1
-
-
 def test_iter_token_plans_paged_collects_invalids_and_done_value(monkeypatch):
     valid = "w" * 33 + "12"
 

@@ -14,7 +14,7 @@ from oddsfox.config._reload_settings import reload_all_settings_modules
 
 pytest.importorskip("duckdb")
 
-from tests.unit.ingestion._odds_sync_harness import (
+from tests.integration.ingestion._odds_sync_harness import (
     FakeClock,
     NoThread,
     immediate_executor,
@@ -42,50 +42,6 @@ def test_fetch_window_stack_skip_zero_span():
         1,
     )
     assert out == []
-
-
-def test_build_token_plans_skips_bad_created_at(monkeypatch):
-    markets = [
-        ("m1", '["t" * 33 + "12"]', None, False),
-    ]
-    plans, inv, ctr = odds_sync.build_token_plans(
-        markets,
-        latest_timestamps={},
-        fully_checked_tokens=set(),
-        persisted_skips={},
-        now_ts=1_800_000_000,
-        clob_cutoff_date="2020-01-01",
-        fidelity=1440,
-        force=True,
-        rebuild_minutely=True,
-        overlap_minutes=0,
-        skip_recent_minutes=0,
-    )
-    assert plans == []
-
-
-def test_build_token_plans_non_list_tokens():
-    plans, inv, ctr = odds_sync.build_token_plans(
-        [
-            (
-                "m1",
-                '{"not": "list"}',
-                "2024-01-01 00:00:00",
-                False,
-            ),
-        ],
-        latest_timestamps={},
-        fully_checked_tokens=set(),
-        persisted_skips={},
-        now_ts=1_800_000_000,
-        clob_cutoff_date="2020-01-01",
-        fidelity=1440,
-        force=True,
-        rebuild_minutely=True,
-        overlap_minutes=0,
-        skip_recent_minutes=0,
-    )
-    assert plans == []
 
 
 def test_iter_token_plans_paged_empty_tokens_list(monkeypatch):
@@ -275,7 +231,7 @@ def test_flush_writer_buffers_empty_buffers_noop():
     )
 
 
-def test_flush_writer_buffers_odds_stage_error_happens_before_transaction(monkeypatch):
+def test_flush_writer_buffers_merge_error_rolls_back(monkeypatch):
     buf = odds_sync.WriterBuffers(
         odds_map={("t", 1): 0.5},
         state_buffer=[],
@@ -284,7 +240,11 @@ def test_flush_writer_buffers_odds_stage_error_happens_before_transaction(monkey
     bad = MagicMock()
     bad.execute.return_value = None
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.sync.save_odds_bulk_upsert",
+        "oddsfox.ingestion.polymarket.odds.writer.prepare_odds_bulk_upsert",
+        lambda *a, **k: "stage",
+    )
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.odds.writer.merge_odds_bulk_upsert",
         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("fail")),
     )
     with pytest.raises(RuntimeError):
@@ -301,7 +261,7 @@ def test_flush_writer_buffers_odds_stage_error_happens_before_transaction(monkey
             1,
             force=True,
         )
-    bad.execute.assert_not_called()
+    assert "ROLLBACK" in [call.args[0] for call in bad.execute.call_args_list]
 
 
 def test_apply_writer_invalid_ts_price_dedupe():

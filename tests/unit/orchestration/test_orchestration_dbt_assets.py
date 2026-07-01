@@ -75,6 +75,7 @@ def test_dbt_assets_definition_streams_build_events(monkeypatch):
     class MockDbt:
         def cli(self, *a, **k):
             m = MagicMock()
+            m.process = MagicMock(returncode=0)
             m.stream = lambda: iter(["event"])
             return m
 
@@ -95,6 +96,7 @@ def test_dbt_assets_logs_when_orphan_market_tokens_removed(monkeypatch):
     class MockDbt:
         def cli(self, *a, **k):
             m = MagicMock()
+            m.process = MagicMock(returncode=0)
             m.stream = lambda: iter([])
             return m
 
@@ -212,6 +214,26 @@ def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
 
     with pytest.raises(RuntimeError, match="dbt stream blew up"):
         list(fn(MagicMock(), ErrorStreamDbt(), orch_config.DbtBuildConfig()))
+
+
+def test_dbt_assets_raises_when_build_returns_nonzero_after_stream(monkeypatch):
+    from oddsfox.orchestration.assets import polymarket_dbt
+
+    monkeypatch.setattr(
+        "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
+        lambda: 0,
+    )
+
+    class NonZeroReturncodeDbt:
+        def cli(self, *a, **k):
+            m = MagicMock(process=MagicMock(returncode=1))
+            m.stream = lambda: iter(["event"])
+            return m
+
+    fn = polymarket_dbt.op.compute_fn.decorated_fn
+    ctx = MagicMock()
+    with pytest.raises(RuntimeError, match="exit code 1"):
+        list(fn(ctx, NonZeroReturncodeDbt(), orch_config.DbtBuildConfig()))
 
 
 def test_prepare_dbt_project_warns_when_prepare_fails_but_manifest_exists(

@@ -6,12 +6,7 @@ import logging
 import time
 from typing import Any, Callable, Dict, Iterable, Iterator, Literal, Sequence
 
-from oddsfox.config.settings import (
-    POLYMARKET_WC2026_KEYSET_CLOSED,
-    POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
-    POLYMARKET_WC2026_TAG_CLOSURE_ROUNDS,
-    POLYMARKET_WC2026_TAG_CRAWL_MAX,
-)
+from oddsfox.config import settings as _settings
 from oddsfox.ingestion.polymarket.gamma_events import (
     EventsPageMeta,
     iter_gamma_events_keyset,
@@ -228,12 +223,12 @@ def _empty_scan_result() -> Wc2026EventsScanResult:
 
 
 def _resolve_tag_closure_rounds() -> int:
-    rounds = POLYMARKET_WC2026_TAG_CLOSURE_ROUNDS
+    rounds = _settings.POLYMARKET_WC2026_TAG_CLOSURE_ROUNDS
     return max(0, rounds)
 
 
 def _resolve_tag_crawl_max() -> int | None:
-    cap = POLYMARKET_WC2026_TAG_CRAWL_MAX
+    cap = _settings.POLYMARKET_WC2026_TAG_CRAWL_MAX
     if cap <= 0:
         return None
     return cap
@@ -280,9 +275,9 @@ def _finalize_registry_collect(
     discovery_mode: DiscoveryMode,
     t0: float,
     api_requests: int = 0,
-    keyset_closed: bool | None = POLYMARKET_WC2026_KEYSET_CLOSED,
+    keyset_closed: bool | None = None,
     keyset_tag_slugs: Sequence[str] | None = None,
-    keyset_volume_min: float | None = POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
+    keyset_volume_min: float | None = None,
 ) -> tuple[Dict[str, Any], list[dict[str, Any]], Dict[str, Any]]:
     _record_discovery_ledger(
         cfg,

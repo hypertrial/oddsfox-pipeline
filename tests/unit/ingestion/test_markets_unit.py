@@ -255,3 +255,52 @@ def test_sync_markets_ignores_progress_callback_failures(monkeypatch):
 
     assert out["aborted"] is False
     assert out["error"] is None
+
+
+def test_sync_markets_guardrail_check_during_discovery_progress(monkeypatch):
+    from oddsfox.resources.progress_guardrails import ProgressGuardrail
+
+    checks: list[tuple[str, dict]] = []
+    original_check = ProgressGuardrail.check
+
+    def recording_check(self, *, phase, diagnostics):
+        checks.append((phase, diagnostics))
+        return original_check(self, phase=phase, diagnostics=diagnostics)
+
+    monkeypatch.setattr(ProgressGuardrail, "check", recording_check)
+    monkeypatch.setattr(markets_sync, "ensure_duck_db", lambda: None)
+    monkeypatch.setattr(markets_sync, "load_wc2026_config", lambda: _SLUG_ONLY_CFG)
+    monkeypatch.setattr(markets_sync, "save_sync_run_metrics", lambda *a, **k: None)
+    monkeypatch.setattr(markets_sync, "save_markets_batch", lambda *a, **k: None)
+
+    def fake_refresh(client, config, progress_callback=None):
+        del client, config
+        if progress_callback:
+            progress_callback(
+                "discovery_page",
+                {"events_pages": 2, "api_requests": 3, "markets_collected": 1},
+            )
+        return (
+            {"registry_rows_upserted": 1, "registry_refreshed": True},
+            [_event_market()],
+            {
+                "events_pages": 2,
+                "markets_collected": 1,
+                "registry_refreshed": True,
+                "api_requests": 3,
+            },
+        )
+
+    monkeypatch.setattr(
+        markets_sync,
+        "refresh_registry_and_collect_markets_targeted",
+        fake_refresh,
+    )
+
+    markets_sync.sync_markets(
+        client_factory=lambda: object(),
+        discovery_mode="targeted",
+        progress_log_interval_pages=1,
+    )
+
+    assert any(phase == "discovery_page" for phase, _ in checks)

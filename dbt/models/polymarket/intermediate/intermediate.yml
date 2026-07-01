@@ -104,6 +104,14 @@ models:
     repeated. Tokens without odds still appear with null odds columns.
 
     '
+  tests:
+  - no_duplicate_grain:
+      arguments:
+        grain_columns: [clob_token_id, odds_timestamp_epoch]
+        where: clob_token_id is not null and odds_timestamp_epoch is not null
+  - price_in_unit_interval:
+      arguments:
+        identifier_columns: [clob_token_id, odds_timestamp_epoch]
   columns:
   - name: market_id
     description: Polymarket market identifier.
@@ -143,6 +151,10 @@ models:
     per token-day; tokens without daily rows appear with null odds columns.
 
     '
+  tests:
+  - no_duplicate_grain:
+      arguments:
+        grain_columns: [clob_token_id, odds_date_utc]
   columns:
   - name: market_id
     description: Polymarket market identifier.

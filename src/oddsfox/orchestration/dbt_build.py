@@ -102,6 +102,10 @@ def stream_dbt_build(
     if producer_error:
         raise producer_error[0]
 
+    returncode = getattr(invocation.process, "returncode", None)
+    if returncode not in (None, 0):
+        raise RuntimeError(f"{asset_name} dbt build failed with exit code {returncode}")
+
     guardrail.record_progress(
         work_increment=0,
         phase="dbt_build_complete",

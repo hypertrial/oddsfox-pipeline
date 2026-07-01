@@ -120,3 +120,6 @@ def patch_duckdb_connect_for_lock(monkeypatch):
 
     monkeypatch.setenv("PYTEST_CURRENT_TEST", "unit")
     return monkeypatch.setattr(duckdb_mod, "connect", fake_connect)
+
+
+from tests.unit.storage.duckdb_storage_test_support import duck  # noqa: E402, F401

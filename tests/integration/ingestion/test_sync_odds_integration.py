@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("duckdb")
 
-from tests.unit.ingestion._odds_sync_harness import (
+from tests.integration.ingestion._odds_sync_harness import (
     FakePbar,
     ImmediatePool,
     ImmediateThread,
@@ -504,3 +504,75 @@ def test_sync_odds_continues_when_candidate_count_fails(monkeypatch):
     pbar = FakePbar.last_instance
     assert pbar is not None
     assert pbar.total is None
+
+
+def test_sync_odds_pool_worker_exception_queues_retry_state(monkeypatch):
+    plan = make_plan("tok_boom")
+    puts: list[tuple] = []
+    original_put = Queue.put
+
+    def capture_put(self, item, block=True, timeout=None):
+        puts.append(item)
+        return original_put(self, item, block=block, timeout=timeout)
+
+    def plan_iter(**kwargs):
+        del kwargs
+        yield plan
+        return (odds_sync.PlanningState(plans=1), {})
+
+    def boom(*args, **kwargs):
+        del args, kwargs
+        raise RuntimeError("worker blew up")
+
+    monkeypatch.setattr(Queue, "put", capture_put)
+    monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
+    monkeypatch.setattr(
+        odds_sync,
+        "snapshot_raw_layer",
+        lambda: {
+            "market_tokens_distinct_tokens": 0,
+            "odds_history_distinct_tokens": 0,
+            "token_odds_daily_distinct_tokens": 0,
+            "ledger_distinct_tokens": 0,
+            "ledger_fully_checked_tokens": 0,
+            "token_sync_skips_distinct_tokens": 0,
+            "market_tokens_without_history": 0,
+            "history_tokens_without_market_tokens": 0,
+            "token_sync_skips_by_reason": {},
+        },
+    )
+    monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
+    monkeypatch.setattr(odds_sync, "_sync_token_plan", boom)
+    monkeypatch.setattr(
+        odds_sync, "save_sync_run_metrics", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(odds_sync, "save_skipped_tokens", lambda *args, **kwargs: None)
+    monkeypatch.setattr(odds_sync, "Thread", ImmediateThread)
+    monkeypatch.setattr(odds_sync, "_writer_loop", lambda *args, **kwargs: None)
+    monkeypatch.setattr(odds_sync, "ThreadPoolExecutor", ImmediatePool)
+    monkeypatch.setattr(
+        odds_sync, "wait", lambda futures, return_when=None: (set(futures), set())
+    )
+    monkeypatch.setattr(odds_sync, "tqdm", FakePbar)
+    monkeypatch.setattr(Queue, "join", lambda self: None)
+
+    summary = odds_sync.sync_odds(
+        max_workers=1,
+        auto_tune_rps=False,
+        persist_run_metrics=False,
+        client_factory=lambda: object(),
+        rate_limiter_factory=lambda r: None,
+    )
+
+    skip_puts = [item for item in puts if item and item[0] == "skipped_tokens"]
+    state_puts = [item for item in puts if item and item[0] == "token_state"]
+    assert skip_puts == [("skipped_tokens", [(plan.token_id, "worker blew up")])]
+    assert len(state_puts) == 1
+    state_row = state_puts[0][1][0]
+    assert state_row[0] == plan.token_id
+    assert state_row[1] is None
+    assert state_row[2] is not None
+    assert state_row[3] is not None
+    assert state_row[4] == 0
+    assert state_row[5] is False
+    assert summary["totals"]["error"] == 1

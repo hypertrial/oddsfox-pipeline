@@ -11,6 +11,8 @@ from oddsfox.ingestion.polymarket.odds.support import (
 )
 from oddsfox.storage.duckdb import (
     get_connection,
+    merge_odds_bulk_upsert,
+    prepare_odds_bulk_upsert,
     refresh_token_odds_daily,
     save_odds_bulk_upsert,
     upsert_skipped_tokens_batch,
@@ -90,16 +92,22 @@ def flush_writer_buffers(
         }
     )
     buffers.dirty_daily_keys.update(daily_keys)
-    if odds_records:
-        save_odds_bulk_upsert_fn(odds_records, conn, assume_deduped=True)
-        writer_stats["saved"] += len(odds_records)
-    if not state_map and not skip_map:
+    if not odds_records and not state_map and not skip_map:
         buffers.odds_map.clear()
         buffers.state_buffer.clear()
         buffers.skip_buffer.clear()
         return
+    odds_stage = None
+    if odds_records and save_odds_bulk_upsert_fn is save_odds_bulk_upsert:
+        odds_stage = prepare_odds_bulk_upsert(odds_records, conn, assume_deduped=True)
     conn.execute("BEGIN")
     try:
+        if odds_records:
+            if odds_stage is not None:
+                merge_odds_bulk_upsert(conn, odds_stage)
+            else:
+                save_odds_bulk_upsert_fn(odds_records, conn, assume_deduped=True)
+            writer_stats["saved"] += len(odds_records)
         if state_map:
             state_rows = list(state_map.values())
             upsert_token_sync_state_batch_fn(state_rows, conn)

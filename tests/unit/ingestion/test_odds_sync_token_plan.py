@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("duckdb")
 
-from tests.unit.ingestion._odds_sync_harness import make_plan
+from tests.integration.ingestion._odds_sync_harness import make_plan
 
 from oddsfox.ingestion.polymarket.odds import sync as odds_sync
 
