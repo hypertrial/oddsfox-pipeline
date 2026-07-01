@@ -1,4 +1,4 @@
--- When price is present, odds timestamps must be present (join to odds did not drop fields).
+-- Rows with a price must retain both timestamp fields.
 select
     clob_token_id,
     price,
