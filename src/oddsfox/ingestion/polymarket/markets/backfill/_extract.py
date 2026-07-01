@@ -22,7 +22,7 @@ def _extract_slug_record(market_id: str, market: dict) -> Optional[Tuple[str, st
     slug = market.get("slug")
     if not slug:
         return None
-    return market_id, slug
+    return slug, market_id
 
 
 def _extract_event_slug_record(

@@ -54,6 +54,37 @@ def _ended_market_where_clause(
     )
 
 
+_DUE_TOKEN_JOIN_SQL = f"""
+    FROM {_TAB_MARKET_TOKENS} mt
+    JOIN {_TAB_MARKETS} m ON mt.market_id = m.id
+    CROSS JOIN LATERAL json_each(mt.clobTokenIds) AS je
+    LEFT JOIN {_TAB_TOKEN_SYNC_LEDGER} l
+      ON l.clobTokenId = json_extract_string(je.value, '$')
+    LEFT JOIN {_TAB_TOKEN_SYNC_SKIPS} s
+      ON s.clobTokenId = json_extract_string(je.value, '$')
+"""
+
+
+def _due_token_base_where(
+    cutoff_created_at: Optional[str],
+    params: List,
+) -> str:
+    """Shared base WHERE predicate for due-token queries; appends to params in place."""
+    predicates = [
+        "mt.clobTokenIds IS NOT NULL",
+        "mt.clobTokenIds != '[]'",
+        "LEFT(LTRIM(mt.clobTokenIds), 1) = '['",
+        "json_extract_string(je.value, '$') IS NOT NULL",
+        "s.clobTokenId IS NULL",
+        "NOT (COALESCE(m.closed, FALSE) = TRUE AND COALESCE(l.fully_checked, FALSE) = TRUE)",
+        "(l.clobTokenId IS NULL OR l.next_check_at IS NULL OR l.next_check_at <= CURRENT_TIMESTAMP)",
+    ]
+    if cutoff_created_at:
+        predicates.append("m.created_at >= ?")
+        params.append(cutoff_created_at)
+    return " AND ".join(predicates)
+
+
 def _validate_volume_bound(value: float | None, *, name: str) -> float | None:
     if value is None:
         return None
@@ -285,37 +316,19 @@ def iter_due_market_tokens(
     here so routine runs do not revisit them.
     """
     ensure_duck_db()
-    query_parts = [
-        f"""
+    params: List = []
+    query = f"""
         SELECT
             mt.market_id,
             json_extract_string(je.value, '$') AS clobTokenId,
             m.created_at,
             m.closed
-        FROM {_TAB_MARKET_TOKENS} mt
-        JOIN {_TAB_MARKETS} m ON mt.market_id = m.id
-        CROSS JOIN LATERAL json_each(mt.clobTokenIds) AS je
-        LEFT JOIN {_TAB_TOKEN_SYNC_LEDGER} l
-          ON l.clobTokenId = json_extract_string(je.value, '$')
-        LEFT JOIN {_TAB_TOKEN_SYNC_SKIPS} s
-          ON s.clobTokenId = json_extract_string(je.value, '$')
-        WHERE mt.clobTokenIds IS NOT NULL
-          AND mt.clobTokenIds != '[]'
-          AND LEFT(LTRIM(mt.clobTokenIds), 1) = '['
-          AND json_extract_string(je.value, '$') IS NOT NULL
-          AND s.clobTokenId IS NULL
-          AND NOT (COALESCE(m.closed, FALSE) = TRUE AND COALESCE(l.fully_checked, FALSE) = TRUE)
-          AND (l.clobTokenId IS NULL OR l.next_check_at IS NULL OR l.next_check_at <= CURRENT_TIMESTAMP)
-        """
-    ]
-    params: List = []
-    if cutoff_created_at:
-        query_parts.append("AND m.created_at >= ?")
-        params.append(cutoff_created_at)
-    query_parts.append(_market_scope_where_clause(market_scope, "m"))
-    query_parts.append(_volume_where_clause(min_volume, max_volume, "m"))
-    query_parts.append(_ended_market_where_clause(ended_market_grace_days, "m"))
-    query = "\n".join(query_parts)
+        {_DUE_TOKEN_JOIN_SQL}
+        WHERE {_due_token_base_where(cutoff_created_at, params)}
+        {_market_scope_where_clause(market_scope, "m")}
+        {_volume_where_clause(min_volume, max_volume, "m")}
+        {_ended_market_where_clause(ended_market_grace_days, "m")}
+    """
     with get_connection() as conn:
         cursor = conn.execute(query, params) if params else conn.execute(query)
         while True:
@@ -337,28 +350,7 @@ def count_due_market_token_exclusions(
     scope = validate_market_scope(market_scope)
     ensure_duck_db()
     params: List = []
-    base_where = [
-        "mt.clobTokenIds IS NOT NULL",
-        "mt.clobTokenIds != '[]'",
-        "LEFT(LTRIM(mt.clobTokenIds), 1) = '['",
-        "json_extract_string(je.value, '$') IS NOT NULL",
-        "s.clobTokenId IS NULL",
-        "NOT (COALESCE(m.closed, FALSE) = TRUE AND COALESCE(l.fully_checked, FALSE) = TRUE)",
-        "(l.clobTokenId IS NULL OR l.next_check_at IS NULL OR l.next_check_at <= CURRENT_TIMESTAMP)",
-    ]
-    if cutoff_created_at:
-        base_where.append("m.created_at >= ?")
-        params.append(cutoff_created_at)
-    base_sql = " AND ".join(base_where)
-    join_sql = f"""
-        FROM {_TAB_MARKET_TOKENS} mt
-        JOIN {_TAB_MARKETS} m ON mt.market_id = m.id
-        CROSS JOIN LATERAL json_each(mt.clobTokenIds) AS je
-        LEFT JOIN {_TAB_TOKEN_SYNC_LEDGER} l
-          ON l.clobTokenId = json_extract_string(je.value, '$')
-        LEFT JOIN {_TAB_TOKEN_SYNC_SKIPS} s
-          ON s.clobTokenId = json_extract_string(je.value, '$')
-    """
+    base_sql = _due_token_base_where(cutoff_created_at, params)
     scope_skip = 0
     ended_skip = 0
     scoped = scope == MARKET_SCOPE_WC2026
@@ -368,7 +360,7 @@ def count_due_market_token_exclusions(
             row = conn.execute(
                 f"""
                 SELECT COUNT(*)
-                {join_sql}
+                {_DUE_TOKEN_JOIN_SQL}
                 WHERE {base_sql}
                   AND NOT ({predicate})
                 """,
@@ -383,7 +375,7 @@ def count_due_market_token_exclusions(
             row = conn.execute(
                 f"""
                 SELECT COUNT(*)
-                {join_sql}
+                {_DUE_TOKEN_JOIN_SQL}
                 WHERE {base_sql}
                   AND ({scope_condition})
                   AND m.end_date IS NOT NULL
@@ -414,28 +406,10 @@ def count_candidate_market_tokens(
     ensure_duck_db()
     params: List = []
     if due_only:
-        base_where = [
-            "mt.clobTokenIds IS NOT NULL",
-            "mt.clobTokenIds != '[]'",
-            "LEFT(LTRIM(mt.clobTokenIds), 1) = '['",
-            "json_extract_string(je.value, '$') IS NOT NULL",
-            "s.clobTokenId IS NULL",
-            "NOT (COALESCE(m.closed, FALSE) = TRUE AND COALESCE(l.fully_checked, FALSE) = TRUE)",
-            "(l.clobTokenId IS NULL OR l.next_check_at IS NULL OR l.next_check_at <= CURRENT_TIMESTAMP)",
-        ]
-        if cutoff_created_at:
-            base_where.append("m.created_at >= ?")
-            params.append(cutoff_created_at)
         query = f"""
             SELECT COUNT(*), COUNT(DISTINCT mt.market_id)
-            FROM {_TAB_MARKET_TOKENS} mt
-            JOIN {_TAB_MARKETS} m ON mt.market_id = m.id
-            CROSS JOIN LATERAL json_each(mt.clobTokenIds) AS je
-            LEFT JOIN {_TAB_TOKEN_SYNC_LEDGER} l
-              ON l.clobTokenId = json_extract_string(je.value, '$')
-            LEFT JOIN {_TAB_TOKEN_SYNC_SKIPS} s
-              ON s.clobTokenId = json_extract_string(je.value, '$')
-            WHERE {" AND ".join(base_where)}
+            {_DUE_TOKEN_JOIN_SQL}
+            WHERE {_due_token_base_where(cutoff_created_at, params)}
             {_market_scope_where_clause(market_scope, "m")}
             {_volume_where_clause(min_volume, max_volume, "m")}
             {_ended_market_where_clause(ended_market_grace_days, "m")}

@@ -12,6 +12,7 @@ import requests
 from oddsfox.config.settings import HTTP_REQUEST_TIMEOUT
 from oddsfox.ingestion.polymarket.errors import ClobRequestError, clob_get
 from oddsfox.resources.http import APIClient
+from oddsfox.resources.http_retry import is_transient_status
 
 logger = logging.getLogger(__name__)
 _status_hook: Optional[Callable[[int], None]] = None
@@ -49,8 +50,8 @@ def _response_status_and_body(exc) -> Tuple[Optional[int], str]:
 
 
 def _is_transient_client_status(status: Optional[int]) -> bool:
-    # 429s are retryable/rate-limit responses and should not permanently skip tokens.
-    return status == 429
+    # Transient HTTP statuses (429, 5xx, etc.) retry on next sync, not permanent skip.
+    return status is not None and is_transient_status(status)
 
 
 def set_status_hook(hook: Optional[Callable[[int], None]]) -> None:

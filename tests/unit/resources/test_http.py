@@ -5,6 +5,15 @@ import pytest
 import requests
 
 from oddsfox.resources.http import APIClient, ClobAuth, RateLimiter
+from oddsfox.resources.http_retry import TRANSIENT_HTTP_STATUSES, is_transient_status
+
+
+def test_is_transient_status_covers_shared_set():
+    for status in (408, 429, 500, 502, 503, 504):
+        assert is_transient_status(status)
+    assert is_transient_status(0)
+    assert not is_transient_status(404)
+    assert TRANSIENT_HTTP_STATUSES == frozenset({408, 429, 500, 502, 503, 504})
 
 
 def test_clob_auth_base64_secret():

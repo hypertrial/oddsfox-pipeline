@@ -1,5 +1,5 @@
 # Canonical Polymarket WC 2026 event scope for routine ingestion.
-# Keep in sync with dbt/dbt_project.yml vars (wc2026_event_tags, wc2026_event_slugs,
+# Keep in sync with dbt/dbt_project.yml vars (wc2026_event_slugs,
 # wc2026_event_slug_prefixes). Parity enforced by tests/unit/ingestion/test_wc2026_config_parity.py.
 # Override via POLYMARKET_WC2026_EVENT_TAGS / POLYMARKET_WC2026_EVENT_SLUGS /
 # POLYMARKET_WC2026_EVENT_SLUG_PREFIXES.

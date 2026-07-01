@@ -242,6 +242,22 @@ def test_get_markets_with_tokens_and_iter(duck):
     assert pages
 
 
+def test_extract_slug_record_order_matches_save_slugs_batch(duck):
+    """_extract_slug_record returns (slug, market_id) for save_slugs_batch."""
+    from oddsfox.ingestion.polymarket.markets.backfill._extract import (
+        _extract_slug_record,
+    )
+
+    with get_connection() as conn:
+        _insert_minimal_market(conn, mid="m-slug", slug=None)
+    record = _extract_slug_record("m-slug", {"slug": "my-slug"})
+    assert record == ("my-slug", "m-slug")
+    markets.save_slugs_batch([record])
+    with get_connection() as conn:
+        row = conn.execute(f"SELECT slug FROM {T_M} WHERE id = 'm-slug'").fetchone()
+    assert row[0] == "my-slug"
+
+
 def test_slug_event_end_date_queries(duck):
     with markets.get_connection() as conn:
         conn.execute(
@@ -730,6 +746,100 @@ def test_count_candidate_market_tokens_due_only(duck):
     assert counts == {"candidate_tokens": 1, "candidate_markets": 1}
 
 
+def test_due_token_iterator_count_parity(duck):
+    """count_candidate_market_tokens(due_only=True) matches iter_due_market_tokens rows."""
+    _seed_markets(
+        duck,
+        [
+            (
+                "due_market",
+                "q",
+                "c",
+                "d",
+                "[]",
+                1.0,
+                True,
+                False,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                None,
+                None,
+                None,
+            ),
+            (
+                "future_market",
+                "q",
+                "c",
+                "d",
+                "[]",
+                1.0,
+                True,
+                False,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                None,
+                None,
+                None,
+            ),
+            (
+                "closed_market",
+                "q",
+                "c",
+                "d",
+                "[]",
+                1.0,
+                True,
+                True,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                None,
+                None,
+                None,
+            ),
+            (
+                "skip_market",
+                "q",
+                "c",
+                "d",
+                "[]",
+                1.0,
+                True,
+                False,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                None,
+                None,
+                None,
+            ),
+        ],
+        [
+            ("due_market", '["tok_due"]'),
+            ("future_market", '["tok_future"]'),
+            ("closed_market", '["tok_closed"]'),
+            ("skip_market", '["tok_skip"]'),
+        ],
+    )
+    with markets.get_connection() as conn:
+        conn.execute(
+            f"""
+            INSERT INTO {T_LED}
+            (clobTokenId, next_check_at, fully_checked)
+            VALUES
+            ('tok_future', CURRENT_TIMESTAMP + INTERVAL 1 DAY, FALSE),
+            ('tok_closed', CURRENT_TIMESTAMP - INTERVAL 1 DAY, TRUE)
+            """
+        )
+        conn.execute(
+            f"INSERT INTO {T_SK} (clobTokenId, reason) VALUES ('tok_skip', 'bad token')"
+        )
+    kwargs = {"cutoff_created_at": "2024-01-01 00:00:00"}
+    iter_count = sum(
+        len(page) for page in markets.iter_due_market_tokens(page_size=10, **kwargs)
+    )
+    counts = markets.count_candidate_market_tokens(due_only=True, **kwargs)
+    assert iter_count == counts["candidate_tokens"]
+
+
 def test_count_candidate_market_tokens_force_mode(duck):
     _seed_markets(
         duck,
@@ -1121,6 +1231,15 @@ def test_reconcile_ledger(duck):
 
 def test_get_token_sync_snapshot_empty():
     assert odds_mod.get_token_sync_snapshot([]) == ({}, set(), {})
+
+
+def test_get_token_sync_snapshot_empty_with_scheduler_state():
+    assert odds_mod.get_token_sync_snapshot([], include_scheduler_state=True) == (
+        {},
+        set(),
+        {},
+        {},
+    )
 
 
 def test_get_token_sync_snapshot_with_reconcile(duck):

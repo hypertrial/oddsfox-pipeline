@@ -1,8 +1,7 @@
 """WC 2026 allowlist parity: Python seed, dbt vars, and default env slug must stay aligned.
 
 Seed ``market_ids`` affect Python registry upsert only; dbt staging uses registry plus
-``wc2026_event_tags``, ``wc2026_event_slugs``, and ``wc2026_event_slug_prefixes`` vars
-(not seed market_ids).
+``wc2026_event_slugs`` and ``wc2026_event_slug_prefixes`` vars (not seed market_ids).
 """
 
 from __future__ import annotations
@@ -35,11 +34,9 @@ def test_wc2026_seed_matches_dbt_vars(monkeypatch) -> None:
 
     dbt_slugs = _normalized_set(vars_block.get("wc2026_event_slugs") or [])
     dbt_prefixes = _normalized_set(vars_block.get("wc2026_event_slug_prefixes") or [])
-    dbt_tags = _normalized_set(vars_block.get("wc2026_event_tags") or [])
 
     assert _normalized_set(cfg.event_slugs) == dbt_slugs
     assert _normalized_set(cfg.event_slug_prefixes) == dbt_prefixes
-    assert _normalized_set(cfg.event_tags) == dbt_tags
 
 
 def test_default_event_slug_in_seed_allowlist(monkeypatch) -> None:

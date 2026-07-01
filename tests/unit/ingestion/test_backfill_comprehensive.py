@@ -90,6 +90,38 @@ def test_process_market_chunks_with_records_and_on_saved(no_sleep_tqdm, monkeypa
         on_record_saved=on_saved,
     )
     assert processed >= 1
+    assert saved == 1
+    assert saved_ids == ["1"]
+
+
+def test_process_market_chunks_save_failure_no_false_progress(
+    no_sleep_tqdm, monkeypatch
+):
+    monkeypatch.setattr(bf, "ensure_duck_db", lambda: None)
+    saved_ids = []
+
+    def on_saved(mid):
+        saved_ids.append(mid)
+
+    client = MagicMock()
+    client.get.return_value = [{"id": "1", "slug": "slug-1"}]
+
+    def failing_save(_rows):
+        raise RuntimeError("save failed")
+
+    processed, saved, _api = bf._process_market_chunks(
+        client=client,
+        market_ids=["1"],
+        batch_size=1,
+        desc="t",
+        include_events=False,
+        extract_record=bf._extract_slug_record,
+        save_batch=failing_save,
+        on_record_saved=on_saved,
+    )
+    assert processed == 1
+    assert saved == 0
+    assert saved_ids == []
 
 
 def test_process_market_chunks_record_none_without_callback(no_sleep_tqdm, monkeypatch):
@@ -127,7 +159,7 @@ def test_process_market_chunks_record_saved_without_on_saved(
     )
     assert processed == 1
     assert saved == 1
-    assert saved_batches == [("1", "slug-1")]
+    assert saved_batches == [("slug-1", "1")]
 
 
 def test_process_market_chunks_count_errors_request_exception(

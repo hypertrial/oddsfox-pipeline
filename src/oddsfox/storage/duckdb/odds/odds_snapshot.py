@@ -52,6 +52,8 @@ def get_token_sync_snapshot(
       skipped_tokens: tokens in token_sync_skips
     """
     if not token_ids:
+        if include_scheduler_state:
+            return {}, set(), {}, {}
         return {}, set(), {}
 
     ensure_duck_db()

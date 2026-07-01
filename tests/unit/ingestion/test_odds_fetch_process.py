@@ -45,6 +45,16 @@ def test_fetch_token_history_http_429():
     assert odds_fetch.fetch_token_history(c, "t" * 40) is None
 
 
+def test_fetch_token_history_http_500_transient(caplog):
+    c = MagicMock()
+    err = requests.HTTPError()
+    err.response = MagicMock(status_code=500, text="server error")
+    c.get.side_effect = err
+    with caplog.at_level("WARNING"):
+        assert odds_fetch.fetch_token_history(c, "t" * 40) is None
+    assert any("Transient client status 500" in r.message for r in caplog.records)
+
+
 def test_fetch_token_history_http_400_raises():
     c = MagicMock()
     err = requests.HTTPError()

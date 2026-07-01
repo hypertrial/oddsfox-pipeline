@@ -11,6 +11,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from oddsfox.config.settings import HTTP_REQUEST_TIMEOUT
+from oddsfox.resources.http_retry import TRANSIENT_HTTP_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ class APIClient:
             connect=retries,
             other=retries,
             backoff_factor=backoff_factor,
-            status_forcelist=(429, 500, 502, 503, 504),
+            status_forcelist=tuple(sorted(TRANSIENT_HTTP_STATUSES)),
             allowed_methods=["GET", "POST", "PUT", "DELETE"],
         )
         adapter = HTTPAdapter(max_retries=retry)

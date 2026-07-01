@@ -52,7 +52,7 @@ def test_chunk_helpers():
         json.dumps(["x"]),
     )
     assert bf._extract_tokens_record("1", {"clobTokenIds": "not-json"}) is None
-    assert bf._extract_slug_record("1", {"slug": "s"}) == ("1", "s")
+    assert bf._extract_slug_record("1", {"slug": "s"}) == ("s", "1")
     assert bf._extract_event_slug_record("1", {"events": [{"slug": "e"}]}) == ("e", "1")
     assert (
         bf._extract_end_date_record("1", {"endDate": "2020-01-01"})[0] == "2020-01-01"

@@ -87,23 +87,24 @@ def _process_market_chunks(
                     pbar.update(len(chunk))
                 else:
                     returned_map = {str(m.get("id")): m for m in markets}
-                    save_records: List[Tuple] = []
+                    save_pairs: List[Tuple[str, Tuple]] = []
 
                     for market_id in chunk:
                         market = returned_map.get(str(market_id))
                         if market:
                             record = extract_record(market_id, market)
                             if record is not None:
-                                save_records.append(record)
-                                saved += 1
-                                if on_record_saved:
-                                    on_record_saved(str(market_id))
+                                save_pairs.append((str(market_id), record))
 
                         processed += 1
                         pbar.update(1)
 
-                    if save_records:
-                        save_batch(save_records)
+                    if save_pairs:
+                        save_batch([record for _, record in save_pairs])
+                        saved += len(save_pairs)
+                        if on_record_saved:
+                            for market_id, _ in save_pairs:
+                                on_record_saved(market_id)
 
             except (GammaRequestError, OSError) as exc:
                 logger.error(f"Error during backfill batch: {exc}")

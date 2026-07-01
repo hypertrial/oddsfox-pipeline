@@ -9,10 +9,6 @@ flags:
   indirect_selection: buildable
 vars:
   polymarket_whale_min_volume_usd: 100000
-  wc2026_event_tags:
-    - 2026-fifa-world-cup
-    - fifa-world-cup
-    - world-cup
   wc2026_event_slugs:
     - 2026-fifa-world-cup-winner
   wc2026_event_slug_prefixes:
