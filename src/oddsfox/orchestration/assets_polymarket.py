@@ -373,6 +373,12 @@ def polymarket_market_metadata_backfill(
             ),
         )
     ]
+    orphan_market_tokens_removed = ops.delete_orphan_market_tokens()
+    if orphan_market_tokens_removed:
+        context.log.info(
+            "Removed %s orphan market_tokens row(s) (market_id not in markets) after metadata backfill",
+            orphan_market_tokens_removed,
+        )
     post = snapshot_raw_layer(level=config.raw_snapshot_level)
     dd = delta_raw_layer(pre, post)
     return MaterializeResult(
@@ -382,6 +388,9 @@ def polymarket_market_metadata_backfill(
             "duckdb_raw_post": MetadataValue.json(post),
             "duckdb_raw_delta": MetadataValue.json(dd),
             "backfill_summaries": MetadataValue.json(backfill_summaries),
+            "orphan_market_tokens_removed": MetadataValue.int(
+                orphan_market_tokens_removed
+            ),
         }
     )
 
@@ -442,12 +451,6 @@ def polymarket_dbt(
 ):
     pre_raw = snapshot_raw_layer(level=config.raw_snapshot_level)
     pre_dbt = snapshot_dbt_models()
-    removed = ops.delete_orphan_market_tokens()
-    if removed:
-        context.log.info(
-            "Removed %s orphan market_tokens row(s) (market_id not in markets) before dbt build",
-            removed,
-        )
 
     yield from ops.stream_dbt_build(
         asset_name="polymarket_dbt",

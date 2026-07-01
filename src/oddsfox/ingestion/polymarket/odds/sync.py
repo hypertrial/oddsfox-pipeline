@@ -143,8 +143,8 @@ def _writer_loop(*args, **kwargs):
     return _writer_mod.writer_loop(*args, **kwargs)
 
 
-def _default_polymarket_odds_runtime() -> OddsSyncRuntime:
-    """Resolve hooks from this facade so tests can monkeypatch ``odds_sync.*`` aliases."""
+def default_odds_sync_runtime() -> OddsSyncRuntime:
+    """Return the default live-callable runtime for a Polymarket odds sync run."""
     fac = sys.modules[__name__]
     return OddsSyncRuntime(
         planning=PlanningRuntime(
@@ -188,8 +188,12 @@ def _default_polymarket_odds_runtime() -> OddsSyncRuntime:
     )
 
 
+def _default_polymarket_odds_runtime() -> OddsSyncRuntime:
+    return default_odds_sync_runtime()
+
+
 def _default_polymarket_odds_binding() -> PolymarketOddsBinding:
-    return _default_polymarket_odds_runtime()
+    return default_odds_sync_runtime()
 
 
 def init_db():
@@ -206,7 +210,7 @@ def sync_odds(*args, **kwargs):
         raise ValueError("fidelity must be at least 1 minute")
     odds_binding = kwargs.pop("odds_binding", None)
     explicit_runtime = kwargs.pop("runtime", None) or odds_binding
-    runtime = explicit_runtime or _default_polymarket_odds_runtime()
+    runtime = explicit_runtime or default_odds_sync_runtime()
     if "plan_iterator_factory" not in kwargs:
         if explicit_runtime is None:
             kwargs["plan_iterator_factory"] = iter_token_plans_paged
@@ -286,25 +290,10 @@ __all__ = [
     "TokenPlan",
     "TokenSyncSchedulerState",
     "WriterBuffers",
-    "_apply_writer_item",
-    "_build_inflight_future_diagnostics",
-    "_build_planning_context",
-    "_checked_at_from_plan",
-    "_default_rate_limiter_factory",
-    "_dynamic_writer_flush_rows",
-    "_empty_retry_next_check",
-    "_fetch_window_with_auto_split",
-    "_flush_writer_buffers",
-    "_is_interval_too_long_error",
-    "_maybe_auto_tune_rps",
-    "_parse_created_at",
-    "_parse_cutoff_date",
-    "_refresh_dirty_daily_keys",
-    "_sync_token_plan",
-    "_writer_loop",
     "build_single_token_plan",
-    "datetime",
     "count_candidate_market_tokens",
+    "datetime",
+    "default_odds_sync_runtime",
     "ensure_duck_db",
     "fetch_token_history_with_retry",
     "get_connection",

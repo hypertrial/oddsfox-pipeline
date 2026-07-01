@@ -454,8 +454,12 @@ def test_apply_odds_sync_deps_delegates_to_apply_polymarket_odds_binding(monkeyp
 def test_apply_polymarket_odds_binding_returns_runtime_without_mutation():
     from oddsfox.ingestion.polymarket.odds import deps
 
-    runtime = odds_sync._default_polymarket_odds_runtime()
+    runtime = odds_sync.default_odds_sync_runtime()
     assert deps.apply_polymarket_odds_binding(runtime) is runtime
+
+
+def test_odds_sync_all_excludes_private_helpers():
+    assert [name for name in odds_sync.__all__ if name.startswith("_")] == []
 
 
 def test_odds_sync_runtime_flat_property_accessors():

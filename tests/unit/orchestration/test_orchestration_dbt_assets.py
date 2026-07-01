@@ -69,7 +69,7 @@ def test_dbt_assets_definition_streams_build_events(monkeypatch):
 
     monkeypatch.setattr(
         "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
-        lambda: 0,
+        lambda: (_ for _ in ()).throw(AssertionError("dbt must not clean raw tables")),
     )
 
     class MockDbt:
@@ -85,12 +85,12 @@ def test_dbt_assets_definition_streams_build_events(monkeypatch):
     assert events == ["event"]
 
 
-def test_dbt_assets_logs_when_orphan_market_tokens_removed(monkeypatch):
+def test_dbt_assets_does_not_delete_orphan_market_tokens(monkeypatch):
     from oddsfox.orchestration.assets import polymarket_dbt
 
     monkeypatch.setattr(
         "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
-        lambda: 2,
+        lambda: (_ for _ in ()).throw(AssertionError("dbt must not clean raw tables")),
     )
 
     class MockDbt:
@@ -103,18 +103,12 @@ def test_dbt_assets_logs_when_orphan_market_tokens_removed(monkeypatch):
     fn = polymarket_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     list(fn(ctx, MockDbt(), orch_config.DbtBuildConfig()))
-    joined = " ".join(str(c) for c in ctx.log.info.call_args_list)
-    assert "orphan market_tokens" in joined
 
 
 def test_dbt_assets_guardrail_hard_timeout_terminates_process(monkeypatch):
     from oddsfox.orchestration import assets as assets_mod
     from oddsfox.orchestration.assets import polymarket_dbt
 
-    monkeypatch.setattr(
-        "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
-        lambda: 0,
-    )
     clock = _FakeClock()
     _patch_guardrail_clock(monkeypatch, assets_mod, clock)
     monkeypatch.setattr(dbt_build_mod, "Thread", _DormantThread)
@@ -160,10 +154,6 @@ def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
     from oddsfox.orchestration import assets as assets_mod
     from oddsfox.orchestration.assets import polymarket_dbt
 
-    monkeypatch.setattr(
-        "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
-        lambda: 0,
-    )
     fn = polymarket_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     clock = _FakeClock()
@@ -216,13 +206,8 @@ def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
         list(fn(MagicMock(), ErrorStreamDbt(), orch_config.DbtBuildConfig()))
 
 
-def test_dbt_assets_raises_when_build_returns_nonzero_after_stream(monkeypatch):
+def test_dbt_assets_raises_when_build_returns_nonzero_after_stream():
     from oddsfox.orchestration.assets import polymarket_dbt
-
-    monkeypatch.setattr(
-        "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
-        lambda: 0,
-    )
 
     class NonZeroReturncodeDbt:
         def cli(self, *a, **k):

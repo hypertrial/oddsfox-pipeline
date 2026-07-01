@@ -134,6 +134,30 @@ def test_scan_tag_closure_expands_crawl_tags(monkeypatch):
     assert calls.count("world-cup-qualifiers") == 1
 
 
+def test_queue_harvested_crawl_tags_filters_duplicates_and_scope():
+    next_queue: list[str | None] = ["already-queued"]
+    tag_sources: dict[str, set[str]] = {}
+
+    scope_scan_mod._queue_harvested_crawl_tags(
+        [
+            None,
+            "fifa-world-cup",
+            "already-queued",
+            "world-cup-qualifiers",
+            "argentina",
+            "world-cup-qualifiers",
+        ],
+        crawled_set={"fifa-world-cup"},
+        next_queue=next_queue,
+        scope_tag_slugs=("fifa-world-cup",),
+        seed_tag_slugs=("fifa-world-cup",),
+        tag_sources_map=tag_sources,
+    )
+
+    assert next_queue == ["already-queued", "world-cup-qualifiers"]
+    assert tag_sources == {"world-cup-qualifiers": {"event_closure"}}
+
+
 def test_scan_collection_parity_with_closure_gate_on_vs_off(monkeypatch):
     cfg = Wc2026ScopeConfig(
         event_slugs=(),

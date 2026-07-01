@@ -29,6 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   read config lazily so `reload_all_settings_modules()` propagates without
   extra `importlib.reload` per module.
 - Orchestration ops facade collapsed through `polymarket_ops.py`.
+- Orphan `market_tokens` cleanup now runs after metadata/token backfill instead
+  of inside the dbt asset, keeping `polymarket_dbt` read-only against raw
+  tables.
+- DuckDB market storage internals split into query and mutation modules while
+  preserving the `oddsfox.storage.duckdb.markets` facade.
+- Odds sync now exposes `default_odds_sync_runtime()` as the supported runtime
+  factory for tests and injected callables.
+- WC2026 keyset scan tag-closure queueing moved into a pure helper with the
+  same strict scope gates and telemetry output.
 
 ### Fixed
 
@@ -47,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dead parallel odds planning/fetch module (`process.py`, `build_token_plans`,
   `set_status_hook`).
+- Unused snapshot HTTP client/cache surface and degraded snapshot result helper.
 
 ## [0.1.1] - 2026-07-01
 

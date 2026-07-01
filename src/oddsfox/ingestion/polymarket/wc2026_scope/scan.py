@@ -484,6 +484,32 @@ def _tag_crawl_key(tag_slug: str | None) -> str:
     return tag_slug if tag_slug is not None else "__all__"
 
 
+def _queue_harvested_crawl_tags(
+    harvested_tag_slugs: Iterable[str | None],
+    *,
+    crawled_set: set[str],
+    next_queue: list[str | None],
+    scope_tag_slugs: Sequence[str],
+    seed_tag_slugs: Sequence[str],
+    tag_sources_map: dict[str, set[str]],
+) -> None:
+    for harvested_slug in harvested_tag_slugs:
+        if (
+            harvested_slug is None
+            or harvested_slug in crawled_set
+            or harvested_slug in next_queue
+        ):
+            continue
+        if not _crawl_tag_allowed(
+            harvested_slug,
+            scope_tags=scope_tag_slugs,
+            seed_tags=seed_tag_slugs,
+        ):
+            continue
+        next_queue.append(harvested_slug)
+        tag_sources_map.setdefault(harvested_slug, set()).add("event_closure")
+
+
 def _scan_wc2026_gamma_events(
     client: Any,
     cfg: Wc2026ScopeConfig,
@@ -587,21 +613,14 @@ def _scan_wc2026_gamma_events(
             merged = _merge_scan_results(merged, pass_scan)
             total_pages += pass_scan.pages_done
 
-            for harvested_slug in pass_scan.harvested_tag_slugs:
-                if (
-                    harvested_slug in crawled_set
-                    or harvested_slug in next_queue
-                    or harvested_slug is None
-                ):
-                    continue
-                if not _crawl_tag_allowed(
-                    harvested_slug,
-                    scope_tags=scope_tag_slugs,
-                    seed_tags=seed_tag_slugs,
-                ):
-                    continue
-                next_queue.append(harvested_slug)
-                tag_sources_map.setdefault(harvested_slug, set()).add("event_closure")
+            _queue_harvested_crawl_tags(
+                pass_scan.harvested_tag_slugs,
+                crawled_set=crawled_set,
+                next_queue=next_queue,
+                scope_tag_slugs=scope_tag_slugs,
+                seed_tag_slugs=seed_tag_slugs,
+                tag_sources_map=tag_sources_map,
+            )
 
             if pass_scan.truncated:
                 truncated = True

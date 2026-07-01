@@ -3,7 +3,7 @@ import pytest
 pytest.importorskip("dagster")
 pytest.importorskip("dagster_dbt")
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from oddsfox.orchestration import polymarket_ops as polymarket_ops_mod
 from tests.unit.orchestration.orchestration_test_support import (
@@ -28,9 +28,15 @@ def test_metadata_backfill_asset_invokes_progress_callback():
             cb("probe_metadata", {"x": 1})
         return {"task": "backfill_market_metadata", "skipped": True}
 
-    with patch(
-        "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
-        combined,
+    with (
+        patch(
+            "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
+            combined,
+        ),
+        patch(
+            "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
+            lambda: 0,
+        ),
     ):
         materialize(
             [polymarket_market_metadata_backfill],
@@ -63,9 +69,15 @@ def test_metadata_backfill_config_branches():
         "include_event_slugs": False,
         "include_end_dates": False,
     }
-    with patch(
-        "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
-        lambda **k: {"task": "backfill_market_metadata", "skipped": True},
+    with (
+        patch(
+            "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
+            lambda **k: {"task": "backfill_market_metadata", "skipped": True},
+        ),
+        patch(
+            "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
+            lambda: 0,
+        ),
     ):
         materialize(
             [polymarket_market_metadata_backfill],
@@ -78,9 +90,15 @@ def test_metadata_backfill_config_branches():
         "include_event_slugs": False,
         "include_end_dates": True,
     }
-    with patch(
-        "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
-        lambda **k: {"task": "backfill_market_metadata", "skipped": True},
+    with (
+        patch(
+            "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
+            lambda **k: {"task": "backfill_market_metadata", "skipped": True},
+        ),
+        patch(
+            "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
+            lambda: 0,
+        ),
     ):
         materialize(
             [polymarket_market_metadata_backfill],
@@ -102,9 +120,15 @@ def test_metadata_backfill_forwards_event_slug_fallback_and_gamma_kwargs():
         captured.update(kw)
         return {"task": "backfill_market_metadata", "skipped": True}
 
-    with patch(
-        "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
-        capture_metadata,
+    with (
+        patch(
+            "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
+            capture_metadata,
+        ),
+        patch(
+            "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
+            lambda: 0,
+        ),
     ):
         materialize(
             [polymarket_market_metadata_backfill],
@@ -138,6 +162,37 @@ def test_metadata_backfill_forwards_event_slug_fallback_and_gamma_kwargs():
     assert callable(captured["progress_callback"])
 
 
+def test_metadata_backfill_deletes_orphan_market_tokens_after_backfill(monkeypatch):
+    from oddsfox.orchestration import assets_polymarket as assets_mod
+    from oddsfox.orchestration import config as orch_config
+    from oddsfox.orchestration.assets import (
+        polymarket_market_metadata_backfill,
+    )
+
+    calls: list[str] = []
+    monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
+    monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
+    monkeypatch.setattr(
+        polymarket_ops_mod,
+        "backfill_market_metadata",
+        lambda **_kwargs: calls.append("backfill") or {"task": "metadata"},
+    )
+    monkeypatch.setattr(
+        polymarket_ops_mod,
+        "delete_orphan_market_tokens",
+        lambda: calls.append("cleanup") or 2,
+    )
+
+    fn = polymarket_market_metadata_backfill.op.compute_fn.decorated_fn
+    ctx = MagicMock()
+    result = fn(ctx, orch_config.MetadataBackfillConfig())
+
+    assert calls == ["backfill", "cleanup"]
+    assert result.metadata["orphan_market_tokens_removed"].value == 2
+    joined = " ".join(str(c) for c in ctx.log.info.call_args_list)
+    assert "orphan market_tokens" in joined
+
+
 def test_metadata_backfill_guardrail_poll_checks_and_raises_worker_errors(monkeypatch):
     from dagster import materialize
 
@@ -168,9 +223,15 @@ def test_metadata_backfill_guardrail_poll_checks_and_raises_worker_errors(monkey
         ),
     )
 
-    with patch(
-        "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
-        lambda **k: {"task": "backfill_market_metadata", "ok": True},
+    with (
+        patch(
+            "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
+            lambda **k: {"task": "backfill_market_metadata", "ok": True},
+        ),
+        patch(
+            "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
+            lambda: 0,
+        ),
     ):
         materialize(
             [polymarket_market_metadata_backfill],
@@ -192,9 +253,15 @@ def test_metadata_backfill_guardrail_poll_checks_and_raises_worker_errors(monkey
 
     assert check_calls["count"] >= 1
 
-    with patch(
-        "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
-        lambda **k: (_ for _ in ()).throw(RuntimeError("boom phase")),
+    with (
+        patch(
+            "oddsfox.orchestration.polymarket_ops.backfill_market_metadata",
+            lambda **k: (_ for _ in ()).throw(RuntimeError("boom phase")),
+        ),
+        patch(
+            "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
+            lambda: 0,
+        ),
     ):
         with pytest.raises(RuntimeError, match="boom phase"):
             materialize(

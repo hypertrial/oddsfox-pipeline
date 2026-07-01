@@ -227,15 +227,11 @@ def patch_guardrail_clock(monkeypatch, clock: FakeClock) -> None:
 
 
 def make_runtime(**overrides: Any):
-    return replace_odds_sync_runtime(
-        odds_sync._default_polymarket_odds_runtime(), **overrides
-    )
+    return replace_odds_sync_runtime(odds_sync.default_odds_sync_runtime(), **overrides)
 
 
 def make_binding(**overrides: Any):
-    return replace_odds_sync_runtime(
-        odds_sync._default_polymarket_odds_binding(), **overrides
-    )
+    return replace_odds_sync_runtime(odds_sync.default_odds_sync_runtime(), **overrides)
 
 
 def patch_sync_odds_idle(
