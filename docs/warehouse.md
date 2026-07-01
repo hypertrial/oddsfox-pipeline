@@ -12,8 +12,10 @@ Schema: `polymarket_raw`
 
 - `markets`: dlt-owned Gamma market landing table.
 - `market_tokens`: one row per market with CLOB token JSON.
-- `odds_history`: point-in-time CLOB token prices. Operators may prune rows older
-  than 365 days with `make prune-odds-history` (manual; not automatic).
+- `odds_history`: point-in-time CLOB token prices. Indexed only by the composite
+  primary key `(clobTokenId, timestamp)` for idempotent upserts; legacy standalone
+  `clobTokenId`/`timestamp` indexes are dropped on startup to save disk. Operators
+  may prune rows older than 365 days with `make prune-odds-history` (manual; not automatic).
 - `token_odds_daily`: daily token aggregates.
 
 ## Ops Tables

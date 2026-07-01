@@ -82,12 +82,13 @@ def _view_keys(conn) -> set[tuple[str, str]]:
 
 def _database_size(conn) -> tuple[int, int, int]:
     """Return (total_bytes, used_bytes, free_bytes) from PRAGMA database_size."""
-    df = conn.execute("PRAGMA database_size").fetchdf()
-    row = df.iloc[0]
-    block_size = int(row["block_size"])
-    total = int(row["total_blocks"]) * block_size
-    used = int(row["used_blocks"]) * block_size
-    free = int(row["free_blocks"]) * block_size
+    row = conn.execute("PRAGMA database_size").fetchone()
+    if row is None:
+        raise RuntimeError("PRAGMA database_size returned no rows")
+    block_size = int(row[2])
+    total = int(row[3]) * block_size
+    used = int(row[4]) * block_size
+    free = int(row[5]) * block_size
     return total, used, free
 
 

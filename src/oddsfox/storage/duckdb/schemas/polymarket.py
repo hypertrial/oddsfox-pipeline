@@ -15,29 +15,31 @@ logger = logging.getLogger(__name__)
 
 
 def ensure_polymarket_indexes(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create indexes; log warnings when DuckDB rejects a statement."""
+    """Create indexes; drop legacy redundant odds_history indexes."""
     m = polymarket_raw_tbl("markets")
-    oh = polymarket_raw_tbl("odds_history")
     tod = polymarket_raw_tbl("token_odds_daily")
     sk = polymarket_ops_tbl("token_sync_skips")
     wc_reg = polymarket_ops_tbl("wc2026_market_registry")
+    # ponytail: PK (clobTokenId, timestamp) covers token lookups; no timestamp-only hot path.
+    drop_statements = [
+        "DROP INDEX IF EXISTS polymarket_raw.idx_odds_token",
+        "DROP INDEX IF EXISTS polymarket_raw.idx_odds_timestamp",
+    ]
     index_statements = [
         f"CREATE INDEX IF NOT EXISTS idx_category ON {m}(category)",
         f"CREATE INDEX IF NOT EXISTS idx_volume ON {m}(volume)",
         f"CREATE INDEX IF NOT EXISTS idx_slug ON {m}(slug)",
         f"CREATE INDEX IF NOT EXISTS idx_event_slug ON {m}(event_slug)",
         f"CREATE INDEX IF NOT EXISTS idx_wc2026_registry_event_slug ON {wc_reg}(event_slug)",
-        f"CREATE INDEX IF NOT EXISTS idx_odds_token ON {oh}(clobTokenId)",
-        f"CREATE INDEX IF NOT EXISTS idx_odds_timestamp ON {oh}(timestamp)",
         f"CREATE INDEX IF NOT EXISTS idx_token_odds_daily_token ON {tod}(clobTokenId)",
         f"CREATE INDEX IF NOT EXISTS idx_token_odds_daily_date ON {tod}(odds_date_utc)",
         f"CREATE INDEX IF NOT EXISTS idx_token_skip_reason ON {sk}(clobTokenId)",
     ]
-    for stmt in index_statements:
+    for stmt in drop_statements + index_statements:
         try:
             conn.execute(stmt)
         except Exception as exc:
-            logger.warning("Index creation skipped (%s): %s", stmt, exc)
+            logger.warning("Index statement skipped (%s): %s", stmt, exc)
 
 
 def bootstrap_polymarket_tables(conn: duckdb.DuckDBPyConnection) -> None:

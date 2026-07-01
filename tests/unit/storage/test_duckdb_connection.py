@@ -9,6 +9,7 @@ import pytest
 import oddsfox.storage.duckdb.connection as connection
 from oddsfox.config._reload_settings import reload_all_settings_modules
 from oddsfox.storage.duckdb.schemas import polymarket as polymarket_schema
+from oddsfox.storage.duckdb.schemas.constants import polymarket_raw_tbl
 
 
 @pytest.fixture(autouse=True)
@@ -407,6 +408,70 @@ def test_create_indexes_swallows_errors(monkeypatch, tmp_path, isolated_env):
     bad.execute.side_effect = RuntimeError("no index")
     polymarket_schema.ensure_polymarket_indexes(bad)
     assert bad.execute.called
+
+
+def _odds_history_index_names(c: duckdb.DuckDBPyConnection) -> set[str]:
+    rows = c.execute(
+        """
+        SELECT index_name
+        FROM duckdb_indexes()
+        WHERE schema_name = 'polymarket_raw' AND table_name = 'odds_history'
+        """
+    ).fetchall()
+    return {str(name) for (name,) in rows}
+
+
+def _odds_history_primary_key_columns(c: duckdb.DuckDBPyConnection) -> list[str] | None:
+    rows = c.execute(
+        """
+        SELECT constraint_type, constraint_column_names
+        FROM duckdb_constraints()
+        WHERE schema_name = 'polymarket_raw' AND table_name = 'odds_history'
+        """
+    ).fetchall()
+    for constraint_type, columns in rows:
+        if constraint_type == "PRIMARY KEY":
+            return list(columns)
+    return None
+
+
+def test_init_duck_db_does_not_create_legacy_odds_history_indexes(
+    monkeypatch, tmp_path, isolated_env
+):
+    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "fresh.duckdb"))
+    reload_all_settings_modules()
+    conn = importlib.reload(connection)
+    conn.init_duck_db()
+
+    with duckdb.connect(str(tmp_path / "fresh.duckdb")) as c:
+        names = _odds_history_index_names(c)
+        assert "idx_odds_token" not in names
+        assert "idx_odds_timestamp" not in names
+        assert _odds_history_primary_key_columns(c) == ["clobTokenId", "timestamp"]
+
+
+def test_ensure_polymarket_indexes_drops_legacy_odds_history_indexes(
+    monkeypatch, tmp_path, isolated_env
+):
+    db_path = tmp_path / "legacy_idx.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    reload_all_settings_modules()
+    conn_mod = importlib.reload(connection)
+    conn_mod.init_duck_db()
+
+    oh = polymarket_raw_tbl("odds_history")
+    with duckdb.connect(str(db_path)) as c:
+        c.execute(f"CREATE INDEX idx_odds_token ON {oh}(clobTokenId)")
+        c.execute(f'CREATE INDEX idx_odds_timestamp ON {oh}("timestamp")')
+        assert "idx_odds_token" in _odds_history_index_names(c)
+        assert "idx_odds_timestamp" in _odds_history_index_names(c)
+
+        polymarket_schema.ensure_polymarket_indexes(c)
+
+        names = _odds_history_index_names(c)
+        assert "idx_odds_token" not in names
+        assert "idx_odds_timestamp" not in names
+        assert _odds_history_primary_key_columns(c) == ["clobTokenId", "timestamp"]
 
 
 def test_init_duck_db_swallows_alter_table_error(monkeypatch, tmp_path, isolated_env):

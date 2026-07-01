@@ -101,3 +101,7 @@ uv run python scripts/prune_odds_history.py --dry-run
 ```bash
 uv run make compact-warehouse
 ```
+
+After upgrading to a version that drops redundant `odds_history` indexes, the next
+read-write process start removes ~1.45 GiB of legacy index data automatically; run
+`make compact-warehouse` once to shrink the file on disk.
