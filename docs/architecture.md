@@ -34,7 +34,7 @@ marts for coverage, health, WC2026 odds time series, and the current WC2026 mark
 | dlt | Lands market metadata and current raw/ops batches into DuckDB stage/canonical tables for the current adapter. |
 | Python odds sync | Fetches odds, writes token history, and maintains ledgers. |
 | DuckDB | Stores raw, ops, staging, intermediate, mart, and observability schemas. |
-| dbt | Builds analytics models and singular data-contract tests. |
+| dbt | Builds analytics models and data-contract tests. |
 
 ## Data Flow
 

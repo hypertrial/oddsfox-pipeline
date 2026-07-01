@@ -1,26 +1,18 @@
-"""Gamma event scanning and registry collection for WC2026."""
+"""Gamma event scanning for WC2026."""
 
 from __future__ import annotations
 
 import logging
-import time
-from typing import Any, Callable, Dict, Iterable, Iterator, Literal, Sequence
+from typing import Any, Callable, Iterable, Iterator, Literal, Sequence
 
 from oddsfox.config import settings as _settings
 from oddsfox.ingestion.polymarket.gamma_events import (
     EventsPageMeta,
     iter_gamma_events_keyset,
 )
-from oddsfox.storage.duckdb.metadata import (
-    get_wc2026_discovery_fully_checked,
-    set_wc2026_discovery_fully_checked,
-)
-from oddsfox.storage.duckdb.wc2026_registry import (
-    RegistryRow,
-    upsert_registry_rows,
-)
+from oddsfox.storage.duckdb.wc2026_registry import RegistryRow
 
-from .config import Wc2026ScopeConfig, scope_config_hash
+from .config import Wc2026ScopeConfig
 from .predicates import (
     Wc2026EventsScanResult,
     _crawl_tag_allowed,
@@ -190,27 +182,6 @@ def _merge_scan_results(
     )
 
 
-def _record_discovery_ledger(
-    cfg: Wc2026ScopeConfig,
-    *,
-    discovery_mode: DiscoveryMode,
-    truncated: bool,
-    events_pages: int,
-) -> None:
-    config_hash = scope_config_hash(cfg)
-    from oddsfox.storage.duckdb.metadata import (
-        get_wc2026_discovery_scope_config_hash,
-    )
-
-    stored_hash = get_wc2026_discovery_scope_config_hash()
-    if stored_hash and stored_hash != config_hash:
-        set_wc2026_discovery_fully_checked(False, scope_config_hash=config_hash)
-    if discovery_mode == DISCOVERY_MODE_FULL_KEYSET and not truncated:
-        set_wc2026_discovery_fully_checked(True, scope_config_hash=config_hash)
-    elif get_wc2026_discovery_fully_checked() and truncated:
-        set_wc2026_discovery_fully_checked(False, scope_config_hash=config_hash)
-
-
 def _empty_scan_result() -> Wc2026EventsScanResult:
     return Wc2026EventsScanResult(
         registry_rows=(),
@@ -232,116 +203,6 @@ def _resolve_tag_crawl_max() -> int | None:
     if cap <= 0:
         return None
     return cap
-
-
-def _seed_registry_rows(cfg: Wc2026ScopeConfig) -> list[RegistryRow]:
-    rows: list[RegistryRow] = []
-    for market_id in cfg.market_ids:
-        rows.append(
-            RegistryRow(
-                market_id=market_id,
-                event_slug=None,
-                event_id=None,
-                source="seed",
-            )
-        )
-    return rows
-
-
-def _dedupe_registry_rows(rows: Iterable[RegistryRow]) -> list[RegistryRow]:
-    seen: dict[str, RegistryRow] = {}
-    for row in rows:
-        prev = seen.get(row.market_id)
-        if prev is None or _source_priority(row.source) > _source_priority(prev.source):
-            seen[row.market_id] = row
-    return list(seen.values())
-
-
-def _source_priority(source: str) -> int:
-    return {"seed": 1, "events_api": 2, "markets_api": 2}.get(source, 0)
-
-
-def _count_by_source(rows: Sequence[RegistryRow]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for row in rows:
-        counts[row.source] = counts.get(row.source, 0) + 1
-    return counts
-
-
-def _finalize_registry_collect(
-    scan: Wc2026EventsScanResult,
-    cfg: Wc2026ScopeConfig,
-    *,
-    discovery_mode: DiscoveryMode,
-    t0: float,
-    api_requests: int = 0,
-    keyset_closed: bool | None = None,
-    keyset_tag_slugs: Sequence[str] | None = None,
-    keyset_volume_min: float | None = None,
-) -> tuple[Dict[str, Any], list[dict[str, Any]], Dict[str, Any]]:
-    _record_discovery_ledger(
-        cfg,
-        discovery_mode=discovery_mode,
-        truncated=scan.truncated,
-        events_pages=scan.pages_done,
-    )
-    seed_rows = _seed_registry_rows(cfg)
-    merged = _dedupe_registry_rows(list(scan.registry_rows) + seed_rows)
-    saved = upsert_registry_rows(merged)
-    total_api = scan.api_requests + api_requests
-    registry_summary = {
-        "task": "refresh_wc2026_registry",
-        "discovery_mode": discovery_mode,
-        "events_pages": scan.pages_done,
-        "truncated": scan.truncated,
-        "registry_rows_upserted": saved,
-        "discovered_event_slugs": list(scan.discovered_slugs),
-        "by_source": _count_by_source(merged),
-        "duration_seconds": round(time.monotonic() - t0, 3),
-        "api_requests": total_api,
-        "registry_refreshed": True,
-    }
-    if keyset_closed is not None:
-        registry_summary["keyset_closed"] = keyset_closed
-    effective_crawl_tags = (
-        list(scan.crawl_tag_slugs)
-        if scan.crawl_tag_slugs
-        else (list(keyset_tag_slugs) if keyset_tag_slugs else [])
-    )
-    if effective_crawl_tags:
-        registry_summary["keyset_tag_slugs"] = effective_crawl_tags
-        registry_summary["crawl_tag_slugs"] = effective_crawl_tags
-    if scan.scope_tag_slugs:
-        registry_summary["scope_tag_slugs"] = list(scan.scope_tag_slugs)
-    if scan.tag_sources:
-        registry_summary["tag_sources"] = {
-            slug: list(srcs) for slug, srcs in scan.tag_sources
-        }
-    if keyset_volume_min is not None:
-        registry_summary["keyset_volume_min"] = keyset_volume_min
-    markets = list(scan.raw_markets)
-    collect_meta = {
-        "discovery_mode": discovery_mode,
-        "events_pages": scan.pages_done,
-        "truncated": scan.truncated,
-        "markets_collected": len(markets),
-        "api_requests": total_api,
-        "registry_refreshed": True,
-    }
-    if keyset_closed is not None:
-        collect_meta["keyset_closed"] = keyset_closed
-    if effective_crawl_tags:
-        collect_meta["keyset_tag_slugs"] = effective_crawl_tags
-        collect_meta["crawl_tag_slugs"] = effective_crawl_tags
-    if scan.scope_tag_slugs:
-        collect_meta["scope_tag_slugs"] = list(scan.scope_tag_slugs)
-    if scan.tag_sources:
-        collect_meta["tag_sources"] = {
-            slug: list(srcs) for slug, srcs in scan.tag_sources
-        }
-    if keyset_volume_min is not None:
-        collect_meta["keyset_volume_min"] = keyset_volume_min
-    return registry_summary, markets, collect_meta
 
 
 def _iter_wc2026_gamma_events(

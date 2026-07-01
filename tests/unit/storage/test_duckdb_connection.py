@@ -312,6 +312,37 @@ def test_ensure_duck_db_sets_active_path(monkeypatch, tmp_path, isolated_env):
     assert conn._ACTIVE_DUCKDB_PATH.name == "e.duckdb"
 
 
+def test_ensure_duck_db_switches_active_path_without_manual_reset(
+    monkeypatch, tmp_path, isolated_env
+):
+    first = tmp_path / "first.duckdb"
+    second = tmp_path / "second.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", str(first))
+
+    reload_all_settings_modules()
+    import oddsfox.storage.duckdb.connection as conn
+
+    conn = importlib.reload(conn)
+    conn.ensure_duck_db()
+    assert conn._ACTIVE_DUCKDB_PATH == first
+    assert conn._SCHEMA_INITIALIZED is True
+
+    monkeypatch.setenv("DUCKDB_NAME", str(second))
+    conn.ensure_duck_db()
+
+    assert conn._ACTIVE_DUCKDB_PATH == second
+    assert conn._SCHEMA_INITIALIZED is True
+    with duckdb.connect(str(second)) as c:
+        table_count = c.execute(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema IN ('polymarket_raw', 'polymarket_ops')
+            """
+        ).fetchone()[0]
+    assert table_count > 0
+
+
 def test_get_connection_retries_transient_lock(monkeypatch, tmp_path, isolated_env):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "retry.duckdb"))
 

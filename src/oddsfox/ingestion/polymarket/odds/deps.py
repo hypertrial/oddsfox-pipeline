@@ -256,30 +256,11 @@ def replace_odds_sync_runtime(
     )
 
 
-PolymarketOddsBinding = OddsSyncRuntime
-OddsSyncDeps = OddsSyncRuntime
-
-
-def apply_polymarket_odds_binding(binding: OddsSyncDeps) -> OddsSyncRuntime:
-    """Compatibility shim: return the runtime without mutating module globals."""
-    return binding
-
-
-def apply_odds_sync_deps(deps: OddsSyncDeps) -> OddsSyncRuntime:
-    """Backward-compatible alias for callers that still construct deps explicitly."""
-
-    return apply_polymarket_odds_binding(deps)
-
-
 __all__ = [
     "EngineRuntime",
     "ExecutionRuntime",
-    "OddsSyncDeps",
     "OddsSyncRuntime",
     "PlanningRuntime",
-    "PolymarketOddsBinding",
     "WriterRuntime",
-    "apply_odds_sync_deps",
-    "apply_polymarket_odds_binding",
     "replace_odds_sync_runtime",
 ]

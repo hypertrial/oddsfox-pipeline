@@ -39,7 +39,7 @@ Schema: `polymarket_marts`
 
 ## dbt Checks
 
-`uv run make dbt-build` runs model builds and singular tests for:
+`uv run make dbt-build` runs model builds plus generic and singular data tests for:
 
 - Source and staging grain.
 - Price sanity and OHLC bounds.

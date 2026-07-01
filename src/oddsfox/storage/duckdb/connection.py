@@ -39,13 +39,30 @@ def _resolved_duckdb_path() -> Path:
     return _settings.DUCKDB_PATH
 
 
+def _reset_path_scoped_caches() -> None:
+    from oddsfox.storage.duckdb.dlt_batch import reset_dlt_batch_pipelines
+
+    reset_dlt_batch_pipelines()
+
+
+def _sync_active_duckdb_path() -> Path:
+    global _SCHEMA_INITIALIZED, _ACTIVE_DUCKDB_PATH
+    path = _resolved_duckdb_path()
+    if _ACTIVE_DUCKDB_PATH != path:
+        should_reset = _ACTIVE_DUCKDB_PATH is not None or _SCHEMA_INITIALIZED
+        _ACTIVE_DUCKDB_PATH = path
+        if should_reset:
+            _SCHEMA_INITIALIZED = False
+            _reset_path_scoped_caches()
+    return path
+
+
 def _connect_duckdb(
     path: Optional[Path] = None, *, read_only: bool = False
 ) -> duckdb.DuckDBPyConnection:
     global _ACTIVE_DUCKDB_PATH
     if path is None:
-        _ACTIVE_DUCKDB_PATH = _resolved_duckdb_path()
-        path = _ACTIVE_DUCKDB_PATH
+        path = _sync_active_duckdb_path()
 
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -106,11 +123,11 @@ def open_writable_duckdb_connection(
 
 
 def init_duck_db() -> None:
-    global _SCHEMA_LOGGED, _SCHEMA_INITIALIZED, _ACTIVE_DUCKDB_PATH
+    global _SCHEMA_LOGGED, _SCHEMA_INITIALIZED
+    path = _sync_active_duckdb_path()
     if _SCHEMA_INITIALIZED:
         return
-    _ACTIVE_DUCKDB_PATH = _resolved_duckdb_path()
-    conn = open_writable_duckdb_connection(_ACTIVE_DUCKDB_PATH)
+    conn = open_writable_duckdb_connection(path)
     if not _SCHEMA_LOGGED:
         logger.info(
             "Ensuring DuckDB Polymarket schemas (%s, %s)",
@@ -132,10 +149,9 @@ def init_duck_db() -> None:
 
 
 def ensure_duck_db() -> None:
-    global _ACTIVE_DUCKDB_PATH
+    _sync_active_duckdb_path()
     if _SCHEMA_INITIALIZED:
         return
-    _ACTIVE_DUCKDB_PATH = _resolved_duckdb_path()
     init_duck_db()
 
 

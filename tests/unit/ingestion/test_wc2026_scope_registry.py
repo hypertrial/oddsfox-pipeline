@@ -17,7 +17,7 @@ from oddsfox.ingestion.polymarket.wc2026_scope import (
     refresh_registry_from_events,
 )
 from oddsfox.ingestion.polymarket.wc2026_scope import (
-    scan as scope_scan_mod,
+    registry as scope_registry_mod,
 )
 
 
@@ -779,10 +779,41 @@ def test_collect_markets_meta_uses_keyset_slugs_when_no_crawl_tags(monkeypatch):
     assert "keyset_volume_min" not in meta2
 
 
+def test_registry_seed_rows_and_dedupe_priority() -> None:
+    from oddsfox.storage.duckdb.wc2026_registry import RegistryRow
+
+    cfg = Wc2026ScopeConfig(
+        event_slugs=(),
+        event_slug_prefixes=(),
+        market_ids=("seed-m",),
+        registry_max_event_pages=1,
+    )
+
+    assert any(
+        r.market_id == "seed-m" for r in scope_registry_mod._seed_registry_rows(cfg)
+    )
+    merged = scope_registry_mod._dedupe_registry_rows(
+        [
+            RegistryRow("x", None, None, "seed"),
+            RegistryRow("x", "es", "e1", "events_api"),
+        ]
+    )
+    assert merged[0].source == "events_api"
+    merged_same = scope_registry_mod._dedupe_registry_rows(
+        [
+            RegistryRow("y", None, None, "events_api"),
+            RegistryRow("y", "a", None, "events_api"),
+        ]
+    )
+    assert len(merged_same) == 1
+    assert scope_registry_mod._source_priority("unknown") == 0
+
+
 def test_finalize_registry_collect_meta_branches(monkeypatch) -> None:
 
     monkeypatch.setattr(
-        "oddsfox.storage.duckdb.wc2026_registry.upsert_registry_rows",
+        scope_registry_mod,
+        "upsert_registry_rows",
         lambda rows: len(rows),
     )
     cfg = slug_only_cfg()
@@ -796,10 +827,10 @@ def test_finalize_registry_collect_meta_branches(monkeypatch) -> None:
         scope_tag_slugs=("fifa-world-cup",),
         tag_sources=(("crawl-a", ("seed",)),),
     )
-    reg, _markets, meta = scope_scan_mod._finalize_registry_collect(
+    reg, _markets, meta = scope_registry_mod._finalize_registry_collect(
         scan,
         cfg,
-        discovery_mode=scope_scan_mod.DISCOVERY_MODE_TARGETED,
+        discovery_mode=scope_registry_mod.DISCOVERY_MODE_TARGETED,
         t0=time.monotonic(),
         keyset_closed=True,
         keyset_tag_slugs=["fallback-tag"],
@@ -809,10 +840,10 @@ def test_finalize_registry_collect_meta_branches(monkeypatch) -> None:
     assert reg["crawl_tag_slugs"] == ["crawl-a"]
     assert meta["keyset_volume_min"] == 100.0
 
-    reg2, _markets2, meta2 = scope_scan_mod._finalize_registry_collect(
+    reg2, _markets2, meta2 = scope_registry_mod._finalize_registry_collect(
         scan,
         cfg,
-        discovery_mode=scope_scan_mod.DISCOVERY_MODE_TARGETED,
+        discovery_mode=scope_registry_mod.DISCOVERY_MODE_TARGETED,
         t0=time.monotonic(),
         keyset_closed=None,
         keyset_volume_min=None,

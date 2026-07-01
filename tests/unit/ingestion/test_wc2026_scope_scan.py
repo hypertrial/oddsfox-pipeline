@@ -274,24 +274,6 @@ def test_scan_wc2026_gamma_events_edge_cases():
     ]
     scan2 = scope_mod._scan_wc2026_gamma_events(client2, cfg, max_pages=5)
     assert scan2.raw_markets and scan2.raw_markets[0]["id"] == "list-path"
-    assert any(r.market_id == "seed-m" for r in scope_scan_mod._seed_registry_rows(cfg))
-    from oddsfox.storage.duckdb.wc2026_registry import RegistryRow
-
-    merged = scope_scan_mod._dedupe_registry_rows(
-        [
-            RegistryRow("x", None, None, "seed"),
-            RegistryRow("x", "es", "e1", "events_api"),
-        ]
-    )
-    assert merged[0].source == "events_api"
-    merged_same = scope_scan_mod._dedupe_registry_rows(
-        [
-            RegistryRow("y", None, None, "events_api"),
-            RegistryRow("y", "a", None, "events_api"),
-        ]
-    )
-    assert len(merged_same) == 1
-    assert scope_scan_mod._source_priority("unknown") == 0
 
 
 def test_wc2026_internal_collect_helpers():

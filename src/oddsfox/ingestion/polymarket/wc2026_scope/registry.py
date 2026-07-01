@@ -4,29 +4,37 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable, Dict, Sequence
+from typing import Any, Callable, Dict, Iterable, Sequence
 
 from oddsfox.ingestion.polymarket.gamma_events import fetch_gamma_event_by_slug
+from oddsfox.storage.duckdb.metadata import (
+    get_wc2026_discovery_fully_checked,
+    set_wc2026_discovery_fully_checked,
+)
 from oddsfox.storage.duckdb.wc2026_registry import (
+    RegistryRow,
     get_registry_market_ids,
+    upsert_registry_rows,
 )
 
-from .config import Wc2026ScopeConfig, load_wc2026_config
+from .config import Wc2026ScopeConfig, load_wc2026_config, scope_config_hash
 from .gamma import (
     _chunk_market_ids,
     _fetch_markets_batch_resilient,
     _gamma_market_ids,
 )
-from .predicates import _resolve_keyset_closed, _resolve_keyset_volume_min
+from .predicates import (
+    Wc2026EventsScanResult,
+    _resolve_keyset_closed,
+    _resolve_keyset_volume_min,
+)
 from .scan import (
     DEFAULT_MAX_PAGES_WITHOUT_PROGRESS,
     DISCOVERY_MODE_FULL_KEYSET,
     DISCOVERY_MODE_TARGETED,
-    Wc2026EventsScanResult,
     _collect_from_events,
     _collect_from_market_payloads,
     _empty_scan_result,
-    _finalize_registry_collect,
     _merge_scan_results,
     _scan_wc2026_gamma_events,
 )
@@ -34,6 +42,132 @@ from .scan import (
 logger = logging.getLogger(__name__)
 
 _TARGETED_MARKETS_BATCH_SIZE = 50
+
+
+def _record_discovery_ledger(
+    cfg: Wc2026ScopeConfig,
+    *,
+    discovery_mode: str,
+    truncated: bool,
+) -> None:
+    config_hash = scope_config_hash(cfg)
+    from oddsfox.storage.duckdb.metadata import (
+        get_wc2026_discovery_scope_config_hash,
+    )
+
+    stored_hash = get_wc2026_discovery_scope_config_hash()
+    if stored_hash and stored_hash != config_hash:
+        set_wc2026_discovery_fully_checked(False, scope_config_hash=config_hash)
+    if discovery_mode == DISCOVERY_MODE_FULL_KEYSET and not truncated:
+        set_wc2026_discovery_fully_checked(True, scope_config_hash=config_hash)
+    elif get_wc2026_discovery_fully_checked() and truncated:
+        set_wc2026_discovery_fully_checked(False, scope_config_hash=config_hash)
+
+
+def _seed_registry_rows(cfg: Wc2026ScopeConfig) -> list[RegistryRow]:
+    return [
+        RegistryRow(
+            market_id=market_id,
+            event_slug=None,
+            event_id=None,
+            source="seed",
+        )
+        for market_id in cfg.market_ids
+    ]
+
+
+def _source_priority(source: str) -> int:
+    return {"seed": 1, "events_api": 2, "markets_api": 2}.get(source, 0)
+
+
+def _dedupe_registry_rows(rows: Iterable[RegistryRow]) -> list[RegistryRow]:
+    seen: dict[str, RegistryRow] = {}
+    for row in rows:
+        prev = seen.get(row.market_id)
+        if prev is None or _source_priority(row.source) > _source_priority(prev.source):
+            seen[row.market_id] = row
+    return list(seen.values())
+
+
+def _count_by_source(rows: Sequence[RegistryRow]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        counts[row.source] = counts.get(row.source, 0) + 1
+    return counts
+
+
+def _finalize_registry_collect(
+    scan: Wc2026EventsScanResult,
+    cfg: Wc2026ScopeConfig,
+    *,
+    discovery_mode: str,
+    t0: float,
+    api_requests: int = 0,
+    keyset_closed: bool | None = None,
+    keyset_tag_slugs: Sequence[str] | None = None,
+    keyset_volume_min: float | None = None,
+) -> tuple[Dict[str, Any], list[dict[str, Any]], Dict[str, Any]]:
+    _record_discovery_ledger(
+        cfg,
+        discovery_mode=discovery_mode,
+        truncated=scan.truncated,
+    )
+    merged = _dedupe_registry_rows(list(scan.registry_rows) + _seed_registry_rows(cfg))
+    saved = upsert_registry_rows(merged)
+    total_api = scan.api_requests + api_requests
+    registry_summary = {
+        "task": "refresh_wc2026_registry",
+        "discovery_mode": discovery_mode,
+        "events_pages": scan.pages_done,
+        "truncated": scan.truncated,
+        "registry_rows_upserted": saved,
+        "discovered_event_slugs": list(scan.discovered_slugs),
+        "by_source": _count_by_source(merged),
+        "duration_seconds": round(time.monotonic() - t0, 3),
+        "api_requests": total_api,
+        "registry_refreshed": True,
+    }
+    if keyset_closed is not None:
+        registry_summary["keyset_closed"] = keyset_closed
+    effective_crawl_tags = (
+        list(scan.crawl_tag_slugs)
+        if scan.crawl_tag_slugs
+        else (list(keyset_tag_slugs) if keyset_tag_slugs else [])
+    )
+    if effective_crawl_tags:
+        registry_summary["keyset_tag_slugs"] = effective_crawl_tags
+        registry_summary["crawl_tag_slugs"] = effective_crawl_tags
+    if scan.scope_tag_slugs:
+        registry_summary["scope_tag_slugs"] = list(scan.scope_tag_slugs)
+    if scan.tag_sources:
+        registry_summary["tag_sources"] = {
+            slug: list(srcs) for slug, srcs in scan.tag_sources
+        }
+    if keyset_volume_min is not None:
+        registry_summary["keyset_volume_min"] = keyset_volume_min
+    markets = list(scan.raw_markets)
+    collect_meta = {
+        "discovery_mode": discovery_mode,
+        "events_pages": scan.pages_done,
+        "truncated": scan.truncated,
+        "markets_collected": len(markets),
+        "api_requests": total_api,
+        "registry_refreshed": True,
+    }
+    if keyset_closed is not None:
+        collect_meta["keyset_closed"] = keyset_closed
+    if effective_crawl_tags:
+        collect_meta["keyset_tag_slugs"] = effective_crawl_tags
+        collect_meta["crawl_tag_slugs"] = effective_crawl_tags
+    if scan.scope_tag_slugs:
+        collect_meta["scope_tag_slugs"] = list(scan.scope_tag_slugs)
+    if scan.tag_sources:
+        collect_meta["tag_sources"] = {
+            slug: list(srcs) for slug, srcs in scan.tag_sources
+        }
+    if keyset_volume_min is not None:
+        collect_meta["keyset_volume_min"] = keyset_volume_min
+    return registry_summary, markets, collect_meta
 
 
 def refresh_registry_and_collect_markets_targeted(

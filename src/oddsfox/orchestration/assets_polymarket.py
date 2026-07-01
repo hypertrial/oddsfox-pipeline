@@ -38,6 +38,51 @@ from oddsfox.storage.duckdb.schemas.polymarket import (
 )
 
 
+def _raw_snapshot_metadata(
+    pre: dict[str, Any],
+    post: dict[str, Any],
+    delta: dict[str, Any],
+    *,
+    run_summary: dict[str, Any] | None = None,
+) -> dict[str, MetadataValue]:
+    metadata = {
+        "duckdb_raw_pre": MetadataValue.json(pre),
+        "duckdb_raw_post": MetadataValue.json(post),
+        "duckdb_raw_delta": MetadataValue.json(delta),
+    }
+    if run_summary is not None:
+        metadata["run_summary"] = MetadataValue.json(run_summary)
+    return metadata
+
+
+def _run_with_raw_snapshot(
+    raw_snapshot_level: str,
+    run_fn: Callable[[dict[str, Any]], dict[str, Any]],
+) -> tuple[
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, MetadataValue],
+]:
+    pre = snapshot_raw_layer(level=raw_snapshot_level)
+    run_summary = run_fn(pre)
+    post = snapshot_raw_layer(level=raw_snapshot_level)
+    delta = delta_raw_layer(pre, post)
+    return (
+        run_summary,
+        pre,
+        post,
+        delta,
+        _raw_snapshot_metadata(
+            pre,
+            post,
+            delta,
+            run_summary=run_summary,
+        ),
+    )
+
+
 def _materialize_odds_sync(
     context: AssetExecutionContext,
     config: OddsSyncConfig,
@@ -48,7 +93,6 @@ def _materialize_odds_sync(
         context.log.info("[%s] %s", phase, payload)
 
     resolved_plan_iterator = plan_iterator_factory
-    pre = snapshot_raw_layer(level=config.raw_snapshot_level)
     sync_kwargs: dict[str, Any] = {
         "max_workers": config.workers,
         "batch_size": config.batch_size,
@@ -86,9 +130,10 @@ def _materialize_odds_sync(
     }
     if resolved_plan_iterator is not None:
         sync_kwargs["plan_iterator_factory"] = resolved_plan_iterator
-    run_summary = ops.sync_odds(**sync_kwargs)
-    post = snapshot_raw_layer(level=config.raw_snapshot_level)
-    dd = delta_raw_layer(pre, post)
+    run_summary, _, _, _, raw_metadata = _run_with_raw_snapshot(
+        config.raw_snapshot_level,
+        lambda _pre: ops.sync_odds(**sync_kwargs),
+    )
     metadata = {
         "workers": MetadataValue.int(config.workers),
         "force": MetadataValue.bool(config.force),
@@ -97,10 +142,7 @@ def _materialize_odds_sync(
         "planning": MetadataValue.json(run_summary.get("planning", {})),
         "planning_context": MetadataValue.json(run_summary.get("planning_context", {})),
         "totals": MetadataValue.json(run_summary.get("totals", {})),
-        "duckdb_raw_pre": MetadataValue.json(pre),
-        "duckdb_raw_post": MetadataValue.json(post),
-        "duckdb_raw_delta": MetadataValue.json(dd),
-        "run_summary": MetadataValue.json(run_summary),
+        **raw_metadata,
     }
     if config.min_volume is not None:
         metadata["min_volume"] = MetadataValue.float(config.min_volume)
@@ -201,22 +243,28 @@ def polymarket_markets_snapshot(
         },
         force_log=True,
     )
-    pre = snapshot_raw_layer(level=config.raw_snapshot_level)
-    context.log.info("DuckDB pre-run state: %s", format_raw_snapshot_log(pre))
-    run_summary = ops.sync_markets(
-        discovery_mode=config.discovery_mode,
-        force_full_discovery=config.force_full_discovery,
-        max_event_pages=config.max_event_pages,
-        max_pages_without_progress=config.max_pages_without_progress,
-        keyset_closed=config.keyset_closed,
-        keyset_tag_slugs=config.keyset_tag_slugs,
-        keyset_volume_min=config.keyset_volume_min,
-        progress_callback=_markets_progress,
-        progress_log_interval_pages=config.progress_log_interval_pages,
-        progress_log_interval_seconds=config.progress_log_interval_seconds,
-        no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
-        no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
-        progress_poll_seconds=config.progress_poll_seconds,
+
+    def _sync_markets(pre: dict[str, Any]) -> dict[str, Any]:
+        context.log.info("DuckDB pre-run state: %s", format_raw_snapshot_log(pre))
+        return ops.sync_markets(
+            discovery_mode=config.discovery_mode,
+            force_full_discovery=config.force_full_discovery,
+            max_event_pages=config.max_event_pages,
+            max_pages_without_progress=config.max_pages_without_progress,
+            keyset_closed=config.keyset_closed,
+            keyset_tag_slugs=config.keyset_tag_slugs,
+            keyset_volume_min=config.keyset_volume_min,
+            progress_callback=_markets_progress,
+            progress_log_interval_pages=config.progress_log_interval_pages,
+            progress_log_interval_seconds=config.progress_log_interval_seconds,
+            no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
+            no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
+            progress_poll_seconds=config.progress_poll_seconds,
+        )
+
+    run_summary, _, _, raw_delta, raw_metadata = _run_with_raw_snapshot(
+        config.raw_snapshot_level,
+        _sync_markets,
     )
     guardrail.record_progress(
         work_increment=0,
@@ -227,17 +275,12 @@ def polymarket_markets_snapshot(
         },
         force_log=True,
     )
-    post = snapshot_raw_layer(level=config.raw_snapshot_level)
-    dd = delta_raw_layer(pre, post)
-    context.log.info("DuckDB delta after polymarket_markets_snapshot: %s", dd)
+    context.log.info("DuckDB delta after polymarket_markets_snapshot: %s", raw_delta)
     context.log.info("Run summary for sync_markets: %s", run_summary)
     return MaterializeResult(
         metadata={
             "source": MetadataValue.text("gamma-api.polymarket.com"),
-            "duckdb_raw_pre": MetadataValue.json(pre),
-            "duckdb_raw_post": MetadataValue.json(post),
-            "duckdb_raw_delta": MetadataValue.json(dd),
-            "run_summary": MetadataValue.json(run_summary),
+            **raw_metadata,
         }
     )
 
@@ -267,33 +310,26 @@ def polymarket_wc2026_registry(
                 "snapshot_metrics": snapshot_metrics,
             }
             return MaterializeResult(
-                metadata={
-                    "duckdb_raw_pre": MetadataValue.json(pre),
-                    "duckdb_raw_post": MetadataValue.json(pre),
-                    "duckdb_raw_delta": MetadataValue.json({}),
-                    "run_summary": MetadataValue.json(run_summary),
-                }
+                metadata=_raw_snapshot_metadata(
+                    pre,
+                    pre,
+                    {},
+                    run_summary=run_summary,
+                )
             )
 
-    pre = snapshot_raw_layer(level=config.raw_snapshot_level)
-    run_summary = ops.sync_wc2026_registry(
-        max_event_pages=config.max_event_pages,
-        max_pages_without_progress=config.max_pages_without_progress,
-        keyset_closed=config.keyset_closed,
-        keyset_tag_slugs=config.keyset_tag_slugs,
-        keyset_volume_min=config.keyset_volume_min,
-        progress_callback=_registry_progress,
+    run_summary, _, _, _, raw_metadata = _run_with_raw_snapshot(
+        config.raw_snapshot_level,
+        lambda _pre: ops.sync_wc2026_registry(
+            max_event_pages=config.max_event_pages,
+            max_pages_without_progress=config.max_pages_without_progress,
+            keyset_closed=config.keyset_closed,
+            keyset_tag_slugs=config.keyset_tag_slugs,
+            keyset_volume_min=config.keyset_volume_min,
+            progress_callback=_registry_progress,
+        ),
     )
-    post = snapshot_raw_layer(level=config.raw_snapshot_level)
-    dd = delta_raw_layer(pre, post)
-    return MaterializeResult(
-        metadata={
-            "duckdb_raw_pre": MetadataValue.json(pre),
-            "duckdb_raw_post": MetadataValue.json(post),
-            "duckdb_raw_delta": MetadataValue.json(dd),
-            "run_summary": MetadataValue.json(run_summary),
-        }
-    )
+    return MaterializeResult(metadata=raw_metadata)
 
 
 @asset(
@@ -390,9 +426,7 @@ def polymarket_market_metadata_backfill(
     return MaterializeResult(
         metadata={
             "batch_size": MetadataValue.int(config.batch_size),
-            "duckdb_raw_pre": MetadataValue.json(pre),
-            "duckdb_raw_post": MetadataValue.json(post),
-            "duckdb_raw_delta": MetadataValue.json(dd),
+            **_raw_snapshot_metadata(pre, post, dd),
             "backfill_summaries": MetadataValue.json(backfill_summaries),
             "orphan_market_tokens_removed": MetadataValue.int(
                 orphan_market_tokens_removed
@@ -439,9 +473,7 @@ def polymarket_odds_repair(
     return MaterializeResult(
         metadata={
             "reconcile": MetadataValue.json(reconcile_meta),
-            "duckdb_raw_pre": MetadataValue.json(pre),
-            "duckdb_raw_post": MetadataValue.json(post),
-            "duckdb_raw_delta": MetadataValue.json(dd),
+            **_raw_snapshot_metadata(pre, post, dd),
         }
     )
 

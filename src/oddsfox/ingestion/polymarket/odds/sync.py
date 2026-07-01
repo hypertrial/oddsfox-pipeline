@@ -17,7 +17,6 @@ from oddsfox.ingestion.polymarket.odds.deps import (
     ExecutionRuntime,
     OddsSyncRuntime,
     PlanningRuntime,
-    PolymarketOddsBinding,
     WriterRuntime,
 )
 from oddsfox.ingestion.polymarket.odds.engine import (
@@ -188,14 +187,6 @@ def default_odds_sync_runtime() -> OddsSyncRuntime:
     )
 
 
-def _default_polymarket_odds_runtime() -> OddsSyncRuntime:
-    return default_odds_sync_runtime()
-
-
-def _default_polymarket_odds_binding() -> PolymarketOddsBinding:
-    return default_odds_sync_runtime()
-
-
 def init_db():
     return _engine_init_db()
 
@@ -208,8 +199,11 @@ def sync_odds(*args, **kwargs):
     fidelity = kwargs.get("fidelity")
     if fidelity is not None and int(fidelity) < 1:
         raise ValueError("fidelity must be at least 1 minute")
-    odds_binding = kwargs.pop("odds_binding", None)
-    explicit_runtime = kwargs.pop("runtime", None) or odds_binding
+    if "odds_binding" in kwargs:
+        raise TypeError(
+            "sync_odds() got unexpected keyword 'odds_binding'; use runtime="
+        )
+    explicit_runtime = kwargs.pop("runtime", None)
     runtime = explicit_runtime or default_odds_sync_runtime()
     if "plan_iterator_factory" not in kwargs:
         if explicit_runtime is None:

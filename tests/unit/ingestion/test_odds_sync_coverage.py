@@ -5,7 +5,7 @@ from queue import Queue
 from unittest.mock import MagicMock, patch
 
 import pytest
-from tests.integration.ingestion._odds_sync_harness import make_binding, make_runtime
+from tests.integration.ingestion._odds_sync_harness import make_runtime
 
 from oddsfox.config._reload_settings import reload_all_settings_modules
 
@@ -382,6 +382,11 @@ def test_sync_odds_rejects_fidelity_below_one():
         odds_sync.sync_odds(max_workers=1, fidelity=0, persist_run_metrics=False)
 
 
+def test_sync_odds_rejects_legacy_odds_binding_keyword():
+    with pytest.raises(TypeError, match="use runtime="):
+        odds_sync.sync_odds(max_workers=1, odds_binding=object())
+
+
 def test_sync_odds_runtime_instances_do_not_mutate_shared_modules():
     from oddsfox.ingestion.polymarket.odds import planning
 
@@ -413,7 +418,7 @@ def test_sync_odds_runtime_instances_do_not_mutate_shared_modules():
 
 def test_sync_odds_accepts_explicit_plan_iterator_with_runtime():
     seen: list[str] = []
-    runtime = make_binding(
+    runtime = make_runtime(
         ensure_duck_db=lambda: seen.append("ensure"),
         snapshot_raw_layer=lambda: {"ok": True},
         save_sync_run_metrics=lambda *args, **_kwargs: seen.append(args[0]),
@@ -432,30 +437,6 @@ def test_sync_odds_accepts_explicit_plan_iterator_with_runtime():
 
     assert result["noop"] is True
     assert seen == ["ensure", "sync_odds"]
-
-
-def test_apply_odds_sync_deps_delegates_to_apply_polymarket_odds_binding(monkeypatch):
-    captured: list[object] = []
-
-    def capture(b):
-        captured.append(b)
-
-    monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.deps.apply_polymarket_odds_binding",
-        capture,
-    )
-    from oddsfox.ingestion.polymarket.odds import deps
-
-    sentinel = object()
-    deps.apply_odds_sync_deps(sentinel)
-    assert captured == [sentinel]
-
-
-def test_apply_polymarket_odds_binding_returns_runtime_without_mutation():
-    from oddsfox.ingestion.polymarket.odds import deps
-
-    runtime = odds_sync.default_odds_sync_runtime()
-    assert deps.apply_polymarket_odds_binding(runtime) is runtime
 
 
 def test_odds_sync_all_excludes_private_helpers():

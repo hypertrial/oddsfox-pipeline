@@ -152,6 +152,15 @@ models:
           arguments:
             grain_columns: [clob_token_id, odds_date_utc]
             where: clob_token_id is not null and odds_date_utc is not null
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [clob_token_id, odds_date_utc]
+            price_columns:
+              - open_price
+              - high_price
+              - low_price
+              - close_price
+              - avg_price
       - mart_matches_int_wc2026_scope:
           arguments:
             int_timeseries: int_polymarket_token_daily_timeseries

@@ -56,6 +56,11 @@ sources:
         freshness:
           warn_after: {count: 12, period: hour}
           error_after: {count: 72, period: hour}
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [clobTokenId, timestamp]
+                where: clobTokenId is not null and timestamp is not null
         columns:
           - name: clobTokenId
             description: Outcome token identifier.
@@ -74,6 +79,11 @@ sources:
         freshness:
           warn_after: {count: 12, period: hour}
           error_after: {count: 72, period: hour}
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [clobTokenId, odds_date_utc]
+                where: clobTokenId is not null and odds_date_utc is not null
         columns:
           - name: clobTokenId
             description: Outcome token identifier.
