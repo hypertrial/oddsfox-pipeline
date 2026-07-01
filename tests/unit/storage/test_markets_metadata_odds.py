@@ -1208,6 +1208,27 @@ def test_refresh_token_odds_daily_and_backfill(duck):
     count = odds_mod.backfill_token_odds_daily_from_history()
     assert count >= 2
 
+    odds_mod.save_odds_batch(
+        [
+            ("drift", 1720000000, 0.9995),
+            ("drift", 1720000300, 0.9995),
+            ("drift", 1720000600, 0.9995),
+        ]
+    )
+    with odds_mod.get_connection() as conn:
+        odds_mod.refresh_token_odds_daily(
+            [("drift", odds_mod._epoch_to_utc_date(1720000000))],
+            conn,
+        )
+        low_price, high_price, avg_price = conn.execute(
+            f"""
+            SELECT low_price, high_price, avg_price
+            FROM {T_TOD}
+            WHERE clobTokenId = 'drift'
+            """
+        ).fetchone()
+    assert low_price <= avg_price <= high_price
+
 
 def test_save_odds_bulk_appender_fallback_without_appender(duck, monkeypatch):
     with odds_mod.get_connection() as conn:
