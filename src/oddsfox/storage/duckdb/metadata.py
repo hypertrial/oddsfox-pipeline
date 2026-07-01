@@ -9,6 +9,7 @@ from oddsfox.storage.duckdb.connection import (
     get_connection,
     polymarket_ops_tbl,
 )
+from oddsfox.storage.duckdb.dlt_batch import append_pipeline_run_event_stage
 
 _BACKFILL_KEY_PREFIX = "backfill:"
 
@@ -84,16 +85,14 @@ def append_pipeline_run_event(
     ts = recorded_at if recorded_at is not None else datetime.now(timezone.utc)
     payload = dict(metrics)
     payload["timestamp"] = ts.isoformat()
+    row = {
+        "run_id": run_id,
+        "task_name": task_name,
+        "recorded_at": ts,
+        "metrics_json": json.dumps(payload, sort_keys=True),
+    }
     with get_connection() as conn:
-        conn.execute(
-            f"""
-            INSERT INTO {polymarket_ops_tbl("pipeline_run_events")} (
-                run_id, task_name, recorded_at, metrics_json
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            [run_id, task_name, ts, json.dumps(payload, sort_keys=True)],
-        )
+        append_pipeline_run_event_stage(row, conn)
     return run_id
 
 

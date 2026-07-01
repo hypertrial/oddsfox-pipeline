@@ -3,7 +3,10 @@ import pytest
 pytest.importorskip("dagster")
 pytest.importorskip("dagster_dbt")
 
+from pathlib import Path
 from unittest.mock import MagicMock
+
+import yaml
 
 from oddsfox.orchestration import config as orch_config
 from oddsfox.orchestration import dbt_build as dbt_build_mod
@@ -14,6 +17,51 @@ from tests.unit.orchestration.orchestration_test_support import (
     _ImmediateThread,
     _patch_guardrail_clock,
 )
+
+
+def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
+    sources_path = (
+        Path(__file__).resolve().parents[3]
+        / "dbt"
+        / "models"
+        / "sources"
+        / "polymarket_sources.yml"
+    )
+    data = yaml.safe_load(sources_path.read_text())
+    tables = {
+        (source["name"], table["name"]): table["meta"]["dagster"]["asset_key"]
+        for source in data["sources"]
+        for table in source["tables"]
+    }
+
+    assert tables[("polymarket_raw", "markets")] == ["dlt_polymarket_markets"]
+    assert tables[("polymarket_raw", "market_tokens")] == [
+        "polymarket_market_metadata_backfill"
+    ]
+    assert tables[("polymarket_raw", "odds_history")] == [
+        "polymarket_token_odds_history_minutely"
+    ]
+    assert tables[("polymarket_raw", "token_odds_daily")] == [
+        "polymarket_token_odds_history_minutely"
+    ]
+    assert tables[("polymarket_ops", "token_sync_ledger")] == [
+        "polymarket_token_odds_history_minutely"
+    ]
+    assert tables[("polymarket_ops", "token_sync_skips")] == [
+        "polymarket_token_odds_history_minutely"
+    ]
+    assert tables[("polymarket_ops", "pipeline_run_events")] == [
+        "polymarket_token_odds_history_minutely"
+    ]
+    assert tables[("polymarket_ops", "wc2026_market_registry")] == [
+        "polymarket_wc2026_registry"
+    ]
+
+
+def test_dbt_translator_does_not_override_model_dependencies():
+    from oddsfox.orchestration.translators import PolymarketDagsterDbtTranslator
+
+    assert "get_asset_spec" not in PolymarketDagsterDbtTranslator.__dict__
 
 
 def test_dbt_assets_definition_streams_build_events(monkeypatch):

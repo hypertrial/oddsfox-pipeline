@@ -10,22 +10,26 @@ shipped adapter. For public mart guarantees, see
 
 Schema: `polymarket_raw`
 
-- `markets`: dlt-owned Gamma market landing table.
-- `market_tokens`: one row per market with CLOB token JSON.
+- `markets`: dlt-owned Gamma market landing table with frozen column/type contract.
+- `market_tokens`: one row per market with CLOB token JSON; current batches land through dlt staging and finalize into this canonical table with `INSERT OR REPLACE`.
 - `odds_history`: point-in-time CLOB token prices. Indexed only by the composite
   primary key `(clobTokenId, timestamp)` for idempotent upserts; legacy standalone
   `clobTokenId`/`timestamp` indexes are dropped on startup to save disk. Operators
   may prune rows older than 365 days with `make prune-odds-history` (manual; not automatic).
-- `token_odds_daily`: daily token aggregates.
+  Current batches land through dlt staging, then finalize with duplicate `(clobTokenId, timestamp)` last-write-wins semantics.
+- `token_odds_daily`: daily token aggregates rebuilt by custom SQL finalizers from
+  canonical `odds_history`.
 
 ## Ops Tables
 
 Schema: `polymarket_ops`
 
-- `wc2026_market_registry`: market ids admitted to WC2026 scope.
-- `token_sync_ledger`: per-token sync progress.
-- `token_sync_skips`: persisted skip reasons.
-- `pipeline_run_events`: append-only run metrics.
+- `wc2026_market_registry`: market ids admitted to WC2026 scope; current batches
+  land through dlt staging before the canonical upsert preserves existing non-null event fields.
+- `token_sync_ledger`: per-token sync progress kept in custom SQL because cursor
+  and scheduler-state merges are stateful.
+- `token_sync_skips`: persisted skip reasons kept in custom SQL to preserve `created_at`.
+- `pipeline_run_events`: append-only run metrics landed through dlt staging.
 - `sync_run_metrics`: latest sync metrics and short history.
 - `scrape_metadata`: small key/value metadata used by legacy-compatible helpers.
 - `market_metadata_unresolved`: retry ledger for unresolved metadata fields.
@@ -65,7 +69,12 @@ Schema: `polymarket_observability`
 
 - `sync_run_observability`: run-level ingestion and odds-sync telemetry.
 
-## dlt-Owned Markets Table
+## dlt Landing And Canonical Tables
+
+Canonical raw and ops table names and schemas remain stable. dlt owns batch
+landing for `markets`, `market_tokens`, `odds_history`,
+`wc2026_market_registry`, and `pipeline_run_events`; stage tables and `_dlt*`
+metadata tables are internal implementation details.
 
 `polymarket_raw.markets` is created by `dlt_polymarket_markets`.
 

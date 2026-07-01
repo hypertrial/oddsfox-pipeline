@@ -1,11 +1,25 @@
 version: 2
 models:
 - name: int_polymarket_wc2026_markets
-  description: 'Polymarket markets scoped to FIFA World Cup 2026 (is_wc2026_target
-    from stg_polymarket_markets: registry membership, allowlisted event_slug, or configured
-    slug prefix).
+  description: 'Polymarket markets scoped to FIFA World Cup 2026 by ops registry
+    membership, allowlisted event_slug, or configured slug prefix.
 
     '
+  columns:
+  - name: market_id
+    description: WC2026 Polymarket market identifier.
+    tests:
+    - not_null
+    - unique
+    - relationships:
+        arguments:
+          to: ref('stg_polymarket_markets')
+          field: market_id
+  - name: event_slug
+    description: Event slug used by the intermediate WC2026 scope definition when
+      present.
+  - name: is_wc2026_target
+    description: Always true for rows retained by this intermediate WC2026 scope model.
 - name: int_polymarket_token_universe
   description: 'Canonical token universe: one row per CLOB outcome token joined to
     its market labels, state, and volume.

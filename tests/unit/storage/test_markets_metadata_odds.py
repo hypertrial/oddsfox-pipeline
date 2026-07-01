@@ -26,6 +26,7 @@ from oddsfox.storage.duckdb.wc2026_registry import (
 
 T_M = polymarket_raw_tbl("markets")
 T_MT = polymarket_raw_tbl("market_tokens")
+T_OH = polymarket_raw_tbl("odds_history")
 T_TOD = polymarket_raw_tbl("token_odds_daily")
 T_LED = polymarket_ops_tbl("token_sync_ledger")
 T_SK = polymarket_ops_tbl("token_sync_skips")
@@ -141,6 +142,7 @@ def test_save_markets_batch_persists_tokens_only(duck):
     with duck.get_connection() as conn:
         _insert_minimal_market(conn, "m-tok")
 
+    markets.save_markets_batch([], [("m-tok", '["old"]')])
     markets.save_markets_batch([], [("m-tok", '["tok-a", "tok-b"]')])
 
     with duck.get_connection() as conn:
@@ -312,10 +314,18 @@ def test_save_sync_run_metrics_zero_history_limit(duck):
 def test_append_pipeline_run_event_inserts_row(duck):
     rid = metadata.append_pipeline_run_event("sync_odds", {"rows": 1})
     with metadata.get_connection() as conn:
-        n = conn.execute(
-            f"SELECT COUNT(*) FROM {T_PRE} WHERE run_id = ?", [rid]
-        ).fetchone()[0]
-    assert n == 1
+        row = conn.execute(
+            f"""
+            SELECT task_name, metrics_json
+            FROM {T_PRE}
+            WHERE run_id = ?
+            """,
+            [rid],
+        ).fetchone()
+    assert row is not None
+    assert row[0] == "sync_odds"
+    assert json.loads(row[1])["rows"] == 1
+    assert "timestamp" in json.loads(row[1])
 
 
 def test_save_sync_run_metrics_preserves_nested_planning_payload(duck):
@@ -1242,6 +1252,15 @@ def test_save_odds_bulk_upsert_paths(duck):
             [("z", 1, 0.1), ("z", 1, 0.2)], conn, assume_deduped=False
         )
         odds_mod.save_odds_bulk_upsert([("z", 2, 0.3)], conn, assume_deduped=True)
+        rows = conn.execute(
+            f"""
+            SELECT timestamp, price
+            FROM {T_OH}
+            WHERE clobTokenId = 'z'
+            ORDER BY timestamp
+            """
+        ).fetchall()
+    assert rows == [(1, 0.2), (2, 0.3)]
 
 
 def test_reconcile_ledger(duck):

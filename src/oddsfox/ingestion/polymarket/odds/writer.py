@@ -90,11 +90,16 @@ def flush_writer_buffers(
         }
     )
     buffers.dirty_daily_keys.update(daily_keys)
+    if odds_records:
+        save_odds_bulk_upsert_fn(odds_records, conn, assume_deduped=True)
+        writer_stats["saved"] += len(odds_records)
+    if not state_map and not skip_map:
+        buffers.odds_map.clear()
+        buffers.state_buffer.clear()
+        buffers.skip_buffer.clear()
+        return
     conn.execute("BEGIN")
     try:
-        if odds_records:
-            save_odds_bulk_upsert_fn(odds_records, conn, assume_deduped=True)
-            writer_stats["saved"] += len(odds_records)
         if state_map:
             state_rows = list(state_map.values())
             upsert_token_sync_state_batch_fn(state_rows, conn)

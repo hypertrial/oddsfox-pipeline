@@ -275,7 +275,7 @@ def test_flush_writer_buffers_empty_buffers_noop():
     )
 
 
-def test_flush_writer_buffers_rollback_on_error(monkeypatch):
+def test_flush_writer_buffers_odds_stage_error_happens_before_transaction(monkeypatch):
     buf = odds_sync.WriterBuffers(
         odds_map={("t", 1): 0.5},
         state_buffer=[],
@@ -301,7 +301,7 @@ def test_flush_writer_buffers_rollback_on_error(monkeypatch):
             1,
             force=True,
         )
-    bad.execute.assert_any_call("ROLLBACK")
+    bad.execute.assert_not_called()
 
 
 def test_apply_writer_invalid_ts_price_dedupe():

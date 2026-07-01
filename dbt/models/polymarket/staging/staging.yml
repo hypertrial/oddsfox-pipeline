@@ -37,9 +37,6 @@ models:
     description: Event slug for grouping related markets under one event.
   - name: event_id
     description: Parent Gamma event id when present on the market payload.
-  - name: is_wc2026_target
-    description: True when this market is in the WC 2026 ops registry, allowlisted
-      event_slug, or matches a configured WC 2026 event_slug prefix.
 - name: stg_polymarket_market_tokens
   description: One row per outcome token; expands raw `clobTokenIds` JSON array with
     zero-based outcome index.

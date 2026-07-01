@@ -45,3 +45,21 @@ def test_upsert_and_query_registry(duck):
     assert n == 2
     assert registry_market_count() == 2
     assert get_registry_market_ids() == ["m1", "m2"]
+
+
+def test_registry_upsert_preserves_existing_event_fields_when_new_values_null(duck):
+    upsert_registry_rows(
+        [RegistryRow("m1", "2026-fifa-world-cup-winner-595", "e1", "events_api")]
+    )
+    upsert_registry_rows([RegistryRow("m1", None, None, "seed")])
+
+    with duck.get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT event_slug, event_id, source
+            FROM polymarket_ops.wc2026_market_registry
+            WHERE market_id = 'm1'
+            """
+        ).fetchone()
+
+    assert row == ("2026-fifa-world-cup-winner-595", "e1", "seed")

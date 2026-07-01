@@ -56,3 +56,14 @@ Enable `POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED` only during intentional 
 - Prune old `polymarket_raw.odds_history` rows with `make prune-odds-history` (default 365-day retention; use `--dry-run` on the script to preview).
 - Reclaim DuckDB file dead space with `make compact-warehouse` after pruning or full refreshes.
 - Use `scripts/profile_warehouse.py` to inspect relation counts and freshness without opening the database read-write.
+
+## Landing And Finalization
+
+Canonical raw and ops table schemas remain stable for operators and dbt. dlt now
+lands markets, market-token batches, odds-history batches, WC2026 registry
+batches, and pipeline run-event batches; dlt stage tables and `_dlt*` metadata
+tables are internal.
+
+Scheduler ledger rows, skip state, and daily odds aggregates remain custom SQL
+finalizers because they preserve monotonic cursors, scheduler state, first-seen
+skip timestamps, and aggregate rebuild semantics.

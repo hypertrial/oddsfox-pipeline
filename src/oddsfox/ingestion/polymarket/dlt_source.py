@@ -18,6 +18,7 @@ from oddsfox.ingestion.polymarket.wc2026_scope import (
     refresh_registry_and_collect_markets_targeted,
     resolve_keyset_tag_slugs,
 )
+from oddsfox.storage.duckdb.dlt_batch import DLT_STRICT_SCHEMA_CONTRACT
 
 
 def _collect_raw_markets(
@@ -95,6 +96,7 @@ def polymarket_markets_source(
         name="markets",
         primary_key="id",
         write_disposition="merge",
+        schema_contract=DLT_STRICT_SCHEMA_CONTRACT,
         columns={
             "id": {"data_type": "text"},
             "question": {"data_type": "text"},

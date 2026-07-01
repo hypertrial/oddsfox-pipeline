@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from dagster import AssetKey
 from dagster_dbt import DagsterDbtTranslator
 
 from oddsfox.orchestration.dbt_project import DBT_DAGSTER_GROUP_NAME
@@ -15,15 +14,6 @@ class PolymarketDagsterDbtTranslator(DagsterDbtTranslator):
 
     def get_group_name(self, dbt_resource_props: Mapping[str, Any]) -> str:
         return DBT_DAGSTER_GROUP_NAME
-
-    def get_asset_spec(self, manifest, unique_id, project):
-        spec = super().get_asset_spec(manifest, unique_id, project)
-        props = self.get_resource_props(manifest, unique_id)
-        if props.get("resource_type") == "model":
-            return spec.merge_attributes(
-                deps=[AssetKey("polymarket_token_odds_history")]
-            )
-        return spec
 
 
 __all__ = ["PolymarketDagsterDbtTranslator"]

@@ -327,7 +327,7 @@ def test_get_token_sync_snapshot_reconcile_without_repair_updates_latest_only(du
     assert ledger_ts == 10
 
 
-def test_save_odds_bulk_appender_and_upsert_with_fake_appender(monkeypatch, duck):
+def test_save_odds_bulk_appender_and_upsert_write_canonical_rows(monkeypatch, duck):
     appended = []
 
     class FakeAppender:
@@ -344,13 +344,15 @@ def test_save_odds_bulk_appender_and_upsert_with_fake_appender(monkeypatch, duck
     with odds_mod.get_connection() as conn:
         odds_mod.save_odds_bulk_appender([("app", 1, 0.1)], conn)
         odds_mod.save_odds_bulk_upsert([("up", 2, 0.2)], conn, assume_deduped=False)
-    hist_rows = [r for r in appended if r[0] == T_OH and r[1] != "closed"]
-    assert len(hist_rows) == 1
-    assert hist_rows[0][1][:3] == ("app", 1, 0.1)
-    assert len(hist_rows[0][1]) == 4  # ingested_at
-    stg_rows = [r for r in appended if r[0] == "_odds_staging" and r[1] != "closed"]
-    assert stg_rows[0][1][:3] == ("up", 2, 0.2)
-    assert len(stg_rows[0][1]) == 4
+        rows = conn.execute(
+            f"""
+            SELECT clobTokenId, timestamp, price
+            FROM {T_OH}
+            ORDER BY clobTokenId
+            """
+        ).fetchall()
+    assert appended == []
+    assert rows == [("app", 1, 0.1), ("up", 2, 0.2)]
 
 
 def test_save_sync_status_batch_preserves_fully_checked(duck):

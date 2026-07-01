@@ -7,6 +7,9 @@ sources:
     tables:
       - name: markets
         description: Raw market metadata from the Gamma API.
+        meta:
+          dagster:
+            asset_key: [dlt_polymarket_markets]
         loaded_at_field: scraped_at
         freshness:
           warn_after: {count: 18, period: hour}
@@ -25,6 +28,9 @@ sources:
         description: >
           One row per Polymarket market_id; clobTokenIds holds a JSON array of CLOB outcome token ids for that market
           (staging expands this into one row per token). Hence market_id is unique at this raw grain.
+        meta:
+          dagster:
+            asset_key: [polymarket_market_metadata_backfill]
         loaded_at_field: updated_at
         freshness:
           warn_after: {count: 18, period: hour}
@@ -43,6 +49,9 @@ sources:
             description: UTC timestamp when this mapping row was last written by ingestion.
       - name: odds_history
         description: Raw CLOB price history (minimum daily resolution from ingestion; may contain finer legacy points).
+        meta:
+          dagster:
+            asset_key: [polymarket_token_odds_history_minutely]
         loaded_at_field: ingested_at
         freshness:
           warn_after: {count: 12, period: hour}
@@ -58,6 +67,9 @@ sources:
             description: UTC timestamp when this row was written by the pipeline (ingestion clock).
       - name: token_odds_daily
         description: Raw daily token odds aggregates derived from canonical odds_history points.
+        meta:
+          dagster:
+            asset_key: [polymarket_token_odds_history_minutely]
         loaded_at_field: refreshed_at
         freshness:
           warn_after: {count: 12, period: hour}
@@ -78,6 +90,9 @@ sources:
     tables:
       - name: token_sync_ledger
         description: Operational ledger for per-token sync progress; one row per CLOB token when present.
+        meta:
+          dagster:
+            asset_key: [polymarket_token_odds_history_minutely]
         columns:
           - name: clobTokenId
             description: CLOB outcome token identifier (primary key).
@@ -94,6 +109,9 @@ sources:
             description: Count of consecutive routine syncs that completed with no rows and no errors.
       - name: token_sync_skips
         description: Operational skip reasons for tokens that were not synced.
+        meta:
+          dagster:
+            asset_key: [polymarket_token_odds_history_minutely]
         columns:
           - name: clobTokenId
             description: CLOB outcome token identifier (primary key).
@@ -107,6 +125,9 @@ sources:
         description: >-
           Operational registry of Polymarket market_ids scoped to FIFA World Cup 2026 events
           (refreshed from Gamma /events and seed allowlists).
+        meta:
+          dagster:
+            asset_key: [polymarket_wc2026_registry]
         columns:
           - name: market_id
             description: Polymarket market identifier (primary key).
@@ -121,6 +142,9 @@ sources:
             description: UTC timestamp when this registry row was last upserted.
       - name: pipeline_run_events
         description: Append-only operational audit log for ingestion and repair run metrics.
+        meta:
+          dagster:
+            asset_key: [polymarket_token_odds_history_minutely]
         loaded_at_field: recorded_at
         freshness:
           warn_after: {count: 18, period: hour}

@@ -14,6 +14,7 @@ from oddsfox.storage.duckdb.connection import (
     polymarket_ops_tbl,
     polymarket_raw_tbl,
 )
+from oddsfox.storage.duckdb.dlt_batch import load_market_tokens_stage
 
 logger = logging.getLogger(__name__)
 
@@ -138,15 +139,11 @@ def _persist_market_tokens(conn, token_data: Iterable[Tuple]) -> None:
     if not token_data:
         return
     now = _utc_now()
-    token_rows = [(mid, toks, now) for mid, toks in token_data]
-    conn.executemany(
-        f"""
-        INSERT OR REPLACE INTO {_TAB_MARKET_TOKENS}
-        (market_id, clobTokenIds, updated_at)
-        VALUES (?, ?, ?)
-        """,
-        token_rows,
+    token_rows = (
+        {"market_id": mid, "clobTokenIds": toks, "updated_at": now}
+        for mid, toks in token_data
     )
+    load_market_tokens_stage(list(token_rows), conn)
 
 
 def save_market_tokens_batch(token_data: Iterable[Tuple]) -> None:

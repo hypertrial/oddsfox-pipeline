@@ -1,4 +1,17 @@
-from oddsfox.ingestion.polymarket.dlt_source import normalize_market_payloads_for_dlt
+from oddsfox.ingestion.polymarket.dlt_source import (
+    normalize_market_payloads_for_dlt,
+    polymarket_markets_source,
+)
+from oddsfox.storage.duckdb.dlt_batch import DLT_STRICT_SCHEMA_CONTRACT
+
+
+def test_markets_resource_has_frozen_columns_and_types_contract():
+    resource = polymarket_markets_source().resources["markets"]
+
+    assert resource.schema_contract == DLT_STRICT_SCHEMA_CONTRACT
+    assert resource.columns["id"]["data_type"] == "text"
+    assert resource.columns["volume"]["data_type"] == "double"
+    assert resource.columns["created_at"]["data_type"] == "timestamp"
 
 
 def test_normalize_market_payloads_for_dlt_matches_raw_market_contract():

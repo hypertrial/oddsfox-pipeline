@@ -3,6 +3,7 @@ from typing import Dict, List, Tuple
 import duckdb
 
 from oddsfox.storage.duckdb.connection import ensure_duck_db, get_connection
+from oddsfox.storage.duckdb.dlt_batch import load_odds_history_stage
 from oddsfox.storage.duckdb.odds._common import (
     _TAB_ODDS_HISTORY,
     _utc_now,
@@ -16,41 +17,27 @@ def save_odds_batch(records: List[Tuple[str, int, float]]):
         return
     ensure_duck_db()
     ingested = _utc_now()
-    rows = [(t, ts, p, ingested) for t, ts, p in records]
+    rows = [
+        {
+            "clobTokenId": token_id,
+            "timestamp": int(timestamp),
+            "price": float(price),
+            "ingested_at": ingested,
+        }
+        for token_id, timestamp, price in records
+    ]
     with get_connection() as conn:
-        conn.executemany(
-            f"""
-            INSERT OR REPLACE INTO {_TAB_ODDS_HISTORY} (clobTokenId, timestamp, price, ingested_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            rows,
-        )
+        load_odds_history_stage(rows, conn)
     logger.debug("Saved %d odds records to DuckDB", len(records))
 
 
 def save_odds_bulk_appender(
     records: List[Tuple[str, int, float]], conn: duckdb.DuckDBPyConnection
 ):
-    """Save odds history records using DuckDB's Appender on an open connection."""
+    """Compatibility wrapper for bulk odds-history upserts on an open connection."""
     if not records:
         return
-    ingested = _utc_now()
-    if hasattr(duckdb, "Appender"):
-        appender = duckdb.Appender(conn, _TAB_ODDS_HISTORY)
-        try:
-            for token_id, timestamp, price in records:
-                appender.append([token_id, timestamp, price, ingested])
-        finally:
-            appender.close()
-    else:
-        rows = [(t, ts, p, ingested) for t, ts, p in records]
-        conn.executemany(
-            f"""
-            INSERT OR REPLACE INTO {_TAB_ODDS_HISTORY} (clobTokenId, timestamp, price, ingested_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            rows,
-        )
+    save_odds_bulk_upsert(records, conn, assume_deduped=False)
     logger.debug("Saved %d odds records to DuckDB", len(records))
 
 
@@ -61,7 +48,7 @@ def save_odds_bulk_upsert(
     assume_deduped: bool = False,
 ):
     """
-    Bulk upsert odds rows using a temporary staging table.
+    Bulk upsert odds rows using a dlt-managed stage table.
 
     This path is resilient to overlap-driven duplicates (same token/timestamp)
     and generally performs better than row-wise inserts for large minutely loads.
@@ -102,34 +89,16 @@ def save_odds_bulk_upsert(
             for (token_id, timestamp), price in dedup.items()
         ]
 
-    conn.execute(
-        """
-        CREATE TEMPORARY TABLE IF NOT EXISTS _odds_staging (
-            clobTokenId TEXT,
-            timestamp BIGINT,
-            price DOUBLE,
-            ingested_at TIMESTAMP
-        )
-        """
+    load_odds_history_stage(
+        [
+            {
+                "clobTokenId": token_id,
+                "timestamp": timestamp,
+                "price": price,
+                "ingested_at": ing,
+            }
+            for token_id, timestamp, price, ing in rows
+        ],
+        conn,
     )
-    if hasattr(duckdb, "Appender"):
-        appender = duckdb.Appender(conn, "_odds_staging")
-        try:
-            for token_id, timestamp, price, ing in rows:
-                appender.append([token_id, timestamp, price, ing])
-        finally:
-            appender.close()
-    else:
-        conn.executemany(
-            "INSERT INTO _odds_staging (clobTokenId, timestamp, price, ingested_at) VALUES (?, ?, ?, ?)",
-            rows,
-        )
-    conn.execute(
-        f"""
-        INSERT OR REPLACE INTO {_TAB_ODDS_HISTORY} (clobTokenId, timestamp, price, ingested_at)
-        SELECT clobTokenId, timestamp, price, ingested_at
-        FROM _odds_staging
-        """
-    )
-    conn.execute("DELETE FROM _odds_staging")
     logger.debug("Upserted %d odds records to DuckDB", len(rows))
