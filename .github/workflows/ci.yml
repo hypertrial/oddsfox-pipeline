@@ -65,7 +65,7 @@ jobs:
           manifest: target/manifest.json
           fail-on: high
           min-confidence: high
-          block-only-new: true
+          version: v2.5.0
           format: github
           receipt-path: costguard-receipt.json
 

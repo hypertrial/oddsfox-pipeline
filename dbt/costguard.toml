@@ -9,3 +9,6 @@ manifest_path = "target/manifest.json"
 [output]
 fail_on = "high"
 min_confidence = "high"
+
+[gate]
+block_only_new = true
