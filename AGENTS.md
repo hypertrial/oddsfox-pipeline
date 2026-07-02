@@ -26,6 +26,28 @@ Cursor loads [Ponytail](https://github.com/DietrichGebert/ponytail) from [`.curs
 
 Other agents should read this `AGENTS.md` at the repo root.
 
+## No legacy support (v0.1.x)
+
+OddsFox is v0.1.x — too new for a supported legacy surface, migration path, or
+backward-compatibility layer unless the task explicitly requests one.
+
+- **Remove and replace** old APIs, config values, warehouse layouts, and marts;
+  do not add adapters, aliases, deprecation periods, or dual code paths.
+- **Warehouse reset over migration:** operators with pre-layout DuckDB files
+  should delete the warehouse (`rm oddsfox.duckdb*`) and rerun quickstart. Narrow
+  startup cleanups (bootstrap table drops, redundant index drops) are local-dev
+  bug fixes, not a migration product.
+- **Public contracts:** [docs/data-contracts.md](docs/data-contracts.md) marts
+  and Dagster asset names are the current API. Breaking changes belong in
+  [CHANGELOG.md](CHANGELOG.md), not hidden compat layers.
+- **Ponytail alignment:** deletion over addition applies here — prefer removing
+  dead paths over preserving them.
+
+Do not add `legacy`, `compat`, `deprecated`, or `migration` code paths unless
+the user explicitly asks. Do not preserve removed config values (e.g.
+`wc2026_legacy`) or reintroduce removed marts/APIs. Do not document long-term
+semver stability; v0.1.x may break between releases.
+
 ## Quality gate (run before finishing work)
 
 Mirrors [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Use `uv run make …` from the repo root.
@@ -133,6 +155,7 @@ DuckDB is local-only runtime state. For read-only inspection prefer `scripts/pro
 - Set `CLOB_API_KEY`, `CLOB_API_SECRET`, or `CLOB_API_PASSPHRASE` for docs, dbt, or mocked tests.
 - Invent commands outside the Makefile; if a check is missing, add a Makefile target rather than documenting one-off scripts as the gate.
 - Add runtime scope such as soccer context, simulations, allocation, or web integration without explicit product direction; v0.1.0 still ships the WC2026 Polymarket ingest and warehouse implementation.
+- Add legacy, compat, deprecated, or migration shims unless the task explicitly requests backward compatibility.
 
 ## Pull requests
 

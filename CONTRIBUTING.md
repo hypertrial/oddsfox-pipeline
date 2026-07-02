@@ -50,6 +50,19 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 
 Additional targets are available in the [Makefile](Makefile) (`unit-core`, `unit-ingest`, `integration-dbt`, etc.).
 
+## Versioning expectations
+
+OddsFox is v0.1.x — the project is too new to carry backward-compatibility
+burden by default.
+
+- Breaking changes are acceptable when they simplify the pipeline.
+- Update tests and docs with behavior changes; do not add backward-compat shims
+  unless the PR explicitly scopes compat work.
+- Document breaking changes in [CHANGELOG.md](CHANGELOG.md) and
+  [docs/data-contracts.md](docs/data-contracts.md) when public marts or operator
+  workflows change.
+- AI agents should follow the no-legacy policy in [AGENTS.md](AGENTS.md).
+
 ## Pull requests
 
 1. Branch from `main`.

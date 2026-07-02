@@ -47,10 +47,12 @@ Schema: `polymarket_marts`
 - WC2026 odds time series parity with intermediate models.
 - WC2026 scope and whale volume threshold filtering.
 
-## Migration From token_latest_odds
+## Breaking change: token_latest_odds removed (v0.1.1)
 
-`token_latest_odds` was removed in favor of full time-series marts. To get the
-latest daily or minutely price for a token, query `wc2026_token_daily_odds` or
-`wc2026_token_minutely_odds` with `max(odds_date_utc)` or
-`max(odds_timestamp_epoch)` per `clob_token_id`, or query the intermediate
-models directly.
+There is no compatibility view or shim for `token_latest_odds`. Use the
+time-series marts below instead.
+
+To get the latest daily or minutely price for a token, query
+`wc2026_token_daily_odds` or `wc2026_token_minutely_odds` with
+`max(odds_date_utc)` or `max(odds_timestamp_epoch)` per `clob_token_id`, or
+query the intermediate models directly.

@@ -68,6 +68,9 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 ## Pull Request Expectations
 
 - Keep PRs focused and update docs for behavior or operator workflow changes.
+- Breaking changes are OK in v0.1.x; document them in CHANGELOG and data
+  contracts — do not add legacy fallbacks unless the PR explicitly scopes compat
+  work.
 - Add or update tests for changed behavior.
 - Do not commit `.env`, local DuckDB files, generated dbt targets, `site/`, or
   data exports.
