@@ -14,10 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Generic dbt test macros for grain uniqueness, price bounds, and mart/int
-  reconciliation (replacing 14 duplicated singular tests).
-- Regression test ensuring dbt source `meta.dagster.asset_key` values match
-  Dagster Definitions asset keys.
+- Generic dbt test macros for grain uniqueness and price bounds (replacing
+  duplicated singular tests).
+- Regression tests ensuring dbt source `meta.dagster.asset_key` values match
+  Dagster asset keys and that resolved dbt model deps wire to ingestion assets.
 - Schedule mutual-exclusion guard when both minutely odds schedule env flags
   are enabled.
 - `outcome_label` on selected-scope minutely, daily, and whale odds marts so analysts
