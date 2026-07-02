@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- GitHub Actions CI now runs `integration-dagster` and `make coverage` alongside
+  the existing lint, test, dbt, docs, and costguard gates.
 - WC2026 full-keyset discovery now defaults `keyset_volume_min` to
   `POLYMARKET_WC2026_KEYSET_VOLUME_MIN` (10_000) for both dlt and markets sync
   entrypoints.

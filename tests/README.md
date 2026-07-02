@@ -22,7 +22,7 @@ make test
 make coverage
 ```
 
-`make integration-dagster` and `make coverage` are stricter local gates, not
-GitHub Actions requirements yet. `make coverage` enforces 100% branch coverage
-for `src/oddsfox` except the warehouse profiling operator helpers under
+`make integration-dagster` and `make coverage` are CI gates. `make coverage`
+enforces 100% branch coverage for `src/oddsfox` except the warehouse profiling
+operator helpers under
 `storage/duckdb/profile/`, which are covered by smoke tests instead.

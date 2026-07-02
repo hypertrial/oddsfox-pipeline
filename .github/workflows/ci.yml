@@ -44,8 +44,14 @@ jobs:
       - name: Tests
         run: uv run make test
 
+      - name: Dagster integration smoke
+        run: uv run make integration-dagster
+
       - name: dbt integration smoke
         run: uv run make integration-dbt
+
+      - name: Coverage
+        run: uv run make coverage
 
       - name: Docs
         run: uv run make docs-check

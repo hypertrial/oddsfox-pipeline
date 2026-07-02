@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing. OddsFox is an open-source,
 local-first prediction-market data pipeline built with Dagster, dlt, dbt, and
-DuckDB. Version `0.1.0` starts with FIFA World Cup 2026 Polymarket markets and
+DuckDB. Version `0.1.x` starts with FIFA World Cup 2026 Polymarket markets and
 odds.
 
 ## Development setup
@@ -32,7 +32,9 @@ Run these before opening a pull request (they mirror [`.github/workflows/ci.yml`
 ```bash
 uv run make lint
 uv run make test
+uv run make integration-dagster
 uv run make integration-dbt
+uv run make coverage
 uv run make docs-check
 uv run make dbt-parse
 uv run make dbt-build-ci
@@ -48,7 +50,7 @@ Install the pinned local scanner with:
 curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/install.sh | sh -s -- v2.5.0
 ```
 
-Additional targets are available in the [Makefile](Makefile) (`unit-core`, `unit-ingest`, `integration-dbt`, etc.).
+Additional targets are available in the [Makefile](Makefile) (`unit-core`, `unit-ingest`, etc.).
 
 ## Versioning expectations
 

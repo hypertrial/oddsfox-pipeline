@@ -56,7 +56,9 @@ See [Data Contracts](docs/data-contracts.md).
 ```bash
 uv run make lint
 uv run make test
+uv run make integration-dagster
 uv run make integration-dbt
+uv run make coverage
 uv run make docs-check
 uv run make dbt-parse
 uv run make dbt-build-ci
