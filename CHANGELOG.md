@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Circular import between `scope_sql` and `storage.duckdb._market_queries` that
+  prevented `dagster dev` from loading definitions.
+
 ### Added
 
 - Generic dbt test macros for grain uniqueness, price bounds, and mart/int
@@ -24,6 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `PolymarketDagsterDbtTranslator` now honors `meta.dagster.asset_key` on dbt
+  sources (with duplicate-source keys enabled) so `polymarket_dbt` waits for
+  ingestion assets instead of running immediately after `dlt_polymarket_markets`.
+- Removed tautological dbt tests on selected-scope minutely/daily/whale marts
+  (`mart_matches_selected_scope`, redundant `no_duplicate_grain`, whale subset
+  singular test) that scanned ~54M view rows and added ~10 minutes to local dbt
+  builds; grain and reconciliation coverage remains on sources and upstream models.
 - Breaking: `POLYMARKET_MARKET_SCOPE` replaced by CSV `POLYMARKET_MARKET_SCOPES`
   (one or more preset names). dbt var `active_market_scope` replaced by
   `active_market_scopes` (list). `selected_markets` grain is now

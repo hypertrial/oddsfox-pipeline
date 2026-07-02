@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
-from oddsfox.ingestion.polymarket.scope_sql import (
-    MARKET_SCOPE_ALL,
-    market_scope_predicate_sql,
-    market_scope_sql,
-    validate_market_scopes,
-)
+from oddsfox.ingestion.polymarket import scope_sql
+
+# ponytail: module-reference import (not `from ... import name`) so this file can
+# be imported mid-load of `scope_sql` (which imports storage.duckdb.schemas.constants,
+# which triggers this package's __init__ before scope_sql finishes defining its
+# names). Attribute access below happens at call time, after both modules are fully
+# loaded, so it sidesteps the circular-import ordering.
 from oddsfox.storage.duckdb.connection import (
     ensure_duck_db,
     get_connection,
@@ -32,7 +33,7 @@ def _fetch_market_ids(base_query: str, limit: Optional[int] = None) -> List[str]
 
 
 def _market_scope_where_clause(market_scope: str | None, alias: str = "m") -> str:
-    return market_scope_sql(market_scope, alias)
+    return scope_sql.market_scope_sql(market_scope, alias)
 
 
 def _ended_market_where_clause(
@@ -334,17 +335,17 @@ def count_due_market_token_exclusions(
     max_volume: float | None = None,
 ) -> dict[str, int]:
     """Count due-token candidates skipped by routine scope/freshness filters."""
-    scope = validate_market_scopes(market_scope)
+    scope = scope_sql.validate_market_scopes(market_scope)
     ensure_duck_db()
     params: List = []
     base_sql = _due_token_base_where(cutoff_created_at, params)
     volume_sql = _volume_where_clause(min_volume, max_volume, "m")
     scope_skip = 0
     ended_skip = 0
-    scoped = MARKET_SCOPE_ALL not in scope
+    scoped = scope_sql.MARKET_SCOPE_ALL not in scope
     with get_connection() as conn:
         if scoped:
-            predicate = market_scope_predicate_sql(market_scope, "m")
+            predicate = scope_sql.market_scope_predicate_sql(market_scope, "m")
             row = conn.execute(
                 f"""
                 SELECT COUNT(*)
@@ -359,7 +360,9 @@ def count_due_market_token_exclusions(
         if ended_market_grace_days is not None:
             days = max(0, int(ended_market_grace_days))
             scope_condition = (
-                market_scope_predicate_sql(market_scope, "m") if scoped else "TRUE"
+                scope_sql.market_scope_predicate_sql(market_scope, "m")
+                if scoped
+                else "TRUE"
             )
             row = conn.execute(
                 f"""
@@ -392,7 +395,7 @@ def count_candidate_market_tokens(
     When False, mirrors ``iter_markets_with_tokens`` with ``json_array_only=True``.
     Per-token planner drops (recent_skip, invalid id, dup) are not reflected here.
     """
-    validate_market_scopes(market_scope)
+    scope_sql.validate_market_scopes(market_scope)
     ensure_duck_db()
     params: List = []
     if due_only:

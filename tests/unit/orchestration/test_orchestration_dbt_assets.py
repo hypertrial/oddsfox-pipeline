@@ -64,6 +64,33 @@ def test_dbt_translator_does_not_override_model_dependencies():
     assert "get_asset_spec" not in PolymarketDagsterDbtTranslator.__dict__
 
 
+def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
+    from dagster import AssetKey
+
+    from oddsfox.orchestration.definitions import defs
+
+    graph = defs.resolve_asset_graph()
+    stg_markets_parents = {
+        key.to_user_string()
+        for key in graph.get(AssetKey("polymarket_stg_markets")).parent_keys
+    }
+    assert "dlt_polymarket_markets" in stg_markets_parents
+    assert not any(parent.startswith("dbt_") for parent in stg_markets_parents)
+
+    stg_odds_parents = {
+        key.to_user_string()
+        for key in graph.get(AssetKey("polymarket_stg_odds")).parent_keys
+    }
+    assert "polymarket_token_odds_history_minutely" in stg_odds_parents
+
+    dangling_dbt_keys = sorted(
+        key.to_user_string()
+        for key in defs.resolve_all_asset_keys()
+        if key.path[0].startswith("dbt_")
+    )
+    assert dangling_dbt_keys == []
+
+
 def test_dbt_assets_definition_streams_build_events(monkeypatch):
     from oddsfox.orchestration.assets import polymarket_dbt
 
