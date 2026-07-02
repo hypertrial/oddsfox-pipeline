@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Dagster Definitions asset keys.
 - Schedule mutual-exclusion guard when both minutely odds schedule env flags
   are enabled.
+- `outcome_label` on WC2026 minutely, daily, and whale odds marts so analysts
+  can interpret `outcome_index` without joining to `wc2026_markets`.
 
 ### Changed
 

@@ -51,6 +51,8 @@ models:
     description: UTC timestamp when the raw market_tokens row was last written.
   - name: question
     description: Market prompt text from staging markets.
+  - name: outcome_label
+    description: Resolved outcome label (e.g. Yes/No) from the market's outcomes array at outcome_index; null if the outcomes array is missing or malformed.
   - name: event_slug
     description: Event slug for grouping related markets.
   - name: is_active
@@ -90,6 +92,8 @@ models:
     description: UTC timestamp when the raw market_tokens row was last written.
   - name: question
     description: Market prompt text from staging markets.
+  - name: outcome_label
+    description: Resolved outcome label (e.g. Yes/No) from the market's outcomes array at outcome_index; null if the outcomes array is missing or malformed.
   - name: event_slug
     description: Event slug for grouping related markets.
   - name: is_active

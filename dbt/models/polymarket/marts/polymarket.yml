@@ -133,6 +133,8 @@ models:
               arguments:
                 to: ref('wc2026_markets')
                 field: market_id
+      - name: outcome_label
+        description: Resolved outcome label (e.g. Yes/No) from the market's outcomes array at outcome_index; null if the outcomes array is missing or malformed.
       - name: market_volume_usd
         description: Reported market volume at build time.
       - name: odds_timestamp_epoch
@@ -187,6 +189,8 @@ models:
               arguments:
                 to: ref('wc2026_markets')
                 field: market_id
+      - name: outcome_label
+        description: Resolved outcome label (e.g. Yes/No) from the market's outcomes array at outcome_index; null if the outcomes array is missing or malformed.
       - name: odds_date_utc
         description: UTC calendar date for the aggregated token odds row.
         tests: [not_null]
@@ -218,6 +222,8 @@ models:
               arguments:
                 to: ref('wc2026_markets')
                 field: market_id
+      - name: outcome_label
+        description: Resolved outcome label (e.g. Yes/No) from the market's outcomes array at outcome_index; null if the outcomes array is missing or malformed.
       - name: market_volume_usd
         description: Reported market volume at build time (>= whale threshold).
       - name: odds_timestamp_epoch

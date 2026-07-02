@@ -3,6 +3,7 @@ select
     outcome_index,
     clob_token_id,
     question,
+    outcome_label,
     event_slug,
     is_active,
     is_closed,

@@ -30,6 +30,7 @@ Schema: `polymarket_marts`
 
 - `token_coverage` covers all staged tokens.
 - `wc2026_token_minutely_odds` and `wc2026_token_daily_odds` are WC2026-scoped full time series.
+- `wc2026_token_minutely_odds`, `wc2026_token_daily_odds`, and `wc2026_whale_minutely_odds` include `outcome_label` (e.g. Yes/No) resolved from `outcome_index`; no join to `wc2026_markets` is required to interpret which side a row represents.
 - `wc2026_whale_minutely_odds` is WC2026-scoped and filtered by
   `polymarket_whale_min_volume_usd`.
 - After `make prune-odds-history`, `polymarket_raw.odds_history` (and therefore

@@ -34,9 +34,7 @@ backward-compatibility layer unless the task explicitly requests one.
 - **Remove and replace** old APIs, config values, warehouse layouts, and marts;
   do not add adapters, aliases, deprecation periods, or dual code paths.
 - **Warehouse reset over migration:** operators with pre-layout DuckDB files
-  should delete the warehouse (`rm oddsfox.duckdb*`) and rerun quickstart. Narrow
-  startup cleanups (bootstrap table drops, redundant index drops) are local-dev
-  bug fixes, not a migration product.
+  should delete the warehouse (`rm oddsfox.duckdb*`) and rerun quickstart.
 - **Public contracts:** [docs/data-contracts.md](docs/data-contracts.md) marts
   and Dagster asset names are the current API. Breaking changes belong in
   [CHANGELOG.md](CHANGELOG.md), not hidden compat layers.

@@ -32,6 +32,7 @@ def test_export_minutely_odds_parquet_round_trip(tmp_path: Path) -> None:
                 outcome_index integer,
                 clob_token_id varchar,
                 question varchar,
+                outcome_label varchar,
                 event_slug varchar,
                 is_active boolean,
                 is_closed boolean,
@@ -45,7 +46,7 @@ def test_export_minutely_odds_parquet_round_trip(tmp_path: Path) -> None:
         conn.executemany(
             """
             insert into polymarket_marts.wc2026_token_minutely_odds values
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -53,6 +54,7 @@ def test_export_minutely_odds_parquet_round_trip(tmp_path: Path) -> None:
                     0,
                     "tok-a",
                     "Q1",
+                    "Yes",
                     "wc2026-a",
                     True,
                     False,
@@ -66,6 +68,7 @@ def test_export_minutely_odds_parquet_round_trip(tmp_path: Path) -> None:
                     1,
                     "tok-b",
                     "Q1",
+                    "No",
                     "wc2026-a",
                     True,
                     False,

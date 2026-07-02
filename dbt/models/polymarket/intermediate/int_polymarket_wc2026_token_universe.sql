@@ -4,6 +4,7 @@ select
     t.clob_token_id,
     t.token_updated_at,
     t.question,
+    t.outcome_label,
     t.event_slug,
     t.is_active,
     t.is_closed,
