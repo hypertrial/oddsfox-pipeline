@@ -48,6 +48,19 @@ Schema: `polymarket_marts`
 - selected-scope odds time series parity with selected token universes.
 - selected market scope and whale volume threshold filtering.
 
+## Breaking change: selected-scope contracts (v0.1.2)
+
+WC2026-specific public mart, registry, asset, job, script, and env-var names
+were replaced by selected-scope names. Use `POLYMARKET_MARKET_SCOPES`, dbt
+`active_market_scopes`, `polymarket_selected_scope_full_pipeline`,
+`polymarket_market_scope_registry`, and the `selected_*` marts. The
+`selected_markets` grain is `(scope_name, market_id)`, and selected-scope odds
+marts include `outcome_label`.
+
+There are no compatibility views, env aliases, or migration shims in v0.1.x.
+Delete old local warehouse files (`rm oddsfox.duckdb*`) and rerun quickstart
+after upgrading from pre-`v0.1.2` layouts.
+
 ## Breaking change: token_latest_odds removed (v0.1.1)
 
 There is no compatibility view or shim for `token_latest_odds`. Use the

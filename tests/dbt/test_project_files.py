@@ -20,5 +20,5 @@ def test_dbt_project_is_polymarket_only():
 def test_dbt_project_version():
     text = (Path(__file__).resolve().parents[2] / "dbt" / "dbt_project.yml").read_text()
 
-    assert "version: 0.1.1" in text
+    assert "version: 0.1.2" in text
     assert "profile: oddsfox" in text
