@@ -6,7 +6,7 @@ Run them through `uv run python` so they use the repo environment.
 ## Warehouse
 
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
-- `export_wc2026_minutely_odds.py`: export `polymarket_marts.wc2026_token_minutely_odds` to parquet.
+- `export_wc2026_minutely_odds.py`: export `polymarket_marts.wc2026_token_minutely_odds` to parquet plus a companion `.md` data spec.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_raw.odds_history` rows older than a retention window (default 365 days).
 - `repair_polymarket_token_sync_ledger.py`: rebuild a corrupted token sync ledger.
@@ -30,6 +30,7 @@ Run scripts through the project environment:
 uv run python scripts/profile_warehouse.py --snapshot-copy
 uv run python scripts/export_wc2026_minutely_odds.py
 uv run python scripts/export_wc2026_minutely_odds.py --snapshot-copy --output /tmp/wc2026_minutely.parquet
+# writes /tmp/wc2026_minutely.parquet and /tmp/wc2026_minutely.md
 ```
 
 Scripts that call Polymarket APIs need network access and should use conservative request-rate settings.

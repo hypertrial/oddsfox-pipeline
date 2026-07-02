@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are enabled.
 - `outcome_label` on WC2026 minutely, daily, and whale odds marts so analysts
   can interpret `outcome_index` without joining to `wc2026_markets`.
+- Companion markdown data spec written alongside WC2026 minutely odds parquet
+  exports (`export_wc2026_minutely_odds.py`; use `--no-spec` to skip).
 
 ### Changed
 
