@@ -458,3 +458,70 @@ def test_build_inflight_future_diagnostics_empty():
         "oldest_inflight_seconds": 0.0,
         "oldest_inflight": [],
     }
+
+
+def _run_sync_odds_with_tqdm_capture(monkeypatch, *, is_tty: bool) -> list[dict]:
+    from oddsfox.ingestion.polymarket.odds.engine import pool as pool_mod
+
+    monkeypatch.setattr(pool_mod.sys.stderr, "isatty", lambda: is_tty)
+    kwargs_seen: list[dict] = []
+
+    def fake_tqdm(*args, **kwargs):
+        del args
+        kwargs_seen.append(kwargs)
+        from unittest.mock import MagicMock
+
+        return MagicMock(
+            __enter__=lambda s: s,
+            __exit__=lambda *x: None,
+            update=lambda *a, **k: None,
+            set_postfix=lambda *a, **k: None,
+        )
+
+    monkeypatch.setattr(odds_sync, "tqdm", fake_tqdm)
+
+    plans = [_plan()]
+
+    def plan_iter(**kwargs):
+        del kwargs
+        for plan in plans:
+            yield plan
+
+    monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
+    monkeypatch.setattr(odds_sync, "snapshot_raw_layer", raw_snapshot)
+    monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
+    monkeypatch.setattr(odds_sync, "save_sync_run_metrics", lambda *a, **k: None)
+    monkeypatch.setattr(odds_sync, "save_skipped_tokens", lambda *a, **k: None)
+    monkeypatch.setattr(
+        odds_sync,
+        "_sync_token_plan",
+        lambda *a, **k: {
+            "rows": 0,
+            "windows": 1,
+            "empty": True,
+            "error": 0,
+            "permanent_error": 0,
+            "fully_checked": False,
+        },
+    )
+    monkeypatch.setattr(odds_sync, "Thread", NoThread)
+    monkeypatch.setattr(odds_sync, "_writer_loop", lambda *a, **k: None)
+    monkeypatch.setattr(Queue, "join", lambda self: None)
+
+    with immediate_executor():
+        odds_sync.sync_odds(
+            max_workers=1,
+            auto_tune_rps=False,
+            persist_run_metrics=False,
+        )
+
+    return kwargs_seen
+
+
+@pytest.mark.parametrize("is_tty,expected_disable", [(False, True), (True, False)])
+def test_sync_odds_tqdm_disable_follows_stderr_tty(
+    monkeypatch, is_tty, expected_disable
+):
+    kwargs_seen = _run_sync_odds_with_tqdm_capture(monkeypatch, is_tty=is_tty)
+    assert kwargs_seen
+    assert kwargs_seen[0]["disable"] is expected_disable

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from concurrent.futures import FIRST_COMPLETED, CancelledError
 from dataclasses import dataclass
 from datetime import timedelta
@@ -224,6 +225,7 @@ def run_sync_pool(
             unit="token",
             ncols=110,
             total=progress_total,
+            disable=not sys.stderr.isatty(),
         ) as pbar:
             while True:
                 while not exhausted_plans and len(futures) < max_inflight:
