@@ -24,7 +24,11 @@ flowchart LR
 
 Text fallback: prediction-market metadata and odds APIs feed DuckDB raw and ops
 schemas. Dagster runs the ingest and dbt steps. dbt publishes local analytics
-marts for coverage, health, selected-scope odds time series, and the current selected-scope market scope.
+marts for coverage, health, selected-scope odds time series, and the selected market scope(s).
+
+Scope selection is `POLYMARKET_MARKET_SCOPES` (CSV in `.env`), which feeds Python
+ingestion and the dbt `active_market_scopes` var (auto-synced by `polymarket_dbt`).
+See [Configuration](configuration.md).
 
 ## Main Components
 
@@ -43,7 +47,11 @@ flowchart TD
     raw["polymarket_raw"] --> staging["polymarket_staging"]
     ops["polymarket_ops"] --> staging
     staging --> token_universe["int_polymarket_token_universe"]
+    staging --> selected_markets_int["int_polymarket_selected_markets"]
+    ops --> selected_markets_int
+    selected_markets_int --> selected_markets["selected_markets"]
     token_universe --> selected_tokens["int_polymarket_selected_token_universe"]
+    selected_markets_int --> selected_tokens
     token_universe --> coverage["token_coverage"]
     coverage --> market_coverage["market_coverage"]
     selected_tokens --> minutely["selected_token_minutely_odds"]
@@ -52,8 +60,9 @@ flowchart TD
 ```
 
 Text fallback: staging normalizes raw and ops tables, intermediates establish
-token universes, and marts publish token health, market coverage, full selected-scope
-daily and minutely odds time series, and high-volume minutely odds.
+token universes and selected market scope rows, and marts publish token health,
+market coverage, full selected-scope daily and minutely odds time series, the
+selected market universe (`scope_name`, `market_id`), and high-volume minutely odds.
 
 ## Operating Model
 

@@ -9,8 +9,11 @@ data.
 
 It uses Dagster to orchestrate dlt ingestion, DuckDB storage, Python sync
 ledgers, and dbt analytics models. Version `0.1.x` starts with FIFA World Cup
-2026 Polymarket markets and odds, but the project direction is broader:
-inspectable prediction-market pipelines that run locally first.
+2026 Polymarket markets and odds as the default preset. Additional presets
+(politics, crypto, sports, and more) ship in-repo; select one or more via
+`POLYMARKET_MARKET_SCOPES`. See [Configuration](docs/configuration.md). The
+project direction is broader: inspectable prediction-market pipelines that run
+locally first.
 
 ## Quickstart
 
@@ -46,7 +49,7 @@ Current Polymarket analytics outputs live in `polymarket_marts`:
 - `market_coverage`: market-level daily coverage rollup.
 - `selected_token_minutely_odds`: full selected-scope minutely odds time series.
 - `selected_token_daily_odds`: full selected-scope daily OHLC odds time series.
-- `selected_markets`: scoped selected-scope market universe.
+- `selected_markets`: selected-scope market universe (`scope_name`, `market_id` grain).
 - `selected_whale_minutely_odds`: high-volume selected-scope minutely odds.
 
 See [Data Contracts](docs/data-contracts.md).

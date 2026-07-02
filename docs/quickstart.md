@@ -25,6 +25,10 @@ POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=false
 POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
 ```
 
+Set `POLYMARKET_MARKET_SCOPES` in `.env` to choose one or more scope presets
+(default `wc2026`). See [Configuration](configuration.md) for the preset catalog
+and multi-scope examples.
+
 CLOB credentials are optional unless a live authenticated flow requires them.
 
 ## 3. Validate dbt
@@ -43,6 +47,11 @@ connection.init_duck_db()
 PY
 uv run make dbt-build
 ```
+
+Standalone `make dbt-build` uses `active_market_scopes` from `dbt/dbt_project.yml`
+(default `[wc2026]`), not your `.env`, unless you pass `--vars`. Dagster's
+`polymarket_dbt` asset syncs `active_market_scopes` from `POLYMARKET_MARKET_SCOPES`
+automatically.
 
 ## 4. Start Dagster
 

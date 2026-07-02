@@ -24,6 +24,10 @@ make compact-warehouse           # reclaim dead space after rebuilds or pruning
 - `audit_selected_scope_tag_coverage.py`: crawl Gamma tag/search discovery and report registry gaps.
 - `count_gamma_tag_events.py`: count Gamma events for selected-scope tags.
 
+These audit scripts take a single `--scope-name` (default `wc2026`). When
+`POLYMARKET_MARKET_SCOPES` selects more than one scope, re-run each script once
+per scope.
+
 Run scripts through the project environment:
 
 ```bash

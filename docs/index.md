@@ -20,8 +20,10 @@ the local warehouse, Python for odds sync ledgers and retry logic, and dbt for
 analytics models.
 
 The current v0.1.x implementation starts with FIFA World Cup 2026 Polymarket
-markets and odds. selected-scope-specific pages document the shipped adapter, jobs, and
-marts rather than the full long-term scope of the project.
+markets and odds as the default preset. Additional presets (politics, crypto,
+sports, and more) ship in-repo; select one or more via `POLYMARKET_MARKET_SCOPES`.
+See [Configuration](configuration.md). Selected-scope-specific pages document the
+shipped adapter, jobs, and marts rather than the full long-term scope of the project.
 
 ## Key features
 

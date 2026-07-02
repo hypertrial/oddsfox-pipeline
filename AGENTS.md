@@ -148,6 +148,8 @@ Key jobs: `polymarket_ingest_incremental`, `polymarket_ingest_full_refresh_event
 
 Schedules target `polymarket_minutely_odds_ingest` and are **stopped by default**. Do not enable live/minutely schedules in code or `.env` unless the task explicitly requires it.
 
+**Market scopes:** operators select presets with `POLYMARKET_MARKET_SCOPES` (CSV in `.env`). Dagster asset configs use `scope_names: list[str]`. dbt reads `active_market_scopes` (auto-synced by `polymarket_dbt` from the same env). See [docs/configuration.md](docs/configuration.md).
+
 DuckDB is local-only runtime state. For read-only inspection prefer `scripts/profile_warehouse.py` over opening the warehouse read-write.
 
 ## Do not

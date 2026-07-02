@@ -235,12 +235,19 @@ models:
 
   - name: selected_markets
     description: >
-      Selected-scope Polymarket market universe; one row per market admitted by
-      int_polymarket_selected_markets.
+      Selected-scope Polymarket market universe; one row per (scope_name, market_id)
+      admitted by int_polymarket_selected_markets.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [scope_name, market_id]
     columns:
       - name: market_id
-        description: Polymarket market identifier and primary key for this mart.
-        tests: [not_null, unique]
+        description: Polymarket market identifier.
+        tests: [not_null]
+      - name: scope_name
+        description: Selected market scope that admitted this market row.
+        tests: [not_null]
       - name: question
         description: Market prompt or title text shown to users.
       - name: description

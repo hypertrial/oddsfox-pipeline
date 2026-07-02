@@ -25,9 +25,21 @@ The main asset order is:
 
 - `polymarket_ingest_full_refresh_events`: full selected-scope event/market discovery, registry refresh, metadata backfill, and odds sync.
 - `polymarket_ingest_incremental`: metadata backfill and routine token odds sync.
-- `polymarket_minutely_odds_ingest`: minutely odds refresh for high-volume markets in the current scope.
+- `polymarket_minutely_odds_ingest`: minutely odds refresh for high-volume markets in the selected market scopes (union).
 - `dbt_full_refresh`: dbt analytics build.
 - `polymarket_selected_scope_full_pipeline`: full ingest plus dbt build.
+
+## Market Scopes
+
+Operators select one or more Polymarket scope presets with `POLYMARKET_MARKET_SCOPES`
+(CSV in `.env`; default `wc2026`). See [Configuration](configuration.md) for the
+preset catalog and multi-scope examples.
+
+- `polymarket_markets_snapshot` and `polymarket_market_scope_registry` loop once per
+  selected scope and refresh `polymarket_ops.market_scope_registry` per scope.
+- `polymarket_market_metadata_backfill`, `polymarket_token_odds_history`, and
+  `polymarket_token_odds_history_minutely` run once over the union of selected scopes.
+- `polymarket_dbt` passes `active_market_scopes` to dbt from the same env selection.
 
 ## Schedules
 

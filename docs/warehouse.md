@@ -48,7 +48,10 @@ Schema: `polymarket_intermediate`
 
 - `int_polymarket_token_universe`: materialized canonical one-row-per-token
   join of market tokens to market labels, state, and volume.
-- `int_polymarket_selected_token_universe`: selected-scope subset of the token universe.
+- `int_polymarket_selected_markets`: markets admitted by the active selected scopes;
+  one row per `(scope_name, market_id)`.
+- `int_polymarket_selected_token_universe`: selected-scope subset of the token universe;
+  dedupes by `market_id` across scopes so odds marts do not double-count overlapping markets.
 - `int_polymarket_token_daily_timeseries`: token-level daily odds joined to the token universe.
 
 ## dbt Marts
@@ -63,7 +66,7 @@ Schema: `polymarket_marts`
   view joining raw odds directly to the selected token universe; not materialized to save disk).
 - `selected_token_daily_odds`: full daily OHLC odds time series for all selected-scope tokens (dbt
   view over `int_polymarket_token_daily_timeseries`; not materialized to save disk).
-- `selected_markets`: scoped selected-scope market universe.
+- `selected_markets`: selected-scope market universe; one row per `(scope_name, market_id)`.
 - `selected_whale_minutely_odds`: minutely odds for high-volume selected-scope markets (dbt
   view over `selected_token_minutely_odds`; not materialized to save disk).
 
