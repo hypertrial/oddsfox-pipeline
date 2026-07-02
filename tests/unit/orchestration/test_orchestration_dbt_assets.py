@@ -359,7 +359,14 @@ def test_stream_dbt_build_appends_full_refresh_flag():
             config=orch_config.DbtBuildConfig(full_refresh=True),
         )
     )
-    assert captured_args == [["build", "--full-refresh"]]
+    assert captured_args == [
+        [
+            "build",
+            "--vars",
+            '{"active_market_scopes": ["wc2026"]}',
+            "--full-refresh",
+        ]
+    ]
 
 
 def test_stream_dbt_build_merges_heartbeat_diagnostics(monkeypatch):

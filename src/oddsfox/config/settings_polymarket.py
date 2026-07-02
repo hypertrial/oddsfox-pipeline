@@ -27,6 +27,24 @@ MIN_ODDS_FIDELITY_MINUTES = 1
 DEFAULT_ODDS_FIDELITY_MINUTES = 1440
 WHALE_MIN_VOLUME_USD = 100_000.0
 DEFAULT_POLYMARKET_MARKET_SCOPE = "wc2026"
+
+
+def _parse_market_scopes_csv(raw: str | None) -> tuple[str, ...]:
+    if not raw or not str(raw).strip():
+        return ()
+    seen: set[str] = set()
+    result: list[str] = []
+    for part in str(raw).split(","):
+        scope = part.strip().lower()
+        if scope and scope not in seen:
+            seen.add(scope)
+            result.append(scope)
+    return tuple(result)
+
+
+POLYMARKET_MARKET_SCOPES = _parse_market_scopes_csv(
+    os.getenv("POLYMARKET_MARKET_SCOPES", DEFAULT_POLYMARKET_MARKET_SCOPE)
+) or (DEFAULT_POLYMARKET_MARKET_SCOPE,)
 POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED = _env_bool(
     "POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED",
     False,
@@ -36,12 +54,6 @@ POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED = _env_bool(
     False,
 )
 
-POLYMARKET_MARKET_SCOPE = (
-    os.getenv("POLYMARKET_MARKET_SCOPE", DEFAULT_POLYMARKET_MARKET_SCOPE)
-    .strip()
-    .lower()
-    or DEFAULT_POLYMARKET_MARKET_SCOPE
-)
 POLYMARKET_SCOPE_EVENT_SLUGS = os.getenv("POLYMARKET_SCOPE_EVENT_SLUGS", "").strip()
 POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES = os.getenv(
     "POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES", ""
@@ -136,7 +148,7 @@ __all__ = [
     "DEFAULT_POLYMARKET_MARKET_SCOPE",
     "MIN_ODDS_FIDELITY_MINUTES",
     "ODDS_REQUESTS_PER_SECOND",
-    "POLYMARKET_MARKET_SCOPE",
+    "POLYMARKET_MARKET_SCOPES",
     "POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES",
     "POLYMARKET_SCOPE_EVENT_SLUGS",
     "POLYMARKET_SCOPE_EVENT_TAGS",

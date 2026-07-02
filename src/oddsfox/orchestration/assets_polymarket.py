@@ -38,6 +38,50 @@ from oddsfox.storage.duckdb.schemas.polymarket import ensure_polymarket_indexes
 _DLT_PIPELINE_BY_PATH = asset_helpers._DLT_PIPELINE_BY_PATH
 
 
+def _merge_scope_sync_summaries(per_scope: list[dict[str, Any]]) -> dict[str, Any]:
+    if not per_scope:
+        return {
+            "task": "sync_markets",
+            "scope_names": [],
+            "per_scope": [],
+            "total_fetched": 0,
+        }
+    if len(per_scope) == 1:
+        summary = dict(per_scope[0])
+        summary["scope_names"] = [summary.get("scope_name")]
+        summary["per_scope"] = per_scope
+        return summary
+    return {
+        "task": "sync_markets",
+        "mode": per_scope[0].get("mode"),
+        "scope_names": [summary.get("scope_name") for summary in per_scope],
+        "per_scope": per_scope,
+        "discovery_mode": per_scope[0].get("discovery_mode"),
+        "total_fetched": sum(
+            int(summary.get("total_fetched", 0)) for summary in per_scope
+        ),
+        "registry_refreshed": all(
+            summary.get("registry_refreshed", False) for summary in per_scope
+        ),
+        "events_pages": sum(
+            int(summary.get("events_pages", 0)) for summary in per_scope
+        ),
+        "api_requests": sum(
+            int(summary.get("api_requests", 0)) for summary in per_scope
+        ),
+        "truncated": any(summary.get("truncated", False) for summary in per_scope),
+        "aborted": any(summary.get("aborted", False) for summary in per_scope),
+    }
+
+
+def _snapshot_refreshed_scope_names(snapshot_metrics: dict[str, Any]) -> list[str]:
+    scope_names = snapshot_metrics.get("scope_names")
+    if isinstance(scope_names, list) and scope_names:
+        return [str(scope) for scope in scope_names]
+    scope_name = snapshot_metrics.get("scope_name")
+    return [str(scope_name)] if scope_name else []
+
+
 def _run_with_raw_snapshot(
     raw_snapshot_level: str,
     run_fn: Callable[[dict[str, Any]], dict[str, Any]],
@@ -188,7 +232,7 @@ def polymarket_markets_snapshot(
         phase="start",
         diagnostics={
             "mode": "market_scope_event_first",
-            "scope_name": config.scope_name,
+            "scope_names": config.scope_names,
             "discovery_mode": config.discovery_mode,
         },
         force_log=True,
@@ -196,22 +240,26 @@ def polymarket_markets_snapshot(
 
     def _sync_markets(pre: dict[str, Any]) -> dict[str, Any]:
         context.log.info("DuckDB pre-run state: %s", format_raw_snapshot_log(pre))
-        return ops.sync_markets(
-            discovery_mode=config.discovery_mode,
-            force_full_discovery=config.force_full_discovery,
-            scope_name=config.scope_name,
-            max_event_pages=config.max_event_pages,
-            max_pages_without_progress=config.max_pages_without_progress,
-            keyset_closed=config.keyset_closed,
-            keyset_tag_slugs=config.keyset_tag_slugs,
-            keyset_volume_min=config.keyset_volume_min,
-            progress_callback=_markets_progress,
-            progress_log_interval_pages=config.progress_log_interval_pages,
-            progress_log_interval_seconds=config.progress_log_interval_seconds,
-            no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
-            no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
-            progress_poll_seconds=config.progress_poll_seconds,
-        )
+        per_scope = [
+            ops.sync_markets(
+                discovery_mode=config.discovery_mode,
+                force_full_discovery=config.force_full_discovery,
+                scope_name=scope_name,
+                max_event_pages=config.max_event_pages,
+                max_pages_without_progress=config.max_pages_without_progress,
+                keyset_closed=config.keyset_closed,
+                keyset_tag_slugs=config.keyset_tag_slugs,
+                keyset_volume_min=config.keyset_volume_min,
+                progress_callback=_markets_progress,
+                progress_log_interval_pages=config.progress_log_interval_pages,
+                progress_log_interval_seconds=config.progress_log_interval_seconds,
+                no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
+                no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
+                progress_poll_seconds=config.progress_poll_seconds,
+            )
+            for scope_name in config.scope_names
+        ]
+        return _merge_scope_sync_summaries(per_scope)
 
     run_summary, _, _, raw_delta, raw_metadata = _run_with_raw_snapshot(
         config.raw_snapshot_level,
@@ -250,10 +298,15 @@ def polymarket_market_scope_registry(
 
     if config.skip_if_snapshot_refreshed and not config.force_refresh:
         snapshot_metrics = get_sync_run_metrics("sync_markets")
+        refreshed_scope_names = (
+            _snapshot_refreshed_scope_names(snapshot_metrics)
+            if snapshot_metrics
+            else []
+        )
         if (
             snapshot_metrics
             and snapshot_metrics.get("registry_refreshed") is True
-            and snapshot_metrics.get("scope_name") == config.scope_name
+            and refreshed_scope_names == config.scope_names
         ):
             context.log.info(
                 "Skipping market-scope registry refresh; snapshot already refreshed registry"
@@ -262,7 +315,7 @@ def polymarket_market_scope_registry(
             run_summary = {
                 "skipped": True,
                 "reason": "snapshot_refreshed_registry",
-                "scope_name": config.scope_name,
+                "scope_names": config.scope_names,
                 "snapshot_metrics": snapshot_metrics,
             }
             return MaterializeResult(
@@ -274,17 +327,30 @@ def polymarket_market_scope_registry(
                 )
             )
 
+    def _sync_registry(_pre: dict[str, Any]) -> dict[str, Any]:
+        per_scope = [
+            ops.sync_market_scope_registry(
+                scope_name=scope_name,
+                max_event_pages=config.max_event_pages,
+                max_pages_without_progress=config.max_pages_without_progress,
+                keyset_closed=config.keyset_closed,
+                keyset_tag_slugs=config.keyset_tag_slugs,
+                keyset_volume_min=config.keyset_volume_min,
+                progress_callback=_registry_progress,
+            )
+            for scope_name in config.scope_names
+        ]
+        return {
+            "scope_names": config.scope_names,
+            "per_scope": per_scope,
+            "registry_rows_upserted": sum(
+                int(summary.get("registry_rows_upserted", 0)) for summary in per_scope
+            ),
+        }
+
     run_summary, _, _, _, raw_metadata = _run_with_raw_snapshot(
         config.raw_snapshot_level,
-        lambda _pre: ops.sync_market_scope_registry(
-            scope_name=config.scope_name,
-            max_event_pages=config.max_event_pages,
-            max_pages_without_progress=config.max_pages_without_progress,
-            keyset_closed=config.keyset_closed,
-            keyset_tag_slugs=config.keyset_tag_slugs,
-            keyset_volume_min=config.keyset_volume_min,
-            progress_callback=_registry_progress,
-        ),
+        _sync_registry,
     )
     return MaterializeResult(metadata=raw_metadata)
 
@@ -336,7 +402,7 @@ def polymarket_market_metadata_backfill(
                 progress_callback=_metadata_progress,
                 progress_every_n_batches=config.progress_log_interval_batches,
                 gamma_requests_per_second=config.gamma_requests_per_second,
-                market_scope=config.scope_name,
+                market_scope=config.scope_names,
                 event_slug_fallback_max_pages=config.event_slug_fallback_max_pages,
                 event_slug_fallback_max_pages_without_progress=config.event_slug_fallback_max_pages_without_progress,
                 event_slug_fallback_progress_every_pages=config.event_slug_fallback_progress_pages,

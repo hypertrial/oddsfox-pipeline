@@ -8,9 +8,9 @@ from pydantic import Field, field_validator, model_validator
 from oddsfox.config.settings import (
     DEFAULT_ODDS_FIDELITY_MINUTES,
     MIN_ODDS_FIDELITY_MINUTES,
+    POLYMARKET_MARKET_SCOPES,
     WHALE_MIN_VOLUME_USD,
 )
-from oddsfox.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_PAGES = 20_000
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_NO_PROGRESS_PAGES = 25
@@ -21,10 +21,16 @@ DEFAULT_DBT_NO_PROGRESS_HARD_TIMEOUT_SECONDS = 3600
 DEFAULT_PROGRESS_POLL_SECONDS = 5
 
 
-def _validate_market_scope_value(v: str) -> str:
-    from oddsfox.ingestion.polymarket.market_scope import validate_market_scope
+def default_market_scope_names() -> list[str]:
+    return list(POLYMARKET_MARKET_SCOPES)
 
-    return validate_market_scope(v)
+
+def _validate_market_scope_names(v: list[str]) -> list[str]:
+    from oddsfox.ingestion.polymarket.market_scope import validate_market_scopes
+
+    if not v:
+        raise ValueError("scope_names must contain at least one scope")
+    return list(validate_market_scopes(v))
 
 
 class GuardrailConfig(Config):
@@ -63,7 +69,7 @@ class GuardrailConfig(Config):
 
 
 class MarketsSyncConfig(GuardrailConfig):
-    scope_name: str = Field(default=DEFAULT_MARKET_SCOPE)
+    scope_names: list[str] = Field(default_factory=default_market_scope_names)
     progress_log_interval_pages: int = Field(default=10, ge=1)
     discovery_mode: Literal["targeted", "full_keyset"] = "full_keyset"
     force_full_discovery: bool = False
@@ -73,10 +79,10 @@ class MarketsSyncConfig(GuardrailConfig):
     keyset_volume_min: float | None = Field(default=10000.0, ge=0)
     max_pages_without_progress: int | None = None
 
-    @field_validator("scope_name")
+    @field_validator("scope_names")
     @classmethod
-    def _validate_scope_name(cls, v: str) -> str:
-        return _validate_market_scope_value(v)
+    def _validate_scope_names(cls, v: list[str]) -> list[str]:
+        return _validate_market_scope_names(v)
 
     @field_validator("max_pages_without_progress")
     @classmethod
@@ -87,7 +93,7 @@ class MarketsSyncConfig(GuardrailConfig):
 
 
 class MarketScopeRegistryConfig(GuardrailConfig):
-    scope_name: str = Field(default=DEFAULT_MARKET_SCOPE)
+    scope_names: list[str] = Field(default_factory=default_market_scope_names)
     max_event_pages: int | None = None
     keyset_closed: bool | None = None
     keyset_tag_slugs: list[str] | None = None
@@ -96,10 +102,10 @@ class MarketScopeRegistryConfig(GuardrailConfig):
     skip_if_snapshot_refreshed: bool = True
     force_refresh: bool = False
 
-    @field_validator("scope_name")
+    @field_validator("scope_names")
     @classmethod
-    def _validate_scope_name(cls, v: str) -> str:
-        return _validate_market_scope_value(v)
+    def _validate_scope_names(cls, v: list[str]) -> list[str]:
+        return _validate_market_scope_names(v)
 
     @field_validator("max_pages_without_progress")
     @classmethod
@@ -125,7 +131,7 @@ class MetadataBackfillConfig(GuardrailConfig):
     )
     progress_log_interval_batches: int = Field(default=10, ge=1)
     event_slug_fallback_progress_pages: int = Field(default=25, ge=1)
-    scope_name: str = Field(default=DEFAULT_MARKET_SCOPE)
+    scope_names: list[str] = Field(default_factory=default_market_scope_names)
 
     @field_validator("gamma_requests_per_second")
     @classmethod
@@ -134,10 +140,10 @@ class MetadataBackfillConfig(GuardrailConfig):
             raise ValueError("gamma_requests_per_second must be positive when set")
         return v
 
-    @field_validator("scope_name")
+    @field_validator("scope_names")
     @classmethod
-    def _validate_scope_name(cls, v: str) -> str:
-        return _validate_market_scope_value(v)
+    def _validate_scope_names(cls, v: list[str]) -> list[str]:
+        return _validate_market_scope_names(v)
 
 
 class OddsSyncConfig(GuardrailConfig):
@@ -166,16 +172,16 @@ class OddsSyncConfig(GuardrailConfig):
     transient_backoff_seconds: float = 0.25
     short_range_first: bool = True
     market_page_size: int = 2000
-    scope_name: str = Field(default=DEFAULT_MARKET_SCOPE)
+    scope_names: list[str] = Field(default_factory=default_market_scope_names)
     ended_market_grace_days: int | None = Field(default=7, ge=0)
     min_volume: float | None = None
     max_volume: float | None = Field(default=WHALE_MIN_VOLUME_USD)
     minutely_backfill_days: int = Field(default=0, ge=0)
 
-    @field_validator("scope_name")
+    @field_validator("scope_names")
     @classmethod
-    def _validate_scope_name(cls, v: str) -> str:
-        return _validate_market_scope_value(v)
+    def _validate_scope_names(cls, v: list[str]) -> list[str]:
+        return _validate_market_scope_names(v)
 
     @field_validator("min_volume", "max_volume")
     @classmethod
@@ -198,7 +204,7 @@ class MinutelyOddsSyncConfig(OddsSyncConfig):
     min_volume: float | None = Field(default=WHALE_MIN_VOLUME_USD)
     max_volume: float | None = None
     minutely_backfill_days: int = Field(default=0, ge=0)
-    scope_name: str = Field(default=DEFAULT_MARKET_SCOPE)
+    scope_names: list[str] = Field(default_factory=default_market_scope_names)
     ended_market_grace_days: int | None = Field(default=7, ge=0)
 
 

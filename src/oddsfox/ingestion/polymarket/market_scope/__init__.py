@@ -8,6 +8,7 @@ from oddsfox.ingestion.polymarket.scope_sql import (
     market_scope_predicate_sql,
     market_scope_sql,
     validate_market_scope,
+    validate_market_scopes,
 )
 
 from .config import (
@@ -105,4 +106,5 @@ __all__ = [
     "resolve_keyset_tag_slugs",
     "scope_config_hash",
     "validate_market_scope",
+    "validate_market_scopes",
 ]

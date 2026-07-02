@@ -8,7 +8,7 @@ profile: oddsfox
 flags:
   indirect_selection: buildable
 vars:
-  active_market_scope: wc2026
+  active_market_scopes: [wc2026]
   polymarket_whale_min_volume_usd: 100000
 model-paths: ["models"]
 test-paths: ["tests"]

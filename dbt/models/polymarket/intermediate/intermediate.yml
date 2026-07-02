@@ -3,23 +3,27 @@ version: 2
 models:
   - name: int_polymarket_selected_markets
     description: >
-      Polymarket markets admitted by the active selected market scope. Named scopes
-      are filtered through polymarket_ops.market_scope_registry; active_market_scope
-      = 'all' includes all staged markets.
+      Polymarket markets admitted by the active selected market scopes. Named scopes
+      are filtered through polymarket_ops.market_scope_registry; active_market_scopes
+      containing 'all' includes all staged markets.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [scope_name, market_id]
     columns:
       - name: market_id
         description: Polymarket market identifier.
         tests:
           - not_null
-          - unique
           - relationships:
               arguments:
                 to: ref('stg_polymarket_markets')
                 field: market_id
+      - name: scope_name
+        description: Selected market scope that admitted this market row.
+        tests: [not_null]
       - name: event_slug
         description: Event slug when present in source metadata.
-      - name: active_market_scope
-        description: dbt active_market_scope var value used to build the model.
 
   - name: int_polymarket_token_universe
     description: >

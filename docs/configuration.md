@@ -23,9 +23,33 @@ Most operators should leave `DBT_PROFILES_DIR` unset and use the packaged `dbt/p
 
 Lower request rates when Polymarket APIs return transient failures or timeouts.
 
-## Current Market Scope
+## Current Market Scopes
 
-- `POLYMARKET_MARKET_SCOPE`
+- `POLYMARKET_MARKET_SCOPES`: comma-separated preset names from
+  `src/oddsfox/ingestion/polymarket/seeds/market_scopes.yml` (default `wc2026`).
+  At least one scope is required. Examples: `wc2026`, `wc2026,us-politics`,
+  `nba,nfl,champions-league`.
+- Dagster-run `polymarket_dbt` passes the same scope list to dbt as
+  `active_market_scopes`; standalone `dbt build` uses the default in
+  `dbt/dbt_project.yml` unless you pass `--vars`.
+
+### Available presets
+
+| Preset | Focus |
+| --- | --- |
+| `wc2026` | FIFA World Cup 2026 (default) |
+| `us-politics` | US elections and domestic politics |
+| `geopolitics` | International relations and conflict |
+| `crypto` | Bitcoin, Ethereum, and crypto markets |
+| `economy` | Macro and Fed rates |
+| `nba` | NBA basketball |
+| `nfl` | NFL football |
+| `champions-league` | UEFA Champions League and Premier League |
+
+### Per-scope field overrides (advanced)
+
+These apply to every selected scope when set; prefer seed YAML presets instead.
+
 - `POLYMARKET_SCOPE_EVENT_SLUGS`
 - `POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES`
 - `POLYMARKET_SCOPE_EVENT_TAGS`

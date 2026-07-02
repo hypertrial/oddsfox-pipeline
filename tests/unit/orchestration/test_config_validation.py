@@ -25,11 +25,12 @@ def test_guardrail_config_rejects_invalid_timeout_and_snapshot_level():
 
 
 def test_paged_config_rejects_nonpositive_no_progress_limits():
-    assert MarketsSyncConfig(scope_name="custom-scope").scope_name == "custom-scope"
-    assert (
-        MarketScopeRegistryConfig(scope_name="custom-scope").scope_name
-        == "custom-scope"
-    )
+    assert MarketsSyncConfig(scope_names=["custom-scope"]).scope_names == [
+        "custom-scope"
+    ]
+    assert MarketScopeRegistryConfig(scope_names=["custom-scope"]).scope_names == [
+        "custom-scope"
+    ]
 
     with pytest.raises(ValueError, match="max_pages_without_progress"):
         MarketsSyncConfig(max_pages_without_progress=0)
@@ -43,13 +44,16 @@ def test_metadata_config_rejects_invalid_rps_and_scope():
         MetadataBackfillConfig(gamma_requests_per_second=0)
 
     with pytest.raises(ValueError, match="slug-like"):
-        MetadataBackfillConfig(scope_name="not a scope")
+        MetadataBackfillConfig(scope_names=["not a scope"])
 
 
 def test_odds_config_validates_scope_and_volume_bounds():
-    assert OddsSyncConfig(scope_name="all").scope_name == "all"
+    assert OddsSyncConfig(scope_names=["all"]).scope_names == ["all"]
     assert OddsSyncConfig(min_volume=None).min_volume is None
     assert OddsSyncConfig(min_volume=1).min_volume == 1.0
 
     with pytest.raises(ValueError, match="volume bounds"):
         OddsSyncConfig(max_volume=-1)
+
+    with pytest.raises(ValueError, match="at least one scope"):
+        OddsSyncConfig(scope_names=[])

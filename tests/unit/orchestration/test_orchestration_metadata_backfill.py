@@ -144,7 +144,7 @@ def test_metadata_backfill_forwards_event_slug_fallback_and_gamma_kwargs():
                             "event_slug_fallback_max_pages_without_progress": 5,
                             "event_slug_fallback_progress_pages": 7,
                             "progress_log_interval_batches": 3,
-                            "scope_name": "custom-scope",
+                            "scope_names": ["custom-scope"],
                         }
                     }
                 }
@@ -159,7 +159,7 @@ def test_metadata_backfill_forwards_event_slug_fallback_and_gamma_kwargs():
     assert captured["event_slug_fallback_progress_every_pages"] == 7
     assert captured["include_event_slugs"] is True
     assert captured["include_end_dates"] is False
-    assert captured["market_scope"] == "custom-scope"
+    assert captured["market_scope"] == ["custom-scope"]
     assert callable(captured["progress_callback"])
 
 

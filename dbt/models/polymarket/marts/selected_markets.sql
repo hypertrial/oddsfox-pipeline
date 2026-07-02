@@ -1,5 +1,6 @@
 select
     market_id,
+    scope_name,
     question,
     description,
     category,

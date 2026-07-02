@@ -80,7 +80,7 @@ def test_market_scope_registry_skips_when_snapshot_already_refreshed(monkeypatch
         "get_sync_run_metrics",
         lambda task: {
             "registry_refreshed": True,
-            "scope_name": "wc2026",
+            "scope_names": ["wc2026"],
             "task": task,
         },
     )
@@ -126,7 +126,11 @@ def test_market_scope_registry_runs_sync_when_snapshot_did_not_refresh(monkeypat
     assert captured["keyset_closed"] is None
     assert captured["keyset_tag_slugs"] == ["world-cup"]
     assert captured["keyset_volume_min"] is None
-    assert result.metadata["run_summary"].value == {"registry_rows_upserted": 1}
+    assert result.metadata["run_summary"].value == {
+        "scope_names": ["wc2026"],
+        "per_scope": [{"registry_rows_upserted": 1}],
+        "registry_rows_upserted": 1,
+    }
 
 
 def test_market_scope_registry_force_refresh_bypasses_snapshot_metric_check(
@@ -150,7 +154,11 @@ def test_market_scope_registry_force_refresh_bypasses_snapshot_metric_check(
     result = fn(MagicMock(), orch_config.MarketScopeRegistryConfig(force_refresh=True))
 
     assert checked_metrics == []
-    assert result.metadata["run_summary"].value == {"registry_rows_upserted": 1}
+    assert result.metadata["run_summary"].value == {
+        "scope_names": ["wc2026"],
+        "per_scope": [{"registry_rows_upserted": 1}],
+        "registry_rows_upserted": 1,
+    }
 
 
 def test_materialize_odds_sync_metadata_and_plan_iterator(monkeypatch):
@@ -187,7 +195,7 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
         workers=3,
         min_volume=10.0,
         max_volume=20.0,
-        scope_name="custom-scope",
+        scope_names=["custom-scope"],
     )
 
     kwargs = assets_mod._build_odds_sync_kwargs(
@@ -208,7 +216,7 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
     assert kwargs["max_workers"] == 3
     assert kwargs["progress_callback"] is progress
     assert kwargs["plan_iterator_factory"] is plan_iterator
-    assert kwargs["market_scope"] == "custom-scope"
+    assert kwargs["market_scope"] == ["custom-scope"]
     assert metadata["workers"].value == 3
     assert metadata["min_volume"].value == 10.0
     assert metadata["max_volume"].value == 20.0

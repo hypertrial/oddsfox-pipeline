@@ -26,7 +26,7 @@ def test_intermediate_selected_markets_owns_scope_logic():
 
     assert "{{ ref('stg_polymarket_markets') }}" in lowered
     assert "{{ source('polymarket_ops', 'market_scope_registry') }}" in lowered
-    assert "active_market_scope" in lowered
+    assert "active_market_scopes" in lowered
     assert "scope_name" in lowered
     assert "market_scope_event_slugs" not in lowered
 

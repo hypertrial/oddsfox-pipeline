@@ -14,6 +14,7 @@ import yaml
 
 from oddsfox.config.settings import (
     DEFAULT_POLYMARKET_MARKET_SCOPE,
+    POLYMARKET_MARKET_SCOPES,
     POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES,
     POLYMARKET_SCOPE_EVENT_SLUGS,
     POLYMARKET_SCOPE_EVENT_TAGS,
@@ -155,7 +156,7 @@ def load_market_scope_config(
     path = seed_path or default_market_scopes_seed_path()
     default_scope, scopes = _read_seed(path)
     selected_scope = _validate_slug_token(
-        scope_name or os.getenv("POLYMARKET_MARKET_SCOPE") or default_scope
+        scope_name or POLYMARKET_MARKET_SCOPES[0] or default_scope
     )
     payload = _scope_payload(scopes, selected_scope, path=path)
 

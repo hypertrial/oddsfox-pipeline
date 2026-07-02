@@ -10,5 +10,7 @@ select
     t.is_closed,
     t.market_volume_usd
 from {{ ref('int_polymarket_token_universe') }} as t
-inner join {{ ref('int_polymarket_selected_markets') }} as m
-    on t.market_id = m.market_id
+where t.market_id in (
+    select distinct selected_markets.market_id
+    from {{ ref('int_polymarket_selected_markets') }} as selected_markets
+)

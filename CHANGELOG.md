@@ -19,9 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   can interpret `outcome_index` without joining to `selected_markets`.
 - Companion markdown data spec written alongside selected-scope minutely odds parquet
   exports (`export_selected_minutely_odds.py`; use `--no-spec` to skip).
+- Seven new Polymarket scope presets: `us-politics`, `geopolitics`, `crypto`,
+  `economy`, `nba`, `nfl`, `champions-league`.
 
 ### Changed
 
+- Breaking: `POLYMARKET_MARKET_SCOPE` replaced by CSV `POLYMARKET_MARKET_SCOPES`
+  (one or more preset names). dbt var `active_market_scope` replaced by
+  `active_market_scopes` (list). `selected_markets` grain is now
+  `(scope_name, market_id)`. Dagster-run dbt passes `active_market_scopes` from
+  env automatically. Warehouse reset recommended (`rm oddsfox.duckdb*`).
 - Breaking v0.1.x warehouse and orchestration contract change: WC2026-specific
   marts, registry tables, env vars, scripts, assets, and jobs were replaced by
   generic selected-market-scope surfaces. WC2026 remains the default preset in

@@ -6,7 +6,7 @@ from oddsfox.ingestion.polymarket.scope_sql import (
     MARKET_SCOPE_ALL,
     market_scope_predicate_sql,
     market_scope_sql,
-    validate_market_scope,
+    validate_market_scopes,
 )
 from oddsfox.storage.duckdb.connection import (
     ensure_duck_db,
@@ -334,14 +334,14 @@ def count_due_market_token_exclusions(
     max_volume: float | None = None,
 ) -> dict[str, int]:
     """Count due-token candidates skipped by routine scope/freshness filters."""
-    scope = validate_market_scope(market_scope)
+    scope = validate_market_scopes(market_scope)
     ensure_duck_db()
     params: List = []
     base_sql = _due_token_base_where(cutoff_created_at, params)
     volume_sql = _volume_where_clause(min_volume, max_volume, "m")
     scope_skip = 0
     ended_skip = 0
-    scoped = scope != MARKET_SCOPE_ALL
+    scoped = MARKET_SCOPE_ALL not in scope
     with get_connection() as conn:
         if scoped:
             predicate = market_scope_predicate_sql(market_scope, "m")
@@ -392,7 +392,7 @@ def count_candidate_market_tokens(
     When False, mirrors ``iter_markets_with_tokens`` with ``json_array_only=True``.
     Per-token planner drops (recent_skip, invalid id, dup) are not reflected here.
     """
-    validate_market_scope(market_scope)
+    validate_market_scopes(market_scope)
     ensure_duck_db()
     params: List = []
     if due_only:

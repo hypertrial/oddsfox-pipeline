@@ -32,7 +32,7 @@ def _env_example_value(key: str) -> str | None:
 
 
 def test_default_market_scope_matches_dbt_active_scope(monkeypatch) -> None:
-    monkeypatch.delenv("POLYMARKET_MARKET_SCOPE", raising=False)
+    monkeypatch.delenv("POLYMARKET_MARKET_SCOPES", raising=False)
     cfg = load_market_scope_config()
     raw = yaml.safe_load(DBT_PROJECT.read_text(encoding="utf-8")) or {}
     vars_block = raw.get("vars") or {}
@@ -40,8 +40,8 @@ def test_default_market_scope_matches_dbt_active_scope(monkeypatch) -> None:
 
     assert DEFAULT_POLYMARKET_MARKET_SCOPE == DEFAULT_MARKET_SCOPE == "wc2026"
     assert seed.get("default_scope") == DEFAULT_POLYMARKET_MARKET_SCOPE
-    assert _env_example_value("POLYMARKET_MARKET_SCOPE") == DEFAULT_MARKET_SCOPE
-    assert vars_block.get("active_market_scope") == cfg.scope_name == "wc2026"
+    assert _env_example_value("POLYMARKET_MARKET_SCOPES") == DEFAULT_MARKET_SCOPE
+    assert vars_block.get("active_market_scopes") == [cfg.scope_name] == ["wc2026"]
 
 
 def test_market_scope_keyset_discovery_defaults(monkeypatch) -> None:

@@ -7,12 +7,14 @@ import pytest
 from oddsfox.ingestion.polymarket.market_scope import (
     MARKET_SCOPE_ALL,
     MarketScopeConfig,
+    default_market_scopes_seed_path,
     event_matches_scope_config,
     is_market_scope_row,
     load_market_scope_config,
     market_scope_predicate_sql,
     market_scope_sql,
     validate_market_scope,
+    validate_market_scopes,
 )
 from oddsfox.ingestion.polymarket.market_scope import config as scope_config_mod
 from oddsfox.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
@@ -24,8 +26,73 @@ def test_validate_market_scope_accepts_slug_like_scopes():
         validate_market_scope("bad scope")
 
 
+def test_validate_market_scopes_csv_dedupes_and_preserves_order(monkeypatch):
+    monkeypatch.delenv("POLYMARKET_MARKET_SCOPES", raising=False)
+    assert validate_market_scopes("wc2026,us-politics,wc2026") == (
+        "wc2026",
+        "us-politics",
+    )
+    assert validate_market_scopes(["nba", "nfl"]) == ("nba", "nfl")
+    with pytest.raises(ValueError, match="at least one scope"):
+        validate_market_scopes([])
+    with pytest.raises(ValueError, match="at least one scope"):
+        validate_market_scopes(" , ")
+
+
+def test_merge_scope_sync_summaries_handles_empty_and_multi_scope():
+    from oddsfox.orchestration import assets_polymarket as assets_mod
+
+    assert assets_mod._merge_scope_sync_summaries([])["total_fetched"] == 0
+    merged = assets_mod._merge_scope_sync_summaries(
+        [
+            {"scope_name": "wc2026", "total_fetched": 1, "registry_refreshed": True},
+            {"scope_name": "nba", "total_fetched": 2, "registry_refreshed": False},
+        ]
+    )
+    assert merged["scope_names"] == ["wc2026", "nba"]
+    assert merged["total_fetched"] == 3
+    assert merged["registry_refreshed"] is False
+
+
+def test_validate_market_scopes_defaults_to_settings(monkeypatch) -> None:
+    monkeypatch.setenv("POLYMARKET_MARKET_SCOPES", "nba,nfl")
+    from oddsfox.config._reload_settings import reload_all_settings_modules
+
+    reload_all_settings_modules()
+    assert validate_market_scopes() == ("nba", "nfl")
+
+
+def test_market_scopes_csv_skips_empty_tokens(monkeypatch) -> None:
+    monkeypatch.setenv("POLYMARKET_MARKET_SCOPES", "wc2026,,nba")
+    from oddsfox.config._reload_settings import reload_all_settings_modules
+
+    reload_all_settings_modules()
+    from oddsfox.config.settings_polymarket import POLYMARKET_MARKET_SCOPES
+
+    assert POLYMARKET_MARKET_SCOPES == ("wc2026", "nba")
+
+
+def test_market_scopes_csv_empty_env_falls_back_to_default(monkeypatch) -> None:
+    monkeypatch.setenv("POLYMARKET_MARKET_SCOPES", "   ")
+    from oddsfox.config._reload_settings import reload_all_settings_modules
+
+    reload_all_settings_modules()
+    from oddsfox.config.settings_polymarket import POLYMARKET_MARKET_SCOPES
+
+    assert POLYMARKET_MARKET_SCOPES == ("wc2026",)
+
+
+def test_snapshot_refreshed_scope_names_legacy_single_scope():
+    from oddsfox.orchestration import assets_polymarket as assets_mod
+
+    assert assets_mod._snapshot_refreshed_scope_names({"scope_name": "wc2026"}) == [
+        "wc2026"
+    ]
+    assert assets_mod._snapshot_refreshed_scope_names({}) == []
+
+
 def test_load_market_scope_config_includes_default_wc2026_preset(monkeypatch):
-    monkeypatch.delenv("POLYMARKET_MARKET_SCOPE", raising=False)
+    monkeypatch.delenv("POLYMARKET_MARKET_SCOPES", raising=False)
     monkeypatch.delenv("POLYMARKET_SCOPE_EVENT_TAGS", raising=False)
     cfg = load_market_scope_config()
     assert cfg.scope_name == "wc2026"
@@ -36,6 +103,15 @@ def test_load_market_scope_config_includes_default_wc2026_preset(monkeypatch):
     assert "world-cup" in cfg.event_tags
     assert cfg.keyset_closed is False
     assert cfg.keyset_volume_min == 10000.0
+
+
+def test_all_seed_presets_load_cleanly():
+    import yaml
+
+    seed = yaml.safe_load(default_market_scopes_seed_path().read_text(encoding="utf-8"))
+    for scope_name in seed["scopes"]:
+        cfg = load_market_scope_config(scope_name=scope_name)
+        assert cfg.scope_name == scope_name
 
 
 def test_market_scope_config_and_sql_helpers():
@@ -56,6 +132,8 @@ def test_market_scope_config_and_sql_helpers():
     assert "market_scope_registry" in sql
     assert "scope_name = 'wc2026'" in sql
     assert "event_slug" not in sql
+    multi_sql = market_scope_sql(["wc2026", "us-politics"])
+    assert "scope_name IN ('wc2026', 'us-politics')" in multi_sql
     assert market_scope_sql(MARKET_SCOPE_ALL) == ""
     assert market_scope_predicate_sql(MARKET_SCOPE_ALL) == "TRUE"
     assert not event_matches_scope_config(None)
@@ -68,7 +146,7 @@ def test_market_scope_config_and_sql_helpers():
 
 
 def test_load_market_scope_config_yaml_validation(tmp_path, monkeypatch):
-    monkeypatch.delenv("POLYMARKET_MARKET_SCOPE", raising=False)
+    monkeypatch.delenv("POLYMARKET_MARKET_SCOPES", raising=False)
     monkeypatch.delenv("POLYMARKET_SCOPE_EVENT_SLUGS", raising=False)
     monkeypatch.delenv("POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES", raising=False)
     monkeypatch.delenv("POLYMARKET_SCOPE_EVENT_TAGS", raising=False)
@@ -86,7 +164,7 @@ scopes:
 """,
         encoding="utf-8",
     )
-    cfg = load_market_scope_config(seed_path=good)
+    cfg = load_market_scope_config(seed_path=good, scope_name="custom")
     assert cfg.scope_name == "custom"
     assert cfg.event_slug_prefixes == ("pre",)
 
@@ -106,7 +184,7 @@ scopes:
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="event_slugs must be"):
-        load_market_scope_config(seed_path=bad2)
+        load_market_scope_config(seed_path=bad2, scope_name="custom")
 
     bad3 = tmp_path / "bad3.yml"
     bad3.write_text(
@@ -118,7 +196,7 @@ scopes:
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="Unknown Polymarket market scope"):
-        load_market_scope_config(seed_path=bad3)
+        load_market_scope_config(seed_path=bad3, scope_name="missing")
 
     bad4 = tmp_path / "bad4.yml"
     bad4.write_text(
@@ -130,7 +208,7 @@ scopes:
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="scopes.custom must be"):
-        load_market_scope_config(seed_path=bad4)
+        load_market_scope_config(seed_path=bad4, scope_name="custom")
 
     bad5 = tmp_path / "bad5.yml"
     bad5.write_text("default_scope: custom\nscopes: {}\n", encoding="utf-8")

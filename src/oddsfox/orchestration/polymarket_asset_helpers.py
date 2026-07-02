@@ -85,7 +85,7 @@ def _build_odds_sync_kwargs(
         "rebuild_minutely": config.rebuild_minutely,
         "reconcile_ledger": config.reconcile_ledger,
         "short_range_first": config.short_range_first,
-        "market_scope": config.scope_name,
+        "market_scope": config.scope_names,
         "ended_market_grace_days": config.ended_market_grace_days,
         "min_volume": config.min_volume,
         "max_volume": config.max_volume,
