@@ -2,7 +2,7 @@
 
 Use this page when changing code, dbt models, docs, or orchestration behavior.
 OddsFox is a prediction-market pipeline; v0.1.x development mostly touches the
-Polymarket/WC2026 adapter, marts, and orchestration. For operator setup, start
+Polymarket/selected-scope adapter, marts, and orchestration. For operator setup, start
 with [Quickstart](quickstart.md).
 
 ## Repo Layout
@@ -70,8 +70,10 @@ warehouse/profile size evidence that justifies the change.
 Treat Costguard medium/low advisories as measurement prompts. Current measured
 debt includes:
 
-- `SQLCOST039`: `int_polymarket_token_universe` is a heavily reused view.
-- `SQLCOST040`: `token_coverage` and `wc2026_markets` rebuild as full tables.
+- `int_polymarket_token_universe` is materialized as a table because profiling
+  showed it is reused heavily by selected-scope marts and the dbt build stayed
+  neutral or faster after the change.
+- `SQLCOST040`: `token_coverage` and `selected_markets` rebuild as full tables.
 - Low advisories: repeated CTEs in mart comparison tests and an `ORDER BY`
   without `LIMIT` in `token_coverage`.
 

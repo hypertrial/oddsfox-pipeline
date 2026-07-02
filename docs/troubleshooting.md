@@ -2,7 +2,7 @@
 
 Use this page when a local run fails. Most fixes assume schedules are disabled
 and only one process is writing to the DuckDB warehouse. The current runbooks
-target the Polymarket/WC2026 implementation.
+target the Polymarket/selected-scope implementation.
 
 ## DuckDB Lock Errors
 
@@ -56,7 +56,7 @@ DROP TABLE IF EXISTS polymarket_raw.markets;
 ## Markets vs Snapshot Responsibilities
 
 - `dlt_polymarket_markets` owns `polymarket_raw.markets` rows (dlt merge on `id`).
-- `polymarket_markets_snapshot` refreshes the WC2026 registry and writes `polymarket_raw.market_tokens` only; it does not upsert markets rows.
+- `polymarket_markets_snapshot` refreshes the selected-scope registry and writes `polymarket_raw.market_tokens` only; it does not upsert markets rows.
 
 If markets metadata looks stale after a snapshot run, materialize `dlt_polymarket_markets` first.
 
@@ -75,6 +75,9 @@ Then rerun the quickstart.
 - Lower `MARKETS_REQUESTS_PER_SECOND` or `ODDS_REQUESTS_PER_SECOND`.
 - Re-run the failed Dagster job; token sync state is ledgered.
 - Check `polymarket_ops.pipeline_run_events` and `polymarket_ops.sync_run_metrics` for the latest run payloads.
+- If the latest sync metrics include `pipeline_run_event_append_failed`, the
+  ingestion run continued but the append-only telemetry event failed to land;
+  inspect `pipeline_run_event_append_error` and rerun after fixing storage.
 
 ## Large Warehouse File
 

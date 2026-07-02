@@ -10,19 +10,19 @@ from oddsfox.config.settings import (
 from oddsfox.orchestration.assets import (
     polymarket_dbt,
     polymarket_market_metadata_backfill,
+    polymarket_market_scope_registry,
     polymarket_markets_raw_dlt,
     polymarket_markets_snapshot,
     polymarket_odds_repair,
     polymarket_token_odds_history,
     polymarket_token_odds_history_minutely,
-    polymarket_wc2026_registry,
 )
 from oddsfox.orchestration.jobs import (
     dbt_full_refresh,
     polymarket_ingest_full_refresh_events,
     polymarket_ingest_incremental,
     polymarket_minutely_odds_ingest,
-    wc2026_polymarket_full_pipeline,
+    polymarket_selected_scope_full_pipeline,
 )
 from oddsfox.orchestration.schedules import (
     polymarket_minutely_odds_cold_schedule,
@@ -34,7 +34,7 @@ defs = Definitions(
     assets=[
         polymarket_markets_raw_dlt,
         polymarket_markets_snapshot,
-        polymarket_wc2026_registry,
+        polymarket_market_scope_registry,
         polymarket_market_metadata_backfill,
         polymarket_token_odds_history,
         polymarket_token_odds_history_minutely,
@@ -46,7 +46,7 @@ defs = Definitions(
         polymarket_ingest_full_refresh_events,
         polymarket_minutely_odds_ingest,
         dbt_full_refresh,
-        wc2026_polymarket_full_pipeline,
+        polymarket_selected_scope_full_pipeline,
     ],
     schedules=[
         polymarket_minutely_odds_schedule,

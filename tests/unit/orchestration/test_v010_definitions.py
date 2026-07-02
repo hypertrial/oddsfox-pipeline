@@ -43,7 +43,7 @@ def test_definitions_expose_v010_jobs_only():
         "polymarket_ingest_incremental",
         "polymarket_minutely_odds_ingest",
         "dbt_full_refresh",
-        "wc2026_polymarket_full_pipeline",
+        "polymarket_selected_scope_full_pipeline",
     }
 
     assert {
@@ -55,7 +55,7 @@ def test_definitions_expose_v010_asset_keys():
     expected = {
         "dlt_polymarket_markets",
         "polymarket_markets_snapshot",
-        "polymarket_wc2026_registry",
+        "polymarket_market_scope_registry",
         "polymarket_market_metadata_backfill",
         "polymarket_token_odds_history",
         "polymarket_token_odds_history_minutely",
@@ -67,17 +67,16 @@ def test_definitions_expose_v010_asset_keys():
         "polymarket_stg_pipeline_run_events",
         "polymarket_stg_sync_ledger",
         "polymarket_stg_token_sync_skips",
-        "polymarket_int_wc2026_markets",
+        "polymarket_int_selected_markets",
         "polymarket_int_token_universe",
-        "polymarket_int_wc2026_token_universe",
-        "polymarket_int_token_timeseries",
+        "polymarket_int_selected_token_universe",
         "polymarket_int_token_daily_timeseries",
         "polymarket_market_coverage",
-        "polymarket_wc2026_markets",
+        "polymarket_selected_markets",
         "polymarket_token_coverage",
-        "polymarket_wc2026_token_minutely_odds",
-        "polymarket_wc2026_token_daily_odds",
-        "polymarket_wc2026_whale_minutely_odds",
+        "polymarket_selected_token_minutely_odds",
+        "polymarket_selected_token_daily_odds",
+        "polymarket_selected_whale_minutely_odds",
         "polymarket_sync_run_observability",
     }
 

@@ -24,7 +24,7 @@ POLYMARKET_MINUTELY_ODDS_SELECTION = AssetSelection.assets(
 POLYMARKET_FULL_REFRESH_EVENTS_SELECTION = AssetSelection.assets(
     "dlt_polymarket_markets",
     "polymarket_markets_snapshot",
-    "polymarket_wc2026_registry",
+    "polymarket_market_scope_registry",
     "polymarket_market_metadata_backfill",
     "polymarket_token_odds_history",
 )
@@ -65,8 +65,8 @@ dbt_full_refresh = define_asset_job(
     tags=_DUCKDB_WAREHOUSE_TAGS,
 )
 
-wc2026_polymarket_full_pipeline = define_asset_job(
-    "wc2026_polymarket_full_pipeline",
+polymarket_selected_scope_full_pipeline = define_asset_job(
+    "polymarket_selected_scope_full_pipeline",
     selection=POLYMARKET_FULL_PIPELINE_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config={**full_refresh_events_run_config(), **dbt_full_refresh_run_config()},

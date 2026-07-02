@@ -19,15 +19,15 @@ from oddsfox.orchestration.assets import (
     DBT_PROJECT,
     polymarket_dbt,
     polymarket_market_metadata_backfill,
+    polymarket_market_scope_registry,
     polymarket_markets_snapshot,
     polymarket_token_odds_history,
-    polymarket_wc2026_registry,
 )
-from oddsfox.storage.duckdb.schemas.polymarket import create_test_markets_table
-from oddsfox.storage.duckdb.wc2026_registry import (
+from oddsfox.storage.duckdb.market_scope_registry import (
     RegistryRow,
     upsert_registry_rows,
 )
+from oddsfox.storage.duckdb.schemas.polymarket import create_test_markets_table
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def no_sleep():
         yield
 
 
-def _fake_sync_wc2026_registry(**kwargs):
+def _fake_sync_market_scope_registry(**kwargs):
     del kwargs
     upsert_registry_rows(
         [
@@ -138,20 +138,33 @@ oddsfox:
     def fake_refresh_registry_and_collect_markets_targeted(
         client, config, progress_callback=None
     ):
-        del client, config
+        del client
         if progress_callback:
             progress_callback(
-                "wc2026_event_by_slug",
+                "market_scope_event_by_slug",
                 {"slug": "2026-fifa-world-cup-winner-595", "found": True},
             )
+        upsert_registry_rows(
+            [
+                RegistryRow(
+                    "m1",
+                    "2026-fifa-world-cup-winner-595",
+                    "ev-smoke",
+                    "events_api",
+                    scope_name=config.scope_name,
+                )
+            ]
+        )
         return (
             {
+                "scope_name": config.scope_name,
                 "registry_rows_upserted": 1,
                 "discovered_event_slugs": ["2026-fifa-world-cup-winner-595"],
                 "registry_refreshed": True,
             },
             market_page,
             {
+                "scope_name": config.scope_name,
                 "events_pages": 0,
                 "markets_collected": len(market_page),
                 "registry_refreshed": True,
@@ -206,8 +219,8 @@ oddsfox:
         fake_fetch_token_history_with_retry,
     )
     monkeypatch.setattr(
-        "oddsfox.orchestration.polymarket_ops.sync_wc2026_registry",
-        _fake_sync_wc2026_registry,
+        "oddsfox.orchestration.polymarket_ops.sync_market_scope_registry",
+        _fake_sync_market_scope_registry,
     )
 
     _seed_dlt_owned_markets(market_page)
@@ -218,7 +231,7 @@ oddsfox:
     result = materialize(
         [
             polymarket_markets_snapshot,
-            polymarket_wc2026_registry,
+            polymarket_market_scope_registry,
             polymarket_market_metadata_backfill,
             polymarket_token_odds_history,
             polymarket_dbt,

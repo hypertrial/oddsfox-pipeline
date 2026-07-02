@@ -2,14 +2,14 @@ from datetime import datetime, timezone
 
 import polars as pl
 
+from oddsfox.ingestion.polymarket.market_scope import MarketScopeConfig
 from oddsfox.ingestion.polymarket.markets import fetch, transform
 from oddsfox.ingestion.polymarket.markets import sync as markets_sync
 from oddsfox.ingestion.polymarket.markets.persistence import (
     prepare_batch_for_db,
 )
-from oddsfox.ingestion.polymarket.wc2026_scope import Wc2026ScopeConfig
 
-_SLUG_ONLY_CFG = Wc2026ScopeConfig(
+_SLUG_ONLY_CFG = MarketScopeConfig(
     event_slugs=("2026-fifa-world-cup-winner",),
     event_slug_prefixes=("2026-fifa-world-cup",),
     market_ids=(),
@@ -121,7 +121,9 @@ def test_sync_markets_targeted_saves_tokens(monkeypatch):
     progress = []
 
     monkeypatch.setattr(markets_sync, "ensure_duck_db", lambda: None)
-    monkeypatch.setattr(markets_sync, "load_wc2026_config", lambda: _SLUG_ONLY_CFG)
+    monkeypatch.setattr(
+        markets_sync, "load_market_scope_config", lambda **_kwargs: _SLUG_ONLY_CFG
+    )
     monkeypatch.setattr(markets_sync, "save_sync_run_metrics", lambda *a, **k: None)
     monkeypatch.setattr(
         markets_sync,
@@ -144,12 +146,12 @@ def test_sync_markets_targeted_saves_tokens(monkeypatch):
     )
 
     out = markets_sync.sync_markets(
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         discovery_mode="targeted",
         progress_callback=lambda phase, payload: progress.append((phase, payload)),
         progress_log_interval_pages=1,
     )
-    assert out["mode"] == "wc2026_event_first"
+    assert out["mode"] == "market_scope_event_first"
     assert out["discovery_mode"] == "targeted"
     assert out["total_fetched"] == 1
     assert out["registry_refreshed"] is True
@@ -161,7 +163,9 @@ def test_sync_markets_targeted_empty_events(monkeypatch):
     saved = []
 
     monkeypatch.setattr(markets_sync, "ensure_duck_db", lambda: None)
-    monkeypatch.setattr(markets_sync, "load_wc2026_config", lambda: _SLUG_ONLY_CFG)
+    monkeypatch.setattr(
+        markets_sync, "load_market_scope_config", lambda **_kwargs: _SLUG_ONLY_CFG
+    )
     monkeypatch.setattr(markets_sync, "save_sync_run_metrics", lambda *a, **k: None)
     monkeypatch.setattr(
         markets_sync,
@@ -179,11 +183,11 @@ def test_sync_markets_targeted_empty_events(monkeypatch):
     )
 
     out = markets_sync.sync_markets(
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         discovery_mode="targeted",
     )
 
-    assert out["mode"] == "wc2026_event_first"
+    assert out["mode"] == "market_scope_event_first"
     assert out["total_fetched"] == 0
     assert saved == []
 
@@ -192,7 +196,9 @@ def test_sync_markets_full_keyset_routing(monkeypatch):
     called = {}
 
     monkeypatch.setattr(markets_sync, "ensure_duck_db", lambda: None)
-    monkeypatch.setattr(markets_sync, "load_wc2026_config", lambda: _SLUG_ONLY_CFG)
+    monkeypatch.setattr(
+        markets_sync, "load_market_scope_config", lambda **_kwargs: _SLUG_ONLY_CFG
+    )
     monkeypatch.setattr(markets_sync, "save_sync_run_metrics", lambda *a, **k: None)
     monkeypatch.setattr(
         markets_sync,
@@ -210,17 +216,17 @@ def test_sync_markets_full_keyset_routing(monkeypatch):
     )
 
     out = markets_sync.sync_markets(
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         discovery_mode="full_keyset",
     )
     assert out["discovery_mode"] == "full_keyset"
     assert "targeted" not in called
 
-    out_default = markets_sync.sync_markets(client_factory=lambda: object())
+    out_default = markets_sync.sync_markets(client_factory=lambda **_kwargs: object())
     assert out_default["discovery_mode"] == "full_keyset"
 
     out = markets_sync.sync_markets(
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         force_full_discovery=True,
     )
     assert out["discovery_mode"] == "full_keyset"
@@ -228,7 +234,9 @@ def test_sync_markets_full_keyset_routing(monkeypatch):
 
 def test_sync_markets_ignores_progress_callback_failures(monkeypatch):
     monkeypatch.setattr(markets_sync, "ensure_duck_db", lambda: None)
-    monkeypatch.setattr(markets_sync, "load_wc2026_config", lambda: _SLUG_ONLY_CFG)
+    monkeypatch.setattr(
+        markets_sync, "load_market_scope_config", lambda **_kwargs: _SLUG_ONLY_CFG
+    )
     monkeypatch.setattr(markets_sync, "save_sync_run_metrics", lambda *a, **k: None)
     monkeypatch.setattr(
         markets_sync,
@@ -242,7 +250,7 @@ def test_sync_markets_ignores_progress_callback_failures(monkeypatch):
     monkeypatch.setattr(markets_sync, "save_market_tokens_batch", lambda *a, **k: None)
 
     out = markets_sync.sync_markets(
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         discovery_mode="targeted",
         progress_callback=lambda phase, payload: (_ for _ in ()).throw(
             RuntimeError("callback failed")
@@ -254,8 +262,10 @@ def test_sync_markets_ignores_progress_callback_failures(monkeypatch):
     assert out["error"] is None
 
 
-def test_sync_markets_wc2026_ignores_inner_progress_callback_failure(monkeypatch):
-    monkeypatch.setattr(markets_sync, "load_wc2026_config", lambda: _SLUG_ONLY_CFG)
+def test_sync_markets_for_scope_ignores_inner_progress_callback_failure(monkeypatch):
+    monkeypatch.setattr(
+        markets_sync, "load_market_scope_config", lambda **_kwargs: _SLUG_ONLY_CFG
+    )
     monkeypatch.setattr(
         markets_sync,
         "refresh_registry_and_collect_markets_targeted",
@@ -266,7 +276,7 @@ def test_sync_markets_wc2026_ignores_inner_progress_callback_failure(monkeypatch
         ),
     )
 
-    out = markets_sync._sync_markets_wc2026(
+    out = markets_sync._sync_markets_for_scope(
         object(),
         discovery_mode="targeted",
         max_event_pages=None,
@@ -279,8 +289,10 @@ def test_sync_markets_wc2026_ignores_inner_progress_callback_failure(monkeypatch
     assert out["total_fetched"] == 0
 
 
-def test_sync_markets_wc2026_without_progress_callback(monkeypatch):
-    monkeypatch.setattr(markets_sync, "load_wc2026_config", lambda: _SLUG_ONLY_CFG)
+def test_sync_markets_for_scope_without_progress_callback(monkeypatch):
+    monkeypatch.setattr(
+        markets_sync, "load_market_scope_config", lambda **_kwargs: _SLUG_ONLY_CFG
+    )
     monkeypatch.setattr(
         markets_sync,
         "refresh_registry_and_collect_markets_targeted",
@@ -291,7 +303,7 @@ def test_sync_markets_wc2026_without_progress_callback(monkeypatch):
         ),
     )
 
-    out = markets_sync._sync_markets_wc2026(
+    out = markets_sync._sync_markets_for_scope(
         object(),
         discovery_mode="targeted",
         max_event_pages=None,
@@ -313,7 +325,9 @@ def test_sync_markets_guardrail_check_during_discovery_progress(monkeypatch):
 
     monkeypatch.setattr(ProgressGuardrail, "check", recording_check)
     monkeypatch.setattr(markets_sync, "ensure_duck_db", lambda: None)
-    monkeypatch.setattr(markets_sync, "load_wc2026_config", lambda: _SLUG_ONLY_CFG)
+    monkeypatch.setattr(
+        markets_sync, "load_market_scope_config", lambda **_kwargs: _SLUG_ONLY_CFG
+    )
     monkeypatch.setattr(markets_sync, "save_sync_run_metrics", lambda *a, **k: None)
     monkeypatch.setattr(markets_sync, "save_market_tokens_batch", lambda *a, **k: None)
 
@@ -342,7 +356,7 @@ def test_sync_markets_guardrail_check_during_discovery_progress(monkeypatch):
     )
 
     markets_sync.sync_markets(
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         discovery_mode="targeted",
         progress_log_interval_pages=1,
     )

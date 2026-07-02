@@ -19,9 +19,13 @@ def ensure_polymarket_indexes(conn: duckdb.DuckDBPyConnection) -> None:
     m = polymarket_raw_tbl("markets")
     tod = polymarket_raw_tbl("token_odds_daily")
     sk = polymarket_ops_tbl("token_sync_skips")
-    wc_reg = polymarket_ops_tbl("wc2026_market_registry")
+    scope_reg = polymarket_ops_tbl("market_scope_registry")
     index_statements = [
-        f"CREATE INDEX IF NOT EXISTS idx_wc2026_registry_event_slug ON {wc_reg}(event_slug)",
+        "CREATE INDEX IF NOT EXISTS "
+        f"idx_market_scope_registry_scope_event_slug ON {scope_reg}"
+        "(scope_name, event_slug)",
+        "CREATE INDEX IF NOT EXISTS "
+        f"idx_market_scope_registry_market ON {scope_reg}(market_id)",
         f"CREATE INDEX IF NOT EXISTS idx_token_odds_daily_token ON {tod}(clobTokenId)",
         f"CREATE INDEX IF NOT EXISTS idx_token_odds_daily_date ON {tod}(odds_date_utc)",
         f"CREATE INDEX IF NOT EXISTS idx_token_skip_reason ON {sk}(clobTokenId)",
@@ -63,7 +67,7 @@ def bootstrap_polymarket_tables(conn: duckdb.DuckDBPyConnection) -> None:
     mmu = polymarket_ops_tbl("market_metadata_unresolved")
     pre = polymarket_ops_tbl("pipeline_run_events")
     srm = polymarket_ops_tbl("sync_run_metrics")
-    wc_reg = polymarket_ops_tbl("wc2026_market_registry")
+    scope_reg = polymarket_ops_tbl("market_scope_registry")
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {sm} (
@@ -176,12 +180,14 @@ def bootstrap_polymarket_tables(conn: duckdb.DuckDBPyConnection) -> None:
     )
     conn.execute(
         f"""
-        CREATE TABLE IF NOT EXISTS {wc_reg} (
-            market_id TEXT PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS {scope_reg} (
+            scope_name TEXT,
+            market_id TEXT,
             event_slug TEXT,
             event_id TEXT,
             source TEXT,
-            refreshed_at TIMESTAMP
+            refreshed_at TIMESTAMP,
+            PRIMARY KEY (scope_name, market_id)
         )
         """
     )

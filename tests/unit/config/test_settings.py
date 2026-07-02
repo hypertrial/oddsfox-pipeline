@@ -135,28 +135,36 @@ def test_env_bool_parses_truthy_and_falsey_values(monkeypatch, isolated_env):
         ("surprise", False),
     ],
 )
-def test_wc2026_keyset_closed_env_branches(monkeypatch, isolated_env, raw, expected):
-    monkeypatch.setenv("POLYMARKET_WC2026_KEYSET_CLOSED", raw)
+def test_market_scope_keyset_closed_env_branches(
+    monkeypatch, isolated_env, raw, expected
+):
+    monkeypatch.setenv("POLYMARKET_SCOPE_KEYSET_CLOSED", raw)
     settings = reload_all_settings_modules()
-    assert settings.POLYMARKET_WC2026_KEYSET_CLOSED is expected
+    assert settings.POLYMARKET_SCOPE_KEYSET_CLOSED is expected
 
 
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [("", None), ("none", None), ("2500.5", 2500.5), ("bad", 10000.0)],
 )
-def test_wc2026_keyset_volume_min_env_branches(
+def test_market_scope_keyset_volume_min_env_branches(
     monkeypatch, isolated_env, raw, expected
 ):
-    monkeypatch.setenv("POLYMARKET_WC2026_KEYSET_VOLUME_MIN", raw)
+    monkeypatch.setenv("POLYMARKET_SCOPE_KEYSET_VOLUME_MIN", raw)
     settings = reload_all_settings_modules()
-    assert settings.POLYMARKET_WC2026_KEYSET_VOLUME_MIN == expected
+    assert settings.POLYMARKET_SCOPE_KEYSET_VOLUME_MIN == expected
 
 
-def test_wc2026_tag_crawl_denylist_empty(monkeypatch, isolated_env):
-    monkeypatch.setenv("POLYMARKET_WC2026_TAG_CRAWL_DENYLIST", " ")
+def test_market_scope_tag_crawl_denylist_empty(monkeypatch, isolated_env):
+    monkeypatch.setenv("POLYMARKET_SCOPE_TAG_CRAWL_DENYLIST", " ")
     settings = reload_all_settings_modules()
-    assert settings.POLYMARKET_WC2026_TAG_CRAWL_DENYLIST == ()
+    assert settings.POLYMARKET_SCOPE_TAG_CRAWL_DENYLIST == ()
+
+
+def test_market_scope_tag_crawl_denylist_parses_csv(monkeypatch, isolated_env):
+    monkeypatch.setenv("POLYMARKET_SCOPE_TAG_CRAWL_DENYLIST", " Sports, ,Politics ")
+    settings = reload_all_settings_modules()
+    assert settings.POLYMARKET_SCOPE_TAG_CRAWL_DENYLIST == ("sports", "politics")
 
 
 def test_dbt_cli_argv_uses_active_interpreter():

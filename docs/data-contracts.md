@@ -2,7 +2,7 @@
 
 This page summarizes the public analytics surface that downstream notebooks,
 scripts, and operators should rely on. OddsFox is a prediction-market pipeline;
-the current public marts are Polymarket/WC2026 outputs. Model-level column docs
+the current public marts are Polymarket selected-scope outputs. Model-level column docs
 and tests live in the dbt project.
 
 ## Public Marts
@@ -11,12 +11,12 @@ Schema: `polymarket_marts`
 
 | Relation | Grain | Contract |
 | --- | --- | --- |
-| `wc2026_markets` | One row per WC2026 market | Canonical scoped WC2026 market universe. |
+| `selected_markets` | One row per selected market | Canonical selected market universe. |
 | `token_coverage` | One row per `clob_token_id` | Token health, daily coverage, sync ledger state, skip state, gap health, and market fully checked rollups. |
 | `market_coverage` | One row per market | Market-level coverage rolled up from `token_coverage`. |
-| `wc2026_token_minutely_odds` | One row per `(clob_token_id, odds_timestamp_epoch)` | Full minutely odds time series for all WC2026 tokens (dbt view). |
-| `wc2026_token_daily_odds` | One row per `(clob_token_id, odds_date_utc)` | Full daily OHLC odds time series for all WC2026 tokens (dbt view). |
-| `wc2026_whale_minutely_odds` | One row per token timestamp | Minutely odds for WC2026 markets above the configured volume threshold (filtered view over `wc2026_token_minutely_odds`). |
+| `selected_token_minutely_odds` | One row per `(clob_token_id, odds_timestamp_epoch)` | Full minutely odds time series for all selected tokens (dbt view). |
+| `selected_token_daily_odds` | One row per `(clob_token_id, odds_date_utc)` | Full daily OHLC odds time series for all selected tokens (dbt view). |
+| `selected_whale_minutely_odds` | One row per token timestamp | Minutely odds for selected markets above the configured volume threshold (filtered view over `selected_token_minutely_odds`). |
 
 ## Health And Observability
 
@@ -29,14 +29,14 @@ Schema: `polymarket_marts`
 ## Current Scope Rules
 
 - `token_coverage` covers all staged tokens.
-- `wc2026_token_minutely_odds` and `wc2026_token_daily_odds` are WC2026-scoped full time series.
-- `wc2026_token_minutely_odds`, `wc2026_token_daily_odds`, and `wc2026_whale_minutely_odds` include `outcome_label` (e.g. Yes/No) resolved from `outcome_index`; no join to `wc2026_markets` is required to interpret which side a row represents.
-- `wc2026_whale_minutely_odds` is WC2026-scoped and filtered by
+- `selected_token_minutely_odds` and `selected_token_daily_odds` are full time series for the active selected market scope.
+- `selected_token_minutely_odds`, `selected_token_daily_odds`, and `selected_whale_minutely_odds` include `outcome_label` (e.g. Yes/No) resolved from `outcome_index`; no join to `selected_markets` is required to interpret which side a row represents.
+- `selected_whale_minutely_odds` is filtered by the active selected market scope and
   `polymarket_whale_min_volume_usd`.
 - After `make prune-odds-history`, `polymarket_raw.odds_history` (and therefore
-  `wc2026_token_minutely_odds` and `wc2026_whale_minutely_odds`) only guarantees
+  `selected_token_minutely_odds` and `selected_whale_minutely_odds`) only guarantees
   the trailing ~365 days of minutely points unless you change the retention window.
-- `int_polymarket_wc2026_markets` is the canonical market-level WC2026 scope.
+- `int_polymarket_selected_markets` is the canonical market-level selected scope.
 
 ## dbt Checks
 
@@ -45,8 +45,8 @@ Schema: `polymarket_marts`
 - Source and staging grain.
 - Price sanity and OHLC bounds.
 - Token and market coverage consistency.
-- WC2026 odds time series parity with intermediate models.
-- WC2026 scope and whale volume threshold filtering.
+- selected-scope odds time series parity with selected token universes.
+- selected market scope and whale volume threshold filtering.
 
 ## Breaking change: token_latest_odds removed (v0.1.1)
 
@@ -54,6 +54,6 @@ There is no compatibility view or shim for `token_latest_odds`. Use the
 time-series marts below instead.
 
 To get the latest daily or minutely price for a token, query
-`wc2026_token_daily_odds` or `wc2026_token_minutely_odds` with
+`selected_token_daily_odds` or `selected_token_minutely_odds` with
 `max(odds_date_utc)` or `max(odds_timestamp_epoch)` per `clob_token_id`, or
 query the intermediate models directly.

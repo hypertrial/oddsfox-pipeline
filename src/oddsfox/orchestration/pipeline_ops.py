@@ -9,6 +9,11 @@ from __future__ import annotations
 from threading import Thread
 from typing import Any, Callable
 
+from oddsfox.ingestion.polymarket.market_scope import (
+    load_market_scope_config,
+    refresh_registry_from_events,
+    resolve_keyset_tag_slugs,
+)
 from oddsfox.ingestion.polymarket.markets import (
     backfill_end_dates,
     backfill_event_slugs,
@@ -19,11 +24,6 @@ from oddsfox.ingestion.polymarket.markets import (
 )
 from oddsfox.ingestion.polymarket.markets.fetch import build_client
 from oddsfox.ingestion.polymarket.odds import reconcile_odds_ledger, sync_odds
-from oddsfox.ingestion.polymarket.wc2026_scope import (
-    load_wc2026_config,
-    refresh_registry_from_events,
-    resolve_keyset_tag_slugs,
-)
 from oddsfox.orchestration.dbt_build import stream_dbt_build
 from oddsfox.resources.progress_guardrails import ProgressGuardrail
 from oddsfox.storage.duckdb.markets import delete_orphan_market_tokens
@@ -37,8 +37,9 @@ from oddsfox.storage.duckdb.observability import (
 )
 
 
-def sync_wc2026_registry(
+def sync_market_scope_registry(
     *,
+    scope_name: str | None = None,
     max_event_pages: int | None = None,
     max_pages_without_progress: int | None = None,
     keyset_closed: bool | None = None,
@@ -47,7 +48,7 @@ def sync_wc2026_registry(
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     client = build_client()
-    cfg = load_wc2026_config()
+    cfg = load_market_scope_config(scope_name=scope_name)
     effective_keyset_tag_slugs = resolve_keyset_tag_slugs(
         keyset_tag_slugs, config=cfg, client=client
     )
@@ -82,5 +83,5 @@ __all__ = [
     "stream_dbt_build",
     "sync_markets",
     "sync_odds",
-    "sync_wc2026_registry",
+    "sync_market_scope_registry",
 ]

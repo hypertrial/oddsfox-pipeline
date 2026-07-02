@@ -1,6 +1,6 @@
 # OddsFox dbt Project
 
-This dbt project models the WC2026 Polymarket raw and ops tables in DuckDB.
+This dbt project models Polymarket raw, ops, and selected-scope tables in DuckDB.
 
 See the operator docs for warehouse details:
 

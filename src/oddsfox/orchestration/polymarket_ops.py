@@ -26,7 +26,7 @@ snapshot_raw_layer = _ops.snapshot_raw_layer
 stream_dbt_build = _ops.stream_dbt_build
 sync_markets = _ops.sync_markets
 sync_odds = _ops.sync_odds
-sync_wc2026_registry = _ops.sync_wc2026_registry
+sync_market_scope_registry = _ops.sync_market_scope_registry
 
 __all__ = [
     "ProgressGuardrail",
@@ -47,5 +47,5 @@ __all__ = [
     "stream_dbt_build",
     "sync_markets",
     "sync_odds",
-    "sync_wc2026_registry",
+    "sync_market_scope_registry",
 ]

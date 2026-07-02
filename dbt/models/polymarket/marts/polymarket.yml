@@ -99,10 +99,10 @@ models:
         description: True when the market has at least one token and every token is fully checked.
         tests: [not_null]
 
-  - name: wc2026_token_minutely_odds
+  - name: selected_token_minutely_odds
     description: >
-      Full minutely odds time series for all WC2026 CLOB outcome tokens.
-      One row per (clob_token_id, odds_timestamp_epoch) with market labels and volume from the WC2026 token universe.
+      Full minutely odds time series for all selected-scope CLOB outcome tokens.
+      One row per (clob_token_id, odds_timestamp_epoch) with market labels and volume from the selected-scope token universe.
       Materialized as a dbt view (not a table) to avoid duplicating raw odds_history on disk.
     tests:
       - no_duplicate_grain:
@@ -112,10 +112,10 @@ models:
       - price_in_unit_interval:
           arguments:
             identifier_columns: [clob_token_id, odds_timestamp_epoch]
-      - mart_matches_int_wc2026_scope:
+      - mart_matches_selected_scope:
           arguments:
-            int_timeseries: int_polymarket_token_timeseries
-            token_universe: int_polymarket_wc2026_token_universe
+            int_timeseries: stg_polymarket_odds
+            token_universe: int_polymarket_selected_token_universe
             grain_key_column: odds_timestamp_epoch
             value_columns: [price]
             expected_where: ts.price is not null and ts.odds_timestamp_epoch is not null
@@ -131,7 +131,7 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('wc2026_markets')
+                to: ref('selected_markets')
                 field: market_id
       - name: outcome_label
         description: Resolved outcome label (e.g. Yes/No) from the market's outcomes array at outcome_index; null if the outcomes array is missing or malformed.
@@ -144,10 +144,10 @@ models:
         description: Outcome price in [0, 1].
         tests: [not_null]
 
-  - name: wc2026_token_daily_odds
+  - name: selected_token_daily_odds
     description: >
-      Full daily OHLC odds time series for all WC2026 CLOB outcome tokens.
-      One row per (clob_token_id, odds_date_utc) with market labels and volume from the WC2026 token universe.
+      Full daily OHLC odds time series for all selected-scope CLOB outcome tokens.
+      One row per (clob_token_id, odds_date_utc) with market labels and volume from the selected-scope token universe.
       Materialized as a dbt view (not a table) to avoid duplicating int daily history on disk.
     tests:
       - no_duplicate_grain:
@@ -163,10 +163,10 @@ models:
               - low_price
               - close_price
               - avg_price
-      - mart_matches_int_wc2026_scope:
+      - mart_matches_selected_scope:
           arguments:
             int_timeseries: int_polymarket_token_daily_timeseries
-            token_universe: int_polymarket_wc2026_token_universe
+            token_universe: int_polymarket_selected_token_universe
             grain_key_column: odds_date_utc
             value_columns:
               - open_price
@@ -187,7 +187,7 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('wc2026_markets')
+                to: ref('selected_markets')
                 field: market_id
       - name: outcome_label
         description: Resolved outcome label (e.g. Yes/No) from the market's outcomes array at outcome_index; null if the outcomes array is missing or malformed.
@@ -197,10 +197,10 @@ models:
       - name: close_price
         description: Closing price for the token on this UTC day.
 
-  - name: wc2026_whale_minutely_odds
+  - name: selected_whale_minutely_odds
     description: >
-      Minute-grain odds for high-liquidity WC2026 markets (volume >= polymarket_whale_min_volume_usd).
-      Filtered view over wc2026_token_minutely_odds; one row per (clob_token_id, odds_timestamp_epoch).
+      Minute-grain odds for high-liquidity selected-scope markets (volume >= polymarket_whale_min_volume_usd).
+      Filtered view over selected_token_minutely_odds; one row per (clob_token_id, odds_timestamp_epoch).
       Materialized as a dbt view (not a table) to avoid duplicating raw odds_history on disk.
     tests:
       - no_duplicate_grain:
@@ -220,7 +220,7 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('wc2026_markets')
+                to: ref('selected_markets')
                 field: market_id
       - name: outcome_label
         description: Resolved outcome label (e.g. Yes/No) from the market's outcomes array at outcome_index; null if the outcomes array is missing or malformed.
@@ -233,10 +233,10 @@ models:
         description: Outcome price in [0, 1].
         tests: [not_null]
 
-  - name: wc2026_markets
+  - name: selected_markets
     description: >
-      FIFA World Cup 2026 Polymarket market universe; one row per scoped market_id from
-      int_polymarket_wc2026_markets (registry, allowlisted event_slug, or slug prefix).
+      Selected-scope Polymarket market universe; one row per market admitted by
+      int_polymarket_selected_markets.
     columns:
       - name: market_id
         description: Polymarket market identifier and primary key for this mart.

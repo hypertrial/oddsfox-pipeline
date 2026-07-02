@@ -3,8 +3,8 @@
 Use `.env.example` as the source of local overrides.
 For first-run steps, see [Quickstart](quickstart.md).
 
-Most settings are adapter-specific. In v0.1.x, that means Polymarket and WC2026
-scope controls.
+Most settings are adapter-specific. In v0.1.x, that means Polymarket and selected
+market-scope controls.
 
 ## Warehouse and dbt
 
@@ -23,21 +23,21 @@ Most operators should leave `DBT_PROFILES_DIR` unset and use the packaged `dbt/p
 
 Lower request rates when Polymarket APIs return transient failures or timeouts.
 
-## Current WC2026 Scope
+## Current Market Scope
 
-- `POLYMARKET_WC2026_DEFAULT_EVENT_SLUG`
-- `POLYMARKET_WC2026_EVENT_SLUGS`
-- `POLYMARKET_WC2026_EVENT_SLUG_PREFIXES`
-- `POLYMARKET_WC2026_EVENT_TAGS`
-- `POLYMARKET_WC2026_KEYSET_CLOSED`
-- `POLYMARKET_WC2026_KEYSET_VOLUME_MIN`: minimum Gamma keyset volume filter (default
+- `POLYMARKET_MARKET_SCOPE`
+- `POLYMARKET_SCOPE_EVENT_SLUGS`
+- `POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES`
+- `POLYMARKET_SCOPE_EVENT_TAGS`
+- `POLYMARKET_SCOPE_KEYSET_CLOSED`
+- `POLYMARKET_SCOPE_KEYSET_VOLUME_MIN`: minimum Gamma keyset volume filter (default
   `10000`); shared by dlt and markets sync entrypoints.
-- `POLYMARKET_WC2026_KEYSET_RELATED_TAGS`
-- `POLYMARKET_WC2026_TAG_DISCOVERY`
-- `POLYMARKET_WC2026_TAG_CLOSURE_ROUNDS`
-- `POLYMARKET_WC2026_TAG_CRAWL_MAX`
+- `POLYMARKET_SCOPE_KEYSET_RELATED_TAGS`
+- `POLYMARKET_SCOPE_TAG_DISCOVERY`
+- `POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS`
+- `POLYMARKET_SCOPE_TAG_CRAWL_MAX`
 
-The seed file `src/oddsfox/ingestion/polymarket/seeds/wc2026_events.yml` is the default scope source.
+The seed file `src/oddsfox/ingestion/polymarket/seeds/market_scopes.yml` is the default scope source.
 
 ## Schedules
 

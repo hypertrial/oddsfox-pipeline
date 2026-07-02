@@ -4,8 +4,8 @@ Use this page when running Dagster assets, jobs, schedules, or recovery paths.
 For data outputs, see [Warehouse](warehouse.md) and
 [Data Contracts](data-contracts.md).
 
-The project is broader than WC2026, but the v0.1.x orchestration surface below
-is the shipped Polymarket/WC2026 implementation.
+The project is broader than selected-scope, but the v0.1.x orchestration surface below
+is the shipped Polymarket/selected-scope implementation.
 
 ## Dagster Assets
 
@@ -13,7 +13,7 @@ The main asset order is:
 
 1. `dlt_polymarket_markets`
 2. `polymarket_markets_snapshot`
-3. `polymarket_wc2026_registry`
+3. `polymarket_market_scope_registry`
 4. `polymarket_market_metadata_backfill`
 5. `polymarket_token_odds_history`
 6. `polymarket_token_odds_history_minutely`
@@ -23,11 +23,11 @@ The main asset order is:
 
 ## Jobs
 
-- `polymarket_ingest_full_refresh_events`: full WC2026 event/market discovery, registry refresh, metadata backfill, and odds sync.
+- `polymarket_ingest_full_refresh_events`: full selected-scope event/market discovery, registry refresh, metadata backfill, and odds sync.
 - `polymarket_ingest_incremental`: metadata backfill and routine token odds sync.
 - `polymarket_minutely_odds_ingest`: minutely odds refresh for high-volume markets in the current scope.
 - `dbt_full_refresh`: dbt analytics build.
-- `wc2026_polymarket_full_pipeline`: full ingest plus dbt build.
+- `polymarket_selected_scope_full_pipeline`: full ingest plus dbt build.
 
 ## Schedules
 
@@ -64,7 +64,7 @@ runs; the five-minute and hourly schedules stay stopped and a warning is logged.
 ## Landing And Finalization
 
 Canonical raw and ops table schemas remain stable for operators and dbt. dlt now
-lands markets, market-token batches, odds-history batches, WC2026 registry
+lands markets, market-token batches, odds-history batches, selected-scope registry
 batches, and pipeline run-event batches; dlt stage tables and `_dlt*` metadata
 tables are internal.
 

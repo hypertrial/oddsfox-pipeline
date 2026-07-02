@@ -23,13 +23,15 @@ Schema: `polymarket_raw`
 
 Schema: `polymarket_ops`
 
-- `wc2026_market_registry`: market ids admitted to WC2026 scope; current batches
+- `market_scope_registry`: market ids admitted to selected market scopes; current batches
   land through dlt staging before the canonical upsert preserves existing non-null event fields.
 - `token_sync_ledger`: per-token sync progress kept in custom SQL because cursor
   and scheduler-state merges are stateful.
 - `token_sync_skips`: persisted skip reasons kept in custom SQL to preserve `created_at`.
 - `pipeline_run_events`: append-only run metrics landed through dlt staging.
-- `sync_run_metrics`: latest sync metrics and short history.
+- `sync_run_metrics`: latest sync metrics and short history. If appending to
+  `pipeline_run_events` fails, the latest payload includes
+  `pipeline_run_event_append_failed` and `pipeline_run_event_append_error`.
 - `scrape_metadata`: small key/value metadata used by backfill progress helpers.
 - `market_metadata_unresolved`: retry ledger for unresolved metadata fields.
 
@@ -44,9 +46,10 @@ Schema: `polymarket_ops`
 
 Schema: `polymarket_intermediate`
 
-- `int_polymarket_token_universe`: canonical one-row-per-token join of market tokens to market labels, state, and volume.
-- `int_polymarket_wc2026_token_universe`: WC2026-scoped subset of the token universe.
-- `int_polymarket_token_timeseries` / `int_polymarket_token_daily_timeseries`: token-level point and daily odds joined to the token universe.
+- `int_polymarket_token_universe`: materialized canonical one-row-per-token
+  join of market tokens to market labels, state, and volume.
+- `int_polymarket_selected_token_universe`: selected-scope subset of the token universe.
+- `int_polymarket_token_daily_timeseries`: token-level daily odds joined to the token universe.
 
 ## dbt Marts
 
@@ -56,13 +59,13 @@ Schema: `polymarket_marts`
 - `token_coverage`: token-level health and coverage, including daily coverage,
   sync ledger state, persisted skip reason, gap diagnostics, and market fully
   checked rollups.
-- `wc2026_token_minutely_odds`: full minutely odds time series for all WC2026 tokens (dbt
-  view over `int_polymarket_token_timeseries`; not materialized to save disk).
-- `wc2026_token_daily_odds`: full daily OHLC odds time series for all WC2026 tokens (dbt
+- `selected_token_minutely_odds`: full minutely odds time series for all selected-scope tokens (dbt
+  view joining raw odds directly to the selected token universe; not materialized to save disk).
+- `selected_token_daily_odds`: full daily OHLC odds time series for all selected-scope tokens (dbt
   view over `int_polymarket_token_daily_timeseries`; not materialized to save disk).
-- `wc2026_markets`: scoped WC2026 market universe.
-- `wc2026_whale_minutely_odds`: minutely odds for high-volume WC2026 markets (dbt
-  view over `wc2026_token_minutely_odds`; not materialized to save disk).
+- `selected_markets`: scoped selected-scope market universe.
+- `selected_whale_minutely_odds`: minutely odds for high-volume selected-scope markets (dbt
+  view over `selected_token_minutely_odds`; not materialized to save disk).
 
 Schema: `polymarket_observability`
 
@@ -72,7 +75,7 @@ Schema: `polymarket_observability`
 
 Canonical raw and ops table names and schemas remain stable. dlt owns batch
 landing for `markets`, `market_tokens`, `odds_history`,
-`wc2026_market_registry`, and `pipeline_run_events`; stage tables and `_dlt*`
+`market_scope_registry`, and `pipeline_run_events`; stage tables and `_dlt*`
 metadata tables are internal implementation details.
 
 `polymarket_raw.markets` is created by `dlt_polymarket_markets`. The

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from hashlib import blake2b
 from typing import Any
@@ -27,9 +28,10 @@ DLT_STRICT_SCHEMA_CONTRACT = {
 _TAB_MARKET_TOKENS = polymarket_raw_tbl("market_tokens")
 _TAB_ODDS_HISTORY = polymarket_raw_tbl("odds_history")
 _TAB_PIPELINE_RUN_EVENTS = polymarket_ops_tbl("pipeline_run_events")
-_TAB_WC2026_MARKET_REGISTRY = polymarket_ops_tbl("wc2026_market_registry")
+_TAB_MARKET_SCOPE_REGISTRY = polymarket_ops_tbl("market_scope_registry")
 
 _PIPELINES: dict[tuple[str, str], dlt.Pipeline] = {}
+_BATCH_PIPELINE_RUN_ID = f"{os.getpid():x}"
 
 MARKET_TOKEN_COLUMNS = {
     "market_id": {"data_type": "text"},
@@ -53,7 +55,8 @@ PIPELINE_RUN_EVENT_COLUMNS = {
     "metrics_json": {"data_type": "text"},
 }
 
-WC2026_REGISTRY_COLUMNS = {
+MARKET_SCOPE_REGISTRY_COLUMNS = {
+    "scope_name": {"data_type": "text"},
     "market_id": {"data_type": "text"},
     "event_slug": {"data_type": "text", "nullable": True},
     "event_id": {"data_type": "text", "nullable": True},
@@ -73,9 +76,13 @@ def _pipeline(schema: str) -> dlt.Pipeline:
     db_path = str(duckdb_connection.active_duckdb_path())
     key = (schema, db_path)
     if key not in _PIPELINES:
-        path_hash = blake2b(db_path.encode("utf-8"), digest_size=4).hexdigest()
+        # dlt persists pipeline state outside DuckDB; these stage tables are
+        # replace-only scratch space, so avoid cross-process stale schemas.
+        path_hash = blake2b(db_path.encode("utf-8"), digest_size=12).hexdigest()
         _PIPELINES[key] = dlt.pipeline(
-            pipeline_name=f"polymarket_{schema}_batch_v1_{path_hash}",
+            pipeline_name=(
+                f"polymarket_{schema}_batch_v1_{path_hash}_{_BATCH_PIPELINE_RUN_ID}"
+            ),
             destination=dlt.destinations.duckdb(credentials=db_path),
             dataset_name=schema,
         )
@@ -201,43 +208,44 @@ def append_pipeline_run_event_stage(
     )
 
 
-def load_wc2026_registry_stage(
+def load_market_scope_registry_stage(
     rows: Sequence[dict[str, Any]],
     conn: duckdb.DuckDBPyConnection,
 ) -> None:
     stage = load_stage_rows(
         schema=POLYMARKET_OPS_SCHEMA,
-        stage_table="stage_wc2026_market_registry_v1",
+        stage_table="stage_market_scope_registry_v1",
         rows=_with_row_order(rows),
-        columns=WC2026_REGISTRY_COLUMNS,
+        columns=MARKET_SCOPE_REGISTRY_COLUMNS,
     )
     conn.execute(
         f"""
-        INSERT INTO {_TAB_WC2026_MARKET_REGISTRY}
-        (market_id, event_slug, event_id, source, refreshed_at)
-        SELECT market_id, event_slug, event_id, source, refreshed_at
+        INSERT INTO {_TAB_MARKET_SCOPE_REGISTRY}
+        (scope_name, market_id, event_slug, event_id, source, refreshed_at)
+        SELECT scope_name, market_id, event_slug, event_id, source, refreshed_at
         FROM (
             SELECT
+                scope_name,
                 market_id,
                 event_slug,
                 event_id,
                 source,
                 refreshed_at,
                 row_number() OVER (
-                    PARTITION BY market_id
+                    PARTITION BY scope_name, market_id
                     ORDER BY refreshed_at DESC, row_order DESC
                 ) AS rn
             FROM {stage}
         )
         WHERE rn = 1
-        ON CONFLICT(market_id) DO UPDATE SET
+        ON CONFLICT(scope_name, market_id) DO UPDATE SET
           event_slug=COALESCE(
               excluded.event_slug,
-              {_TAB_WC2026_MARKET_REGISTRY}.event_slug
+              {_TAB_MARKET_SCOPE_REGISTRY}.event_slug
           ),
           event_id=COALESCE(
               excluded.event_id,
-              {_TAB_WC2026_MARKET_REGISTRY}.event_id
+              {_TAB_MARKET_SCOPE_REGISTRY}.event_id
           ),
           source=excluded.source,
           refreshed_at=excluded.refreshed_at
@@ -250,12 +258,12 @@ __all__ = [
     "MARKET_TOKEN_COLUMNS",
     "ODDS_HISTORY_COLUMNS",
     "PIPELINE_RUN_EVENT_COLUMNS",
-    "WC2026_REGISTRY_COLUMNS",
+    "MARKET_SCOPE_REGISTRY_COLUMNS",
     "append_pipeline_run_event_stage",
     "load_market_tokens_stage",
     "load_odds_history_stage",
     "load_stage_rows",
-    "load_wc2026_registry_stage",
+    "load_market_scope_registry_stage",
     "merge_odds_history_stage",
     "prepare_odds_history_stage",
     "reset_dlt_batch_pipelines",

@@ -2,7 +2,7 @@
 
 Use this page for the first local run. It keeps schedules off until the
 warehouse, dbt project, and manual Dagster jobs are healthy. The v0.1.x
-quickstart runs the current Polymarket/WC2026 pipeline.
+quickstart runs the current Polymarket/selected-scope pipeline.
 
 ## 1. Install
 
@@ -54,7 +54,7 @@ Open the Dagster UI shown in the terminal. Materialize `dlt_polymarket_markets` 
 
 ## 5. Run the Pipeline
 
-For a full manual run, launch `wc2026_polymarket_full_pipeline`.
+For a full manual run, launch `polymarket_selected_scope_full_pipeline`.
 
 For a safer staged run:
 

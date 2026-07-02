@@ -187,7 +187,7 @@ def test_sync_odds_no_plan_duplicate_invalid_tokens_short_circuits(monkeypatch):
         max_workers=1,
         auto_tune_rps=False,
         persist_run_metrics=True,
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         rate_limiter_factory=lambda r: None,
     )
 
@@ -251,7 +251,7 @@ def test_sync_odds_final_rate_absent_when_limiter_has_no_rate_attr(monkeypatch):
         max_workers=1,
         auto_tune_rps=False,
         persist_run_metrics=True,
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         rate_limiter_factory=lambda r: Limiter(),
     )
 
@@ -309,7 +309,7 @@ def test_sync_odds_empty_results_with_zero_skip_runs_do_not_update_budget(monkey
         persist_run_metrics=True,
         empty_token_skip_runs=0,
         empty_token_skip_budgets=budgets,
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         rate_limiter_factory=lambda r: None,
     )
 
@@ -358,7 +358,7 @@ def test_sync_odds_raises_when_writer_thread_records_failure(monkeypatch):
             max_workers=1,
             auto_tune_rps=False,
             persist_run_metrics=True,
-            client_factory=lambda: object(),
+            client_factory=lambda **_kwargs: object(),
             rate_limiter_factory=lambda r: None,
         )
 
@@ -423,7 +423,7 @@ def test_sync_odds_progress_bar_total_and_markets_postfix(monkeypatch):
         max_workers=1,
         auto_tune_rps=False,
         persist_run_metrics=False,
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         rate_limiter_factory=lambda r: None,
     )
 
@@ -497,7 +497,7 @@ def test_sync_odds_continues_when_candidate_count_fails(monkeypatch):
         max_workers=1,
         auto_tune_rps=False,
         persist_run_metrics=False,
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         rate_limiter_factory=lambda r: None,
     )
 
@@ -560,7 +560,7 @@ def test_sync_odds_pool_worker_exception_queues_retry_state(monkeypatch):
         max_workers=1,
         auto_tune_rps=False,
         persist_run_metrics=False,
-        client_factory=lambda: object(),
+        client_factory=lambda **_kwargs: object(),
         rate_limiter_factory=lambda r: None,
     )
 

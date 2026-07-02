@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List, Optional, Tuple
 
 from oddsfox.ingestion.polymarket.scope_sql import (
-    MARKET_SCOPE_WC2026,
+    MARKET_SCOPE_ALL,
     market_scope_predicate_sql,
     market_scope_sql,
     validate_market_scope,
@@ -341,7 +341,7 @@ def count_due_market_token_exclusions(
     volume_sql = _volume_where_clause(min_volume, max_volume, "m")
     scope_skip = 0
     ended_skip = 0
-    scoped = scope == MARKET_SCOPE_WC2026
+    scoped = scope != MARKET_SCOPE_ALL
     with get_connection() as conn:
         if scoped:
             predicate = market_scope_predicate_sql(market_scope, "m")

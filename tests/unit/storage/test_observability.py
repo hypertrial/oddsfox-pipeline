@@ -44,7 +44,7 @@ def test_snapshot_raw_layer_counts_polymarket_tables(
 
     assert snapshot["markets_rows"] == 1
     assert snapshot["markets_missing"] is False
-    assert "wc2026_market_registry_rows" in snapshot
+    assert "market_scope_registry_rows" in snapshot
     assert "market_tokens_distinct_tokens" not in snapshot
 
 
@@ -66,17 +66,17 @@ def test_snapshot_dbt_models_reports_missing_relations(tmp_path):
 
 
 def test_dbt_delta_and_formatters():
-    before = {"polymarket_marts.wc2026_markets": {"exists": False, "rows": None}}
-    after = {"polymarket_marts.wc2026_markets": {"exists": True, "rows": 3}}
+    before = {"polymarket_marts.selected_markets": {"exists": False, "rows": None}}
+    after = {"polymarket_marts.selected_markets": {"exists": True, "rows": 3}}
 
     assert delta_dbt_models(before, after) == {
-        "polymarket_marts.wc2026_markets": {
+        "polymarket_marts.selected_markets": {
             "before": {"exists": False, "rows": None},
             "after": {"exists": True, "rows": 3},
         }
     }
     assert "markets=2" in format_raw_snapshot_log({"markets_rows": 2})
-    assert "wc2026_markets:exists=True,rows=3" in format_dbt_snapshot_log(after)
+    assert "selected_markets:exists=True,rows=3" in format_dbt_snapshot_log(after)
 
 
 def test_observability_scalar_and_row_count_error_branches(caplog):

@@ -80,7 +80,9 @@ def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_g
 
     _patch_progress_guardrail_module(monkeypatch, assets_mod, clock)
 
-    monkeypatch.setattr(polymarket_ops_mod, "sync_wc2026_registry", _stub_registry)
+    monkeypatch.setattr(
+        polymarket_ops_mod, "sync_market_scope_registry", _stub_registry
+    )
     monkeypatch.setattr(polymarket_ops_mod, "sync_markets", _stub_sync_markets)
     monkeypatch.setattr(polymarket_ops_mod, "sync_odds", _stub_sync_odds)
     monkeypatch.setattr(

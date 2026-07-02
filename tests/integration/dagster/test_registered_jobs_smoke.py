@@ -81,7 +81,7 @@ oddsfox:
     )
     monkeypatch.setattr(
         assets_mod.ops,
-        "sync_wc2026_registry",
+        "sync_market_scope_registry",
         lambda **_kwargs: {"registry_rows_upserted": 0},
     )
     monkeypatch.setattr(

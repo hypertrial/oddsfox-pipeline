@@ -15,23 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Dagster Definitions asset keys.
 - Schedule mutual-exclusion guard when both minutely odds schedule env flags
   are enabled.
-- `outcome_label` on WC2026 minutely, daily, and whale odds marts so analysts
-  can interpret `outcome_index` without joining to `wc2026_markets`.
-- Companion markdown data spec written alongside WC2026 minutely odds parquet
-  exports (`export_wc2026_minutely_odds.py`; use `--no-spec` to skip).
+- `outcome_label` on selected-scope minutely, daily, and whale odds marts so analysts
+  can interpret `outcome_index` without joining to `selected_markets`.
+- Companion markdown data spec written alongside selected-scope minutely odds parquet
+  exports (`export_selected_minutely_odds.py`; use `--no-spec` to skip).
 
 ### Changed
 
+- Breaking v0.1.x warehouse and orchestration contract change: WC2026-specific
+  marts, registry tables, env vars, scripts, assets, and jobs were replaced by
+  generic selected-market-scope surfaces. WC2026 remains the default preset in
+  `market_scopes.yml`; operators with old local DuckDB files should delete
+  `oddsfox.duckdb*` and rerun quickstart.
 - GitHub Actions CI now runs `integration-dagster` and `make coverage` alongside
   the existing lint, test, dbt, docs, and costguard gates.
-- WC2026 full-keyset discovery now defaults `keyset_volume_min` to
-  `POLYMARKET_WC2026_KEYSET_VOLUME_MIN` (10_000) for both dlt and markets sync
+- selected-scope full-keyset discovery now defaults `keyset_volume_min` to
+  `POLYMARKET_SCOPE_KEYSET_VOLUME_MIN` (10_000) for both dlt and markets sync
   entrypoints.
 - dlt Dagster asset name aligned to `dlt_polymarket_markets` (matches deps and
   dbt sources).
 - CLOB odds HTTP retries happen only in the app-level backoff loop (urllib3
   status retries disabled for the CLOB client).
-- Settings consumers in `wc2026_scope` predicates/scan and DuckDB connection
+- Settings consumers in `market_scope` predicates/scan and DuckDB connection
   read config lazily so `reload_all_settings_modules()` propagates without
   extra `importlib.reload` per module.
 - Orchestration ops facade collapsed through `polymarket_ops.py`.
@@ -42,8 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   preserving the `oddsfox.storage.duckdb.markets` facade.
 - Odds sync now exposes `default_odds_sync_runtime()` as the supported runtime
   factory for tests and injected callables.
-- WC2026 keyset scan tag-closure queueing moved into a pure helper with the
+- selected-scope keyset scan tag-closure queueing moved into a pure helper with the
   same strict scope gates and telemetry output.
+- `int_polymarket_token_universe` now materializes as a dbt table after
+  profile-backed validation showed neutral-or-better build behavior.
 
 ### Fixed
 
@@ -57,9 +64,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `market_tokens` backfill and sync share one dlt-batch write path.
 - Multi-statement DuckDB writes wrapped in transactions (`save_event_slugs_batch`,
   `delete_orphan_market_tokens`, `refresh_token_odds_daily`).
+- Latest sync metrics now surface `pipeline_run_event_append_failed` and
+  `pipeline_run_event_append_error` when append-only run telemetry cannot land.
 
 ### Removed
 
+- WC2026-specific public marts, dbt intermediates, Dagster asset/job names,
+  env-var names, and operator scripts. No compatibility views, env aliases, or
+  migration shims were added.
 - Dead parallel odds planning/fetch module (`process.py`, `build_token_plans`,
   `set_status_hook`).
 - Unused snapshot HTTP client/cache surface and degraded snapshot result helper.
@@ -68,8 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Full WC2026 odds time-series marts: `wc2026_token_minutely_odds` and
-  `wc2026_token_daily_odds` (dbt views).
+- Full selected-scope odds time-series marts: `selected_token_minutely_odds` and
+  `selected_token_daily_odds` (dbt views).
 - `scripts/prune_odds_history.py` and `make prune-odds-history` for raw
   minutely retention (default 365 days).
 - MkDocs Material theme; architecture, data-contracts, community, and
@@ -79,8 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `wc2026_whale_minutely_odds` is now a filtered view over
-  `wc2026_token_minutely_odds`.
+- `selected_whale_minutely_odds` is now a filtered view over
+  `selected_token_minutely_odds`.
 - dlt is the sole owner of `polymarket_raw.markets` rows; snapshot upserts
   populate dlt metadata columns.
 - Due-token SQL deduplicated; backfill progress and slug handling aligned with
@@ -99,7 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `token_latest_odds` mart (use time-series marts; see docs/data-contracts.md).
 - Redundant `odds_history` indexes (~1.45 GiB legacy index footprint on
   upgrade).
-- Dead `wc2026_event_tags` dbt var.
+- Dead `market_scope_event_tags` dbt var.
 
 ## [0.1.0] - 2026-06-30
 
@@ -107,10 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Local Python pipeline foundation for prediction-market data, initially
   focused on FIFA World Cup 2026 Polymarket markets and odds.
-- Dagster orchestration with WC2026 ingest, minutely odds, and dbt refresh jobs.
+- Dagster orchestration with selected-scope ingest, minutely odds, and dbt refresh jobs.
 - dlt landing for Polymarket Gamma markets into DuckDB raw schemas.
 - Python odds sync engine with ledgers, retries, and token-level planning.
-- dbt staging, intermediate, mart, and observability models for WC2026 scope.
+- dbt staging, intermediate, mart, and observability models for selected market scopes.
 - DuckDB warehouse bootstrap, ops schemas, and profiling utilities.
 - MkDocs documentation site with CI `docs-check` validation.
 - GitHub Actions CI: lint, tests, docs build, dbt parse, and dbt build.

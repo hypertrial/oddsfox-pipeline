@@ -84,7 +84,12 @@ def test_save_sync_run_metrics_pipeline_append_failure_continues(monkeypatch, du
 
     monkeypatch.setattr(metadata, "append_pipeline_run_event", boom)
     metadata.save_sync_run_metrics("append_fail", {"x": 1})
-    assert metadata.get_sync_run_metrics("append_fail") is not None
+    saved = metadata.get_sync_run_metrics("append_fail")
+    assert saved is not None
+    assert saved["pipeline_run_event_append_failed"] is True
+    assert saved["pipeline_run_event_append_error"] == (
+        "RuntimeError: simulated append failure"
+    )
 
 
 def test_metadata_helpers(duck):

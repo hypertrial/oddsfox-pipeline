@@ -1,4 +1,4 @@
-"""Central settings barrel for the v0.1.0 WC2026 Polymarket pipeline."""
+"""Central settings barrel for the v0.1.0 selected-scope Polymarket pipeline."""
 
 from __future__ import annotations
 

@@ -113,7 +113,8 @@ def test_collect_raw_markets_targeted(monkeypatch):
         "oddsfox.ingestion.polymarket.dlt_source.build_client", lambda: client
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.dlt_source.load_wc2026_config", lambda: config
+        "oddsfox.ingestion.polymarket.dlt_source.load_market_scope_config",
+        lambda **_kwargs: config,
     )
 
     seen = {}
@@ -139,7 +140,8 @@ def test_collect_raw_markets_full_keyset_resolves_tags(monkeypatch):
         "oddsfox.ingestion.polymarket.dlt_source.build_client", lambda: client
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.dlt_source.load_wc2026_config", lambda: config
+        "oddsfox.ingestion.polymarket.dlt_source.load_market_scope_config",
+        lambda **_kwargs: config,
     )
     monkeypatch.setattr(
         "oddsfox.ingestion.polymarket.dlt_source.resolve_keyset_tag_slugs",

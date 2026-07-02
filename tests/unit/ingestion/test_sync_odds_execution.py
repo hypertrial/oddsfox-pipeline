@@ -288,7 +288,7 @@ def test_sync_odds_no_progress_hard_timeout_aborts_and_persists_metrics(monkeypa
             progress_poll_seconds=1,
             no_progress_soft_timeout_seconds=None,
             no_progress_hard_timeout_seconds=1,
-            client_factory=lambda: object(),
+            client_factory=lambda **_kwargs: object(),
             rate_limiter_factory=lambda r: None,
         )
 
@@ -333,7 +333,7 @@ def test_sync_odds_no_progress_timeout_without_shutdown_method(monkeypatch):
             progress_poll_seconds=1,
             no_progress_soft_timeout_seconds=None,
             no_progress_hard_timeout_seconds=1,
-            client_factory=lambda: object(),
+            client_factory=lambda **_kwargs: object(),
             rate_limiter_factory=lambda r: None,
         )
 
@@ -373,7 +373,7 @@ def test_sync_odds_timeout_transient_finishes_without_abort(monkeypatch):
             auto_tune_rps=False,
             persist_run_metrics=True,
             progress_poll_seconds=1,
-            client_factory=lambda: object(),
+            client_factory=lambda **_kwargs: object(),
             rate_limiter_factory=lambda r: None,
         )
 
@@ -436,7 +436,7 @@ def test_sync_odds_waiting_heartbeat_includes_oldest_inflight(monkeypatch):
             progress_callback=lambda phase, payload: seen_payloads.append(
                 (phase, payload)
             ),
-            client_factory=lambda: object(),
+            client_factory=lambda **_kwargs: object(),
             rate_limiter_factory=lambda r: None,
         )
 

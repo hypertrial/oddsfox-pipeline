@@ -10,6 +10,7 @@ from oddsfox.config.settings import (
     MIN_ODDS_FIDELITY_MINUTES,
     WHALE_MIN_VOLUME_USD,
 )
+from oddsfox.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_PAGES = 20_000
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_NO_PROGRESS_PAGES = 25
@@ -21,7 +22,7 @@ DEFAULT_PROGRESS_POLL_SECONDS = 5
 
 
 def _validate_market_scope_value(v: str) -> str:
-    from oddsfox.ingestion.polymarket.wc2026_scope import validate_market_scope
+    from oddsfox.ingestion.polymarket.market_scope import validate_market_scope
 
     return validate_market_scope(v)
 
@@ -62,14 +63,20 @@ class GuardrailConfig(Config):
 
 
 class MarketsSyncConfig(GuardrailConfig):
+    scope_name: str = Field(default=DEFAULT_MARKET_SCOPE)
     progress_log_interval_pages: int = Field(default=10, ge=1)
     discovery_mode: Literal["targeted", "full_keyset"] = "full_keyset"
     force_full_discovery: bool = False
     max_event_pages: int | None = None
-    keyset_closed: bool | None = False
+    keyset_closed: bool | None = None
     keyset_tag_slugs: list[str] | None = None
     keyset_volume_min: float | None = Field(default=10000.0, ge=0)
     max_pages_without_progress: int | None = None
+
+    @field_validator("scope_name")
+    @classmethod
+    def _validate_scope_name(cls, v: str) -> str:
+        return _validate_market_scope_value(v)
 
     @field_validator("max_pages_without_progress")
     @classmethod
@@ -79,14 +86,20 @@ class MarketsSyncConfig(GuardrailConfig):
         return v
 
 
-class Wc2026RegistryConfig(GuardrailConfig):
+class MarketScopeRegistryConfig(GuardrailConfig):
+    scope_name: str = Field(default=DEFAULT_MARKET_SCOPE)
     max_event_pages: int | None = None
-    keyset_closed: bool | None = False
+    keyset_closed: bool | None = None
     keyset_tag_slugs: list[str] | None = None
     keyset_volume_min: float | None = Field(default=10000.0, ge=0)
     max_pages_without_progress: int | None = None
     skip_if_snapshot_refreshed: bool = True
     force_refresh: bool = False
+
+    @field_validator("scope_name")
+    @classmethod
+    def _validate_scope_name(cls, v: str) -> str:
+        return _validate_market_scope_value(v)
 
     @field_validator("max_pages_without_progress")
     @classmethod
@@ -112,7 +125,7 @@ class MetadataBackfillConfig(GuardrailConfig):
     )
     progress_log_interval_batches: int = Field(default=10, ge=1)
     event_slug_fallback_progress_pages: int = Field(default=25, ge=1)
-    market_scope: str = Field(default="wc2026")
+    scope_name: str = Field(default=DEFAULT_MARKET_SCOPE)
 
     @field_validator("gamma_requests_per_second")
     @classmethod
@@ -121,9 +134,9 @@ class MetadataBackfillConfig(GuardrailConfig):
             raise ValueError("gamma_requests_per_second must be positive when set")
         return v
 
-    @field_validator("market_scope")
+    @field_validator("scope_name")
     @classmethod
-    def _validate_market_scope(cls, v: str) -> str:
+    def _validate_scope_name(cls, v: str) -> str:
         return _validate_market_scope_value(v)
 
 
@@ -153,15 +166,15 @@ class OddsSyncConfig(GuardrailConfig):
     transient_backoff_seconds: float = 0.25
     short_range_first: bool = True
     market_page_size: int = 2000
-    market_scope: str = Field(default="wc2026")
+    scope_name: str = Field(default=DEFAULT_MARKET_SCOPE)
     ended_market_grace_days: int | None = Field(default=7, ge=0)
     min_volume: float | None = None
     max_volume: float | None = Field(default=WHALE_MIN_VOLUME_USD)
     minutely_backfill_days: int = Field(default=0, ge=0)
 
-    @field_validator("market_scope")
+    @field_validator("scope_name")
     @classmethod
-    def _validate_market_scope(cls, v: str) -> str:
+    def _validate_scope_name(cls, v: str) -> str:
         return _validate_market_scope_value(v)
 
     @field_validator("min_volume", "max_volume")
@@ -185,7 +198,7 @@ class MinutelyOddsSyncConfig(OddsSyncConfig):
     min_volume: float | None = Field(default=WHALE_MIN_VOLUME_USD)
     max_volume: float | None = None
     minutely_backfill_days: int = Field(default=0, ge=0)
-    market_scope: str = Field(default="wc2026")
+    scope_name: str = Field(default=DEFAULT_MARKET_SCOPE)
     ended_market_grace_days: int | None = Field(default=7, ge=0)
 
 
@@ -209,14 +222,14 @@ def full_refresh_events_run_config() -> dict:
         force_full_discovery=True,
         max_pages_without_progress=None,
     )
-    registry_cfg = Wc2026RegistryConfig(
+    registry_cfg = MarketScopeRegistryConfig(
         force_refresh=True,
         max_pages_without_progress=None,
     )
     return {
         "ops": {
             "polymarket_markets_snapshot": {"config": markets_cfg.model_dump()},
-            "polymarket_wc2026_registry": {"config": registry_cfg.model_dump()},
+            "polymarket_market_scope_registry": {"config": registry_cfg.model_dump()},
         }
     }
 

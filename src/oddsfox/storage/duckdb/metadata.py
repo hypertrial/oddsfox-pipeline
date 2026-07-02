@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from oddsfox.config.settings_polymarket import DEFAULT_POLYMARKET_MARKET_SCOPE
 from oddsfox.storage.duckdb.connection import (
     ensure_duck_db,
     get_connection,
@@ -109,6 +110,8 @@ def save_sync_run_metrics(task: str, metrics: dict[str, Any], history_limit: int
     try:
         append_pipeline_run_event(task, payload, recorded_at=recorded)
     except Exception as exc:
+        payload["pipeline_run_event_append_failed"] = True
+        payload["pipeline_run_event_append_error"] = f"{exc.__class__.__name__}: {exc}"
         logger.warning(
             "pipeline_run_events append failed (continuing with scrape_metadata): %s",
             exc,
@@ -188,33 +191,50 @@ def get_sync_run_metrics(task: str) -> Optional[dict[str, Any]]:
     return parsed if isinstance(parsed, dict) else None
 
 
-_WC2026_DISCOVERY_PREFIX = "wc2026_markets_discovery:"
+_MARKET_SCOPE_DISCOVERY_PREFIX = "market_scope_discovery:"
 
 
-def get_wc2026_discovery_fully_checked() -> Optional[bool]:
-    """Return whether a full keyset WC2026 markets discovery completed without truncation."""
-    raw = _metadata_get(f"{_WC2026_DISCOVERY_PREFIX}fully_checked")
+def _scope_discovery_key(scope_name: str, suffix: str) -> str:
+    scope = str(scope_name or "").strip().lower()
+    if not scope:
+        raise ValueError("scope_name must not be empty")
+    return f"{_MARKET_SCOPE_DISCOVERY_PREFIX}{scope}:{suffix}"
+
+
+def get_market_scope_discovery_fully_checked(
+    scope_name: str = DEFAULT_POLYMARKET_MARKET_SCOPE,
+) -> Optional[bool]:
+    """Return whether a full keyset market-scope discovery completed cleanly."""
+    raw = _metadata_get(_scope_discovery_key(scope_name, "fully_checked"))
     if raw is None:
         return None
     return raw.lower() in ("1", "true", "yes")
 
 
-def get_wc2026_discovery_scope_config_hash() -> Optional[str]:
-    raw = _metadata_get(f"{_WC2026_DISCOVERY_PREFIX}scope_config_hash")
+def get_market_scope_discovery_scope_config_hash(
+    scope_name: str = DEFAULT_POLYMARKET_MARKET_SCOPE,
+) -> Optional[str]:
+    raw = _metadata_get(_scope_discovery_key(scope_name, "scope_config_hash"))
     return raw if raw else None
 
 
-def set_wc2026_discovery_fully_checked(
-    fully_checked: bool, *, scope_config_hash: str
+def set_market_scope_discovery_fully_checked(
+    scope_name: str = DEFAULT_POLYMARKET_MARKET_SCOPE,
+    fully_checked: bool = False,
+    *,
+    scope_config_hash: str,
 ) -> None:
     """Persist full keyset discovery completion and scope config hash."""
     now_iso = datetime.now(timezone.utc).isoformat()
     _metadata_set(
-        f"{_WC2026_DISCOVERY_PREFIX}fully_checked",
+        _scope_discovery_key(scope_name, "fully_checked"),
         "1" if fully_checked else "0",
     )
-    _metadata_set(f"{_WC2026_DISCOVERY_PREFIX}scope_config_hash", scope_config_hash)
-    _metadata_set(f"{_WC2026_DISCOVERY_PREFIX}last_run_at", now_iso)
+    _metadata_set(
+        _scope_discovery_key(scope_name, "scope_config_hash"),
+        scope_config_hash,
+    )
+    _metadata_set(_scope_discovery_key(scope_name, "last_run_at"), now_iso)
 
 
 __all__ = [
@@ -226,8 +246,8 @@ __all__ = [
     "get_backfill_progress",
     "set_backfill_progress",
     "get_sync_run_metrics",
-    "get_wc2026_discovery_fully_checked",
-    "get_wc2026_discovery_scope_config_hash",
+    "get_market_scope_discovery_fully_checked",
+    "get_market_scope_discovery_scope_config_hash",
     "save_sync_run_metrics",
-    "set_wc2026_discovery_fully_checked",
+    "set_market_scope_discovery_fully_checked",
 ]

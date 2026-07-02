@@ -8,11 +8,8 @@ profile: oddsfox
 flags:
   indirect_selection: buildable
 vars:
+  active_market_scope: wc2026
   polymarket_whale_min_volume_usd: 100000
-  wc2026_event_slugs:
-    - 2026-fifa-world-cup-winner
-  wc2026_event_slug_prefixes:
-    - 2026-fifa-world-cup
 model-paths: ["models"]
 test-paths: ["tests"]
 target-path: target
@@ -31,17 +28,19 @@ models:
       intermediate:
         +schema: polymarket_intermediate
         +tags: ["intermediate", "polymarket"]
+        int_polymarket_token_universe:
+          +materialized: table
         int_polymarket_token_daily_timeseries:
           +materialized: table
       marts:
         +schema: polymarket_marts
         +materialized: table
         +tags: ["mart", "core", "polymarket"]
-        wc2026_token_minutely_odds:
+        selected_token_minutely_odds:
           +materialized: view
-        wc2026_token_daily_odds:
+        selected_token_daily_odds:
           +materialized: view
-        wc2026_whale_minutely_odds:
+        selected_whale_minutely_odds:
           +materialized: view
       observability:
         +schema: polymarket_observability

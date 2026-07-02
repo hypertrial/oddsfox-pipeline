@@ -53,8 +53,8 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
     assert tables[("polymarket_ops", "pipeline_run_events")] == [
         "polymarket_token_odds_history_minutely"
     ]
-    assert tables[("polymarket_ops", "wc2026_market_registry")] == [
-        "polymarket_wc2026_registry"
+    assert tables[("polymarket_ops", "market_scope_registry")] == [
+        "polymarket_market_scope_registry"
     ]
 
 

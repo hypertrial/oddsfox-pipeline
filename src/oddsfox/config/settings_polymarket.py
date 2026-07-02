@@ -26,6 +26,7 @@ HTTP_REQUEST_TIMEOUT = (
 MIN_ODDS_FIDELITY_MINUTES = 1
 DEFAULT_ODDS_FIDELITY_MINUTES = 1440
 WHALE_MIN_VOLUME_USD = 100_000.0
+DEFAULT_POLYMARKET_MARKET_SCOPE = "wc2026"
 POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED = _env_bool(
     "POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED",
     False,
@@ -35,30 +36,26 @@ POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED = _env_bool(
     False,
 )
 
-POLYMARKET_WC2026_DEFAULT_EVENT_SLUG = (
-    os.getenv(
-        "POLYMARKET_WC2026_DEFAULT_EVENT_SLUG",
-        "2026-fifa-world-cup-winner",
-    )
+POLYMARKET_MARKET_SCOPE = (
+    os.getenv("POLYMARKET_MARKET_SCOPE", DEFAULT_POLYMARKET_MARKET_SCOPE)
     .strip()
     .lower()
+    or DEFAULT_POLYMARKET_MARKET_SCOPE
 )
-POLYMARKET_WC2026_EVENT_SLUGS = os.getenv("POLYMARKET_WC2026_EVENT_SLUGS", "").strip()
-POLYMARKET_WC2026_EVENT_SLUG_PREFIXES = os.getenv(
-    "POLYMARKET_WC2026_EVENT_SLUG_PREFIXES", ""
+POLYMARKET_SCOPE_EVENT_SLUGS = os.getenv("POLYMARKET_SCOPE_EVENT_SLUGS", "").strip()
+POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES = os.getenv(
+    "POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES", ""
 ).strip()
-POLYMARKET_WC2026_EVENT_TAGS = os.getenv(
-    "POLYMARKET_WC2026_EVENT_TAGS",
-    "2026-fifa-world-cup,fifa-world-cup,world-cup",
-).strip()
-POLYMARKET_WC2026_REGISTRY_MAX_EVENT_PAGES = _optional_env_int(
-    "POLYMARKET_WC2026_REGISTRY_MAX_EVENT_PAGES"
+POLYMARKET_SCOPE_EVENT_TAGS = os.getenv("POLYMARKET_SCOPE_EVENT_TAGS", "").strip()
+POLYMARKET_SCOPE_MARKET_IDS = os.getenv("POLYMARKET_SCOPE_MARKET_IDS", "").strip()
+POLYMARKET_SCOPE_REGISTRY_MAX_EVENT_PAGES = _optional_env_int(
+    "POLYMARKET_SCOPE_REGISTRY_MAX_EVENT_PAGES"
 )
 
 
-def _parse_wc2026_keyset_closed_env() -> bool | None:
+def _parse_scope_keyset_closed_env() -> bool | None:
     """Default False (open only); empty/any/none omits closed on /events/keyset."""
-    raw = os.getenv("POLYMARKET_WC2026_KEYSET_CLOSED")
+    raw = os.getenv("POLYMARKET_SCOPE_KEYSET_CLOSED")
     if raw is None:
         return False
     normalized = str(raw).strip().lower()
@@ -68,12 +65,12 @@ def _parse_wc2026_keyset_closed_env() -> bool | None:
         return False
     if normalized in {"true", "1", "closed"}:
         return True
-    return _env_bool("POLYMARKET_WC2026_KEYSET_CLOSED", False)
+    return _env_bool("POLYMARKET_SCOPE_KEYSET_CLOSED", False)
 
 
-def _parse_wc2026_keyset_volume_min_env() -> float | None:
+def _parse_scope_keyset_volume_min_env() -> float | None:
     """Default 10000; empty/none/null omits volume_min on /events/keyset."""
-    raw = os.getenv("POLYMARKET_WC2026_KEYSET_VOLUME_MIN")
+    raw = os.getenv("POLYMARKET_SCOPE_KEYSET_VOLUME_MIN")
     if raw is None:
         return 10000.0
     normalized = str(raw).strip().lower()
@@ -85,40 +82,39 @@ def _parse_wc2026_keyset_volume_min_env() -> float | None:
         return 10000.0
 
 
-POLYMARKET_WC2026_KEYSET_VOLUME_MIN = _parse_wc2026_keyset_volume_min_env()
-POLYMARKET_WC2026_KEYSET_CLOSED = _parse_wc2026_keyset_closed_env()
-POLYMARKET_WC2026_KEYSET_RELATED_TAGS = _env_bool(
-    "POLYMARKET_WC2026_KEYSET_RELATED_TAGS",
+POLYMARKET_SCOPE_KEYSET_VOLUME_MIN = _parse_scope_keyset_volume_min_env()
+POLYMARKET_SCOPE_KEYSET_CLOSED = _parse_scope_keyset_closed_env()
+POLYMARKET_SCOPE_KEYSET_RELATED_TAGS = _env_bool(
+    "POLYMARKET_SCOPE_KEYSET_RELATED_TAGS",
     True,
 )
-POLYMARKET_WC2026_TAG_DISCOVERY = _env_bool("POLYMARKET_WC2026_TAG_DISCOVERY", True)
-POLYMARKET_WC2026_TAG_DISCOVERY_KEYWORDS = os.getenv(
-    "POLYMARKET_WC2026_TAG_DISCOVERY_KEYWORDS",
-    "world cup,world-cup,fifa,world-cup-2026,fifa-world-cup,wc-2026,"
-    "world-cup-qualifier,world-cup-qualifiers",
+POLYMARKET_SCOPE_TAG_DISCOVERY = _env_bool("POLYMARKET_SCOPE_TAG_DISCOVERY", True)
+POLYMARKET_SCOPE_TAG_DISCOVERY_KEYWORDS = os.getenv(
+    "POLYMARKET_SCOPE_TAG_DISCOVERY_KEYWORDS",
+    "",
 ).strip()
-POLYMARKET_WC2026_TAG_CLOSURE_ROUNDS = _env_int(
-    "POLYMARKET_WC2026_TAG_CLOSURE_ROUNDS",
+POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS = _env_int(
+    "POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS",
     2,
 )
-POLYMARKET_WC2026_TAG_CRAWL_MAX = _env_int("POLYMARKET_WC2026_TAG_CRAWL_MAX", 100)
-POLYMARKET_WC2026_TAG_CLOSURE_KEYWORD_GATE = _env_bool(
-    "POLYMARKET_WC2026_TAG_CLOSURE_KEYWORD_GATE",
+POLYMARKET_SCOPE_TAG_CRAWL_MAX = _env_int("POLYMARKET_SCOPE_TAG_CRAWL_MAX", 100)
+POLYMARKET_SCOPE_TAG_CLOSURE_KEYWORD_GATE = _env_bool(
+    "POLYMARKET_SCOPE_TAG_CLOSURE_KEYWORD_GATE",
     True,
 )
 
 
-def _parse_wc2026_tag_crawl_denylist() -> tuple[str, ...]:
+def _parse_scope_tag_crawl_denylist() -> tuple[str, ...]:
     raw = os.getenv(
-        "POLYMARKET_WC2026_TAG_CRAWL_DENYLIST",
-        "sports,soccer,football,politics,pop-culture,crypto,business,economy,world,games",
+        "POLYMARKET_SCOPE_TAG_CRAWL_DENYLIST",
+        "",
     ).strip()
     if not raw:
         return ()
     return tuple(part.strip().lower() for part in raw.split(",") if part.strip())
 
 
-POLYMARKET_WC2026_TAG_CRAWL_DENYLIST = _parse_wc2026_tag_crawl_denylist()
+POLYMARKET_SCOPE_TAG_CRAWL_DENYLIST = _parse_scope_tag_crawl_denylist()
 CLOB_API_KEY = os.getenv("CLOB_API_KEY")
 CLOB_API_SECRET = os.getenv("CLOB_API_SECRET")
 CLOB_API_PASSPHRASE = os.getenv("CLOB_API_PASSPHRASE")
@@ -137,20 +133,22 @@ __all__ = [
     "POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED",
     "WHALE_MIN_VOLUME_USD",
     "DEFAULT_ODDS_FIDELITY_MINUTES",
+    "DEFAULT_POLYMARKET_MARKET_SCOPE",
     "MIN_ODDS_FIDELITY_MINUTES",
     "ODDS_REQUESTS_PER_SECOND",
-    "POLYMARKET_WC2026_DEFAULT_EVENT_SLUG",
-    "POLYMARKET_WC2026_EVENT_SLUG_PREFIXES",
-    "POLYMARKET_WC2026_EVENT_SLUGS",
-    "POLYMARKET_WC2026_EVENT_TAGS",
-    "POLYMARKET_WC2026_KEYSET_CLOSED",
-    "POLYMARKET_WC2026_KEYSET_RELATED_TAGS",
-    "POLYMARKET_WC2026_KEYSET_VOLUME_MIN",
-    "POLYMARKET_WC2026_REGISTRY_MAX_EVENT_PAGES",
-    "POLYMARKET_WC2026_TAG_DISCOVERY",
-    "POLYMARKET_WC2026_TAG_DISCOVERY_KEYWORDS",
-    "POLYMARKET_WC2026_TAG_CLOSURE_ROUNDS",
-    "POLYMARKET_WC2026_TAG_CLOSURE_KEYWORD_GATE",
-    "POLYMARKET_WC2026_TAG_CRAWL_DENYLIST",
-    "POLYMARKET_WC2026_TAG_CRAWL_MAX",
+    "POLYMARKET_MARKET_SCOPE",
+    "POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES",
+    "POLYMARKET_SCOPE_EVENT_SLUGS",
+    "POLYMARKET_SCOPE_EVENT_TAGS",
+    "POLYMARKET_SCOPE_KEYSET_CLOSED",
+    "POLYMARKET_SCOPE_KEYSET_RELATED_TAGS",
+    "POLYMARKET_SCOPE_KEYSET_VOLUME_MIN",
+    "POLYMARKET_SCOPE_MARKET_IDS",
+    "POLYMARKET_SCOPE_REGISTRY_MAX_EVENT_PAGES",
+    "POLYMARKET_SCOPE_TAG_DISCOVERY",
+    "POLYMARKET_SCOPE_TAG_DISCOVERY_KEYWORDS",
+    "POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS",
+    "POLYMARKET_SCOPE_TAG_CLOSURE_KEYWORD_GATE",
+    "POLYMARKET_SCOPE_TAG_CRAWL_DENYLIST",
+    "POLYMARKET_SCOPE_TAG_CRAWL_MAX",
 ]

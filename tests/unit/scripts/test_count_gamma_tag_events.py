@@ -80,7 +80,7 @@ def test_count_main_resolves_tags_and_options(monkeypatch):
         captured["count"] = (tag_slugs, kwargs)
         return {"fifa-world-cup": 2}
 
-    monkeypatch.setattr(count, "load_wc2026_config", lambda: config)
+    monkeypatch.setattr(count, "load_market_scope_config", lambda **_kwargs: config)
     monkeypatch.setattr(count, "resolve_keyset_tag_slugs", resolve)
     monkeypatch.setattr(count, "count_scope_tags", count_scope_tags)
     monkeypatch.setattr(
@@ -123,7 +123,7 @@ def test_count_main_resolves_tags_and_options(monkeypatch):
 )
 def test_count_main_rejects_invalid_inputs(monkeypatch, args):
     count = _load_count_module()
-    monkeypatch.setattr(count, "load_wc2026_config", lambda: object())
+    monkeypatch.setattr(count, "load_market_scope_config", lambda **_kwargs: object())
     monkeypatch.setattr(
         count, "resolve_keyset_tag_slugs", lambda *_args, **_kwargs: ["tag"]
     )
@@ -137,7 +137,7 @@ def test_count_main_rejects_invalid_inputs(monkeypatch, args):
 
 def test_count_main_rejects_empty_tag_resolution(monkeypatch):
     count = _load_count_module()
-    monkeypatch.setattr(count, "load_wc2026_config", lambda: object())
+    monkeypatch.setattr(count, "load_market_scope_config", lambda **_kwargs: object())
     monkeypatch.setattr(count, "resolve_keyset_tag_slugs", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(sys, "argv", ["count_gamma_tag_events.py"])
 

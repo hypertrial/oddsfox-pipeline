@@ -10,15 +10,16 @@ from oddsfox.ingestion.polymarket.dlt_source import (
     normalize_market_payloads_for_dlt,
     polymarket_markets_source,
 )
+from oddsfox.orchestration import polymarket_asset_helpers as asset_helpers
 from oddsfox.orchestration import polymarket_ops as ops
 from oddsfox.orchestration.config import (
     DbtBuildConfig,
+    MarketScopeRegistryConfig,
     MarketsSyncConfig,
     MetadataBackfillConfig,
     MinutelyOddsSyncConfig,
     OddsSyncConfig,
     RepairConfig,
-    Wc2026RegistryConfig,
 )
 from oddsfox.orchestration.dbt_project import DBT_PROJECT
 from oddsfox.orchestration.translators import PolymarketDagsterDbtTranslator
@@ -34,6 +35,20 @@ from oddsfox.storage.duckdb.observability import (
 )
 from oddsfox.storage.duckdb.schemas.polymarket import ensure_polymarket_indexes
 
+_DLT_PIPELINE_BY_PATH = asset_helpers._DLT_PIPELINE_BY_PATH
+
+
+def _run_with_raw_snapshot(
+    raw_snapshot_level: str,
+    run_fn: Callable[[dict[str, Any]], dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict]:
+    return asset_helpers._run_with_raw_snapshot(
+        raw_snapshot_level,
+        run_fn,
+        snapshot_raw_layer_fn=snapshot_raw_layer,
+        delta_raw_layer_fn=delta_raw_layer,
+    )
+
 
 def _raw_snapshot_metadata(
     pre: dict[str, Any],
@@ -42,41 +57,11 @@ def _raw_snapshot_metadata(
     *,
     run_summary: dict[str, Any] | None = None,
 ) -> dict[str, MetadataValue]:
-    metadata = {
-        "duckdb_raw_pre": MetadataValue.json(pre),
-        "duckdb_raw_post": MetadataValue.json(post),
-        "duckdb_raw_delta": MetadataValue.json(delta),
-    }
-    if run_summary is not None:
-        metadata["run_summary"] = MetadataValue.json(run_summary)
-    return metadata
-
-
-def _run_with_raw_snapshot(
-    raw_snapshot_level: str,
-    run_fn: Callable[[dict[str, Any]], dict[str, Any]],
-) -> tuple[
-    dict[str, Any],
-    dict[str, Any],
-    dict[str, Any],
-    dict[str, Any],
-    dict[str, MetadataValue],
-]:
-    pre = snapshot_raw_layer(level=raw_snapshot_level)
-    run_summary = run_fn(pre)
-    post = snapshot_raw_layer(level=raw_snapshot_level)
-    delta = delta_raw_layer(pre, post)
-    return (
-        run_summary,
+    return asset_helpers._raw_snapshot_metadata(
         pre,
         post,
         delta,
-        _raw_snapshot_metadata(
-            pre,
-            post,
-            delta,
-            run_summary=run_summary,
-        ),
+        run_summary=run_summary,
     )
 
 
@@ -86,44 +71,11 @@ def _build_odds_sync_kwargs(
     *,
     plan_iterator_factory: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
-    sync_kwargs: dict[str, Any] = {
-        "max_workers": config.workers,
-        "batch_size": config.batch_size,
-        "fidelity": config.fidelity,
-        "requests_per_second": config.requests_per_second,
-        "auto_tune_rps": config.auto_tune_rps,
-        "auto_tune_max_rps": config.auto_tune_max_rps,
-        "force": config.force,
-        "clob_cutoff_date": config.clob_cutoff,
-        "skip_recent_minutes": config.skip_recent_minutes,
-        "overlap_minutes": config.overlap_minutes,
-        "window_hours": config.window_hours,
-        "rebuild_minutely": config.rebuild_minutely,
-        "reconcile_ledger": config.reconcile_ledger,
-        "short_range_first": config.short_range_first,
-        "market_scope": config.market_scope,
-        "ended_market_grace_days": config.ended_market_grace_days,
-        "min_volume": config.min_volume,
-        "max_volume": config.max_volume,
-        "minutely_backfill_days": config.minutely_backfill_days,
-        "empty_token_skip_runs": config.empty_skip_runs,
-        "routine_interval_hours": config.routine_interval_hours,
-        "empty_retry_base_hours": config.empty_retry_base_hours,
-        "empty_retry_max_hours": config.empty_retry_max_hours,
-        "error_retry_minutes": config.error_retry_minutes,
-        "transient_retries": config.transient_retries,
-        "transient_backoff_seconds": config.transient_backoff_seconds,
-        "market_page_size": config.market_page_size,
-        "progress_callback": progress_callback,
-        "progress_log_interval_tokens": config.progress_log_interval_tokens,
-        "progress_log_interval_seconds": config.progress_log_interval_seconds,
-        "no_progress_soft_timeout_seconds": config.no_progress_soft_timeout_seconds,
-        "no_progress_hard_timeout_seconds": config.no_progress_hard_timeout_seconds,
-        "progress_poll_seconds": config.progress_poll_seconds,
-    }
-    if plan_iterator_factory is not None:
-        sync_kwargs["plan_iterator_factory"] = plan_iterator_factory
-    return sync_kwargs
+    return asset_helpers._build_odds_sync_kwargs(
+        config,
+        progress_callback,
+        plan_iterator_factory=plan_iterator_factory,
+    )
 
 
 def _odds_sync_metadata(
@@ -131,21 +83,7 @@ def _odds_sync_metadata(
     run_summary: dict[str, Any],
     raw_metadata: dict[str, MetadataValue],
 ) -> dict[str, MetadataValue]:
-    metadata = {
-        "workers": MetadataValue.int(config.workers),
-        "force": MetadataValue.bool(config.force),
-        "fidelity": MetadataValue.int(config.fidelity),
-        "minutely_backfill_days": MetadataValue.int(config.minutely_backfill_days),
-        "planning": MetadataValue.json(run_summary.get("planning", {})),
-        "planning_context": MetadataValue.json(run_summary.get("planning_context", {})),
-        "totals": MetadataValue.json(run_summary.get("totals", {})),
-        **raw_metadata,
-    }
-    if config.min_volume is not None:
-        metadata["min_volume"] = MetadataValue.float(config.min_volume)
-    if config.max_volume is not None:
-        metadata["max_volume"] = MetadataValue.float(config.max_volume)
-    return metadata
+    return asset_helpers._odds_sync_metadata(config, run_summary, raw_metadata)
 
 
 def _run_with_guardrail_thread(
@@ -155,34 +93,13 @@ def _run_with_guardrail_thread(
     *,
     poll_seconds: float,
 ) -> dict[str, Any]:
-    result: dict[str, Any] | None = None
-    error: Exception | None = None
-
-    def _target() -> None:
-        nonlocal result, error
-        try:
-            result = run_fn()
-        except Exception as exc:
-            error = exc
-
-    worker = ops.Thread(target=_target, daemon=True)
-    worker.start()
-    while worker.is_alive():
-        worker.join(timeout=max(1, poll_seconds))
-        if worker.is_alive():
-            guardrail.check(
-                phase=phase_name,
-                diagnostics={"worker_alive": True},
-            )
-    if error is not None:
-        raise error
-    guardrail.record_progress(
-        work_increment=0,
-        phase=f"{phase_name}_complete",
-        diagnostics={"worker_alive": False},
-        force_log=True,
+    return asset_helpers._run_with_guardrail_thread(
+        guardrail,
+        phase_name,
+        run_fn,
+        poll_seconds=poll_seconds,
+        thread_factory=ops.Thread,
     )
-    return result or {}
 
 
 def _materialize_odds_sync(
@@ -191,37 +108,20 @@ def _materialize_odds_sync(
     *,
     plan_iterator_factory: Callable[..., Any] | None = None,
 ) -> MaterializeResult:
-    def _odds_progress(phase: str, payload: dict[str, Any]) -> None:
-        context.log.info("[%s] %s", phase, payload)
-
-    sync_kwargs = _build_odds_sync_kwargs(
+    return asset_helpers._materialize_odds_sync(
+        context,
         config,
-        _odds_progress,
         plan_iterator_factory=plan_iterator_factory,
+        sync_odds_fn=ops.sync_odds,
+        run_with_raw_snapshot_fn=_run_with_raw_snapshot,
     )
-    run_summary, _, _, _, raw_metadata = _run_with_raw_snapshot(
-        config.raw_snapshot_level,
-        lambda _pre: ops.sync_odds(**sync_kwargs),
-    )
-    metadata = _odds_sync_metadata(config, run_summary, raw_metadata)
-    return MaterializeResult(metadata=metadata)
-
-
-_DLT_PIPELINE_BY_PATH: dict[str, dlt.Pipeline] = {}
 
 
 def get_polymarket_dlt_pipeline() -> dlt.Pipeline:
-    db_path = str(active_duckdb_path())
-    cached = _DLT_PIPELINE_BY_PATH.get(db_path)
-    if cached is not None:
-        return cached
-    pipe = dlt.pipeline(
-        pipeline_name="polymarket_wc2026_raw",
-        destination=dlt.destinations.duckdb(credentials=db_path),
-        dataset_name="polymarket_raw",
+    return asset_helpers.get_polymarket_dlt_pipeline(
+        active_duckdb_path_fn=active_duckdb_path,
+        dlt_module=dlt,
     )
-    _DLT_PIPELINE_BY_PATH[db_path] = pipe
-    return pipe
 
 
 _POLYMARKET_DLT_PIPELINE = get_polymarket_dlt_pipeline()
@@ -240,7 +140,7 @@ def polymarket_markets_raw_dlt(
     pipeline = get_polymarket_dlt_pipeline()
     if pipeline.has_pending_data:
         context.log.info(
-            "Clearing pending dlt packages for polymarket_wc2026_raw before extract"
+            "Clearing pending dlt packages for polymarket_selected_scope_raw before extract"
         )
         pipeline.drop_pending_packages()
     rows = normalize_market_payloads_for_dlt(collect_raw_markets())
@@ -287,7 +187,8 @@ def polymarket_markets_snapshot(
         work_increment=0,
         phase="start",
         diagnostics={
-            "mode": "wc2026_event_first",
+            "mode": "market_scope_event_first",
+            "scope_name": config.scope_name,
             "discovery_mode": config.discovery_mode,
         },
         force_log=True,
@@ -298,6 +199,7 @@ def polymarket_markets_snapshot(
         return ops.sync_markets(
             discovery_mode=config.discovery_mode,
             force_full_discovery=config.force_full_discovery,
+            scope_name=config.scope_name,
             max_event_pages=config.max_event_pages,
             max_pages_without_progress=config.max_pages_without_progress,
             keyset_closed=config.keyset_closed,
@@ -335,27 +237,32 @@ def polymarket_markets_snapshot(
 
 
 @asset(
-    name="polymarket_wc2026_registry",
+    name="polymarket_market_scope_registry",
     deps=[polymarket_markets_snapshot],
     group_name="ingestion",
 )
-def polymarket_wc2026_registry(
+def polymarket_market_scope_registry(
     context: AssetExecutionContext,
-    config: Wc2026RegistryConfig,
+    config: MarketScopeRegistryConfig,
 ) -> MaterializeResult:
     def _registry_progress(phase: str, payload: dict[str, Any]) -> None:
         context.log.info("[%s] %s", phase, payload)
 
     if config.skip_if_snapshot_refreshed and not config.force_refresh:
         snapshot_metrics = get_sync_run_metrics("sync_markets")
-        if snapshot_metrics and snapshot_metrics.get("registry_refreshed") is True:
+        if (
+            snapshot_metrics
+            and snapshot_metrics.get("registry_refreshed") is True
+            and snapshot_metrics.get("scope_name") == config.scope_name
+        ):
             context.log.info(
-                "Skipping WC2026 registry refresh; snapshot already refreshed registry"
+                "Skipping market-scope registry refresh; snapshot already refreshed registry"
             )
             pre = snapshot_raw_layer(level=config.raw_snapshot_level)
             run_summary = {
                 "skipped": True,
                 "reason": "snapshot_refreshed_registry",
+                "scope_name": config.scope_name,
                 "snapshot_metrics": snapshot_metrics,
             }
             return MaterializeResult(
@@ -369,7 +276,8 @@ def polymarket_wc2026_registry(
 
     run_summary, _, _, _, raw_metadata = _run_with_raw_snapshot(
         config.raw_snapshot_level,
-        lambda _pre: ops.sync_wc2026_registry(
+        lambda _pre: ops.sync_market_scope_registry(
+            scope_name=config.scope_name,
             max_event_pages=config.max_event_pages,
             max_pages_without_progress=config.max_pages_without_progress,
             keyset_closed=config.keyset_closed,
@@ -383,7 +291,7 @@ def polymarket_wc2026_registry(
 
 @asset(
     name="polymarket_market_metadata_backfill",
-    deps=[polymarket_wc2026_registry],
+    deps=[polymarket_market_scope_registry],
     group_name="ingestion",
 )
 def polymarket_market_metadata_backfill(
@@ -428,7 +336,7 @@ def polymarket_market_metadata_backfill(
                 progress_callback=_metadata_progress,
                 progress_every_n_batches=config.progress_log_interval_batches,
                 gamma_requests_per_second=config.gamma_requests_per_second,
-                market_scope=config.market_scope,
+                market_scope=config.scope_name,
                 event_slug_fallback_max_pages=config.event_slug_fallback_max_pages,
                 event_slug_fallback_max_pages_without_progress=config.event_slug_fallback_max_pages_without_progress,
                 event_slug_fallback_progress_every_pages=config.event_slug_fallback_progress_pages,
@@ -541,5 +449,5 @@ __all__ = [
     "polymarket_odds_repair",
     "polymarket_token_odds_history",
     "polymarket_token_odds_history_minutely",
-    "polymarket_wc2026_registry",
+    "polymarket_market_scope_registry",
 ]

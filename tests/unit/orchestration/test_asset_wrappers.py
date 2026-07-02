@@ -8,11 +8,11 @@ import pytest
 from oddsfox.orchestration import assets_polymarket as assets_mod
 from oddsfox.orchestration import config as orch_config
 from oddsfox.orchestration.assets import (
+    polymarket_market_scope_registry,
     polymarket_markets_raw_dlt,
     polymarket_odds_repair,
     polymarket_token_odds_history,
     polymarket_token_odds_history_minutely,
-    polymarket_wc2026_registry,
 )
 
 
@@ -74,39 +74,45 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
     ensure_indexes.assert_called_once_with(conn)
 
 
-def test_wc2026_registry_skips_when_snapshot_already_refreshed(monkeypatch):
+def test_market_scope_registry_skips_when_snapshot_already_refreshed(monkeypatch):
     monkeypatch.setattr(
         assets_mod,
         "get_sync_run_metrics",
-        lambda task: {"registry_refreshed": True, "task": task},
+        lambda task: {
+            "registry_refreshed": True,
+            "scope_name": "wc2026",
+            "task": task,
+        },
     )
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {"x": 1})
 
-    fn = polymarket_wc2026_registry.op.compute_fn.decorated_fn
-    result = fn(MagicMock(), orch_config.Wc2026RegistryConfig())
+    fn = polymarket_market_scope_registry.op.compute_fn.decorated_fn
+    result = fn(MagicMock(), orch_config.MarketScopeRegistryConfig())
 
     run_summary = result.metadata["run_summary"].value
     assert run_summary["skipped"] is True
     assert run_summary["reason"] == "snapshot_refreshed_registry"
 
 
-def test_wc2026_registry_runs_sync_when_snapshot_did_not_refresh(monkeypatch):
+def test_market_scope_registry_runs_sync_when_snapshot_did_not_refresh(monkeypatch):
     captured = {}
 
-    def sync_wc2026_registry(**kwargs):
+    def sync_market_scope_registry(**kwargs):
         kwargs["progress_callback"]("registry_probe", {"ok": True})
         captured.update(kwargs)
         return {"registry_rows_upserted": 1}
 
     monkeypatch.setattr(assets_mod, "get_sync_run_metrics", lambda _task: None)
-    monkeypatch.setattr(assets_mod.ops, "sync_wc2026_registry", sync_wc2026_registry)
+    monkeypatch.setattr(
+        assets_mod.ops, "sync_market_scope_registry", sync_market_scope_registry
+    )
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
     monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
 
-    fn = polymarket_wc2026_registry.op.compute_fn.decorated_fn
+    fn = polymarket_market_scope_registry.op.compute_fn.decorated_fn
     result = fn(
         MagicMock(),
-        orch_config.Wc2026RegistryConfig(
+        orch_config.MarketScopeRegistryConfig(
             max_event_pages=3,
             max_pages_without_progress=2,
             keyset_closed=None,
@@ -123,7 +129,9 @@ def test_wc2026_registry_runs_sync_when_snapshot_did_not_refresh(monkeypatch):
     assert result.metadata["run_summary"].value == {"registry_rows_upserted": 1}
 
 
-def test_wc2026_registry_force_refresh_bypasses_snapshot_metric_check(monkeypatch):
+def test_market_scope_registry_force_refresh_bypasses_snapshot_metric_check(
+    monkeypatch,
+):
     checked_metrics = []
     monkeypatch.setattr(
         assets_mod,
@@ -132,14 +140,14 @@ def test_wc2026_registry_force_refresh_bypasses_snapshot_metric_check(monkeypatc
     )
     monkeypatch.setattr(
         assets_mod.ops,
-        "sync_wc2026_registry",
+        "sync_market_scope_registry",
         lambda **_kwargs: {"registry_rows_upserted": 1},
     )
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
     monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
 
-    fn = polymarket_wc2026_registry.op.compute_fn.decorated_fn
-    result = fn(MagicMock(), orch_config.Wc2026RegistryConfig(force_refresh=True))
+    fn = polymarket_market_scope_registry.op.compute_fn.decorated_fn
+    result = fn(MagicMock(), orch_config.MarketScopeRegistryConfig(force_refresh=True))
 
     assert checked_metrics == []
     assert result.metadata["run_summary"].value == {"registry_rows_upserted": 1}
@@ -179,7 +187,7 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
         workers=3,
         min_volume=10.0,
         max_volume=20.0,
-        market_scope="wc2026",
+        scope_name="custom-scope",
     )
 
     kwargs = assets_mod._build_odds_sync_kwargs(
@@ -200,7 +208,7 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
     assert kwargs["max_workers"] == 3
     assert kwargs["progress_callback"] is progress
     assert kwargs["plan_iterator_factory"] is plan_iterator
-    assert kwargs["market_scope"] == "wc2026"
+    assert kwargs["market_scope"] == "custom-scope"
     assert metadata["workers"].value == 3
     assert metadata["min_volume"].value == 10.0
     assert metadata["max_volume"].value == 20.0

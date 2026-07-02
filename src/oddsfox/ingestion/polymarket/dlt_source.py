@@ -1,4 +1,4 @@
-"""dlt resources for WC2026 Polymarket raw market landing."""
+"""dlt resources for selected-scope Polymarket raw market landing."""
 
 from __future__ import annotations
 
@@ -6,33 +6,34 @@ from typing import Any, Iterable
 
 import dlt
 
-from oddsfox.config.settings import POLYMARKET_WC2026_KEYSET_VOLUME_MIN
-from oddsfox.ingestion.polymarket.markets.fetch import build_client
-from oddsfox.ingestion.polymarket.markets.persistence import prepare_batch_for_db
-from oddsfox.ingestion.polymarket.markets.transform import process_markets_dataframe
-from oddsfox.ingestion.polymarket.wc2026_scope import (
+from oddsfox.config.settings import POLYMARKET_SCOPE_KEYSET_VOLUME_MIN
+from oddsfox.ingestion.polymarket.market_scope import (
     DISCOVERY_MODE_FULL_KEYSET,
     DISCOVERY_MODE_TARGETED,
     DiscoveryMode,
-    load_wc2026_config,
+    load_market_scope_config,
     refresh_registry_and_collect_markets_from_events,
     refresh_registry_and_collect_markets_targeted,
     resolve_keyset_tag_slugs,
 )
+from oddsfox.ingestion.polymarket.markets.fetch import build_client
+from oddsfox.ingestion.polymarket.markets.persistence import prepare_batch_for_db
+from oddsfox.ingestion.polymarket.markets.transform import process_markets_dataframe
 from oddsfox.storage.duckdb.dlt_batch import DLT_STRICT_SCHEMA_CONTRACT
 
 
 def collect_raw_markets(
     *,
     discovery_mode: DiscoveryMode = DISCOVERY_MODE_FULL_KEYSET,
+    scope_name: str | None = None,
     max_event_pages: int | None = None,
     max_pages_without_progress: int | None = None,
-    keyset_closed: bool | None = False,
+    keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
-    keyset_volume_min: float | None = POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
+    keyset_volume_min: float | None = POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
 ) -> list[dict[str, Any]]:
     client = build_client()
-    cfg = load_wc2026_config()
+    cfg = load_market_scope_config(scope_name=scope_name)
     if discovery_mode == DISCOVERY_MODE_TARGETED:
         _, raw_markets, _ = refresh_registry_and_collect_markets_targeted(
             client,

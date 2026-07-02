@@ -8,22 +8,22 @@ implementation details to callers.
 import logging
 from typing import Any, Callable, Dict
 
-from oddsfox.config.settings import POLYMARKET_WC2026_KEYSET_VOLUME_MIN
+from oddsfox.config.settings import POLYMARKET_SCOPE_KEYSET_VOLUME_MIN
+from oddsfox.ingestion.polymarket.market_scope import (
+    DISCOVERY_MODE_FULL_KEYSET,
+    DISCOVERY_MODE_TARGETED,
+    DiscoveryMode,
+    load_market_scope_config,
+    refresh_registry_and_collect_markets_from_events,
+    refresh_registry_and_collect_markets_targeted,
+    resolve_keyset_tag_slugs,
+)
 from oddsfox.ingestion.polymarket.markets.fetch import build_client
 from oddsfox.ingestion.polymarket.markets.persistence import (
     prepare_batch_for_db,
 )
 from oddsfox.ingestion.polymarket.markets.transform import (
     process_markets_dataframe,
-)
-from oddsfox.ingestion.polymarket.wc2026_scope import (
-    DISCOVERY_MODE_FULL_KEYSET,
-    DISCOVERY_MODE_TARGETED,
-    DiscoveryMode,
-    load_wc2026_config,
-    refresh_registry_and_collect_markets_from_events,
-    refresh_registry_and_collect_markets_targeted,
-    resolve_keyset_tag_slugs,
 )
 from oddsfox.resources.progress_guardrails import ProgressGuardrail
 from oddsfox.storage.duckdb.connection import ensure_duck_db
@@ -43,19 +43,20 @@ def _resolve_discovery_mode(
     return discovery_mode
 
 
-def _sync_markets_wc2026(
+def _sync_markets_for_scope(
     client: object,
     *,
+    scope_name: str | None = None,
     discovery_mode: DiscoveryMode,
     max_event_pages: int | None,
     max_pages_without_progress: int | None,
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
-    keyset_volume_min: float | None = POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
+    keyset_volume_min: float | None = POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> Dict[str, Any]:
-    """Ingest WC 2026 markets via targeted or full keyset Gamma discovery."""
-    cfg = load_wc2026_config()
+    """Ingest selected-scope markets via targeted or full keyset Gamma discovery."""
+    cfg = load_market_scope_config(scope_name=scope_name)
     if discovery_mode == DISCOVERY_MODE_TARGETED:
         registry_summary, raw_markets, collect_meta = (
             refresh_registry_and_collect_markets_targeted(
@@ -100,7 +101,8 @@ def _sync_markets_wc2026(
 
     return {
         "task": "sync_markets",
-        "mode": "wc2026_event_first",
+        "mode": "market_scope_event_first",
+        "scope_name": cfg.scope_name,
         "discovery_mode": discovery_mode,
         "total_fetched": total_fetched,
         "registry_summary": registry_summary,
@@ -124,11 +126,12 @@ def sync_markets(
     *,
     discovery_mode: DiscoveryMode = DISCOVERY_MODE_FULL_KEYSET,
     force_full_discovery: bool = False,
+    scope_name: str | None = None,
     max_event_pages: int | None = None,
     max_pages_without_progress: int | None = None,
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
-    keyset_volume_min: float | None = POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
+    keyset_volume_min: float | None = POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
     progress_log_interval_pages: int = 10,
     progress_log_interval_seconds: int = 60,
@@ -137,7 +140,7 @@ def sync_markets(
     progress_poll_seconds: int = 5,
 ) -> Dict[str, Any]:
     """
-    Sync WC 2026 Polymarket markets from Gamma to DuckDB.
+    Sync selected-scope Polymarket markets from Gamma to DuckDB.
 
     Routine runs use tag-filtered full keyset discovery (``discovery_mode='full_keyset'``
     with ``keyset_tag_slugs`` from scope config). Targeted discovery (allowlisted slugs
@@ -161,8 +164,9 @@ def sync_markets(
         work_increment=0,
         phase="start",
         diagnostics={
-            "mode": "wc2026_event_first",
+            "mode": "market_scope_event_first",
             "discovery_mode": effective_mode,
+            "scope_name": scope_name,
             "progress_poll_seconds": progress_poll_seconds,
         },
         force_log=True,
@@ -192,8 +196,9 @@ def sync_markets(
     ensure_duck_db()
     factory = client_factory or build_client
     client = factory()
-    run_summary = _sync_markets_wc2026(
+    run_summary = _sync_markets_for_scope(
         client,
+        scope_name=scope_name,
         discovery_mode=effective_mode,
         max_event_pages=max_event_pages,
         max_pages_without_progress=max_pages_without_progress,

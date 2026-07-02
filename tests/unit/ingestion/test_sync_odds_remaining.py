@@ -563,7 +563,7 @@ def test_sync_odds_soft_warning_then_progress_reset(monkeypatch):
             progress_poll_seconds=1,
             no_progress_soft_timeout_seconds=1,
             no_progress_hard_timeout_seconds=5,
-            client_factory=lambda: object(),
+            client_factory=lambda **_kwargs: object(),
             rate_limiter_factory=lambda r: None,
         )
 

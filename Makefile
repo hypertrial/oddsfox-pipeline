@@ -32,6 +32,7 @@ dbt-build dbt-test:
 
 dbt-build-ci:
 	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
+	$(RUN_IN_REPO) rm -f "$(DBT_BUILD_DUCKDB_PATH)" "$(DBT_BUILD_DUCKDB_PATH).wal" "$(DBT_BUILD_DUCKDB_PATH)-wal" "$(DBT_BUILD_DUCKDB_PATH)-shm"
 	$(RUN_IN_REPO) $(DBT_BUILD_ENV) "$(PYTHON)" -c "import oddsfox.storage.duckdb.connection as connection; from oddsfox.storage.duckdb.schemas.polymarket import create_test_markets_table; connection.reset_duckdb_connection_state(); connection.init_duck_db(); conn = connection.get_persistent_connection(); create_test_markets_table(conn); conn.close()"
 	$(RUN_IN_REPO) $(DBT_BUILD_ENV) $(MAKE) dbt-build
 

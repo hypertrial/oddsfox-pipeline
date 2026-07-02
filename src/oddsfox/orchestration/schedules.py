@@ -40,7 +40,7 @@ polymarket_minutely_odds_schedule = ScheduleDefinition(
         else DefaultScheduleStatus.STOPPED
     ),
     description=(
-        "Every 5 minutes: minutely odds for WC2026 whale markets. Controlled by "
+        "Every 5 minutes: minutely odds for selected-scope whale markets. Controlled by "
         "POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED."
     ),
 )
@@ -56,7 +56,7 @@ polymarket_minutely_odds_cold_schedule = ScheduleDefinition(
         else DefaultScheduleStatus.STOPPED
     ),
     description=(
-        "Hourly conservative minutely odds refresh for WC2026 whale markets. Enabled "
+        "Hourly conservative minutely odds refresh for selected-scope whale markets. Enabled "
         "with POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED."
     ),
 )
@@ -71,7 +71,7 @@ polymarket_minutely_odds_live_schedule = ScheduleDefinition(
         else DefaultScheduleStatus.STOPPED
     ),
     description=(
-        "Every minute during tournament: live minutely odds refresh. Gated by "
+        "Every minute: live selected-scope minutely odds refresh. Gated by "
         "POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED."
     ),
 )

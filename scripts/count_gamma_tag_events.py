@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Count Polymarket Gamma events for WC2026 scope tags via GET /events/keyset.
+Count Polymarket Gamma events for selected-scope tags via GET /events/keyset.
 
 Defaults match routine ingestion (``MarketsSyncConfig``):
-  - all scope tags from ``wc2026_events.yml`` / ``POLYMARKET_WC2026_EVENT_TAGS``
+  - all scope tags from ``market_scopes.yml`` / ``POLYMARKET_SCOPE_EVENT_TAGS``
   - default ``closed=false`` and ``volume_min=10000`` (omit via env ``any`` / empty volume)
-  - ``related_tags=true`` when ``POLYMARKET_WC2026_KEYSET_RELATED_TAGS`` is on
+  - ``related_tags=true`` when ``POLYMARKET_SCOPE_KEYSET_RELATED_TAGS`` is on
 
 Logs progress every N events (default 1000) per tag and prints per-tag totals.
 
@@ -30,18 +30,19 @@ for _rp in (REPO_ROOT, REPO_ROOT / "src"):
         sys.path.insert(0, str(_rp))
 
 from oddsfox.config.settings import (  # noqa: E402
-    POLYMARKET_WC2026_KEYSET_CLOSED,
-    POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
+    POLYMARKET_SCOPE_KEYSET_CLOSED,
+    POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
 )
 from oddsfox.ingestion.polymarket.gamma_events import (  # noqa: E402
     iter_gamma_events_keyset,
 )
+from oddsfox.ingestion.polymarket.market_scope import (  # noqa: E402
+    DEFAULT_MARKET_SCOPE,
+    load_market_scope_config,
+    resolve_keyset_tag_slugs,
+)
 from oddsfox.ingestion.polymarket.markets.fetch import (  # noqa: E402
     build_client,
-)
-from oddsfox.ingestion.polymarket.wc2026_scope import (  # noqa: E402
-    load_wc2026_config,
-    resolve_keyset_tag_slugs,
 )
 
 logger = logging.getLogger(__name__)
@@ -63,8 +64,8 @@ def _parse_keyset_closed(value: str) -> bool | None:
 def count_tag_events(
     tag_slug: str,
     *,
-    keyset_closed: bool | None = POLYMARKET_WC2026_KEYSET_CLOSED,
-    keyset_volume_min: float | None = POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
+    keyset_closed: bool | None = POLYMARKET_SCOPE_KEYSET_CLOSED,
+    keyset_volume_min: float | None = POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
     log_every: int = 1000,
     max_pages: int | None = None,
 ) -> int:
@@ -120,8 +121,8 @@ def count_tag_events(
 def count_scope_tags(
     tag_slugs: list[str],
     *,
-    keyset_closed: bool | None = POLYMARKET_WC2026_KEYSET_CLOSED,
-    keyset_volume_min: float | None = POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
+    keyset_closed: bool | None = POLYMARKET_SCOPE_KEYSET_CLOSED,
+    keyset_volume_min: float | None = POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
     log_every: int = 1000,
     max_pages: int | None = None,
 ) -> dict[str, int]:
@@ -146,7 +147,7 @@ def count_scope_tags(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Count Gamma /events/keyset rows for WC2026 scope tag_slug values."
+        description="Count Gamma /events/keyset rows for selected-scope tag_slug values."
     )
     parser.add_argument(
         "--tag",
@@ -155,18 +156,23 @@ def main() -> int:
         help="Gamma tag_slug (repeatable). Default: all scope event_tags.",
     )
     parser.add_argument(
+        "--scope-name",
+        default=DEFAULT_MARKET_SCOPE,
+        help=f"Configured market scope preset to count (default: {DEFAULT_MARKET_SCOPE}).",
+    )
+    parser.add_argument(
         "--keyset-closed",
         type=_parse_keyset_closed,
-        default=POLYMARKET_WC2026_KEYSET_CLOSED,
+        default=POLYMARKET_SCOPE_KEYSET_CLOSED,
         help=("closed filter: false=open only (default), true=closed only, any=both"),
     )
     parser.add_argument(
         "--keyset-volume-min",
         type=float,
-        default=POLYMARKET_WC2026_KEYSET_VOLUME_MIN,
+        default=POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
         help=(
             "Gamma volume_min query filter "
-            f"(default: {POLYMARKET_WC2026_KEYSET_VOLUME_MIN:g})"
+            f"(default: {POLYMARKET_SCOPE_KEYSET_VOLUME_MIN:g})"
         ),
     )
     parser.add_argument(
@@ -193,7 +199,7 @@ def main() -> int:
     if args.keyset_volume_min is not None and args.keyset_volume_min < 0:
         parser.error("--keyset-volume-min must be >= 0")
 
-    cfg = load_wc2026_config()
+    cfg = load_market_scope_config(scope_name=args.scope_name)
     tag_slugs = resolve_keyset_tag_slugs(args.tags, config=cfg)
     if not tag_slugs:
         parser.error("no tag_slug values resolved; pass --tag or configure event_tags")

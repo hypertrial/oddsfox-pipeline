@@ -131,17 +131,25 @@ sources:
             tests: [not_null]
           - name: created_at
             description: UTC timestamp when this skip row was first inserted.
-      - name: wc2026_market_registry
+      - name: market_scope_registry
         description: >-
-          Operational registry of Polymarket market_ids scoped to FIFA World Cup 2026 events
-          (refreshed from Gamma /events and seed allowlists).
+          Operational registry of Polymarket market_ids by selected market scope
+          (refreshed from Gamma /events and configured scope presets).
         meta:
           dagster:
-            asset_key: [polymarket_wc2026_registry]
+            asset_key: [polymarket_market_scope_registry]
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [scope_name, market_id]
+                where: scope_name is not null and market_id is not null
         columns:
+          - name: scope_name
+            description: Configured market-scope preset name.
+            tests: [not_null]
           - name: market_id
-            description: Polymarket market identifier (primary key).
-            tests: [not_null, unique]
+            description: Polymarket market identifier within the configured scope.
+            tests: [not_null]
           - name: event_slug
             description: Parent event slug when known.
           - name: event_id

@@ -9,22 +9,38 @@ def test_staging_markets_is_source_conformed():
     ).read_text()
     lowered = sql.lower()
 
-    assert "wc2026_market_registry" not in lowered
-    assert "wc2026_event_slugs" not in lowered
-    assert "is_wc2026_target" not in lowered
+    assert "market_scope_registry" not in lowered
+    assert "market_scope_event_slugs" not in lowered
+    assert "is_market_scope_target" not in lowered
 
 
-def test_intermediate_wc2026_markets_owns_scope_logic():
+def test_intermediate_selected_markets_owns_scope_logic():
     sql = (
         DBT_ROOT
         / "models"
         / "polymarket"
         / "intermediate"
-        / "int_polymarket_wc2026_markets.sql"
+        / "int_polymarket_selected_markets.sql"
     ).read_text()
     lowered = sql.lower()
 
     assert "{{ ref('stg_polymarket_markets') }}" in lowered
-    assert "{{ source('polymarket_ops', 'wc2026_market_registry') }}" in lowered
-    assert "wc2026_event_slugs" in lowered
-    assert "true as is_wc2026_target" in lowered
+    assert "{{ source('polymarket_ops', 'market_scope_registry') }}" in lowered
+    assert "active_market_scope" in lowered
+    assert "scope_name" in lowered
+    assert "market_scope_event_slugs" not in lowered
+
+
+def test_selected_minutely_filters_before_odds_join():
+    sql = (
+        DBT_ROOT
+        / "models"
+        / "polymarket"
+        / "marts"
+        / "selected_token_minutely_odds.sql"
+    ).read_text()
+    lowered = sql.lower()
+
+    assert "{{ ref('int_polymarket_selected_token_universe') }}" in lowered
+    assert "{{ ref('stg_polymarket_odds') }}" in lowered
+    assert "int_polymarket_token_timeseries" not in lowered

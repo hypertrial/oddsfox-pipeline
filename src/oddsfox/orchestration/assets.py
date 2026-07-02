@@ -2,12 +2,12 @@ from oddsfox.orchestration import polymarket_ops as _ops
 from oddsfox.orchestration.assets_polymarket import (
     polymarket_dbt,
     polymarket_market_metadata_backfill,
+    polymarket_market_scope_registry,
     polymarket_markets_raw_dlt,
     polymarket_markets_snapshot,
     polymarket_odds_repair,
     polymarket_token_odds_history,
     polymarket_token_odds_history_minutely,
-    polymarket_wc2026_registry,
 )
 from oddsfox.orchestration.dbt_project import (
     DBT_DAGSTER_GROUP_NAME,
@@ -34,7 +34,7 @@ snapshot_raw_layer = _ops.snapshot_raw_layer
 stream_dbt_build = _ops.stream_dbt_build
 sync_markets = _ops.sync_markets
 sync_odds = _ops.sync_odds
-sync_wc2026_registry = _ops.sync_wc2026_registry
+sync_market_scope_registry = _ops.sync_market_scope_registry
 
 __all__ = [
     "DBT_DAGSTER_GROUP_NAME",
@@ -47,6 +47,6 @@ __all__ = [
     "polymarket_odds_repair",
     "polymarket_token_odds_history",
     "polymarket_token_odds_history_minutely",
-    "polymarket_wc2026_registry",
+    "polymarket_market_scope_registry",
     "prepare_dbt_project",
 ]
