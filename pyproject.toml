@@ -65,6 +65,7 @@ markers = [
 [tool.coverage.run]
 branch = true
 source = ["src/oddsfox"]
+omit = ["src/oddsfox/storage/duckdb/profile/*"]
 
 [tool.coverage.report]
 precision = 2

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 
 from tests.unit.storage.duckdb_storage_test_support import T_PRE
 
@@ -122,3 +123,45 @@ def test_get_backfill_progress_invalid(duck):
 
 def test_get_sync_run_metrics_missing_returns_none(duck):
     assert metadata.get_sync_run_metrics("missing") is None
+
+
+def test_get_sync_run_metrics_handles_corrupt_table_payloads(duck):
+    with metadata.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO polymarket_ops.sync_run_metrics
+            (task_name, recorded_at, metrics_json, history_json)
+            VALUES ('bad_table_json', CURRENT_TIMESTAMP, '{not-json', '[]')
+            """
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO polymarket_ops.sync_run_metrics
+            (task_name, recorded_at, metrics_json, history_json)
+            VALUES ('table_list_payload', CURRENT_TIMESTAMP, '[1, 2, 3]', '[]')
+            """
+        )
+
+    metadata._metadata_set(
+        "sync_metrics:table_list_payload:last",
+        json.dumps({"fallback": True}),
+    )
+
+    assert metadata.get_sync_run_metrics("bad_table_json") is None
+    assert metadata.get_sync_run_metrics("table_list_payload") == {"fallback": True}
+
+
+def test_get_sync_run_metrics_query_exception_falls_back(monkeypatch):
+    class Conn:
+        def execute(self, *_args, **_kwargs):
+            raise RuntimeError("query failed")
+
+    @contextmanager
+    def connection():
+        yield Conn()
+
+    monkeypatch.setattr(metadata, "ensure_duck_db", lambda: None)
+    monkeypatch.setattr(metadata, "get_connection", connection)
+    monkeypatch.setattr(metadata, "_metadata_get", lambda _key: None)
+
+    assert metadata.get_sync_run_metrics("query_error") is None

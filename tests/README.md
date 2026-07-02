@@ -19,4 +19,9 @@ make unit-orchestration
 make integration-dbt
 make integration-dagster
 make test
+make coverage
 ```
+
+`make coverage` is a local product-core gate. It enforces 100% branch coverage
+for `src/oddsfox` except the warehouse profiling operator helpers under
+`storage/duckdb/profile/`, which are covered by smoke tests instead.

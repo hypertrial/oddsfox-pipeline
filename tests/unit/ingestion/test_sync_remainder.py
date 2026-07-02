@@ -290,6 +290,54 @@ def test_iter_token_plans_paged_reconcile_and_invalid_batch(monkeypatch):
     assert isinstance(plans, list)
 
 
+def test_iter_token_plans_paged_allowlist_and_denylist_skip_tokens():
+    tok_keep = "k" * 33 + "12"
+    tok_skip = "s" * 33 + "12"
+    page = [
+        (
+            "mx",
+            json.dumps([tok_skip, tok_keep]),
+            "2024-06-01 00:00:00",
+            False,
+        )
+    ]
+
+    def iter_pages(**_kwargs):
+        yield page
+
+    def sync_snapshot(_ids, **_kwargs):
+        return {}, set(), {}
+
+    common = {
+        "now_ts": 1_900_000_000,
+        "clob_cutoff_date": "2020-01-01",
+        "fidelity": 1440,
+        "force": True,
+        "rebuild_minutely": False,
+        "overlap_minutes": 0,
+        "skip_recent_minutes": 0,
+        "market_page_size": 10,
+        "iter_markets_with_tokens_fn": iter_pages,
+        "get_token_sync_snapshot_fn": sync_snapshot,
+    }
+
+    allowlisted = list(
+        odds_sync.iter_token_plans_paged(
+            **common,
+            token_id_allowlist={tok_keep},
+        )
+    )
+    denied = list(
+        odds_sync.iter_token_plans_paged(
+            **common,
+            token_id_denylist={tok_skip},
+        )
+    )
+
+    assert [plan.token_id for plan in allowlisted] == [tok_keep]
+    assert [plan.token_id for plan in denied] == [tok_keep]
+
+
 def test_maybe_auto_tune_rps_increase_and_getattr_rate(monkeypatch):
     class Lim:
         rate = 10.0

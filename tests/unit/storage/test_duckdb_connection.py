@@ -147,6 +147,15 @@ def test_open_writable_duckdb_connection_first_try_success(tmp_path):
         conn.close()
 
 
+def test_open_duckdb_connection_uses_connect_wrapper(tmp_path):
+    db_path = tmp_path / "read.duckdb"
+    conn = connection.open_duckdb_connection(db_path)
+    try:
+        assert conn.execute("select 1").fetchone()[0] == 1
+    finally:
+        conn.close()
+
+
 def test_open_writable_duckdb_connection_exhausts_lock_retries(monkeypatch, tmp_path):
     db_path = tmp_path / "locked.duckdb"
 

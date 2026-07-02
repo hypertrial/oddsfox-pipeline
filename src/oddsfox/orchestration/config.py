@@ -18,18 +18,12 @@ DEFAULT_NO_PROGRESS_SOFT_TIMEOUT_SECONDS = 900
 DEFAULT_NO_PROGRESS_HARD_TIMEOUT_SECONDS = 2700
 DEFAULT_DBT_NO_PROGRESS_HARD_TIMEOUT_SECONDS = 3600
 DEFAULT_PROGRESS_POLL_SECONDS = 5
-_MARKET_SCOPE_VALUES = frozenset({"all", "wc2026"})
 
 
 def _validate_market_scope_value(v: str) -> str:
     from oddsfox.ingestion.polymarket.wc2026_scope import validate_market_scope
 
-    scope = validate_market_scope(v)
-    if scope not in _MARKET_SCOPE_VALUES:
-        raise ValueError(
-            f"market_scope must be one of {sorted(_MARKET_SCOPE_VALUES)}, got {v!r}"
-        )
-    return scope
+    return validate_market_scope(v)
 
 
 class GuardrailConfig(Config):

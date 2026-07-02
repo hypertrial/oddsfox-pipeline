@@ -53,6 +53,17 @@ Install the pinned local scanner with:
 curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/install.sh | sh -s -- v2.5.0
 ```
 
+Two stricter local gates are available but not enforced by GitHub Actions yet:
+
+```bash
+uv run make integration-dagster
+uv run make coverage
+```
+
+`integration-dagster` executes every registered public Dagster job with
+deterministic temp resources. `coverage` enforces 100% branch coverage for
+product-core package code; warehouse profiling helpers are smoke-tested instead.
+
 ## Targeted Test Commands
 
 | Target | Use |
@@ -64,6 +75,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `uv run make integration-dagster` | Dagster integration smoke tests. |
 | `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
 | `uv run make costguard` | Run the pinned dbt cost guardrail locally. |
+| `uv run make coverage` | Local 100% product-core branch coverage gate. |
 
 ## Pull Request Expectations
 

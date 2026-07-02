@@ -131,7 +131,7 @@ def join_under_base(base_url: str, href: str) -> str:
             )
         return assert_same_origin(link, base)
     joined = urljoin(base + "/", link.lstrip("/"))
-    if _origin_key(joined) != base_origin:
+    if _origin_key(joined) != base_origin:  # pragma: no cover
         raise OutboundUrlError(
             f"URL origin {_origin_key(joined)!r} does not match "
             f"base origin {base_origin!r}"

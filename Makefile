@@ -1,4 +1,4 @@
-.PHONY: dagster-dev duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test costguard docs-serve docs-build docs-check clean-local-artifacts format lint test unit-core unit-ingest unit-orchestration integration-dbt integration-dagster check-secrets compact-warehouse prune-odds-history
+.PHONY: dagster-dev duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test costguard docs-serve docs-build docs-check clean-local-artifacts format lint test coverage unit-core unit-ingest unit-orchestration integration-dbt integration-dagster check-secrets compact-warehouse prune-odds-history
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -10,6 +10,7 @@ DBT_LINT_ENV := DUCKDB_PATH="$(DBT_LINT_DUCKDB_PATH)"
 DBT_BUILD_DUCKDB_PATH := $(REPO_ROOT)/.cache/dbt_build.duckdb
 DBT_BUILD_ENV := DUCKDB_NAME="$(DBT_BUILD_DUCKDB_PATH)" DUCKDB_PATH="$(DBT_BUILD_DUCKDB_PATH)"
 PYTEST_FAST_MARKERS := not integration and not performance and not slow and not repo_check
+PYTEST_COVERAGE_MARKERS := not performance and not slow and not repo_check
 
 duckdb-ui:
 	duckdb "$(REPO_ROOT)/$(DUCKDB_NAME)" -ui
@@ -66,6 +67,9 @@ check-secrets:
 
 test:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -m "$(PYTEST_FAST_MARKERS)"
+
+coverage:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -m "$(PYTEST_COVERAGE_MARKERS)" --cov=oddsfox --cov-branch --cov-report=term-missing --cov-fail-under=100
 
 unit-core:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/unit/config tests/unit/resources tests/unit/storage -q -n 0 -m "$(PYTEST_FAST_MARKERS)"

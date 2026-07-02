@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import pytest
 from tests.unit.storage.duckdb_storage_test_support import (
     T_LED,
@@ -15,6 +17,7 @@ from tests.unit.storage.duckdb_storage_test_support import (
 
 import oddsfox.storage.duckdb as pkg
 import oddsfox.storage.duckdb.markets as markets
+from oddsfox.storage.duckdb import _market_mutations as mutations
 from oddsfox.storage.duckdb.connection import get_connection
 from oddsfox.storage.duckdb.wc2026_registry import RegistryRow, upsert_registry_rows
 
@@ -40,6 +43,10 @@ def test_save_market_tokens_batch_noop_without_tokens(duck):
     with duck.get_connection() as conn:
         after = conn.execute(f"SELECT COUNT(*) FROM {T_MT}").fetchone()[0]
     assert before == after == 0
+
+
+def test_persist_market_tokens_empty_guard():
+    mutations._persist_market_tokens(None, [])
 
 
 def test_markets_count_and_ids(duck):
@@ -70,6 +77,36 @@ def test_delete_orphan_market_tokens(duck):
         )
     assert markets.delete_orphan_market_tokens() == 1
     assert markets.delete_orphan_market_tokens() == 0
+
+
+def test_delete_orphan_market_tokens_rolls_back_on_error(monkeypatch):
+    calls = []
+
+    class Conn:
+        def execute(self, sql):
+            calls.append(sql)
+            if sql == "BEGIN" or sql == "ROLLBACK":
+                return self
+            if "SELECT COUNT" in sql:
+                return self
+            if "DELETE FROM" in sql:
+                raise RuntimeError("delete failed")
+            return self
+
+        def fetchone(self):
+            return (1,)
+
+    @contextmanager
+    def connection():
+        yield Conn()
+
+    monkeypatch.setattr(mutations, "ensure_duck_db", lambda: None)
+    monkeypatch.setattr(mutations, "get_connection", connection)
+
+    with pytest.raises(RuntimeError, match="delete failed"):
+        mutations.delete_orphan_market_tokens()
+
+    assert "ROLLBACK" in calls
 
 
 def test_save_tokens_batch_skips_unknown_market_id(duck, caplog):
@@ -146,6 +183,31 @@ def test_slug_event_end_date_queries(duck):
     markets.save_slugs_batch([("slug99", "99")])
     markets.save_event_slugs_batch([("es99", "99")])
     markets.save_end_dates_batch([("2025-12-31 00:00:00", "99")])
+
+
+def test_save_event_slugs_batch_rolls_back_on_error(monkeypatch):
+    calls = []
+
+    class Conn:
+        def execute(self, sql):
+            calls.append(sql)
+            return self
+
+        def executemany(self, sql, rows):
+            calls.append(sql)
+            raise RuntimeError("update failed")
+
+    @contextmanager
+    def connection():
+        yield Conn()
+
+    monkeypatch.setattr(mutations, "ensure_duck_db", lambda: None)
+    monkeypatch.setattr(mutations, "get_connection", connection)
+
+    with pytest.raises(RuntimeError, match="update failed"):
+        mutations.save_event_slugs_batch([("event", "market")])
+
+    assert "ROLLBACK" in calls
 
 
 def test_markets_empty_saves_noop(duck):

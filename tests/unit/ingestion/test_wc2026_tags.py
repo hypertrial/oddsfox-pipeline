@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 
 from oddsfox.ingestion.polymarket.errors import GammaRequestError
@@ -91,11 +92,39 @@ def test_fetch_gamma_tag_by_slug_missing_returns_none():
     assert fetch_gamma_tag_by_slug(client, "fifa-world-cup") is None
 
 
+def test_fetch_gamma_tag_by_slug_invalid_slug_returns_none():
+    assert fetch_gamma_tag_by_slug(MagicMock(), "bad slug!") is None
+
+
 def test_fetch_gamma_tag_by_slug_404_returns_none():
     client = MagicMock()
     response = MagicMock(status_code=404)
     client.get.side_effect = GammaRequestError(response=response)
     assert fetch_gamma_tag_by_slug(client, "missing-tag") is None
+
+
+def test_fetch_gamma_tag_by_slug_reraises_non_404_errors():
+    client = MagicMock()
+    response = MagicMock(status_code=500)
+    client.get.side_effect = GammaRequestError(response=response)
+    with pytest.raises(GammaRequestError):
+        fetch_gamma_tag_by_slug(client, "fifa-world-cup")
+
+    client.get.side_effect = requests.RequestException("network down")
+    with pytest.raises(requests.RequestException):
+        fetch_gamma_tag_by_slug(client, "fifa-world-cup")
+
+
+def test_fetch_gamma_tag_by_slug_reraises_direct_request_exception(monkeypatch):
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.wc2026_tags.gamma_get",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            requests.RequestException("network down")
+        ),
+    )
+
+    with pytest.raises(requests.RequestException):
+        fetch_gamma_tag_by_slug(MagicMock(), "fifa-world-cup")
 
 
 def test_fetch_gamma_tags_and_sports():
@@ -127,3 +156,73 @@ def test_discover_skips_invalid_seed_slug():
     client.get.return_value = []
     result = discover_wc2026_tag_slugs(client, seed_slugs=["bad slug!"])
     assert result.tag_slugs == ()
+
+
+def test_discover_handles_empty_seed_id_invalid_slugs_and_sports_lists():
+    client = MagicMock()
+
+    def _get(endpoint, **kwargs):
+        if endpoint == "/tags/slug/seed-tag":
+            return {"id": "", "slug": "seed-tag", "label": "FIFA"}
+        if endpoint == "/tags":
+            return [
+                {"id": "1", "slug": "world-cup", "label": "World Cup"},
+                {"id": "2", "slug": "bad slug!", "label": "World Cup"},
+                {"id": "3", "slug": "bad sports slug!", "label": "World Cup"},
+            ]
+        if endpoint == "/sports":
+            return [{"tags": ["1", "3", "missing"]}, {"tags": None}]
+        return []
+
+    client.get.side_effect = _get
+    result = discover_wc2026_tag_slugs(
+        client,
+        seed_slugs=["seed-tag"],
+        keywords=("world cup", "fifa"),
+    )
+
+    assert "seed-tag" in result.tag_slugs
+    assert "world-cup" in result.tag_slugs
+    assert "bad sports slug!" not in result.tag_slugs
+
+
+def test_discover_skips_invalid_slug_returned_from_seed_lookup():
+    client = MagicMock()
+
+    def _get(endpoint, **kwargs):
+        if endpoint == "/tags/slug/seed-tag":
+            return {"id": "1", "slug": "bad slug!", "label": "FIFA"}
+        return []
+
+    client.get.side_effect = _get
+    result = discover_wc2026_tag_slugs(
+        client,
+        seed_slugs=["seed-tag"],
+        keywords=("fifa",),
+    )
+
+    assert result.tag_slugs == ("seed-tag",)
+
+
+def test_discover_keeps_seed_when_patched_seed_lookup_has_empty_id(monkeypatch):
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.wc2026_tags.fetch_gamma_tag_by_slug",
+        lambda *_a, **_k: {"id": "", "slug": "seed-tag"},
+    )
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.wc2026_tags.fetch_gamma_tags",
+        lambda *_a, **_k: [],
+    )
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.wc2026_tags.fetch_gamma_sports",
+        lambda *_a, **_k: [],
+    )
+
+    result = discover_wc2026_tag_slugs(
+        MagicMock(),
+        seed_slugs=["seed-tag"],
+        keywords=("fifa",),
+    )
+
+    assert result.tag_slugs == ("seed-tag",)
+    assert result.tag_ids == ()

@@ -1,6 +1,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from oddsfox.config._reload_settings import reload_all_settings_modules
 
 
@@ -90,12 +92,71 @@ def test_optional_env_str_strips_and_ignores_blank(monkeypatch, isolated_env):
     assert settings._optional_env_str("_ODDSFOX_OPTIONAL_ENV_STR_HELPER") is None  # noqa: SLF001
 
 
+def test_optional_env_number_helpers_and_date_fallback(monkeypatch, isolated_env):
+    settings = reload_all_settings_modules()
+
+    monkeypatch.setenv("_ODDSFOX_OPTIONAL_ENV_FLOAT", " 1.25 ")
+    assert settings._optional_env_float("_ODDSFOX_OPTIONAL_ENV_FLOAT") == 1.25  # noqa: SLF001
+    monkeypatch.setenv("_ODDSFOX_OPTIONAL_ENV_FLOAT", "bad")
+    assert settings._optional_env_float("_ODDSFOX_OPTIONAL_ENV_FLOAT") is None  # noqa: SLF001
+    monkeypatch.setenv("_ODDSFOX_OPTIONAL_ENV_FLOAT", " ")
+    assert settings._optional_env_float("_ODDSFOX_OPTIONAL_ENV_FLOAT") is None  # noqa: SLF001
+
+    monkeypatch.setenv("_ODDSFOX_OPTIONAL_ENV_INT", " 7 ")
+    assert settings._optional_env_int("_ODDSFOX_OPTIONAL_ENV_INT") == 7  # noqa: SLF001
+    monkeypatch.setenv("_ODDSFOX_OPTIONAL_ENV_INT", "bad")
+    assert settings._optional_env_int("_ODDSFOX_OPTIONAL_ENV_INT") is None  # noqa: SLF001
+    monkeypatch.setenv("_ODDSFOX_OPTIONAL_ENV_INT", " ")
+    assert settings._optional_env_int("_ODDSFOX_OPTIONAL_ENV_INT") is None  # noqa: SLF001
+
+    monkeypatch.setenv("_ODDSFOX_ENV_DATE", "bad-date")
+    assert settings._env_date("_ODDSFOX_ENV_DATE", "2026-07-19").isoformat() == (  # noqa: SLF001
+        "2026-07-19"
+    )
+
+
 def test_env_bool_parses_truthy_and_falsey_values(monkeypatch, isolated_env):
     monkeypatch.setenv("POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED", "yes")
     monkeypatch.setenv("POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED", "0")
     settings = reload_all_settings_modules()
     assert settings.POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED is True
     assert settings.POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED is False
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("true", True),
+        ("closed", True),
+        ("false", False),
+        ("open", False),
+        ("", None),
+        ("any", None),
+        ("surprise", False),
+    ],
+)
+def test_wc2026_keyset_closed_env_branches(monkeypatch, isolated_env, raw, expected):
+    monkeypatch.setenv("POLYMARKET_WC2026_KEYSET_CLOSED", raw)
+    settings = reload_all_settings_modules()
+    assert settings.POLYMARKET_WC2026_KEYSET_CLOSED is expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("", None), ("none", None), ("2500.5", 2500.5), ("bad", 10000.0)],
+)
+def test_wc2026_keyset_volume_min_env_branches(
+    monkeypatch, isolated_env, raw, expected
+):
+    monkeypatch.setenv("POLYMARKET_WC2026_KEYSET_VOLUME_MIN", raw)
+    settings = reload_all_settings_modules()
+    assert settings.POLYMARKET_WC2026_KEYSET_VOLUME_MIN == expected
+
+
+def test_wc2026_tag_crawl_denylist_empty(monkeypatch, isolated_env):
+    monkeypatch.setenv("POLYMARKET_WC2026_TAG_CRAWL_DENYLIST", " ")
+    settings = reload_all_settings_modules()
+    assert settings.POLYMARKET_WC2026_TAG_CRAWL_DENYLIST == ()
 
 
 def test_dbt_cli_argv_uses_active_interpreter():

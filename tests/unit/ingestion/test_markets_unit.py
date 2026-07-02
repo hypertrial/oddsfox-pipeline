@@ -254,6 +254,53 @@ def test_sync_markets_ignores_progress_callback_failures(monkeypatch):
     assert out["error"] is None
 
 
+def test_sync_markets_wc2026_ignores_inner_progress_callback_failure(monkeypatch):
+    monkeypatch.setattr(markets_sync, "load_wc2026_config", lambda: _SLUG_ONLY_CFG)
+    monkeypatch.setattr(
+        markets_sync,
+        "refresh_registry_and_collect_markets_targeted",
+        lambda client, config, progress_callback=None: (
+            {"registry_rows_upserted": 0},
+            [],
+            {"events_pages": 0, "markets_collected": 0, "registry_refreshed": True},
+        ),
+    )
+
+    out = markets_sync._sync_markets_wc2026(
+        object(),
+        discovery_mode="targeted",
+        max_event_pages=None,
+        max_pages_without_progress=None,
+        progress_callback=lambda phase, payload: (_ for _ in ()).throw(
+            RuntimeError("callback failed")
+        ),
+    )
+
+    assert out["total_fetched"] == 0
+
+
+def test_sync_markets_wc2026_without_progress_callback(monkeypatch):
+    monkeypatch.setattr(markets_sync, "load_wc2026_config", lambda: _SLUG_ONLY_CFG)
+    monkeypatch.setattr(
+        markets_sync,
+        "refresh_registry_and_collect_markets_targeted",
+        lambda client, config, progress_callback=None: (
+            {"registry_rows_upserted": 0},
+            [],
+            {"events_pages": 0, "markets_collected": 0, "registry_refreshed": True},
+        ),
+    )
+
+    out = markets_sync._sync_markets_wc2026(
+        object(),
+        discovery_mode="targeted",
+        max_event_pages=None,
+        max_pages_without_progress=None,
+    )
+
+    assert out["total_fetched"] == 0
+
+
 def test_sync_markets_guardrail_check_during_discovery_progress(monkeypatch):
     from oddsfox.resources.progress_guardrails import ProgressGuardrail
 

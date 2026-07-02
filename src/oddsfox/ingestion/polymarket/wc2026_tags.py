@@ -40,7 +40,7 @@ def _tag_text_blob(tag: dict[str, Any]) -> str:
         str(tag.get("slug") or ""),
         str(tag.get("name") or ""),
     ]
-    return " ".join(parts).lower()
+    return " ".join(parts).strip().lower()
 
 
 def tag_matches_keywords(tag: dict[str, Any], keywords: Sequence[str]) -> bool:

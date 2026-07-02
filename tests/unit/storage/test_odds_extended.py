@@ -14,6 +14,7 @@ from oddsfox.storage.duckdb.connection import (
     polymarket_ops_tbl,
     polymarket_raw_tbl,
 )
+from oddsfox.storage.duckdb.odds import odds_daily, odds_writes
 
 T_OH = polymarket_raw_tbl("odds_history")
 T_TOD = polymarket_raw_tbl("token_odds_daily")
@@ -90,6 +91,24 @@ def test_refresh_token_odds_daily_empty_guard(duck):
         odds_mod.refresh_token_odds_daily([], conn)
 
 
+def test_refresh_token_odds_daily_rolls_back_on_error():
+    calls = []
+
+    class Conn:
+        def execute(self, sql, *args):
+            calls.append(sql)
+            if sql == "BEGIN" or sql == "ROLLBACK":
+                return self
+            raise RuntimeError("refresh failed")
+
+    with pytest.raises(RuntimeError, match="refresh failed"):
+        odds_daily.refresh_token_odds_daily(
+            [("tok", odds_mod._epoch_to_utc_date(1))], Conn()
+        )
+
+    assert "ROLLBACK" in calls
+
+
 def test_save_odds_bulk_upsert_no_appender(duck, monkeypatch):
     with odds_mod.get_connection() as conn:
         monkeypatch.delattr(duckdb, "Appender", raising=False)
@@ -105,6 +124,15 @@ def test_save_odds_bulk_appender_empty_and_assume_deduped(duck):
 def test_save_odds_bulk_upsert_empty_guard(duck):
     with odds_mod.get_connection() as conn:
         odds_mod.save_odds_bulk_upsert([], conn)
+        assert odds_writes.prepare_odds_bulk_upsert([], conn) is None
+
+
+def test_save_odds_bulk_upsert_returns_when_stage_missing(monkeypatch, duck):
+    with odds_mod.get_connection() as conn:
+        monkeypatch.setattr(
+            odds_writes, "prepare_odds_bulk_upsert", lambda *a, **k: None
+        )
+        odds_writes.save_odds_bulk_upsert([("tok", 1, 0.5)], conn)
 
 
 def test_refresh_token_odds_daily_splits_utc_days(duck):

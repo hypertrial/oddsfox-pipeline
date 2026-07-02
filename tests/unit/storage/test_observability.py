@@ -1,5 +1,7 @@
 import duckdb
+import pytest
 
+from oddsfox.storage.duckdb import observability as obs
 from oddsfox.storage.duckdb.connection import init_duck_db
 from oddsfox.storage.duckdb.observability import (
     delta_dbt_models,
@@ -76,3 +78,96 @@ def test_dbt_delta_and_formatters():
     }
     assert "markets=2" in format_raw_snapshot_log({"markets_rows": 2})
     assert "wc2026_markets:exists=True,rows=3" in format_dbt_snapshot_log(after)
+
+
+def test_observability_scalar_and_row_count_error_branches(caplog):
+    class NoneRowConn:
+        def execute(self, *_args, **_kwargs):
+            return self
+
+        def fetchone(self):
+            return None
+
+    class BadValueConn(NoneRowConn):
+        def fetchone(self):
+            return ("bad-int",)
+
+    class DuckErrorConn(NoneRowConn):
+        def execute(self, *_args, **_kwargs):
+            raise duckdb.Error("boom")
+
+    assert obs._scalar_int(NoneRowConn(), "select 1") is None
+    assert obs._table_row_count(NoneRowConn(), "x") == (True, 0)
+    assert obs._scalar_int(DuckErrorConn(), "select 1") is None
+    assert obs._table_row_count(DuckErrorConn(), "x") == (False, None)
+
+    caplog.set_level("WARNING")
+    assert obs._scalar_int(BadValueConn(), "select 1") is None
+    assert obs._table_row_count(BadValueConn(), "x") == (False, None)
+    assert "unexpected value" in caplog.text
+
+
+def test_observability_dict_rows_and_datetime_format_branches(caplog):
+    class RowsConn:
+        def execute(self, *_args, **_kwargs):
+            return self
+
+        def fetchall(self):
+            return [(None, 1), ("missing", None), ("ok", 2)]
+
+    class DuckErrorConn(RowsConn):
+        def execute(self, *_args, **_kwargs):
+            raise duckdb.Error("boom")
+
+    class RuntimeErrorConn(RowsConn):
+        def execute(self, *_args, **_kwargs):
+            raise RuntimeError("boom")
+
+    assert obs._dict_rows(RowsConn(), "select") == {"ok": 2}
+    assert obs._dict_rows(DuckErrorConn(), "select") is None
+
+    caplog.set_level("WARNING")
+    assert obs._dict_rows(RuntimeErrorConn(), "select") is None
+    assert "unexpected error" in caplog.text
+
+    assert obs._normalize_dt(None) is None
+    assert obs._normalize_dt(" ") is None
+    assert "T" in obs._normalize_dt(obs.datetime(2026, 1, 1))
+
+
+def test_snapshot_raw_layer_rejects_invalid_level():
+    with pytest.raises(ValueError, match="snapshot_raw_layer level"):
+        snapshot_raw_layer(conn=object(), level="deep")
+
+
+def test_snapshot_dbt_models_handles_unexpected_count_value(caplog):
+    class BadCountConn:
+        def execute(self, *_args, **_kwargs):
+            return self
+
+        def fetchone(self):
+            return ("bad-int",)
+
+    caplog.set_level("WARNING")
+    snapshot = snapshot_dbt_models(conn=BadCountConn())
+
+    assert snapshot["polymarket_staging.stg_polymarket_markets"] == {
+        "exists": False,
+        "rows": None,
+    }
+    assert "unexpected error counting dbt model" in caplog.text
+
+
+def test_formatters_render_skip_reasons_and_plain_values():
+    raw = format_raw_snapshot_log(
+        {
+            "markets_rows": 1,
+            "odds_history_max_ts": "123",
+            "token_sync_skips_by_reason": {"empty": 2, "error": 1},
+        }
+    )
+    dbt = format_dbt_snapshot_log({"plain": 3})
+
+    assert "token_sync_skips_by_reason={empty:2,error:1}" in raw
+    assert "odds_history_max_ts=123" in raw
+    assert dbt == "plain=3"

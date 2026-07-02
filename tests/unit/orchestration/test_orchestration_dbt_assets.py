@@ -360,3 +360,89 @@ def test_stream_dbt_build_appends_full_refresh_flag():
         )
     )
     assert captured_args == [["build", "--full-refresh"]]
+
+
+def test_stream_dbt_build_merges_heartbeat_diagnostics(monkeypatch):
+    from oddsfox.orchestration import assets as assets_mod
+
+    ctx = MagicMock()
+    clock = _FakeClock()
+    _patch_guardrail_clock(monkeypatch, assets_mod, clock)
+    monkeypatch.setattr(dbt_build_mod, "Thread", _ImmediateThread)
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "Queue",
+        lambda *args, **kwargs: _FakeQueue(
+            *args,
+            **kwargs,
+            clock=clock,
+            empty_cycles=1,
+            empty_advance=1.1,
+        ),
+    )
+    heartbeat_calls = []
+
+    class MockDbt:
+        def cli(self, *a, **k):
+            m = MagicMock(process=MagicMock(returncode=0))
+            m.stream = lambda: iter([])
+            return m
+
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="polymarket_dbt",
+            context=ctx,
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(
+                no_progress_soft_timeout_seconds=None,
+                no_progress_hard_timeout_seconds=None,
+                progress_log_interval_seconds=1,
+                progress_poll_seconds=1,
+            ),
+            heartbeat_diagnostics_fn=lambda: (
+                heartbeat_calls.append(True) or {"heartbeat": "ok"}
+            ),
+        )
+    )
+
+    assert heartbeat_calls == [True]
+
+
+def test_stream_dbt_build_ignores_non_dict_heartbeat(monkeypatch):
+    from oddsfox.orchestration import assets as assets_mod
+
+    clock = _FakeClock()
+    _patch_guardrail_clock(monkeypatch, assets_mod, clock)
+    monkeypatch.setattr(dbt_build_mod, "Thread", _ImmediateThread)
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "Queue",
+        lambda *args, **kwargs: _FakeQueue(
+            *args,
+            **kwargs,
+            clock=clock,
+            empty_cycles=1,
+            empty_advance=1.1,
+        ),
+    )
+
+    class MockDbt:
+        def cli(self, *a, **k):
+            m = MagicMock(process=MagicMock(returncode=0))
+            m.stream = lambda: iter([])
+            return m
+
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="polymarket_dbt",
+            context=MagicMock(),
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(
+                no_progress_soft_timeout_seconds=None,
+                no_progress_hard_timeout_seconds=None,
+                progress_log_interval_seconds=1,
+                progress_poll_seconds=1,
+            ),
+            heartbeat_diagnostics_fn=lambda: None,
+        )
+    )

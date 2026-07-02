@@ -1,4 +1,5 @@
 from oddsfox.ingestion.polymarket.dlt_source import (
+    collect_raw_markets,
     normalize_market_payloads_for_dlt,
     polymarket_markets_source,
 )
@@ -103,3 +104,71 @@ def test_normalize_market_payloads_for_dlt_dedupes_by_id_last_wins():
     assert len(rows) == 1
     assert rows[0]["id"] == "dup"
     assert rows[0]["question"] == "new question"
+
+
+def test_collect_raw_markets_targeted(monkeypatch):
+    client = object()
+    config = object()
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.dlt_source.build_client", lambda: client
+    )
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.dlt_source.load_wc2026_config", lambda: config
+    )
+
+    seen = {}
+
+    def targeted(got_client, *, config):
+        seen["client"] = got_client
+        seen["config"] = config
+        return {}, [{"id": "m1"}], {}
+
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.dlt_source.refresh_registry_and_collect_markets_targeted",
+        targeted,
+    )
+
+    assert collect_raw_markets(discovery_mode="targeted") == [{"id": "m1"}]
+    assert seen == {"client": client, "config": config}
+
+
+def test_collect_raw_markets_full_keyset_resolves_tags(monkeypatch):
+    client = object()
+    config = object()
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.dlt_source.build_client", lambda: client
+    )
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.dlt_source.load_wc2026_config", lambda: config
+    )
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.dlt_source.resolve_keyset_tag_slugs",
+        lambda slugs, *, config, client: ["world-cup"],
+    )
+
+    seen = {}
+
+    def from_events(got_client, **kwargs):
+        seen["client"] = got_client
+        seen.update(kwargs)
+        return {}, [{"id": "m2"}], {}
+
+    monkeypatch.setattr(
+        "oddsfox.ingestion.polymarket.dlt_source.refresh_registry_and_collect_markets_from_events",
+        from_events,
+    )
+
+    assert collect_raw_markets(
+        max_event_pages=3,
+        max_pages_without_progress=2,
+        keyset_closed=None,
+        keyset_tag_slugs=["seed"],
+        keyset_volume_min=None,
+    ) == [{"id": "m2"}]
+    assert seen["client"] is client
+    assert seen["config"] is config
+    assert seen["max_pages"] == 3
+    assert seen["max_pages_without_progress"] == 2
+    assert seen["keyset_closed"] is None
+    assert seen["keyset_tag_slugs"] == ["world-cup"]
+    assert seen["keyset_volume_min"] is None

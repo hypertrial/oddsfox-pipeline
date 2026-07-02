@@ -92,11 +92,6 @@ def flush_writer_buffers(
         }
     )
     buffers.dirty_daily_keys.update(daily_keys)
-    if not odds_records and not state_map and not skip_map:
-        buffers.odds_map.clear()
-        buffers.state_buffer.clear()
-        buffers.skip_buffer.clear()
-        return
     odds_stage = None
     if odds_records and save_odds_bulk_upsert_fn is save_odds_bulk_upsert:
         odds_stage = prepare_odds_bulk_upsert(odds_records, conn, assume_deduped=True)

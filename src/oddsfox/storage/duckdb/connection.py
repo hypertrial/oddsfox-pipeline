@@ -110,7 +110,7 @@ def open_writable_duckdb_connection(
     if attempts < 1:
         raise ValueError("attempts must be >= 1")
     path.parent.mkdir(parents=True, exist_ok=True)
-    for attempt in range(attempts):
+    for attempt in range(attempts):  # pragma: no branch
         try:
             return duckdb.connect(str(path))
         except duckdb.IOException as exc:

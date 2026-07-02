@@ -125,6 +125,112 @@ def test_refresh_registry_with_seed_market_ids(monkeypatch, tmp_path):
     assert summary["by_source"].get("seed", 0) >= 1
 
 
+def test_targeted_registry_ignores_progress_callback_failures(monkeypatch):
+    cfg = Wc2026ScopeConfig(
+        event_slugs=("2026-fifa-world-cup-winner-595",),
+        event_slug_prefixes=(),
+        market_ids=("123",),
+        registry_max_event_pages=5,
+    )
+    monkeypatch.setattr(
+        scope_registry_mod, "fetch_gamma_event_by_slug", lambda *_a: None
+    )
+    monkeypatch.setattr(scope_registry_mod, "get_registry_market_ids", lambda: ["456"])
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "_fetch_markets_batch_resilient",
+        lambda *_a, **_k: [],
+    )
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "_finalize_registry_collect",
+        lambda *_a, **_k: ({"registry_rows_upserted": 0}, [], {}),
+    )
+
+    summary, markets, meta = (
+        scope_registry_mod.refresh_registry_and_collect_markets_targeted(
+            MagicMock(),
+            config=cfg,
+            progress_callback=lambda phase, payload: (_ for _ in ()).throw(
+                RuntimeError("callback failed")
+            ),
+        )
+    )
+
+    assert summary == {"registry_rows_upserted": 0}
+    assert markets == []
+    assert meta == {}
+
+
+def test_targeted_registry_emits_progress_callbacks(monkeypatch):
+    cfg = Wc2026ScopeConfig(
+        event_slugs=("2026-fifa-world-cup-winner-595",),
+        event_slug_prefixes=(),
+        market_ids=("123",),
+        registry_max_event_pages=5,
+    )
+    monkeypatch.setattr(
+        scope_registry_mod, "fetch_gamma_event_by_slug", lambda *_a: None
+    )
+    monkeypatch.setattr(scope_registry_mod, "get_registry_market_ids", lambda: ["456"])
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "_fetch_markets_batch_resilient",
+        lambda *_a, **_k: [],
+    )
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "_finalize_registry_collect",
+        lambda *_a, **_k: ({"registry_rows_upserted": 0}, [], {}),
+    )
+    progress = []
+
+    scope_registry_mod.refresh_registry_and_collect_markets_targeted(
+        MagicMock(),
+        config=cfg,
+        progress_callback=lambda phase, payload: progress.append((phase, payload)),
+    )
+
+    assert [phase for phase, _payload in progress] == [
+        "wc2026_event_by_slug",
+        "wc2026_markets_by_id",
+    ]
+
+
+def test_targeted_registry_without_progress_callback(monkeypatch):
+    cfg = Wc2026ScopeConfig(
+        event_slugs=("2026-fifa-world-cup-winner-595",),
+        event_slug_prefixes=(),
+        market_ids=("123",),
+        registry_max_event_pages=5,
+    )
+    monkeypatch.setattr(
+        scope_registry_mod, "fetch_gamma_event_by_slug", lambda *_a: None
+    )
+    monkeypatch.setattr(scope_registry_mod, "get_registry_market_ids", lambda: ["456"])
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "_fetch_markets_batch_resilient",
+        lambda *_a, **_k: [],
+    )
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "_finalize_registry_collect",
+        lambda *_a, **_k: ({"registry_rows_upserted": 0}, [], {}),
+    )
+
+    summary, markets, meta = (
+        scope_registry_mod.refresh_registry_and_collect_markets_targeted(
+            MagicMock(),
+            config=cfg,
+        )
+    )
+
+    assert summary == {"registry_rows_upserted": 0}
+    assert markets == []
+    assert meta == {}
+
+
 def test_markets_sync_targeted_discovery(monkeypatch, tmp_path):
     import importlib
 
