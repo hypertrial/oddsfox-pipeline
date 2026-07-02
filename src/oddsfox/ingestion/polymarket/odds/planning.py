@@ -78,12 +78,7 @@ def build_single_token_plan(
         return None, "invalid_token", (token_id, "invalid token id format")
     if token_id in persisted_skips and not force and not bypass_routine_skips:
         return None, "persisted_skip", None
-    if (
-        closed
-        and token_id in fully_checked_tokens
-        and not force
-        and not bypass_routine_skips
-    ):
+    if closed and token_id in fully_checked_tokens and not bypass_routine_skips:
         return None, "closed_done", None
     if (
         empty_token_skip_budgets is not None

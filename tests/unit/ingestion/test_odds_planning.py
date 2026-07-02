@@ -100,6 +100,29 @@ def test_build_single_token_plan_budget_and_latest_branches():
     assert skip == "already_current"
 
 
+def test_force_does_not_reopen_closed_fully_checked_token():
+    tok = "f" * 33 + "12"
+    _, skip, _ = odds_sync.build_single_token_plan(
+        token_id=tok,
+        market_id="m",
+        closed=True,
+        created_ts=1_600_000_000,
+        latest_timestamps={tok: 1_700_000_000},
+        fully_checked_tokens={tok},
+        persisted_skips={},
+        seen_tokens=set(),
+        now_ts=1_900_000_000,
+        fidelity=1,
+        force=True,
+        rebuild_minutely=False,
+        overlap_seconds=120,
+        recent_seconds=60,
+        empty_token_skip_budgets={},
+        empty_token_skip_runs=0,
+    )
+    assert skip == "closed_done"
+
+
 def test_iter_token_plans_paged_collects_invalids_and_done_value(monkeypatch):
     valid = "w" * 33 + "12"
 

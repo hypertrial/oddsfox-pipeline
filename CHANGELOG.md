@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Circular import between `scope_sql` and `storage.duckdb._market_queries` that
   prevented `dagster dev` from loading definitions.
+- Minutely odds sync no longer re-fetches full history for already-closed,
+  fully-checked tokens on every run when `force=True`; only explicit rebuild
+  (`rebuild_minutely` or `minutely_backfill_days`) reopens them.
 
 ### Added
 
