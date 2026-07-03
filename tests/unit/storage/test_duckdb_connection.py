@@ -471,6 +471,30 @@ def test_create_indexes_swallows_errors(monkeypatch, tmp_path, isolated_env):
     assert bad.execute.called
 
 
+def test_create_indexes_includes_market_indexes_when_markets_table_exists():
+    with duckdb.connect(":memory:") as c:
+        c.execute("CREATE SCHEMA polymarket_raw")
+        c.execute("CREATE SCHEMA polymarket_ops")
+        polymarket_schema.bootstrap_polymarket_tables(c)
+        polymarket_schema.create_test_markets_table(c)
+
+        polymarket_schema.ensure_polymarket_indexes(c)
+
+        rows = c.execute(
+            """
+            SELECT index_name
+            FROM duckdb_indexes()
+            WHERE schema_name = 'polymarket_raw' AND table_name = 'markets'
+            """
+        ).fetchall()
+        assert {str(name) for (name,) in rows} >= {
+            "idx_category",
+            "idx_volume",
+            "idx_slug",
+            "idx_event_slug",
+        }
+
+
 def _odds_history_index_names(c: duckdb.DuckDBPyConnection) -> set[str]:
     rows = c.execute(
         """

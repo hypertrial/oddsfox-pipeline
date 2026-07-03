@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-03
+
+### Fixed
+
+- Python 3.10 CI coverage now exercises the dbt profiles fallback and
+  `polymarket_raw.markets` index creation branches, restoring the required
+  100% coverage gate after the `v0.1.2` release.
+
 ## [0.1.2] - 2026-07-02
 
 ### Added
@@ -151,7 +159,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: lint, tests, docs build, dbt parse, and dbt build.
 - Schedules disabled by default; opt-in via `.env` for live ingestion.
 
-[Unreleased]: https://github.com/hypertrial/oddsfox/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/hypertrial/oddsfox/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/hypertrial/oddsfox/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/hypertrial/oddsfox/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/hypertrial/oddsfox/releases/tag/v0.1.1
 [0.1.0]: https://github.com/hypertrial/oddsfox/releases/tag/v0.1.0

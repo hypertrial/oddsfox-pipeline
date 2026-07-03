@@ -38,6 +38,19 @@ def test_duckdb_path_setdefault_and_profiles_dir_default(isolated_env):
     assert "profiles" in str(settings.DBT_PROFILES_DIR)
 
 
+def test_invalid_dbt_profiles_dir_falls_back_to_packaged_profiles(
+    monkeypatch, tmp_path, isolated_env
+):
+    bad_profiles_dir = tmp_path / "profiles"
+    bad_profiles_dir.mkdir()
+    (bad_profiles_dir / "profiles.yml").write_text("other: {}\n")
+    monkeypatch.setenv("DBT_PROFILES_DIR", str(bad_profiles_dir))
+
+    settings = reload_all_settings_modules()
+
+    assert settings.DBT_PROFILES_DIR == settings.BASE_DIR / "dbt" / "profiles"
+
+
 def test_load_dotenv_not_called_when_dotenv_missing(monkeypatch, isolated_env):
     mock_load = MagicMock()
     monkeypatch.setattr("dotenv.load_dotenv", mock_load)
