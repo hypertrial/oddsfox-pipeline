@@ -21,6 +21,6 @@ select
     t.market_volume_usd
 from {{ ref('int_polymarket_token_universe') }} as t
 where t.market_id in (
-    select distinct selected_markets.market_id
+    select selected_markets.market_id
     from {{ ref('int_polymarket_selected_markets') }} as selected_markets
 )
