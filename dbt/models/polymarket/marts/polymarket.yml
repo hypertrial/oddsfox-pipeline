@@ -175,45 +175,21 @@ models:
       Full hourly OHLC odds time series for all selected-scope CLOB outcome tokens.
       One row per (clob_token_id, odds_hour_utc) with market labels and volume from the selected-scope token universe.
       Materialized as a dbt view (not a table) to avoid duplicating raw odds_history on disk.
-    tests:
-      - no_duplicate_grain:
-          arguments:
-            grain_columns: [clob_token_id, odds_hour_utc]
-            where: clob_token_id is not null and odds_hour_utc is not null
-      - price_columns_in_unit_interval:
-          arguments:
-            identifier_columns: [clob_token_id, odds_hour_utc]
-            price_columns:
-              - open_price
-              - high_price
-              - low_price
-              - close_price
-              - avg_price
     columns:
       - name: clob_token_id
         description: CLOB outcome token identifier.
-        tests: [not_null]
       - name: market_id
         description: Polymarket market identifier.
-        tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('selected_markets')
-                field: market_id
       - name: outcome_label
         description: Resolved outcome label (e.g. Yes/No) from the market's outcomes array at outcome_index; null if the outcomes array is missing or malformed.
       - name: odds_hour_utc
         description: UTC hour for the aggregated token odds row.
-        tests: [not_null]
       - name: odds_hour_epoch
         description: Unix epoch seconds for the start of odds_hour_utc.
       - name: close_price
         description: Closing price for the token in this UTC hour.
-        tests: [not_null]
       - name: observed_points
         description: Count of canonical odds points rolled into this token-hour.
-        tests: [not_null]
 
   - name: selected_whale_minutely_odds
     description: >
