@@ -11,7 +11,7 @@
 <a class="of-badge of-badge--green" href="https://github.com/hypertrial/oddsfox/actions/workflows/ci.yml">docs passing</a>
 <a class="of-badge" href="https://github.com/hypertrial/oddsfox/blob/main/pyproject.toml">python 3.10+</a>
 <a class="of-badge" href="https://github.com/hypertrial/oddsfox/blob/main/LICENSE">MIT</a>
-<a class="of-badge of-badge--orange" href="https://github.com/hypertrial/oddsfox/blob/main/CHANGELOG.md">v0.1.3</a>
+<a class="of-badge of-badge--orange" href="https://github.com/hypertrial/oddsfox/blob/main/CHANGELOG.md">v0.1.4</a>
 </div>
 
 OddsFox is an open-source, local-first data pipeline for prediction-market
