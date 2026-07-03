@@ -7,6 +7,7 @@ import pytest
 pytest.importorskip("duckdb")
 
 from oddsfox.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox.ingestion.polymarket.odds.engine.bootstrap import bootstrap_planning
 
 
 def test_build_single_token_plan_budget_and_latest_branches():
@@ -169,6 +170,89 @@ def test_iter_token_plans_paged_collects_invalids_and_done_value(monkeypatch):
     assert planning_state.invalid_token == 1
     assert invalid_batches == [[("short", "invalid token id format")]]
     assert invalid_tokens == {"short": "invalid token id format"}
+
+
+def test_iter_token_plans_paged_force_passes_ended_market_grace(monkeypatch):
+    token_id = "g" * 33 + "12"
+    full_calls = []
+
+    def full_pages(**kwargs):
+        full_calls.append(kwargs)
+        yield [("fresh", f'["{token_id}"]', "2024-01-01 00:00:00", False)]
+
+    def due_pages(**kwargs):
+        raise AssertionError(f"unexpected due iterator call: {kwargs}")
+
+    monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", full_pages)
+    monkeypatch.setattr(odds_sync, "iter_due_market_tokens", due_pages)
+    monkeypatch.setattr(
+        odds_sync,
+        "get_token_sync_snapshot",
+        lambda token_ids, **kwargs: ({}, set(), {}),
+    )
+
+    plans = list(
+        odds_sync.iter_token_plans_paged(
+            now_ts=1_900_000_000,
+            clob_cutoff_date="2023-01-01",
+            fidelity=1440,
+            force=True,
+            rebuild_minutely=False,
+            overlap_minutes=0,
+            skip_recent_minutes=0,
+            market_page_size=10,
+            ended_market_grace_days=7,
+        )
+    )
+
+    assert len(plans) == 1
+    assert full_calls
+    assert full_calls[0]["ended_market_grace_days"] == 7
+
+
+def test_bootstrap_planning_force_counts_with_ended_market_grace():
+    class Runtime:
+        count_kwargs = None
+
+        def ensure_duck_db(self):
+            return None
+
+        def snapshot_raw_layer(self):
+            return {}
+
+        def save_skipped_tokens(self, records):
+            return None
+
+        def count_candidate_market_tokens(self, **kwargs):
+            self.count_kwargs = kwargs
+            return {"candidate_tokens": 4, "candidate_markets": 2}
+
+    runtime = Runtime()
+    boot = bootstrap_planning(
+        runtime,
+        clob_cutoff_date="2023-01-01",
+        fidelity=1440,
+        force=True,
+        rebuild_minutely=False,
+        overlap_minutes=0,
+        skip_recent_minutes=0,
+        market_page_size=10,
+        reconcile_ledger=False,
+        short_range_first=True,
+        market_scope="all",
+        ended_market_grace_days=7,
+        min_volume=None,
+        max_volume=None,
+        minutely_backfill_days=0,
+        empty_token_skip_budgets=None,
+        empty_token_skip_runs=0,
+        plan_iterator_factory=lambda **kwargs: iter(()),
+    )
+
+    assert runtime.count_kwargs["due_only"] is False
+    assert runtime.count_kwargs["ended_market_grace_days"] == 7
+    assert boot.candidate_tokens == 4
+    assert boot.candidate_markets == 2
 
 
 def test_iter_token_plans_paged_skips_unparseable_created_at(monkeypatch):

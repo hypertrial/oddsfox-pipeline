@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-Export the full selected-scope hourly odds mart to a parquet file.
+Export the selected-scope hourly odds mart to a parquet file.
 
-Reads ``polymarket_marts.selected_token_hourly_odds`` from the local DuckDB
-warehouse and writes a single parquet file via DuckDB ``COPY``. Also writes a
-companion markdown data spec alongside the parquet (``.md`` with the same stem).
+Reads ``polymarket_marts.selected_token_hourly_odds`` by default, or
+``polymarket_marts.selected_token_live_hourly_odds`` with ``--live-current``,
+from the local DuckDB warehouse and writes a single parquet file via DuckDB
+``COPY``. Also writes a companion markdown data spec alongside the parquet
+(``.md`` with the same stem).
 
 By default opens DuckDB **read-only**. Use ``--snapshot-copy`` when Dagster or
 another job already holds a write connection on the live warehouse file.
 
 Usage:
   python3 scripts/export_selected_hourly_odds.py
+  python3 scripts/export_selected_hourly_odds.py --live-current
   python3 scripts/export_selected_hourly_odds.py --snapshot-copy
   python3 scripts/export_selected_hourly_odds.py --output /tmp/selected_hourly.parquet
 """
@@ -34,7 +37,9 @@ from _bootstrap import ensure_src_on_path
 REPO_ROOT: Final[Path] = ensure_src_on_path()
 
 MART_SCHEMA: Final = "polymarket_marts"
-MART_NAME: Final = "selected_token_hourly_odds"
+HISTORICAL_MART_NAME: Final = "selected_token_hourly_odds"
+LIVE_MART_NAME: Final = "selected_token_live_hourly_odds"
+MART_NAME: Final = HISTORICAL_MART_NAME
 PRICE_COLUMNS: Final = (
     "open_price",
     "high_price",
@@ -108,13 +113,20 @@ def _snapshot_duckdb_files(src: Path, dest_dir: Path) -> Path:
     return main
 
 
-def _mart_qualified_name() -> str:
+def _select_mart_name(live_current: bool) -> str:
+    return LIVE_MART_NAME if live_current else HISTORICAL_MART_NAME
+
+
+def _mart_qualified_name(mart_name: str = MART_NAME) -> str:
     from oddsfox.storage.duckdb.profile.discovery import qualified_name
 
-    return qualified_name(MART_SCHEMA, MART_NAME)
+    return qualified_name(MART_SCHEMA, mart_name)
 
 
-def mart_exists(conn: duckdb.DuckDBPyConnection) -> bool:
+def mart_exists(
+    conn: duckdb.DuckDBPyConnection,
+    mart_name: str = MART_NAME,
+) -> bool:
     row = conn.execute(
         """
         select count(*)
@@ -122,13 +134,16 @@ def mart_exists(conn: duckdb.DuckDBPyConnection) -> bool:
         where table_schema = ?
           and table_name = ?
         """,
-        [MART_SCHEMA, MART_NAME],
+        [MART_SCHEMA, mart_name],
     ).fetchone()
     return bool(row and row[0])
 
 
-def fetch_export_stats(conn: duckdb.DuckDBPyConnection) -> ExportStats:
-    rel = _mart_qualified_name()
+def fetch_export_stats(
+    conn: duckdb.DuckDBPyConnection,
+    mart_name: str = MART_NAME,
+) -> ExportStats:
+    rel = _mart_qualified_name(mart_name)
     price_mins = ", ".join(f"min({column})" for column in PRICE_COLUMNS)
     price_maxes = ", ".join(f"max({column})" for column in PRICE_COLUMNS)
     summary = conn.execute(
@@ -148,7 +163,7 @@ def fetch_export_stats(conn: duckdb.DuckDBPyConnection) -> ExportStats:
         """
     ).fetchone()
     if not summary:
-        raise LookupError(f"Missing {MART_SCHEMA}.{MART_NAME}")
+        raise LookupError(f"Missing {MART_SCHEMA}.{mart_name}")
 
     labels = conn.execute(
         f"""
@@ -199,13 +214,16 @@ def render_export_spec(
     stats: ExportStats,
     exported_at: datetime,
     schema: list[tuple[str, str]],
+    mart_name: str = MART_NAME,
+    export_mode: str = "historical",
 ) -> str:
     lines = [
-        f"# {MART_NAME}",
+        f"# {mart_name}",
         "",
         "## Overview",
         "",
-        f"- **Source mart:** `{MART_SCHEMA}.{MART_NAME}`",
+        f"- **Source mart:** `{MART_SCHEMA}.{mart_name}`",
+        f"- **Export mode:** {export_mode}",
         "- **Grain:** one row per `(clob_token_id, odds_hour_utc)`",
         f"- **Exported at (UTC):** {exported_at.strftime('%Y-%m-%dT%H:%M:%SZ')}",
         f"- **Parquet file:** `{parquet_path.name}`",
@@ -269,6 +287,8 @@ def write_export_spec(
     stats: ExportStats,
     *,
     exported_at: datetime | None = None,
+    mart_name: str = MART_NAME,
+    export_mode: str = "historical",
 ) -> Path:
     spec_path = parquet_path.with_suffix(".md")
     exported_at = exported_at or datetime.now(timezone.utc)
@@ -279,6 +299,8 @@ def write_export_spec(
             stats=stats,
             exported_at=exported_at,
             schema=schema,
+            mart_name=mart_name,
+            export_mode=export_mode,
         ),
         encoding="utf-8",
     )
@@ -289,16 +311,17 @@ def export_hourly_odds_parquet(
     conn: duckdb.DuckDBPyConnection,
     output_path: Path,
     *,
+    mart_name: str = MART_NAME,
     write_spec: bool = True,
 ) -> tuple[int, Path | None]:
     """Export the selected-scope hourly odds mart; return row count and optional spec path."""
-    if not mart_exists(conn):
+    if not mart_exists(conn, mart_name=mart_name):
         raise LookupError(
-            f"Missing {MART_SCHEMA}.{MART_NAME}. Run dbt build or the pipeline first."
+            f"Missing {MART_SCHEMA}.{mart_name}. Run dbt build or the pipeline first."
         )
 
-    stats = fetch_export_stats(conn)
-    rel = _mart_qualified_name()
+    stats = fetch_export_stats(conn, mart_name=mart_name)
+    rel = _mart_qualified_name(mart_name)
 
     output_path = output_path.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -312,11 +335,18 @@ def export_hourly_odds_parquet(
 
     spec_path: Path | None = None
     if write_spec:
-        spec_path = write_export_spec(conn, output_path, stats)
+        export_mode = "live-current" if mart_name == LIVE_MART_NAME else "historical"
+        spec_path = write_export_spec(
+            conn,
+            output_path,
+            stats,
+            mart_name=mart_name,
+            export_mode=export_mode,
+        )
     return stats.row_count, spec_path
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--duckdb-path",
@@ -330,7 +360,7 @@ def main() -> int:
         default=None,
         help=(
             "Destination parquet file "
-            "(default: artifacts/selected_scope_exports/selected_token_hourly_odds_<UTC>.parquet)"
+            "(default: artifacts/selected_scope_exports/<source_mart>_<UTC>.parquet)"
         ),
     )
     p.add_argument(
@@ -358,7 +388,16 @@ def main() -> int:
         action="store_true",
         help="Skip writing the companion markdown data spec.",
     )
-    args = p.parse_args()
+    p.add_argument(
+        "--live-current",
+        action="store_true",
+        help=(
+            "Export polymarket_marts.selected_token_live_hourly_odds instead of "
+            "the historical hourly mart."
+        ),
+    )
+    args = p.parse_args(argv)
+    mart_name = _select_mart_name(args.live_current)
 
     from oddsfox.config import settings
     from oddsfox.storage.duckdb import open_duckdb_connection
@@ -368,7 +407,7 @@ def main() -> int:
         output_path = Path(args.output).resolve()
     else:
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        output_path = args.output_dir / f"{MART_NAME}_{ts}.parquet"
+        output_path = args.output_dir / f"{mart_name}_{ts}.parquet"
 
     profile_path = duck
     snap_dir: Path | None = None
@@ -391,6 +430,7 @@ def main() -> int:
         row_count, spec_path = export_hourly_odds_parquet(
             conn,
             output_path,
+            mart_name=mart_name,
             write_spec=not args.no_spec,
         )
     except LookupError as exc:

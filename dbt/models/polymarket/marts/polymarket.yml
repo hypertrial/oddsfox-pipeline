@@ -191,6 +191,28 @@ models:
       - name: observed_points
         description: Count of canonical odds points rolled into this token-hour.
 
+  - name: selected_token_live_hourly_odds
+    description: >
+      Graph-ready hourly OHLC odds time series for live-current selected-scope markets.
+      This view preserves the selected_token_hourly_odds schema and keeps full hourly history only
+      for markets whose latest complete hour is active, not closed, and within
+      polymarket_live_current_max_age_hours of the mart's global max hour.
+    columns:
+      - name: clob_token_id
+        description: CLOB outcome token identifier.
+      - name: market_id
+        description: Polymarket market identifier.
+      - name: outcome_label
+        description: Resolved outcome label (e.g. Yes/No) from the market's outcomes array at outcome_index; null if the outcomes array is missing or malformed.
+      - name: odds_hour_utc
+        description: UTC hour for the aggregated token odds row.
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the start of odds_hour_utc.
+      - name: close_price
+        description: Closing price for the token in this UTC hour.
+      - name: observed_points
+        description: Count of canonical odds points rolled into this token-hour.
+
   - name: selected_whale_minutely_odds
     description: >
       Minute-grain odds for high-liquidity selected-scope markets (volume >= polymarket_whale_min_volume_usd).

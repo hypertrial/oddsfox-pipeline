@@ -10,6 +10,7 @@ flags:
 vars:
   active_market_scopes: [wc2026]
   polymarket_whale_min_volume_usd: 100000
+  polymarket_live_current_max_age_hours: 48
 model-paths: ["models"]
 test-paths: ["tests"]
 target-path: target
@@ -39,6 +40,8 @@ models:
         selected_token_minutely_odds:
           +materialized: view
         selected_token_hourly_odds:
+          +materialized: view
+        selected_token_live_hourly_odds:
           +materialized: view
         selected_token_daily_odds:
           +materialized: view

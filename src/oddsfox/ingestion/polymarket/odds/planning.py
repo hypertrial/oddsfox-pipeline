@@ -166,7 +166,7 @@ def iter_token_plans_paged(
     seen_tokens: set[str] = set()
     empty_token_skip_budgets = empty_token_skip_budgets or {}
     cutoff_created_at = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
-    effective_ended_grace = ended_market_grace_days if due_only else None
+    effective_ended_grace = ended_market_grace_days
     if due_only and count_due_market_token_exclusions_fn is not None:
         exclusion_counts = count_due_market_token_exclusions_fn(
             cutoff_created_at=cutoff_created_at,
@@ -194,7 +194,7 @@ def iter_token_plans_paged(
             cutoff_created_at=cutoff_created_at,
             json_array_only=True,
             market_scope=market_scope,
-            ended_market_grace_days=None,
+            ended_market_grace_days=effective_ended_grace,
             min_volume=min_volume,
             max_volume=max_volume,
         )

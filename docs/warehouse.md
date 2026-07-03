@@ -66,6 +66,9 @@ Schema: `polymarket_marts`
   view joining raw odds directly to the selected token universe; not materialized to save disk).
 - `selected_token_hourly_odds`: full hourly OHLC odds time series for all selected-scope tokens (dbt
   view over `odds_history`; not materialized to save disk).
+- `selected_token_live_hourly_odds`: graph-ready hourly OHLC odds history for markets whose
+  latest complete hour is active, not closed, and within the configured live-current freshness window.
+  This view preserves the `selected_token_hourly_odds` schema.
 - `selected_token_daily_odds`: full daily OHLC odds time series for all selected-scope tokens (dbt
   view over `int_polymarket_token_daily_timeseries`; not materialized to save disk).
 - `selected_markets`: selected-scope market universe; one row per `(scope_name, market_id)`.

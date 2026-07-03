@@ -49,6 +49,7 @@ Current Polymarket analytics outputs live in `polymarket_marts`:
 - `market_coverage`: market-level daily coverage rollup.
 - `selected_token_minutely_odds`: full selected-scope minutely odds time series.
 - `selected_token_hourly_odds`: full selected-scope hourly OHLC odds time series.
+- `selected_token_live_hourly_odds`: graph-ready hourly OHLC history for live-current markets only.
 - `selected_token_daily_odds`: full selected-scope daily OHLC odds time series.
 - `selected_markets`: selected-scope market universe (`scope_name`, `market_id` grain).
 - `selected_whale_minutely_odds`: high-volume selected-scope minutely odds.

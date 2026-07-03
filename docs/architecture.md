@@ -56,6 +56,7 @@ flowchart TD
     coverage --> market_coverage["market_coverage"]
     selected_tokens --> minutely["selected_token_minutely_odds"]
     selected_tokens --> hourly["selected_token_hourly_odds"]
+    hourly --> live_hourly["selected_token_live_hourly_odds"]
     selected_tokens --> daily["selected_token_daily_odds"]
     minutely --> whale["selected_whale_minutely_odds"]
 ```
@@ -63,7 +64,8 @@ flowchart TD
 Text fallback: staging normalizes raw and ops tables, intermediates establish
 token universes and selected market scope rows, and marts publish token health,
 market coverage, full selected-scope minutely/hourly/daily odds time series, the
-selected market universe (`scope_name`, `market_id`), and high-volume minutely odds.
+selected market universe (`scope_name`, `market_id`), live-current hourly graph
+exports, and high-volume minutely odds.
 
 ## Operating Model
 

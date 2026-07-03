@@ -199,7 +199,7 @@ def bootstrap_planning(
     due_only = (
         not force and not rebuild_minutely and not int(minutely_backfill_days) > 0
     )
-    effective_ended_grace = ended_market_grace_days if due_only else None
+    effective_ended_grace = ended_market_grace_days
     cutoff_created_at = parse_cutoff_date(clob_cutoff_date).strftime(
         "%Y-%m-%d %H:%M:%S"
     )

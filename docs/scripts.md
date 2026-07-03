@@ -7,7 +7,7 @@ Run them through `uv run python` so they use the repo environment.
 
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
 - `export_selected_minutely_odds.py`: export `polymarket_marts.selected_token_minutely_odds` to parquet plus a companion `.md` data spec.
-- `export_selected_hourly_odds.py`: export `polymarket_marts.selected_token_hourly_odds` to parquet plus a companion `.md` data spec.
+- `export_selected_hourly_odds.py`: export `polymarket_marts.selected_token_hourly_odds` to parquet plus a companion `.md` data spec; pass `--live-current` to export `polymarket_marts.selected_token_live_hourly_odds` for graph builds.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_raw.odds_history` rows older than a retention window (default 365 days).
 - `repair_polymarket_token_sync_ledger.py`: rebuild a corrupted token sync ledger.
@@ -39,6 +39,8 @@ uv run python scripts/export_selected_minutely_odds.py --snapshot-copy --output 
 uv run python scripts/export_selected_hourly_odds.py
 uv run python scripts/export_selected_hourly_odds.py --snapshot-copy --output /tmp/selected_hourly.parquet
 # writes /tmp/selected_hourly.parquet and /tmp/selected_hourly.md
+uv run python scripts/export_selected_hourly_odds.py --live-current
+# writes artifacts/selected_scope_exports/selected_token_live_hourly_odds_<UTC>.parquet
 ```
 
 Scripts that call Polymarket APIs need network access and should use conservative request-rate settings.

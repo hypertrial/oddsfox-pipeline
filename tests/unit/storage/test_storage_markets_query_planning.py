@@ -368,6 +368,62 @@ def test_count_candidate_market_tokens_force_mode(duck):
     assert counts == {"candidate_tokens": 3, "candidate_markets": 2}
 
 
+def test_count_candidate_market_tokens_force_mode_honors_ended_market_grace(duck):
+    _seed_markets(
+        duck,
+        [
+            (
+                "live_market",
+                "q",
+                "c",
+                "d",
+                "[]",
+                1.0,
+                True,
+                False,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                None,
+                None,
+                None,
+            ),
+            (
+                "old_ended_market",
+                "q",
+                "c",
+                "d",
+                "[]",
+                1.0,
+                True,
+                True,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                "2000-01-01 00:00:00",
+                None,
+                None,
+            ),
+        ],
+        [
+            ("live_market", '["tok_live"]'),
+            ("old_ended_market", '["tok_old_a", "tok_old_b"]'),
+        ],
+    )
+
+    counts = markets.count_candidate_market_tokens(
+        cutoff_created_at="2024-01-01 00:00:00",
+        due_only=False,
+        ended_market_grace_days=7,
+    )
+    all_counts = markets.count_candidate_market_tokens(
+        cutoff_created_at="2024-01-01 00:00:00",
+        due_only=False,
+        ended_market_grace_days=None,
+    )
+
+    assert counts == {"candidate_tokens": 1, "candidate_markets": 1}
+    assert all_counts == {"candidate_tokens": 3, "candidate_markets": 2}
+
+
 def test_count_candidate_market_tokens_without_cutoff(duck):
     _seed_markets(
         duck,

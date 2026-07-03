@@ -12,18 +12,23 @@ def _load_export_module():
     scripts_dir = Path(__file__).resolve().parents[3] / "scripts"
     sys.path.insert(0, str(scripts_dir))
     from export_selected_hourly_odds import (
+        LIVE_MART_NAME,
+        _select_mart_name,
         export_hourly_odds_parquet,
         mart_exists,
     )
 
-    return export_hourly_odds_parquet, mart_exists
+    return export_hourly_odds_parquet, mart_exists, LIVE_MART_NAME, _select_mart_name
 
 
-def _create_hourly_mart(conn: duckdb.DuckDBPyConnection) -> None:
-    conn.execute("create schema polymarket_marts")
+def _create_hourly_mart(
+    conn: duckdb.DuckDBPyConnection,
+    mart_name: str = "selected_token_hourly_odds",
+) -> None:
+    conn.execute("create schema if not exists polymarket_marts")
     conn.execute(
-        """
-        create table polymarket_marts.selected_token_hourly_odds (
+        f"""
+        create table polymarket_marts.{mart_name} (
             market_id varchar,
             outcome_index integer,
             clob_token_id varchar,
@@ -51,7 +56,7 @@ def _create_hourly_mart(conn: duckdb.DuckDBPyConnection) -> None:
 
 
 def test_export_hourly_odds_parquet_round_trip(tmp_path: Path) -> None:
-    export_hourly_odds_parquet, mart_exists = _load_export_module()
+    export_hourly_odds_parquet, mart_exists, _, _ = _load_export_module()
 
     db_path = tmp_path / "test.duckdb"
     out_path = tmp_path / "selected_token_hourly_odds.parquet"
@@ -142,7 +147,7 @@ def test_export_hourly_odds_parquet_round_trip(tmp_path: Path) -> None:
 
 
 def test_export_hourly_odds_skips_spec_when_disabled(tmp_path: Path) -> None:
-    export_hourly_odds_parquet, _ = _load_export_module()
+    export_hourly_odds_parquet, _, _, _ = _load_export_module()
 
     db_path = tmp_path / "test.duckdb"
     out_path = tmp_path / "selected_token_hourly_odds.parquet"
@@ -168,7 +173,7 @@ def test_export_hourly_odds_skips_spec_when_disabled(tmp_path: Path) -> None:
 
 
 def test_export_missing_hourly_mart_raises(tmp_path: Path) -> None:
-    export_hourly_odds_parquet, _ = _load_export_module()
+    export_hourly_odds_parquet, _, _, _ = _load_export_module()
 
     db_path = tmp_path / "empty.duckdb"
     out_path = tmp_path / "missing.parquet"
@@ -183,3 +188,43 @@ def test_export_missing_hourly_mart_raises(tmp_path: Path) -> None:
             raise AssertionError("expected LookupError for missing mart")
     finally:
         conn.close()
+
+
+def test_export_live_current_hourly_mart(tmp_path: Path) -> None:
+    (
+        export_hourly_odds_parquet,
+        mart_exists,
+        live_mart_name,
+        select_mart_name,
+    ) = _load_export_module()
+
+    db_path = tmp_path / "test.duckdb"
+    out_path = tmp_path / f"{live_mart_name}.parquet"
+
+    conn = duckdb.connect(str(db_path))
+    try:
+        _create_hourly_mart(conn, live_mart_name)
+        conn.execute(
+            f"""
+            insert into polymarket_marts.{live_mart_name} values
+            ('m1', 0, 'tok-a', 'Q1', 'Yes', 'market_scope-a', true, false,
+             1.0, '2026-06-01 12:00:00', 1780833600, 0.40, 0.45, 0.39,
+             0.42, 0.415, 3, 1780833600, '2026-06-01 12:00:00',
+             1780837140, '2026-06-01 12:59:00')
+            """
+        )
+        assert mart_exists(conn, mart_name=live_mart_name) is True
+        row_count, spec_path = export_hourly_odds_parquet(
+            conn,
+            out_path,
+            mart_name=select_mart_name(live_current=True),
+        )
+    finally:
+        conn.close()
+
+    assert row_count == 1
+    assert out_path.is_file()
+    assert spec_path is not None
+    spec_text = spec_path.read_text(encoding="utf-8")
+    assert live_mart_name in spec_text
+    assert "live-current" in spec_text
