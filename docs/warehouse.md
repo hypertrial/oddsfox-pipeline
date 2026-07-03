@@ -64,6 +64,8 @@ Schema: `polymarket_marts`
   checked rollups.
 - `selected_token_minutely_odds`: full minutely odds time series for all selected-scope tokens (dbt
   view joining raw odds directly to the selected token universe; not materialized to save disk).
+- `selected_token_hourly_odds`: full hourly OHLC odds time series for all selected-scope tokens (dbt
+  view over `odds_history`; not materialized to save disk).
 - `selected_token_daily_odds`: full daily OHLC odds time series for all selected-scope tokens (dbt
   view over `int_polymarket_token_daily_timeseries`; not materialized to save disk).
 - `selected_markets`: selected-scope market universe; one row per `(scope_name, market_id)`.

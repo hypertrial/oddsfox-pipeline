@@ -15,16 +15,19 @@ from oddsfox.orchestration.assets import (
     polymarket_markets_snapshot,
     polymarket_odds_repair,
     polymarket_token_odds_history,
+    polymarket_token_odds_history_hourly,
     polymarket_token_odds_history_minutely,
 )
 from oddsfox.orchestration.jobs import (
     dbt_full_refresh,
+    polymarket_hourly_odds_ingest,
     polymarket_ingest_full_refresh_events,
     polymarket_ingest_incremental,
     polymarket_minutely_odds_ingest,
     polymarket_selected_scope_full_pipeline,
 )
 from oddsfox.orchestration.schedules import (
+    polymarket_hourly_odds_schedule,
     polymarket_minutely_odds_cold_schedule,
     polymarket_minutely_odds_live_schedule,
     polymarket_minutely_odds_schedule,
@@ -38,6 +41,7 @@ defs = Definitions(
         polymarket_market_metadata_backfill,
         polymarket_token_odds_history,
         polymarket_token_odds_history_minutely,
+        polymarket_token_odds_history_hourly,
         polymarket_odds_repair,
         polymarket_dbt,
     ],
@@ -45,6 +49,7 @@ defs = Definitions(
         polymarket_ingest_incremental,
         polymarket_ingest_full_refresh_events,
         polymarket_minutely_odds_ingest,
+        polymarket_hourly_odds_ingest,
         dbt_full_refresh,
         polymarket_selected_scope_full_pipeline,
     ],
@@ -52,6 +57,7 @@ defs = Definitions(
         polymarket_minutely_odds_schedule,
         polymarket_minutely_odds_cold_schedule,
         polymarket_minutely_odds_live_schedule,
+        polymarket_hourly_odds_schedule,
     ],
     resources={
         "dbt": DbtCliResource(

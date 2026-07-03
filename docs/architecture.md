@@ -55,19 +55,21 @@ flowchart TD
     token_universe --> coverage["token_coverage"]
     coverage --> market_coverage["market_coverage"]
     selected_tokens --> minutely["selected_token_minutely_odds"]
+    selected_tokens --> hourly["selected_token_hourly_odds"]
     selected_tokens --> daily["selected_token_daily_odds"]
     minutely --> whale["selected_whale_minutely_odds"]
 ```
 
 Text fallback: staging normalizes raw and ops tables, intermediates establish
 token universes and selected market scope rows, and marts publish token health,
-market coverage, full selected-scope daily and minutely odds time series, the
+market coverage, full selected-scope minutely/hourly/daily odds time series, the
 selected market universe (`scope_name`, `market_id`), and high-volume minutely odds.
 
 ## Operating Model
 
 - `polymarket_selected_scope_full_pipeline` is the one-click full manual pipeline.
 - `polymarket_minutely_odds_ingest` is the shared minutely odds job.
+- `polymarket_hourly_odds_ingest` is the hourly odds job (`fidelity=60`).
 - Schedules are stopped by default and should stay off until manual runs pass.
 - DuckDB allows one read-write writer, so scripts provide read-only inspection
   and repair paths for local operators.

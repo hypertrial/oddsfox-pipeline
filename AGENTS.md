@@ -19,6 +19,7 @@ Default warehouse: `oddsfox.duckdb` in the repo root. Keep schedules disabled in
 ```dotenv
 POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=false
 POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
+POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 ## AI agent guidance
@@ -140,13 +141,14 @@ Asset order (routine pipeline):
 4. `polymarket_market_metadata_backfill`
 5. `polymarket_token_odds_history`
 6. `polymarket_token_odds_history_minutely`
-7. `polymarket_dbt`
+7. `polymarket_token_odds_history_hourly` (optional hourly-grain refresh)
+8. `polymarket_dbt`
 
 `polymarket_odds_repair` is a repair asset, not part of the routine full pipeline.
 
-Key jobs: `polymarket_ingest_incremental`, `polymarket_ingest_full_refresh_events`, `polymarket_minutely_odds_ingest`, `dbt_full_refresh`, `polymarket_selected_scope_full_pipeline`.
+Key jobs: `polymarket_ingest_incremental`, `polymarket_ingest_full_refresh_events`, `polymarket_minutely_odds_ingest`, `polymarket_hourly_odds_ingest`, `dbt_full_refresh`, `polymarket_selected_scope_full_pipeline`.
 
-Schedules target `polymarket_minutely_odds_ingest` and are **stopped by default**. Do not enable live/minutely schedules in code or `.env` unless the task explicitly requires it.
+Schedules target `polymarket_minutely_odds_ingest` and `polymarket_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/minutely/hourly schedules in code or `.env` unless the task explicitly requires it.
 
 **Market scopes:** operators select presets with `POLYMARKET_MARKET_SCOPES` (CSV in `.env`). Dagster asset configs use `scope_names: list[str]`. dbt reads `active_market_scopes` (auto-synced by `polymarket_dbt` from the same env). See [docs/configuration.md](docs/configuration.md).
 

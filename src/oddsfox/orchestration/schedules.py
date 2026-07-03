@@ -7,11 +7,18 @@ import logging
 from dagster import DefaultScheduleStatus, ScheduleDefinition
 
 from oddsfox.config.settings import (
+    POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED,
     POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED,
     POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED,
 )
-from oddsfox.orchestration.config import minutely_odds_cold_run_config
-from oddsfox.orchestration.jobs import polymarket_minutely_odds_ingest
+from oddsfox.orchestration.config import (
+    hourly_odds_run_config,
+    minutely_odds_cold_run_config,
+)
+from oddsfox.orchestration.jobs import (
+    polymarket_hourly_odds_ingest,
+    polymarket_minutely_odds_ingest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +83,24 @@ polymarket_minutely_odds_live_schedule = ScheduleDefinition(
     ),
 )
 
+polymarket_hourly_odds_schedule = ScheduleDefinition(
+    name="polymarket_hourly_odds_schedule",
+    job=polymarket_hourly_odds_ingest,
+    cron_schedule="0 * * * *",
+    run_config=hourly_odds_run_config(),
+    default_status=(
+        DefaultScheduleStatus.RUNNING
+        if POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED
+        else DefaultScheduleStatus.STOPPED
+    ),
+    description=(
+        "Hourly selected-scope odds refresh at CLOB fidelity=60. Controlled by "
+        "POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED."
+    ),
+)
+
 __all__ = [
+    "polymarket_hourly_odds_schedule",
     "polymarket_minutely_odds_cold_schedule",
     "polymarket_minutely_odds_live_schedule",
     "polymarket_minutely_odds_schedule",

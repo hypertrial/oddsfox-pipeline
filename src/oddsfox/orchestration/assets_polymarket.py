@@ -14,6 +14,7 @@ from oddsfox.orchestration import polymarket_asset_helpers as asset_helpers
 from oddsfox.orchestration import polymarket_ops as ops
 from oddsfox.orchestration.config import (
     DbtBuildConfig,
+    HourlyOddsSyncConfig,
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
     MetadataBackfillConfig,
@@ -454,6 +455,18 @@ def polymarket_token_odds_history_minutely(
     return _materialize_odds_sync(context, config)
 
 
+@asset(
+    name="polymarket_token_odds_history_hourly",
+    deps=[polymarket_market_metadata_backfill],
+    group_name="ingestion",
+)
+def polymarket_token_odds_history_hourly(
+    context: AssetExecutionContext,
+    config: HourlyOddsSyncConfig,
+) -> MaterializeResult:
+    return _materialize_odds_sync(context, config)
+
+
 @asset(name="polymarket_odds_repair", group_name="ingestion")
 def polymarket_odds_repair(
     context: AssetExecutionContext,
@@ -514,6 +527,7 @@ __all__ = [
     "polymarket_markets_snapshot",
     "polymarket_odds_repair",
     "polymarket_token_odds_history",
+    "polymarket_token_odds_history_hourly",
     "polymarket_token_odds_history_minutely",
     "polymarket_market_scope_registry",
 ]

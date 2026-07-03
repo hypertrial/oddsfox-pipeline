@@ -12,6 +12,7 @@ from oddsfox.orchestration.assets import (
     polymarket_markets_raw_dlt,
     polymarket_odds_repair,
     polymarket_token_odds_history,
+    polymarket_token_odds_history_hourly,
     polymarket_token_odds_history_minutely,
 )
 
@@ -325,8 +326,15 @@ def test_odds_assets_delegate_to_materializer(monkeypatch):
         )
         == "ok"
     )
+    assert (
+        polymarket_token_odds_history_hourly.op.compute_fn.decorated_fn(
+            ctx, orch_config.HourlyOddsSyncConfig()
+        )
+        == "ok"
+    )
     assert calls[0][0] is orch_config.OddsSyncConfig
     assert calls[1][0] is orch_config.MinutelyOddsSyncConfig
+    assert calls[2][0] is orch_config.HourlyOddsSyncConfig
 
 
 def test_repair_asset_returns_reconcile_metadata(monkeypatch):

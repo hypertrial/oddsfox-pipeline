@@ -4,6 +4,7 @@ import pytest
 
 from oddsfox.orchestration.config import (
     GuardrailConfig,
+    HourlyOddsSyncConfig,
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
     MetadataBackfillConfig,
@@ -57,3 +58,15 @@ def test_odds_config_validates_scope_and_volume_bounds():
 
     with pytest.raises(ValueError, match="at least one scope"):
         OddsSyncConfig(scope_names=[])
+
+
+def test_hourly_odds_config_defaults_to_hourly_whale_sync():
+    cfg = HourlyOddsSyncConfig()
+
+    assert cfg.fidelity == 60
+    assert cfg.force is True
+    assert cfg.overlap_minutes == 60
+    assert cfg.window_hours == 72
+    assert cfg.routine_interval_hours == 1
+    assert cfg.min_volume == 100000.0
+    assert cfg.max_volume is None

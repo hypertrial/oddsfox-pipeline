@@ -208,6 +208,19 @@ class MinutelyOddsSyncConfig(OddsSyncConfig):
     ended_market_grace_days: int | None = Field(default=7, ge=0)
 
 
+class HourlyOddsSyncConfig(OddsSyncConfig):
+    fidelity: int = Field(default=60, ge=MIN_ODDS_FIDELITY_MINUTES)
+    force: bool = True
+    skip_recent_minutes: int = 1
+    overlap_minutes: int = 60
+    window_hours: int = 72
+    routine_interval_hours: int = Field(default=1, ge=1)
+    min_volume: float | None = Field(default=WHALE_MIN_VOLUME_USD)
+    max_volume: float | None = None
+    scope_names: list[str] = Field(default_factory=default_market_scope_names)
+    ended_market_grace_days: int | None = Field(default=7, ge=0)
+
+
 class RepairConfig(Config):
     persist_run_metrics: bool = True
     raw_snapshot_level: str = Field(default="basic")
@@ -259,5 +272,14 @@ def minutely_odds_cold_run_config() -> dict:
     return {
         "ops": {
             "polymarket_token_odds_history_minutely": {"config": odds_cfg.model_dump()},
+        }
+    }
+
+
+def hourly_odds_run_config() -> dict:
+    odds_cfg = HourlyOddsSyncConfig()
+    return {
+        "ops": {
+            "polymarket_token_odds_history_hourly": {"config": odds_cfg.model_dump()},
         }
     }

@@ -65,10 +65,11 @@ The seed file `src/oddsfox/ingestion/polymarket/seeds/market_scopes.yml` is the 
 
 ## Schedules
 
-- `POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED`: enables the five-minute and hourly schedules for `polymarket_minutely_odds_ingest`.
+- `POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED`: enables the five-minute schedule and hourly cold trigger for `polymarket_minutely_odds_ingest`.
 - `POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED`: enables the one-minute live schedule for `polymarket_minutely_odds_ingest`.
+- `POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_hourly_odds_ingest` schedule (`fidelity=60`).
 
-Both default to `false`.
+All schedule flags default to `false`.
 
 ## CLOB Credentials
 

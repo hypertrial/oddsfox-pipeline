@@ -131,9 +131,11 @@ def test_optional_env_number_helpers_and_date_fallback(monkeypatch, isolated_env
 def test_env_bool_parses_truthy_and_falsey_values(monkeypatch, isolated_env):
     monkeypatch.setenv("POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED", "yes")
     monkeypatch.setenv("POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED", "0")
+    monkeypatch.setenv("POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED", "true")
     settings = reload_all_settings_modules()
     assert settings.POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED is True
     assert settings.POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED is False
+    assert settings.POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED is True
 
 
 @pytest.mark.parametrize(

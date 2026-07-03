@@ -15,6 +15,7 @@ Schema: `polymarket_marts`
 | `token_coverage` | One row per `clob_token_id` | Token health, daily coverage, sync ledger state, skip state, gap health, and market fully checked rollups. |
 | `market_coverage` | One row per market | Market-level coverage rolled up from `token_coverage`. |
 | `selected_token_minutely_odds` | One row per `(clob_token_id, odds_timestamp_epoch)` | Full minutely odds time series for all selected tokens (dbt view). |
+| `selected_token_hourly_odds` | One row per `(clob_token_id, odds_hour_utc)` | Full hourly OHLC odds time series for all selected tokens (dbt view). |
 | `selected_token_daily_odds` | One row per `(clob_token_id, odds_date_utc)` | Full daily OHLC odds time series for all selected tokens (dbt view). |
 | `selected_whale_minutely_odds` | One row per token timestamp | Minutely odds for selected markets above the configured volume threshold (filtered view over `selected_token_minutely_odds`). |
 
@@ -29,12 +30,13 @@ Schema: `polymarket_marts`
 ## Current Scope Rules
 
 - `token_coverage` covers all staged tokens.
-- `selected_token_minutely_odds` and `selected_token_daily_odds` are full time series for the active selected market scopes (union across `POLYMARKET_MARKET_SCOPES`).
-- `selected_token_minutely_odds`, `selected_token_daily_odds`, and `selected_whale_minutely_odds` include `outcome_label` (e.g. Yes/No) resolved from `outcome_index`; no join to `selected_markets` is required to interpret which side a row represents.
+- `selected_token_minutely_odds`, `selected_token_hourly_odds`, and `selected_token_daily_odds` are full time series for the active selected market scopes (union across `POLYMARKET_MARKET_SCOPES`).
+- `selected_token_minutely_odds`, `selected_token_hourly_odds`, `selected_token_daily_odds`, and `selected_whale_minutely_odds` include `outcome_label` (e.g. Yes/No) resolved from `outcome_index`; no join to `selected_markets` is required to interpret which side a row represents.
 - `selected_whale_minutely_odds` is filtered by the active selected market scopes and
   `polymarket_whale_min_volume_usd`.
 - After `make prune-odds-history`, `polymarket_raw.odds_history` (and therefore
-  `selected_token_minutely_odds` and `selected_whale_minutely_odds`) only guarantees
+  `selected_token_minutely_odds`, `selected_token_hourly_odds`, and
+  `selected_whale_minutely_odds`) only guarantees
   the trailing ~365 days of minutely points unless you change the retention window.
 - `int_polymarket_selected_markets` is the canonical market-level selected scope (grain: `scope_name`, `market_id`).
 
@@ -66,7 +68,7 @@ after upgrading from pre-`v0.1.2` layouts.
 There is no compatibility view or shim for `token_latest_odds`. Use the
 time-series marts below instead.
 
-To get the latest daily or minutely price for a token, query
-`selected_token_daily_odds` or `selected_token_minutely_odds` with
-`max(odds_date_utc)` or `max(odds_timestamp_epoch)` per `clob_token_id`, or
+To get the latest daily, hourly, or minutely price for a token, query
+`selected_token_daily_odds`, `selected_token_hourly_odds`, or
+`selected_token_minutely_odds` with the maximum time key per `clob_token_id`, or
 query the intermediate models directly.

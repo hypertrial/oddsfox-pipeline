@@ -23,6 +23,7 @@ For a local dry run, keep schedules disabled:
 ```dotenv
 POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=false
 POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
+POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 Set `POLYMARKET_MARKET_SCOPES` in `.env` to choose one or more scope presets
@@ -69,7 +70,8 @@ For a safer staged run:
 
 1. `polymarket_ingest_full_refresh_events`
 2. `polymarket_minutely_odds_ingest`
-3. `dbt_full_refresh`
+3. `polymarket_hourly_odds_ingest` (optional hourly-grain refresh)
+4. `dbt_full_refresh`
 
 Leave schedules off until these jobs complete successfully.
 

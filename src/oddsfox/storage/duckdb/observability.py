@@ -54,6 +54,7 @@ _DBT_MODELS: tuple[tuple[str, str], ...] = (
     (POLYMARKET_MARTS_SCHEMA, "selected_markets"),
     (POLYMARKET_MARTS_SCHEMA, "token_coverage"),
     (POLYMARKET_MARTS_SCHEMA, "selected_token_minutely_odds"),
+    (POLYMARKET_MARTS_SCHEMA, "selected_token_hourly_odds"),
     (POLYMARKET_MARTS_SCHEMA, "selected_token_daily_odds"),
     (POLYMARKET_MARTS_SCHEMA, "selected_whale_minutely_odds"),
     (POLYMARKET_OBSERVABILITY_SCHEMA, "sync_run_observability"),

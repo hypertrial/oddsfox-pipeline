@@ -6,6 +6,7 @@ from dagster import DefaultScheduleStatus, build_schedule_context
 
 from oddsfox.orchestration.definitions import defs
 from oddsfox.orchestration.schedules import (
+    polymarket_hourly_odds_schedule,
     polymarket_minutely_odds_cold_schedule,
     polymarket_minutely_odds_live_schedule,
     polymarket_minutely_odds_schedule,
@@ -22,12 +23,17 @@ def _polymarket_sources_path() -> Path:
     )
 
 
-def _reload_schedules_module(monkeypatch, *, standard: bool, live: bool):
+def _reload_schedules_module(
+    monkeypatch, *, standard: bool, live: bool, hourly: bool = False
+):
     monkeypatch.setenv(
         "POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED", "true" if standard else "false"
     )
     monkeypatch.setenv(
         "POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED", "true" if live else "false"
+    )
+    monkeypatch.setenv(
+        "POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED", "true" if hourly else "false"
     )
     from oddsfox.config._reload_settings import reload_all_settings_modules
 
@@ -39,6 +45,7 @@ def _reload_schedules_module(monkeypatch, *, standard: bool, live: bool):
 
 def test_definitions_expose_v010_jobs_only():
     expected = {
+        "polymarket_hourly_odds_ingest",
         "polymarket_ingest_full_refresh_events",
         "polymarket_ingest_incremental",
         "polymarket_minutely_odds_ingest",
@@ -58,6 +65,7 @@ def test_definitions_expose_v010_asset_keys():
         "polymarket_market_scope_registry",
         "polymarket_market_metadata_backfill",
         "polymarket_token_odds_history",
+        "polymarket_token_odds_history_hourly",
         "polymarket_token_odds_history_minutely",
         "polymarket_odds_repair",
         "polymarket_stg_markets",
@@ -74,6 +82,7 @@ def test_definitions_expose_v010_asset_keys():
         "polymarket_market_coverage",
         "polymarket_selected_markets",
         "polymarket_token_coverage",
+        "polymarket_selected_token_hourly_odds",
         "polymarket_selected_token_minutely_odds",
         "polymarket_selected_token_daily_odds",
         "polymarket_selected_whale_minutely_odds",
@@ -103,6 +112,7 @@ def test_minutely_schedules_default_stopped():
         polymarket_minutely_odds_schedule,
         polymarket_minutely_odds_cold_schedule,
         polymarket_minutely_odds_live_schedule,
+        polymarket_hourly_odds_schedule,
     )
     assert all(
         schedule.default_status == DefaultScheduleStatus.STOPPED
@@ -160,4 +170,33 @@ def test_minutely_schedules_share_job_and_cold_config():
         .run_requests[0]
         .run_config
         == {}
+    )
+
+
+def test_hourly_schedule_targets_hourly_job_and_config():
+    assert polymarket_hourly_odds_schedule.default_status == (
+        DefaultScheduleStatus.STOPPED
+    )
+    assert polymarket_hourly_odds_schedule.job_name == "polymarket_hourly_odds_ingest"
+
+    context = build_schedule_context()
+    run_config = (
+        polymarket_hourly_odds_schedule.evaluate_tick(context)
+        .run_requests[0]
+        .run_config
+    )
+    cfg = run_config["ops"]["polymarket_token_odds_history_hourly"]["config"]
+    assert cfg["fidelity"] == 60
+    assert cfg["overlap_minutes"] == 60
+    assert cfg["min_volume"] == 100000.0
+    assert cfg["max_volume"] is None
+
+
+def test_hourly_schedule_enabled_by_env(monkeypatch):
+    schedules_mod = _reload_schedules_module(
+        monkeypatch, standard=False, live=False, hourly=True
+    )
+
+    assert schedules_mod.polymarket_hourly_odds_schedule.default_status == (
+        DefaultScheduleStatus.RUNNING
     )

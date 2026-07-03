@@ -44,3 +44,15 @@ def test_selected_minutely_filters_before_odds_join():
     assert "{{ ref('int_polymarket_selected_token_universe') }}" in lowered
     assert "{{ ref('stg_polymarket_odds') }}" in lowered
     assert "int_polymarket_token_timeseries" not in lowered
+
+
+def test_selected_hourly_aggregates_canonical_odds():
+    sql = (
+        DBT_ROOT / "models" / "polymarket" / "marts" / "selected_token_hourly_odds.sql"
+    ).read_text()
+    lowered = sql.lower()
+
+    assert "{{ ref('int_polymarket_selected_token_universe') }}" in lowered
+    assert "{{ ref('stg_polymarket_odds') }}" in lowered
+    assert "date_trunc('hour', odds_timestamp)" in lowered
+    assert "selected_whale_hourly_odds" not in lowered

@@ -17,7 +17,8 @@ The main asset order is:
 4. `polymarket_market_metadata_backfill`
 5. `polymarket_token_odds_history`
 6. `polymarket_token_odds_history_minutely`
-7. `polymarket_dbt`
+7. `polymarket_token_odds_history_hourly` (optional hourly-grain refresh)
+8. `polymarket_dbt`
 
 `polymarket_odds_repair` is an operator repair asset, not part of the routine full pipeline.
 
@@ -26,6 +27,7 @@ The main asset order is:
 - `polymarket_ingest_full_refresh_events`: full selected-scope event/market discovery, registry refresh, metadata backfill, and odds sync.
 - `polymarket_ingest_incremental`: metadata backfill and routine token odds sync.
 - `polymarket_minutely_odds_ingest`: minutely odds refresh for high-volume markets in the selected market scopes (union).
+- `polymarket_hourly_odds_ingest`: hourly odds refresh (`fidelity=60`) for high-volume markets in the selected market scopes (union).
 - `dbt_full_refresh`: dbt analytics build.
 - `polymarket_selected_scope_full_pipeline`: full ingest plus dbt build.
 
@@ -38,7 +40,7 @@ preset catalog and multi-scope examples.
 - `polymarket_markets_snapshot` and `polymarket_market_scope_registry` loop once per
   selected scope and refresh `polymarket_ops.market_scope_registry` per scope.
 - `polymarket_market_metadata_backfill`, `polymarket_token_odds_history`, and
-  `polymarket_token_odds_history_minutely` run once over the union of selected scopes.
+  the hourly/minutely odds assets run once over the union of selected scopes.
 - `polymarket_dbt` passes `active_market_scopes` to dbt from the same env selection.
 
 ## Schedules
@@ -48,21 +50,26 @@ Schedules are stopped by default.
 All minutely schedules target `polymarket_minutely_odds_ingest`:
 
 - `polymarket_minutely_odds_schedule`: every 5 minutes.
-- `polymarket_minutely_odds_cold_schedule`: hourly conservative refresh with cold run config.
+- `polymarket_minutely_odds_cold_schedule`: hourly conservative trigger for the minutely job with cold run config.
 - `polymarket_minutely_odds_live_schedule`: every minute when explicitly enabled.
+
+The hourly data schedule is separate:
+
+- `polymarket_hourly_odds_schedule`: every hour for `polymarket_hourly_odds_ingest` (`fidelity=60`).
 
 Enable only after manual jobs are healthy:
 
 ```dotenv
 POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=true
 POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
+POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 Enable `POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED` only during intentional live operation.
 
 If both `POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED` and
 `POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED` are true, only the live schedule
-runs; the five-minute and hourly schedules stay stopped and a warning is logged.
+runs; the five-minute and cold minutely schedules stay stopped and a warning is logged.
 
 ## Recovery
 

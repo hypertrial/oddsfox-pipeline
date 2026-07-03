@@ -17,6 +17,7 @@ The default warehouse is `oddsfox.duckdb` in the repo root. Keep schedules disab
 ```dotenv
 POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=false
 POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
+POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 See [docs/quickstart.md](docs/quickstart.md) and [docs/configuration.md](docs/configuration.md) for full operator setup.

@@ -3,6 +3,7 @@ from dagster import AssetSelection, define_asset_job, multiprocess_executor
 from oddsfox.orchestration.config import (
     dbt_full_refresh_run_config,
     full_refresh_events_run_config,
+    hourly_odds_run_config,
     minutely_odds_run_config,
 )
 
@@ -19,6 +20,10 @@ POLYMARKET_INCREMENTAL_SELECTION = AssetSelection.assets(
 
 POLYMARKET_MINUTELY_ODDS_SELECTION = AssetSelection.assets(
     "polymarket_token_odds_history_minutely",
+)
+
+POLYMARKET_HOURLY_ODDS_SELECTION = AssetSelection.assets(
+    "polymarket_token_odds_history_hourly",
 )
 
 POLYMARKET_FULL_REFRESH_EVENTS_SELECTION = AssetSelection.assets(
@@ -45,6 +50,14 @@ polymarket_minutely_odds_ingest = define_asset_job(
     "polymarket_minutely_odds_ingest",
     selection=POLYMARKET_MINUTELY_ODDS_SELECTION,
     config=minutely_odds_run_config(),
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    tags=_DUCKDB_WAREHOUSE_TAGS,
+)
+
+polymarket_hourly_odds_ingest = define_asset_job(
+    "polymarket_hourly_odds_ingest",
+    selection=POLYMARKET_HOURLY_ODDS_SELECTION,
+    config=hourly_odds_run_config(),
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     tags=_DUCKDB_WAREHOUSE_TAGS,
 )

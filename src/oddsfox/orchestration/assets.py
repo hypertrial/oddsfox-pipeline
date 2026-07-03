@@ -7,6 +7,7 @@ from oddsfox.orchestration.assets_polymarket import (
     polymarket_markets_snapshot,
     polymarket_odds_repair,
     polymarket_token_odds_history,
+    polymarket_token_odds_history_hourly,
     polymarket_token_odds_history_minutely,
 )
 from oddsfox.orchestration.dbt_project import (
@@ -46,6 +47,7 @@ __all__ = [
     "polymarket_markets_snapshot",
     "polymarket_odds_repair",
     "polymarket_token_odds_history",
+    "polymarket_token_odds_history_hourly",
     "polymarket_token_odds_history_minutely",
     "polymarket_market_scope_registry",
     "prepare_dbt_project",
