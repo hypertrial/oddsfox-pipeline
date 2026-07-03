@@ -74,12 +74,17 @@ def _seed_dlt_owned_markets(market_page: list[dict]) -> None:
         conn.executemany(
             """
             INSERT OR REPLACE INTO "polymarket_raw"."markets"
-            (
-                id, question, category, description, outcomes, volume, active, closed,
-                created_at, scraped_at, end_date, slug, event_slug, event_id
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
+                (
+                    id, question, category, description, outcomes, volume, active, closed,
+                    created_at, scraped_at, end_date, slug, event_slug, event_id,
+                    condition_id, sports_market_type, game_start_time, group_item_title,
+                    tags, clob_token_ids, is_resolved, winning_outcome,
+                    winning_clob_token_id
+                )
+                VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+                """,
             market_data,
         )
         conn.execute(

@@ -12,5 +12,15 @@ select
     scraped_at,
     end_date,
     slug,
-    event_slug
+    event_slug,
+    event_id,
+    condition_id,
+    sports_market_type,
+    game_start_time,
+    group_item_title,
+    tags,
+    clob_token_ids,
+    is_resolved,
+    winning_outcome,
+    winning_clob_token_id
 from {{ ref('int_polymarket_selected_markets') }}

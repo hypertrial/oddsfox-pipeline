@@ -213,6 +213,38 @@ models:
       - name: observed_points
         description: Count of canonical odds points rolled into this token-hour.
 
+  - name: wc2026_knockout_markets
+    description: >
+      WC2026 knockout-stage market/token export surface with stage classification,
+      Polymarket sports metadata, latest live-current hourly price, and raw result
+      metadata. One row per CLOB token for stage markets.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id]
+    columns:
+      - name: clob_token_id
+        description: CLOB outcome token identifier.
+        tests: [not_null, unique]
+      - name: market_id
+        description: Polymarket market identifier.
+        tests: [not_null]
+      - name: stage_key
+        description: Normalized WC2026 knockout stage key.
+        tests: [not_null]
+      - name: team_name
+        description: Team extracted from the market question.
+      - name: condition_id
+        description: Polymarket condition identifier when present.
+      - name: sports_market_type
+        description: Polymarket sports market type when present.
+      - name: game_start_time
+        description: Scheduled game start time when present.
+      - name: group_item_title
+        description: Polymarket sports grouping title when present.
+      - name: current_price
+        description: Latest live-current hourly close price for this token.
+
   - name: selected_whale_minutely_odds
     description: >
       Minute-grain odds for high-liquidity selected-scope markets (volume >= polymarket_whale_min_volume_usd).

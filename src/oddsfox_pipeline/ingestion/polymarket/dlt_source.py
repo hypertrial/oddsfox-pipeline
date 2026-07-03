@@ -80,6 +80,15 @@ def normalize_market_payloads_for_dlt(
         "slug",
         "event_slug",
         "event_id",
+        "condition_id",
+        "sports_market_type",
+        "game_start_time",
+        "group_item_title",
+        "tags",
+        "clob_token_ids",
+        "is_resolved",
+        "winning_outcome",
+        "winning_clob_token_id",
     )
     rows_by_id: dict[str, dict[str, Any]] = {}
     for row in market_rows:
@@ -110,6 +119,15 @@ def polymarket_markets_source(rows: Iterable[dict[str, Any]] = ()):
             "slug": {"data_type": "text"},
             "event_slug": {"data_type": "text"},
             "event_id": {"data_type": "text"},
+            "condition_id": {"data_type": "text"},
+            "sports_market_type": {"data_type": "text"},
+            "game_start_time": {"data_type": "timestamp", "timezone": False},
+            "group_item_title": {"data_type": "text"},
+            "tags": {"data_type": "text"},
+            "clob_token_ids": {"data_type": "text"},
+            "is_resolved": {"data_type": "bool"},
+            "winning_outcome": {"data_type": "text"},
+            "winning_clob_token_id": {"data_type": "text"},
         },
     )
     def markets():

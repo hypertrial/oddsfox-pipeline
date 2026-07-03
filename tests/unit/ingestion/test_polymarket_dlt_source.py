@@ -3,7 +3,16 @@ from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
     normalize_market_payloads_for_dlt,
     polymarket_markets_source,
 )
+from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
+    _jsonify_optional_nested_value,
+)
 from oddsfox_pipeline.storage.duckdb.dlt_batch import DLT_STRICT_SCHEMA_CONTRACT
+
+
+def test_jsonify_optional_nested_value_preserves_null_and_serializes_lists():
+    assert _jsonify_optional_nested_value(None) is None
+    assert _jsonify_optional_nested_value(["a", "b"]) == '["a", "b"]'
+    assert _jsonify_optional_nested_value("x") == "x"
 
 
 def test_polymarket_markets_source_yields_prefetched_rows():
@@ -23,6 +32,15 @@ def test_polymarket_markets_source_yields_prefetched_rows():
             "slug": "2026-fifa-world-cup-winner",
             "event_slug": "2026-fifa-world-cup-winner",
             "event_id": "99",
+            "condition_id": "cond-1",
+            "sports_market_type": "winner",
+            "game_start_time": "2026-06-11 00:00:00",
+            "group_item_title": "World Cup",
+            "tags": '[{"slug": "fifa-world-cup"}]',
+            "clob_token_ids": '["tok_yes", "tok_no"]',
+            "is_resolved": False,
+            "winning_outcome": None,
+            "winning_clob_token_id": None,
         }
     ]
     resource = polymarket_markets_source(rows=rows).resources["markets"]
@@ -37,6 +55,8 @@ def test_markets_resource_has_frozen_columns_and_types_contract():
     assert resource.columns["id"]["data_type"] == "text"
     assert resource.columns["volume"]["data_type"] == "double"
     assert resource.columns["created_at"]["data_type"] == "timestamp"
+    assert resource.columns["condition_id"]["data_type"] == "text"
+    assert resource.columns["is_resolved"]["data_type"] == "bool"
 
 
 def test_normalize_market_payloads_for_dlt_matches_raw_market_contract():
@@ -53,6 +73,12 @@ def test_normalize_market_payloads_for_dlt_matches_raw_market_contract():
                 "closed": False,
                 "createdAt": "2025-01-01T00:00:00Z",
                 "endDate": "2026-07-19T00:00:00Z",
+                "conditionId": "cond-1",
+                "sportsMarketType": "winner",
+                "gameStartTime": "2026-06-11T00:00:00Z",
+                "groupItemTitle": "World Cup",
+                "tags": [{"slug": "fifa-world-cup"}],
+                "resolved": False,
                 "clobTokenIds": ["tok_yes", "tok_no"],
                 "slug": "2026-fifa-world-cup-winner",
                 "events": [{"id": 99, "slug": "2026-fifa-world-cup-winner"}],
@@ -76,6 +102,15 @@ def test_normalize_market_payloads_for_dlt_matches_raw_market_contract():
             "slug": "2026-fifa-world-cup-winner",
             "event_slug": "2026-fifa-world-cup-winner",
             "event_id": "99",
+            "condition_id": "cond-1",
+            "sports_market_type": "winner",
+            "game_start_time": rows[0]["game_start_time"],
+            "group_item_title": "World Cup",
+            "tags": '[{"slug": "fifa-world-cup"}]',
+            "clob_token_ids": '["tok_yes", "tok_no"]',
+            "is_resolved": False,
+            "winning_outcome": None,
+            "winning_clob_token_id": None,
         }
     ]
 

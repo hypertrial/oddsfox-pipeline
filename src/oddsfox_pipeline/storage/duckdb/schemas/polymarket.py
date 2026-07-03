@@ -212,7 +212,16 @@ def create_test_markets_table(conn: duckdb.DuckDBPyConnection) -> None:
             end_date TIMESTAMP,
             slug TEXT,
             event_slug TEXT,
-            event_id TEXT
+            event_id TEXT,
+            condition_id TEXT,
+            sports_market_type TEXT,
+            game_start_time TIMESTAMP,
+            group_item_title TEXT,
+            tags TEXT,
+            clob_token_ids TEXT,
+            is_resolved BOOLEAN,
+            winning_outcome TEXT,
+            winning_clob_token_id TEXT
         )
         """
     )

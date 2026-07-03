@@ -12,5 +12,14 @@ select
     end_date,
     slug,
     event_slug,
-    event_id
+    event_id,
+    condition_id,
+    sports_market_type,
+    game_start_time,
+    group_item_title,
+    tags,
+    clob_token_ids,
+    cast(is_resolved as boolean) as is_resolved,
+    winning_outcome,
+    winning_clob_token_id
 from {{ source('polymarket_raw', 'markets') }}

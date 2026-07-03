@@ -109,6 +109,22 @@ def prepare_batch_for_db(df: pl.DataFrame) -> Tuple[List[Tuple], List[Tuple]]:
     else:
         select_cols.append(pl.lit(None).alias("event_id"))
 
+    for col in (
+        "condition_id",
+        "sports_market_type",
+        "game_start_time",
+        "group_item_title",
+        "tags_str",
+        "clob_token_ids",
+        "is_resolved",
+        "winning_outcome",
+        "winning_clob_token_id",
+    ):
+        if col in df.columns:
+            select_cols.append(pl.col(col))
+        else:
+            select_cols.append(pl.lit(None).alias(col))
+
     # Tokens
     if "clobTokenIds_str" in df.columns:
         select_cols.append(pl.col("clobTokenIds_str"))
@@ -138,6 +154,15 @@ def prepare_batch_for_db(df: pl.DataFrame) -> Tuple[List[Tuple], List[Tuple]]:
             slug,
             event_slug,
             event_id,
+            condition_id,
+            sports_market_type,
+            game_start_time,
+            group_item_title,
+            tags,
+            clob_token_ids,
+            is_resolved,
+            winning_outcome,
+            winning_clob_token_id,
             toks,
         ) = row
 
@@ -157,6 +182,15 @@ def prepare_batch_for_db(df: pl.DataFrame) -> Tuple[List[Tuple], List[Tuple]]:
                 slug,
                 event_slug,
                 event_id,
+                condition_id,
+                sports_market_type,
+                game_start_time,
+                group_item_title,
+                tags,
+                clob_token_ids,
+                bool(is_resolved) if is_resolved is not None else None,
+                winning_outcome,
+                winning_clob_token_id,
             )
         )
 
