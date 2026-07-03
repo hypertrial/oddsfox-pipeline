@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import duckdb
 
-from oddsfox.storage.duckdb.profile.discovery import discover_relations
-from oddsfox.storage.duckdb.profile.models import ProfileConfig, StatsLevel
-from oddsfox.storage.duckdb.profile.report import (
+from oddsfox_pipeline.storage.duckdb.profile.discovery import discover_relations
+from oddsfox_pipeline.storage.duckdb.profile.models import ProfileConfig, StatsLevel
+from oddsfox_pipeline.storage.duckdb.profile.report import (
     build_warehouse_profile_report,
     render_markdown_report,
 )

@@ -118,7 +118,7 @@ def _select_mart_name(live_current: bool) -> str:
 
 
 def _mart_qualified_name(mart_name: str = MART_NAME) -> str:
-    from oddsfox.storage.duckdb.profile.discovery import qualified_name
+    from oddsfox_pipeline.storage.duckdb.profile.discovery import qualified_name
 
     return qualified_name(MART_SCHEMA, mart_name)
 
@@ -399,8 +399,8 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     mart_name = _select_mart_name(args.live_current)
 
-    from oddsfox.config import settings
-    from oddsfox.storage.duckdb import open_duckdb_connection
+    from oddsfox_pipeline.config import settings
+    from oddsfox_pipeline.storage.duckdb import open_duckdb_connection
 
     duck = Path(args.duckdb_path or settings.DUCKDB_PATH).resolve()
     if args.output is not None:

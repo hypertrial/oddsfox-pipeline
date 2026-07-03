@@ -7,25 +7,27 @@ from unittest.mock import MagicMock
 
 from tests.unit.ingestion.market_scope_test_support import slug_only_cfg
 
-from oddsfox.ingestion.polymarket import market_scope as scope_mod
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.ingestion.polymarket import market_scope as scope_mod
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     MarketScopeConfig,
     MarketScopeEventsScanResult,
     refresh_registry_from_events,
 )
-from oddsfox.ingestion.polymarket.market_scope import registry as scope_registry_mod
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
+    registry as scope_registry_mod,
+)
 
 
 def test_market_scope_discovery_ledger_and_scope_hash(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.ingestion.polymarket.market_scope import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.ingestion.polymarket.market_scope import (
         MarketScopeConfig,
         scope_config_hash,
     )
-    from oddsfox.storage.duckdb.metadata import (
+    from oddsfox_pipeline.storage.duckdb.metadata import (
         get_market_scope_discovery_fully_checked,
         get_market_scope_discovery_scope_config_hash,
         set_market_scope_discovery_fully_checked,
@@ -55,9 +57,9 @@ def test_market_scope_discovery_ledger_and_scope_hash(monkeypatch, tmp_path):
 def test_discovery_ledger_invalidates_on_scope_change(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.storage.duckdb.metadata import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.storage.duckdb.metadata import (
         get_market_scope_discovery_fully_checked,
         get_market_scope_discovery_scope_config_hash,
         set_market_scope_discovery_fully_checked,
@@ -100,9 +102,9 @@ def test_discovery_ledger_invalidates_on_scope_change(monkeypatch, tmp_path):
 def test_get_registry_event_slugs(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.storage.duckdb.market_scope_registry import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
         RegistryRow,
         get_registry_event_slugs,
         upsert_registry_rows,
@@ -125,7 +127,7 @@ def test_get_registry_event_slugs(monkeypatch, tmp_path):
 
 
 def test_registry_seed_rows_and_dedupe_priority() -> None:
-    from oddsfox.storage.duckdb.market_scope_registry import RegistryRow
+    from oddsfox_pipeline.storage.duckdb.market_scope_registry import RegistryRow
 
     cfg = MarketScopeConfig(
         event_slugs=(),

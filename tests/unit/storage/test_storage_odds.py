@@ -6,7 +6,7 @@ import duckdb
 import pytest
 from tests.unit.storage.duckdb_storage_test_support import T_OH, T_TOD
 
-import oddsfox.storage.duckdb.odds as odds_mod
+import oddsfox_pipeline.storage.duckdb.odds as odds_mod
 
 
 def test_odds_chunked_raises():

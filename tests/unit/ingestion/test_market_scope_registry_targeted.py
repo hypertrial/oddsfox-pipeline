@@ -6,19 +6,21 @@ from unittest.mock import MagicMock
 
 from tests.unit.ingestion.market_scope_test_support import slug_only_cfg
 
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     MarketScopeConfig,
     refresh_registry_and_collect_markets_from_events,
     refresh_registry_from_events,
 )
-from oddsfox.ingestion.polymarket.market_scope import registry as scope_registry_mod
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
+    registry as scope_registry_mod,
+)
 
 
 def test_refresh_registry_and_collect_single_events_pass(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "combined.duckdb"))
     reload_all_settings_modules()
@@ -55,8 +57,8 @@ def test_refresh_registry_and_collect_single_events_pass(monkeypatch, tmp_path):
 def test_refresh_registry_with_seed_market_ids(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "seed_registry.duckdb"))
     reload_all_settings_modules()
@@ -192,9 +194,9 @@ def test_targeted_registry_without_progress_callback(monkeypatch):
 def test_markets_sync_targeted_discovery(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.ingestion.polymarket.markets.sync import sync_markets
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.ingestion.polymarket.markets.sync import sync_markets
 
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "targeted.duckdb"))
     reload_all_settings_modules()
@@ -225,7 +227,7 @@ def test_markets_sync_targeted_discovery(monkeypatch, tmp_path):
     client = MagicMock()
     client.get.side_effect = _fake_get
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.markets.sync.build_client",
+        "oddsfox_pipeline.ingestion.polymarket.markets.sync.build_client",
         lambda: client,
     )
     progress = []
@@ -241,7 +243,7 @@ def test_markets_sync_targeted_discovery(monkeypatch, tmp_path):
     assert "discovery_complete" in progress
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.markets.sync.prepare_batch_for_db",
+        "oddsfox_pipeline.ingestion.polymarket.markets.sync.prepare_batch_for_db",
         lambda df: ([], []),
     )
     progress.clear()
@@ -256,7 +258,7 @@ def test_markets_sync_targeted_discovery(monkeypatch, tmp_path):
     assert result_no_cb["mode"] == "market_scope_event_first"
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.markets.sync.refresh_registry_and_collect_markets_targeted",
+        "oddsfox_pipeline.ingestion.polymarket.markets.sync.refresh_registry_and_collect_markets_targeted",
         lambda *a, **k: ({"registry_rows_upserted": 0}, [], {"markets_collected": 0}),
     )
     empty_events = sync_markets(discovery_mode="targeted")
@@ -266,9 +268,9 @@ def test_markets_sync_targeted_discovery(monkeypatch, tmp_path):
 def test_refresh_registry_targeted_slug_and_markets(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.ingestion.polymarket.market_scope import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.ingestion.polymarket.market_scope import (
         MarketScopeConfig,
         refresh_registry_and_collect_markets_targeted,
     )
@@ -321,10 +323,10 @@ def test_refresh_registry_targeted_slug_and_markets(monkeypatch, tmp_path):
 def test_targeted_skips_missing_slug_and_markets_callback_errors(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.ingestion.polymarket.errors import GammaRequestError
-    from oddsfox.ingestion.polymarket.market_scope import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.ingestion.polymarket.errors import GammaRequestError
+    from oddsfox_pipeline.ingestion.polymarket.market_scope import (
         MarketScopeConfig,
         refresh_registry_and_collect_markets_targeted,
     )
@@ -374,9 +376,9 @@ def test_targeted_skips_missing_slug_and_markets_callback_errors(monkeypatch, tm
 def test_targeted_progress_callbacks_ignore_failures(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.ingestion.polymarket.market_scope import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.ingestion.polymarket.market_scope import (
         MarketScopeConfig,
         refresh_registry_and_collect_markets_targeted,
     )

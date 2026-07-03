@@ -95,7 +95,7 @@ def _database_size(conn) -> tuple[int, int, int]:
 def main() -> int:
     import duckdb
 
-    from oddsfox.config import settings
+    from oddsfox_pipeline.config import settings
 
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(

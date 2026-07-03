@@ -11,7 +11,7 @@ from tests.unit.ingestion.backfill_test_support import (
     bf_gamma,
 )
 
-from oddsfox.ingestion.polymarket.markets import backfill as bf
+from oddsfox_pipeline.ingestion.polymarket.markets import backfill as bf
 
 
 @pytest.fixture
@@ -67,7 +67,7 @@ def test_extract_event_slug_empty_slug():
 
 
 def test_iter_gamma_events_keyset_stops_on_empty_events_page():
-    from oddsfox.ingestion.polymarket.gamma_events import (
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
         iter_gamma_events_keyset,
     )
 
@@ -79,7 +79,7 @@ def test_iter_gamma_events_keyset_stops_on_empty_events_page():
 
 
 def test_iter_gamma_events_keyset_stops_on_non_advancing_cursor():
-    from oddsfox.ingestion.polymarket.gamma_events import (
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
         iter_gamma_events_keyset,
     )
 
@@ -101,7 +101,7 @@ def test_iter_gamma_events_keyset_stops_on_non_advancing_cursor():
 
 
 def test_iter_gamma_events_keyset_non_advancing_duplicate_data_is_eof():
-    from oddsfox.ingestion.polymarket.gamma_events import (
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
         iter_gamma_events_keyset,
     )
 
@@ -124,7 +124,7 @@ def test_iter_gamma_events_keyset_non_advancing_duplicate_data_is_eof():
 
 
 def test_iter_gamma_events_keyset_closed_filter():
-    from oddsfox.ingestion.polymarket.gamma_events import (
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
         iter_gamma_events_keyset,
     )
 
@@ -148,7 +148,7 @@ def test_iter_gamma_events_keyset_closed_filter():
 
 
 def test_iter_gamma_events_keyset_tag_and_volume_filters():
-    from oddsfox.ingestion.polymarket.gamma_events import (
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
         iter_gamma_events_keyset,
     )
 
@@ -175,7 +175,7 @@ def test_iter_gamma_events_keyset_tag_and_volume_filters():
 
 
 def test_iter_gamma_events_keyset_related_tags_param():
-    from oddsfox.ingestion.polymarket.gamma_events import (
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
         iter_gamma_events_keyset,
     )
 

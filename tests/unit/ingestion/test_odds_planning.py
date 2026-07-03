@@ -6,8 +6,10 @@ import pytest
 
 pytest.importorskip("duckdb")
 
-from oddsfox.ingestion.polymarket.odds import sync as odds_sync
-from oddsfox.ingestion.polymarket.odds.engine.bootstrap import bootstrap_planning
+from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.ingestion.polymarket.odds.engine.bootstrap import (
+    bootstrap_planning,
+)
 
 
 def test_build_single_token_plan_budget_and_latest_branches():

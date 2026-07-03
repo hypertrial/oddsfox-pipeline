@@ -12,9 +12,9 @@ from tests.unit.storage.duckdb_storage_test_support import (
     _seed_markets,
 )
 
-import oddsfox.storage.duckdb as pkg
-import oddsfox.storage.duckdb.markets as markets
-from oddsfox.storage.duckdb.market_scope_registry import (
+import oddsfox_pipeline.storage.duckdb as pkg
+import oddsfox_pipeline.storage.duckdb.markets as markets
+from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     upsert_registry_rows,
 )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from oddsfox.orchestration import pipeline_ops, polymarket_ops
+from oddsfox_pipeline.orchestration import pipeline_ops, polymarket_ops
 
 pytestmark = pytest.mark.facade
 

@@ -2,25 +2,25 @@
 
 from __future__ import annotations
 
-from oddsfox.ingestion.polymarket.markets.backfill import (
+from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
     _events_fallback as bf_events_fallback,
 )
-from oddsfox.ingestion.polymarket.markets.backfill import (
+from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
     _gamma as bf_gamma,
 )
-from oddsfox.ingestion.polymarket.markets.backfill import (
+from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
     end_dates as bf_end_dates,
 )
-from oddsfox.ingestion.polymarket.markets.backfill import (
+from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
     event_slugs as bf_event_slugs,
 )
-from oddsfox.ingestion.polymarket.markets.backfill import (
+from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
     metadata as bf_metadata,
 )
-from oddsfox.ingestion.polymarket.markets.backfill import (
+from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
     slugs as bf_slugs,
 )
-from oddsfox.ingestion.polymarket.markets.backfill import (
+from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
     tokens as bf_tokens,
 )
 

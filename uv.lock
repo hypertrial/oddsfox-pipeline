@@ -2111,7 +2111,7 @@ wheels = [
 ]
 
 [[package]]
-name = "oddsfox"
+name = "oddsfox-pipeline"
 version = "0.1.4"
 source = { editable = "." }
 dependencies = [

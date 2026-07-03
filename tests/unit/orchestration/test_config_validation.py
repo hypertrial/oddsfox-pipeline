@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from oddsfox.orchestration.config import (
+from oddsfox_pipeline.orchestration.config import (
     GuardrailConfig,
     HourlyOddsSyncConfig,
     MarketScopeRegistryConfig,

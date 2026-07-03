@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from oddsfox.resources.outbound_url import (
+from oddsfox_pipeline.resources.outbound_url import (
     OutboundUrlError,
     _host_from_parsed,
     _origin_key,

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
-from oddsfox.ingestion.polymarket.errors import GammaRequestError
-from oddsfox.ingestion.polymarket.market_scope_tags import (
+from oddsfox_pipeline.ingestion.polymarket.errors import GammaRequestError
+from oddsfox_pipeline.ingestion.polymarket.market_scope_tags import (
     discover_market_scope_tag_slugs,
     fetch_gamma_sports,
     fetch_gamma_tag_by_slug,
@@ -117,7 +117,7 @@ def test_fetch_gamma_tag_by_slug_reraises_non_404_errors():
 
 def test_fetch_gamma_tag_by_slug_reraises_direct_request_exception(monkeypatch):
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.market_scope_tags.gamma_get",
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.gamma_get",
         lambda *_a, **_k: (_ for _ in ()).throw(
             requests.RequestException("network down")
         ),
@@ -208,15 +208,15 @@ def test_discover_skips_invalid_slug_returned_from_seed_lookup():
 
 def test_discover_keeps_seed_when_patched_seed_lookup_has_empty_id(monkeypatch):
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.market_scope_tags.fetch_gamma_tag_by_slug",
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.fetch_gamma_tag_by_slug",
         lambda *_a, **_k: {"id": "", "slug": "seed-tag"},
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.market_scope_tags.fetch_gamma_tags",
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.fetch_gamma_tags",
         lambda *_a, **_k: [],
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.market_scope_tags.fetch_gamma_sports",
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.fetch_gamma_sports",
         lambda *_a, **_k: [],
     )
 

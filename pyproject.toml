@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "oddsfox"
+name = "oddsfox-pipeline"
 version = "0.1.4"
 description = "Dagster-orchestrated dlt + dbt + DuckDB pipeline for prediction-market data."
 readme = "README.md"
@@ -44,7 +44,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["oddsfox*"]
+include = ["oddsfox_pipeline*"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
@@ -64,8 +64,8 @@ markers = [
 
 [tool.coverage.run]
 branch = true
-source = ["src/oddsfox"]
-omit = ["src/oddsfox/storage/duckdb/profile/*"]
+source = ["src/oddsfox_pipeline"]
+omit = ["src/oddsfox_pipeline/storage/duckdb/profile/*"]
 
 [tool.coverage.report]
 precision = 2
@@ -91,7 +91,7 @@ extend-exclude = [
 extend-select = ["I"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/oddsfox/config/__init__.py" = ["F403"]
+"src/oddsfox_pipeline/config/__init__.py" = ["F403"]
 
 [tool.ruff.format]
 quote-style = "double"

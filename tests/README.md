@@ -23,6 +23,6 @@ make coverage
 ```
 
 `make integration-dagster` and `make coverage` are CI gates. `make coverage`
-enforces 100% branch coverage for `src/oddsfox` except the warehouse profiling
+enforces 100% branch coverage for `src/oddsfox_pipeline` except the warehouse profiling
 operator helpers under
 `storage/duckdb/profile/`, which are covered by smoke tests instead.

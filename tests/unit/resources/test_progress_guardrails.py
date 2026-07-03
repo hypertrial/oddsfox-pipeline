@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from oddsfox.resources.progress_guardrails import (
+from oddsfox_pipeline.resources.progress_guardrails import (
     NoProgressTimeoutError,
     ProgressGuardrail,
 )

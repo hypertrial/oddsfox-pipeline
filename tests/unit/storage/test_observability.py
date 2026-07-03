@@ -1,9 +1,9 @@
 import duckdb
 import pytest
 
-from oddsfox.storage.duckdb import observability as obs
-from oddsfox.storage.duckdb.connection import init_duck_db
-from oddsfox.storage.duckdb.observability import (
+from oddsfox_pipeline.storage.duckdb import observability as obs
+from oddsfox_pipeline.storage.duckdb.connection import init_duck_db
+from oddsfox_pipeline.storage.duckdb.observability import (
     delta_dbt_models,
     delta_raw_layer,
     format_dbt_snapshot_log,
@@ -11,13 +11,13 @@ from oddsfox.storage.duckdb.observability import (
     snapshot_dbt_models,
     snapshot_raw_layer,
 )
-from oddsfox.storage.duckdb.schemas.polymarket import create_test_markets_table
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket import create_test_markets_table
 
 
 def test_snapshot_raw_layer_counts_polymarket_tables(
     tmp_path, monkeypatch, isolated_env
 ):
-    import oddsfox.storage.duckdb.connection as conn_mod
+    import oddsfox_pipeline.storage.duckdb.connection as conn_mod
 
     db_path = tmp_path / "obs.duckdb"
     monkeypatch.setenv("DUCKDB_NAME", str(db_path))

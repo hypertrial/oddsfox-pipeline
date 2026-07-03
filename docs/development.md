@@ -9,7 +9,7 @@ with [Quickstart](quickstart.md).
 
 | Path | Purpose |
 | --- | --- |
-| `src/oddsfox` | Python package for config, ingestion, storage, resources, and orchestration. |
+| `src/oddsfox_pipeline` | Python package for config, ingestion, storage, resources, and orchestration. |
 | `dbt` | DuckDB dbt project, profiles, macros, models, and data tests. |
 | `docs` | MkDocs site content and OddsFox dark CSS. |
 | `scripts` | Operator utilities for warehouse inspection, compaction, pruning, repair, and scope audits. |
@@ -104,5 +104,5 @@ Costguard finding before switching a model to table or incremental.
 - Add or update tests for changed behavior.
 - Do not commit `.env`, local DuckDB files, generated dbt targets, `site/`, or
   data exports.
-- Follow [CONTRIBUTING](https://github.com/hypertrial/oddsfox/blob/main/CONTRIBUTING.md)
+- Follow [CONTRIBUTING](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CONTRIBUTING.md)
   for the full contribution workflow.

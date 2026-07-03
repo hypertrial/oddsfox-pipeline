@@ -4,8 +4,8 @@ from pathlib import Path
 import yaml
 from dagster import DefaultScheduleStatus, build_schedule_context
 
-from oddsfox.orchestration.definitions import defs
-from oddsfox.orchestration.schedules import (
+from oddsfox_pipeline.orchestration.definitions import defs
+from oddsfox_pipeline.orchestration.schedules import (
     polymarket_hourly_odds_schedule,
     polymarket_minutely_odds_cold_schedule,
     polymarket_minutely_odds_live_schedule,
@@ -35,10 +35,10 @@ def _reload_schedules_module(
     monkeypatch.setenv(
         "POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED", "true" if hourly else "false"
     )
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     reload_all_settings_modules()
-    import oddsfox.orchestration.schedules as schedules_mod
+    import oddsfox_pipeline.orchestration.schedules as schedules_mod
 
     return importlib.reload(schedules_mod)
 

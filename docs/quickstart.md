@@ -42,7 +42,7 @@ To build models before live dlt ingestion, initialize the DuckDB bootstrap table
 
 ```bash
 uv run python - <<'PY'
-import oddsfox.storage.duckdb.connection as connection
+import oddsfox_pipeline.storage.duckdb.connection as connection
 connection.reset_duckdb_connection_state()
 connection.init_duck_db()
 PY

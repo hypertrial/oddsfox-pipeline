@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from oddsfox.config import settings as config_settings
-from oddsfox.ingestion.polymarket.market_scope import MarketScopeConfig
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.config import settings as config_settings
+from oddsfox_pipeline.ingestion.polymarket.market_scope import MarketScopeConfig
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     predicates as scope_predicates_mod,
 )
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     scan as scope_scan_mod,
 )
 

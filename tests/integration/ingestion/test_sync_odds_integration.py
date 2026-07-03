@@ -15,7 +15,7 @@ from tests.integration.ingestion._odds_sync_harness import (
     make_plan,
 )
 
-from oddsfox.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
 
 
 def test_sync_odds_covers_invalid_token_persist_worker_cache_and_budget_updates(

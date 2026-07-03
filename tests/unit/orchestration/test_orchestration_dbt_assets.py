@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 
 import yaml
 
-from oddsfox.orchestration import config as orch_config
-from oddsfox.orchestration import dbt_build as dbt_build_mod
+from oddsfox_pipeline.orchestration import config as orch_config
+from oddsfox_pipeline.orchestration import dbt_build as dbt_build_mod
 from tests.unit.orchestration.orchestration_test_support import (
     _DormantThread,
     _FakeClock,
@@ -59,7 +59,9 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
 
 
 def test_dbt_translator_does_not_override_model_dependencies():
-    from oddsfox.orchestration.translators import PolymarketDagsterDbtTranslator
+    from oddsfox_pipeline.orchestration.translators import (
+        PolymarketDagsterDbtTranslator,
+    )
 
     assert "get_asset_spec" not in PolymarketDagsterDbtTranslator.__dict__
 
@@ -67,7 +69,7 @@ def test_dbt_translator_does_not_override_model_dependencies():
 def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
     from dagster import AssetKey
 
-    from oddsfox.orchestration.definitions import defs
+    from oddsfox_pipeline.orchestration.definitions import defs
 
     graph = defs.resolve_asset_graph()
     stg_markets_parents = {
@@ -92,10 +94,10 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
 
 
 def test_dbt_assets_definition_streams_build_events(monkeypatch):
-    from oddsfox.orchestration.assets import polymarket_dbt
+    from oddsfox_pipeline.orchestration.assets import polymarket_dbt
 
     monkeypatch.setattr(
-        "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
+        "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
         lambda: (_ for _ in ()).throw(AssertionError("dbt must not clean raw tables")),
     )
 
@@ -113,10 +115,10 @@ def test_dbt_assets_definition_streams_build_events(monkeypatch):
 
 
 def test_dbt_assets_does_not_delete_orphan_market_tokens(monkeypatch):
-    from oddsfox.orchestration.assets import polymarket_dbt
+    from oddsfox_pipeline.orchestration.assets import polymarket_dbt
 
     monkeypatch.setattr(
-        "oddsfox.orchestration.polymarket_ops.delete_orphan_market_tokens",
+        "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
         lambda: (_ for _ in ()).throw(AssertionError("dbt must not clean raw tables")),
     )
 
@@ -133,8 +135,8 @@ def test_dbt_assets_does_not_delete_orphan_market_tokens(monkeypatch):
 
 
 def test_dbt_assets_guardrail_hard_timeout_terminates_process(monkeypatch):
-    from oddsfox.orchestration import assets as assets_mod
-    from oddsfox.orchestration.assets import polymarket_dbt
+    from oddsfox_pipeline.orchestration import assets as assets_mod
+    from oddsfox_pipeline.orchestration.assets import polymarket_dbt
 
     clock = _FakeClock()
     _patch_guardrail_clock(monkeypatch, assets_mod, clock)
@@ -178,8 +180,8 @@ def test_dbt_assets_guardrail_hard_timeout_terminates_process(monkeypatch):
 
 
 def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
-    from oddsfox.orchestration import assets as assets_mod
-    from oddsfox.orchestration.assets import polymarket_dbt
+    from oddsfox_pipeline.orchestration import assets as assets_mod
+    from oddsfox_pipeline.orchestration.assets import polymarket_dbt
 
     fn = polymarket_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
@@ -234,7 +236,7 @@ def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
 
 
 def test_dbt_assets_raises_when_build_returns_nonzero_after_stream():
-    from oddsfox.orchestration.assets import polymarket_dbt
+    from oddsfox_pipeline.orchestration.assets import polymarket_dbt
 
     class NonZeroReturncodeDbt:
         def cli(self, *a, **k):
@@ -255,7 +257,7 @@ def test_prepare_dbt_project_warns_when_prepare_fails_but_manifest_exists(
 
     pytest.importorskip("dagster_dbt")
 
-    from oddsfox.orchestration import dbt_project as dbt_project_mod
+    from oddsfox_pipeline.orchestration import dbt_project as dbt_project_mod
 
     manifest = tmp_path / "manifest.json"
     manifest.write_text("{}")
@@ -280,7 +282,7 @@ def test_prepare_dbt_project_warns_when_prepare_fails_but_manifest_exists(
 def test_prepare_dbt_project_reraises_when_prepare_fails_and_manifest_missing(tmp_path):
     pytest.importorskip("dagster_dbt")
 
-    from oddsfox.orchestration import dbt_project as dbt_project_mod
+    from oddsfox_pipeline.orchestration import dbt_project as dbt_project_mod
 
     manifest = tmp_path / "nonexistent_manifest.json"
 
@@ -305,7 +307,7 @@ def test_prepare_dbt_project_prepares_manifest_outside_dagster_dev_when_missing(
 ):
     pytest.importorskip("dagster_dbt")
 
-    from oddsfox.orchestration import dbt_project as dbt_project_mod
+    from oddsfox_pipeline.orchestration import dbt_project as dbt_project_mod
 
     manifest = tmp_path / "manifest.json"
     prepared: list[str] = []
@@ -331,7 +333,7 @@ def test_prepare_dbt_project_prepares_manifest_outside_dagster_dev_when_missing(
 def test_oddsfox_dbt_project_preparer_uses_resolved_executable(monkeypatch):
     pytest.importorskip("dagster_dbt")
 
-    from oddsfox.orchestration.dbt_project import OddsfoxDbtProjectPreparer
+    from oddsfox_pipeline.orchestration.dbt_project import OddsfoxDbtProjectPreparer
 
     captured: list[str] = []
 
@@ -346,7 +348,7 @@ def test_oddsfox_dbt_project_preparer_uses_resolved_executable(monkeypatch):
             return None
 
     monkeypatch.setattr(
-        "oddsfox.orchestration.dbt_project.resolve_dbt_executable",
+        "oddsfox_pipeline.orchestration.dbt_project.resolve_dbt_executable",
         lambda: "/venv/bin/dbt",
     )
     monkeypatch.setattr(
@@ -397,7 +399,7 @@ def test_stream_dbt_build_appends_full_refresh_flag():
 
 
 def test_stream_dbt_build_merges_heartbeat_diagnostics(monkeypatch):
-    from oddsfox.orchestration import assets as assets_mod
+    from oddsfox_pipeline.orchestration import assets as assets_mod
 
     ctx = MagicMock()
     clock = _FakeClock()
@@ -443,7 +445,7 @@ def test_stream_dbt_build_merges_heartbeat_diagnostics(monkeypatch):
 
 
 def test_stream_dbt_build_ignores_non_dict_heartbeat(monkeypatch):
-    from oddsfox.orchestration import assets as assets_mod
+    from oddsfox_pipeline.orchestration import assets as assets_mod
 
     clock = _FakeClock()
     _patch_guardrail_clock(monkeypatch, assets_mod, clock)

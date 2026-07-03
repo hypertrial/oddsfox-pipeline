@@ -10,8 +10,8 @@ pytest.importorskip("dagster_dbt")
 
 from dagster import ResourceDefinition
 
-from oddsfox.orchestration import assets_polymarket as assets_mod
-from oddsfox.orchestration.definitions import defs
+from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
+from oddsfox_pipeline.orchestration.definitions import defs
 
 
 def _registered_job_names() -> list[str]:

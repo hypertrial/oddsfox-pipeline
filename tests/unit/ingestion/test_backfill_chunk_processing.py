@@ -10,7 +10,7 @@ from tests.unit.ingestion.backfill_test_support import (
     bf_gamma,
 )
 
-from oddsfox.ingestion.polymarket.markets import backfill as bf
+from oddsfox_pipeline.ingestion.polymarket.markets import backfill as bf
 
 
 @pytest.fixture

@@ -33,7 +33,7 @@ dbt-build dbt-test:
 dbt-build-ci:
 	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
 	$(RUN_IN_REPO) rm -f "$(DBT_BUILD_DUCKDB_PATH)" "$(DBT_BUILD_DUCKDB_PATH).wal" "$(DBT_BUILD_DUCKDB_PATH)-wal" "$(DBT_BUILD_DUCKDB_PATH)-shm"
-	$(RUN_IN_REPO) $(DBT_BUILD_ENV) "$(PYTHON)" -c "import oddsfox.storage.duckdb.connection as connection; from oddsfox.storage.duckdb.schemas.polymarket import create_test_markets_table; connection.reset_duckdb_connection_state(); connection.init_duck_db(); conn = connection.get_persistent_connection(); create_test_markets_table(conn); conn.close()"
+	$(RUN_IN_REPO) $(DBT_BUILD_ENV) "$(PYTHON)" -c "import oddsfox_pipeline.storage.duckdb.connection as connection; from oddsfox_pipeline.storage.duckdb.schemas.polymarket import create_test_markets_table; connection.reset_duckdb_connection_state(); connection.init_duck_db(); conn = connection.get_persistent_connection(); create_test_markets_table(conn); conn.close()"
 	$(RUN_IN_REPO) $(DBT_BUILD_ENV) $(MAKE) dbt-build
 
 dbt-parse:
@@ -54,13 +54,13 @@ format:
 	$(RUN_IN_REPO) ruff format src tests
 	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
 	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m dbt.cli.main parse --project-dir dbt --profiles-dir dbt/profiles
-	$(RUN_IN_REPO) $(DBT_LINT_ENV) sqlfluff fix dbt/models dbt/tests
+	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m sqlfluff fix dbt/models dbt/tests
 
 lint:
 	$(RUN_IN_REPO) ruff format --check src tests
 	$(RUN_IN_REPO) ruff check src tests
 	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
-	$(RUN_IN_REPO) $(DBT_LINT_ENV) sqlfluff lint dbt/models dbt/tests -p 0
+	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m sqlfluff lint dbt/models dbt/tests -p 0
 	$(MAKE) check-secrets
 
 check-secrets:
@@ -70,7 +70,7 @@ test:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -m "$(PYTEST_FAST_MARKERS)"
 
 coverage:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -m "$(PYTEST_COVERAGE_MARKERS)" --cov=oddsfox --cov-branch --cov-report=term-missing --cov-fail-under=100
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -m "$(PYTEST_COVERAGE_MARKERS)" --cov=oddsfox_pipeline --cov-branch --cov-report=term-missing --cov-fail-under=100
 
 unit-core:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/unit/config tests/unit/resources tests/unit/storage -q -n 0 -m "$(PYTEST_FAST_MARKERS)"
@@ -89,7 +89,7 @@ integration-dagster:
 
 clean-local-artifacts:
 	$(RUN_IN_REPO) find . -type d -name __pycache__ -prune -exec rm -rf {} +
-	$(RUN_IN_REPO) rm -rf .pytest_cache .ruff_cache .dagster_home .cache site dbt/logs dbt/target src/oddsfox.egg-info
+	$(RUN_IN_REPO) rm -rf .pytest_cache .ruff_cache .dagster_home .cache site dbt/logs dbt/target src/oddsfox_pipeline.egg-info
 	$(RUN_IN_REPO) find . -maxdepth 2 \( -name '*.duckdb' -o -name '*.duckdb.tmp' -o -name '*.duckdb-wal' -o -name '*.duckdb-shm' -o -name '*.duckdb.wal' \) -exec rm -rf {} +
 
 compact-warehouse:

@@ -11,9 +11,9 @@ from tests.unit.storage.duckdb_storage_test_support import (
     _insert_minimal_market,
 )
 
-import oddsfox.storage.duckdb.markets as markets
-from oddsfox.storage.duckdb import _market_mutations as mutations
-from oddsfox.storage.duckdb.connection import get_connection
+import oddsfox_pipeline.storage.duckdb.markets as markets
+from oddsfox_pipeline.storage.duckdb import _market_mutations as mutations
+from oddsfox_pipeline.storage.duckdb.connection import get_connection
 
 
 def test_save_market_tokens_batch_persists_tokens(duck):
@@ -108,7 +108,7 @@ def test_save_tokens_batch_skips_unknown_market_id(duck, caplog):
 
 def test_extract_slug_record_order_matches_save_slugs_batch(duck):
     """_extract_slug_record returns (slug, market_id) for save_slugs_batch."""
-    from oddsfox.ingestion.polymarket.markets.backfill._extract import (
+    from oddsfox_pipeline.ingestion.polymarket.markets.backfill._extract import (
         _extract_slug_record,
     )
 

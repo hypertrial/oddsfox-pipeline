@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import duckdb
 import pytest
 
-from oddsfox.config._reload_settings import reload_all_settings_modules
+from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
 pytest.importorskip("duckdb")
 
@@ -21,8 +21,8 @@ from tests.integration.ingestion._odds_sync_harness import (
     patch_guardrail_clock,
 )
 
-from oddsfox.ingestion.polymarket.odds import sync as odds_sync
-from oddsfox.ingestion.polymarket.odds.fetch import BadRequestError
+from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.ingestion.polymarket.odds.fetch import BadRequestError
 
 
 def test_dynamic_writer_flush_rows_default_branch():
@@ -240,11 +240,11 @@ def test_flush_writer_buffers_merge_error_rolls_back(monkeypatch):
     bad = MagicMock()
     bad.execute.return_value = None
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.writer.prepare_odds_bulk_upsert",
+        "oddsfox_pipeline.ingestion.polymarket.odds.writer.prepare_odds_bulk_upsert",
         lambda *a, **k: "stage",
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.writer.merge_odds_bulk_upsert",
+        "oddsfox_pipeline.ingestion.polymarket.odds.writer.merge_odds_bulk_upsert",
         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("fail")),
     )
     with pytest.raises(RuntimeError):
@@ -362,7 +362,7 @@ def test_sync_odds_no_plans_stopiteration(monkeypatch, tmp_path):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "so.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn.reset_duckdb_connection_state()
     importlib.reload(conn)
@@ -436,7 +436,7 @@ def test_writer_loop_fatal_flush_and_final(monkeypatch, tmp_path):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "wl.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn.reset_duckdb_connection_state()
     importlib.reload(conn)
@@ -472,14 +472,14 @@ def test_writer_loop_fatal_flush_and_final(monkeypatch, tmp_path):
 
 
 def test_save_odds_bulk_appender_with_appender(monkeypatch, tmp_path):
-    from oddsfox.storage.duckdb import odds as odds_mod
+    from oddsfox_pipeline.storage.duckdb import odds as odds_mod
 
     if not hasattr(duckdb, "Appender"):
         pytest.skip("DuckDB Appender not available")
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "app.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn.reset_duckdb_connection_state()
     importlib.reload(conn)
@@ -489,14 +489,14 @@ def test_save_odds_bulk_appender_with_appender(monkeypatch, tmp_path):
 
 
 def test_save_odds_bulk_upsert_appender_staging(monkeypatch, tmp_path):
-    from oddsfox.storage.duckdb import odds as odds_mod
+    from oddsfox_pipeline.storage.duckdb import odds as odds_mod
 
     if not hasattr(duckdb, "Appender"):
         pytest.skip("Appender required")
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "stg.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn.reset_duckdb_connection_state()
     importlib.reload(conn)

@@ -9,7 +9,7 @@ import pytest
 
 pytest.importorskip("duckdb")
 
-from oddsfox.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
 
 
 def test_flush_writer_buffers_writes_all_buffer_types(monkeypatch):

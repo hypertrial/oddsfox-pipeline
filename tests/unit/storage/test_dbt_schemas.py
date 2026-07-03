@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dagster import AssetKey
 
-from oddsfox.storage.duckdb.schemas import dbt_schemas
+from oddsfox_pipeline.storage.duckdb.schemas import dbt_schemas
 
 
 def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():

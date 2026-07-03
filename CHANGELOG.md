@@ -82,7 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of inside the dbt asset, keeping `polymarket_dbt` read-only against raw
   tables.
 - DuckDB market storage internals split into query and mutation modules while
-  preserving the `oddsfox.storage.duckdb.markets` facade.
+  preserving the `oddsfox_pipeline.storage.duckdb.markets` facade.
 - Odds sync now exposes `default_odds_sync_runtime()` as the supported runtime
   factory for tests and injected callables.
 - selected-scope keyset scan tag-closure queueing moved into a pure helper with
@@ -171,9 +171,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: lint, tests, docs build, dbt parse, and dbt build.
 - Schedules disabled by default; opt-in via `.env` for live ingestion.
 
-[Unreleased]: https://github.com/hypertrial/oddsfox/compare/v0.1.4...HEAD
-[0.1.4]: https://github.com/hypertrial/oddsfox/compare/v0.1.3...v0.1.4
-[0.1.3]: https://github.com/hypertrial/oddsfox/compare/v0.1.2...v0.1.3
-[0.1.2]: https://github.com/hypertrial/oddsfox/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/hypertrial/oddsfox/releases/tag/v0.1.1
-[0.1.0]: https://github.com/hypertrial/oddsfox/releases/tag/v0.1.0
+[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/hypertrial/oddsfox-pipeline/releases/tag/v0.1.1
+[0.1.0]: https://github.com/hypertrial/oddsfox-pipeline/releases/tag/v0.1.0

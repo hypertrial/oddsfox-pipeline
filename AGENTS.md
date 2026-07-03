@@ -92,7 +92,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 
 ```
 .cursor/rules/     # Cursor agent rules (ponytail)
-src/oddsfox/
+src/oddsfox_pipeline/
   config/          # Settings barrel (settings.py re-exports warehouse + polymarket)
   ingestion/       # dlt sources, Polymarket fetch/sync/backfill, odds engine
   orchestration/   # Dagster assets, jobs, schedules, dbt wiring
@@ -109,7 +109,7 @@ docs/              # Project docs (MkDocs)
 scripts/           # Warehouse audits, repairs, profiling (not CI gate)
 ```
 
-Imports use src-layout paths: `from oddsfox.config.settings import …`, not relative imports across package boundaries.
+Imports use src-layout paths: `from oddsfox_pipeline.config.settings import …`, not relative imports across package boundaries.
 
 ## Code style
 

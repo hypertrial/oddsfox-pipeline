@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     MARKET_SCOPE_ALL,
     MarketScopeConfig,
     default_market_scopes_seed_path,
@@ -16,8 +16,10 @@ from oddsfox.ingestion.polymarket.market_scope import (
     validate_market_scope,
     validate_market_scopes,
 )
-from oddsfox.ingestion.polymarket.market_scope import config as scope_config_mod
-from oddsfox.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
+    config as scope_config_mod,
+)
+from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 
 
 def test_validate_market_scope_accepts_slug_like_scopes():
@@ -40,7 +42,7 @@ def test_validate_market_scopes_csv_dedupes_and_preserves_order(monkeypatch):
 
 
 def test_merge_scope_sync_summaries_handles_empty_and_multi_scope():
-    from oddsfox.orchestration import assets_polymarket as assets_mod
+    from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 
     assert assets_mod._merge_scope_sync_summaries([])["total_fetched"] == 0
     merged = assets_mod._merge_scope_sync_summaries(
@@ -56,7 +58,7 @@ def test_merge_scope_sync_summaries_handles_empty_and_multi_scope():
 
 def test_validate_market_scopes_defaults_to_settings(monkeypatch) -> None:
     monkeypatch.setenv("POLYMARKET_MARKET_SCOPES", "nba,nfl")
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     reload_all_settings_modules()
     assert validate_market_scopes() == ("nba", "nfl")
@@ -64,26 +66,26 @@ def test_validate_market_scopes_defaults_to_settings(monkeypatch) -> None:
 
 def test_market_scopes_csv_skips_empty_tokens(monkeypatch) -> None:
     monkeypatch.setenv("POLYMARKET_MARKET_SCOPES", "wc2026,,nba")
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     reload_all_settings_modules()
-    from oddsfox.config.settings_polymarket import POLYMARKET_MARKET_SCOPES
+    from oddsfox_pipeline.config.settings_polymarket import POLYMARKET_MARKET_SCOPES
 
     assert POLYMARKET_MARKET_SCOPES == ("wc2026", "nba")
 
 
 def test_market_scopes_csv_empty_env_falls_back_to_default(monkeypatch) -> None:
     monkeypatch.setenv("POLYMARKET_MARKET_SCOPES", "   ")
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     reload_all_settings_modules()
-    from oddsfox.config.settings_polymarket import POLYMARKET_MARKET_SCOPES
+    from oddsfox_pipeline.config.settings_polymarket import POLYMARKET_MARKET_SCOPES
 
     assert POLYMARKET_MARKET_SCOPES == ("wc2026",)
 
 
 def test_snapshot_refreshed_scope_names_legacy_single_scope():
-    from oddsfox.orchestration import assets_polymarket as assets_mod
+    from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 
     assert assets_mod._snapshot_refreshed_scope_names({"scope_name": "wc2026"}) == [
         "wc2026"

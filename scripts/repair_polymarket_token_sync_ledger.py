@@ -15,7 +15,7 @@ ensure_src_on_path()
 
 import duckdb  # noqa: E402
 
-from oddsfox.config import settings  # noqa: E402
+from oddsfox_pipeline.config import settings  # noqa: E402
 
 _SCHEMA = "polymarket_ops"
 _TABLE = "token_sync_ledger"

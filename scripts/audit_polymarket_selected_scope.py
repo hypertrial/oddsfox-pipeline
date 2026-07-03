@@ -12,19 +12,19 @@ for _rp in (REPO_ROOT, REPO_ROOT / "src"):
     if str(_rp) not in sys.path:
         sys.path.insert(0, str(_rp))
 
-from oddsfox.ingestion.polymarket.market_scope import (  # noqa: E402
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (  # noqa: E402
     DEFAULT_MARKET_SCOPE,
     load_market_scope_config,
     market_scope_predicate_sql,
 )
-from oddsfox.storage.duckdb.connection import (  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.connection import (  # noqa: E402
     ensure_duck_db,
     get_connection,
 )
-from oddsfox.storage.duckdb.market_scope_registry import (  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.market_scope_registry import (  # noqa: E402
     registry_market_count,
 )
-from oddsfox.storage.duckdb.schemas.constants import (  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.schemas.constants import (  # noqa: E402
     polymarket_ops_tbl,
     polymarket_raw_tbl,
 )

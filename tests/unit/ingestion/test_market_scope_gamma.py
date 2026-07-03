@@ -7,11 +7,11 @@ from unittest.mock import MagicMock
 import pytest
 from tests.unit.ingestion.market_scope_test_support import slug_only_cfg
 
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     collect_scope_markets_from_events,
     refresh_registry_from_events,
 )
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     gamma as scope_gamma_mod,
 )
 
@@ -19,8 +19,8 @@ from oddsfox.ingestion.polymarket.market_scope import (
 def test_iter_market_scope_gamma_events_skips_non_allowlisted(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "event_first.duckdb"))
     reload_all_settings_modules()
@@ -65,9 +65,9 @@ def test_gamma_events_keyset_shared_pagination_params(monkeypatch, tmp_path):
     """selected-scope scan and event-slug fallback use the same /events/keyset pagination."""
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.ingestion.polymarket.markets.backfill._events_fallback import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.ingestion.polymarket.markets.backfill._events_fallback import (
         _fill_from_events_endpoint,
     )
 
@@ -122,8 +122,8 @@ def test_gamma_events_keyset_shared_pagination_params(monkeypatch, tmp_path):
 
 
 def test_fetch_gamma_event_by_slug_handles_missing(monkeypatch):
-    from oddsfox.ingestion.polymarket.errors import GammaRequestError
-    from oddsfox.ingestion.polymarket.gamma_events import (
+    from oddsfox_pipeline.ingestion.polymarket.errors import GammaRequestError
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
         fetch_gamma_event_by_slug,
     )
 
@@ -144,8 +144,8 @@ def test_fetch_gamma_event_by_slug_handles_missing(monkeypatch):
 
 
 def test_fetch_gamma_event_by_slug_reraises_non_404():
-    from oddsfox.ingestion.polymarket.errors import GammaRequestError
-    from oddsfox.ingestion.polymarket.gamma_events import (
+    from oddsfox_pipeline.ingestion.polymarket.errors import GammaRequestError
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
         fetch_gamma_event_by_slug,
     )
 
@@ -160,13 +160,13 @@ def test_fetch_gamma_event_by_slug_reraises_non_404():
 def test_fetch_gamma_event_by_slug_reraises_transport_errors(monkeypatch):
     import requests
 
-    from oddsfox.ingestion.polymarket.gamma_events import (
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
         fetch_gamma_event_by_slug,
     )
 
     client = MagicMock()
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.gamma_events.gamma_get",
+        "oddsfox_pipeline.ingestion.polymarket.gamma_events.gamma_get",
         lambda *a, **k: (_ for _ in ()).throw(requests.ConnectionError("down")),
     )
     with pytest.raises(requests.ConnectionError):
@@ -174,7 +174,7 @@ def test_fetch_gamma_event_by_slug_reraises_transport_errors(monkeypatch):
 
 
 def test_gamma_market_id_filter_and_resilient_fetch():
-    from oddsfox.ingestion.polymarket.errors import GammaRequestError
+    from oddsfox_pipeline.ingestion.polymarket.errors import GammaRequestError
 
     assert scope_gamma_mod._is_gamma_market_id("253591") is True
     assert scope_gamma_mod._is_gamma_market_id("m1") is False

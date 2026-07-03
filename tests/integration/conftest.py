@@ -10,7 +10,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def _public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "oddsfox.resources.outbound_url.socket.getaddrinfo",
+        "oddsfox_pipeline.resources.outbound_url.socket.getaddrinfo",
         lambda *a, **k: [(None, None, None, None, ("93.184.216.34", 443))],
     )
 

@@ -13,7 +13,7 @@ def test_ensure_src_on_path_is_idempotent() -> None:
 
     root = ensure_src_on_path()
     src = str(root / "src")
-    assert (root / "src" / "oddsfox").is_dir()
+    assert (root / "src" / "oddsfox_pipeline").is_dir()
     assert src in sys.path
     again = ensure_src_on_path()
     assert again == root

@@ -15,8 +15,8 @@ ensure_src_on_path()
 
 import duckdb  # noqa: E402
 
-from oddsfox.config import settings  # noqa: E402
-from oddsfox.storage.duckdb.schemas.constants import polymarket_raw_tbl  # noqa: E402
+from oddsfox_pipeline.config import settings  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_raw_tbl  # noqa: E402
 
 _ODDS_HISTORY = polymarket_raw_tbl("odds_history")
 _DEFAULT_RETENTION_DAYS = 365

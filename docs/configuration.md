@@ -26,7 +26,7 @@ Lower request rates when Polymarket APIs return transient failures or timeouts.
 ## Current Market Scopes
 
 - `POLYMARKET_MARKET_SCOPES`: comma-separated preset names from
-  `src/oddsfox/ingestion/polymarket/seeds/market_scopes.yml` (default `wc2026`).
+  `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml` (default `wc2026`).
   At least one scope is required. Examples: `wc2026`, `wc2026,us-politics`,
   `nba,nfl,champions-league`.
 - Dagster-run `polymarket_dbt` passes the same scope list to dbt as
@@ -61,7 +61,7 @@ These apply to every selected scope when set; prefer seed YAML presets instead.
 - `POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS`
 - `POLYMARKET_SCOPE_TAG_CRAWL_MAX`
 
-The seed file `src/oddsfox/ingestion/polymarket/seeds/market_scopes.yml` is the default scope source.
+The seed file `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml` is the default scope source.
 
 ## Schedules
 

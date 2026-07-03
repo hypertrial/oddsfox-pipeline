@@ -8,9 +8,9 @@ from pathlib import Path
 
 import duckdb
 
-import oddsfox.storage.duckdb.connection as connection
-from oddsfox.storage.duckdb.connection import init_duck_db
-from oddsfox.storage.duckdb.schemas.constants import polymarket_raw_tbl
+import oddsfox_pipeline.storage.duckdb.connection as connection
+from oddsfox_pipeline.storage.duckdb.connection import init_duck_db
+from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_raw_tbl
 
 _SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 sys.path.insert(0, str(_SCRIPTS_DIR))

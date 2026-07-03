@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 import duckdb
 import pytest
 
-import oddsfox.storage.duckdb.connection as connection
-from oddsfox.config._reload_settings import reload_all_settings_modules
-from oddsfox.storage.duckdb.schemas import polymarket as polymarket_schema
+import oddsfox_pipeline.storage.duckdb.connection as connection
+from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+from oddsfox_pipeline.storage.duckdb.schemas import polymarket as polymarket_schema
 
 
 @pytest.fixture(autouse=True)
@@ -21,7 +21,7 @@ def test_active_duckdb_path_absolute_env(monkeypatch, tmp_path, isolated_env):
     monkeypatch.setenv("DUCKDB_NAME", str(db))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     assert conn.active_duckdb_path() == db
@@ -31,7 +31,7 @@ def test_active_duckdb_path_relative_env(monkeypatch, tmp_path, isolated_env):
     monkeypatch.setenv("DUCKDB_NAME", "rel.duckdb")
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     p = conn.active_duckdb_path()
@@ -44,7 +44,7 @@ def test_active_duckdb_path_uses_duckdb_path_when_name_unset(monkeypatch, tmp_pa
     import os
 
     settings = reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     real_getenv = os.getenv
 
@@ -72,7 +72,7 @@ def test_connect_ioerror_without_pytest_env_reraises(
     monkeypatch.setattr(duckdb, "connect", boom)
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     with pytest.raises(duckdb.IOException, match="disk full"):
@@ -85,7 +85,7 @@ def test_connect_ioerror_non_lock_reraises(monkeypatch, tmp_path, isolated_env):
     monkeypatch.setenv("PYTEST_CURRENT_TEST", "unit")
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
 
@@ -184,7 +184,7 @@ def test_connect_lock_fallback(monkeypatch, tmp_path, isolated_env):
     monkeypatch.setenv("PYTEST_CURRENT_TEST", "unit")
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
 
@@ -212,7 +212,7 @@ def test_connect_lock_fallback_retries_unique_temp_paths(
     monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw6")
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     real_connect = duckdb.connect
@@ -243,7 +243,7 @@ def test_connect_lock_fallback_retry_non_lock_reraises(
     monkeypatch.setenv("PYTEST_CURRENT_TEST", "unit")
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
 
@@ -269,7 +269,7 @@ def test_connect_lock_fallback_exhausted_retries_reraises(
     monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw5")
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
 
@@ -285,7 +285,7 @@ def test_init_duck_db_idempotent(monkeypatch, tmp_path, isolated_env):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "db.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     conn.init_duck_db()
@@ -308,7 +308,7 @@ def test_ensure_duck_db_sets_active_path(monkeypatch, tmp_path, isolated_env):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "e.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     conn.ensure_duck_db()
@@ -323,7 +323,7 @@ def test_ensure_duck_db_switches_active_path_without_manual_reset(
     monkeypatch.setenv("DUCKDB_NAME", str(first))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     conn.ensure_duck_db()
@@ -352,7 +352,7 @@ def test_reset_duckdb_connection_state_clears_active_path(
     monkeypatch.setenv("DUCKDB_NAME", str(first))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     conn.ensure_duck_db()
@@ -368,7 +368,7 @@ def test_get_connection_retries_transient_lock(monkeypatch, tmp_path, isolated_e
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "retry.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     real_connect = duckdb.connect
@@ -391,7 +391,7 @@ def test_get_connection_and_persistent(monkeypatch, tmp_path, isolated_env):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "p.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     conn.ensure_duck_db()
@@ -408,7 +408,7 @@ def test_use_conn_with_explicit_connection(monkeypatch, tmp_path, isolated_env):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "u.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     conn.ensure_duck_db()
@@ -426,7 +426,7 @@ def test_use_conn_implicit_opens_temporary_connection(
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "uc2.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     conn.ensure_duck_db()
@@ -441,7 +441,7 @@ def test_init_duck_db_debug_log_when_schema_logged_already(
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "dbg.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     conn.reset_duckdb_connection_state()
@@ -539,7 +539,7 @@ def test_init_duck_db_swallows_alter_table_error(monkeypatch, tmp_path, isolated
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "alter.duckdb"))
 
     reload_all_settings_modules()
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn = importlib.reload(conn)
     real_connect = conn._connect_duckdb
@@ -571,7 +571,7 @@ def test_init_duck_db_swallows_alter_table_error(monkeypatch, tmp_path, isolated
 
 def test_connect_explicit_path_skips_global_active(monkeypatch, tmp_path, isolated_env):
     p = tmp_path / "explicit.duckdb"
-    import oddsfox.storage.duckdb.connection as conn
+    import oddsfox_pipeline.storage.duckdb.connection as conn
 
     c = conn._connect_duckdb(p)
     try:

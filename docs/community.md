@@ -5,7 +5,7 @@ and release history.
 
 ## Contributing
 
-Read [CONTRIBUTING](https://github.com/hypertrial/oddsfox/blob/main/CONTRIBUTING.md)
+Read [CONTRIBUTING](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CONTRIBUTING.md)
 before opening a pull request. The short version:
 
 1. Branch from `main`.
@@ -23,11 +23,11 @@ operator workflow.
 ## Security
 
 Do not open public issues for vulnerabilities. Follow
-[SECURITY](https://github.com/hypertrial/oddsfox/blob/main/SECURITY.md) and use
+[SECURITY](https://github.com/hypertrial/oddsfox-pipeline/blob/main/SECURITY.md) and use
 GitHub Private Vulnerability Reporting when available.
 
 ## Project Files
 
-- [Code of Conduct](https://github.com/hypertrial/oddsfox/blob/main/CODE_OF_CONDUCT.md)
-- [Changelog](https://github.com/hypertrial/oddsfox/blob/main/CHANGELOG.md)
-- [License](https://github.com/hypertrial/oddsfox/blob/main/LICENSE)
+- [Code of Conduct](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CODE_OF_CONDUCT.md)
+- [Changelog](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CHANGELOG.md)
+- [License](https://github.com/hypertrial/oddsfox-pipeline/blob/main/LICENSE)

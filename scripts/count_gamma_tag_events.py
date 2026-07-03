@@ -29,19 +29,19 @@ for _rp in (REPO_ROOT, REPO_ROOT / "src"):
     if str(_rp) not in sys.path:
         sys.path.insert(0, str(_rp))
 
-from oddsfox.config.settings import (  # noqa: E402
+from oddsfox_pipeline.config.settings import (  # noqa: E402
     POLYMARKET_SCOPE_KEYSET_CLOSED,
     POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
 )
-from oddsfox.ingestion.polymarket.gamma_events import (  # noqa: E402
+from oddsfox_pipeline.ingestion.polymarket.gamma_events import (  # noqa: E402
     iter_gamma_events_keyset,
 )
-from oddsfox.ingestion.polymarket.market_scope import (  # noqa: E402
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (  # noqa: E402
     DEFAULT_MARKET_SCOPE,
     load_market_scope_config,
     resolve_keyset_tag_slugs,
 )
-from oddsfox.ingestion.polymarket.markets.fetch import (  # noqa: E402
+from oddsfox_pipeline.ingestion.polymarket.markets.fetch import (  # noqa: E402
     build_client,
 )
 

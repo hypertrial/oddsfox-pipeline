@@ -6,8 +6,8 @@ import importlib
 
 import pytest
 
-from oddsfox.config._reload_settings import reload_all_settings_modules
-from oddsfox.storage.duckdb.market_scope_registry import (
+from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     clear_registry,
     get_registry_event_slugs,
@@ -20,7 +20,7 @@ from oddsfox.storage.duckdb.market_scope_registry import (
 @pytest.fixture
 def duck(monkeypatch, tmp_path):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "registry.duckdb"))
-    import oddsfox.storage.duckdb.connection as connection
+    import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
     connection.reset_duckdb_connection_state()
@@ -97,7 +97,7 @@ def test_registry_upsert_preserves_existing_event_fields_when_new_values_null(du
 
 
 def test_market_scope_discovery_metadata_rejects_blank_scope(duck):
-    from oddsfox.storage.duckdb.metadata import (
+    from oddsfox_pipeline.storage.duckdb.metadata import (
         get_market_scope_discovery_fully_checked,
     )
 

@@ -1,11 +1,11 @@
-# OddsFox
+# OddsFox Pipeline
 
-[![CI](https://github.com/hypertrial/oddsfox/actions/workflows/ci.yml/badge.svg)](https://github.com/hypertrial/oddsfox/actions/workflows/ci.yml)
+[![CI](https://github.com/hypertrial/oddsfox-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/hypertrial/oddsfox-pipeline/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-00d7f7)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-00d7f7)](LICENSE)
 
-OddsFox is an open-source, local-first data pipeline for prediction-market
-data.
+OddsFox Pipeline is an open-source, local-first batch data warehouse for
+prediction-market data.
 
 It uses Dagster to orchestrate dlt ingestion, DuckDB storage, Python sync
 ledgers, and dbt analytics models. Version `0.1.x` starts with FIFA World Cup

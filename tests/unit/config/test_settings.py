@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from oddsfox.config._reload_settings import reload_all_settings_modules
+from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
 
 def test_env_int_invalid_falls_back_to_default(monkeypatch, isolated_env):
@@ -185,7 +185,7 @@ def test_market_scope_tag_crawl_denylist_parses_csv(monkeypatch, isolated_env):
 def test_dbt_cli_argv_uses_active_interpreter():
     import sys
 
-    from oddsfox.config.settings_warehouse import dbt_cli_argv
+    from oddsfox_pipeline.config.settings_warehouse import dbt_cli_argv
 
     assert dbt_cli_argv("parse", "--project-dir", "dbt") == [
         sys.executable,
@@ -198,7 +198,7 @@ def test_dbt_cli_argv_uses_active_interpreter():
 
 
 def test_resolve_dbt_executable_prefers_venv_script(monkeypatch, tmp_path):
-    from oddsfox.config.settings_warehouse import resolve_dbt_executable
+    from oddsfox_pipeline.config.settings_warehouse import resolve_dbt_executable
 
     fake_python = tmp_path / "bin" / "python3"
     fake_python.parent.mkdir(parents=True)
@@ -207,36 +207,36 @@ def test_resolve_dbt_executable_prefers_venv_script(monkeypatch, tmp_path):
     fake_dbt.write_text("")
 
     monkeypatch.setattr(
-        "oddsfox.config.settings_warehouse.sys.executable", str(fake_python)
+        "oddsfox_pipeline.config.settings_warehouse.sys.executable", str(fake_python)
     )
     assert resolve_dbt_executable() == str(fake_dbt)
 
 
 def test_resolve_dbt_executable_falls_back_to_path(monkeypatch, tmp_path):
-    from oddsfox.config.settings_warehouse import resolve_dbt_executable
+    from oddsfox_pipeline.config.settings_warehouse import resolve_dbt_executable
 
     fake_python = tmp_path / "python3"
     fake_python.write_text("")
     monkeypatch.setattr(
-        "oddsfox.config.settings_warehouse.sys.executable", str(fake_python)
+        "oddsfox_pipeline.config.settings_warehouse.sys.executable", str(fake_python)
     )
     monkeypatch.setattr(
-        "oddsfox.config.settings_warehouse.shutil.which",
+        "oddsfox_pipeline.config.settings_warehouse.shutil.which",
         lambda _name: "/usr/local/bin/dbt",
     )
     assert resolve_dbt_executable() == "/usr/local/bin/dbt"
 
 
 def test_resolve_dbt_executable_defaults_when_missing(monkeypatch, tmp_path):
-    from oddsfox.config.settings_warehouse import resolve_dbt_executable
+    from oddsfox_pipeline.config.settings_warehouse import resolve_dbt_executable
 
     fake_python = tmp_path / "python3"
     fake_python.write_text("")
     monkeypatch.setattr(
-        "oddsfox.config.settings_warehouse.sys.executable", str(fake_python)
+        "oddsfox_pipeline.config.settings_warehouse.sys.executable", str(fake_python)
     )
     monkeypatch.setattr(
-        "oddsfox.config.settings_warehouse.shutil.which",
+        "oddsfox_pipeline.config.settings_warehouse.shutil.which",
         lambda _name: None,
     )
     assert resolve_dbt_executable() == "dbt"

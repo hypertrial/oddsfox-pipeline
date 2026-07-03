@@ -7,13 +7,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from tests.integration.ingestion._odds_sync_harness import make_runtime
 
-from oddsfox.config._reload_settings import reload_all_settings_modules
+from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
 pytest.importorskip("duckdb")
 
-from oddsfox.ingestion.polymarket.odds import sync as odds_sync
-from oddsfox.ingestion.polymarket.odds.fetch import BadRequestError
-from oddsfox.storage.duckdb.connection import (
+from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.ingestion.polymarket.odds.fetch import BadRequestError
+from oddsfox_pipeline.storage.duckdb.connection import (
     polymarket_ops_tbl,
     polymarket_raw_tbl,
 )
@@ -168,7 +168,7 @@ def test_sync_token_plan_mocked():
         return [(tid, 50, 0.4)]
 
     with patch(
-        "oddsfox.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
+        "oddsfox_pipeline.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
         side_effect=fetch_stub,
     ):
         odds_sync._sync_token_plan(
@@ -183,19 +183,19 @@ def test_sync_token_plan_mocked():
 
 def test_reconcile_odds_ledger_mocked(monkeypatch):
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.engine.ledger.ensure_duck_db",
+        "oddsfox_pipeline.ingestion.polymarket.odds.engine.ledger.ensure_duck_db",
         lambda: None,
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.engine.ledger.snapshot_raw_layer",
+        "oddsfox_pipeline.ingestion.polymarket.odds.engine.ledger.snapshot_raw_layer",
         lambda: {"markets_rows": 1},
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.engine.ledger.reconcile_token_sync_ledger_from_history",
+        "oddsfox_pipeline.ingestion.polymarket.odds.engine.ledger.reconcile_token_sync_ledger_from_history",
         lambda: {"scanned_tokens": 1, "repaired_tokens": 0},
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.engine.ledger.save_sync_run_metrics",
+        "oddsfox_pipeline.ingestion.polymarket.odds.engine.ledger.save_sync_run_metrics",
         lambda *a, **k: None,
     )
     odds_sync.reconcile_odds_ledger(persist_run_metrics=True)
@@ -280,7 +280,7 @@ def test_sync_odds_persists_planning_context(monkeypatch):
 
 def test_writer_buffers_apply_and_flush(monkeypatch, tmp_path):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "w.duckdb"))
-    import oddsfox.storage.duckdb.connection as connection
+    import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
     connection.reset_duckdb_connection_state()
@@ -318,7 +318,7 @@ def test_writer_buffers_apply_and_flush(monkeypatch, tmp_path):
 def test_flush_writer_preserves_fully_checked_on_cursor_update(monkeypatch, tmp_path):
     """Cursor-only flushes must not clear fully_checked (operational upsert, not row replace)."""
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "fc.duckdb"))
-    import oddsfox.storage.duckdb.connection as connection
+    import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
     connection.reset_duckdb_connection_state()
@@ -361,7 +361,7 @@ def test_fetch_window_split_raises_when_span_small(monkeypatch):
         raise BadRequestError("e", body="interval is too long", status=400)
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
+        "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
         ft,
     )
     with pytest.raises(BadRequestError):
@@ -386,7 +386,7 @@ def test_sync_odds_rejects_unknown_keyword():
 
 
 def test_sync_odds_runtime_instances_do_not_mutate_shared_modules():
-    from oddsfox.ingestion.polymarket.odds import planning
+    from oddsfox_pipeline.ingestion.polymarket.odds import planning
 
     original_iter_due = planning.iter_due_market_tokens
     seen: list[str] = []
@@ -442,7 +442,7 @@ def test_odds_sync_all_excludes_private_helpers():
 
 
 def test_odds_sync_runtime_flat_property_accessors():
-    from oddsfox.ingestion.polymarket.odds.deps import (
+    from oddsfox_pipeline.ingestion.polymarket.odds.deps import (
         replace_odds_sync_runtime,
     )
 

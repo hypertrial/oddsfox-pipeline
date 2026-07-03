@@ -1,7 +1,7 @@
 # Packaged default for Dagster and local `dbt` CLI. Override with ~/.dbt or DBT_PROFILES_DIR.
 # `schema` is the dbt fallback target schema (only untagged resources); modeled relations use
 # full custom schema names via generate_schema_name (e.g. polymarket_staging).
-# Importing `oddsfox.config.settings` sets DUCKDB_PATH to an absolute path; from the repo
+# Importing `oddsfox_pipeline.config.settings` sets DUCKDB_PATH to an absolute path; from the repo
 # root you can also run dbt without it by relying on the default filename below.
 oddsfox:
   target: dev

@@ -7,14 +7,14 @@ from datetime import datetime, timezone
 
 import pytest
 
-import oddsfox.storage.duckdb.markets as markets
-from oddsfox.config._reload_settings import reload_all_settings_modules
-from oddsfox.storage.duckdb.connection import (
+import oddsfox_pipeline.storage.duckdb.markets as markets
+from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+from oddsfox_pipeline.storage.duckdb.connection import (
     get_connection,
     polymarket_ops_tbl,
     polymarket_raw_tbl,
 )
-from oddsfox.storage.duckdb.schemas.polymarket import create_test_markets_table
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket import create_test_markets_table
 
 T_M = polymarket_raw_tbl("markets")
 T_MT = polymarket_raw_tbl("market_tokens")
@@ -29,7 +29,7 @@ T_UNR = polymarket_ops_tbl("market_metadata_unresolved")
 @pytest.fixture
 def duck(monkeypatch, tmp_path):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "unit.duckdb"))
-    import oddsfox.storage.duckdb.connection as connection
+    import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
     connection.reset_duckdb_connection_state()

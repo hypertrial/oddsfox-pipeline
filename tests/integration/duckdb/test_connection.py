@@ -1,7 +1,7 @@
 import duckdb
 
-import oddsfox.storage.duckdb.connection as connection
-from oddsfox.storage.duckdb.connection import init_duck_db
+import oddsfox_pipeline.storage.duckdb.connection as connection
+from oddsfox_pipeline.storage.duckdb.connection import init_duck_db
 
 
 def test_init_duck_db_creates_polymarket_schemas_only(tmp_path, monkeypatch):

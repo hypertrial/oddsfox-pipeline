@@ -2,10 +2,10 @@ from datetime import datetime, timezone
 
 import polars as pl
 
-from oddsfox.ingestion.polymarket.market_scope import MarketScopeConfig
-from oddsfox.ingestion.polymarket.markets import fetch, transform
-from oddsfox.ingestion.polymarket.markets import sync as markets_sync
-from oddsfox.ingestion.polymarket.markets.persistence import (
+from oddsfox_pipeline.ingestion.polymarket.market_scope import MarketScopeConfig
+from oddsfox_pipeline.ingestion.polymarket.markets import fetch, transform
+from oddsfox_pipeline.ingestion.polymarket.markets import sync as markets_sync
+from oddsfox_pipeline.ingestion.polymarket.markets.persistence import (
     prepare_batch_for_db,
 )
 
@@ -314,7 +314,7 @@ def test_sync_markets_for_scope_without_progress_callback(monkeypatch):
 
 
 def test_sync_markets_guardrail_check_during_discovery_progress(monkeypatch):
-    from oddsfox.resources.progress_guardrails import ProgressGuardrail
+    from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
 
     checks: list[tuple[str, dict]] = []
     original_check = ProgressGuardrail.check

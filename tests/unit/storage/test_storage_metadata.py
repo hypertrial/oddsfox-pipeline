@@ -7,7 +7,7 @@ from contextlib import contextmanager
 
 from tests.unit.storage.duckdb_storage_test_support import T_PRE
 
-import oddsfox.storage.duckdb.metadata as metadata
+import oddsfox_pipeline.storage.duckdb.metadata as metadata
 
 
 def test_save_sync_run_metrics_history_json_not_list(duck):

@@ -16,8 +16,8 @@ from tests.integration.ingestion._odds_sync_harness import (
     immediate_executor,
 )
 
-from oddsfox.ingestion.polymarket.odds import sync as odds_sync
-from oddsfox.ingestion.polymarket.odds.fetch import (
+from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.ingestion.polymarket.odds.fetch import (
     BadRequestError,
 )
 
@@ -67,7 +67,7 @@ def test_fetch_window_auto_split_interval_branch(monkeypatch):
         return [(token_id, end_ts - 1, 0.5)]
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
+        "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
         ft,
     )
     tid = "z" * 33 + "12"
@@ -87,7 +87,7 @@ def test_fetch_window_returns_none_on_transient_chunk(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
+        "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
         ft,
     )
     tid = "y" * 33 + "12"
@@ -102,7 +102,7 @@ def test_sync_token_plan_typeerror_propagates(monkeypatch):
         raise TypeError("bad signature")
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
+        "oddsfox_pipeline.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
         ft,
     )
     q = Queue()
@@ -131,7 +131,7 @@ def test_sync_token_plan_permanent_error_puts_skip(monkeypatch):
         raise BadRequestError("bad", status=400, body="not interval")
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
+        "oddsfox_pipeline.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
         ft,
     )
     q = Queue()
@@ -165,7 +165,7 @@ def test_sync_token_plan_transient_and_cursor_branches(monkeypatch):
         return None  # transient
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
+        "oddsfox_pipeline.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
         ft,
     )
     q = Queue()
@@ -508,7 +508,7 @@ def test_sync_odds_effective_max_rps_respects_configured_rps_when_auto_tune_max_
     monkeypatch.setattr(odds_sync, "Thread", NoThread)
     monkeypatch.setattr(odds_sync, "_writer_loop", lambda *a, **k: None)
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.engine.pool.maybe_auto_tune_rps",
+        "oddsfox_pipeline.ingestion.polymarket.odds.engine.pool.maybe_auto_tune_rps",
         capture_tune,
     )
 

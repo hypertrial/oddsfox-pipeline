@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import polars as pl
 import pytest
 
-from oddsfox.ingestion.polymarket.markets.persistence import (
+from oddsfox_pipeline.ingestion.polymarket.markets.persistence import (
     prepare_batch_for_db,
 )
 

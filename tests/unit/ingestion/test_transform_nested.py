@@ -2,7 +2,7 @@
 
 import polars as pl
 
-from oddsfox.ingestion.polymarket.markets.transform import (
+from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
     _jsonify_nested_value,
     _normalize_nested_value,
 )

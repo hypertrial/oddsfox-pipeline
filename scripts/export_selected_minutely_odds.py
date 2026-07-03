@@ -87,7 +87,7 @@ def _snapshot_duckdb_files(src: Path, dest_dir: Path) -> Path:
 
 
 def _mart_qualified_name() -> str:
-    from oddsfox.storage.duckdb.profile.discovery import qualified_name
+    from oddsfox_pipeline.storage.duckdb.profile.discovery import qualified_name
 
     return qualified_name(MART_SCHEMA, MART_NAME)
 
@@ -326,8 +326,8 @@ def main() -> int:
     )
     args = p.parse_args()
 
-    from oddsfox.config import settings
-    from oddsfox.storage.duckdb import open_duckdb_connection
+    from oddsfox_pipeline.config import settings
+    from oddsfox_pipeline.storage.duckdb import open_duckdb_connection
 
     duck = Path(args.duckdb_path or settings.DUCKDB_PATH).resolve()
     if args.output is not None:

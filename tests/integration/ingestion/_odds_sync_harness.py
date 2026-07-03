@@ -7,9 +7,9 @@ from contextlib import contextmanager
 from typing import Any, Callable, Iterator
 from unittest.mock import patch
 
-from oddsfox.ingestion.polymarket.odds import sync as odds_sync
-from oddsfox.ingestion.polymarket.odds.deps import replace_odds_sync_runtime
-from oddsfox.resources.progress_guardrails import ProgressGuardrail
+from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.ingestion.polymarket.odds.deps import replace_odds_sync_runtime
+from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
 
 _RAW_SNAPSHOT_DEFAULTS: dict[str, Any] = {
     "market_tokens_distinct_tokens": 0,

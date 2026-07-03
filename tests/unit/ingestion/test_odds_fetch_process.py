@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from oddsfox.ingestion.polymarket.odds import fetch as odds_fetch
-from oddsfox.ingestion.polymarket.odds import support as odds_support
+from oddsfox_pipeline.ingestion.polymarket.odds import fetch as odds_fetch
+from oddsfox_pipeline.ingestion.polymarket.odds import support as odds_support
 
 
 def test_build_client():
@@ -168,11 +168,11 @@ def test_fetch_with_retry_transient_then_ok():
     c = MagicMock()
     with (
         patch(
-            "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+            "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
             side_effect=[None, [("t" * 40, 1, 0.1)]],
         ),
         patch(
-            "oddsfox.ingestion.polymarket.odds.fetch.time.sleep",
+            "oddsfox_pipeline.ingestion.polymarket.odds.fetch.time.sleep",
             lambda s: None,
         ),
     ):
@@ -190,11 +190,11 @@ def test_fetch_with_retry_retries_on_timeout_none():
     c = MagicMock()
     with (
         patch(
-            "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+            "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
             side_effect=[None, [("t" * 40, 1, 0.1)]],
         ) as fetch_history,
         patch(
-            "oddsfox.ingestion.polymarket.odds.fetch.time.sleep",
+            "oddsfox_pipeline.ingestion.polymarket.odds.fetch.time.sleep",
             lambda s: None,
         ),
     ):
@@ -212,7 +212,7 @@ def test_fetch_with_retry_retries_on_timeout_none():
 def test_fetch_with_retry_transient_retry_without_backoff_sleep():
     c = MagicMock()
     with patch(
-        "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+        "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
         side_effect=[None, None],
     ) as fetch_history:
         assert (
@@ -252,7 +252,9 @@ def test_fetch_with_retry_clamps_end(monkeypatch):
         return {"history": []}
 
     c.get.side_effect = side
-    with patch("oddsfox.ingestion.polymarket.odds.fetch.time.time", return_value=50):
+    with patch(
+        "oddsfox_pipeline.ingestion.polymarket.odds.fetch.time.time", return_value=50
+    ):
         odds_fetch.fetch_token_history_with_retry(
             c, "t" * 40, start_ts=10, end_ts=100, now_ts=40, transient_retries=0
         )
@@ -266,7 +268,7 @@ def test_fetch_with_retry_range_clamp_and_second_bad_request_branches():
     )
 
     with patch(
-        "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+        "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
         side_effect=[first],
     ):
         with pytest.raises(odds_fetch.BadRequestError, match="first"):
@@ -275,7 +277,7 @@ def test_fetch_with_retry_range_clamp_and_second_bad_request_branches():
             )
 
     with patch(
-        "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+        "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
         side_effect=[first, too_long],
     ):
         with pytest.raises(odds_fetch.BadRequestError, match="second"):
@@ -285,7 +287,7 @@ def test_fetch_with_retry_range_clamp_and_second_bad_request_branches():
 
     second = odds_fetch.BadRequestError("second", body="other", status=400)
     with patch(
-        "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+        "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
         side_effect=[first, second],
     ):
         with pytest.raises(odds_fetch.BadRequestError, match="second"):
@@ -295,10 +297,13 @@ def test_fetch_with_retry_range_clamp_and_second_bad_request_branches():
 
     with (
         patch(
-            "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+            "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
             side_effect=[first, [("t" * 40, 20, 0.3)]],
         ) as fetch_history,
-        patch("oddsfox.ingestion.polymarket.odds.fetch.time.time", return_value=40),
+        patch(
+            "oddsfox_pipeline.ingestion.polymarket.odds.fetch.time.time",
+            return_value=40,
+        ),
     ):
         assert odds_fetch.fetch_token_history_with_retry(
             c, "t" * 40, start_ts=10, end_ts=100
@@ -315,27 +320,27 @@ def test_fetch_with_retry_interval_fallbacks_and_final_raise():
     )
 
     with patch(
-        "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+        "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
         side_effect=[first, [("t" * 40, 1, 0.1)]],
     ):
         assert odds_fetch.fetch_token_history_with_retry(c, "t" * 40, interval="1d")
 
     with patch(
-        "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+        "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
         side_effect=[first, second, [("t" * 40, 2, 0.2)]],
     ) as fetch_history:
         assert odds_fetch.fetch_token_history_with_retry(c, "t" * 40, interval="1d")
     assert fetch_history.call_args_list[-1].kwargs["interval"] == "max"
 
     with patch(
-        "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+        "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
         side_effect=[first, too_long],
     ):
         with pytest.raises(odds_fetch.BadRequestError, match="too long"):
             odds_fetch.fetch_token_history_with_retry(c, "t" * 40, interval="1d")
 
     with patch(
-        "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+        "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
         side_effect=[first, second],
     ):
         with pytest.raises(odds_fetch.BadRequestError, match="second"):
@@ -343,7 +348,7 @@ def test_fetch_with_retry_interval_fallbacks_and_final_raise():
 
     third = odds_fetch.BadRequestError("third", body="other", status=400)
     with patch(
-        "oddsfox.ingestion.polymarket.odds.fetch.fetch_token_history",
+        "oddsfox_pipeline.ingestion.polymarket.odds.fetch.fetch_token_history",
         side_effect=[first, second, third],
     ):
         with pytest.raises(odds_fetch.BadRequestError, match="third"):

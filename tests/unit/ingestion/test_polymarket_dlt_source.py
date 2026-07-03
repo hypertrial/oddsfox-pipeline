@@ -1,9 +1,9 @@
-from oddsfox.ingestion.polymarket.dlt_source import (
+from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
     collect_raw_markets,
     normalize_market_payloads_for_dlt,
     polymarket_markets_source,
 )
-from oddsfox.storage.duckdb.dlt_batch import DLT_STRICT_SCHEMA_CONTRACT
+from oddsfox_pipeline.storage.duckdb.dlt_batch import DLT_STRICT_SCHEMA_CONTRACT
 
 
 def test_polymarket_markets_source_yields_prefetched_rows():
@@ -110,10 +110,10 @@ def test_collect_raw_markets_targeted(monkeypatch):
     client = object()
     config = object()
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.dlt_source.build_client", lambda: client
+        "oddsfox_pipeline.ingestion.polymarket.dlt_source.build_client", lambda: client
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.dlt_source.load_market_scope_config",
+        "oddsfox_pipeline.ingestion.polymarket.dlt_source.load_market_scope_config",
         lambda **_kwargs: config,
     )
 
@@ -125,7 +125,7 @@ def test_collect_raw_markets_targeted(monkeypatch):
         return {}, [{"id": "m1"}], {}
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.dlt_source.refresh_registry_and_collect_markets_targeted",
+        "oddsfox_pipeline.ingestion.polymarket.dlt_source.refresh_registry_and_collect_markets_targeted",
         targeted,
     )
 
@@ -137,14 +137,14 @@ def test_collect_raw_markets_full_keyset_resolves_tags(monkeypatch):
     client = object()
     config = object()
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.dlt_source.build_client", lambda: client
+        "oddsfox_pipeline.ingestion.polymarket.dlt_source.build_client", lambda: client
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.dlt_source.load_market_scope_config",
+        "oddsfox_pipeline.ingestion.polymarket.dlt_source.load_market_scope_config",
         lambda **_kwargs: config,
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.dlt_source.resolve_keyset_tag_slugs",
+        "oddsfox_pipeline.ingestion.polymarket.dlt_source.resolve_keyset_tag_slugs",
         lambda slugs, *, config, client: ["world-cup"],
     )
 
@@ -156,7 +156,7 @@ def test_collect_raw_markets_full_keyset_resolves_tags(monkeypatch):
         return {}, [{"id": "m2"}], {}
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.dlt_source.refresh_registry_and_collect_markets_from_events",
+        "oddsfox_pipeline.ingestion.polymarket.dlt_source.refresh_registry_and_collect_markets_from_events",
         from_events,
     )
 

@@ -5,9 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from oddsfox.orchestration import assets_polymarket as assets_mod
-from oddsfox.orchestration import config as orch_config
-from oddsfox.orchestration.assets import (
+from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
+from oddsfox_pipeline.orchestration import config as orch_config
+from oddsfox_pipeline.orchestration.assets import (
     polymarket_market_scope_registry,
     polymarket_markets_raw_dlt,
     polymarket_odds_repair,

@@ -6,9 +6,9 @@ from pathlib import Path
 
 import yaml
 
-from oddsfox.config.settings_polymarket import DEFAULT_POLYMARKET_MARKET_SCOPE
-from oddsfox.ingestion.polymarket.market_scope import load_market_scope_config
-from oddsfox.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
+from oddsfox_pipeline.config.settings_polymarket import DEFAULT_POLYMARKET_MARKET_SCOPE
+from oddsfox_pipeline.ingestion.polymarket.market_scope import load_market_scope_config
+from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DBT_PROJECT = REPO_ROOT / "dbt" / "dbt_project.yml"
@@ -16,7 +16,7 @@ ENV_EXAMPLE = REPO_ROOT / ".env.example"
 SCOPE_SEED = (
     REPO_ROOT
     / "src"
-    / "oddsfox"
+    / "oddsfox_pipeline"
     / "ingestion"
     / "polymarket"
     / "seeds"
@@ -47,13 +47,13 @@ def test_default_market_scope_matches_dbt_active_scope(monkeypatch) -> None:
 def test_market_scope_keyset_discovery_defaults(monkeypatch) -> None:
     monkeypatch.delenv("POLYMARKET_SCOPE_KEYSET_CLOSED", raising=False)
     monkeypatch.delenv("POLYMARKET_SCOPE_KEYSET_VOLUME_MIN", raising=False)
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     reload_all_settings_modules()
-    from oddsfox.config.settings_polymarket import (
+    from oddsfox_pipeline.config.settings_polymarket import (
         POLYMARKET_SCOPE_KEYSET_CLOSED as closed,
     )
-    from oddsfox.config.settings_polymarket import (
+    from oddsfox_pipeline.config.settings_polymarket import (
         POLYMARKET_SCOPE_KEYSET_VOLUME_MIN as volume_min,
     )
 
@@ -64,13 +64,13 @@ def test_market_scope_keyset_discovery_defaults(monkeypatch) -> None:
 def test_market_scope_keyset_discovery_omit_filters_via_empty_env(monkeypatch) -> None:
     monkeypatch.setenv("POLYMARKET_SCOPE_KEYSET_CLOSED", "any")
     monkeypatch.setenv("POLYMARKET_SCOPE_KEYSET_VOLUME_MIN", "")
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     reload_all_settings_modules()
-    from oddsfox.config.settings_polymarket import (
+    from oddsfox_pipeline.config.settings_polymarket import (
         POLYMARKET_SCOPE_KEYSET_CLOSED as closed,
     )
-    from oddsfox.config.settings_polymarket import (
+    from oddsfox_pipeline.config.settings_polymarket import (
         POLYMARKET_SCOPE_KEYSET_VOLUME_MIN as volume_min,
     )
 

@@ -176,7 +176,7 @@ data/
 
 # DuckDB databases
 *.duckdb
-# DuckDB spill/temp storage next to the database file (e.g. oddsfox.duckdb.tmp/)
+# DuckDB spill/temp storage next to the database file (e.g. oddsfox_pipeline.duckdb.tmp/)
 *.duckdb.tmp/
 # Swap target from COPY FROM DATABASE compaction (suffix is not `.duckdb`)
 *.duckdb.pre_compact_backup

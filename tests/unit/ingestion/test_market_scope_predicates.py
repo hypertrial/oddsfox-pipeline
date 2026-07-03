@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 from tests.unit.ingestion.market_scope_test_support import slug_only_cfg
 
-from oddsfox.ingestion.polymarket import market_scope as scope_mod
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.ingestion.polymarket import market_scope as scope_mod
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     MARKET_SCOPE_ALL,
     MarketScopeConfig,
     collect_scope_markets_from_events,
@@ -17,7 +17,7 @@ from oddsfox.ingestion.polymarket.market_scope import (
     is_market_scope_row,
     load_market_scope_config,
 )
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     predicates as scope_predicates_mod,
 )
 
@@ -266,7 +266,7 @@ def test_resolve_keyset_crawl_tags_discovery_failure(monkeypatch):
         raise RuntimeError("discovery down")
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.market_scope_tags.discover_market_scope_tag_slugs",
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.discover_market_scope_tag_slugs",
         _boom,
     )
     slugs, sources = scope_predicates_mod.resolve_keyset_crawl_tags(
@@ -289,7 +289,7 @@ def test_resolve_keyset_crawl_tags_discovery_no_log_when_unchanged(monkeypatch):
         sources={"fifa-world-cup": {"discovered"}},
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.market_scope_tags.discover_market_scope_tag_slugs",
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.discover_market_scope_tag_slugs",
         lambda *a, **k: discovered,
     )
     slugs, _sources = scope_predicates_mod.resolve_keyset_crawl_tags(
@@ -311,7 +311,7 @@ def test_resolve_keyset_crawl_tags_discovery_expands(monkeypatch):
         sources={"extra-tag": {"discovered"}},
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.market_scope_tags.discover_market_scope_tag_slugs",
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.discover_market_scope_tag_slugs",
         lambda *a, **k: discovered,
     )
     slugs, sources = scope_predicates_mod.resolve_keyset_crawl_tags(

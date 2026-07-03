@@ -1,4 +1,4 @@
-# OddsFox dbt Project
+# OddsFox Pipeline dbt Project
 
 This dbt project models Polymarket raw, ops, and selected-scope tables in DuckDB.
 

@@ -1,2 +1,2 @@
 load_from:
-  - python_module: oddsfox.orchestration.definitions
+  - python_module: oddsfox_pipeline.orchestration.definitions

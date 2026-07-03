@@ -14,7 +14,7 @@ from tests.unit.ingestion.backfill_test_support import (
     patch_ensure_duck_db,
 )
 
-from oddsfox.ingestion.polymarket.markets import backfill as bf
+from oddsfox_pipeline.ingestion.polymarket.markets import backfill as bf
 
 
 @pytest.fixture
@@ -24,11 +24,11 @@ def no_tqdm(monkeypatch):
         return MagicMock(__enter__=lambda s: s, __exit__=lambda *x: None)
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.markets.backfill.tqdm",
+        "oddsfox_pipeline.ingestion.polymarket.markets.backfill.tqdm",
         fake_tqdm,
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.markets.backfill.metadata.tqdm",
+        "oddsfox_pipeline.ingestion.polymarket.markets.backfill.metadata.tqdm",
         fake_tqdm,
     )
 

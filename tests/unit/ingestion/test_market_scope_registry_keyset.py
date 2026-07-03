@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 from tests.unit.ingestion.market_scope_test_support import slug_only_cfg
 
-from oddsfox.ingestion.polymarket import market_scope as scope_mod
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.ingestion.polymarket import market_scope as scope_mod
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     MarketScopeEventsScanResult,
     collect_scope_markets_from_events,
     load_market_scope_config,
@@ -18,8 +18,8 @@ from oddsfox.ingestion.polymarket.market_scope import (
 def test_refresh_registry_from_events(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "registry.duckdb"))
     reload_all_settings_modules()
@@ -48,7 +48,9 @@ def test_refresh_registry_from_events(monkeypatch, tmp_path):
     assert "2026-fifa-world-cup-winner-595" in summary["discovered_event_slugs"]
     assert summary["by_source"] == {"events_api": 2}
 
-    from oddsfox.storage.duckdb.market_scope_registry import get_registry_market_ids
+    from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
+        get_registry_market_ids,
+    )
 
     assert sorted(get_registry_market_ids()) == ["m100", "m101"]
 
@@ -56,9 +58,9 @@ def test_refresh_registry_from_events(monkeypatch, tmp_path):
 def test_markets_sync_full_keyset_mode(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.ingestion.polymarket.markets.sync import sync_markets
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.ingestion.polymarket.markets.sync import sync_markets
 
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "full_keyset.duckdb"))
     monkeypatch.setenv("POLYMARKET_SCOPE_TAG_DISCOVERY", "false")
@@ -87,7 +89,7 @@ def test_markets_sync_full_keyset_mode(monkeypatch, tmp_path):
         "next_cursor": None,
     }
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.markets.sync.build_client",
+        "oddsfox_pipeline.ingestion.polymarket.markets.sync.build_client",
         lambda: client,
     )
 
@@ -107,9 +109,9 @@ def test_markets_sync_full_keyset_mode(monkeypatch, tmp_path):
 def test_refresh_registry_from_events_keyset_closed_filter(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.ingestion.polymarket.market_scope import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.ingestion.polymarket.market_scope import (
         refresh_registry_from_events,
     )
 
@@ -143,9 +145,9 @@ def test_refresh_registry_from_events_keyset_tag_and_volume_filters(
 ):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.ingestion.polymarket.market_scope import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.ingestion.polymarket.market_scope import (
         refresh_registry_from_events,
     )
 
@@ -194,9 +196,9 @@ def test_refresh_registry_from_events_keyset_tag_and_volume_filters(
 def test_full_keyset_stops_after_pages_without_progress(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.ingestion.polymarket.market_scope import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.ingestion.polymarket.market_scope import (
         collect_scope_markets_from_events,
     )
 
@@ -234,9 +236,9 @@ def test_full_keyset_stops_after_pages_without_progress(monkeypatch, tmp_path):
 def test_full_keyset_marks_discovery_complete(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.storage.duckdb.metadata import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.storage.duckdb.metadata import (
         get_market_scope_discovery_fully_checked,
     )
 
@@ -269,9 +271,9 @@ def test_full_keyset_marks_discovery_complete(monkeypatch, tmp_path):
 def test_truncated_full_keyset_clears_fully_checked(monkeypatch, tmp_path):
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
-    from oddsfox.config._reload_settings import reload_all_settings_modules
-    from oddsfox.storage.duckdb.metadata import (
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.storage.duckdb.metadata import (
         get_market_scope_discovery_fully_checked,
         set_market_scope_discovery_fully_checked,
     )
@@ -317,7 +319,7 @@ def test_collect_markets_omits_closed_when_unset(monkeypatch):
         discovered_slugs=(),
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.market_scope.registry._scan_market_scope_gamma_events",
+        "oddsfox_pipeline.ingestion.polymarket.market_scope.registry._scan_market_scope_gamma_events",
         lambda *a, **k: scan_result,
     )
     _markets, meta = collect_scope_markets_from_events(MagicMock(), config=cfg)
@@ -336,7 +338,7 @@ def test_collect_markets_meta_uses_keyset_slugs_when_no_crawl_tags(monkeypatch):
         scope_tag_slugs=("fifa-world-cup",),
     )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.market_scope.registry._scan_market_scope_gamma_events",
+        "oddsfox_pipeline.ingestion.polymarket.market_scope.registry._scan_market_scope_gamma_events",
         lambda *a, **k: scan_result,
     )
     markets, meta = collect_scope_markets_from_events(

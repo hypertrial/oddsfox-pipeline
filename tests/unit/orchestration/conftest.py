@@ -6,10 +6,10 @@ from unittest.mock import patch
 
 import pytest
 
-from oddsfox.orchestration import dbt_build as dbt_build_mod
-from oddsfox.orchestration import pipeline_ops as pipeline_ops_mod
-from oddsfox.orchestration import polymarket_ops as polymarket_ops_mod
-from oddsfox.resources.progress_guardrails import ProgressGuardrail
+from oddsfox_pipeline.orchestration import dbt_build as dbt_build_mod
+from oddsfox_pipeline.orchestration import pipeline_ops as pipeline_ops_mod
+from oddsfox_pipeline.orchestration import polymarket_ops as polymarket_ops_mod
+from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
 from tests.unit.orchestration.orchestration_test_support import (
     _FakeClock,
     _ImmediateThread,
@@ -58,11 +58,11 @@ def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_g
     monkeypatch.setenv("DUCKDB_NAME", str(db_path))
     monkeypatch.delenv("DUCKDB_PATH", raising=False)
 
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     reload_all_settings_modules()
 
-    import oddsfox.storage.duckdb.connection as connection
+    import oddsfox_pipeline.storage.duckdb.connection as connection
 
     connection.reset_duckdb_connection_state()
     connection.ensure_duck_db()
@@ -76,7 +76,7 @@ def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_g
         if hasattr(module, "ProgressGuardrail"):
             _patch_progress_guardrail_module(monkeypatch, module, clock)
 
-    import oddsfox.orchestration.assets as assets_mod
+    import oddsfox_pipeline.orchestration.assets as assets_mod
 
     _patch_progress_guardrail_module(monkeypatch, assets_mod, clock)
 
@@ -105,7 +105,7 @@ def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_g
 
 @pytest.fixture
 def reset_connection_globals():
-    import oddsfox.storage.duckdb.connection as connection
+    import oddsfox_pipeline.storage.duckdb.connection as connection
 
     connection.reset_duckdb_connection_state()
     yield

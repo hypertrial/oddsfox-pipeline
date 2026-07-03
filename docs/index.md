@@ -8,10 +8,10 @@
 </section>
 
 <div class="of-badges">
-<a class="of-badge of-badge--green" href="https://github.com/hypertrial/oddsfox/actions/workflows/ci.yml">docs passing</a>
-<a class="of-badge" href="https://github.com/hypertrial/oddsfox/blob/main/pyproject.toml">python 3.10+</a>
-<a class="of-badge" href="https://github.com/hypertrial/oddsfox/blob/main/LICENSE">MIT</a>
-<a class="of-badge of-badge--orange" href="https://github.com/hypertrial/oddsfox/blob/main/CHANGELOG.md">v0.1.4</a>
+<a class="of-badge of-badge--green" href="https://github.com/hypertrial/oddsfox-pipeline/actions/workflows/ci.yml">docs passing</a>
+<a class="of-badge" href="https://github.com/hypertrial/oddsfox-pipeline/blob/main/pyproject.toml">python 3.10+</a>
+<a class="of-badge" href="https://github.com/hypertrial/oddsfox-pipeline/blob/main/LICENSE">MIT</a>
+<a class="of-badge of-badge--orange" href="https://github.com/hypertrial/oddsfox-pipeline/blob/main/CHANGELOG.md">v0.1.4</a>
 </div>
 
 OddsFox is an open-source, local-first data pipeline for prediction-market
@@ -68,4 +68,4 @@ We appreciate focused issues and pull requests. Start with
 ## License
 
 OddsFox is licensed under the
-[MIT License](https://github.com/hypertrial/oddsfox/blob/main/LICENSE).
+[MIT License](https://github.com/hypertrial/oddsfox-pipeline/blob/main/LICENSE).

@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 import requests
 
-from oddsfox.resources.outbound_url import clear_outbound_url_host_cache
+from oddsfox_pipeline.resources.outbound_url import clear_outbound_url_host_cache
 
 _NETWORK_DISABLED_MSG = (
     "Real outbound HTTP is disabled in unit tests. "
@@ -20,7 +20,7 @@ _NETWORK_DISABLED_MSG = (
 def stub_outbound_url_dns(monkeypatch):
     """Avoid real DNS lookups during unit tests; override per test when needed."""
     monkeypatch.setattr(
-        "oddsfox.resources.outbound_url.socket.getaddrinfo",
+        "oddsfox_pipeline.resources.outbound_url.socket.getaddrinfo",
         lambda *a, **k: [(None, None, None, None, ("93.184.216.34", 443))],
     )
 
@@ -83,7 +83,7 @@ def isolated_env(monkeypatch, tmp_path):
 @pytest.fixture
 def reload_settings(isolated_env):
     """Reload settings + connection after env changes (per-test process isolation under xdist)."""
-    from oddsfox.config._reload_settings import reload_all_settings_modules
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     yield reload_all_settings_modules()
 
@@ -91,7 +91,7 @@ def reload_settings(isolated_env):
 @pytest.fixture
 def reset_connection_globals():
     """Reset DuckDB connection module globals between tests that mutate them."""
-    import oddsfox.storage.duckdb.connection as connection
+    import oddsfox_pipeline.storage.duckdb.connection as connection
 
     connection.reset_duckdb_connection_state()
     yield

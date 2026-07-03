@@ -95,7 +95,7 @@ def run_refresh(
     duckdb_path: Path,
     steps: list[str],
 ) -> list:
-    from oddsfox.storage.duckdb.profile import RefreshStepResult
+    from oddsfox_pipeline.storage.duckdb.profile import RefreshStepResult
 
     results: list[RefreshStepResult] = []
     for step in steps:
@@ -105,10 +105,10 @@ def run_refresh(
             continue
         if step == "polymarket":
             try:
-                from oddsfox.ingestion.polymarket.markets.sync import (
+                from oddsfox_pipeline.ingestion.polymarket.markets.sync import (
                     sync_markets,
                 )
-                from oddsfox.ingestion.polymarket.odds.sync import sync_odds
+                from oddsfox_pipeline.ingestion.polymarket.odds.sync import sync_odds
 
                 sm = sync_markets()
                 so = sync_odds()
@@ -140,13 +140,13 @@ def run_refresh(
 
 
 def _parse_stats(s: str) -> Any:
-    from oddsfox.storage.duckdb.profile import StatsLevel
+    from oddsfox_pipeline.storage.duckdb.profile import StatsLevel
 
     return StatsLevel(s.strip().lower())
 
 
 def _parse_format(s: str) -> Any:
-    from oddsfox.storage.duckdb.profile import OutputFormat
+    from oddsfox_pipeline.storage.duckdb.profile import OutputFormat
 
     return OutputFormat(s.strip().lower())
 
@@ -258,9 +258,9 @@ def main() -> int:
     )
     args = p.parse_args()
 
-    from oddsfox.config import settings
-    from oddsfox.storage.duckdb import open_duckdb_connection
-    from oddsfox.storage.duckdb.profile import (
+    from oddsfox_pipeline.config import settings
+    from oddsfox_pipeline.storage.duckdb import open_duckdb_connection
+    from oddsfox_pipeline.storage.duckdb.profile import (
         OutputFormat,
         ProfileConfig,
         StatsLevel,

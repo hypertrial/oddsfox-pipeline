@@ -6,16 +6,16 @@ from unittest.mock import MagicMock
 
 from tests.unit.ingestion.market_scope_test_support import slug_only_cfg
 
-from oddsfox.config import settings as config_settings
-from oddsfox.ingestion.polymarket import market_scope as scope_mod
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.config import settings as config_settings
+from oddsfox_pipeline.ingestion.polymarket import market_scope as scope_mod
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     MarketScopeConfig,
     MarketScopeEventsScanResult,
 )
-from oddsfox.ingestion.polymarket.market_scope import (
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     scan as scope_scan_mod,
 )
-from oddsfox.storage.duckdb.market_scope_registry import RegistryRow
+from oddsfox_pipeline.storage.duckdb.market_scope_registry import RegistryRow
 
 
 def test_scan_decouples_crawl_tags_from_scope_allowlist(monkeypatch):

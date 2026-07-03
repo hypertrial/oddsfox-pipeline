@@ -11,11 +11,15 @@ pytest.importorskip("dagster_dbt")
 from dagster import materialize
 from dagster_dbt import DbtCliResource
 
-import oddsfox.storage.duckdb.connection as connection
-from oddsfox.config.settings import resolve_dbt_executable
-from oddsfox.ingestion.polymarket.markets.persistence import prepare_batch_for_db
-from oddsfox.ingestion.polymarket.markets.transform import process_markets_dataframe
-from oddsfox.orchestration.assets import (
+import oddsfox_pipeline.storage.duckdb.connection as connection
+from oddsfox_pipeline.config.settings import resolve_dbt_executable
+from oddsfox_pipeline.ingestion.polymarket.markets.persistence import (
+    prepare_batch_for_db,
+)
+from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
+    process_markets_dataframe,
+)
+from oddsfox_pipeline.orchestration.assets import (
     DBT_PROJECT,
     polymarket_dbt,
     polymarket_market_metadata_backfill,
@@ -23,11 +27,11 @@ from oddsfox.orchestration.assets import (
     polymarket_markets_snapshot,
     polymarket_token_odds_history,
 )
-from oddsfox.storage.duckdb.market_scope_registry import (
+from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     upsert_registry_rows,
 )
-from oddsfox.storage.duckdb.schemas.polymarket import create_test_markets_table
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket import create_test_markets_table
 
 
 @pytest.fixture
@@ -193,7 +197,7 @@ oddsfox:
         ]
 
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.markets.sync.refresh_registry_and_collect_markets_targeted",
+        "oddsfox_pipeline.ingestion.polymarket.markets.sync.refresh_registry_and_collect_markets_targeted",
         fake_refresh_registry_and_collect_markets_targeted,
     )
 
@@ -211,15 +215,15 @@ oddsfox:
         "backfill_end_dates",
     ):
         monkeypatch.setattr(
-            f"oddsfox.orchestration.polymarket_ops.{task}",
+            f"oddsfox_pipeline.orchestration.polymarket_ops.{task}",
             _skip_backfill(task),
         )
     monkeypatch.setattr(
-        "oddsfox.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
+        "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
         fake_fetch_token_history_with_retry,
     )
     monkeypatch.setattr(
-        "oddsfox.orchestration.polymarket_ops.sync_market_scope_registry",
+        "oddsfox_pipeline.orchestration.polymarket_ops.sync_market_scope_registry",
         _fake_sync_market_scope_registry,
     )
 

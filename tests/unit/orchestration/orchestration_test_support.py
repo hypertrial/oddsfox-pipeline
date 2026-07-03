@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from queue import Empty
 
-from oddsfox.orchestration import dbt_build as dbt_build_mod
-from oddsfox.orchestration import pipeline_ops as pipeline_ops_mod
-from oddsfox.orchestration import polymarket_ops as polymarket_ops_mod
-from oddsfox.resources.progress_guardrails import ProgressGuardrail
+from oddsfox_pipeline.orchestration import dbt_build as dbt_build_mod
+from oddsfox_pipeline.orchestration import pipeline_ops as pipeline_ops_mod
+from oddsfox_pipeline.orchestration import polymarket_ops as polymarket_ops_mod
+from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
 
 
 class _FakeClock:

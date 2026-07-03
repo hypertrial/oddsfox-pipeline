@@ -7,15 +7,15 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
-from oddsfox.ingestion.polymarket.errors import (
+from oddsfox_pipeline.ingestion.polymarket.errors import (
     ClobRequestError,
     GammaRequestError,
     PolymarketIngestionError,
 )
-from oddsfox.ingestion.polymarket.markets.backfill._gamma import (
+from oddsfox_pipeline.ingestion.polymarket.markets.backfill._gamma import (
     _process_market_chunks,
 )
-from oddsfox.resources.http import APIClient
+from oddsfox_pipeline.resources.http import APIClient
 
 
 def test_polymarket_error_taxonomy() -> None:
@@ -24,7 +24,7 @@ def test_polymarket_error_taxonomy() -> None:
 
 
 def test_gamma_get_wraps_connection_error() -> None:
-    from oddsfox.ingestion.polymarket.errors import gamma_get
+    from oddsfox_pipeline.ingestion.polymarket.errors import gamma_get
 
     client = MagicMock(spec=APIClient)
     client.get.side_effect = requests.ConnectionError("gamma down")
@@ -61,7 +61,7 @@ def test_backfill_batch_continues_after_request_error() -> None:
 
 
 def test_gamma_get_reraises_existing_gamma_request_error() -> None:
-    from oddsfox.ingestion.polymarket.errors import gamma_get
+    from oddsfox_pipeline.ingestion.polymarket.errors import gamma_get
 
     client = MagicMock(spec=APIClient)
     original = GammaRequestError("already wrapped")
@@ -72,7 +72,7 @@ def test_gamma_get_reraises_existing_gamma_request_error() -> None:
 
 
 def test_wrap_request_error_copies_request_attribute() -> None:
-    from oddsfox.ingestion.polymarket.errors import _wrap_request_error
+    from oddsfox_pipeline.ingestion.polymarket.errors import _wrap_request_error
 
     req = requests.Request("GET", "http://example.com")
     exc = requests.ConnectionError("down")

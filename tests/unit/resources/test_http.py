@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from oddsfox.resources.http import APIClient, ClobAuth, RateLimiter
-from oddsfox.resources.http_retry import (
+from oddsfox_pipeline.resources.http import APIClient, ClobAuth, RateLimiter
+from oddsfox_pipeline.resources.http_retry import (
     TRANSIENT_HTTP_STATUSES,
     exponential_backoff_seconds,
     is_transient_status,
@@ -43,7 +43,7 @@ def test_clob_auth_hex_secret():
     raw = b"\xab" * 32
     secret = raw.hex()
     with patch(
-        "oddsfox.resources.http.base64.b64decode",
+        "oddsfox_pipeline.resources.http.base64.b64decode",
         side_effect=Exception("force hex branch"),
     ):
         auth = ClobAuth("k", secret, "p")
@@ -59,9 +59,11 @@ def test_clob_auth_hex_branch_inner_exception():
     """Cover inner except when hex decode fails despite passing the hex shape check."""
     secret = "a" * 64  # length + charset pass bytes.fromhex in normal cases
 
-    with patch("oddsfox.resources.http.base64.b64decode", side_effect=Exception("x")):
+    with patch(
+        "oddsfox_pipeline.resources.http.base64.b64decode", side_effect=Exception("x")
+    ):
         with patch(
-            "oddsfox.resources.http._bytes_from_hex",
+            "oddsfox_pipeline.resources.http._bytes_from_hex",
             side_effect=ValueError("fromhex failed"),
         ):
             auth = ClobAuth("k", secret, "p")
@@ -98,8 +100,10 @@ def test_rate_limiter_wait_sleeps_when_depleted(monkeypatch):
         sleeps.append(s)
         rl.tokens = rl.capacity  # unblock after one sleep
 
-    monkeypatch.setattr("oddsfox.resources.http.time.sleep", capture_sleep)
-    monkeypatch.setattr("oddsfox.resources.http.time.monotonic", lambda: 1000.0)
+    monkeypatch.setattr("oddsfox_pipeline.resources.http.time.sleep", capture_sleep)
+    monkeypatch.setattr(
+        "oddsfox_pipeline.resources.http.time.monotonic", lambda: 1000.0
+    )
     rl.wait()
     assert sleeps
 
@@ -188,14 +192,14 @@ def test_api_client_rate_limiter_wait():
 
 def test_api_client_delay_without_limiter():
     client = APIClient(base_url="https://x.com", requests_per_second=10.0)
-    with patch("oddsfox.resources.http.time.sleep") as sl:
+    with patch("oddsfox_pipeline.resources.http.time.sleep") as sl:
         client.last_request_time = 0.0
         times = iter([0.0, 0.05, 0.15, 0.2, 0.25, 0.3])
 
         def next_time():
             return next(times)
 
-        with patch("oddsfox.resources.http.time.time", side_effect=next_time):
+        with patch("oddsfox_pipeline.resources.http.time.time", side_effect=next_time):
             client._wait_for_rate_limit()
             client._wait_for_rate_limit()
         assert sl.called
@@ -204,8 +208,8 @@ def test_api_client_delay_without_limiter():
 def test_api_client_delay_skips_sleep_when_caught_up():
     """Second wait: elapsed already exceeds delay — no sleep branch."""
     client = APIClient(base_url="https://x.com", requests_per_second=10.0)
-    with patch("oddsfox.resources.http.time.sleep") as sl:
-        with patch("oddsfox.resources.http.time.time", return_value=100.0):
+    with patch("oddsfox_pipeline.resources.http.time.sleep") as sl:
+        with patch("oddsfox_pipeline.resources.http.time.time", return_value=100.0):
             client.last_request_time = 99.0
             client._wait_for_rate_limit()
         sl.assert_not_called()
@@ -267,9 +271,11 @@ def test_rate_limiter_wait_skips_sleep_when_sleep_time_zero(monkeypatch):
     def mono():
         return next(times)
 
-    monkeypatch.setattr("oddsfox.resources.http.time.monotonic", mono)
+    monkeypatch.setattr("oddsfox_pipeline.resources.http.time.monotonic", mono)
     sleeps = []
-    monkeypatch.setattr("oddsfox.resources.http.time.sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr(
+        "oddsfox_pipeline.resources.http.time.sleep", lambda s: sleeps.append(s)
+    )
     rl.wait()
     assert all(s <= 0.0 for s in sleeps)
 
@@ -280,7 +286,9 @@ def test_rate_limiter_wait_skips_sleep_when_rounds_to_zero(monkeypatch):
     rl.tokens = 1.0 - 1e-320
     rl.last_check = 0.0
     sleeps = []
-    monkeypatch.setattr("oddsfox.resources.http.time.sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr(
+        "oddsfox_pipeline.resources.http.time.sleep", lambda s: sleeps.append(s)
+    )
     # Enough monotonic samples so wait() never exhausts the iterator mid-loop.
     base = [0.0, 0.0, 1.0, 2.0, 3.0]
     it = iter(base)
@@ -291,7 +299,7 @@ def test_rate_limiter_wait_skips_sleep_when_rounds_to_zero(monkeypatch):
         except StopIteration:
             return base[-1] + 1.0
 
-    monkeypatch.setattr("oddsfox.resources.http.time.monotonic", mono)
+    monkeypatch.setattr("oddsfox_pipeline.resources.http.time.monotonic", mono)
     rl.wait()
     assert rl.tokens < rl.capacity
 
@@ -304,9 +312,11 @@ def test_rate_limiter_wait_zero_sleep_loops_without_sleep(monkeypatch):
     rl.last_check = 0.0
     times = iter([0.0, 1.0])
     sleeps = []
-    monkeypatch.setattr("oddsfox.resources.http.time.monotonic", lambda: next(times))
     monkeypatch.setattr(
-        "oddsfox.resources.http.time.sleep", lambda value: sleeps.append(value)
+        "oddsfox_pipeline.resources.http.time.monotonic", lambda: next(times)
+    )
+    monkeypatch.setattr(
+        "oddsfox_pipeline.resources.http.time.sleep", lambda value: sleeps.append(value)
     )
     rl.wait()
     assert all(s <= 0.0 for s in sleeps)

@@ -21,9 +21,9 @@ from tests.integration.ingestion._odds_sync_harness import (
     raw_snapshot,
 )
 
-from oddsfox.config._reload_settings import reload_all_settings_modules
-from oddsfox.ingestion.polymarket.odds import sync as odds_sync
-from oddsfox.storage.duckdb.connection import polymarket_raw_tbl
+from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.storage.duckdb.connection import polymarket_raw_tbl
 
 _T_OH = polymarket_raw_tbl("odds_history")
 
@@ -122,7 +122,7 @@ def test_writer_loop_smoke(monkeypatch, tmp_path):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "wl.duckdb"))
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
+    import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
     connection.reset_duckdb_connection_state()
@@ -149,7 +149,7 @@ def test_flush_writer_buffers_rollback(monkeypatch, tmp_path):
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "rb.duckdb"))
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
+    import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
     connection.reset_duckdb_connection_state()
@@ -187,7 +187,7 @@ def test_flush_writer_buffers_atomic_rollback_odds_and_state(monkeypatch, tmp_pa
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "atomic.duckdb"))
     import importlib
 
-    import oddsfox.storage.duckdb.connection as connection
+    import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
     connection.reset_duckdb_connection_state()
@@ -461,7 +461,7 @@ def test_build_inflight_future_diagnostics_empty():
 
 
 def _run_sync_odds_with_tqdm_capture(monkeypatch, *, is_tty: bool) -> list[dict]:
-    from oddsfox.ingestion.polymarket.odds.engine import pool as pool_mod
+    from oddsfox_pipeline.ingestion.polymarket.odds.engine import pool as pool_mod
 
     monkeypatch.setattr(pool_mod.sys.stderr, "isatty", lambda: is_tty)
     kwargs_seen: list[dict] = []

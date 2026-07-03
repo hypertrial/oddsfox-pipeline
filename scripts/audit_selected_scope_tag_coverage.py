@@ -25,37 +25,37 @@ for _rp in (REPO_ROOT, REPO_ROOT / "src"):
     if str(_rp) not in sys.path:
         sys.path.insert(0, str(_rp))
 
-from oddsfox.config.settings import (  # noqa: E402
+from oddsfox_pipeline.config.settings import (  # noqa: E402
     POLYMARKET_SCOPE_KEYSET_CLOSED,
     POLYMARKET_SCOPE_KEYSET_RELATED_TAGS,
     POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
     POLYMARKET_SCOPE_TAG_DISCOVERY,
 )
-from oddsfox.ingestion.polymarket.errors import gamma_get  # noqa: E402
-from oddsfox.ingestion.polymarket.gamma_events import (  # noqa: E402
+from oddsfox_pipeline.ingestion.polymarket.errors import gamma_get  # noqa: E402
+from oddsfox_pipeline.ingestion.polymarket.gamma_events import (  # noqa: E402
     iter_gamma_events_keyset,
 )
-from oddsfox.ingestion.polymarket.market_scope import (  # noqa: E402
+from oddsfox_pipeline.ingestion.polymarket.market_scope import (  # noqa: E402
     DEFAULT_MARKET_SCOPE,
     event_in_scope,
     load_market_scope_config,
     resolve_keyset_tag_slugs,
 )
-from oddsfox.ingestion.polymarket.market_scope_tags import (  # noqa: E402
+from oddsfox_pipeline.ingestion.polymarket.market_scope_tags import (  # noqa: E402
     discover_market_scope_tag_slugs,
 )
-from oddsfox.ingestion.polymarket.markets.fetch import (  # noqa: E402
+from oddsfox_pipeline.ingestion.polymarket.markets.fetch import (  # noqa: E402
     build_client,
 )
-from oddsfox.storage.duckdb.connection import (  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.connection import (  # noqa: E402
     ensure_duck_db,
     get_connection,
 )
-from oddsfox.storage.duckdb.market_scope_registry import (  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.market_scope_registry import (  # noqa: E402
     get_registry_market_ids,
     registry_market_count,
 )
-from oddsfox.storage.duckdb.schemas.constants import (  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.schemas.constants import (  # noqa: E402
     polymarket_ops_tbl,
 )
 

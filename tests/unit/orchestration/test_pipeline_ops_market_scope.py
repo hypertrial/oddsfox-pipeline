@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from oddsfox.orchestration import pipeline_ops
+from oddsfox_pipeline.orchestration import pipeline_ops
 
 
 def test_sync_market_scope_registry_delegates_to_refresh():
@@ -17,11 +17,11 @@ def test_sync_market_scope_registry_delegates_to_refresh():
 
     with (
         patch(
-            "oddsfox.orchestration.pipeline_ops.build_client",
+            "oddsfox_pipeline.orchestration.pipeline_ops.build_client",
             return_value=client,
         ),
         patch(
-            "oddsfox.orchestration.pipeline_ops.refresh_registry_from_events",
+            "oddsfox_pipeline.orchestration.pipeline_ops.refresh_registry_from_events",
             _refresh,
         ),
     ):
