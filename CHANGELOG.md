@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Dagster assets, jobs, schedules, DuckDB/dbt schemas, marts, and operator
   scripts. Generic Polymarket and selected-named public surfaces were removed;
   delete old local warehouses with `rm oddsfox.duckdb*` and rerun quickstart.
+- Removed the remaining list-shaped Dagster scope config surface and fixed all
+  orchestration ingestion/backfill/odds calls to the single `wc2026` market
+  scope.
+- `int_wc2026_polymarket_market_tokens` now materializes as a dbt table to avoid
+  repeated high-fanout downstream view expansion.
 
 ## [0.1.4] - 2026-07-03
 

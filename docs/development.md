@@ -74,7 +74,12 @@ debt includes:
 - `int_wc2026_polymarket_token_universe` is materialized as a table because profiling
   showed it is reused heavily by WC2026 marts and the dbt build stayed
   neutral or faster after the change.
-- `SQLCOST040`: `wc2026_token_coverage` and `wc2026_markets` rebuild as full tables.
+- `int_wc2026_polymarket_market_tokens` is materialized as a table because it
+  fans out to multiple downstream WC2026 marts. Costguard now tracks its
+  remaining incremental-conversion question as `SQLCOST040`.
+- `SQLCOST040`: `int_wc2026_polymarket_token_universe` and
+  `wc2026_token_coverage` rebuild as full tables. Defer incremental conversion
+  until row-volume profiling defines safe predicates.
 - Low advisories: repeated CTEs in mart comparison tests and an `ORDER BY`
   without `LIMIT` in `wc2026_token_coverage`.
 

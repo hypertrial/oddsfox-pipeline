@@ -30,6 +30,8 @@ import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _bootstrap import ensure_src_on_path
+from _export_common import mart_exists as _mart_exists
+from _export_common import parquet_schema, qualified_mart_name, snapshot_duckdb_files
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
 
@@ -92,42 +94,15 @@ class ExportStats:
     outcome_labels: list[tuple[str, int]]
 
 
-def _snapshot_duckdb_files(src: Path, dest_dir: Path) -> Path:
-    """Copy ``src`` and same-directory siblings (e.g. ``.wal``) for offline export."""
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    files = sorted(f for f in src.parent.glob(src.name + "*") if f.is_file())
-    if not files:
-        raise FileNotFoundError(
-            f"No DuckDB files matched {src.name!r}* under {src.parent}"
-        )
-    for f in files:
-        shutil.copy2(f, dest_dir / f.name)
-    main = dest_dir / src.name
-    if not main.is_file():
-        raise FileNotFoundError(f"Expected {main} after snapshot copy")
-    return main
-
-
 def _mart_qualified_name(mart_name: str = MART_NAME) -> str:
-    from oddsfox_pipeline.storage.duckdb.profile.discovery import qualified_name
-
-    return qualified_name(MART_SCHEMA, mart_name)
+    return qualified_mart_name(MART_SCHEMA, mart_name)
 
 
 def mart_exists(
     conn: duckdb.DuckDBPyConnection,
     mart_name: str = MART_NAME,
 ) -> bool:
-    row = conn.execute(
-        """
-        select count(*)
-        from information_schema.tables
-        where table_schema = ?
-          and table_name = ?
-        """,
-        [MART_SCHEMA, mart_name],
-    ).fetchone()
-    return bool(row and row[0])
+    return _mart_exists(conn, MART_SCHEMA, mart_name)
 
 
 def fetch_export_stats(
@@ -192,11 +167,7 @@ def _format_epoch(epoch: int | None) -> str:
 def _parquet_schema(
     conn: duckdb.DuckDBPyConnection, parquet_path: Path
 ) -> list[tuple[str, str]]:
-    rows = conn.execute(
-        "describe select * from read_parquet(?)",
-        [str(parquet_path)],
-    ).fetchall()
-    return [(str(name), str(dtype)) for name, dtype, *_rest in rows]
+    return parquet_schema(conn, parquet_path)
 
 
 def render_export_spec(
@@ -397,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         try:
-            profile_path = _snapshot_duckdb_files(duck, snap_dir)
+            profile_path = snapshot_duckdb_files(duck, snap_dir)
         except BaseException:
             shutil.rmtree(snap_dir, ignore_errors=True)
             raise

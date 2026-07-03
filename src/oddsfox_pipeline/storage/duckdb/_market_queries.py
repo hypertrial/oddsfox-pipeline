@@ -337,7 +337,7 @@ def count_due_market_token_exclusions(
     max_volume: float | None = None,
 ) -> dict[str, int]:
     """Count due-token candidates skipped by routine scope/freshness filters."""
-    scope_sql.validate_market_scopes(market_scope)
+    scope_sql.validate_market_scope(market_scope)
     ensure_duck_db()
     params: List = []
     base_sql = _due_token_base_where(cutoff_created_at, params)
@@ -390,7 +390,7 @@ def count_candidate_market_tokens(
     When False, mirrors ``iter_markets_with_tokens`` with ``json_array_only=True``.
     Per-token planner drops (recent_skip, invalid id, dup) are not reflected here.
     """
-    scope_sql.validate_market_scopes(market_scope)
+    scope_sql.validate_market_scope(market_scope)
     ensure_duck_db()
     params: List = []
     if due_only:

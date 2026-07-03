@@ -13,7 +13,6 @@ from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     market_scope_predicate_sql,
     market_scope_sql,
     validate_market_scope,
-    validate_market_scopes,
 )
 from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     config as scope_config_mod,
@@ -22,6 +21,7 @@ from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 
 
 def test_validate_market_scope_accepts_slug_like_scopes():
+    assert validate_market_scope() == "wc2026"
     assert validate_market_scope("wc2026") == "wc2026"
     with pytest.raises(ValueError, match="wc2026"):
         validate_market_scope("custom-scope")
@@ -29,74 +29,16 @@ def test_validate_market_scope_accepts_slug_like_scopes():
         validate_market_scope("bad scope")
 
 
-def test_validate_market_scopes_requires_wc2026(monkeypatch):
-    monkeypatch.delenv("WC2026_POLYMARKET_MARKET_SCOPES", raising=False)
-    assert validate_market_scopes("wc2026,wc2026") == ("wc2026",)
-    with pytest.raises(ValueError, match="wc2026"):
-        validate_market_scopes("wc2026,us-politics")
-    with pytest.raises(ValueError, match="wc2026"):
-        validate_market_scopes(["nba", "nfl"])
-    with pytest.raises(ValueError, match="at least one scope"):
-        validate_market_scopes([])
-    with pytest.raises(ValueError, match="at least one scope"):
-        validate_market_scopes(" , ")
-
-
-def test_merge_scope_sync_summaries_handles_empty_and_wc2026_scope():
+def test_snapshot_refreshed_scope_name_single_scope():
     from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 
-    assert assets_mod._merge_scope_sync_summaries([])["total_fetched"] == 0
-    merged = assets_mod._merge_scope_sync_summaries(
-        [{"scope_name": "wc2026", "total_fetched": 1, "registry_refreshed": True}]
-    )
-    assert merged["scope_names"] == ["wc2026"]
-    assert merged["total_fetched"] == 1
-    assert merged["registry_refreshed"] is True
-
-
-def test_validate_market_scopes_defaults_to_wc2026(monkeypatch) -> None:
-    monkeypatch.setenv("WC2026_POLYMARKET_MARKET_SCOPES", "nba,nfl")
-    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
-
-    reload_all_settings_modules()
-    assert validate_market_scopes() == ("wc2026",)
-
-
-def test_market_scopes_env_is_ignored_for_wc2026_only(monkeypatch) -> None:
-    monkeypatch.setenv("WC2026_POLYMARKET_MARKET_SCOPES", "wc2026,,nba")
-    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
-
-    reload_all_settings_modules()
-    from oddsfox_pipeline.config.settings_polymarket import (
-        WC2026_POLYMARKET_MARKET_SCOPES,
-    )
-
-    assert WC2026_POLYMARKET_MARKET_SCOPES == ("wc2026",)
-
-
-def test_market_scopes_csv_empty_env_falls_back_to_default(monkeypatch) -> None:
-    monkeypatch.setenv("WC2026_POLYMARKET_MARKET_SCOPES", "   ")
-    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
-
-    reload_all_settings_modules()
-    from oddsfox_pipeline.config.settings_polymarket import (
-        WC2026_POLYMARKET_MARKET_SCOPES,
-    )
-
-    assert WC2026_POLYMARKET_MARKET_SCOPES == ("wc2026",)
-
-
-def test_snapshot_refreshed_scope_names_single_scope():
-    from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
-
-    assert assets_mod._snapshot_refreshed_scope_names({"scope_name": "wc2026"}) == [
+    assert assets_mod._snapshot_refreshed_scope_name({"scope_name": "wc2026"}) == (
         "wc2026"
-    ]
-    assert assets_mod._snapshot_refreshed_scope_names({}) == []
+    )
+    assert assets_mod._snapshot_refreshed_scope_name({}) is None
 
 
 def test_load_market_scope_config_includes_default_wc2026_preset(monkeypatch):
-    monkeypatch.delenv("WC2026_POLYMARKET_MARKET_SCOPES", raising=False)
     monkeypatch.delenv("WC2026_POLYMARKET_SCOPE_EVENT_TAGS", raising=False)
     cfg = load_market_scope_config()
     assert cfg.scope_name == "wc2026"
@@ -147,7 +89,6 @@ def test_market_scope_config_and_sql_helpers():
 
 
 def test_load_market_scope_config_yaml_validation(tmp_path, monkeypatch):
-    monkeypatch.delenv("WC2026_POLYMARKET_MARKET_SCOPES", raising=False)
     monkeypatch.delenv("WC2026_POLYMARKET_SCOPE_EVENT_SLUGS", raising=False)
     monkeypatch.delenv("WC2026_POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES", raising=False)
     monkeypatch.delenv("WC2026_POLYMARKET_SCOPE_EVENT_TAGS", raising=False)

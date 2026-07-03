@@ -2,8 +2,8 @@
 
 Thank you for your interest in contributing. OddsFox is an open-source,
 local-first prediction-market data pipeline built with Dagster, dlt, dbt, and
-DuckDB. Version `0.1.x` starts with a selected-market-scope Polymarket pipeline;
-the default preset is FIFA World Cup 2026 markets and odds.
+DuckDB. Version `0.1.x` ships a WC2026-only Polymarket pipeline for FIFA World
+Cup 2026 markets and odds.
 
 ## Development setup
 

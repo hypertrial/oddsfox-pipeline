@@ -80,7 +80,7 @@ def test_market_scope_registry_skips_when_snapshot_already_refreshed(monkeypatch
         "get_sync_run_metrics",
         lambda task: {
             "registry_refreshed": True,
-            "scope_names": ["wc2026"],
+            "scope_name": "wc2026",
             "task": task,
         },
     )
@@ -127,8 +127,6 @@ def test_market_scope_registry_runs_sync_when_snapshot_did_not_refresh(monkeypat
     assert captured["keyset_tag_slugs"] == ["world-cup"]
     assert captured["keyset_volume_min"] is None
     assert result.metadata["run_summary"].value == {
-        "scope_names": ["wc2026"],
-        "per_scope": [{"registry_rows_upserted": 1}],
         "registry_rows_upserted": 1,
     }
 
@@ -155,8 +153,6 @@ def test_market_scope_registry_force_refresh_bypasses_snapshot_metric_check(
 
     assert checked_metrics == []
     assert result.metadata["run_summary"].value == {
-        "scope_names": ["wc2026"],
-        "per_scope": [{"registry_rows_upserted": 1}],
         "registry_rows_upserted": 1,
     }
 
@@ -195,7 +191,6 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
         workers=3,
         min_volume=10.0,
         max_volume=20.0,
-        scope_names=["wc2026"],
     )
 
     kwargs = assets_mod._build_odds_sync_kwargs(
@@ -216,7 +211,7 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
     assert kwargs["max_workers"] == 3
     assert kwargs["progress_callback"] is progress
     assert kwargs["plan_iterator_factory"] is plan_iterator
-    assert kwargs["market_scope"] == ["wc2026"]
+    assert kwargs["market_scope"] == "wc2026"
     assert metadata["workers"].value == 3
     assert metadata["min_volume"].value == 10.0
     assert metadata["max_volume"].value == 20.0

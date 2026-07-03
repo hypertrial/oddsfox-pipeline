@@ -146,6 +146,10 @@ def count_scope_tags(
 
 
 def main() -> int:
+    default_volume_min = WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN
+    default_volume_help = (
+        "none" if default_volume_min is None else f"{default_volume_min:g}"
+    )
     parser = argparse.ArgumentParser(
         description="Count Gamma /events/keyset rows for WC2026 tag_slug values."
     )
@@ -169,11 +173,8 @@ def main() -> int:
     parser.add_argument(
         "--keyset-volume-min",
         type=float,
-        default=WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
-        help=(
-            "Gamma volume_min query filter "
-            f"(default: {WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN:g})"
-        ),
+        default=default_volume_min,
+        help=(f"Gamma volume_min query filter (default: {default_volume_help})"),
     )
     parser.add_argument(
         "--log-every",

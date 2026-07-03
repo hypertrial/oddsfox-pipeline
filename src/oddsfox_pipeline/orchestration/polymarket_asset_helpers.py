@@ -5,6 +5,7 @@ from typing import Any, Callable
 import dlt
 from dagster import AssetExecutionContext, MaterializeResult, MetadataValue
 
+from oddsfox_pipeline.config.settings import DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE
 from oddsfox_pipeline.orchestration import polymarket_ops as ops
 from oddsfox_pipeline.orchestration.config import OddsSyncConfig
 from oddsfox_pipeline.storage.duckdb.connection import active_duckdb_path
@@ -85,7 +86,7 @@ def _build_odds_sync_kwargs(
         "rebuild_minutely": config.rebuild_minutely,
         "reconcile_ledger": config.reconcile_ledger,
         "short_range_first": config.short_range_first,
-        "market_scope": config.scope_names,
+        "market_scope": DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE,
         "ended_market_grace_days": config.ended_market_grace_days,
         "min_volume": config.min_volume,
         "max_volume": config.max_volume,

@@ -19,6 +19,14 @@ def _load_export_module():
     return export_hourly_odds_parquet, mart_exists
 
 
+def _load_common_module():
+    scripts_dir = Path(__file__).resolve().parents[3] / "scripts"
+    sys.path.insert(0, str(scripts_dir))
+    from _export_common import snapshot_duckdb_files
+
+    return snapshot_duckdb_files
+
+
 def _create_hourly_mart(
     conn: duckdb.DuckDBPyConnection,
     mart_name: str = "wc2026_token_hourly_odds",
@@ -142,6 +150,21 @@ def test_export_hourly_odds_parquet_round_trip(tmp_path: Path) -> None:
         verify.close()
 
     assert got == (2, 0.4, 0.58)
+
+
+def test_snapshot_duckdb_files_copies_main_and_siblings(tmp_path: Path) -> None:
+    snapshot_duckdb_files = _load_common_module()
+    src = tmp_path / "oddsfox.duckdb"
+    wal = tmp_path / "oddsfox.duckdb.wal"
+    dest = tmp_path / "snapshot"
+    src.write_text("main", encoding="utf-8")
+    wal.write_text("wal", encoding="utf-8")
+
+    copied = snapshot_duckdb_files(src, dest)
+
+    assert copied == dest / src.name
+    assert copied.read_text(encoding="utf-8") == "main"
+    assert (dest / wal.name).read_text(encoding="utf-8") == "wal"
 
 
 def test_export_hourly_odds_skips_spec_when_disabled(tmp_path: Path) -> None:

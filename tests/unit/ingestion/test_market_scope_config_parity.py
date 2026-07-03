@@ -26,15 +26,7 @@ SCOPE_SEED = (
 )
 
 
-def _env_example_value(key: str) -> str | None:
-    for line in ENV_EXAMPLE.read_text(encoding="utf-8").splitlines():
-        if line.startswith(f"{key}="):
-            return line.split("=", 1)[1].strip()
-    return None
-
-
-def test_default_market_scope_matches_dbt_contract(monkeypatch) -> None:
-    monkeypatch.delenv("WC2026_POLYMARKET_MARKET_SCOPES", raising=False)
+def test_default_market_scope_matches_dbt_contract() -> None:
     cfg = load_market_scope_config()
     raw = yaml.safe_load(DBT_PROJECT.read_text(encoding="utf-8")) or {}
     seed = yaml.safe_load(SCOPE_SEED.read_text(encoding="utf-8")) or {}
@@ -42,7 +34,7 @@ def test_default_market_scope_matches_dbt_contract(monkeypatch) -> None:
     assert DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE == DEFAULT_MARKET_SCOPE == "wc2026"
     assert seed.get("default_scope") == DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE
     assert tuple((seed.get("scopes") or {}).keys()) == ("wc2026",)
-    assert _env_example_value("WC2026_POLYMARKET_MARKET_SCOPES") is None
+    assert "MARKET_SCOPES" not in ENV_EXAMPLE.read_text(encoding="utf-8")
     assert "active_market_scopes" not in (raw.get("vars") or {})
     assert cfg.scope_name == "wc2026"
 

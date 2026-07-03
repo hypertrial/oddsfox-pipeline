@@ -26,8 +26,9 @@ def test_guardrail_config_rejects_invalid_timeout_and_snapshot_level():
 
 
 def test_paged_config_rejects_nonpositive_no_progress_limits():
-    assert MarketsSyncConfig(scope_names=["wc2026"]).scope_names == ["wc2026"]
-    assert MarketScopeRegistryConfig(scope_names=["wc2026"]).scope_names == ["wc2026"]
+    legacy_key = "scope" + "_names"
+    assert legacy_key not in MarketsSyncConfig.model_fields
+    assert legacy_key not in MarketScopeRegistryConfig.model_fields
 
     with pytest.raises(ValueError, match="max_pages_without_progress"):
         MarketsSyncConfig(max_pages_without_progress=0)
@@ -36,24 +37,19 @@ def test_paged_config_rejects_nonpositive_no_progress_limits():
         MarketScopeRegistryConfig(max_pages_without_progress=0)
 
 
-def test_metadata_config_rejects_invalid_rps_and_scope():
+def test_metadata_config_rejects_invalid_rps():
     with pytest.raises(ValueError, match="gamma_requests_per_second"):
         MetadataBackfillConfig(gamma_requests_per_second=0)
 
-    with pytest.raises(ValueError, match="wc2026"):
-        MetadataBackfillConfig(scope_names=["not a scope"])
 
-
-def test_odds_config_validates_scope_and_volume_bounds():
-    assert OddsSyncConfig(scope_names=["wc2026"]).scope_names == ["wc2026"]
+def test_odds_config_validates_volume_bounds():
+    legacy_key = "scope" + "_names"
+    assert legacy_key not in OddsSyncConfig.model_fields
     assert OddsSyncConfig(min_volume=None).min_volume is None
     assert OddsSyncConfig(min_volume=1).min_volume == 1.0
 
     with pytest.raises(ValueError, match="volume bounds"):
         OddsSyncConfig(max_volume=-1)
-
-    with pytest.raises(ValueError, match="at least one scope"):
-        OddsSyncConfig(scope_names=[])
 
 
 def test_hourly_odds_config_defaults_to_hourly_whale_sync():

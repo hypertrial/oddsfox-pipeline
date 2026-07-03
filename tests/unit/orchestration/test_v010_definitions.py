@@ -107,7 +107,18 @@ def test_definitions_expose_v010_asset_keys():
     assert not any(excluded_source_slug in key for key in asset_keys)
 
 
-def test_wc2026_jobs_pin_scope_config():
+def _nested_keys(payload):
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            yield key
+            yield from _nested_keys(value)
+    elif isinstance(payload, list):
+        for value in payload:
+            yield from _nested_keys(value)
+
+
+def test_wc2026_jobs_do_not_expose_scope_config():
+    legacy_key = "scope" + "_names"
     registry_config = wc2026_full_refresh_events_run_config()["ops"]
     hourly_config = wc2026_hourly_odds_run_config()["ops"]
     full_config = _merge_run_configs(
@@ -116,21 +127,9 @@ def test_wc2026_jobs_pin_scope_config():
         {"ops": {"wc2026_polymarket_dbt": {"config": {"full_refresh": True}}}},
     )["ops"]
 
-    assert registry_config["wc2026_polymarket_markets_snapshot"]["config"][
-        "scope_names"
-    ] == ["wc2026"]
-    assert registry_config["wc2026_polymarket_market_registry"]["config"][
-        "scope_names"
-    ] == ["wc2026"]
-    assert hourly_config["wc2026_polymarket_token_odds_history_hourly"]["config"][
-        "scope_names"
-    ] == ["wc2026"]
-    assert full_config["wc2026_polymarket_markets_snapshot"]["config"][
-        "scope_names"
-    ] == ["wc2026"]
-    assert full_config["wc2026_polymarket_token_odds_history_hourly"]["config"][
-        "scope_names"
-    ] == ["wc2026"]
+    assert legacy_key not in set(_nested_keys(registry_config))
+    assert legacy_key not in set(_nested_keys(hourly_config))
+    assert legacy_key not in set(_nested_keys(full_config))
     assert "wc2026_polymarket_dbt" in full_config
 
 

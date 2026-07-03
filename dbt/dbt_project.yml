@@ -27,6 +27,8 @@ models:
       intermediate:
         +schema: wc2026_polymarket_intermediate
         +tags: ["intermediate", "wc2026", "polymarket"]
+        int_wc2026_polymarket_market_tokens:
+          +materialized: table
         int_wc2026_polymarket_token_universe:
           +materialized: table
         int_wc2026_polymarket_token_daily_timeseries:

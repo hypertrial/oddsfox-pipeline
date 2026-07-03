@@ -15,7 +15,8 @@ import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _bootstrap import ensure_src_on_path
-from export_wc2026_hourly_odds import _snapshot_duckdb_files
+from _export_common import mart_exists as _mart_exists
+from _export_common import qualified_mart_name, snapshot_duckdb_files
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
 MART_SCHEMA: Final = "wc2026_polymarket_marts"
@@ -23,21 +24,11 @@ MART_NAME: Final = "wc2026_knockout_token_hourly_odds"
 
 
 def _qualified_name() -> str:
-    from oddsfox_pipeline.storage.duckdb.profile.discovery import qualified_name
-
-    return qualified_name(MART_SCHEMA, MART_NAME)
+    return qualified_mart_name(MART_SCHEMA, MART_NAME)
 
 
 def mart_exists(conn: duckdb.DuckDBPyConnection) -> bool:
-    row = conn.execute(
-        """
-        select count(*)
-        from information_schema.tables
-        where table_schema = ? and table_name = ?
-        """,
-        [MART_SCHEMA, MART_NAME],
-    ).fetchone()
-    return bool(row and row[0])
+    return _mart_exists(conn, MART_SCHEMA, MART_NAME)
 
 
 def export_wc2026_knockout_markets(
@@ -87,7 +78,7 @@ def main(argv: list[str] | None = None) -> int:
             tempfile.mkdtemp(prefix="wc2026_knockout_snap_", dir=str(args.output_dir))
         )
         try:
-            profile_path = _snapshot_duckdb_files(duck, snap_dir)
+            profile_path = snapshot_duckdb_files(duck, snap_dir)
         except BaseException:
             shutil.rmtree(snap_dir, ignore_errors=True)
             raise

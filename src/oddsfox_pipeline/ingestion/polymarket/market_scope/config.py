@@ -14,7 +14,6 @@ import yaml
 
 from oddsfox_pipeline.config.settings import (
     DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE,
-    WC2026_POLYMARKET_MARKET_SCOPES,
     WC2026_POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES,
     WC2026_POLYMARKET_SCOPE_EVENT_SLUGS,
     WC2026_POLYMARKET_SCOPE_EVENT_TAGS,
@@ -156,9 +155,9 @@ def load_market_scope_config(
     market_ids_override: Sequence[str] | None = None,
 ) -> MarketScopeConfig:
     path = seed_path or default_market_scopes_seed_path()
-    default_scope, scopes = _read_seed(path)
+    _default_scope, scopes = _read_seed(path)
     wc2026_scope = _validate_slug_token(
-        scope_name or WC2026_POLYMARKET_MARKET_SCOPES[0] or default_scope
+        scope_name or DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE
     )
     if wc2026_scope != DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE:
         raise ValueError(f"market_scope must be 'wc2026', got {wc2026_scope!r}")

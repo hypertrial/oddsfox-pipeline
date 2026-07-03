@@ -1,8 +1,8 @@
 # AGENTS.md
 
 OddsFox is an open-source, local-first prediction-market data pipeline.
-Version `0.1.x` starts with a selected-market-scope Polymarket pipeline; the
-default preset is FIFA World Cup 2026 markets and odds.
+Version `0.1.x` ships a WC2026-only Polymarket pipeline for FIFA World Cup
+2026 markets and odds.
 Stack: **Dagster** (orchestration), **dlt** (market landing), **dbt** +
 **DuckDB** (warehouse/analytics), **uv** (deps), **Ruff** + **sqlfluff**
 (lint), **pytest** (tests).
@@ -99,7 +99,7 @@ src/oddsfox_pipeline/
   resources/       # HTTP, outbound URL, progress guardrails
   storage/duckdb/  # Connection, schemas, markets/odds persistence, profiling
 dbt/
-  models/polymarket/{staging,intermediate,marts,observability}/
+  models/wc2026_polymarket/{staging,intermediate,marts,observability}/
   tests/           # Singular dbt data tests (assert_*)
 tests/
   unit/            # Mocked config, ingestion, storage, orchestration
@@ -149,9 +149,9 @@ Key jobs: `wc2026_market_registry_refresh`, `wc2026_minutely_odds_ingest`, `wc20
 
 Schedules target `wc2026_minutely_odds_ingest` and `wc2026_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/minutely/hourly schedules in code or `.env` unless the task explicitly requires it.
 
-**Market scope:** v0.1.x supports only `wc2026`. Dagster asset configs may still
-use `scope_names: list[str]`, but valid values are fixed to `["wc2026"]`. dbt
-builds the fixed WC2026 graph. See [docs/configuration.md](docs/configuration.md).
+**Market scope:** v0.1.x supports only `wc2026`. Dagster asset configs do not
+accept a scope selector, and dbt builds the fixed WC2026 graph. See
+[docs/configuration.md](docs/configuration.md).
 
 DuckDB is local-only runtime state. For read-only inspection prefer `scripts/profile_warehouse.py` over opening the warehouse read-write.
 
