@@ -5,7 +5,7 @@ select
     first_odds_date,
     last_odds_date,
     token_days_observed
-from {{ ref('market_coverage') }}
+from {{ ref('wc2026_market_coverage') }}
 where
     has_odds_data = 1
     and (

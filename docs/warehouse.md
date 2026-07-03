@@ -8,7 +8,7 @@ shipped adapter. For public mart guarantees, see
 
 ## Raw Tables
 
-Schema: `polymarket_raw`
+Schema: `wc2026_polymarket_raw`
 
 - `markets`: dlt-owned Gamma market landing table with frozen column/type contract.
 - `market_tokens`: one row per market with CLOB token JSON; current batches land through dlt staging and finalize into this canonical table with `INSERT OR REPLACE`.
@@ -21,9 +21,9 @@ Schema: `polymarket_raw`
 
 ## Ops Tables
 
-Schema: `polymarket_ops`
+Schema: `wc2026_polymarket_ops`
 
-- `market_scope_registry`: market ids admitted to selected market scopes; current batches
+- `market_scope_registry`: market ids admitted to the WC2026 market scope; current batches
   land through dlt staging before the canonical upsert preserves existing non-null event fields.
 - `token_sync_ledger`: per-token sync progress kept in custom SQL because cursor
   and scheduler-state merges are stateful.
@@ -37,47 +37,43 @@ Schema: `polymarket_ops`
 
 ## dbt Schemas
 
-- `polymarket_staging`
-- `polymarket_intermediate`
-- `polymarket_marts`
-- `polymarket_observability`
+- `wc2026_polymarket_staging`
+- `wc2026_polymarket_intermediate`
+- `wc2026_polymarket_marts`
+- `wc2026_polymarket_observability`
 
 ## dbt Intermediate
 
-Schema: `polymarket_intermediate`
+Schema: `wc2026_polymarket_intermediate`
 
-- `int_polymarket_token_universe`: materialized canonical one-row-per-token
+- `int_wc2026_polymarket_token_universe`: materialized canonical one-row-per-token
   join of market tokens to market labels, state, and volume.
-- `int_polymarket_selected_markets`: markets admitted by the active selected scopes;
+- `int_wc2026_polymarket_markets`: markets admitted by the fixed WC2026 scope;
   one row per `(scope_name, market_id)`.
-- `int_polymarket_selected_token_universe`: selected-scope subset of the token universe;
-  dedupes by `market_id` across scopes so odds marts do not double-count overlapping markets.
-- `int_polymarket_token_daily_timeseries`: token-level daily odds joined to the token universe.
+- `int_wc2026_polymarket_market_tokens`: WC2026 subset of the token universe.
+- `int_wc2026_polymarket_token_daily_timeseries`: token-level daily odds joined to the token universe.
 
 ## dbt Marts
 
-Schema: `polymarket_marts`
+Schema: `wc2026_polymarket_marts`
 
-- `market_coverage`: market-level daily odds coverage rolled up from `token_coverage`.
-- `token_coverage`: token-level health and coverage, including daily coverage,
+- `wc2026_market_coverage`: market-level daily odds coverage rolled up from `wc2026_token_coverage`.
+- `wc2026_token_coverage`: token-level health and coverage, including daily coverage,
   sync ledger state, persisted skip reason, gap diagnostics, and market fully
   checked rollups.
-- `selected_token_minutely_odds`: full minutely odds time series for all selected-scope tokens (dbt
-  view joining raw odds directly to the selected token universe; not materialized to save disk).
-- `selected_token_hourly_odds`: full hourly OHLC odds time series for all selected-scope tokens (dbt
+- `wc2026_token_minutely_odds`: full minutely odds time series for WC2026 tokens (dbt
+  view joining raw odds directly to the WC2026 token universe; not materialized to save disk).
+- `wc2026_token_hourly_odds`: full hourly OHLC odds time series for WC2026 tokens (dbt
   view over `odds_history`; not materialized to save disk).
-- `selected_token_live_hourly_odds`: graph-ready hourly OHLC odds history for markets whose
-  latest complete hour is active, not closed, and within the configured live-current freshness window.
-  This view preserves the `selected_token_hourly_odds` schema.
-- `selected_token_daily_odds`: full daily OHLC odds time series for all selected-scope tokens (dbt
-  view over `int_polymarket_token_daily_timeseries`; not materialized to save disk).
-- `selected_markets`: selected-scope market universe; one row per `(scope_name, market_id)`.
-- `selected_whale_minutely_odds`: minutely odds for high-volume selected-scope markets (dbt
-  view over `selected_token_minutely_odds`; not materialized to save disk).
+- `wc2026_token_daily_odds`: full daily OHLC odds time series for WC2026 tokens (dbt
+  view over `int_wc2026_polymarket_token_daily_timeseries`; not materialized to save disk).
+- `wc2026_markets`: WC2026 market universe; one row per `(scope_name, market_id)`.
+- `wc2026_whale_minutely_odds`: minutely odds for high-volume WC2026 markets (dbt
+  view over `wc2026_token_minutely_odds`; not materialized to save disk).
 
-Schema: `polymarket_observability`
+Schema: `wc2026_polymarket_observability`
 
-- `sync_run_observability`: run-level ingestion and odds-sync telemetry.
+- `wc2026_sync_run_observability`: run-level ingestion and odds-sync telemetry.
 
 ## dlt Landing And Canonical Tables
 
@@ -86,14 +82,14 @@ landing for `markets`, `market_tokens`, `odds_history`,
 `market_scope_registry`, and `pipeline_run_events`; stage tables and `_dlt*`
 metadata tables are internal implementation details.
 
-`polymarket_raw.markets` is created by `dlt_polymarket_markets`. The
+`wc2026_polymarket_raw.markets` is created by `wc2026_polymarket_raw_markets`. The
 `dbt-build-ci` target creates an empty source fixture only in its disposable
 DuckDB database.
 
 Manual reset:
 
 ```sql
-DROP TABLE IF EXISTS polymarket_raw.markets;
+DROP TABLE IF EXISTS wc2026_polymarket_raw.markets;
 ```
 
-Then materialize `dlt_polymarket_markets`.
+Then materialize `wc2026_polymarket_raw_markets`.

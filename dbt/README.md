@@ -1,6 +1,7 @@
 # OddsFox Pipeline dbt Project
 
-This dbt project models Polymarket raw, ops, and selected-scope tables in DuckDB.
+This dbt project models WC2026 Polymarket raw, ops, marts, and observability
+tables in DuckDB.
 
 See the operator docs for warehouse details:
 
@@ -9,10 +10,10 @@ See the operator docs for warehouse details:
 
 Modeled layers:
 
-- `polymarket_staging`
-- `polymarket_intermediate`
-- `polymarket_marts`
-- `polymarket_observability`
+- `wc2026_polymarket_staging`
+- `wc2026_polymarket_intermediate`
+- `wc2026_polymarket_marts`
+- `wc2026_polymarket_observability`
 
 Run locally:
 
@@ -21,13 +22,5 @@ dbt parse --project-dir dbt --profiles-dir dbt/profiles
 dbt build --full-refresh --project-dir dbt --profiles-dir dbt/profiles
 ```
 
-Manual `dbt build` uses `active_market_scopes` from `dbt/dbt_project.yml` (default
-`[wc2026]`), not `.env`. Keep it in sync with `POLYMARKET_MARKET_SCOPES` when
-running dbt outside Dagster:
-
-```bash
-dbt build --full-refresh --project-dir dbt --profiles-dir dbt/profiles \
-  --vars '{"active_market_scopes": ["wc2026", "nba"]}'
-```
-
-Dagster's `polymarket_dbt` asset passes `--vars` automatically.
+WC2026 scoping is encoded in the model graph and
+`wc2026_polymarket_ops.market_scope_registry`; there is no dbt scope-selection var.

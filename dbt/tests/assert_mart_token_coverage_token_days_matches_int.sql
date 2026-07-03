@@ -3,7 +3,7 @@ with expected as (
     select
         clob_token_id,
         count(*) as expected_days
-    from {{ ref('int_polymarket_token_daily_timeseries') }}
+    from {{ ref('int_wc2026_polymarket_token_daily_timeseries') }}
     where odds_date_utc is not null
     group by clob_token_id
 ),
@@ -12,7 +12,7 @@ actual as (
     select
         clob_token_id,
         token_days_observed
-    from {{ ref('token_coverage') }}
+    from {{ ref('wc2026_token_coverage') }}
 )
 
 select

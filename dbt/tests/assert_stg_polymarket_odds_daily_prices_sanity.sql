@@ -7,7 +7,7 @@ select
     low_price,
     close_price,
     avg_price
-from {{ ref('stg_polymarket_odds_daily') }}
+from {{ ref('stg_wc2026_polymarket_odds_daily') }}
 where (
     open_price is not null and (open_price < 0 or open_price > 1)
 )

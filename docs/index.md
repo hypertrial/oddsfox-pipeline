@@ -19,20 +19,18 @@ data. It uses Dagster for orchestration, dlt for raw market landing, DuckDB for
 the local warehouse, Python for odds sync ledgers and retry logic, and dbt for
 analytics models.
 
-The current v0.1.x implementation starts with FIFA World Cup 2026 Polymarket
-markets and odds as the default preset. Additional presets (politics, crypto,
-sports, and more) ship in-repo; select one or more via `POLYMARKET_MARKET_SCOPES`.
-See [Configuration](configuration.md). Selected-scope-specific pages document the
-shipped adapter, jobs, and marts rather than the full long-term scope of the project.
+The current v0.1.x implementation is WC2026-only Polymarket: FIFA World Cup
+2026 market discovery, odds sync, Dagster jobs, DuckDB schemas, and dbt marts.
+See [Configuration](configuration.md).
 
 ## Key features
 
 - **Local-first:** run the pipeline and inspect the warehouse on one machine.
 - **Dagster-orchestrated:** assets, jobs, and schedules are explicit and testable.
 - **DuckDB-backed:** raw, ops, staging, intermediate, mart, and observability schemas live in one local file.
-- **dbt-tested marts:** coverage, selected-scope odds time series, health, and observability models build with dbt data tests.
+- **dbt-tested marts:** coverage, WC2026 odds time series, health, and observability models build with dbt data tests.
 - **Prediction-market focused:** token coverage, odds freshness, market health, and scoped marts are first-class outputs.
-- **Current Polymarket adapter:** v0.1.x ships selected-scope Polymarket discovery, CLOB odds sync, and dbt marts.
+- **Current Polymarket adapter:** v0.1.x ships WC2026 Polymarket discovery, CLOB odds sync, and dbt marts.
 - **Safe by default:** schedules are disabled until manual jobs and dbt builds are healthy.
 
 ## Example workflow

@@ -4,94 +4,84 @@ Use this page when running Dagster assets, jobs, schedules, or recovery paths.
 For data outputs, see [Warehouse](warehouse.md) and
 [Data Contracts](data-contracts.md).
 
-The project is broader than selected-scope, but the v0.1.x orchestration surface below
-is the shipped Polymarket/selected-scope implementation.
+The v0.1.x orchestration surface is WC2026-only Polymarket.
 
 ## Dagster Assets
 
 The main asset order is:
 
-1. `dlt_polymarket_markets`
-2. `polymarket_markets_snapshot`
-3. `polymarket_market_scope_registry`
-4. `polymarket_market_metadata_backfill`
-5. `polymarket_token_odds_history`
-6. `polymarket_token_odds_history_minutely`
-7. `polymarket_token_odds_history_hourly` (optional hourly-grain refresh)
-8. `polymarket_dbt`
+1. `wc2026_polymarket_raw_markets`
+2. `wc2026_polymarket_markets_snapshot`
+3. `wc2026_polymarket_market_registry`
+4. `wc2026_polymarket_market_metadata_backfill`
+5. `wc2026_polymarket_token_odds_history_minutely`
+6. `wc2026_polymarket_token_odds_history_hourly` (optional hourly-grain refresh)
+7. `wc2026_polymarket_dbt`
 
-`polymarket_odds_repair` is an operator repair asset, not part of the routine full pipeline.
+`wc2026_polymarket_odds_repair` is an operator repair asset, not part of the routine full pipeline.
 
 ## Jobs
 
-- `polymarket_ingest_full_refresh_events`: full selected-scope event/market discovery, registry refresh, metadata backfill, and odds sync.
-- `polymarket_ingest_incremental`: metadata backfill and routine token odds sync.
-- `polymarket_minutely_odds_ingest`: minutely odds refresh for high-volume markets in the selected market scopes (union).
-- `polymarket_hourly_odds_ingest`: hourly odds refresh (`fidelity=60`) for high-volume markets in the selected market scopes (union).
-- `dbt_full_refresh`: dbt analytics build.
-- `polymarket_selected_scope_full_pipeline`: full ingest plus dbt build.
-
-For World Cup 2026 work, prefer the fixed-scope jobs:
-
 - `wc2026_market_registry_refresh`: WC2026 market discovery, registry refresh, and metadata backfill.
+- `wc2026_minutely_odds_ingest`: minutely WC2026 token odds refresh.
 - `wc2026_hourly_odds_ingest`: hourly WC2026 token odds refresh.
 - `wc2026_dbt_build`: dbt analytics build for the WC2026 mart surface.
 - `wc2026_knockout_export`: build the graph-facing WC2026 knockout hourly mart.
-- `wc2026_full_pipeline`: WC2026 market discovery, hourly odds refresh, and dbt analytics build.
+- `wc2026_full_pipeline`: WC2026 market discovery, minutely/hourly odds refresh, and dbt analytics build.
 
-## Market Scopes
+## WC2026 Scope
 
-Operators select one or more Polymarket scope presets with `POLYMARKET_MARKET_SCOPES`
-(CSV in `.env`; default `wc2026`). See [Configuration](configuration.md) for the
-preset catalog and multi-scope examples.
+`wc2026` is the only supported market scope.
 
-- `polymarket_markets_snapshot` and `polymarket_market_scope_registry` loop once per
-  selected scope and refresh `polymarket_ops.market_scope_registry` per scope.
-- `polymarket_market_metadata_backfill`, `polymarket_token_odds_history`, and
-  the hourly/minutely odds assets run once over the union of selected scopes.
-- `polymarket_dbt` passes `active_market_scopes` to dbt from the same env selection.
+- `wc2026_polymarket_markets_snapshot` and `wc2026_polymarket_market_registry`
+  refresh `wc2026_polymarket_ops.market_scope_registry` for WC2026.
+- `wc2026_polymarket_market_metadata_backfill`,
+  `wc2026_polymarket_token_odds_history_minutely`, and
+  `wc2026_polymarket_token_odds_history_hourly` run over the fixed WC2026
+  registry.
+- `wc2026_polymarket_dbt` builds the fixed WC2026 dbt graph.
 
 ## Schedules
 
 Schedules are stopped by default.
 
-All minutely schedules target `polymarket_minutely_odds_ingest`:
+All minutely schedules target `wc2026_minutely_odds_ingest`:
 
-- `polymarket_minutely_odds_schedule`: every 5 minutes.
-- `polymarket_minutely_odds_cold_schedule`: hourly conservative trigger for the minutely job with cold run config.
-- `polymarket_minutely_odds_live_schedule`: every minute when explicitly enabled.
+- `wc2026_minutely_odds_schedule`: every 5 minutes.
+- `wc2026_minutely_odds_cold_schedule`: hourly conservative trigger for the minutely job with cold run config.
+- `wc2026_minutely_odds_live_schedule`: every minute when explicitly enabled.
 
 The hourly data schedule is separate:
 
-- `polymarket_hourly_odds_schedule`: every hour for `polymarket_hourly_odds_ingest` (`fidelity=60`).
+- `wc2026_hourly_odds_schedule`: every hour for `wc2026_hourly_odds_ingest` (`fidelity=60`).
 
 Enable only after manual jobs are healthy:
 
 ```dotenv
-POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=true
-POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
-POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
+WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=true
+WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
+WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
-Enable `POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED` only during intentional live operation.
+Enable `WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED` only during intentional live operation.
 
-If both `POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED` and
-`POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED` are true, only the live schedule
+If both `WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED` and
+`WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED` are true, only the live schedule
 runs; the five-minute and cold minutely schedules stay stopped and a warning is logged.
 
 ## Recovery
 
-- Re-run `polymarket_ingest_incremental` for routine gaps.
-- Run `polymarket_odds_repair` if the token sync ledger is inconsistent.
-- Run `dbt_full_refresh` after raw or ops table repairs.
-- Prune old `polymarket_raw.odds_history` rows with `make prune-odds-history` (default 365-day retention; use `--dry-run` on the script to preview).
+- Re-run `wc2026_minutely_odds_ingest` or `wc2026_hourly_odds_ingest` for routine odds gaps.
+- Run `wc2026_polymarket_odds_repair` if the token sync ledger is inconsistent.
+- Run `wc2026_dbt_build` after raw or ops table repairs.
+- Prune old `wc2026_polymarket_raw.odds_history` rows with `make prune-odds-history` (default 365-day retention; use `--dry-run` on the script to preview).
 - Reclaim DuckDB file dead space with `make compact-warehouse` after pruning or full refreshes.
 - Use `scripts/profile_warehouse.py` to inspect relation counts and freshness without opening the database read-write.
 
 ## Landing And Finalization
 
 Canonical raw and ops table schemas remain stable for operators and dbt. dlt now
-lands markets, market-token batches, odds-history batches, selected-scope registry
+lands markets, market-token batches, odds-history batches, WC2026 registry
 batches, and pipeline run-event batches; dlt stage tables and `_dlt*` metadata
 tables are internal.
 

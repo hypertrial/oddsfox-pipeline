@@ -1,4 +1,4 @@
-"""Shared helpers for selected-scope unit tests."""
+"""Shared helpers for WC2026 scope unit tests."""
 
 from __future__ import annotations
 
@@ -36,22 +36,28 @@ def slug_only_cfg(**kwargs) -> MarketScopeConfig:
 def _market_scope_test_discovery_settings(monkeypatch):
     """Keep unit tests deterministic (no live Gamma tag discovery)."""
     monkeypatch.setattr(
-        config_settings, "POLYMARKET_SCOPE_TAG_DISCOVERY", False, raising=False
+        config_settings, "WC2026_POLYMARKET_SCOPE_TAG_DISCOVERY", False, raising=False
     )
     monkeypatch.setattr(
-        config_settings, "POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS", 0, raising=False
+        config_settings, "WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS", 0, raising=False
     )
     monkeypatch.setattr(
-        config_settings, "POLYMARKET_SCOPE_TAG_CRAWL_MAX", 100, raising=False
+        config_settings, "WC2026_POLYMARKET_SCOPE_TAG_CRAWL_MAX", 100, raising=False
     )
     monkeypatch.setattr(
-        config_settings, "POLYMARKET_SCOPE_KEYSET_RELATED_TAGS", False, raising=False
+        config_settings,
+        "WC2026_POLYMARKET_SCOPE_KEYSET_RELATED_TAGS",
+        False,
+        raising=False,
     )
     monkeypatch.setattr(
-        config_settings, "POLYMARKET_SCOPE_KEYSET_CLOSED", False, raising=False
+        config_settings, "WC2026_POLYMARKET_SCOPE_KEYSET_CLOSED", False, raising=False
     )
     monkeypatch.setattr(
-        config_settings, "POLYMARKET_SCOPE_KEYSET_VOLUME_MIN", 10000.0, raising=False
+        config_settings,
+        "WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN",
+        10000.0,
+        raising=False,
     )
     monkeypatch.setattr(
         scope_predicates_mod,

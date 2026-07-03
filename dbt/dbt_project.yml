@@ -3,14 +3,12 @@ version: 0.1.4
 config-version: 2
 profile: oddsfox
 # Avoid running relationship tests whose parent models are not in the selected subgraph
-# (default `eager` can execute tests on e.g. stg_polymarket_odds_daily when only upstream
+# (default `eager` can execute tests on e.g. stg_wc2026_polymarket_odds_daily when only upstream
 # of another branch is selected, causing missing-relation errors).
 flags:
   indirect_selection: buildable
 vars:
-  active_market_scopes: [wc2026]
-  polymarket_whale_min_volume_usd: 100000
-  polymarket_live_current_max_age_hours: 48
+  wc2026_polymarket_whale_min_volume_usd: 100000
 model-paths: ["models"]
 test-paths: ["tests"]
 target-path: target
@@ -21,43 +19,39 @@ models:
     +persist_docs:
       relation: true
       columns: true
-    polymarket:
-      +tags: ["polymarket"]
+    wc2026_polymarket:
+      +tags: ["wc2026", "polymarket"]
       staging:
-        +schema: polymarket_staging
-        +tags: ["staging", "polymarket"]
+        +schema: wc2026_polymarket_staging
+        +tags: ["staging", "wc2026", "polymarket"]
       intermediate:
-        +schema: polymarket_intermediate
-        +tags: ["intermediate", "polymarket"]
-        int_polymarket_token_universe:
+        +schema: wc2026_polymarket_intermediate
+        +tags: ["intermediate", "wc2026", "polymarket"]
+        int_wc2026_polymarket_token_universe:
           +materialized: table
-        int_polymarket_token_daily_timeseries:
+        int_wc2026_polymarket_token_daily_timeseries:
           +materialized: table
       marts:
-        +schema: polymarket_marts
+        +schema: wc2026_polymarket_marts
         +materialized: table
-        +tags: ["mart", "core", "polymarket"]
-        selected_token_minutely_odds:
-          +materialized: view
-        selected_token_hourly_odds:
-          +materialized: view
-        selected_token_live_hourly_odds:
-          +materialized: view
-        selected_token_daily_odds:
-          +materialized: view
-        selected_whale_minutely_odds:
-          +materialized: view
-        wc2026_selected_markets:
-          +materialized: view
-        wc2026_market_tokens:
+        +tags: ["mart", "core", "wc2026", "polymarket"]
+        wc2026_token_minutely_odds:
           +materialized: view
         wc2026_token_hourly_odds:
+          +materialized: view
+        wc2026_token_daily_odds:
+          +materialized: view
+        wc2026_whale_minutely_odds:
+          +materialized: view
+        wc2026_markets:
+          +materialized: view
+        wc2026_market_tokens:
           +materialized: view
         wc2026_knockout_market_tokens:
           +materialized: view
         wc2026_knockout_token_hourly_odds:
           +materialized: view
       observability:
-        +schema: polymarket_observability
+        +schema: wc2026_polymarket_observability
         +materialized: table
-        +tags: ["mart", "observability", "polymarket"]
+        +tags: ["mart", "observability", "wc2026", "polymarket"]

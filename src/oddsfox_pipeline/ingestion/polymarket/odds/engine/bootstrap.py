@@ -130,6 +130,7 @@ def create_plan_iterator(
     empty_token_skip_budgets: Dict[str, int] | None,
     empty_token_skip_runs: int,
     on_invalid_tokens_batch: Callable[[List[tuple[str, str]]], None],
+    count_due_market_token_exclusions_fn: Callable[..., Any] | None,
 ):
     return plan_iterator_factory(
         now_ts=now_ts,
@@ -150,6 +151,7 @@ def create_plan_iterator(
         empty_token_skip_budgets=empty_token_skip_budgets,
         empty_token_skip_runs=empty_token_skip_runs,
         on_invalid_tokens_batch=on_invalid_tokens_batch,
+        count_due_market_token_exclusions_fn=count_due_market_token_exclusions_fn,
     )
 
 
@@ -247,6 +249,7 @@ def bootstrap_planning(
         empty_token_skip_budgets=empty_token_skip_budgets,
         empty_token_skip_runs=empty_token_skip_runs,
         on_invalid_tokens_batch=boot.persist_invalid_tokens_batch,
+        count_due_market_token_exclusions_fn=runtime.count_due_market_token_exclusions,
     )
     boot.planning_state = PlanningState()
     boot.invalid_tokens = {}

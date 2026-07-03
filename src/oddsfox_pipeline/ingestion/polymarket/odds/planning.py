@@ -11,6 +11,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.support import (
     TokenPlan,
     is_probably_clob_token,
 )
+from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 from oddsfox_pipeline.storage.duckdb import (
     TokenSyncSchedulerState,
     count_due_market_token_exclusions,
@@ -135,7 +136,7 @@ def iter_token_plans_paged(
     market_page_size: int,
     reconcile_ledger: bool = False,
     short_range_first: bool = True,
-    market_scope: str = "all",
+    market_scope: str = DEFAULT_MARKET_SCOPE,
     ended_market_grace_days: int | None = None,
     min_volume: float | None = None,
     max_volume: float | None = None,

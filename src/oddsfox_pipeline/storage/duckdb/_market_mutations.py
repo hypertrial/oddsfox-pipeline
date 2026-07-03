@@ -7,16 +7,18 @@ from typing import Iterable, List, Tuple
 from oddsfox_pipeline.storage.duckdb.connection import (
     ensure_duck_db,
     get_connection,
-    polymarket_ops_tbl,
-    polymarket_raw_tbl,
+    wc2026_polymarket_ops_tbl,
+    wc2026_polymarket_raw_tbl,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import load_market_tokens_stage
 
 logger = logging.getLogger(__name__)
 
-_TAB_MARKETS = polymarket_raw_tbl("markets")
-_TAB_MARKET_TOKENS = polymarket_raw_tbl("market_tokens")
-_TAB_MARKET_METADATA_UNRESOLVED = polymarket_ops_tbl("market_metadata_unresolved")
+_TAB_MARKETS = wc2026_polymarket_raw_tbl("markets")
+_TAB_MARKET_TOKENS = wc2026_polymarket_raw_tbl("market_tokens")
+_TAB_MARKET_METADATA_UNRESOLVED = wc2026_polymarket_ops_tbl(
+    "market_metadata_unresolved"
+)
 
 
 def _utc_now() -> datetime:
@@ -36,7 +38,7 @@ def _persist_market_tokens(conn, token_data: Iterable[Tuple]) -> None:
 
 
 def save_market_tokens_batch(token_data: Iterable[Tuple]) -> None:
-    """Persist CLOB token mappings without touching polymarket_raw.markets."""
+    """Persist CLOB token mappings without touching wc2026_polymarket_raw.markets."""
     token_data = list(token_data)
     if not token_data:
         return

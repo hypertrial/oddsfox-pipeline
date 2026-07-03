@@ -3,8 +3,8 @@
 Use `.env.example` as the source of local overrides.
 For first-run steps, see [Quickstart](quickstart.md).
 
-Most settings are adapter-specific. In v0.1.x, that means Polymarket and selected
-market-scope controls.
+Most settings are adapter-specific. In v0.1.x, that means the WC2026-only
+Polymarket pipeline.
 
 ## Warehouse and dbt
 
@@ -23,51 +23,38 @@ Most operators should leave `DBT_PROFILES_DIR` unset and use the packaged `dbt/p
 
 Lower request rates when Polymarket APIs return transient failures or timeouts.
 
-## Current Market Scopes
-
-- `POLYMARKET_MARKET_SCOPES`: comma-separated preset names from
-  `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml` (default `wc2026`).
-  At least one scope is required. Examples: `wc2026`, `wc2026,us-politics`,
-  `nba,nfl,champions-league`.
-- Dagster-run `polymarket_dbt` passes the same scope list to dbt as
-  `active_market_scopes`; standalone `dbt build` uses the default in
-  `dbt/dbt_project.yml` unless you pass `--vars`.
-
-### Available presets
+## WC2026 Scope
 
 | Preset | Focus |
 | --- | --- |
-| `wc2026` | FIFA World Cup 2026 (default) |
-| `us-politics` | US elections and domestic politics |
-| `geopolitics` | International relations and conflict |
-| `crypto` | Bitcoin, Ethereum, and crypto markets |
-| `economy` | Macro and Fed rates |
-| `nba` | NBA basketball |
-| `nfl` | NFL football |
-| `champions-league` | UEFA Champions League and Premier League |
+| `wc2026` | FIFA World Cup 2026 |
 
-### Per-scope field overrides (advanced)
+`src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml` contains
+only `wc2026`. Non-WC2026 presets and multi-scope dbt vars are not supported in
+v0.1.x.
 
-These apply to every selected scope when set; prefer seed YAML presets instead.
+### WC2026 field overrides (advanced)
 
-- `POLYMARKET_SCOPE_EVENT_SLUGS`
-- `POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES`
-- `POLYMARKET_SCOPE_EVENT_TAGS`
-- `POLYMARKET_SCOPE_KEYSET_CLOSED`
-- `POLYMARKET_SCOPE_KEYSET_VOLUME_MIN`: minimum Gamma keyset volume filter (default
+These override the fixed WC2026 seed when set.
+
+- `WC2026_POLYMARKET_SCOPE_EVENT_SLUGS`
+- `WC2026_POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES`
+- `WC2026_POLYMARKET_SCOPE_EVENT_TAGS`
+- `WC2026_POLYMARKET_SCOPE_KEYSET_CLOSED`
+- `WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN`: minimum Gamma keyset volume filter (default
   `10000`); shared by dlt and markets sync entrypoints.
-- `POLYMARKET_SCOPE_KEYSET_RELATED_TAGS`
-- `POLYMARKET_SCOPE_TAG_DISCOVERY`
-- `POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS`
-- `POLYMARKET_SCOPE_TAG_CRAWL_MAX`
+- `WC2026_POLYMARKET_SCOPE_KEYSET_RELATED_TAGS`
+- `WC2026_POLYMARKET_SCOPE_TAG_DISCOVERY`
+- `WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS`
+- `WC2026_POLYMARKET_SCOPE_TAG_CRAWL_MAX`
 
 The seed file `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml` is the default scope source.
 
 ## Schedules
 
-- `POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED`: enables the five-minute schedule and hourly cold trigger for `polymarket_minutely_odds_ingest`.
-- `POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED`: enables the one-minute live schedule for `polymarket_minutely_odds_ingest`.
-- `POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_hourly_odds_ingest` schedule (`fidelity=60`).
+- `WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED`: enables the five-minute schedule and hourly cold trigger for `wc2026_minutely_odds_ingest`.
+- `WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED`: enables the one-minute live schedule for `wc2026_minutely_odds_ingest`.
+- `WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
 
 All schedule flags default to `false`.
 

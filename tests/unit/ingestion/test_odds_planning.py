@@ -229,6 +229,10 @@ def test_bootstrap_planning_force_counts_with_ended_market_grace():
             self.count_kwargs = kwargs
             return {"candidate_tokens": 4, "candidate_markets": 2}
 
+        def count_due_market_token_exclusions(self, **kwargs):
+            del kwargs
+            return {"scope_skip": 0, "ended_market_skip": 0}
+
     runtime = Runtime()
     boot = bootstrap_planning(
         runtime,
@@ -241,7 +245,7 @@ def test_bootstrap_planning_force_counts_with_ended_market_grace():
         market_page_size=10,
         reconcile_ledger=False,
         short_range_first=True,
-        market_scope="all",
+        market_scope="wc2026",
         ended_market_grace_days=7,
         min_volume=None,
         max_volume=None,
@@ -302,6 +306,11 @@ def test_iter_token_plans_paged_due_only_uses_due_iterator_and_scheduler_state(
     monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", full_pages)
     monkeypatch.setattr(
         odds_sync,
+        "count_due_market_token_exclusions",
+        lambda **kwargs: {"scope_skip": 0, "ended_market_skip": 0},
+    )
+    monkeypatch.setattr(
+        odds_sync,
         "get_token_sync_snapshot",
         lambda *args, **kwargs: (
             {token_id: 100},
@@ -346,6 +355,11 @@ def test_iter_token_plans_paged_due_only_skips_bad_rows(monkeypatch):
     monkeypatch.setattr(odds_sync, "iter_due_market_tokens", due_pages)
     monkeypatch.setattr(
         odds_sync, "iter_markets_with_tokens", lambda **kwargs: iter(())
+    )
+    monkeypatch.setattr(
+        odds_sync,
+        "count_due_market_token_exclusions",
+        lambda **kwargs: {"scope_skip": 0, "ended_market_skip": 0},
     )
     monkeypatch.setattr(
         odds_sync,

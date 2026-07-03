@@ -10,7 +10,7 @@ select
     observed_points,
     first_timestamp,
     last_timestamp
-from {{ ref('stg_polymarket_odds_daily') }}
+from {{ ref('stg_wc2026_polymarket_odds_daily') }}
 where
     observed_points < 1
     or (

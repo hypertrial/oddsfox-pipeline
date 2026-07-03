@@ -10,7 +10,7 @@ from oddsfox_pipeline.storage.duckdb.dlt_batch import (
     load_market_tokens_stage,
     load_stage_rows,
 )
-from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_raw_tbl
+from oddsfox_pipeline.storage.duckdb.schemas.constants import wc2026_polymarket_raw_tbl
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def test_dlt_batch_loads_stage_and_finalizes_market_tokens(duck):
     with duck.get_connection() as conn:
         conn.execute(
             f"""
-            CREATE TABLE {polymarket_raw_tbl("stage_market_tokens")} (
+            CREATE TABLE {wc2026_polymarket_raw_tbl("stage_market_tokens")} (
                 market_id TEXT,
                 clob_token_ids TEXT,
                 updated_at TIMESTAMP
@@ -50,13 +50,13 @@ def test_dlt_batch_loads_stage_and_finalizes_market_tokens(duck):
         canonical = conn.execute(
             f"""
             SELECT market_id, clobTokenIds
-            FROM {polymarket_raw_tbl("market_tokens")}
+            FROM {wc2026_polymarket_raw_tbl("market_tokens")}
             """
         ).fetchall()
         staged = conn.execute(
             f"""
             SELECT market_id, clob_token_ids
-            FROM {polymarket_raw_tbl("stage_market_tokens_v1")}
+            FROM {wc2026_polymarket_raw_tbl("stage_market_tokens_v1")}
             """
         ).fetchall()
 
@@ -67,7 +67,7 @@ def test_dlt_batch_loads_stage_and_finalizes_market_tokens(duck):
 def test_load_stage_rows_rejects_empty_rows():
     with pytest.raises(ValueError, match="rows must not be empty"):
         load_stage_rows(
-            schema="polymarket_raw", stage_table="stage", rows=[], columns={}
+            schema="wc2026_polymarket_raw", stage_table="stage", rows=[], columns={}
         )
 
 
@@ -89,7 +89,7 @@ def test_load_stage_rows_drops_pending_packages(monkeypatch):
     monkeypatch.setattr(dlt_batch_mod, "_pipeline", lambda _schema: pipe)
 
     stage = load_stage_rows(
-        schema="polymarket_raw",
+        schema="wc2026_polymarket_raw",
         stage_table="stage_probe",
         rows=[{"id": "1"}],
         columns={"id": {"data_type": "text"}},
@@ -97,7 +97,7 @@ def test_load_stage_rows_drops_pending_packages(monkeypatch):
 
     assert pipe.dropped is True
     assert pipe.runs
-    assert stage == '"polymarket_raw"."stage_probe"'
+    assert stage == '"wc2026_polymarket_raw"."stage_probe"'
 
 
 def test_dlt_pipeline_uses_public_active_duckdb_path(monkeypatch):
@@ -123,7 +123,7 @@ def test_dlt_pipeline_uses_public_active_duckdb_path(monkeypatch):
         lambda: "/tmp/public.duckdb",
     )
 
-    dlt_batch_mod._pipeline("polymarket_raw")
+    dlt_batch_mod._pipeline("wc2026_polymarket_raw")
 
     assert created["destination"] == {"credentials": "/tmp/public.duckdb"}
     dlt_batch_mod._PIPELINES.clear()

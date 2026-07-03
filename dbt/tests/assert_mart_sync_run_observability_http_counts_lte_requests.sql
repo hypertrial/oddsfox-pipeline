@@ -1,6 +1,6 @@
 -- Sub-counts of HTTP outcomes cannot exceed total HTTP requests when both are recorded.
 select *
-from {{ ref('sync_run_observability') }}
+from {{ ref('wc2026_sync_run_observability') }}
 where
     http_requests is not null
     and (

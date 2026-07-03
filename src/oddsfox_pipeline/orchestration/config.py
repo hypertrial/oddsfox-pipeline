@@ -8,8 +8,8 @@ from pydantic import Field, field_validator, model_validator
 from oddsfox_pipeline.config.settings import (
     DEFAULT_ODDS_FIDELITY_MINUTES,
     MIN_ODDS_FIDELITY_MINUTES,
-    POLYMARKET_MARKET_SCOPES,
-    WHALE_MIN_VOLUME_USD,
+    WC2026_POLYMARKET_MARKET_SCOPES,
+    WC2026_POLYMARKET_WHALE_MIN_VOLUME_USD,
 )
 
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_PAGES = 20_000
@@ -22,7 +22,7 @@ DEFAULT_PROGRESS_POLL_SECONDS = 5
 
 
 def default_market_scope_names() -> list[str]:
-    return list(POLYMARKET_MARKET_SCOPES)
+    return list(WC2026_POLYMARKET_MARKET_SCOPES)
 
 
 def _validate_market_scope_names(v: list[str]) -> list[str]:
@@ -177,7 +177,7 @@ class OddsSyncConfig(GuardrailConfig):
     scope_names: list[str] = Field(default_factory=default_market_scope_names)
     ended_market_grace_days: int | None = Field(default=7, ge=0)
     min_volume: float | None = None
-    max_volume: float | None = Field(default=WHALE_MIN_VOLUME_USD)
+    max_volume: float | None = Field(default=WC2026_POLYMARKET_WHALE_MIN_VOLUME_USD)
     minutely_backfill_days: int = Field(default=0, ge=0)
 
     @field_validator("scope_names")
@@ -203,7 +203,7 @@ class MinutelyOddsSyncConfig(OddsSyncConfig):
     overlap_minutes: int = 2
     window_hours: int = 12
     routine_interval_hours: int = Field(default=1, ge=1)
-    min_volume: float | None = Field(default=WHALE_MIN_VOLUME_USD)
+    min_volume: float | None = Field(default=WC2026_POLYMARKET_WHALE_MIN_VOLUME_USD)
     max_volume: float | None = None
     minutely_backfill_days: int = Field(default=0, ge=0)
     scope_names: list[str] = Field(default_factory=default_market_scope_names)
@@ -217,7 +217,7 @@ class HourlyOddsSyncConfig(OddsSyncConfig):
     overlap_minutes: int = 60
     window_hours: int = 72
     routine_interval_hours: int = Field(default=1, ge=1)
-    min_volume: float | None = Field(default=WHALE_MIN_VOLUME_USD)
+    min_volume: float | None = Field(default=WC2026_POLYMARKET_WHALE_MIN_VOLUME_USD)
     max_volume: float | None = None
     scope_names: list[str] = Field(default_factory=default_market_scope_names)
     ended_market_grace_days: int | None = Field(default=7, ge=0)
@@ -237,52 +237,37 @@ class DbtBuildConfig(GuardrailConfig):
     full_refresh: bool = False
 
 
-def full_refresh_events_run_config() -> dict:
-    markets_cfg = MarketsSyncConfig(
-        discovery_mode="full_keyset",
-        force_full_discovery=True,
-        max_pages_without_progress=None,
-    )
-    registry_cfg = MarketScopeRegistryConfig(
-        force_refresh=True,
-        max_pages_without_progress=None,
-    )
-    return {
-        "ops": {
-            "polymarket_markets_snapshot": {"config": markets_cfg.model_dump()},
-            "polymarket_market_scope_registry": {"config": registry_cfg.model_dump()},
-        }
-    }
-
-
-def dbt_full_refresh_run_config() -> dict:
+def wc2026_dbt_build_run_config() -> dict:
     dbt_cfg = DbtBuildConfig(full_refresh=True)
-    return {"ops": {"polymarket_dbt": {"config": dbt_cfg.model_dump()}}}
+    return {"ops": {"wc2026_polymarket_dbt": {"config": dbt_cfg.model_dump()}}}
 
 
-def minutely_odds_run_config() -> dict:
-    odds_cfg = MinutelyOddsSyncConfig(force=True, overlap_minutes=1)
+def wc2026_minutely_odds_run_config() -> dict:
+    odds_cfg = MinutelyOddsSyncConfig(
+        scope_names=["wc2026"],
+        force=True,
+        overlap_minutes=1,
+    )
     return {
         "ops": {
-            "polymarket_token_odds_history_minutely": {"config": odds_cfg.model_dump()},
+            "wc2026_polymarket_token_odds_history_minutely": {
+                "config": odds_cfg.model_dump()
+            },
         }
     }
 
 
-def minutely_odds_cold_run_config() -> dict:
-    odds_cfg = MinutelyOddsSyncConfig(force=False, overlap_minutes=2)
+def wc2026_minutely_odds_cold_run_config() -> dict:
+    odds_cfg = MinutelyOddsSyncConfig(
+        scope_names=["wc2026"],
+        force=False,
+        overlap_minutes=2,
+    )
     return {
         "ops": {
-            "polymarket_token_odds_history_minutely": {"config": odds_cfg.model_dump()},
-        }
-    }
-
-
-def hourly_odds_run_config() -> dict:
-    odds_cfg = HourlyOddsSyncConfig()
-    return {
-        "ops": {
-            "polymarket_token_odds_history_hourly": {"config": odds_cfg.model_dump()},
+            "wc2026_polymarket_token_odds_history_minutely": {
+                "config": odds_cfg.model_dump()
+            },
         }
     }
 
@@ -302,9 +287,9 @@ def wc2026_full_refresh_events_run_config() -> dict:
     metadata_cfg = MetadataBackfillConfig(scope_names=["wc2026"])
     return {
         "ops": {
-            "polymarket_markets_snapshot": {"config": markets_cfg.model_dump()},
-            "polymarket_market_scope_registry": {"config": registry_cfg.model_dump()},
-            "polymarket_market_metadata_backfill": {
+            "wc2026_polymarket_markets_snapshot": {"config": markets_cfg.model_dump()},
+            "wc2026_polymarket_market_registry": {"config": registry_cfg.model_dump()},
+            "wc2026_polymarket_market_metadata_backfill": {
                 "config": metadata_cfg.model_dump()
             },
         }
@@ -315,6 +300,8 @@ def wc2026_hourly_odds_run_config() -> dict:
     odds_cfg = HourlyOddsSyncConfig(scope_names=["wc2026"])
     return {
         "ops": {
-            "polymarket_token_odds_history_hourly": {"config": odds_cfg.model_dump()},
+            "wc2026_polymarket_token_odds_history_hourly": {
+                "config": odds_cfg.model_dump()
+            },
         }
     }

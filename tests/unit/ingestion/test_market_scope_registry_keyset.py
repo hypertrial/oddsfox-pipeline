@@ -1,4 +1,4 @@
-"""Unit tests for selected-scope keyset and tag discovery."""
+"""Unit tests for WC2026 keyset and tag discovery."""
 
 from __future__ import annotations
 
@@ -63,8 +63,8 @@ def test_markets_sync_full_keyset_mode(monkeypatch, tmp_path):
     from oddsfox_pipeline.ingestion.polymarket.markets.sync import sync_markets
 
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "full_keyset.duckdb"))
-    monkeypatch.setenv("POLYMARKET_SCOPE_TAG_DISCOVERY", "false")
-    monkeypatch.delenv("POLYMARKET_SCOPE_EVENT_TAGS", raising=False)
+    monkeypatch.setenv("WC2026_POLYMARKET_SCOPE_TAG_DISCOVERY", "false")
+    monkeypatch.delenv("WC2026_POLYMARKET_SCOPE_EVENT_TAGS", raising=False)
     reload_all_settings_modules()
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)

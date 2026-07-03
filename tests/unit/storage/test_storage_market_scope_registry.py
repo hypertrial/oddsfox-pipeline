@@ -1,4 +1,4 @@
-"""Storage tests for polymarket_ops.market_scope_registry."""
+"""Storage tests for wc2026_polymarket_ops.market_scope_registry."""
 
 from __future__ import annotations
 
@@ -88,7 +88,7 @@ def test_registry_upsert_preserves_existing_event_fields_when_new_values_null(du
         row = conn.execute(
             """
             SELECT event_slug, event_id, source
-            FROM polymarket_ops.market_scope_registry
+            FROM wc2026_polymarket_ops.market_scope_registry
             WHERE market_id = 'm1'
             """
         ).fetchone()

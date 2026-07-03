@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from oddsfox_pipeline.ingestion.polymarket.scope_sql import (
     DEFAULT_MARKET_SCOPE,
-    MARKET_SCOPE_ALL,
     market_scope_predicate_sql,
     market_scope_sql,
     validate_market_scope,
@@ -67,7 +66,6 @@ __all__ = [
     "DISCOVERY_MODE_FULL_KEYSET",
     "DISCOVERY_MODE_TARGETED",
     "DiscoveryMode",
-    "MARKET_SCOPE_ALL",
     "MarketScopeConfig",
     "MarketScopeEventsScanResult",
     "ResolvedMarketScopeDiscovery",

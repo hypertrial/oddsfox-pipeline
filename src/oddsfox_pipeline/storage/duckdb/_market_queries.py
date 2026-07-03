@@ -12,15 +12,17 @@ from oddsfox_pipeline.ingestion.polymarket import scope_sql
 from oddsfox_pipeline.storage.duckdb.connection import (
     ensure_duck_db,
     get_connection,
-    polymarket_ops_tbl,
-    polymarket_raw_tbl,
+    wc2026_polymarket_ops_tbl,
+    wc2026_polymarket_raw_tbl,
 )
 
-_TAB_MARKETS = polymarket_raw_tbl("markets")
-_TAB_MARKET_TOKENS = polymarket_raw_tbl("market_tokens")
-_TAB_TOKEN_SYNC_LEDGER = polymarket_ops_tbl("token_sync_ledger")
-_TAB_TOKEN_SYNC_SKIPS = polymarket_ops_tbl("token_sync_skips")
-_TAB_MARKET_METADATA_UNRESOLVED = polymarket_ops_tbl("market_metadata_unresolved")
+_TAB_MARKETS = wc2026_polymarket_raw_tbl("markets")
+_TAB_MARKET_TOKENS = wc2026_polymarket_raw_tbl("market_tokens")
+_TAB_TOKEN_SYNC_LEDGER = wc2026_polymarket_ops_tbl("token_sync_ledger")
+_TAB_TOKEN_SYNC_SKIPS = wc2026_polymarket_ops_tbl("token_sync_skips")
+_TAB_MARKET_METADATA_UNRESOLVED = wc2026_polymarket_ops_tbl(
+    "market_metadata_unresolved"
+)
 
 
 def _fetch_market_ids(base_query: str, limit: Optional[int] = None) -> List[str]:
@@ -84,7 +86,7 @@ def _due_token_routine_filters(
     cutoff_created_at: Optional[str],
     params: List,
     *,
-    market_scope: str = "all",
+    market_scope: str = "wc2026",
     ended_market_grace_days: int | None = None,
     min_volume: float | None = None,
     max_volume: float | None = None,
@@ -191,7 +193,7 @@ def get_markets_missing_any_metadata(
     include_event_slugs: bool = True,
     include_end_dates: bool = True,
     limit: Optional[int] = None,
-    market_scope: str = "all",
+    market_scope: str = "wc2026",
 ) -> List[str]:
     """Return market ids missing any requested metadata field."""
     ensure_duck_db()
@@ -243,7 +245,7 @@ def iter_markets_with_tokens(
     *,
     cutoff_created_at: Optional[str] = None,
     json_array_only: bool = False,
-    market_scope: str = "all",
+    market_scope: str = "wc2026",
     ended_market_grace_days: int | None = None,
     min_volume: float | None = None,
     max_volume: float | None = None,
@@ -285,7 +287,7 @@ def iter_due_market_tokens(
     page_size: int = 5_000,
     *,
     cutoff_created_at: Optional[str] = None,
-    market_scope: str = "all",
+    market_scope: str = "wc2026",
     ended_market_grace_days: int | None = None,
     min_volume: float | None = None,
     max_volume: float | None = None,
@@ -329,48 +331,41 @@ def iter_due_market_tokens(
 def count_due_market_token_exclusions(
     *,
     cutoff_created_at: Optional[str] = None,
-    market_scope: str = "all",
+    market_scope: str = "wc2026",
     ended_market_grace_days: int | None = None,
     min_volume: float | None = None,
     max_volume: float | None = None,
 ) -> dict[str, int]:
     """Count due-token candidates skipped by routine scope/freshness filters."""
-    scope = scope_sql.validate_market_scopes(market_scope)
+    scope_sql.validate_market_scopes(market_scope)
     ensure_duck_db()
     params: List = []
     base_sql = _due_token_base_where(cutoff_created_at, params)
     volume_sql = _volume_where_clause(min_volume, max_volume, "m")
     scope_skip = 0
     ended_skip = 0
-    scoped = scope_sql.MARKET_SCOPE_ALL not in scope
     with get_connection() as conn:
-        if scoped:
-            predicate = scope_sql.market_scope_predicate_sql(market_scope, "m")
-            row = conn.execute(
-                f"""
-                SELECT COUNT(*)
-                {_DUE_TOKEN_JOIN_SQL}
-                WHERE {base_sql}
-                  {volume_sql}
-                  AND NOT ({predicate})
-                """,
-                params,
-            ).fetchone()
-            scope_skip = int(row[0]) if row and row[0] is not None else 0
+        predicate = scope_sql.market_scope_predicate_sql(market_scope, "m")
+        row = conn.execute(
+            f"""
+            SELECT COUNT(*)
+            {_DUE_TOKEN_JOIN_SQL}
+            WHERE {base_sql}
+              {volume_sql}
+              AND NOT ({predicate})
+            """,
+            params,
+        ).fetchone()
+        scope_skip = int(row[0]) if row and row[0] is not None else 0
         if ended_market_grace_days is not None:
             days = max(0, int(ended_market_grace_days))
-            scope_condition = (
-                scope_sql.market_scope_predicate_sql(market_scope, "m")
-                if scoped
-                else "TRUE"
-            )
             row = conn.execute(
                 f"""
                 SELECT COUNT(*)
                 {_DUE_TOKEN_JOIN_SQL}
                 WHERE {base_sql}
                   {volume_sql}
-                  AND ({scope_condition})
+                  AND ({predicate})
                   AND m.end_date IS NOT NULL
                   AND m.end_date < CURRENT_TIMESTAMP - INTERVAL {days} DAY
                 """,
@@ -383,7 +378,7 @@ def count_due_market_token_exclusions(
 def count_candidate_market_tokens(
     *,
     cutoff_created_at: Optional[str] = None,
-    market_scope: str = "all",
+    market_scope: str = "wc2026",
     ended_market_grace_days: int | None = None,
     due_only: bool = True,
     min_volume: float | None = None,

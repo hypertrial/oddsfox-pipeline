@@ -3,5 +3,5 @@ select
     market_id,
     market_token_count,
     market_fully_checked_tokens
-from {{ ref('token_coverage') }}
+from {{ ref('wc2026_token_coverage') }}
 where market_fully_checked_tokens > market_token_count

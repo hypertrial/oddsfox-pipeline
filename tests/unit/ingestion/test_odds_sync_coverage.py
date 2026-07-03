@@ -14,12 +14,12 @@ pytest.importorskip("duckdb")
 from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
 from oddsfox_pipeline.ingestion.polymarket.odds.fetch import BadRequestError
 from oddsfox_pipeline.storage.duckdb.connection import (
-    polymarket_ops_tbl,
-    polymarket_raw_tbl,
+    wc2026_polymarket_ops_tbl,
+    wc2026_polymarket_raw_tbl,
 )
 
-_TOD = polymarket_raw_tbl("token_odds_daily")
-_T_LED = polymarket_ops_tbl("token_sync_ledger")
+_TOD = wc2026_polymarket_raw_tbl("token_odds_daily")
+_T_LED = wc2026_polymarket_ops_tbl("token_sync_ledger")
 
 
 def test_parse_created_at_variants():
@@ -397,6 +397,10 @@ def test_sync_odds_runtime_instances_do_not_mutate_shared_modules():
             snapshot_raw_layer=lambda: {"label": label},
             iter_due_market_tokens=lambda **_kwargs: iter(()),
             iter_markets_with_tokens=lambda **_kwargs: iter(()),
+            count_due_market_token_exclusions=lambda **_kwargs: {
+                "scope_skip": 0,
+                "ended_market_skip": 0,
+            },
             save_sync_run_metrics=lambda *args, **_kwargs: seen.append(
                 f"{label}:metrics:{args[0]}"
             ),
@@ -452,6 +456,9 @@ def test_odds_sync_runtime_flat_property_accessors():
         "fetch_token_history_with_retry": runtime.execution.fetch_token_history_with_retry,
         "default_rate_limiter_factory": runtime.execution.default_rate_limiter_factory,
         "sync_token_plan": runtime.execution.sync_token_plan,
+        "count_due_market_token_exclusions": (
+            runtime.planning.count_due_market_token_exclusions
+        ),
         "get_connection": runtime.writer.get_connection,
         "refresh_token_odds_daily": runtime.writer.refresh_token_odds_daily,
         "save_odds_bulk_upsert": runtime.writer.save_odds_bulk_upsert,

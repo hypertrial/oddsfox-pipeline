@@ -1,4 +1,4 @@
-"""Unit tests for selected-scope registry bookkeeping."""
+"""Unit tests for WC2026 registry bookkeeping."""
 
 from __future__ import annotations
 

@@ -178,6 +178,7 @@ def test_iter_due_market_tokens_scopes_market_scope_and_counts_scope_skip(duck):
             ),
         ],
         [("wc_market", '["tok_wc"]'), ("other_market", '["tok_other"]')],
+        register_scope=False,
     )
     upsert_registry_rows(
         [

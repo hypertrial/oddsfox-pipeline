@@ -4,7 +4,7 @@ select
     first_odds_date,
     last_odds_date,
     has_odds_data
-from {{ ref('market_coverage') }}
+from {{ ref('wc2026_market_coverage') }}
 where
     has_odds_data = 1
     and first_odds_date is not null

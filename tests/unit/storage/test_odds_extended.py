@@ -11,15 +11,15 @@ import pytest
 import oddsfox_pipeline.storage.duckdb.odds as odds_mod
 from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 from oddsfox_pipeline.storage.duckdb.connection import (
-    polymarket_ops_tbl,
-    polymarket_raw_tbl,
+    wc2026_polymarket_ops_tbl,
+    wc2026_polymarket_raw_tbl,
 )
 from oddsfox_pipeline.storage.duckdb.odds import odds_daily, odds_writes
 
-T_OH = polymarket_raw_tbl("odds_history")
-T_TOD = polymarket_raw_tbl("token_odds_daily")
-T_LED = polymarket_ops_tbl("token_sync_ledger")
-T_SK = polymarket_ops_tbl("token_sync_skips")
+T_OH = wc2026_polymarket_raw_tbl("odds_history")
+T_TOD = wc2026_polymarket_raw_tbl("token_odds_daily")
+T_LED = wc2026_polymarket_ops_tbl("token_sync_ledger")
+T_SK = wc2026_polymarket_ops_tbl("token_sync_skips")
 
 
 @pytest.fixture

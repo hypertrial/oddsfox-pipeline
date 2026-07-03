@@ -8,6 +8,7 @@ from typing import Any, Dict
 from tqdm import tqdm
 
 from oddsfox_pipeline.ingestion.polymarket.errors import GammaRequestError
+from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db
 from oddsfox_pipeline.storage.duckdb.markets import (
     get_markets_missing_any_metadata,
@@ -61,7 +62,7 @@ def backfill_market_metadata(
     progress_callback: ProgressCallback = None,
     progress_every_n_batches: int = 10,
     gamma_requests_per_second: float | None = None,
-    market_scope: str = "all",
+    market_scope: str = DEFAULT_MARKET_SCOPE,
     event_slug_fallback_max_pages: int | None = DEFAULT_EVENT_SLUG_FALLBACK_MAX_PAGES,
     event_slug_fallback_max_pages_without_progress: int
     | None = DEFAULT_EVENT_SLUG_FALLBACK_MAX_NO_PROGRESS_PAGES,

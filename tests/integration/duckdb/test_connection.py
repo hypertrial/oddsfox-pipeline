@@ -29,20 +29,20 @@ def test_init_duck_db_creates_polymarket_schemas_only(tmp_path, monkeypatch):
                 """
                 select table_schema, table_name
                 from information_schema.tables
-                where table_schema in ('polymarket_raw', 'polymarket_ops')
+                where table_schema in ('wc2026_polymarket_raw', 'wc2026_polymarket_ops')
                 """
             ).fetchall()
         }
 
-    assert schemas == {"polymarket_raw", "polymarket_ops"}
+    assert schemas == {"wc2026_polymarket_raw", "wc2026_polymarket_ops"}
     assert {
-        ("polymarket_raw", "market_tokens"),
-        ("polymarket_raw", "odds_history"),
-        ("polymarket_raw", "token_odds_daily"),
-        ("polymarket_ops", "market_scope_registry"),
-        ("polymarket_ops", "token_sync_ledger"),
-        ("polymarket_ops", "token_sync_skips"),
-        ("polymarket_ops", "pipeline_run_events"),
-        ("polymarket_ops", "sync_run_metrics"),
+        ("wc2026_polymarket_raw", "market_tokens"),
+        ("wc2026_polymarket_raw", "odds_history"),
+        ("wc2026_polymarket_raw", "token_odds_daily"),
+        ("wc2026_polymarket_ops", "market_scope_registry"),
+        ("wc2026_polymarket_ops", "token_sync_ledger"),
+        ("wc2026_polymarket_ops", "token_sync_skips"),
+        ("wc2026_polymarket_ops", "pipeline_run_events"),
+        ("wc2026_polymarket_ops", "sync_run_metrics"),
     } <= tables
-    assert ("polymarket_raw", "markets") not in tables
+    assert ("wc2026_polymarket_raw", "markets") not in tables

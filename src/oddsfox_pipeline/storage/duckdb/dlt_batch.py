@@ -12,11 +12,11 @@ import duckdb
 
 from oddsfox_pipeline.storage.duckdb import connection as duckdb_connection
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-    POLYMARKET_OPS_SCHEMA,
-    POLYMARKET_RAW_SCHEMA,
-    polymarket_ops_tbl,
-    polymarket_q,
-    polymarket_raw_tbl,
+    WC2026_POLYMARKET_OPS_SCHEMA,
+    WC2026_POLYMARKET_RAW_SCHEMA,
+    wc2026_polymarket_ops_tbl,
+    wc2026_polymarket_q,
+    wc2026_polymarket_raw_tbl,
 )
 
 DLT_STRICT_SCHEMA_CONTRACT = {
@@ -25,10 +25,10 @@ DLT_STRICT_SCHEMA_CONTRACT = {
     "data_type": "freeze",
 }
 
-_TAB_MARKET_TOKENS = polymarket_raw_tbl("market_tokens")
-_TAB_ODDS_HISTORY = polymarket_raw_tbl("odds_history")
-_TAB_PIPELINE_RUN_EVENTS = polymarket_ops_tbl("pipeline_run_events")
-_TAB_MARKET_SCOPE_REGISTRY = polymarket_ops_tbl("market_scope_registry")
+_TAB_MARKET_TOKENS = wc2026_polymarket_raw_tbl("market_tokens")
+_TAB_ODDS_HISTORY = wc2026_polymarket_raw_tbl("odds_history")
+_TAB_PIPELINE_RUN_EVENTS = wc2026_polymarket_ops_tbl("pipeline_run_events")
+_TAB_MARKET_SCOPE_REGISTRY = wc2026_polymarket_ops_tbl("market_scope_registry")
 
 _PIPELINES: dict[tuple[str, str], dlt.Pipeline] = {}
 _BATCH_PIPELINE_RUN_ID = f"{os.getpid():x}"
@@ -109,7 +109,7 @@ def load_stage_rows(
         columns=columns,
         schema_contract=DLT_STRICT_SCHEMA_CONTRACT,
     )
-    return polymarket_q(schema, stage_table)
+    return wc2026_polymarket_q(schema, stage_table)
 
 
 def _with_row_order(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -121,7 +121,7 @@ def load_market_tokens_stage(
     conn: duckdb.DuckDBPyConnection,
 ) -> None:
     stage = load_stage_rows(
-        schema=POLYMARKET_RAW_SCHEMA,
+        schema=WC2026_POLYMARKET_RAW_SCHEMA,
         stage_table="stage_market_tokens_v1",
         rows=_with_row_order(rows),
         columns=MARKET_TOKEN_COLUMNS,
@@ -158,7 +158,7 @@ def load_odds_history_stage(
 def prepare_odds_history_stage(rows: Sequence[dict[str, Any]]) -> str:
     """Load odds rows into a dlt stage table; call before ``BEGIN`` on ``conn``."""
     return load_stage_rows(
-        schema=POLYMARKET_RAW_SCHEMA,
+        schema=WC2026_POLYMARKET_RAW_SCHEMA,
         stage_table="stage_odds_history_v1",
         rows=_with_row_order(rows),
         columns=ODDS_HISTORY_COLUMNS,
@@ -193,7 +193,7 @@ def append_pipeline_run_event_stage(
     conn: duckdb.DuckDBPyConnection,
 ) -> None:
     stage = load_stage_rows(
-        schema=POLYMARKET_OPS_SCHEMA,
+        schema=WC2026_POLYMARKET_OPS_SCHEMA,
         stage_table="stage_pipeline_run_events_v1",
         rows=[row],
         columns=PIPELINE_RUN_EVENT_COLUMNS,
@@ -213,7 +213,7 @@ def load_market_scope_registry_stage(
     conn: duckdb.DuckDBPyConnection,
 ) -> None:
     stage = load_stage_rows(
-        schema=POLYMARKET_OPS_SCHEMA,
+        schema=WC2026_POLYMARKET_OPS_SCHEMA,
         stage_table="stage_market_scope_registry_v1",
         rows=_with_row_order(rows),
         columns=MARKET_SCOPE_REGISTRY_COLUMNS,

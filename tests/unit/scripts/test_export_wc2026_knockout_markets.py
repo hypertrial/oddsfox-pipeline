@@ -24,10 +24,10 @@ def test_export_wc2026_knockout_markets_round_trip(tmp_path: Path) -> None:
     out_path = tmp_path / "wc2026_knockout_token_hourly_odds.parquet"
     conn = duckdb.connect()
     try:
-        conn.execute("create schema polymarket_marts")
+        conn.execute("create schema wc2026_polymarket_marts")
         conn.execute(
             """
-            create table polymarket_marts.wc2026_knockout_token_hourly_odds (
+            create table wc2026_polymarket_marts.wc2026_knockout_token_hourly_odds (
                 market_id varchar,
                 clob_token_id varchar,
                 stage_key varchar,
@@ -39,7 +39,7 @@ def test_export_wc2026_knockout_markets_round_trip(tmp_path: Path) -> None:
         )
         conn.execute(
             """
-            insert into polymarket_marts.wc2026_knockout_token_hourly_odds
+            insert into wc2026_polymarket_marts.wc2026_knockout_token_hourly_odds
             values ('m1', 'tok-a', 'winner', 'Alpha', 1782604800, 0.42)
             """
         )

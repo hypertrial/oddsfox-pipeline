@@ -9,6 +9,6 @@ from oddsfox_pipeline.orchestration import pipeline_ops, polymarket_ops
 pytestmark = pytest.mark.facade
 
 
-def test_polymarket_ops_facade_matches_pipeline_ops() -> None:
+def test_wc2026_polymarket_ops_facade_matches_pipeline_ops() -> None:
     for name in polymarket_ops.__all__:
         assert getattr(polymarket_ops, name) is getattr(pipeline_ops, name)

@@ -1,4 +1,4 @@
-"""Unit tests for selected-scope gamma helpers."""
+"""Unit tests for WC2026 gamma helpers."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def test_iter_market_scope_gamma_events_skips_non_allowlisted(monkeypatch, tmp_p
 
 
 def test_gamma_events_keyset_shared_pagination_params(monkeypatch, tmp_path):
-    """selected-scope scan and event-slug fallback use the same /events/keyset pagination."""
+    """WC2026 scan and event-slug fallback use the same /events/keyset pagination."""
     import importlib
 
     import oddsfox_pipeline.storage.duckdb.connection as connection

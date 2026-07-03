@@ -17,9 +17,9 @@ cp .env.example .env
 Default warehouse: `oddsfox.duckdb` in the repo root. Keep schedules disabled in local dev and CI unless intentionally running live ingestion:
 
 ```dotenv
-POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=false
-POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
-POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
+WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=false
+WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
+WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 ## AI agent guidance
@@ -123,7 +123,7 @@ Imports use src-layout paths: `from oddsfox_pipeline.config.settings import …`
 
 - sqlfluff: DuckDB dialect, dbt templater, max line length 130.
 - Lint/fix: `dbt/models`, `dbt/tests` only (see Makefile).
-- Layer naming: `polymarket_staging`, `polymarket_intermediate`, `polymarket_marts`, `polymarket_observability`.
+- Layer naming: `wc2026_polymarket_staging`, `wc2026_polymarket_intermediate`, `wc2026_polymarket_marts`, `wc2026_polymarket_observability`.
 
 **Tests** ([tests/README.md](tests/README.md)):
 
@@ -135,22 +135,23 @@ Imports use src-layout paths: `from oddsfox_pipeline.config.settings import …`
 
 Asset order (routine pipeline):
 
-1. `dlt_polymarket_markets`
-2. `polymarket_markets_snapshot`
-3. `polymarket_market_scope_registry`
-4. `polymarket_market_metadata_backfill`
-5. `polymarket_token_odds_history`
-6. `polymarket_token_odds_history_minutely`
-7. `polymarket_token_odds_history_hourly` (optional hourly-grain refresh)
-8. `polymarket_dbt`
+1. `wc2026_polymarket_raw_markets`
+2. `wc2026_polymarket_markets_snapshot`
+3. `wc2026_polymarket_market_registry`
+4. `wc2026_polymarket_market_metadata_backfill`
+5. `wc2026_polymarket_token_odds_history_minutely`
+6. `wc2026_polymarket_token_odds_history_hourly` (optional hourly-grain refresh)
+7. `wc2026_polymarket_dbt`
 
-`polymarket_odds_repair` is a repair asset, not part of the routine full pipeline.
+`wc2026_polymarket_odds_repair` is a repair asset, not part of the routine full pipeline.
 
-Key jobs: `polymarket_ingest_incremental`, `polymarket_ingest_full_refresh_events`, `polymarket_minutely_odds_ingest`, `polymarket_hourly_odds_ingest`, `dbt_full_refresh`, `polymarket_selected_scope_full_pipeline`.
+Key jobs: `wc2026_market_registry_refresh`, `wc2026_minutely_odds_ingest`, `wc2026_hourly_odds_ingest`, `wc2026_dbt_build`, `wc2026_knockout_export`, `wc2026_full_pipeline`.
 
-Schedules target `polymarket_minutely_odds_ingest` and `polymarket_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/minutely/hourly schedules in code or `.env` unless the task explicitly requires it.
+Schedules target `wc2026_minutely_odds_ingest` and `wc2026_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/minutely/hourly schedules in code or `.env` unless the task explicitly requires it.
 
-**Market scopes:** operators select presets with `POLYMARKET_MARKET_SCOPES` (CSV in `.env`). Dagster asset configs use `scope_names: list[str]`. dbt reads `active_market_scopes` (auto-synced by `polymarket_dbt` from the same env). See [docs/configuration.md](docs/configuration.md).
+**Market scope:** v0.1.x supports only `wc2026`. Dagster asset configs may still
+use `scope_names: list[str]`, but valid values are fixed to `["wc2026"]`. dbt
+builds the fixed WC2026 graph. See [docs/configuration.md](docs/configuration.md).
 
 DuckDB is local-only runtime state. For read-only inspection prefer `scripts/profile_warehouse.py` over opening the warehouse read-write.
 
@@ -159,7 +160,7 @@ DuckDB is local-only runtime state. For read-only inspection prefer `scripts/pro
 - Commit `.env`, secrets, `*.duckdb` / WAL/SHM files, parquet/CSV exports, or other local artifacts (see [`.gitignore`](.gitignore)).
 - Set `CLOB_API_KEY`, `CLOB_API_SECRET`, or `CLOB_API_PASSPHRASE` for docs, dbt, or mocked tests.
 - Invent commands outside the Makefile; if a check is missing, add a Makefile target rather than documenting one-off scripts as the gate.
-- Add runtime scope such as soccer context, simulations, allocation, or web integration without explicit product direction; v0.1.x still ships the selected-scope Polymarket ingest and warehouse implementation with WC2026 as the default preset.
+- Add runtime scope such as soccer context, simulations, allocation, or web integration without explicit product direction; v0.1.x ships the WC2026 Polymarket ingest and warehouse implementation only.
 - Add legacy, compat, deprecated, or migration shims unless the task explicitly requests backward compatibility.
 
 ## Pull requests

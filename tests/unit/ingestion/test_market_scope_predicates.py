@@ -1,4 +1,4 @@
-"""Unit tests for selected-scope predicates."""
+"""Unit tests for WC2026 scope predicates."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from tests.unit.ingestion.market_scope_test_support import slug_only_cfg
 
 from oddsfox_pipeline.ingestion.polymarket import market_scope as scope_mod
 from oddsfox_pipeline.ingestion.polymarket.market_scope import (
-    MARKET_SCOPE_ALL,
     MarketScopeConfig,
     collect_scope_markets_from_events,
     event_in_scope,
@@ -350,11 +349,14 @@ def test_predicate_helpers_cover_remaining_branches() -> None:
         is False
     )
     cfg = slug_only_cfg(event_tags=("fifa-world-cup",))
-    assert scope_predicates_mod.is_market_scope_row(
-        market_id="x",
-        event_slug="2026-fifa-world-cup-extra",
-        market_scope=MARKET_SCOPE_ALL,
-    )
+    import pytest
+
+    with pytest.raises(ValueError, match="wc2026"):
+        scope_predicates_mod.is_market_scope_row(
+            market_id="x",
+            event_slug="2026-fifa-world-cup-extra",
+            market_scope="all",
+        )
     assert scope_predicates_mod.is_market_scope_row(
         market_id="x",
         event_slug="2026-fifa-world-cup-extra",

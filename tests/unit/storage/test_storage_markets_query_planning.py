@@ -561,6 +561,7 @@ def test_get_markets_missing_any_metadata_individual_field_predicates(duck):
             event_slug="event-present",
             end_date=None,
         )
+    upsert_registry_rows([RegistryRow("missing-all", None, None, "test")])
 
     assert markets.get_markets_missing_any_metadata(
         include_tokens=True,

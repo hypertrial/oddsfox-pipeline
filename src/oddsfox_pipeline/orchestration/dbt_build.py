@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 from queue import Empty, Queue
 from threading import Thread
 from typing import Any
@@ -9,7 +8,6 @@ from typing import Any
 from dagster import AssetExecutionContext
 from dagster_dbt import DbtCliResource
 
-from oddsfox_pipeline.config import settings
 from oddsfox_pipeline.orchestration.config import DbtBuildConfig
 from oddsfox_pipeline.resources.progress_guardrails import (
     NoProgressTimeoutError,
@@ -40,11 +38,7 @@ def stream_dbt_build(
         force_log=True,
     )
 
-    build_args = [
-        "build",
-        "--vars",
-        json.dumps({"active_market_scopes": list(settings.POLYMARKET_MARKET_SCOPES)}),
-    ]
+    build_args = ["build"]
     if config.full_refresh:
         build_args.append("--full-refresh")
     invocation = dbt.cli(build_args, context=context)

@@ -1,5 +1,5 @@
 select *
-from {{ ref('sync_run_observability') }}
+from {{ ref('wc2026_sync_run_observability') }}
 where
     planned_tokens is not null
     and processed_tokens is not null

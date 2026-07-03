@@ -10,6 +10,7 @@ from typing import Any, Callable
 class PlanningRuntime:
     iter_markets_with_tokens: Callable[..., Any]
     iter_due_market_tokens: Callable[..., Any]
+    count_due_market_token_exclusions: Callable[..., Any]
     count_candidate_market_tokens: Callable[..., Any]
     get_token_sync_snapshot: Callable[..., Any]
     token_sync_scheduler_state: type
@@ -72,6 +73,10 @@ class OddsSyncRuntime:
     @property
     def count_candidate_market_tokens(self) -> Callable[..., Any]:
         return self.planning.count_candidate_market_tokens
+
+    @property
+    def count_due_market_token_exclusions(self) -> Callable[..., Any]:
+        return self.planning.count_due_market_token_exclusions
 
     @property
     def get_token_sync_snapshot(self) -> Callable[..., Any]:
@@ -186,6 +191,7 @@ _PLANNING_FIELDS = frozenset(
     {
         "iter_markets_with_tokens",
         "iter_due_market_tokens",
+        "count_due_market_token_exclusions",
         "count_candidate_market_tokens",
         "get_token_sync_snapshot",
         "token_sync_scheduler_state",

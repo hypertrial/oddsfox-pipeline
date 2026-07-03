@@ -28,6 +28,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.support import (
     DEFAULT_WRITER_FLUSH_ROWS,
     planning_state_to_dict,
 )
+from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 
 from .bootstrap import (
     bootstrap_planning,
@@ -59,7 +60,7 @@ def sync_odds(
     rebuild_minutely: bool = False,
     reconcile_ledger: bool = False,
     short_range_first: bool = True,
-    market_scope: str = "all",
+    market_scope: str = DEFAULT_MARKET_SCOPE,
     ended_market_grace_days: int | None = None,
     min_volume: float | None = None,
     max_volume: float | None = None,

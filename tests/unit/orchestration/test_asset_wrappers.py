@@ -8,12 +8,11 @@ import pytest
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 from oddsfox_pipeline.orchestration import config as orch_config
 from oddsfox_pipeline.orchestration.assets import (
-    polymarket_market_scope_registry,
-    polymarket_markets_raw_dlt,
-    polymarket_odds_repair,
-    polymarket_token_odds_history,
-    polymarket_token_odds_history_hourly,
-    polymarket_token_odds_history_minutely,
+    wc2026_polymarket_market_registry,
+    wc2026_polymarket_odds_repair,
+    wc2026_polymarket_raw_markets,
+    wc2026_polymarket_token_odds_history_hourly,
+    wc2026_polymarket_token_odds_history_minutely,
 )
 
 
@@ -67,7 +66,7 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
     ensure_indexes = MagicMock()
     monkeypatch.setattr(assets_mod, "ensure_polymarket_indexes", ensure_indexes)
 
-    fn = polymarket_markets_raw_dlt.op.compute_fn.decorated_fn
+    fn = wc2026_polymarket_raw_markets.op.compute_fn.decorated_fn
     assert list(fn(MagicMock(), fake_dlt)) == ["event"]
 
     pipeline.drop_pending_packages.assert_called_once()
@@ -87,7 +86,7 @@ def test_market_scope_registry_skips_when_snapshot_already_refreshed(monkeypatch
     )
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {"x": 1})
 
-    fn = polymarket_market_scope_registry.op.compute_fn.decorated_fn
+    fn = wc2026_polymarket_market_registry.op.compute_fn.decorated_fn
     result = fn(MagicMock(), orch_config.MarketScopeRegistryConfig())
 
     run_summary = result.metadata["run_summary"].value
@@ -110,7 +109,7 @@ def test_market_scope_registry_runs_sync_when_snapshot_did_not_refresh(monkeypat
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
     monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
 
-    fn = polymarket_market_scope_registry.op.compute_fn.decorated_fn
+    fn = wc2026_polymarket_market_registry.op.compute_fn.decorated_fn
     result = fn(
         MagicMock(),
         orch_config.MarketScopeRegistryConfig(
@@ -151,7 +150,7 @@ def test_market_scope_registry_force_refresh_bypasses_snapshot_metric_check(
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
     monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
 
-    fn = polymarket_market_scope_registry.op.compute_fn.decorated_fn
+    fn = wc2026_polymarket_market_registry.op.compute_fn.decorated_fn
     result = fn(MagicMock(), orch_config.MarketScopeRegistryConfig(force_refresh=True))
 
     assert checked_metrics == []
@@ -196,7 +195,7 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
         workers=3,
         min_volume=10.0,
         max_volume=20.0,
-        scope_names=["custom-scope"],
+        scope_names=["wc2026"],
     )
 
     kwargs = assets_mod._build_odds_sync_kwargs(
@@ -217,11 +216,27 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
     assert kwargs["max_workers"] == 3
     assert kwargs["progress_callback"] is progress
     assert kwargs["plan_iterator_factory"] is plan_iterator
-    assert kwargs["market_scope"] == ["custom-scope"]
+    assert kwargs["market_scope"] == ["wc2026"]
     assert metadata["workers"].value == 3
     assert metadata["min_volume"].value == 10.0
     assert metadata["max_volume"].value == 20.0
     assert metadata["totals"].value == {"rows": 3}
+
+    min_only_metadata = assets_mod._odds_sync_metadata(
+        orch_config.OddsSyncConfig(min_volume=10.0, max_volume=None),
+        {"planning": {}, "planning_context": {}, "totals": {}},
+        {},
+    )
+    assert "min_volume" in min_only_metadata
+    assert "max_volume" not in min_only_metadata
+
+    max_only_metadata = assets_mod._odds_sync_metadata(
+        orch_config.OddsSyncConfig(min_volume=None, max_volume=20.0),
+        {"planning": {}, "planning_context": {}, "totals": {}},
+        {},
+    )
+    assert "min_volume" not in max_only_metadata
+    assert "max_volume" in max_only_metadata
 
 
 def test_run_with_guardrail_thread_success_and_error(monkeypatch):
@@ -315,26 +330,19 @@ def test_odds_assets_delegate_to_materializer(monkeypatch):
 
     ctx = MagicMock()
     assert (
-        polymarket_token_odds_history.op.compute_fn.decorated_fn(
-            ctx, orch_config.OddsSyncConfig()
-        )
-        == "ok"
-    )
-    assert (
-        polymarket_token_odds_history_minutely.op.compute_fn.decorated_fn(
+        wc2026_polymarket_token_odds_history_minutely.op.compute_fn.decorated_fn(
             ctx, orch_config.MinutelyOddsSyncConfig()
         )
         == "ok"
     )
     assert (
-        polymarket_token_odds_history_hourly.op.compute_fn.decorated_fn(
+        wc2026_polymarket_token_odds_history_hourly.op.compute_fn.decorated_fn(
             ctx, orch_config.HourlyOddsSyncConfig()
         )
         == "ok"
     )
-    assert calls[0][0] is orch_config.OddsSyncConfig
-    assert calls[1][0] is orch_config.MinutelyOddsSyncConfig
-    assert calls[2][0] is orch_config.HourlyOddsSyncConfig
+    assert calls[0][0] is orch_config.MinutelyOddsSyncConfig
+    assert calls[1][0] is orch_config.HourlyOddsSyncConfig
 
 
 def test_repair_asset_returns_reconcile_metadata(monkeypatch):
@@ -348,7 +356,7 @@ def test_repair_asset_returns_reconcile_metadata(monkeypatch):
         lambda **kwargs: {"persist": kwargs["persist_run_metrics"]},
     )
 
-    fn = polymarket_odds_repair.op.compute_fn.decorated_fn
+    fn = wc2026_polymarket_odds_repair.op.compute_fn.decorated_fn
     result = fn(MagicMock(), orch_config.RepairConfig(persist_run_metrics=False))
 
     assert result.metadata["reconcile"].value == {"persist": False}

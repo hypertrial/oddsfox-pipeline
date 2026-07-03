@@ -343,7 +343,7 @@ def collect_scope_markets_from_events(
     keyset_volume_min: float | None = None,
     tag_discovery: bool | None = None,
 ) -> tuple[list[dict[str, Any]], Dict[str, Any]]:
-    """Return raw Gamma market dicts for selected-scope events."""
+    """Return raw Gamma market dicts for WC2026 events."""
     cfg = config or load_market_scope_config()
     resolved = _resolved_discovery(
         cfg,

@@ -25,7 +25,7 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         / "dbt"
         / "models"
         / "sources"
-        / "polymarket_sources.yml"
+        / "wc2026_polymarket_sources.yml"
     )
     data = yaml.safe_load(sources_path.read_text())
     tables = {
@@ -34,27 +34,29 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         for table in source["tables"]
     }
 
-    assert tables[("polymarket_raw", "markets")] == ["dlt_polymarket_markets"]
-    assert tables[("polymarket_raw", "market_tokens")] == [
-        "polymarket_market_metadata_backfill"
+    assert tables[("wc2026_polymarket_raw", "markets")] == [
+        "wc2026_polymarket_raw_markets"
     ]
-    assert tables[("polymarket_raw", "odds_history")] == [
-        "polymarket_token_odds_history_minutely"
+    assert tables[("wc2026_polymarket_raw", "market_tokens")] == [
+        "wc2026_polymarket_market_metadata_backfill"
     ]
-    assert tables[("polymarket_raw", "token_odds_daily")] == [
-        "polymarket_token_odds_history_minutely"
+    assert tables[("wc2026_polymarket_raw", "odds_history")] == [
+        "wc2026_polymarket_token_odds_history_minutely"
     ]
-    assert tables[("polymarket_ops", "token_sync_ledger")] == [
-        "polymarket_token_odds_history_minutely"
+    assert tables[("wc2026_polymarket_raw", "token_odds_daily")] == [
+        "wc2026_polymarket_token_odds_history_minutely"
     ]
-    assert tables[("polymarket_ops", "token_sync_skips")] == [
-        "polymarket_token_odds_history_minutely"
+    assert tables[("wc2026_polymarket_ops", "token_sync_ledger")] == [
+        "wc2026_polymarket_token_odds_history_minutely"
     ]
-    assert tables[("polymarket_ops", "pipeline_run_events")] == [
-        "polymarket_token_odds_history_minutely"
+    assert tables[("wc2026_polymarket_ops", "token_sync_skips")] == [
+        "wc2026_polymarket_token_odds_history_minutely"
     ]
-    assert tables[("polymarket_ops", "market_scope_registry")] == [
-        "polymarket_market_scope_registry"
+    assert tables[("wc2026_polymarket_ops", "pipeline_run_events")] == [
+        "wc2026_polymarket_token_odds_history_minutely"
+    ]
+    assert tables[("wc2026_polymarket_ops", "market_scope_registry")] == [
+        "wc2026_polymarket_market_registry"
     ]
 
 
@@ -74,16 +76,16 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
     graph = defs.resolve_asset_graph()
     stg_markets_parents = {
         key.to_user_string()
-        for key in graph.get(AssetKey("polymarket_stg_markets")).parent_keys
+        for key in graph.get(AssetKey("wc2026_polymarket_stg_markets")).parent_keys
     }
-    assert "dlt_polymarket_markets" in stg_markets_parents
+    assert "wc2026_polymarket_raw_markets" in stg_markets_parents
     assert not any(parent.startswith("dbt_") for parent in stg_markets_parents)
 
     stg_odds_parents = {
         key.to_user_string()
-        for key in graph.get(AssetKey("polymarket_stg_odds")).parent_keys
+        for key in graph.get(AssetKey("wc2026_polymarket_stg_odds")).parent_keys
     }
-    assert "polymarket_token_odds_history_minutely" in stg_odds_parents
+    assert "wc2026_polymarket_token_odds_history_minutely" in stg_odds_parents
 
     dangling_dbt_keys = sorted(
         key.to_user_string()
@@ -94,7 +96,7 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
 
 
 def test_dbt_assets_definition_streams_build_events(monkeypatch):
-    from oddsfox_pipeline.orchestration.assets import polymarket_dbt
+    from oddsfox_pipeline.orchestration.assets import wc2026_polymarket_dbt
 
     monkeypatch.setattr(
         "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
@@ -108,14 +110,14 @@ def test_dbt_assets_definition_streams_build_events(monkeypatch):
             m.stream = lambda: iter(["event"])
             return m
 
-    fn = polymarket_dbt.op.compute_fn.decorated_fn
+    fn = wc2026_polymarket_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     events = list(fn(ctx, MockDbt(), orch_config.DbtBuildConfig()))
     assert events == ["event"]
 
 
 def test_dbt_assets_does_not_delete_orphan_market_tokens(monkeypatch):
-    from oddsfox_pipeline.orchestration.assets import polymarket_dbt
+    from oddsfox_pipeline.orchestration.assets import wc2026_polymarket_dbt
 
     monkeypatch.setattr(
         "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
@@ -129,14 +131,14 @@ def test_dbt_assets_does_not_delete_orphan_market_tokens(monkeypatch):
             m.stream = lambda: iter([])
             return m
 
-    fn = polymarket_dbt.op.compute_fn.decorated_fn
+    fn = wc2026_polymarket_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     list(fn(ctx, MockDbt(), orch_config.DbtBuildConfig()))
 
 
 def test_dbt_assets_guardrail_hard_timeout_terminates_process(monkeypatch):
     from oddsfox_pipeline.orchestration import assets as assets_mod
-    from oddsfox_pipeline.orchestration.assets import polymarket_dbt
+    from oddsfox_pipeline.orchestration.assets import wc2026_polymarket_dbt
 
     clock = _FakeClock()
     _patch_guardrail_clock(monkeypatch, assets_mod, clock)
@@ -161,7 +163,7 @@ def test_dbt_assets_guardrail_hard_timeout_terminates_process(monkeypatch):
             m.stream = lambda: iter(())
             return m
 
-    fn = polymarket_dbt.op.compute_fn.decorated_fn
+    fn = wc2026_polymarket_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     with pytest.raises(Exception):
         list(
@@ -181,9 +183,9 @@ def test_dbt_assets_guardrail_hard_timeout_terminates_process(monkeypatch):
 
 def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
     from oddsfox_pipeline.orchestration import assets as assets_mod
-    from oddsfox_pipeline.orchestration.assets import polymarket_dbt
+    from oddsfox_pipeline.orchestration.assets import wc2026_polymarket_dbt
 
-    fn = polymarket_dbt.op.compute_fn.decorated_fn
+    fn = wc2026_polymarket_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     clock = _FakeClock()
     _patch_guardrail_clock(monkeypatch, assets_mod, clock)
@@ -236,7 +238,7 @@ def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
 
 
 def test_dbt_assets_raises_when_build_returns_nonzero_after_stream():
-    from oddsfox_pipeline.orchestration.assets import polymarket_dbt
+    from oddsfox_pipeline.orchestration.assets import wc2026_polymarket_dbt
 
     class NonZeroReturncodeDbt:
         def cli(self, *a, **k):
@@ -244,7 +246,7 @@ def test_dbt_assets_raises_when_build_returns_nonzero_after_stream():
             m.stream = lambda: iter(["event"])
             return m
 
-    fn = polymarket_dbt.op.compute_fn.decorated_fn
+    fn = wc2026_polymarket_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     with pytest.raises(RuntimeError, match="exit code 1"):
         list(fn(ctx, NonZeroReturncodeDbt(), orch_config.DbtBuildConfig()))
@@ -382,20 +384,13 @@ def test_stream_dbt_build_appends_full_refresh_flag():
     ctx = MagicMock()
     list(
         dbt_build_mod.stream_dbt_build(
-            asset_name="polymarket_dbt",
+            asset_name="wc2026_polymarket_dbt",
             context=ctx,
             dbt=MockDbt(),
             config=orch_config.DbtBuildConfig(full_refresh=True),
         )
     )
-    assert captured_args == [
-        [
-            "build",
-            "--vars",
-            '{"active_market_scopes": ["wc2026"]}',
-            "--full-refresh",
-        ]
-    ]
+    assert captured_args == [["build", "--full-refresh"]]
 
 
 def test_stream_dbt_build_merges_heartbeat_diagnostics(monkeypatch):
@@ -426,7 +421,7 @@ def test_stream_dbt_build_merges_heartbeat_diagnostics(monkeypatch):
 
     list(
         dbt_build_mod.stream_dbt_build(
-            asset_name="polymarket_dbt",
+            asset_name="wc2026_polymarket_dbt",
             context=ctx,
             dbt=MockDbt(),
             config=orch_config.DbtBuildConfig(
@@ -470,7 +465,7 @@ def test_stream_dbt_build_ignores_non_dict_heartbeat(monkeypatch):
 
     list(
         dbt_build_mod.stream_dbt_build(
-            asset_name="polymarket_dbt",
+            asset_name="wc2026_polymarket_dbt",
             context=MagicMock(),
             dbt=MockDbt(),
             config=orch_config.DbtBuildConfig(

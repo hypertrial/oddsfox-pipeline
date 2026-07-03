@@ -28,7 +28,7 @@ def test_snapshot_raw_layer_counts_polymarket_tables(
         create_test_markets_table(conn)
         conn.execute(
             """
-            insert into polymarket_raw.markets (
+            insert into wc2026_polymarket_raw.markets (
                 id, question, category, description, outcomes, volume, active,
                 closed, created_at, scraped_at, end_date, slug, event_slug, event_id
             )
@@ -59,24 +59,24 @@ def test_snapshot_dbt_models_reports_missing_relations(tmp_path):
     with duckdb.connect(str(tmp_path / "dbt.duckdb")) as conn:
         snapshot = snapshot_dbt_models(conn=conn)
 
-    assert snapshot["polymarket_staging.stg_polymarket_markets"] == {
+    assert snapshot["wc2026_polymarket_staging.stg_wc2026_polymarket_markets"] == {
         "exists": False,
         "rows": None,
     }
 
 
 def test_dbt_delta_and_formatters():
-    before = {"polymarket_marts.selected_markets": {"exists": False, "rows": None}}
-    after = {"polymarket_marts.selected_markets": {"exists": True, "rows": 3}}
+    before = {"wc2026_polymarket_marts.wc2026_markets": {"exists": False, "rows": None}}
+    after = {"wc2026_polymarket_marts.wc2026_markets": {"exists": True, "rows": 3}}
 
     assert delta_dbt_models(before, after) == {
-        "polymarket_marts.selected_markets": {
+        "wc2026_polymarket_marts.wc2026_markets": {
             "before": {"exists": False, "rows": None},
             "after": {"exists": True, "rows": 3},
         }
     }
     assert "markets=2" in format_raw_snapshot_log({"markets_rows": 2})
-    assert "selected_markets:exists=True,rows=3" in format_dbt_snapshot_log(after)
+    assert "wc2026_markets:exists=True,rows=3" in format_dbt_snapshot_log(after)
 
 
 def test_observability_scalar_and_row_count_error_branches(caplog):
@@ -150,7 +150,7 @@ def test_snapshot_dbt_models_handles_unexpected_count_value(caplog):
     caplog.set_level("WARNING")
     snapshot = snapshot_dbt_models(conn=BadCountConn())
 
-    assert snapshot["polymarket_staging.stg_polymarket_markets"] == {
+    assert snapshot["wc2026_polymarket_staging.stg_wc2026_polymarket_markets"] == {
         "exists": False,
         "rows": None,
     }

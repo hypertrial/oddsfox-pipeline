@@ -7,8 +7,8 @@ import logging
 import duckdb
 
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-    polymarket_ops_tbl,
-    polymarket_raw_tbl,
+    wc2026_polymarket_ops_tbl,
+    wc2026_polymarket_raw_tbl,
 )
 
 logger = logging.getLogger(__name__)
@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 def ensure_polymarket_indexes(conn: duckdb.DuckDBPyConnection) -> None:
     """Create indexes for existing Polymarket tables."""
-    m = polymarket_raw_tbl("markets")
-    tod = polymarket_raw_tbl("token_odds_daily")
-    sk = polymarket_ops_tbl("token_sync_skips")
-    scope_reg = polymarket_ops_tbl("market_scope_registry")
+    m = wc2026_polymarket_raw_tbl("markets")
+    tod = wc2026_polymarket_raw_tbl("token_odds_daily")
+    sk = wc2026_polymarket_ops_tbl("token_sync_skips")
+    scope_reg = wc2026_polymarket_ops_tbl("market_scope_registry")
     index_statements = [
         "CREATE INDEX IF NOT EXISTS "
         f"idx_market_scope_registry_scope_event_slug ON {scope_reg}"
@@ -34,7 +34,7 @@ def ensure_polymarket_indexes(conn: duckdb.DuckDBPyConnection) -> None:
         """
         SELECT COUNT(*)
         FROM information_schema.tables
-        WHERE table_schema = 'polymarket_raw' AND table_name = 'markets'
+        WHERE table_schema = 'wc2026_polymarket_raw' AND table_name = 'markets'
         """
     ).fetchone()
     if markets_exists and markets_exists[0]:
@@ -56,18 +56,18 @@ def ensure_polymarket_indexes(conn: duckdb.DuckDBPyConnection) -> None:
 def bootstrap_polymarket_tables(conn: duckdb.DuckDBPyConnection) -> None:
     """CREATE TABLE IF NOT EXISTS for Polymarket core warehouse tables.
 
-    ``polymarket_raw.markets`` is owned by the dlt landing asset, not bootstrap.
+    ``wc2026_polymarket_raw.markets`` is owned by the dlt landing asset, not bootstrap.
     """
-    sm = polymarket_ops_tbl("scrape_metadata")
-    mt = polymarket_raw_tbl("market_tokens")
-    oh = polymarket_raw_tbl("odds_history")
-    tod = polymarket_raw_tbl("token_odds_daily")
-    led = polymarket_ops_tbl("token_sync_ledger")
-    skip = polymarket_ops_tbl("token_sync_skips")
-    mmu = polymarket_ops_tbl("market_metadata_unresolved")
-    pre = polymarket_ops_tbl("pipeline_run_events")
-    srm = polymarket_ops_tbl("sync_run_metrics")
-    scope_reg = polymarket_ops_tbl("market_scope_registry")
+    sm = wc2026_polymarket_ops_tbl("scrape_metadata")
+    mt = wc2026_polymarket_raw_tbl("market_tokens")
+    oh = wc2026_polymarket_raw_tbl("odds_history")
+    tod = wc2026_polymarket_raw_tbl("token_odds_daily")
+    led = wc2026_polymarket_ops_tbl("token_sync_ledger")
+    skip = wc2026_polymarket_ops_tbl("token_sync_skips")
+    mmu = wc2026_polymarket_ops_tbl("market_metadata_unresolved")
+    pre = wc2026_polymarket_ops_tbl("pipeline_run_events")
+    srm = wc2026_polymarket_ops_tbl("sync_run_metrics")
+    scope_reg = wc2026_polymarket_ops_tbl("market_scope_registry")
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {sm} (
@@ -195,7 +195,7 @@ def bootstrap_polymarket_tables(conn: duckdb.DuckDBPyConnection) -> None:
 
 def create_test_markets_table(conn: duckdb.DuckDBPyConnection) -> None:
     """Empty markets source fixture for dbt source tests and local CI."""
-    m = polymarket_raw_tbl("markets")
+    m = wc2026_polymarket_raw_tbl("markets")
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {m} (

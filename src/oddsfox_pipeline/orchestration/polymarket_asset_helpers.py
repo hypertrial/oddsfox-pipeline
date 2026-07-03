@@ -216,9 +216,9 @@ def get_polymarket_dlt_pipeline(
     if cached is not None:
         return cached
     pipe = dlt_module.pipeline(
-        pipeline_name="polymarket_selected_scope_raw",
+        pipeline_name="wc2026_polymarket_raw",
         destination=dlt_module.destinations.duckdb(credentials=db_path),
-        dataset_name="polymarket_raw",
+        dataset_name="wc2026_polymarket_raw",
     )
     _DLT_PIPELINE_BY_PATH[db_path] = pipe
     return pipe

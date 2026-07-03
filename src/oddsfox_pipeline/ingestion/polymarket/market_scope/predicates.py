@@ -8,7 +8,6 @@ from typing import Any, Sequence
 
 from oddsfox_pipeline.ingestion.polymarket.scope_sql import (
     DEFAULT_MARKET_SCOPE,
-    MARKET_SCOPE_ALL,
     validate_market_scope,
 )
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import RegistryRow
@@ -327,9 +326,6 @@ def is_market_scope_row(
 ) -> bool:
     """Pure-Python scope check for unit tests and local predicates."""
     scope = validate_market_scope(market_scope)
-    if scope == MARKET_SCOPE_ALL:
-        return True
-
     cfg = config or load_market_scope_config(scope_name=scope)
     if in_registry or market_id in cfg.market_ids:
         return True

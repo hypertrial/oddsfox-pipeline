@@ -67,6 +67,7 @@ from oddsfox_pipeline.resources.progress_guardrails import (
 from oddsfox_pipeline.storage.duckdb import (
     TokenSyncSchedulerState,
     count_candidate_market_tokens,
+    count_due_market_token_exclusions,
     ensure_duck_db,
     get_connection,
     get_token_sync_snapshot,
@@ -102,6 +103,10 @@ def _iter_token_plans_paged(*args, **kwargs):
     kwargs.setdefault("iter_due_market_tokens_fn", fac.iter_due_market_tokens)
     kwargs.setdefault("iter_markets_with_tokens_fn", fac.iter_markets_with_tokens)
     kwargs.setdefault("get_token_sync_snapshot_fn", fac.get_token_sync_snapshot)
+    kwargs.setdefault(
+        "count_due_market_token_exclusions_fn",
+        count_due_market_token_exclusions,
+    )
     kwargs.setdefault("token_sync_scheduler_state_cls", fac.TokenSyncSchedulerState)
     return _planning_mod.iter_token_plans_paged(*args, **kwargs)
 
@@ -149,6 +154,7 @@ def default_odds_sync_runtime() -> OddsSyncRuntime:
         planning=PlanningRuntime(
             iter_markets_with_tokens=fac.iter_markets_with_tokens,
             iter_due_market_tokens=fac.iter_due_market_tokens,
+            count_due_market_token_exclusions=fac.count_due_market_token_exclusions,
             count_candidate_market_tokens=fac.count_candidate_market_tokens,
             get_token_sync_snapshot=fac.get_token_sync_snapshot,
             token_sync_scheduler_state=fac.TokenSyncSchedulerState,

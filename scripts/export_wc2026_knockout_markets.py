@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export graph-ready ``polymarket_marts.wc2026_knockout_token_hourly_odds``."""
+"""Export graph-ready ``wc2026_polymarket_marts.wc2026_knockout_token_hourly_odds``."""
 
 from __future__ import annotations
 
@@ -15,10 +15,10 @@ import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _bootstrap import ensure_src_on_path
-from export_selected_hourly_odds import _snapshot_duckdb_files
+from export_wc2026_hourly_odds import _snapshot_duckdb_files
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
-MART_SCHEMA: Final = "polymarket_marts"
+MART_SCHEMA: Final = "wc2026_polymarket_marts"
 MART_NAME: Final = "wc2026_knockout_token_hourly_odds"
 
 
@@ -63,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--output-dir",
         type=Path,
-        default=REPO_ROOT / "artifacts" / "selected_scope_exports",
+        default=REPO_ROOT / "artifacts" / "wc2026_exports",
     )
     p.add_argument("--read-only", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--snapshot-copy", action="store_true")

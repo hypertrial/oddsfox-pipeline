@@ -5,7 +5,7 @@ select
     rows_fetched,
     processed_tokens,
     rows_fetched::double / processed_tokens as expected_ratio
-from {{ ref('sync_run_observability') }}
+from {{ ref('wc2026_sync_run_observability') }}
 where
     processed_tokens is not null
     and processed_tokens > 0
