@@ -4,7 +4,12 @@ from pathlib import Path
 import yaml
 from dagster import DefaultScheduleStatus, build_schedule_context
 
+from oddsfox_pipeline.orchestration.config import (
+    wc2026_full_refresh_events_run_config,
+    wc2026_hourly_odds_run_config,
+)
 from oddsfox_pipeline.orchestration.definitions import defs
+from oddsfox_pipeline.orchestration.jobs import _merge_run_configs
 from oddsfox_pipeline.orchestration.schedules import (
     polymarket_hourly_odds_schedule,
     polymarket_minutely_odds_cold_schedule,
@@ -51,6 +56,11 @@ def test_definitions_expose_v010_jobs_only():
         "polymarket_minutely_odds_ingest",
         "dbt_full_refresh",
         "polymarket_selected_scope_full_pipeline",
+        "wc2026_market_registry_refresh",
+        "wc2026_hourly_odds_ingest",
+        "wc2026_dbt_build",
+        "wc2026_knockout_export",
+        "wc2026_full_pipeline",
     }
 
     assert {
@@ -86,6 +96,12 @@ def test_definitions_expose_v010_asset_keys():
         "polymarket_selected_token_minutely_odds",
         "polymarket_selected_token_daily_odds",
         "polymarket_selected_whale_minutely_odds",
+        "polymarket_wc2026_selected_markets",
+        "polymarket_wc2026_market_tokens",
+        "polymarket_wc2026_token_hourly_odds",
+        "polymarket_wc2026_knockout_market_tokens",
+        "polymarket_wc2026_knockout_markets",
+        "polymarket_wc2026_knockout_token_hourly_odds",
         "polymarket_sync_run_observability",
     }
 
@@ -93,6 +109,33 @@ def test_definitions_expose_v010_asset_keys():
     assert expected <= asset_keys
     excluded_source_slug = "fifa" + "index"
     assert not any(excluded_source_slug in key for key in asset_keys)
+
+
+def test_wc2026_jobs_pin_scope_config():
+    registry_config = wc2026_full_refresh_events_run_config()["ops"]
+    hourly_config = wc2026_hourly_odds_run_config()["ops"]
+    full_config = _merge_run_configs(
+        wc2026_full_refresh_events_run_config(),
+        wc2026_hourly_odds_run_config(),
+        {"ops": {"polymarket_dbt": {"config": {"full_refresh": True}}}},
+    )["ops"]
+
+    assert registry_config["polymarket_markets_snapshot"]["config"]["scope_names"] == [
+        "wc2026"
+    ]
+    assert registry_config["polymarket_market_scope_registry"]["config"][
+        "scope_names"
+    ] == ["wc2026"]
+    assert hourly_config["polymarket_token_odds_history_hourly"]["config"][
+        "scope_names"
+    ] == ["wc2026"]
+    assert full_config["polymarket_markets_snapshot"]["config"]["scope_names"] == [
+        "wc2026"
+    ]
+    assert full_config["polymarket_token_odds_history_hourly"]["config"][
+        "scope_names"
+    ] == ["wc2026"]
+    assert "polymarket_dbt" in full_config
 
 
 def test_polymarket_source_dagster_asset_keys_exist_in_definitions():

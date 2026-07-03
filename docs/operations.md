@@ -31,6 +31,14 @@ The main asset order is:
 - `dbt_full_refresh`: dbt analytics build.
 - `polymarket_selected_scope_full_pipeline`: full ingest plus dbt build.
 
+For World Cup 2026 work, prefer the fixed-scope jobs:
+
+- `wc2026_market_registry_refresh`: WC2026 market discovery, registry refresh, and metadata backfill.
+- `wc2026_hourly_odds_ingest`: hourly WC2026 token odds refresh.
+- `wc2026_dbt_build`: dbt analytics build for the WC2026 mart surface.
+- `wc2026_knockout_export`: build the graph-facing WC2026 knockout hourly mart.
+- `wc2026_full_pipeline`: WC2026 market discovery, hourly odds refresh, and dbt analytics build.
+
 ## Market Scopes
 
 Operators select one or more Polymarket scope presets with `POLYMARKET_MARKET_SCOPES`

@@ -245,6 +245,115 @@ models:
       - name: current_price
         description: Latest live-current hourly close price for this token.
 
+  - name: wc2026_selected_markets
+    description: WC2026-specific selected market universe.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [scope_name, market_id]
+    columns:
+      - name: scope_name
+        description: Scope name, fixed to wc2026 for this mart.
+        tests: [not_null]
+      - name: market_id
+        description: Polymarket market identifier.
+        tests: [not_null]
+
+  - name: wc2026_market_tokens
+    description: WC2026 token universe with Polymarket sports metadata.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id]
+    columns:
+      - name: clob_token_id
+        description: CLOB outcome token identifier.
+        tests: [not_null, unique]
+      - name: market_id
+        description: Polymarket market identifier.
+        tests: [not_null]
+
+  - name: wc2026_token_hourly_odds
+    description: WC2026 hourly OHLC odds, one row per token-hour.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_hour_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [clob_token_id, odds_hour_epoch]
+            price_columns:
+              - open_price
+              - high_price
+              - low_price
+              - close_price
+              - avg_price
+    columns:
+      - name: clob_token_id
+        description: CLOB outcome token identifier.
+        tests: [not_null]
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the UTC hour bucket.
+        tests: [not_null]
+
+  - name: wc2026_knockout_market_tokens
+    description: >
+      WC2026 knockout market tokens with stage/team classification and Yes/No sibling token IDs.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id]
+    columns:
+      - name: clob_token_id
+        description: CLOB outcome token identifier.
+        tests: [not_null, unique]
+      - name: stage_key
+        description: Normalized WC2026 knockout stage key.
+        tests: [not_null]
+      - name: team_name
+        description: Team extracted from the market question.
+        tests: [not_null]
+      - name: yes_clob_token_id
+        description: Yes outcome token for this market.
+
+  - name: wc2026_knockout_token_hourly_odds
+    description: >
+      Graph-facing WC2026 knockout hourly export. One row per CLOB token and UTC hour,
+      including stage/team classification, sports metadata, sibling token IDs, result
+      metadata, and hourly OHLC odds.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_hour_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [clob_token_id, odds_hour_epoch]
+            price_columns:
+              - open_price
+              - high_price
+              - low_price
+              - close_price
+              - avg_price
+    columns:
+      - name: clob_token_id
+        description: CLOB outcome token identifier.
+        tests: [not_null]
+      - name: market_id
+        description: Polymarket market identifier.
+        tests: [not_null]
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the UTC hour bucket.
+        tests: [not_null]
+      - name: stage_key
+        description: Normalized WC2026 knockout stage key.
+        tests: [not_null]
+      - name: team_name
+        description: Team extracted from the market question.
+        tests: [not_null]
+      - name: close_price
+        description: Closing price for the token in this UTC hour.
+        tests: [not_null]
+
   - name: selected_whale_minutely_odds
     description: >
       Minute-grain odds for high-liquidity selected-scope markets (volume >= polymarket_whale_min_volume_usd).

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export ``polymarket_marts.wc2026_knockout_markets`` to parquet."""
+"""Export graph-ready ``polymarket_marts.wc2026_knockout_token_hourly_odds``."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from export_selected_hourly_odds import _snapshot_duckdb_files
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
 MART_SCHEMA: Final = "polymarket_marts"
-MART_NAME: Final = "wc2026_knockout_markets"
+MART_NAME: Final = "wc2026_knockout_token_hourly_odds"
 
 
 def _qualified_name() -> str:

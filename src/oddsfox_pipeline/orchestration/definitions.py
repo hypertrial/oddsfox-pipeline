@@ -25,6 +25,11 @@ from oddsfox_pipeline.orchestration.jobs import (
     polymarket_ingest_incremental,
     polymarket_minutely_odds_ingest,
     polymarket_selected_scope_full_pipeline,
+    wc2026_dbt_build,
+    wc2026_full_pipeline,
+    wc2026_hourly_odds_ingest,
+    wc2026_knockout_export,
+    wc2026_market_registry_refresh,
 )
 from oddsfox_pipeline.orchestration.schedules import (
     polymarket_hourly_odds_schedule,
@@ -52,6 +57,11 @@ defs = Definitions(
         polymarket_hourly_odds_ingest,
         dbt_full_refresh,
         polymarket_selected_scope_full_pipeline,
+        wc2026_market_registry_refresh,
+        wc2026_hourly_odds_ingest,
+        wc2026_dbt_build,
+        wc2026_knockout_export,
+        wc2026_full_pipeline,
     ],
     schedules=[
         polymarket_minutely_odds_schedule,

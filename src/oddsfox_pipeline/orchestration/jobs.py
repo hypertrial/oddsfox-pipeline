@@ -5,6 +5,8 @@ from oddsfox_pipeline.orchestration.config import (
     full_refresh_events_run_config,
     hourly_odds_run_config,
     minutely_odds_run_config,
+    wc2026_full_refresh_events_run_config,
+    wc2026_hourly_odds_run_config,
 )
 
 _ANALYTICS_BUILD_EXECUTOR = multiprocess_executor.configured(
@@ -12,6 +14,14 @@ _ANALYTICS_BUILD_EXECUTOR = multiprocess_executor.configured(
     name="duckdb_serial_multiprocess",
 )
 _DUCKDB_WAREHOUSE_TAGS = {"duckdb_warehouse": "true"}
+
+
+def _merge_run_configs(*configs: dict) -> dict:
+    merged: dict = {"ops": {}}
+    for config in configs:
+        merged["ops"].update(config.get("ops", {}))
+    return merged
+
 
 POLYMARKET_INCREMENTAL_SELECTION = AssetSelection.assets(
     "polymarket_market_metadata_backfill",
@@ -37,6 +47,27 @@ POLYMARKET_FULL_REFRESH_EVENTS_SELECTION = AssetSelection.assets(
 POLYMARKET_FULL_PIPELINE_SELECTION = (
     POLYMARKET_FULL_REFRESH_EVENTS_SELECTION
     | POLYMARKET_MINUTELY_ODDS_SELECTION
+    | AssetSelection.groups("analytics")
+)
+
+WC2026_MARKET_REGISTRY_SELECTION = AssetSelection.assets(
+    "dlt_polymarket_markets",
+    "polymarket_markets_snapshot",
+    "polymarket_market_scope_registry",
+    "polymarket_market_metadata_backfill",
+)
+
+WC2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
+    "polymarket_token_odds_history_hourly",
+)
+
+WC2026_KNOCKOUT_EXPORT_SELECTION = AssetSelection.assets(
+    "polymarket_wc2026_knockout_token_hourly_odds",
+)
+
+WC2026_FULL_PIPELINE_SELECTION = (
+    WC2026_MARKET_REGISTRY_SELECTION
+    | WC2026_HOURLY_ODDS_SELECTION
     | AssetSelection.groups("analytics")
 )
 
@@ -82,6 +113,52 @@ polymarket_selected_scope_full_pipeline = define_asset_job(
     "polymarket_selected_scope_full_pipeline",
     selection=POLYMARKET_FULL_PIPELINE_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
-    config={**full_refresh_events_run_config(), **dbt_full_refresh_run_config()},
+    config=_merge_run_configs(
+        full_refresh_events_run_config(),
+        dbt_full_refresh_run_config(),
+    ),
     tags=_DUCKDB_WAREHOUSE_TAGS,
+)
+
+wc2026_market_registry_refresh = define_asset_job(
+    "wc2026_market_registry_refresh",
+    selection=WC2026_MARKET_REGISTRY_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=wc2026_full_refresh_events_run_config(),
+    tags={**_DUCKDB_WAREHOUSE_TAGS, "scope": "wc2026"},
+)
+
+wc2026_hourly_odds_ingest = define_asset_job(
+    "wc2026_hourly_odds_ingest",
+    selection=WC2026_HOURLY_ODDS_SELECTION,
+    config=wc2026_hourly_odds_run_config(),
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    tags={**_DUCKDB_WAREHOUSE_TAGS, "scope": "wc2026"},
+)
+
+wc2026_dbt_build = define_asset_job(
+    "wc2026_dbt_build",
+    selection=AssetSelection.groups("analytics"),
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=dbt_full_refresh_run_config(),
+    tags={**_DUCKDB_WAREHOUSE_TAGS, "scope": "wc2026"},
+)
+
+wc2026_knockout_export = define_asset_job(
+    "wc2026_knockout_export",
+    selection=WC2026_KNOCKOUT_EXPORT_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    tags={**_DUCKDB_WAREHOUSE_TAGS, "scope": "wc2026"},
+)
+
+wc2026_full_pipeline = define_asset_job(
+    "wc2026_full_pipeline",
+    selection=WC2026_FULL_PIPELINE_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=_merge_run_configs(
+        wc2026_full_refresh_events_run_config(),
+        wc2026_hourly_odds_run_config(),
+        dbt_full_refresh_run_config(),
+    ),
+    tags={**_DUCKDB_WAREHOUSE_TAGS, "scope": "wc2026"},
 )

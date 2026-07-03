@@ -285,3 +285,36 @@ def hourly_odds_run_config() -> dict:
             "polymarket_token_odds_history_hourly": {"config": odds_cfg.model_dump()},
         }
     }
+
+
+def wc2026_full_refresh_events_run_config() -> dict:
+    markets_cfg = MarketsSyncConfig(
+        scope_names=["wc2026"],
+        discovery_mode="full_keyset",
+        force_full_discovery=True,
+        max_pages_without_progress=None,
+    )
+    registry_cfg = MarketScopeRegistryConfig(
+        scope_names=["wc2026"],
+        force_refresh=True,
+        max_pages_without_progress=None,
+    )
+    metadata_cfg = MetadataBackfillConfig(scope_names=["wc2026"])
+    return {
+        "ops": {
+            "polymarket_markets_snapshot": {"config": markets_cfg.model_dump()},
+            "polymarket_market_scope_registry": {"config": registry_cfg.model_dump()},
+            "polymarket_market_metadata_backfill": {
+                "config": metadata_cfg.model_dump()
+            },
+        }
+    }
+
+
+def wc2026_hourly_odds_run_config() -> dict:
+    odds_cfg = HourlyOddsSyncConfig(scope_names=["wc2026"])
+    return {
+        "ops": {
+            "polymarket_token_odds_history_hourly": {"config": odds_cfg.model_dump()},
+        }
+    }

@@ -47,6 +47,16 @@ models:
           +materialized: view
         selected_whale_minutely_odds:
           +materialized: view
+        wc2026_selected_markets:
+          +materialized: view
+        wc2026_market_tokens:
+          +materialized: view
+        wc2026_token_hourly_odds:
+          +materialized: view
+        wc2026_knockout_market_tokens:
+          +materialized: view
+        wc2026_knockout_token_hourly_odds:
+          +materialized: view
       observability:
         +schema: polymarket_observability
         +materialized: table

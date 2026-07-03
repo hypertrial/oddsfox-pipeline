@@ -53,6 +53,13 @@ Current Polymarket analytics outputs live in `polymarket_marts`:
 - `selected_token_daily_odds`: full selected-scope daily OHLC odds time series.
 - `selected_markets`: selected-scope market universe (`scope_name`, `market_id` grain).
 - `selected_whale_minutely_odds`: high-volume selected-scope minutely odds.
+- `wc2026_knockout_token_hourly_odds`: graph-ready WC2026 knockout hourly odds with stage/team classification.
+
+For World Cup work, prefer the scope-specific Dagster jobs:
+`wc2026_market_registry_refresh`, `wc2026_hourly_odds_ingest`,
+`wc2026_dbt_build`, `wc2026_knockout_export`, and `wc2026_full_pipeline`.
+The generic `polymarket_*` jobs remain available for reusable selected-scope
+operations.
 
 See [Data Contracts](docs/data-contracts.md).
 

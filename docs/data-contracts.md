@@ -18,6 +18,7 @@ Schema: `polymarket_marts`
 | `selected_token_hourly_odds` | One row per `(clob_token_id, odds_hour_utc)` | Full hourly OHLC odds time series for all selected tokens (dbt view). |
 | `selected_token_live_hourly_odds` | One row per `(clob_token_id, odds_hour_utc)` | Same schema as `selected_token_hourly_odds`, but restricted to full history for markets whose latest complete hour is active, not closed, and within 48 hours of the mart's global max hour. |
 | `wc2026_knockout_markets` | One row per `clob_token_id` | WC2026 knockout stage market tokens with sports metadata, latest live-current hourly price, and result metadata. |
+| `wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Graph-ready WC2026 knockout hourly odds with stage/team classification and Yes/No sibling token IDs. |
 | `selected_token_daily_odds` | One row per `(clob_token_id, odds_date_utc)` | Full daily OHLC odds time series for all selected tokens (dbt view). |
 | `selected_whale_minutely_odds` | One row per token timestamp | Minutely odds for selected markets above the configured volume threshold (filtered view over `selected_token_minutely_odds`). |
 
@@ -34,7 +35,11 @@ Schema: `polymarket_marts`
 - `token_coverage` covers all staged tokens.
 - `selected_token_minutely_odds`, `selected_token_hourly_odds`, and `selected_token_daily_odds` are full time series for the active selected market scopes (union across `POLYMARKET_MARKET_SCOPES`).
 - `selected_token_live_hourly_odds` is the graph-ready live-current hourly export surface. It intentionally excludes closed and stale markets while preserving full hourly history for each admitted market.
-- `wc2026_knockout_markets` is the WC2026-specific export surface for downstream knockout visualization artifacts.
+- Prefer the WC2026-specific Dagster jobs (`wc2026_market_registry_refresh`,
+  `wc2026_hourly_odds_ingest`, `wc2026_dbt_build`, `wc2026_knockout_export`,
+  `wc2026_full_pipeline`) for World Cup work. The generic `polymarket_*`
+  selected-scope jobs remain reusable lower-level jobs.
+- `wc2026_knockout_token_hourly_odds` is the WC2026-specific export surface for downstream knockout visualization artifacts. `wc2026_knockout_markets` is the latest-token compatibility view.
 - `selected_token_minutely_odds`, `selected_token_hourly_odds`, `selected_token_daily_odds`, and `selected_whale_minutely_odds` include `outcome_label` (e.g. Yes/No) resolved from `outcome_index`; no join to `selected_markets` is required to interpret which side a row represents.
 - `selected_whale_minutely_odds` is filtered by the active selected market scopes and
   `polymarket_whale_min_volume_usd`.

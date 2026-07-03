@@ -21,24 +21,26 @@ def _load_export_module():
 
 def test_export_wc2026_knockout_markets_round_trip(tmp_path: Path) -> None:
     export_wc2026_knockout_markets, mart_exists = _load_export_module()
-    out_path = tmp_path / "wc2026_knockout_markets.parquet"
+    out_path = tmp_path / "wc2026_knockout_token_hourly_odds.parquet"
     conn = duckdb.connect()
     try:
         conn.execute("create schema polymarket_marts")
         conn.execute(
             """
-            create table polymarket_marts.wc2026_knockout_markets (
+            create table polymarket_marts.wc2026_knockout_token_hourly_odds (
                 market_id varchar,
                 clob_token_id varchar,
                 stage_key varchar,
-                team_name varchar
+                team_name varchar,
+                odds_hour_epoch bigint,
+                close_price double
             )
             """
         )
         conn.execute(
             """
-            insert into polymarket_marts.wc2026_knockout_markets
-            values ('m1', 'tok-a', 'winner', 'Alpha')
+            insert into polymarket_marts.wc2026_knockout_token_hourly_odds
+            values ('m1', 'tok-a', 'winner', 'Alpha', 1782604800, 0.42)
             """
         )
         assert mart_exists(conn) is True
@@ -47,4 +49,4 @@ def test_export_wc2026_knockout_markets_round_trip(tmp_path: Path) -> None:
     finally:
         conn.close()
 
-    assert got == [("m1", "tok-a", "winner", "Alpha")]
+    assert got == [("m1", "tok-a", "winner", "Alpha", 1782604800, 0.42)]
