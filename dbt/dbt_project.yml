@@ -29,21 +29,13 @@ models:
           +materialized: table
         int_polymarket_wc2026_token_universe:
           +materialized: table
-        int_polymarket_wc2026_token_daily_timeseries:
-          +materialized: table
       marts:
         +schema: polymarket_wc2026_marts
         +materialized: table
         +tags: ["mart", "core", "wc2026", "polymarket"]
-        polymarket_wc2026_token_hourly_odds:
-          +materialized: table
-        polymarket_wc2026_token_daily_odds:
-          +materialized: table
-        polymarket_wc2026_markets:
-          +materialized: view
-        polymarket_wc2026_market_tokens:
-          +materialized: view
         polymarket_wc2026_knockout_market_tokens:
+          +materialized: view
+        polymarket_wc2026_knockout_markets:
           +materialized: view
         polymarket_wc2026_knockout_token_hourly_odds:
           +materialized: table

@@ -177,7 +177,7 @@ def test_refresh_registry_from_events_keyset_tag_and_volume_filters(
         max_pages=10,
         keyset_closed=False,
         keyset_tag_slugs=["fifa-world-cup", "2026-fifa-world-cup"],
-        keyset_volume_min=100000,
+        keyset_volume_min=5000,
     )
     assert client.get.call_count == 2
     tag_slugs = [
@@ -188,9 +188,9 @@ def test_refresh_registry_from_events_keyset_tag_and_volume_filters(
     for call in client.get.call_args_list:
         params = call.kwargs.get("params") or {}
         assert params.get("closed") is False
-        assert params.get("volume_min") == 100000
+        assert params.get("volume_min") == 5000
     assert summary["keyset_tag_slugs"] == ["fifa-world-cup", "2026-fifa-world-cup"]
-    assert summary["keyset_volume_min"] == 100000
+    assert summary["keyset_volume_min"] == 5000
 
 
 def test_full_keyset_stops_after_pages_without_progress(monkeypatch, tmp_path):

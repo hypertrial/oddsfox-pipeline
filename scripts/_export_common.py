@@ -7,7 +7,7 @@ import duckdb
 
 
 def snapshot_duckdb_files(src: Path, dest_dir: Path) -> Path:
-    """Copy ``src`` and same-directory siblings (e.g. ``.wal``) for offline export."""
+    """Copy ``src`` and same-directory siblings (e.g. ``.wal``) for offline use."""
     dest_dir.mkdir(parents=True, exist_ok=True)
     files = sorted(f for f in src.parent.glob(src.name + "*") if f.is_file())
     if not files:
@@ -39,13 +39,3 @@ def mart_exists(conn: duckdb.DuckDBPyConnection, schema: str, mart_name: str) ->
         [schema, mart_name],
     ).fetchone()
     return bool(row and row[0])
-
-
-def parquet_schema(
-    conn: duckdb.DuckDBPyConnection, parquet_path: Path
-) -> list[tuple[str, str]]:
-    rows = conn.execute(
-        "describe select * from read_parquet(?)",
-        [str(parquet_path)],
-    ).fetchall()
-    return [(str(name), str(dtype)) for name, dtype, *_rest in rows]

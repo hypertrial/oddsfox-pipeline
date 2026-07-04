@@ -8,7 +8,7 @@ from pydantic import Field, field_validator, model_validator
 from oddsfox_pipeline.config.settings import (
     DEFAULT_ODDS_FIDELITY_MINUTES,
     MIN_ODDS_FIDELITY_MINUTES,
-    POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD,
+    POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
 )
 
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_PAGES = 20_000
@@ -63,7 +63,7 @@ class MarketsSyncConfig(GuardrailConfig):
     keyset_closed: bool | None = None
     keyset_tag_slugs: list[str] | None = None
     keyset_volume_min: float | None = Field(
-        default=POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD, ge=0
+        default=POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD, ge=0
     )
     max_pages_without_progress: int | None = None
 
@@ -80,7 +80,7 @@ class MarketScopeRegistryConfig(GuardrailConfig):
     keyset_closed: bool | None = None
     keyset_tag_slugs: list[str] | None = None
     keyset_volume_min: float | None = Field(
-        default=POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD, ge=0
+        default=POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD, ge=0
     )
     max_pages_without_progress: int | None = None
     skip_if_snapshot_refreshed: bool = True
@@ -146,8 +146,8 @@ class OddsSyncConfig(GuardrailConfig):
     short_range_first: bool = True
     market_page_size: int = 2000
     ended_market_grace_days: int | None = Field(default=7, ge=0)
-    min_volume: float | None = None
-    max_volume: float | None = Field(default=POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD)
+    min_volume: float | None = Field(default=POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD)
+    max_volume: float | None = None
     history_backfill_days: int = Field(default=0, ge=0)
 
     @field_validator("min_volume", "max_volume")
@@ -166,10 +166,10 @@ class HourlyOddsSyncConfig(OddsSyncConfig):
     force: bool = True
     skip_recent_minutes: int = 1
     overlap_minutes: int = 60
-    window_hours: int = 336
-    history_backfill_days: int = Field(default=14, ge=0)
+    window_hours: int = 720
+    history_backfill_days: int = Field(default=30, ge=0)
     routine_interval_hours: int = Field(default=1, ge=1)
-    min_volume: float | None = Field(default=POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD)
+    min_volume: float | None = Field(default=POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD)
     max_volume: float | None = None
     ended_market_grace_days: int | None = Field(default=7, ge=0)
 

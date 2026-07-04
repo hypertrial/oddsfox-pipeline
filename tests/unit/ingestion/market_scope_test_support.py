@@ -6,7 +6,7 @@ import pytest
 
 from oddsfox_pipeline.config import settings as config_settings
 from oddsfox_pipeline.config.settings_polymarket import (
-    POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD,
+    POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
 )
 from oddsfox_pipeline.ingestion.polymarket.market_scope import MarketScopeConfig
 from oddsfox_pipeline.ingestion.polymarket.market_scope import (
@@ -25,7 +25,7 @@ def slug_only_cfg(**kwargs) -> MarketScopeConfig:
         "registry_max_event_pages": None,
         "event_tags": (),
         "keyset_closed": False,
-        "keyset_volume_min": POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD,
+        "keyset_volume_min": POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
         "keyset_related_tags": False,
         "tag_discovery": False,
         "tag_closure_rounds": 0,
@@ -59,7 +59,7 @@ def _market_scope_test_discovery_settings(monkeypatch):
     monkeypatch.setattr(
         config_settings,
         "POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN",
-        POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD,
+        POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
         raising=False,
     )
     monkeypatch.setattr(

@@ -36,17 +36,19 @@ def test_intermediate_wc2026_markets_owns_scope_logic():
     assert "market_scope_event_slugs" not in lowered
 
 
-def test_wc2026_hourly_aggregates_canonical_odds():
+def test_wc2026_knockout_hourly_aggregates_canonical_odds_directly():
     sql = (
         DBT_ROOT
         / "models"
         / "polymarket_wc2026"
         / "marts"
-        / "polymarket_wc2026_token_hourly_odds.sql"
+        / "polymarket_wc2026_knockout_token_hourly_odds.sql"
     ).read_text()
     lowered = sql.lower()
 
-    assert "{{ ref('int_polymarket_wc2026_market_tokens') }}" in lowered
+    assert "{{ ref('polymarket_wc2026_knockout_market_tokens') }}" in lowered
     assert "{{ ref('stg_polymarket_wc2026_odds') }}" in lowered
-    assert "date_trunc('hour', odds_timestamp)" in lowered
+    assert "date_trunc('hour', o.odds_timestamp)" in lowered
+    assert "polymarket_wc2026_token_hourly_odds" not in lowered
+    assert "interval 30 day" in lowered
     assert "selected_" not in lowered

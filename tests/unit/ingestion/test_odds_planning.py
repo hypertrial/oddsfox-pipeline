@@ -439,12 +439,12 @@ def test_iter_token_plans_paged_history_backfill_uses_full_iterator(monkeypatch)
         skip_recent_minutes=0,
         market_page_size=10,
         history_backfill_days=45,
-        min_volume=100_000.0,
+        min_volume=5_000.0,
     )
     try:
         while True:
             next(gen)
     except StopIteration:
         pass
-    assert captured.get("min_volume") == 100_000.0
+    assert captured.get("min_volume") == 5_000.0
     assert captured.get("json_array_only") is True

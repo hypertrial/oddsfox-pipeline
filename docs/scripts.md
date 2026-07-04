@@ -6,8 +6,7 @@ Run them through `uv run python` so they use the repo environment.
 ## Warehouse
 
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
-- `export_polymarket_wc2026_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_token_hourly_odds` to parquet plus a companion `.md` data spec.
-- `export_polymarket_wc2026_knockout_markets.py`: export `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` to parquet for WC2026 knockout artifact builds.
+- `export_polymarket_wc2026_knockout_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` to parquet for WC2026 knockout artifact builds.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_wc2026_raw.odds_history` rows older than a retention window (default 365 days).
 - `repair_polymarket_wc2026_token_sync_ledger.py`: rebuild a corrupted token sync ledger.
@@ -24,10 +23,9 @@ Run scripts through the project environment:
 
 ```bash
 uv run python scripts/profile_warehouse.py --snapshot-copy
-uv run python scripts/export_polymarket_wc2026_hourly_odds.py
-uv run python scripts/export_polymarket_wc2026_hourly_odds.py --snapshot-copy --output /tmp/wc2026_hourly.parquet
-# writes /tmp/wc2026_hourly.parquet and /tmp/wc2026_hourly.md
-uv run python scripts/export_polymarket_wc2026_knockout_markets.py
+uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py
+uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py --snapshot-copy --output /tmp/wc2026_knockout_hourly.parquet
+# writes /tmp/wc2026_knockout_hourly.parquet
 # writes artifacts/polymarket_wc2026_exports/polymarket_wc2026_knockout_token_hourly_odds_<UTC>.parquet
 ```
 

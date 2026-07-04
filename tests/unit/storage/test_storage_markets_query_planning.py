@@ -452,10 +452,10 @@ def test_count_candidate_market_tokens_without_cutoff(duck):
 
 def test_volume_where_clause_helpers():
     assert markets._volume_where_clause(None, None) == ""
-    clause = markets._volume_where_clause(100_000.0, None)
-    assert "COALESCE(m.volume, 0) >= 100000.0" in clause
-    clause = markets._volume_where_clause(None, 100_000.0)
-    assert "COALESCE(m.volume, 0) < 100000.0" in clause
+    clause = markets._volume_where_clause(5_000.0, None)
+    assert "COALESCE(m.volume, 0) >= 5000.0" in clause
+    clause = markets._volume_where_clause(None, 5_000.0)
+    assert "COALESCE(m.volume, 0) < 5000.0" in clause
     with pytest.raises(ValueError, match="min_volume"):
         markets._validate_volume_bound("bad", name="min_volume")
     with pytest.raises(ValueError, match="max_volume"):
@@ -467,12 +467,12 @@ def test_iter_markets_with_tokens_volume_bounds(duck):
         duck,
         [
             (
-                "m_whale",
+                "m_high_volume",
                 "q",
                 "c",
                 "d",
                 "[]",
-                150_000.0,
+                10_000.0,
                 True,
                 False,
                 "2024-01-01 00:00:00",
@@ -500,25 +500,25 @@ def test_iter_markets_with_tokens_volume_bounds(duck):
             ),
         ],
         [
-            ("m_whale", '["tok_whale"]'),
+            ("m_high_volume", '["tok_high_volume"]'),
             ("m_small", '["tok_small"]'),
         ],
     )
-    whale_pages = list(
+    high_volume_pages = list(
         markets.iter_markets_with_tokens(
             page_size=10,
             json_array_only=True,
-            min_volume=100_000.0,
+            min_volume=5_000.0,
         )
     )
-    whale_ids = {row[0] for page in whale_pages for row in page}
-    assert whale_ids == {"m_whale"}
+    high_volume_ids = {row[0] for page in high_volume_pages for row in page}
+    assert high_volume_ids == {"m_high_volume"}
 
     daily_pages = list(
         markets.iter_markets_with_tokens(
             page_size=10,
             json_array_only=True,
-            max_volume=100_000.0,
+            max_volume=5_000.0,
         )
     )
     daily_ids = {row[0] for page in daily_pages for row in page}

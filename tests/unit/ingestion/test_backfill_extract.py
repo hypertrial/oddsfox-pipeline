@@ -164,14 +164,14 @@ def test_iter_gamma_events_keyset_tag_and_volume_filters():
             keyset_closed=False,
             keyset_tag_slug="fifa-world-cup",
             keyset_related_tags=True,
-            keyset_volume_min=100000,
+            keyset_volume_min=5000,
         )
     )
     params = client.get.call_args.kwargs.get("params") or {}
     assert params.get("closed") is False
     assert params.get("tag_slug") == "fifa-world-cup"
     assert params.get("related_tags") == "true"
-    assert params.get("volume_min") == 100000
+    assert params.get("volume_min") == 5000
 
 
 def test_iter_gamma_events_keyset_related_tags_param():

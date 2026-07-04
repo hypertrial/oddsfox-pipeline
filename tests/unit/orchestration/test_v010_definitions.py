@@ -67,13 +67,6 @@ def test_definitions_expose_v010_asset_keys():
         ("polymarket", "wc2026", "intermediate", "markets"),
         ("polymarket", "wc2026", "intermediate", "market_tokens"),
         ("polymarket", "wc2026", "intermediate", "token_universe"),
-        ("polymarket", "wc2026", "intermediate", "token_daily_timeseries"),
-        ("polymarket", "wc2026", "marts", "market_coverage"),
-        ("polymarket", "wc2026", "marts", "markets"),
-        ("polymarket", "wc2026", "marts", "token_coverage"),
-        ("polymarket", "wc2026", "marts", "token_hourly_odds"),
-        ("polymarket", "wc2026", "marts", "token_daily_odds"),
-        ("polymarket", "wc2026", "marts", "market_tokens"),
         ("polymarket", "wc2026", "marts", "knockout_market_tokens"),
         ("polymarket", "wc2026", "marts", "knockout_markets"),
         ("polymarket", "wc2026", "marts", "knockout_token_hourly_odds"),
@@ -144,7 +137,9 @@ def test_hourly_schedule_targets_hourly_job_and_config():
     cfg = run_config["ops"]["polymarket_wc2026_raw_token_odds_history_hourly"]["config"]
     assert cfg["fidelity"] == 60
     assert cfg["overlap_minutes"] == 60
-    assert cfg["min_volume"] == 100000.0
+    assert cfg["window_hours"] == 720
+    assert cfg["history_backfill_days"] == 30
+    assert cfg["min_volume"] == 5000.0
     assert cfg["max_volume"] is None
 
 

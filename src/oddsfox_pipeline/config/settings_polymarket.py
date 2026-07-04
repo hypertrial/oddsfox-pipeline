@@ -25,7 +25,7 @@ HTTP_REQUEST_TIMEOUT = (
 
 MIN_ODDS_FIDELITY_MINUTES = 1
 DEFAULT_ODDS_FIDELITY_MINUTES = 1440
-POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD = 100_000.0
+POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD = 5_000.0
 DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE = "wc2026"
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED = _env_bool(
     "POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED",
@@ -68,17 +68,17 @@ def _parse_scope_keyset_closed_env() -> bool | None:
 
 
 def _parse_scope_keyset_volume_min_env() -> float | None:
-    """Default POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD; empty/none/null omits volume_min on /events/keyset."""
+    """Default knockout floor; empty/none/null omits volume_min on /events/keyset."""
     raw = os.getenv("POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN")
     if raw is None:
-        return POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD
+        return POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD
     normalized = str(raw).strip().lower()
     if not normalized or normalized in {"none", "null"}:
         return None
     try:
         return float(normalized)
     except ValueError:
-        return POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD
+        return POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD
 
 
 POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN = _parse_scope_keyset_volume_min_env()
@@ -135,7 +135,7 @@ __all__ = [
     "HTTP_REQUEST_TIMEOUT",
     "MARKETS_REQUESTS_PER_SECOND",
     "POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED",
-    "POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD",
+    "POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD",
     "DEFAULT_ODDS_FIDELITY_MINUTES",
     "DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE",
     "MIN_ODDS_FIDELITY_MINUTES",

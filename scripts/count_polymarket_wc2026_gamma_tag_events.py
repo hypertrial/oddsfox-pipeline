@@ -4,7 +4,7 @@ Count WC2026 Polymarket Gamma events via GET /events/keyset.
 
 Defaults match routine ingestion (``MarketsSyncConfig``):
   - all scope tags from ``market_scopes.yml`` / ``POLYMARKET_WC2026_SCOPE_EVENT_TAGS``
-  - default ``closed=false`` and ``volume_min=100000`` (omit via env ``any`` / empty volume)
+  - default ``closed=false`` and ``volume_min=5000`` (omit via env ``any`` / empty volume)
   - ``related_tags=true`` when ``POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS`` is on
 
 Logs progress every N events (default 1000) per tag and prints per-tag totals.

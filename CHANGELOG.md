@@ -13,13 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Round of 16/32 questions (`Will % be eliminated in the Round of X of the World Cup?`),
   so `round_of_16` and `round_of_32` rows populate knockout marts when those markets
   cross the volume floor.
-- Breaking: public WC2026 marts now use a volume-scoped universe (`market_scope_registry`
-  ∩ reported `volume >= $100,000` USD). `int_polymarket_wc2026_markets` applies the
-  floor; downstream marts and knockout exports inherit it. Default Gamma keyset discovery
-  `keyset_volume_min` is aligned to the same $100k threshold.
+- Breaking: public WC2026 marts now expose only knockout-related Polymarket markets
+  with reported `volume >= $5,000` USD. The public mart surface is
+  `polymarket_wc2026_knockout_market_tokens`,
+  `polymarket_wc2026_knockout_token_hourly_odds`,
+  `polymarket_wc2026_knockout_markets`, and run observability.
+- Breaking: removed the broad public WC2026 marts for all-token hourly odds, daily odds,
+  token coverage, market coverage, market universe, and market-token universe.
+  Operators should reset local DuckDB warehouses or drop old dbt schemas before rebuilding.
+- Knockout public odds now normalize to the progression side: winner/reach markets
+  use the Yes token, elimination-framed markets use the No token, and marts expose
+  `market_direction` plus `source_outcome_label` for source-framing metadata.
+- Default Gamma keyset discovery now uses `keyset_volume_min=5000`.
 - `polymarket_wc2026_hourly_odds_ingest` and `polymarket_wc2026_full_pipeline` now
-  default odds sync to the trailing 14 days (`history_backfill_days=14`,
-  `window_hours=336`).
+  default odds sync to the trailing 30 days (`history_backfill_days=30`,
+  `window_hours=720`, `min_volume=5000`).
 - Breaking: removed minutely ingestion, minutely odds marts, minutely schedule
   flags, the standalone knockout Dagster job, and the unused Dagster odds repair
   asset. `polymarket_wc2026_dbt_build` and `polymarket_wc2026_full_pipeline` still build the knockout
@@ -41,11 +49,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Polymarket scope helpers now load any slug-like scope present in
   `market_scopes.yml`; the packaged v0.1.x Dagster/dbt graph remains fixed to
   WC2026.
-- `polymarket_wc2026_token_hourly_odds`,
-  `polymarket_wc2026_token_daily_odds`, and
-  `polymarket_wc2026_knockout_token_hourly_odds` now materialize as dbt
-  tables. Operators with old local view relations should reset their local
-  DuckDB warehouse or drop the affected dbt schemas before rebuilding.
+- `polymarket_wc2026_knockout_token_hourly_odds` now materializes as a dbt table.
+  Operators with old local view relations should reset their local DuckDB warehouse
+  or drop the affected dbt schemas before rebuilding.
 
 ## [0.1.4] - 2026-07-03
 

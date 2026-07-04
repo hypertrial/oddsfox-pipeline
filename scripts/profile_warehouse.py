@@ -31,6 +31,7 @@ from typing import Any, Final
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _bootstrap import ensure_src_on_path
+from _export_common import snapshot_duckdb_files
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
 
@@ -149,22 +150,6 @@ def _parse_format(s: str) -> Any:
     from oddsfox_pipeline.storage.duckdb.profile import OutputFormat
 
     return OutputFormat(s.strip().lower())
-
-
-def _snapshot_duckdb_files(src: Path, dest_dir: Path) -> Path:
-    """Copy ``src`` and same-directory siblings (e.g. ``.wal``) for offline profiling."""
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    files = sorted(f for f in src.parent.glob(src.name + "*") if f.is_file())
-    if not files:
-        raise FileNotFoundError(
-            f"No DuckDB files matched {src.name!r}* under {src.parent}"
-        )
-    for f in files:
-        shutil.copy2(f, dest_dir / f.name)
-    main = dest_dir / src.name
-    if not main.is_file():
-        raise FileNotFoundError(f"Expected {main} after snapshot copy")
-    return main
 
 
 def main() -> int:
@@ -308,7 +293,7 @@ def main() -> int:
             )
         )
         try:
-            profile_path = _snapshot_duckdb_files(duck, snap_dir)
+            profile_path = snapshot_duckdb_files(duck, snap_dir)
         except BaseException:
             shutil.rmtree(snap_dir, ignore_errors=True)
             raise

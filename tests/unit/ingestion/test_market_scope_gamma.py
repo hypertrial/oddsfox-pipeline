@@ -115,7 +115,7 @@ def test_gamma_events_keyset_shared_pagination_params(monkeypatch, tmp_path):
     assert len(wc_calls) >= 1 and len(fb_calls) >= 1
     assert wc_calls[0].get("limit") == fb_calls[0].get("limit") == 500
     assert wc_calls[0].get("closed") is False
-    assert wc_calls[0].get("volume_min") == 100000
+    assert wc_calls[0].get("volume_min") == 5000
     assert wc_calls[1].get("next_cursor") == "c2"
     assert fb_calls[1].get("next_cursor") == "c2"
     assert "closed" not in fb_calls[0]

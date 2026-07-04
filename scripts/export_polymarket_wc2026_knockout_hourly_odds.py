@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export graph-ready ``polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds``."""
+"""Export 30-day WC2026 knockout hourly odds from the local DuckDB warehouse."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def mart_exists(conn: duckdb.DuckDBPyConnection) -> bool:
     return _mart_exists(conn, MART_SCHEMA, MART_NAME)
 
 
-def export_polymarket_wc2026_knockout_markets(
+def export_polymarket_wc2026_knockout_hourly_odds(
     conn: duckdb.DuckDBPyConnection,
     output_path: Path,
 ) -> int:
@@ -91,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = open_duckdb_connection(profile_path, read_only=args.read_only)
     try:
-        row_count = export_polymarket_wc2026_knockout_markets(conn, output_path)
+        row_count = export_polymarket_wc2026_knockout_hourly_odds(conn, output_path)
     except LookupError as exc:
         sys.stderr.write(f"{exc}\n")
         return 1

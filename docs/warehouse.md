@@ -49,22 +49,16 @@ Schema: `polymarket_wc2026_intermediate`
 - `int_polymarket_wc2026_token_universe`: materialized canonical one-row-per-token
   join of market tokens to market labels, state, and volume.
 - `int_polymarket_wc2026_markets`: markets admitted by the fixed WC2026 scope;
-  one row per `(scope_name, market_id)`.
+  one row per `(scope_name, market_id)` with the $5,000 knockout volume floor.
 - `int_polymarket_wc2026_market_tokens`: WC2026 subset of the token universe.
-- `int_polymarket_wc2026_token_daily_timeseries`: token-level daily odds joined to the token universe.
 
 ## dbt Marts
 
 Schema: `polymarket_wc2026_marts`
 
-- `polymarket_wc2026_market_coverage`: market-level daily odds coverage rolled up from `polymarket_wc2026_token_coverage`.
-- `polymarket_wc2026_token_coverage`: token-level health and coverage, including daily coverage,
-  sync ledger state, persisted skip reason, gap diagnostics, and market fully
-  checked rollups.
-- `polymarket_wc2026_token_hourly_odds`: full hourly OHLC odds time series for WC2026 tokens (dbt table).
-- `polymarket_wc2026_token_daily_odds`: full daily OHLC odds time series for WC2026 tokens (dbt table).
-- `polymarket_wc2026_markets`: WC2026 market universe; one row per `(scope_name, market_id)`.
-- `polymarket_wc2026_knockout_token_hourly_odds`: graph-ready WC2026 knockout hourly odds (dbt table).
+- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for knockout markets with reported volume >= $5,000 USD.
+- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for progression-side knockout tokens (dbt table).
+- `polymarket_wc2026_knockout_markets`: latest progression-side knockout snapshot.
 
 Schema: `polymarket_wc2026_observability`
 
@@ -89,6 +83,6 @@ DROP TABLE IF EXISTS polymarket_wc2026_raw.markets;
 
 Then materialize `polymarket_wc2026_raw_markets`.
 
-If an existing local DuckDB file has old dbt view relation types for public
-time-series marts, reset the local warehouse (`rm oddsfox.duckdb*`) or drop the
+If an existing local DuckDB file has deleted broad public marts or old dbt
+relation types, reset the local warehouse (`rm oddsfox.duckdb*`) or drop the
 affected dbt schemas before rebuilding.

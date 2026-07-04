@@ -1,36 +1,18 @@
 version: 2
 
 models:
-  - name: polymarket_wc2026_markets
+  - name: polymarket_wc2026_knockout_market_tokens
     description: >
-      WC2026 Polymarket market universe (scope=wc2026, volume >= $100,000 USD),
-      one row per (scope_name, market_id).
-    tests:
-      - no_duplicate_grain:
-          arguments:
-            grain_columns: [scope_name, market_id]
-    columns:
-      - name: scope_name
-        description: Scope name, fixed to wc2026.
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['wc2026']
-      - name: market_id
-        description: Polymarket market identifier.
-        tests: [not_null]
-
-  - name: polymarket_wc2026_market_tokens
-    description: >
-      WC2026 Polymarket CLOB outcome-token universe (scope=wc2026, volume >= $100,000 USD).
+      WC2026 knockout progression-side token universe (scope=wc2026, volume >=
+      $5,000 USD). Winner/reach markets use the Yes token; elimination-framed
+      markets use the No token.
     tests:
       - no_duplicate_grain:
           arguments:
             grain_columns: [clob_token_id]
     columns:
       - name: clob_token_id
-        description: CLOB outcome token identifier.
+        description: Source CLOB outcome token selected for progression-side odds.
         tests: [not_null, unique]
       - name: market_id
         description: Polymarket market identifier.
@@ -38,83 +20,46 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('polymarket_wc2026_markets')
+                to: ref('int_polymarket_wc2026_markets')
                 field: market_id
-
-  - name: polymarket_wc2026_token_hourly_odds
-    description: >
-      Full WC2026 hourly OHLC odds time series. One row per
-      (clob_token_id, odds_hour_utc) with WC2026 market labels and volume.
-      Grain, price bounds, and WC2026 membership are checked by
-      assert_polymarket_wc2026_token_hourly_odds_contract.
-    columns:
-      - name: market_id
-        description: Polymarket market identifier.
+      - name: source_outcome_label
+        description: Source outcome label for the selected CLOB token.
+        tests: [not_null]
+      - name: market_direction
+        description: Source market wording direction.
         tests:
           - not_null
-          - relationships:
+          - accepted_values:
               arguments:
-                to: ref('polymarket_wc2026_markets')
-                field: market_id
-      - name: odds_hour_epoch
-        description: Unix epoch seconds for the UTC hour bucket.
-        tests: [not_null]
-
-  - name: polymarket_wc2026_token_daily_odds
-    description: >
-      Full WC2026 daily OHLC odds time series. One row per
-      (clob_token_id, odds_date_utc) with WC2026 market labels and volume.
-      Grain, price bounds, and WC2026 membership are checked by
-      assert_polymarket_wc2026_token_daily_odds_contract.
-    columns:
-      - name: market_id
-        description: Polymarket market identifier.
+                values: ['winner', 'advance', 'elimination']
+      - name: stage_key
+        description: Normalized WC2026 knockout stage key.
         tests:
           - not_null
-          - relationships:
+          - accepted_values:
               arguments:
-                to: ref('polymarket_wc2026_markets')
-                field: market_id
-      - name: odds_date_utc
-        description: UTC calendar date for the aggregated token odds row.
+                values:
+                  - winner
+                  - final
+                  - semifinal
+                  - quarterfinal
+                  - round_of_16
+                  - round_of_32
+      - name: team_name
+        description: Team extracted from the source question.
         tests: [not_null]
-
-  - name: polymarket_wc2026_market_coverage
-    description: WC2026 market-level coverage rolled up from polymarket_wc2026_token_coverage.
-    columns:
-      - name: market_id
-        description: Polymarket market identifier.
-        tests: [not_null, unique]
-      - name: token_count
-        description: Count of distinct CLOB outcome tokens for the market.
-        tests: [not_null]
-
-  - name: polymarket_wc2026_token_coverage
-    description: >
-      WC2026 token-level health and coverage mart with daily coverage, sync ledger
-      state, persisted skip reason, and gap diagnostics.
-    columns:
-      - name: clob_token_id
-        description: CLOB outcome token identifier.
-        tests: [not_null, unique]
-      - name: market_id
-        description: Polymarket market identifier.
-        tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('stg_polymarket_wc2026_markets')
-                field: market_id
 
   - name: polymarket_wc2026_knockout_markets
-    description: WC2026 knockout-stage market/token export surface.
+    description: >
+      Latest WC2026 knockout progression-side market snapshot, including the
+      latest hourly close price when available.
     tests:
       - no_duplicate_grain:
           arguments:
             grain_columns: [clob_token_id]
     columns:
       - name: clob_token_id
-        description: CLOB outcome token identifier.
+        description: Source CLOB outcome token selected for progression-side odds.
         tests: [not_null, unique]
       - name: market_id
         description: Polymarket market identifier.
@@ -122,50 +67,19 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('polymarket_wc2026_markets')
+                to: ref('int_polymarket_wc2026_markets')
                 field: market_id
       - name: stage_key
         description: Normalized WC2026 knockout stage key.
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values:
-                  - winner
-                  - final
-                  - semifinal
-                  - quarterfinal
-                  - round_of_16
-                  - round_of_32
-
-  - name: polymarket_wc2026_knockout_market_tokens
-    description: WC2026 knockout market tokens with stage/team classification.
-    tests:
-      - no_duplicate_grain:
-          arguments:
-            grain_columns: [clob_token_id]
-    columns:
-      - name: clob_token_id
-        description: CLOB outcome token identifier.
-        tests: [not_null, unique]
-      - name: stage_key
-        description: Normalized WC2026 knockout stage key.
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values:
-                  - winner
-                  - final
-                  - semifinal
-                  - quarterfinal
-                  - round_of_16
-                  - round_of_32
+        tests: [not_null]
+      - name: market_direction
+        description: Source market wording direction.
+        tests: [not_null]
 
   - name: polymarket_wc2026_knockout_token_hourly_odds
     description: >
-      WC2026 knockout hourly export with stage/team classification, sports metadata,
-      result metadata, and hourly OHLC odds.
+      Trailing 30-day WC2026 knockout progression-side hourly OHLC odds with
+      stage/team classification and source-market metadata.
     tests:
       - no_duplicate_grain:
           arguments:
@@ -181,7 +95,7 @@ models:
               - avg_price
     columns:
       - name: clob_token_id
-        description: CLOB outcome token identifier.
+        description: Source CLOB outcome token selected for progression-side odds.
         tests: [not_null]
       - name: market_id
         description: Polymarket market identifier.
@@ -189,8 +103,14 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('polymarket_wc2026_markets')
+                to: ref('int_polymarket_wc2026_markets')
                 field: market_id
+      - name: source_outcome_label
+        description: Source outcome label for the selected CLOB token.
+        tests: [not_null]
       - name: odds_hour_epoch
         description: Unix epoch seconds for the UTC hour bucket.
+        tests: [not_null]
+      - name: market_direction
+        description: Source market wording direction.
         tests: [not_null]

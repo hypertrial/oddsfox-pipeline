@@ -67,16 +67,22 @@ _FIXTURE_SOURCE = f"""
 """
 
 
-def _run_classification() -> list[tuple[str, str, str, int]]:
+def _run_classification() -> list[tuple[str, str, str, int, str, str]]:
     sql = MODEL_SQL.replace(
-        "from {{ ref('polymarket_wc2026_market_tokens') }} as t",
+        "from {{ ref('int_polymarket_wc2026_market_tokens') }} as t",
         f"from ({_FIXTURE_SOURCE.strip()}) as t",
     )
     conn = duckdb.connect()
     try:
         rows = conn.execute(
             f"""
-            select clob_token_id, stage_key, team_name, stage_rank
+            select
+                clob_token_id,
+                stage_key,
+                team_name,
+                stage_rank,
+                market_direction,
+                source_outcome_label
             from ({sql}) as classified
             order by clob_token_id
             """
@@ -89,16 +95,31 @@ def _run_classification() -> list[tuple[str, str, str, int]]:
 def test_knockout_stage_classification_covers_all_stages() -> None:
     rows = _run_classification()
     by_token = {
-        clob_token_id: (stage_key, team_name, stage_rank)
-        for clob_token_id, stage_key, team_name, stage_rank in rows
+        clob_token_id: (
+            stage_key,
+            team_name,
+            stage_rank,
+            market_direction,
+            source_outcome_label,
+        )
+        for (
+            clob_token_id,
+            stage_key,
+            team_name,
+            stage_rank,
+            market_direction,
+            source_outcome_label,
+        ) in rows
     }
 
-    assert by_token["tok-w-yes"] == ("winner", "Argentina", 5)
-    assert by_token["tok-f-yes"] == ("final", "Argentina", 4)
-    assert by_token["tok-s-yes"] == ("semifinal", "Argentina", 3)
-    assert by_token["tok-q-yes"] == ("quarterfinal", "Argentina", 2)
-    assert by_token["tok-r16r-yes"] == ("round_of_16", "Mexico", 1)
-    assert by_token["tok-r32r-yes"] == ("round_of_32", "USA", 0)
-    assert by_token["tok-r16e-yes"] == ("round_of_16", "Mexico", 1)
-    assert by_token["tok-r32e-yes"] == ("round_of_32", "USA", 0)
+    assert by_token["tok-w-yes"] == ("winner", "Argentina", 5, "winner", "Yes")
+    assert by_token["tok-f-yes"] == ("final", "Argentina", 4, "advance", "Yes")
+    assert by_token["tok-s-yes"] == ("semifinal", "Argentina", 3, "advance", "Yes")
+    assert by_token["tok-q-yes"] == ("quarterfinal", "Argentina", 2, "advance", "Yes")
+    assert by_token["tok-r16r-yes"] == ("round_of_16", "Mexico", 1, "advance", "Yes")
+    assert by_token["tok-r32r-yes"] == ("round_of_32", "USA", 0, "advance", "Yes")
+    assert by_token["tok-r16e-no"] == ("round_of_16", "Mexico", 1, "elimination", "No")
+    assert by_token["tok-r32e-no"] == ("round_of_32", "USA", 0, "elimination", "No")
+    assert "tok-r16e-yes" not in by_token
+    assert "tok-r32e-yes" not in by_token
     assert "tok-other" not in by_token

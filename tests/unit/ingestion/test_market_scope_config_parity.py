@@ -53,7 +53,7 @@ def test_market_scope_keyset_discovery_defaults(monkeypatch) -> None:
     )
 
     assert closed is False
-    assert volume_min == 100000.0
+    assert volume_min == 5000.0
 
 
 def test_market_scope_keyset_discovery_omit_filters_via_empty_env(monkeypatch) -> None:

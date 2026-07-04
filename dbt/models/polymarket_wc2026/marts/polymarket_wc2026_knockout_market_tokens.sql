@@ -43,18 +43,24 @@ with extracted as (
         case
             when t.question like 'Will % reach the Round of 16 at the 2026 FIFA World Cup?'
                 then replace(replace(t.question, 'Will ', ''), ' reach the Round of 16 at the 2026 FIFA World Cup?', '')
+            else ''
+        end as round_of_16_reach_team,
+        case
             when t.question like 'Will % be eliminated in the Round of 16 of the World Cup?'
                 then replace(replace(t.question, 'Will ', ''), ' be eliminated in the Round of 16 of the World Cup?', '')
             else ''
-        end as round_of_16_team,
+        end as round_of_16_elimination_team,
         case
             when t.question like 'Will % reach the Round of 32 at the 2026 FIFA World Cup?'
                 then replace(replace(t.question, 'Will ', ''), ' reach the Round of 32 at the 2026 FIFA World Cup?', '')
+            else ''
+        end as round_of_32_reach_team,
+        case
             when t.question like 'Will % be eliminated in the Round of 32 of the World Cup?'
                 then replace(replace(t.question, 'Will ', ''), ' be eliminated in the Round of 32 of the World Cup?', '')
             else ''
-        end as round_of_32_team
-    from {{ ref('polymarket_wc2026_market_tokens') }} as t
+        end as round_of_32_elimination_team
+    from {{ ref('int_polymarket_wc2026_market_tokens') }} as t
 ),
 
 classified as (
@@ -88,9 +94,9 @@ classified as (
                 then 'semifinal'
             when quarterfinal_team != ''
                 then 'quarterfinal'
-            when round_of_16_team != ''
+            when round_of_16_reach_team != '' or round_of_16_elimination_team != ''
                 then 'round_of_16'
-            when round_of_32_team != ''
+            when round_of_32_reach_team != '' or round_of_32_elimination_team != ''
                 then 'round_of_32'
         end as stage_key,
         case
@@ -98,27 +104,34 @@ classified as (
             when final_team != '' then 4
             when semifinal_team != '' then 3
             when quarterfinal_team != '' then 2
-            when round_of_16_team != '' then 1
-            when round_of_32_team != '' then 0
+            when round_of_16_reach_team != '' or round_of_16_elimination_team != '' then 1
+            when round_of_32_reach_team != '' or round_of_32_elimination_team != '' then 0
         end as stage_rank,
+        case
+            when winner_team != '' then 'winner'
+            when
+                final_team != ''
+                or semifinal_team != ''
+                or quarterfinal_team != ''
+                or round_of_16_reach_team != ''
+                or round_of_32_reach_team != ''
+                then 'advance'
+            when
+                round_of_16_elimination_team != ''
+                or round_of_32_elimination_team != ''
+                then 'elimination'
+        end as market_direction,
         coalesce(
             nullif(winner_team, ''),
             nullif(final_team, ''),
             nullif(semifinal_team, ''),
             nullif(quarterfinal_team, ''),
-            nullif(round_of_16_team, ''),
-            nullif(round_of_32_team, '')
+            nullif(round_of_16_reach_team, ''),
+            nullif(round_of_16_elimination_team, ''),
+            nullif(round_of_32_reach_team, ''),
+            nullif(round_of_32_elimination_team, '')
         ) as team_name
     from extracted
-),
-
-sibling_tokens as (
-    select
-        market_id,
-        max(case when lower(outcome_label) = 'yes' then clob_token_id end) as yes_clob_token_id,
-        max(case when lower(outcome_label) = 'no' then clob_token_id end) as no_clob_token_id
-    from classified
-    group by 1
 )
 
 select
@@ -127,7 +140,7 @@ select
     c.clob_token_id,
     c.token_updated_at,
     c.question,
-    c.outcome_label,
+    c.outcome_label as source_outcome_label,
     c.event_slug,
     c.market_slug,
     c.condition_id,
@@ -136,8 +149,6 @@ select
     c.group_item_title,
     c.tags,
     c.clob_token_ids,
-    s.yes_clob_token_id,
-    s.no_clob_token_id,
     c.is_active,
     c.is_closed,
     c.is_resolved,
@@ -146,12 +157,18 @@ select
     c.market_volume_usd,
     c.stage_key,
     c.stage_rank,
-    c.team_name,
-    case
-        when c.clob_token_id = s.yes_clob_token_id then s.no_clob_token_id
-        when c.clob_token_id = s.no_clob_token_id then s.yes_clob_token_id
-    end as opposite_clob_token_id
+    c.market_direction,
+    c.team_name
 from classified as c
-left join sibling_tokens as s
-    on c.market_id = s.market_id
-where c.stage_key is not null
+where
+    c.stage_key is not null
+    and (
+        (
+            c.market_direction in ('winner', 'advance')
+            and lower(c.outcome_label) = 'yes'
+        )
+        or (
+            c.market_direction = 'elimination'
+            and lower(c.outcome_label) = 'no'
+        )
+    )

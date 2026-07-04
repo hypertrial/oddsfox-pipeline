@@ -8,7 +8,7 @@ from oddsfox_pipeline.storage.duckdb.schemas import dbt_schemas
 def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
     assert dbt_schemas.qualified_relation("schema", "model") == "schema.model"
     assert (
-        dbt_schemas.resolve_source_slug({"name": "polymarket_wc2026_markets"})
+        dbt_schemas.resolve_source_slug({"name": "polymarket_wc2026_knockout_markets"})
         == dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026
     )
     assert (
@@ -38,9 +38,9 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
     ) == AssetKey(["polymarket", "wc2026", "intermediate", "token_universe"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
-        "polymarket_wc2026_token_hourly_odds",
+        "polymarket_wc2026_knockout_token_hourly_odds",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
-    ) == AssetKey(["polymarket", "wc2026", "marts", "token_hourly_odds"])
+    ) == AssetKey(["polymarket", "wc2026", "marts", "knockout_token_hourly_odds"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
         "polymarket_wc2026_sync_run_observability",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,

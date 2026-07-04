@@ -13,7 +13,7 @@ select
     k.outcome_index,
     k.clob_token_id,
     k.question,
-    k.outcome_label,
+    k.source_outcome_label,
     k.event_slug,
     k.market_slug,
     k.condition_id,
@@ -22,9 +22,6 @@ select
     k.group_item_title,
     k.tags,
     k.clob_token_ids,
-    k.yes_clob_token_id,
-    k.no_clob_token_id,
-    k.opposite_clob_token_id,
     k.is_active,
     k.is_closed,
     k.is_resolved,
@@ -36,6 +33,7 @@ select
     p.current_price_hour_epoch,
     k.stage_key,
     k.stage_rank,
+    k.market_direction,
     k.team_name
 from {{ ref('polymarket_wc2026_knockout_market_tokens') }} as k
 left join current_token_prices as p

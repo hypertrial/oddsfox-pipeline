@@ -93,24 +93,28 @@ def test_snapshot_dbt_models_reports_missing_relations(tmp_path):
 
 def test_dbt_delta_and_formatters():
     before = {
-        "polymarket_wc2026_marts.polymarket_wc2026_markets": {
+        "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets": {
             "exists": False,
             "rows": None,
         }
     }
     after = {
-        "polymarket_wc2026_marts.polymarket_wc2026_markets": {"exists": True, "rows": 3}
+        "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets": {
+            "exists": True,
+            "rows": 3,
+        }
     }
 
     assert delta_dbt_models(before, after) == {
-        "polymarket_wc2026_marts.polymarket_wc2026_markets": {
+        "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets": {
             "before": {"exists": False, "rows": None},
             "after": {"exists": True, "rows": 3},
         }
     }
     assert "markets=2" in format_raw_snapshot_log({"markets_rows": 2})
-    assert "polymarket_wc2026_markets:exists=True,rows=3" in format_dbt_snapshot_log(
-        after
+    assert (
+        "polymarket_wc2026_knockout_markets:exists=True,rows=3"
+        in format_dbt_snapshot_log(after)
     )
 
 

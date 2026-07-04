@@ -54,18 +54,16 @@ debt includes:
   showed it is reused heavily by WC2026 marts and the dbt build stayed
   neutral or faster after the change.
 - `int_polymarket_wc2026_market_tokens` is materialized as a table because it
-  fans out to multiple downstream WC2026 marts. Costguard now tracks its
-  remaining incremental-conversion question as `SQLCOST040`.
-- Public time-series marts (`polymarket_wc2026_token_hourly_odds`,
-  `polymarket_wc2026_token_daily_odds`, and
-  `polymarket_wc2026_knockout_token_hourly_odds`) are materialized as tables.
+  feeds the public knockout token classifier. Costguard now tracks its remaining
+  incremental-conversion question as `SQLCOST040`.
+- `polymarket_wc2026_knockout_token_hourly_odds` is materialized as a table.
   Incremental conversion is intentionally deferred until ingestion exposes a
   reliable late-arrival watermark.
 - `SQLCOST040`: `int_polymarket_wc2026_token_universe` and
-  `polymarket_wc2026_token_coverage` rebuild as full tables. Defer incremental conversion
+  `polymarket_wc2026_knockout_token_hourly_odds` rebuild as full tables. Defer incremental conversion
   until row-volume profiling defines safe predicates.
-- Low advisories: `ORDER BY` without `LIMIT` in `polymarket_wc2026_token_coverage` and
-  `polymarket_wc2026_token_hourly_odds`.
+- Low advisories may still flag `ORDER BY` without `LIMIT` in table-building
+  marts; treat them as profiling prompts, not automatic refactors.
 
 Do not change materializations on advisory text alone. Capture dbt build
 runtime, relevant relation sizes from `scripts/profile_warehouse.py`, and the

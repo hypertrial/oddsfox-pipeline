@@ -51,12 +51,10 @@ See [Architecture](docs/architecture.md) and [Warehouse](docs/warehouse.md).
 
 Current Polymarket analytics outputs live in `polymarket_wc2026_marts`:
 
-- `polymarket_wc2026_token_coverage`: token-level coverage and health.
-- `polymarket_wc2026_market_coverage`: market-level daily coverage rollup.
-- `polymarket_wc2026_token_hourly_odds`: full WC2026 hourly OHLC odds time series.
-- `polymarket_wc2026_token_daily_odds`: full WC2026 daily OHLC odds time series.
-- `polymarket_wc2026_markets`: WC2026 market universe (`scope_name`, `market_id` grain).
-- `polymarket_wc2026_knockout_token_hourly_odds`: graph-ready WC2026 knockout hourly odds with stage/team classification.
+- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for knockout-related markets with reported volume >= $5,000 USD.
+- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for the progression side of each knockout market.
+- `polymarket_wc2026_knockout_markets`: latest progression-side knockout snapshot with market/team/stage metadata.
+- `polymarket_wc2026_sync_run_observability`: run-level ingestion telemetry.
 
 Dagster registers WC2026 jobs only: `polymarket_wc2026_market_registry_refresh`,
 `polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline`.

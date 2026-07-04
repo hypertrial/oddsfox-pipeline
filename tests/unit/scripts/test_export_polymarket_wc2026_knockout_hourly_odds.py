@@ -1,4 +1,4 @@
-"""Tests for scripts/export_polymarket_wc2026_knockout_markets.py."""
+"""Tests for scripts/export_polymarket_wc2026_knockout_hourly_odds.py."""
 
 from __future__ import annotations
 
@@ -11,16 +11,18 @@ import duckdb
 def _load_export_module():
     scripts_dir = Path(__file__).resolve().parents[3] / "scripts"
     sys.path.insert(0, str(scripts_dir))
-    from export_polymarket_wc2026_knockout_markets import (
-        export_polymarket_wc2026_knockout_markets,
+    from export_polymarket_wc2026_knockout_hourly_odds import (
+        export_polymarket_wc2026_knockout_hourly_odds,
         mart_exists,
     )
 
-    return export_polymarket_wc2026_knockout_markets, mart_exists
+    return export_polymarket_wc2026_knockout_hourly_odds, mart_exists
 
 
-def test_export_polymarket_wc2026_knockout_markets_round_trip(tmp_path: Path) -> None:
-    export_polymarket_wc2026_knockout_markets, mart_exists = _load_export_module()
+def test_export_polymarket_wc2026_knockout_hourly_odds_round_trip(
+    tmp_path: Path,
+) -> None:
+    export_polymarket_wc2026_knockout_hourly_odds, mart_exists = _load_export_module()
     out_path = tmp_path / "polymarket_wc2026_knockout_token_hourly_odds.parquet"
     conn = duckdb.connect()
     try:
@@ -31,6 +33,7 @@ def test_export_polymarket_wc2026_knockout_markets_round_trip(tmp_path: Path) ->
                 market_id varchar,
                 clob_token_id varchar,
                 stage_key varchar,
+                market_direction varchar,
                 team_name varchar,
                 odds_hour_epoch bigint,
                 close_price double
@@ -40,13 +43,13 @@ def test_export_polymarket_wc2026_knockout_markets_round_trip(tmp_path: Path) ->
         conn.execute(
             """
             insert into polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds
-            values ('m1', 'tok-a', 'winner', 'Alpha', 1782604800, 0.42)
+            values ('m1', 'tok-a', 'winner', 'winner', 'Alpha', 1782604800, 0.42)
             """
         )
         assert mart_exists(conn) is True
-        assert export_polymarket_wc2026_knockout_markets(conn, out_path) == 1
+        assert export_polymarket_wc2026_knockout_hourly_odds(conn, out_path) == 1
         got = conn.execute("select * from read_parquet(?)", [str(out_path)]).fetchall()
     finally:
         conn.close()
 
-    assert got == [("m1", "tok-a", "winner", "Alpha", 1782604800, 0.42)]
+    assert got == [("m1", "tok-a", "winner", "winner", "Alpha", 1782604800, 0.42)]

@@ -45,7 +45,7 @@ EXPECTED_ASSET_KEYS = {
     ("polymarket", "wc2026", "raw", "token_odds_history_hourly"),
     ("polymarket", "wc2026", "staging", "markets"),
     ("polymarket", "wc2026", "intermediate", "token_universe"),
-    ("polymarket", "wc2026", "marts", "token_hourly_odds"),
+    ("polymarket", "wc2026", "marts", "knockout_token_hourly_odds"),
     ("polymarket", "wc2026", "observability", "sync_run_observability"),
 }
 
@@ -66,15 +66,16 @@ OLD_ACTIVE_PATTERNS = (
 
 EXPECTED_SCRIPT_FILES = {
     "count_polymarket_wc2026_gamma_tag_events.py",
-    "export_polymarket_wc2026_hourly_odds.py",
-    "export_polymarket_wc2026_knockout_markets.py",
+    "export_polymarket_wc2026_knockout_hourly_odds.py",
     "repair_polymarket_wc2026_token_sync_ledger.py",
 }
 
 OLD_SCRIPT_FILES = {
     "count_wc2026_gamma_tag_events.py",
     "export_wc2026_hourly_odds.py",
+    "export_polymarket_wc2026_hourly_odds.py",
     "export_wc2026_knockout_markets.py",
+    "export_polymarket_wc2026_knockout_markets.py",
     "repair_wc2026_polymarket_token_sync_ledger.py",
 }
 

@@ -24,7 +24,7 @@ flowchart LR
     raw --> ops["DuckDB ops ledgers"]
     raw --> dbt["dbt models"]
     ops --> dbt
-    dbt --> marts["Coverage and WC2026 odds marts"]
+    dbt --> marts["WC2026 knockout odds marts"]
     dagster["Dagster jobs and schedules"] --> dlt
     dagster --> odds
     dagster --> dbt
@@ -32,7 +32,7 @@ flowchart LR
 
 Text fallback: prediction-market metadata and odds APIs feed DuckDB raw and ops
 schemas. Dagster runs the ingest and dbt steps. dbt publishes local analytics
-marts for coverage, health, and WC2026 odds time series.
+marts for WC2026 knockout odds and ingestion observability.
 
 The shipped Dagster/dbt graph is fixed to `wc2026`; see
 [Configuration](configuration.md) for the seed-backed helper boundary.
@@ -55,20 +55,20 @@ flowchart TD
     ops["polymarket_wc2026_ops"] --> staging
     staging --> token_universe["int_polymarket_wc2026_token_universe"]
     staging --> wc2026_markets_int["int_polymarket_wc2026_markets"]
+    staging --> odds["stg_polymarket_wc2026_odds"]
     ops --> wc2026_markets_int
-    wc2026_markets_int --> polymarket_wc2026_markets["polymarket_wc2026_markets"]
     token_universe --> wc2026_tokens["int_polymarket_wc2026_market_tokens"]
     wc2026_markets_int --> wc2026_tokens
-    token_universe --> coverage["polymarket_wc2026_token_coverage"]
-    coverage --> polymarket_wc2026_market_coverage["polymarket_wc2026_market_coverage"]
-    wc2026_tokens --> hourly["polymarket_wc2026_token_hourly_odds"]
-    wc2026_tokens --> daily["polymarket_wc2026_token_daily_odds"]
+    wc2026_tokens --> knockout_tokens["polymarket_wc2026_knockout_market_tokens"]
+    knockout_tokens --> knockout_hourly["polymarket_wc2026_knockout_token_hourly_odds"]
+    odds --> knockout_hourly
+    knockout_hourly --> knockout_markets["polymarket_wc2026_knockout_markets"]
+    ops --> observability["polymarket_wc2026_sync_run_observability"]
 ```
 
 Text fallback: staging normalizes raw and ops tables, intermediates establish
-token universes and WC2026 market scope rows, and marts publish token health,
-market coverage, full WC2026 hourly/daily odds time series, and the WC2026
-market universe (`scope_name`, `market_id`).
+token universes and WC2026 market scope rows, and marts publish knockout
+progression-side token odds plus latest knockout snapshots.
 
 ## Operating Model
 

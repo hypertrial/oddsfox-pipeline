@@ -52,14 +52,14 @@ def test_odds_config_validates_volume_bounds():
         OddsSyncConfig(max_volume=-1)
 
 
-def test_hourly_odds_config_defaults_to_hourly_whale_sync():
+def test_hourly_odds_config_defaults_to_knockout_30_day_sync():
     cfg = HourlyOddsSyncConfig()
 
     assert cfg.fidelity == 60
     assert cfg.force is True
     assert cfg.overlap_minutes == 60
-    assert cfg.window_hours == 336
-    assert cfg.history_backfill_days == 14
+    assert cfg.window_hours == 720
+    assert cfg.history_backfill_days == 30
     assert cfg.routine_interval_hours == 1
-    assert cfg.min_volume == 100000.0
+    assert cfg.min_volume == 5000.0
     assert cfg.max_volume is None

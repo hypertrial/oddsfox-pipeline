@@ -23,9 +23,9 @@ Flat Dagster op names remain source-first, for example
 ## Jobs
 
 - `polymarket_wc2026_market_registry_refresh`: WC2026 market discovery, registry refresh, and metadata backfill.
-- `polymarket_wc2026_hourly_odds_ingest`: hourly WC2026 token odds refresh (trailing 14 days by default).
+- `polymarket_wc2026_hourly_odds_ingest`: hourly WC2026 token odds refresh (trailing 30 days by default).
 - `polymarket_wc2026_dbt_build`: dbt analytics build for the WC2026 mart surface, including knockout marts.
-- `polymarket_wc2026_full_pipeline`: WC2026 market discovery, hourly odds refresh (trailing 14 days), and dbt analytics build.
+- `polymarket_wc2026_full_pipeline`: WC2026 market discovery, hourly odds refresh (trailing 30 days), and dbt analytics build.
 
 ## WC2026 Scope
 
