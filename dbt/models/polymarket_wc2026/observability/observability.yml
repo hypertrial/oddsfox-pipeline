@@ -54,7 +54,7 @@ models:
 
   - name: polymarket_wc2026_knockout_data_quality
     description: >
-      Row-level WC2026 knockout DQ findings for source-state anomalies, sparse stage coverage,
+      WC2026 knockout DQ findings for source-state anomalies, sparse stage coverage,
       missing/stale hourly odds, and impossible derived contract states.
     tests:
       - no_duplicate_grain:
@@ -77,7 +77,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['token', 'stage']
+                values: ['token', 'stage', 'team']
       - name: market_id
         description: Market id when the issue is token-level.
       - name: clob_token_id
@@ -90,6 +90,9 @@ models:
         description: Derived market state tied to token-level issues.
       - name: issue_detail
         description: Human-readable explanation of the finding.
+        tests: [not_null]
+      - name: issue_count
+        description: Number of source rows, tokens, teams, or expected coverage items represented by this issue row.
         tests: [not_null]
       - name: observed_at
         description: dbt build timestamp when this finding was produced.

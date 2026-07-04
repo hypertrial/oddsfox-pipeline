@@ -53,3 +53,69 @@ def test_export_polymarket_wc2026_knockout_hourly_odds_round_trip(
         conn.close()
 
     assert got == [("m1", "tok-a", "winner", "winner", "Alpha", 1782604800, 0.42)]
+
+
+def test_export_polymarket_wc2026_knockout_hourly_odds_filters(
+    tmp_path: Path,
+) -> None:
+    export_polymarket_wc2026_knockout_hourly_odds, _mart_exists = _load_export_module()
+    conn = duckdb.connect()
+    try:
+        conn.execute("create schema polymarket_wc2026_marts")
+        conn.execute(
+            """
+            create table polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds (
+                market_id varchar,
+                clob_token_id varchar,
+                is_live_market boolean,
+                is_still_alive boolean,
+                close_price double
+            )
+            """
+        )
+        conn.execute(
+            """
+            insert into polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds
+            values
+                ('m-live-active', 'tok-live-active', true, true, 0.7),
+                ('m-closed-active', 'tok-closed-active', false, true, 0.9),
+                ('m-live-eliminated', 'tok-live-eliminated', true, false, 0.2)
+            """
+        )
+
+        default_path = tmp_path / "default.parquet"
+        live_path = tmp_path / "live.parquet"
+        active_path = tmp_path / "active.parquet"
+        combined_path = tmp_path / "combined.parquet"
+
+        assert export_polymarket_wc2026_knockout_hourly_odds(conn, default_path) == 3
+        assert (
+            export_polymarket_wc2026_knockout_hourly_odds(
+                conn, live_path, live_only=True
+            )
+            == 2
+        )
+        assert (
+            export_polymarket_wc2026_knockout_hourly_odds(
+                conn, active_path, active_teams_only=True
+            )
+            == 2
+        )
+        assert (
+            export_polymarket_wc2026_knockout_hourly_odds(
+                conn,
+                combined_path,
+                live_only=True,
+                active_teams_only=True,
+            )
+            == 1
+        )
+
+        combined_tokens = conn.execute(
+            "select clob_token_id from read_parquet(?)",
+            [str(combined_path)],
+        ).fetchall()
+    finally:
+        conn.close()
+
+    assert combined_tokens == [("tok-live-active",)]

@@ -66,9 +66,9 @@ Schema: `polymarket_wc2026_intermediate`
 
 Schema: `polymarket_wc2026_marts`
 
-- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for real WC2026 team knockout markets with reported volume >= $5,000 USD, plus derived `market_status` and live/historical flags.
-- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for real-team progression-side knockout tokens (dbt table), including propagated market and tournament status.
-- `polymarket_wc2026_knockout_markets`: latest real-team progression-side knockout snapshot with explicit current-price status. Use `is_live_market` or `current_price_status = 'fresh_live'` for live-only views; closed/resolved rows are retained as historical rows.
+- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for real WC2026 team knockout markets with reported volume >= $5,000 USD, plus derived `market_status`, live/historical flags, and explicit price semantics.
+- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for real-team progression-side knockout tokens (dbt table), including propagated market status, tournament status, and `price_represents = 'progression'`.
+- `polymarket_wc2026_knockout_markets`: latest real-team progression-side knockout snapshot with explicit current-price status and progression outcome labels. Use `is_live_market` or `current_price_status = 'fresh_live'` for live-only views; closed/resolved rows are retained as historical rows.
 
 Schema: `international_results_wc2026_marts`
 
@@ -79,11 +79,11 @@ Schema: `polymarket_wc2026_observability`
 
 - `polymarket_wc2026_sync_run_observability`: run-level ingestion and odds-sync telemetry.
 - `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage vs public scoped tokens by stage, direction, and market status.
-- `polymarket_wc2026_knockout_data_quality`: row-level DQ findings for source-state anomalies, sparse stage coverage, and stale or missing odds.
+- `polymarket_wc2026_knockout_data_quality`: DQ findings for aggregated source-state anomalies, sparse stage coverage, stale or missing odds, and live-team alignment.
 
 Schema: `international_results_wc2026_observability`
 
-- `international_results_wc2026_data_quality`: warning-level findings when a tied knockout match has no unique inferred advancer.
+- `international_results_wc2026_data_quality`: warning-level findings when a tied knockout match has no unique inferred advancer or when the fixture/result source load is older than 12 hours.
 
 ## dlt Landing And Canonical Tables
 

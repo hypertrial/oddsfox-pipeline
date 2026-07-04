@@ -12,9 +12,9 @@ Schema: `polymarket_wc2026_marts`
 
 | Relation | Grain | Contract |
 | --- | --- | --- |
-| `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token universe for knockout-related markets with reported volume >= $5,000 USD. |
-| `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, and result metadata. |
-| `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata. |
+| `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token universe for knockout-related markets with reported volume >= $5,000 USD, including explicit price semantics. |
+| `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, result metadata, and price semantics. |
+| `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
 
 Schema: `international_results_wc2026_marts`
 
@@ -48,8 +48,11 @@ Schema: `international_results_wc2026_marts`
 - `stage_key` values are `winner`, `final`, `semifinal`, `quarterfinal`,
   `round_of_16`, and `round_of_32`.
 - Public knockout odds are normalized to the progression side. Winner/reach markets
-  use the Yes token; elimination-framed markets use the No token. Use
-  `market_direction` and `source_outcome_label` to inspect the source framing.
+  use the Yes token; elimination-framed markets use the No token. `price_represents`
+  is fixed to `progression`, and `progression_outcome_label` states the normalized
+  outcome represented by the price. For example, a Round-of-32 elimination market
+  with `source_outcome_label = 'No'` exposes `not_eliminated_in_round_of_32`, so a
+  high price means the team advanced past that round.
 - Public knockout marts keep historical closed/resolved rows. Filter `is_live_market = true`
   or `market_status = 'live'` when you need live odds only. `source_state_anomaly`
   marks upstream rows where Gamma reports both active and closed; the derived status
@@ -63,7 +66,10 @@ Schema: `international_results_wc2026_marts`
   than 3 hours old.
 - `polymarket_wc2026_knockout_token_hourly_odds` aggregates directly from staged
   raw odds and the knockout token classifier, and only exposes the trailing 30
-  days of hourly OHLC rows.
+  days of hourly OHLC rows. The export script supports `--live-only` and
+  `--active-teams-only` filters for downstream live views without adding another mart.
+- `international_results_wc2026_data_quality` emits a warning when the latest
+  fixture/result source load is older than 12 hours.
 - Use `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
   `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline` for Dagster operations.
   `international_results_wc2026_match_results_ingest` refreshes only the FIFA
@@ -87,7 +93,8 @@ Schema: `international_results_wc2026_marts`
 - FIFA World Cup result scope, stage counts, 48-team roster shape, tied knockout
   advancer inference/DQ surfacing, and Polymarket real-team filtering.
 - Hard-fail DQ checks for error-severity rows in `polymarket_wc2026_knockout_data_quality`.
-- Warn-level DQ checks for stale/missing live odds and unsurfaced source-state or hourly coverage issues.
+- Warn-level DQ checks for stale/missing live odds, unsurfaced source-state or
+  hourly coverage issues, live-team alignment, and stale fixture/result source loads.
 - Observability run health (warn-level: latest run error-token regression and history coverage floor).
 
 Warn-level observability tests fail softly in `dbt build` output; treat warnings as operator signals on real warehouses, not hard CI blockers when the disposable CI fixture is healthy.

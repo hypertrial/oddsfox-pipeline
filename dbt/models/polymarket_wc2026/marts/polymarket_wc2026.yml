@@ -32,6 +32,28 @@ models:
           - accepted_values:
               arguments:
                 values: ['winner', 'advance', 'elimination']
+      - name: price_represents
+        description: Semantic meaning of public price fields; fixed to progression-side probability.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['progression']
+      - name: progression_outcome_label
+        description: Stable normalized progression outcome represented by the selected token price.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - win_world_cup
+                  - reach_final
+                  - reach_semifinal
+                  - reach_quarterfinal
+                  - reach_round_of_16
+                  - reach_round_of_32
+                  - not_eliminated_in_round_of_16
+                  - not_eliminated_in_round_of_32
       - name: market_status
         description: Derived market state; resolved and closed markets are historical, not live odds.
         tests:
@@ -106,6 +128,28 @@ models:
       - name: market_direction
         description: Source market wording direction.
         tests: [not_null]
+      - name: price_represents
+        description: Semantic meaning of public price fields; fixed to progression-side probability.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['progression']
+      - name: progression_outcome_label
+        description: Stable normalized progression outcome represented by the selected token price.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - win_world_cup
+                  - reach_final
+                  - reach_semifinal
+                  - reach_quarterfinal
+                  - reach_round_of_16
+                  - reach_round_of_32
+                  - not_eliminated_in_round_of_16
+                  - not_eliminated_in_round_of_32
       - name: market_status
         description: Derived market state; closed/resolved rows remain in this snapshot as historical rows.
         tests:
@@ -180,6 +224,28 @@ models:
       - name: market_direction
         description: Source market wording direction.
         tests: [not_null]
+      - name: price_represents
+        description: Semantic meaning of public OHLC price fields; fixed to progression-side probability.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['progression']
+      - name: progression_outcome_label
+        description: Stable normalized progression outcome represented by the selected token price.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - win_world_cup
+                  - reach_final
+                  - reach_semifinal
+                  - reach_quarterfinal
+                  - reach_round_of_16
+                  - reach_round_of_32
+                  - not_eliminated_in_round_of_16
+                  - not_eliminated_in_round_of_32
       - name: market_status
         description: Derived market state propagated from the knockout token universe.
         tests:

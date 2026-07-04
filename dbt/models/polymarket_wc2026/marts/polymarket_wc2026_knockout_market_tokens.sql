@@ -121,6 +121,16 @@ classified as (
                 or round_of_32_elimination_team != ''
                 then 'elimination'
         end as market_direction,
+        case
+            when winner_team != '' then 'win_world_cup'
+            when final_team != '' then 'reach_final'
+            when semifinal_team != '' then 'reach_semifinal'
+            when quarterfinal_team != '' then 'reach_quarterfinal'
+            when round_of_16_reach_team != '' then 'reach_round_of_16'
+            when round_of_16_elimination_team != '' then 'not_eliminated_in_round_of_16'
+            when round_of_32_reach_team != '' then 'reach_round_of_32'
+            when round_of_32_elimination_team != '' then 'not_eliminated_in_round_of_32'
+        end as progression_outcome_label,
         coalesce(
             nullif(winner_team, ''),
             nullif(final_team, ''),
@@ -159,6 +169,8 @@ team_scoped as (
         c.stage_key,
         c.stage_rank,
         c.market_direction,
+        'progression' as price_represents,
+        c.progression_outcome_label,
         c.team_name,
         ts.team_name as canonical_team_name,
         ts.tournament_status,
@@ -206,6 +218,8 @@ select
     c.stage_key,
     c.stage_rank,
     c.market_direction,
+    c.price_represents,
+    c.progression_outcome_label,
     c.team_name,
     c.canonical_team_name,
     c.tournament_status,

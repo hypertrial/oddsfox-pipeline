@@ -64,6 +64,12 @@ Open the Dagster UI shown in the terminal. Materialize
 ## 5. Run the Pipeline
 
 For a full manual run, launch `polymarket_wc2026_full_pipeline`.
+If a local virtualenv console script points at an old path, use the module
+entrypoint instead:
+
+```bash
+.venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_full_pipeline
+```
 
 For a safer staged run:
 

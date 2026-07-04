@@ -12,7 +12,7 @@ sources:
             asset_key: [international_results, wc2026, raw, match_results]
         loaded_at_field: source_loaded_at
         freshness:
-          warn_after: {count: 36, period: hour}
+          warn_after: {count: 12, period: hour}
           error_after: {count: 120, period: hour}
         columns:
           - name: match_id

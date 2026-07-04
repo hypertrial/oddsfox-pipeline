@@ -38,16 +38,26 @@ def mart_exists(conn: duckdb.DuckDBPyConnection) -> bool:
 def export_polymarket_wc2026_knockout_hourly_odds(
     conn: duckdb.DuckDBPyConnection,
     output_path: Path,
+    *,
+    live_only: bool = False,
+    active_teams_only: bool = False,
 ) -> int:
     if not mart_exists(conn):
         raise LookupError(f"Missing {MART_SCHEMA}.{MART_NAME}. Run dbt build first.")
     rel = _qualified_name()
+    filters: list[str] = []
+    if live_only:
+        filters.append("is_live_market = true")
+    if active_teams_only:
+        filters.append("is_still_alive = true")
+    where_clause = f" where {' and '.join(filters)}" if filters else ""
     output_path = output_path.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     conn.execute(
-        f"copy (select * from {rel}) to ? (format parquet)", [str(output_path)]
+        f"copy (select * from {rel}{where_clause}) to ? (format parquet)",
+        [str(output_path)],
     )
-    row = conn.execute(f"select count(*) from {rel}").fetchone()
+    row = conn.execute(f"select count(*) from {rel}{where_clause}").fetchone()
     return int(row[0]) if row else 0
 
 
@@ -62,6 +72,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--read-only", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--snapshot-copy", action="store_true")
+    p.add_argument("--live-only", action="store_true")
+    p.add_argument("--active-teams-only", action="store_true")
     args = p.parse_args(argv)
 
     from oddsfox_pipeline.config import settings
@@ -91,7 +103,12 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = open_duckdb_connection(profile_path, read_only=args.read_only)
     try:
-        row_count = export_polymarket_wc2026_knockout_hourly_odds(conn, output_path)
+        row_count = export_polymarket_wc2026_knockout_hourly_odds(
+            conn,
+            output_path,
+            live_only=args.live_only,
+            active_teams_only=args.active_teams_only,
+        )
     except LookupError as exc:
         sys.stderr.write(f"{exc}\n")
         return 1

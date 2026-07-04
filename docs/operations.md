@@ -31,6 +31,13 @@ Flat Dagster op names remain source-first, for example
 - `polymarket_wc2026_dbt_build`: dbt analytics build for the WC2026 mart surface, including knockout marts.
 - `polymarket_wc2026_full_pipeline`: WC2026 result refresh, market discovery, hourly odds refresh (trailing 30 days), and dbt analytics build.
 
+For local CLI runs, prefer the Python module entrypoint if virtualenv console
+scripts have stale shebangs:
+
+```bash
+.venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_full_pipeline
+```
+
 ## WC2026 Scope
 
 The shipped Dagster jobs and dbt graph are fixed to `wc2026`.

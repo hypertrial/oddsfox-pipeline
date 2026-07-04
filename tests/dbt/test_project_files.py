@@ -84,6 +84,12 @@ def test_knockout_observability_models_are_documented():
     observability_root = dbt_root / "models" / "polymarket_wc2026" / "observability"
     docs = yaml.safe_load((observability_root / "observability.yml").read_text())
     documented = {model["name"] for model in docs["models"]}
+    dq_columns = {
+        column["name"]
+        for model in docs["models"]
+        if model["name"] == "polymarket_wc2026_knockout_data_quality"
+        for column in model["columns"]
+    }
 
     assert (
         observability_root / "polymarket_wc2026_knockout_stage_coverage.sql"
@@ -91,6 +97,31 @@ def test_knockout_observability_models_are_documented():
     assert (observability_root / "polymarket_wc2026_knockout_data_quality.sql").exists()
     assert "polymarket_wc2026_knockout_stage_coverage" in documented
     assert "polymarket_wc2026_knockout_data_quality" in documented
+    assert "issue_count" in dq_columns
+
+
+def test_knockout_mart_semantic_columns_are_documented():
+    dbt_root = Path(__file__).resolve().parents[2] / "dbt"
+    docs = yaml.safe_load(
+        (
+            dbt_root
+            / "models"
+            / "polymarket_wc2026"
+            / "marts"
+            / "polymarket_wc2026.yml"
+        ).read_text()
+    )
+    expected_models = {
+        "polymarket_wc2026_knockout_market_tokens",
+        "polymarket_wc2026_knockout_markets",
+        "polymarket_wc2026_knockout_token_hourly_odds",
+    }
+    for model in docs["models"]:
+        if model["name"] not in expected_models:
+            continue
+        columns = {column["name"] for column in model["columns"]}
+        assert "price_represents" in columns
+        assert "progression_outcome_label" in columns
 
 
 def test_international_results_models_are_documented():
