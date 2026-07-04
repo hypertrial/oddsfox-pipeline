@@ -11,7 +11,7 @@ Schema: `polymarket_wc2026_marts`
 
 | Relation | Grain | Contract |
 | --- | --- | --- |
-| `polymarket_wc2026_markets` | One row per `(scope_name, market_id)` | Canonical WC2026 market universe with scope attribution. |
+| `polymarket_wc2026_markets` | One row per `(scope_name, market_id)` | Canonical WC2026 market universe: registry scope ∩ volume >= $100k USD. |
 | `polymarket_wc2026_token_coverage` | One row per `clob_token_id` | Token health, daily coverage, sync ledger state, skip state, gap health, and market fully checked rollups. |
 | `polymarket_wc2026_market_coverage` | One row per market | Market-level coverage rolled up from `polymarket_wc2026_token_coverage`. |
 | `polymarket_wc2026_token_hourly_odds` | One row per `(clob_token_id, odds_hour_utc)` | Full hourly OHLC odds time series for WC2026 tokens (dbt table). |
@@ -29,9 +29,15 @@ Schema: `polymarket_wc2026_marts`
 
 ## Current Scope Rules
 
-- `polymarket_wc2026_token_coverage` covers all staged tokens.
+- Public WC2026 marts (`polymarket_wc2026_markets`, `polymarket_wc2026_market_tokens`, odds
+  time series, and coverage) use the volume-scoped universe: `market_scope_registry`
+  (scope=wc2026) ∩ reported `volume >= $100,000` USD. The floor is dynamic — markets
+  crossing $100k on a later sync are admitted on the next dbt build.
+- Knockout marts inherit this universe from `polymarket_wc2026_market_tokens` and apply
+  only knockout-stage classification downstream.
+- `polymarket_wc2026_token_coverage` covers every outcome token in the volume-scoped universe.
 - `polymarket_wc2026_token_hourly_odds` and `polymarket_wc2026_token_daily_odds` are full time series
-  for the fixed WC2026 registry.
+  for the volume-scoped WC2026 universe.
 - Use `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
   `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline` for Dagster operations.
 - `polymarket_wc2026_knockout_token_hourly_odds` is the WC2026-specific export surface for downstream knockout visualization artifacts.
@@ -41,7 +47,8 @@ Schema: `polymarket_wc2026_marts`
 - After `make prune-odds-history`, `polymarket_wc2026_raw.odds_history` (and therefore
   `polymarket_wc2026_token_hourly_odds`) only guarantees the trailing ~365 days of source
   odds points unless you change the retention window.
-- `int_polymarket_wc2026_markets` is the canonical market-level WC2026 scope (grain: `scope_name`, `market_id`).
+- `int_polymarket_wc2026_markets` is the canonical market-level WC2026 scope (grain:
+  `scope_name`, `market_id`) with the $100k volume floor applied.
 
 ## dbt Checks
 

@@ -2,7 +2,9 @@ version: 2
 
 models:
   - name: polymarket_wc2026_markets
-    description: WC2026 Polymarket market universe, one row per (scope_name, market_id).
+    description: >
+      WC2026 Polymarket market universe (scope=wc2026, volume >= $100,000 USD),
+      one row per (scope_name, market_id).
     tests:
       - no_duplicate_grain:
           arguments:
@@ -20,7 +22,8 @@ models:
         tests: [not_null]
 
   - name: polymarket_wc2026_market_tokens
-    description: WC2026 Polymarket CLOB outcome-token universe.
+    description: >
+      WC2026 Polymarket CLOB outcome-token universe (scope=wc2026, volume >= $100,000 USD).
     tests:
       - no_duplicate_grain:
           arguments:

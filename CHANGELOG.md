@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Breaking: public WC2026 marts now use a volume-scoped universe (`market_scope_registry`
+  ∩ reported `volume >= $100,000` USD). `int_polymarket_wc2026_markets` applies the
+  floor; downstream marts and knockout exports inherit it. Default Gamma keyset discovery
+  `keyset_volume_min` is aligned to the same $100k threshold.
 - Breaking: removed minutely ingestion, minutely odds marts, minutely schedule
   flags, the standalone knockout Dagster job, and the unused Dagster odds repair
   asset. `polymarket_wc2026_dbt_build` and `polymarket_wc2026_full_pipeline` still build the knockout

@@ -62,7 +62,9 @@ class MarketsSyncConfig(GuardrailConfig):
     max_event_pages: int | None = None
     keyset_closed: bool | None = None
     keyset_tag_slugs: list[str] | None = None
-    keyset_volume_min: float | None = Field(default=10000.0, ge=0)
+    keyset_volume_min: float | None = Field(
+        default=POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD, ge=0
+    )
     max_pages_without_progress: int | None = None
 
     @field_validator("max_pages_without_progress")
@@ -77,7 +79,9 @@ class MarketScopeRegistryConfig(GuardrailConfig):
     max_event_pages: int | None = None
     keyset_closed: bool | None = None
     keyset_tag_slugs: list[str] | None = None
-    keyset_volume_min: float | None = Field(default=10000.0, ge=0)
+    keyset_volume_min: float | None = Field(
+        default=POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD, ge=0
+    )
     max_pages_without_progress: int | None = None
     skip_if_snapshot_refreshed: bool = True
     force_refresh: bool = False

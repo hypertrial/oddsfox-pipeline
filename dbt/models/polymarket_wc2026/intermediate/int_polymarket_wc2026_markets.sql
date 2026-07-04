@@ -62,3 +62,5 @@ select
 from markets
 inner join registry
     on markets.market_id = registry.market_id
+-- ponytail: keep in sync with POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD (settings_polymarket.py).
+where coalesce(markets.volume, 0) >= 100000

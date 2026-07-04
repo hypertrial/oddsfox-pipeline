@@ -3,7 +3,8 @@ version: 2
 models:
   - name: int_polymarket_wc2026_markets
     description: >
-      WC2026 Polymarket markets admitted by polymarket_wc2026_ops.market_scope_registry.
+      WC2026 Polymarket markets admitted by polymarket_wc2026_ops.market_scope_registry
+      with reported volume >= $100,000 USD (dynamic floor; re-evaluated each dbt build).
     tests:
       - no_duplicate_grain:
           arguments:

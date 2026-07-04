@@ -47,7 +47,7 @@ def test_load_market_scope_config_includes_default_wc2026_preset(monkeypatch):
     assert "fifa-world-cup" in cfg.event_tags
     assert "world-cup" in cfg.event_tags
     assert cfg.keyset_closed is False
-    assert cfg.keyset_volume_min == 10000.0
+    assert cfg.keyset_volume_min == 100000.0
 
 
 def test_all_seed_presets_load_cleanly():

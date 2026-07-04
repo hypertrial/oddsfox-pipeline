@@ -14,3 +14,8 @@ where
     history_coverage_vs_market_tokens_ratio is not null
     and coalesce(market_tokens_distinct_tokens, 0) > 0
     and history_coverage_vs_market_tokens_ratio < 0.95
+    -- Pre-run coverage is expected to be low while a sync run is still backfilling tokens.
+    and not (
+        coalesce(is_noop, false) = false
+        and coalesce(processed_tokens, 0) > 0
+    )

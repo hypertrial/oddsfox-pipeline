@@ -49,7 +49,7 @@ overrides.
 - `POLYMARKET_WC2026_SCOPE_EVENT_TAGS`
 - `POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED`
 - `POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN`: minimum Gamma keyset volume filter (default
-  `10000`); shared by dlt and markets sync entrypoints.
+  `100000`, aligned with the WC2026 whale universe floor); shared by dlt and markets sync entrypoints.
 - `POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS`
 - `POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY`
 - `POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_ROUNDS`

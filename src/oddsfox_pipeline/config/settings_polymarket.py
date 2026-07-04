@@ -68,17 +68,17 @@ def _parse_scope_keyset_closed_env() -> bool | None:
 
 
 def _parse_scope_keyset_volume_min_env() -> float | None:
-    """Default 10000; empty/none/null omits volume_min on /events/keyset."""
+    """Default POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD; empty/none/null omits volume_min on /events/keyset."""
     raw = os.getenv("POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN")
     if raw is None:
-        return 10000.0
+        return POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD
     normalized = str(raw).strip().lower()
     if not normalized or normalized in {"none", "null"}:
         return None
     try:
         return float(normalized)
     except ValueError:
-        return 10000.0
+        return POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD
 
 
 POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN = _parse_scope_keyset_volume_min_env()
