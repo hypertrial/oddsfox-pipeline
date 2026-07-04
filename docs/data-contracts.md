@@ -12,13 +12,17 @@ Schema: `polymarket_wc2026_marts`
 | Relation | Grain | Contract |
 | --- | --- | --- |
 | `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token universe for knockout-related markets with reported volume >= $5,000 USD. |
-| `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, state, volume, and result metadata. |
-| `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens. |
+| `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, and result metadata. |
+| `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata. |
 
 ## Health And Observability
 
 - Use `polymarket_wc2026_observability.polymarket_wc2026_sync_run_observability` for run-level ingestion
   telemetry, request counts, and sync metrics.
+- Use `polymarket_wc2026_observability.polymarket_wc2026_knockout_stage_coverage` to inspect raw
+  classified market coverage vs public scoped tokens by knockout stage, direction, and market status.
+- Use `polymarket_wc2026_observability.polymarket_wc2026_knockout_data_quality` for source-state anomalies,
+  sparse stage coverage, and stale or missing live odds findings.
 
 ## Current Scope Rules
 
@@ -30,6 +34,14 @@ Schema: `polymarket_wc2026_marts`
 - Public knockout odds are normalized to the progression side. Winner/reach markets
   use the Yes token; elimination-framed markets use the No token. Use
   `market_direction` and `source_outcome_label` to inspect the source framing.
+- Public knockout marts keep historical closed/resolved rows. Filter `is_live_market = true`
+  or `market_status = 'live'` when you need live odds only. `source_state_anomaly`
+  marks upstream rows where Gamma reports both active and closed; the derived status
+  treats those rows as closed.
+- `polymarket_wc2026_knockout_markets.current_price_status` separates `fresh_live`,
+  `stale_live`, `missing_live`, `historical_closed`, `historical_resolved`, and
+  `inactive` rows. Live prices are fresh when the latest hourly close is no more
+  than 3 hours old.
 - `polymarket_wc2026_knockout_token_hourly_odds` aggregates directly from staged
   raw odds and the knockout token classifier, and only exposes the trailing 30
   days of hourly OHLC rows.
@@ -50,6 +62,9 @@ Schema: `polymarket_wc2026_marts`
 - WC2026 market scope (`accepted_values` on `scope_name` and knockout `stage_key`).
 - Knockout progression-side token selection, including elimination-framed No-token rows.
 - Knockout volume floor and trailing 30-day hourly window.
+- Knockout market and current-price status accepted values.
+- Hard-fail DQ checks for error-severity rows in `polymarket_wc2026_knockout_data_quality`.
+- Warn-level DQ checks for stale/missing live odds and unsurfaced source-state or hourly coverage issues.
 - Observability run health (warn-level: latest run error-token regression and history coverage floor).
 
 Warn-level observability tests fail softly in `dbt build` output; treat warnings as operator signals on real warehouses, not hard CI blockers when the disposable CI fixture is healthy.

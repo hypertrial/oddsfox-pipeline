@@ -46,6 +46,14 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
     ) == AssetKey(["polymarket", "wc2026", "observability", "sync_run_observability"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
+        "polymarket_wc2026_knockout_stage_coverage",
+        dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
+    ) == AssetKey(["polymarket", "wc2026", "observability", "knockout_stage_coverage"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "polymarket_wc2026_knockout_data_quality",
+        dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
+    ) == AssetKey(["polymarket", "wc2026", "observability", "knockout_data_quality"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
         "other_model",
         dbt_schemas.DBT_FALLBACK_SCHEMA,
     ) == AssetKey("dbt_other_model")

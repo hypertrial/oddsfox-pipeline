@@ -56,13 +56,15 @@ Schema: `polymarket_wc2026_intermediate`
 
 Schema: `polymarket_wc2026_marts`
 
-- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for knockout markets with reported volume >= $5,000 USD.
-- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for progression-side knockout tokens (dbt table).
-- `polymarket_wc2026_knockout_markets`: latest progression-side knockout snapshot.
+- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for knockout markets with reported volume >= $5,000 USD, plus derived `market_status` and live/historical flags.
+- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for progression-side knockout tokens (dbt table), including propagated market status.
+- `polymarket_wc2026_knockout_markets`: latest progression-side knockout snapshot with explicit current-price status. Use `is_live_market` or `current_price_status = 'fresh_live'` for live-only views; closed/resolved rows are retained as historical rows.
 
 Schema: `polymarket_wc2026_observability`
 
 - `polymarket_wc2026_sync_run_observability`: run-level ingestion and odds-sync telemetry.
+- `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage vs public scoped tokens by stage, direction, and market status.
+- `polymarket_wc2026_knockout_data_quality`: row-level DQ findings for source-state anomalies, sparse stage coverage, and stale or missing odds.
 
 ## dlt Landing And Canonical Tables
 

@@ -32,6 +32,19 @@ models:
           - accepted_values:
               arguments:
                 values: ['winner', 'advance', 'elimination']
+      - name: market_status
+        description: Derived market state; resolved and closed markets are historical, not live odds.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['resolved', 'closed', 'live', 'inactive']
+      - name: is_live_market
+        description: True only for active, not closed, not resolved source markets.
+        tests: [not_null]
+      - name: source_state_anomaly
+        description: True when Gamma reports both active and closed for the same market.
+        tests: [not_null]
       - name: stage_key
         description: Normalized WC2026 knockout stage key.
         tests:
@@ -75,6 +88,31 @@ models:
       - name: market_direction
         description: Source market wording direction.
         tests: [not_null]
+      - name: market_status
+        description: Derived market state; closed/resolved rows remain in this snapshot as historical rows.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['resolved', 'closed', 'live', 'inactive']
+      - name: current_price_status
+        description: Derived freshness/status bucket for the latest progression-side price.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - fresh_live
+                  - stale_live
+                  - missing_live
+                  - historical_closed
+                  - historical_resolved
+                  - inactive
+      - name: current_price_age_hours
+        description: Age of the latest hourly close in hours at dbt build time.
+      - name: is_current_price_fresh
+        description: True for live rows whose latest hourly close is no more than 3 hours old.
+        tests: [not_null]
 
   - name: polymarket_wc2026_knockout_token_hourly_odds
     description: >
@@ -113,4 +151,14 @@ models:
         tests: [not_null]
       - name: market_direction
         description: Source market wording direction.
+        tests: [not_null]
+      - name: market_status
+        description: Derived market state propagated from the knockout token universe.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['resolved', 'closed', 'live', 'inactive']
+      - name: is_live_market
+        description: True only for live source markets at dbt build time.
         tests: [not_null]

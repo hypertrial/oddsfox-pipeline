@@ -52,3 +52,21 @@ def test_wc2026_knockout_hourly_aggregates_canonical_odds_directly():
     assert "polymarket_wc2026_token_hourly_odds" not in lowered
     assert "interval 30 day" in lowered
     assert "selected_" not in lowered
+
+
+def test_wc2026_knockout_snapshot_keeps_historical_rows_with_status():
+    sql = (
+        DBT_ROOT
+        / "models"
+        / "polymarket_wc2026"
+        / "marts"
+        / "polymarket_wc2026_knockout_markets.sql"
+    ).read_text()
+    lowered = sql.lower()
+
+    assert "{{ ref('polymarket_wc2026_knockout_market_tokens') }}" in lowered
+    assert "left join current_token_prices" in lowered
+    assert "market_status" in lowered
+    assert "current_price_status" in lowered
+    assert "where market_status = 'live'" not in lowered
+    assert "where is_live_market" not in lowered

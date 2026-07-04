@@ -51,9 +51,9 @@ _FIXTURE_SOURCE = f"""
         cast(null as varchar) as group_item_title,
         cast(null as varchar) as tags,
         cast(null as varchar) as clob_token_ids,
-        cast(null as boolean) as is_active,
-        cast(null as boolean) as is_closed,
-        cast(null as boolean) as is_resolved,
+        market_id in ('m-winner', 'm-final') as is_active,
+        market_id in ('m-final', 'm-r32-elim') as is_closed,
+        market_id = 'm-semi' as is_resolved,
         cast(null as varchar) as winning_outcome,
         cast(null as varchar) as winning_clob_token_id,
         cast(null as double) as market_volume_usd
@@ -67,7 +67,7 @@ _FIXTURE_SOURCE = f"""
 """
 
 
-def _run_classification() -> list[tuple[str, str, str, int, str, str]]:
+def _run_classification() -> list[tuple]:
     sql = MODEL_SQL.replace(
         "from {{ ref('int_polymarket_wc2026_market_tokens') }} as t",
         f"from ({_FIXTURE_SOURCE.strip()}) as t",
@@ -82,7 +82,10 @@ def _run_classification() -> list[tuple[str, str, str, int, str, str]]:
                 team_name,
                 stage_rank,
                 market_direction,
-                source_outcome_label
+                source_outcome_label,
+                market_status,
+                is_live_market,
+                source_state_anomaly
             from ({sql}) as classified
             order by clob_token_id
             """
@@ -101,6 +104,9 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
             stage_rank,
             market_direction,
             source_outcome_label,
+            market_status,
+            is_live_market,
+            source_state_anomaly,
         )
         for (
             clob_token_id,
@@ -109,17 +115,83 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
             stage_rank,
             market_direction,
             source_outcome_label,
+            market_status,
+            is_live_market,
+            source_state_anomaly,
         ) in rows
     }
 
-    assert by_token["tok-w-yes"] == ("winner", "Argentina", 5, "winner", "Yes")
-    assert by_token["tok-f-yes"] == ("final", "Argentina", 4, "advance", "Yes")
-    assert by_token["tok-s-yes"] == ("semifinal", "Argentina", 3, "advance", "Yes")
-    assert by_token["tok-q-yes"] == ("quarterfinal", "Argentina", 2, "advance", "Yes")
-    assert by_token["tok-r16r-yes"] == ("round_of_16", "Mexico", 1, "advance", "Yes")
-    assert by_token["tok-r32r-yes"] == ("round_of_32", "USA", 0, "advance", "Yes")
-    assert by_token["tok-r16e-no"] == ("round_of_16", "Mexico", 1, "elimination", "No")
-    assert by_token["tok-r32e-no"] == ("round_of_32", "USA", 0, "elimination", "No")
+    assert by_token["tok-w-yes"] == (
+        "winner",
+        "Argentina",
+        5,
+        "winner",
+        "Yes",
+        "live",
+        True,
+        False,
+    )
+    assert by_token["tok-f-yes"] == (
+        "final",
+        "Argentina",
+        4,
+        "advance",
+        "Yes",
+        "closed",
+        False,
+        True,
+    )
+    assert by_token["tok-s-yes"] == (
+        "semifinal",
+        "Argentina",
+        3,
+        "advance",
+        "Yes",
+        "resolved",
+        False,
+        False,
+    )
+    assert by_token["tok-q-yes"] == (
+        "quarterfinal",
+        "Argentina",
+        2,
+        "advance",
+        "Yes",
+        "inactive",
+        False,
+        False,
+    )
+    assert by_token["tok-r16r-yes"][:5] == (
+        "round_of_16",
+        "Mexico",
+        1,
+        "advance",
+        "Yes",
+    )
+    assert by_token["tok-r32r-yes"][:5] == (
+        "round_of_32",
+        "USA",
+        0,
+        "advance",
+        "Yes",
+    )
+    assert by_token["tok-r16e-no"][:5] == (
+        "round_of_16",
+        "Mexico",
+        1,
+        "elimination",
+        "No",
+    )
+    assert by_token["tok-r32e-no"] == (
+        "round_of_32",
+        "USA",
+        0,
+        "elimination",
+        "No",
+        "closed",
+        False,
+        False,
+    )
     assert "tok-r16e-yes" not in by_token
     assert "tok-r32e-yes" not in by_token
     assert "tok-other" not in by_token

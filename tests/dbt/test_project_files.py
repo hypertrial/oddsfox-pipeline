@@ -46,3 +46,17 @@ def test_time_series_marts_are_materialized_tables():
     )
     assert "polymarket_wc2026_token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_daily_odds" not in marts
+
+
+def test_knockout_observability_models_are_documented():
+    dbt_root = Path(__file__).resolve().parents[2] / "dbt"
+    observability_root = dbt_root / "models" / "polymarket_wc2026" / "observability"
+    docs = yaml.safe_load((observability_root / "observability.yml").read_text())
+    documented = {model["name"] for model in docs["models"]}
+
+    assert (
+        observability_root / "polymarket_wc2026_knockout_stage_coverage.sql"
+    ).exists()
+    assert (observability_root / "polymarket_wc2026_knockout_data_quality.sql").exists()
+    assert "polymarket_wc2026_knockout_stage_coverage" in documented
+    assert "polymarket_wc2026_knockout_data_quality" in documented

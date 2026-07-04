@@ -158,7 +158,17 @@ select
     c.stage_key,
     c.stage_rank,
     c.market_direction,
-    c.team_name
+    c.team_name,
+    case
+        when coalesce(c.is_resolved, false) then 'resolved'
+        when coalesce(c.is_closed, false) then 'closed'
+        when coalesce(c.is_active, false) then 'live'
+        else 'inactive'
+    end as market_status,
+    not coalesce(c.is_resolved, false)
+    and not coalesce(c.is_closed, false)
+    and coalesce(c.is_active, false) as is_live_market,
+    coalesce(c.is_active, false) and coalesce(c.is_closed, false) as source_state_anomaly
 from classified as c
 where
     c.stage_key is not null

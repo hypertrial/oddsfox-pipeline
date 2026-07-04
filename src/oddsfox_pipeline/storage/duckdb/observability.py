@@ -57,6 +57,14 @@ _DBT_MODELS: tuple[tuple[str, str], ...] = (
     ),
     (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+        "polymarket_wc2026_knockout_stage_coverage",
+    ),
+    (
+        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+        "polymarket_wc2026_knockout_data_quality",
+    ),
+    (
+        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
         "polymarket_wc2026_sync_run_observability",
     ),
 )

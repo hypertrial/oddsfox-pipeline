@@ -63,12 +63,19 @@ flowchart TD
     knockout_tokens --> knockout_hourly["polymarket_wc2026_knockout_token_hourly_odds"]
     odds --> knockout_hourly
     knockout_hourly --> knockout_markets["polymarket_wc2026_knockout_markets"]
+    staging --> stage_coverage["polymarket_wc2026_knockout_stage_coverage"]
+    knockout_tokens --> stage_coverage
+    knockout_hourly --> stage_coverage
+    knockout_markets --> data_quality["polymarket_wc2026_knockout_data_quality"]
+    stage_coverage --> data_quality
     ops --> observability["polymarket_wc2026_sync_run_observability"]
 ```
 
 Text fallback: staging normalizes raw and ops tables, intermediates establish
 token universes and WC2026 market scope rows, and marts publish knockout
-progression-side token odds plus latest knockout snapshots.
+progression-side token odds plus latest knockout snapshots. Observability
+models publish run metrics, stage coverage, and DQ findings for live/historical
+status and odds freshness.
 
 ## Operating Model
 

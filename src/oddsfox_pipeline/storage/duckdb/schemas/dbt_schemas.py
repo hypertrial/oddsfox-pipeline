@@ -28,6 +28,11 @@ POLYMARKET_WC2026_OBSERVABILITY_SCHEMA: Final = schema_name(
     SOURCE_POLYMARKET, SCOPE_WC2026, "observability"
 )
 DBT_FALLBACK_SCHEMA: Final = "dbt"
+POLYMARKET_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
+    "polymarket_wc2026_knockout_stage_coverage",
+    "polymarket_wc2026_knockout_data_quality",
+    "polymarket_wc2026_sync_run_observability",
+)
 
 DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
     POLYMARKET_WC2026_STAGING_SCHEMA,
@@ -84,7 +89,7 @@ def _polymarket_wc2026_layer(
         return "staging"
     if model_name.startswith("int_polymarket_wc2026_"):
         return "intermediate"
-    if model_name.endswith("_sync_run_observability"):
+    if model_name in POLYMARKET_WC2026_OBSERVABILITY_MODELS:
         return "observability"
     return "marts"
 

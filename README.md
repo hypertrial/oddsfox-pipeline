@@ -51,10 +51,22 @@ See [Architecture](docs/architecture.md) and [Warehouse](docs/warehouse.md).
 
 Current Polymarket analytics outputs live in `polymarket_wc2026_marts`:
 
-- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for knockout-related markets with reported volume >= $5,000 USD.
-- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for the progression side of each knockout market.
-- `polymarket_wc2026_knockout_markets`: latest progression-side knockout snapshot with market/team/stage metadata.
+- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe
+  for knockout-related markets with reported volume >= $5,000 USD, including
+  derived live/historical status.
+- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC
+  odds for the progression side of each knockout market, with market status
+  metadata for live-only filtering.
+- `polymarket_wc2026_knockout_markets`: latest progression-side knockout
+  snapshot with market/team/stage metadata and explicit current-price status.
+
+Operational health outputs live in `polymarket_wc2026_observability`:
+
 - `polymarket_wc2026_sync_run_observability`: run-level ingestion telemetry.
+- `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage
+  versus scoped tokens by stage, direction, and market status.
+- `polymarket_wc2026_knockout_data_quality`: row-level DQ findings for source
+  anomalies, sparse coverage, and stale or missing odds.
 
 Dagster registers WC2026 jobs only: `polymarket_wc2026_market_registry_refresh`,
 `polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline`.
