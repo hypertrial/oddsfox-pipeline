@@ -3,7 +3,7 @@
 <div>
 <h1 class="of-hero__title">OddsFox</h1>
 <div class="of-hero__tagline">Open-source prediction-market data pipeline</div>
-<div class="of-hero__subtitle">Dagster orchestration, dlt ingestion, DuckDB storage, dbt marts, and operator-first repair paths.</div>
+<div class="of-hero__subtitle">Dagster orchestration, dlt ingestion, local or self-managed DuckDB storage, dbt marts, and operator-first repair paths.</div>
 </div>
 </section>
 
@@ -19,6 +19,10 @@ data. It uses Dagster for orchestration, dlt for raw market landing, DuckDB for
 the local warehouse, Python for odds sync ledgers and retry logic, and dbt for
 analytics models.
 
+OddsFox ships code and operator tooling, not a hosted dataset. Operators run
+ingestion against source APIs and keep the resulting data in their own local or
+self-managed warehouse.
+
 The current v0.1.x implementation is WC2026-only Polymarket: FIFA World Cup
 2026 market discovery, odds sync, Dagster jobs, DuckDB schemas, and dbt marts.
 See [Configuration](configuration.md).
@@ -31,6 +35,7 @@ See [Configuration](configuration.md).
 - **dbt-tested marts:** coverage, WC2026 odds time series, health, and observability models build with dbt data tests.
 - **Prediction-market focused:** token coverage, odds freshness, market health, and scoped marts are first-class outputs.
 - **Current Polymarket adapter:** v0.1.x ships WC2026 Polymarket discovery, CLOB odds sync, and dbt marts.
+- **Source-adapter ready:** Kalshi and traditional bookmaker adapters are welcome future contributions.
 - **Safe by default:** schedules are disabled until manual jobs and dbt builds are healthy.
 
 ## Example workflow

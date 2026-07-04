@@ -5,7 +5,15 @@ DuckDB warehouse and is coordinated by Dagster jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
 v0.1.x adapter and marts focus on WC2026 Polymarket data.
 
+At the generic layer, source adapters follow one shape: external market and
+odds APIs feed dlt/Python ingestion, DuckDB stores raw and ops data, dbt
+publishes local marts, and Dagster orchestrates the steps. Operators own the
+resulting data in a local or self-managed warehouse; OddsFox does not host a
+shared dataset.
+
 ## System Flow
+
+Current WC2026 Polymarket implementation:
 
 ```mermaid
 flowchart LR

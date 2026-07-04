@@ -51,7 +51,7 @@ Schema: `wc2026_polymarket_marts`
 - Price sanity and OHLC bounds.
 - Token and market coverage consistency.
 - WC2026 odds time series parity with the WC2026 token universe.
-- WC2026 market scope and whale volume threshold filtering.
+- WC2026 market scope.
 
 ## Breaking change: WC2026 namespace reset
 

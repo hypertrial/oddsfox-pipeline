@@ -20,6 +20,20 @@ WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
 
 See [docs/quickstart.md](docs/quickstart.md) and [docs/configuration.md](docs/configuration.md) for full operator setup.
 
+## Source adapter contributions
+
+Polymarket WC2026 is the first shipped source adapter. Contributions may add or
+improve adapters for Kalshi, traditional bookmakers, and other odds sources
+when they keep the pipeline local-first and operator-owned.
+
+Useful contribution areas include ingestion adapters, Dagster assets and jobs,
+dbt models and tests, DuckDB storage, docs, and operator scripts. Adapter PRs
+should include tests, docs, config examples, and source-specific data ownership
+and rate-limit notes.
+
+Do not assume centralized OddsFox-hosted data. Operators must be able to run
+ingestion and store data in their own local or self-managed warehouse.
+
 ## AI-assisted development
 
 If you use Cursor, [Ponytail](https://github.com/DietrichGebert/ponytail) loads from [`.cursor/rules/ponytail.mdc`](.cursor/rules/ponytail.mdc). Repo-specific guardrails (layout, quality gate, orchestration limits) live in [AGENTS.md](AGENTS.md).

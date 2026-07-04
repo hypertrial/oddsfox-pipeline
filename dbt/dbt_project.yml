@@ -7,8 +7,6 @@ profile: oddsfox
 # of another branch is selected, causing missing-relation errors).
 flags:
   indirect_selection: buildable
-vars:
-  wc2026_polymarket_whale_min_volume_usd: 100000
 model-paths: ["models"]
 test-paths: ["tests"]
 target-path: target

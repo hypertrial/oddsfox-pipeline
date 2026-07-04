@@ -78,8 +78,8 @@ debt includes:
 - `SQLCOST040`: `int_wc2026_polymarket_token_universe` and
   `wc2026_token_coverage` rebuild as full tables. Defer incremental conversion
   until row-volume profiling defines safe predicates.
-- Low advisories: repeated CTEs in mart comparison tests and an `ORDER BY`
-  without `LIMIT` in `wc2026_token_coverage`.
+- Low advisories: `ORDER BY` without `LIMIT` in `wc2026_token_coverage` and
+  `wc2026_token_hourly_odds`.
 
 Do not change materializations on advisory text alone. Capture dbt build
 runtime, relevant relation sizes from `scripts/profile_warehouse.py`, and the

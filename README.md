@@ -12,6 +12,15 @@ ledgers, and dbt analytics models. Version `0.1.x` is a WC2026-only Polymarket
 pipeline for FIFA World Cup 2026 markets and odds. Existing local warehouses
 from older layouts must be reset with `rm oddsfox.duckdb*`.
 
+## Project Scope
+
+OddsFox is code and operator tooling, not a hosted dataset. Polymarket WC2026
+is the first shipped source adapter; future adapter contributions may cover
+Kalshi and traditional bookmakers.
+
+Every operator runs ingestion against source APIs and stores the resulting data
+in their own local DuckDB file or self-managed warehouse.
+
 ## Quickstart
 
 ```bash
