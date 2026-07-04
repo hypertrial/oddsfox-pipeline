@@ -21,11 +21,11 @@ from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
 )
 from oddsfox_pipeline.orchestration.assets import (
     DBT_PROJECT,
-    wc2026_polymarket_dbt,
-    wc2026_polymarket_market_metadata_backfill,
-    wc2026_polymarket_market_registry,
-    wc2026_polymarket_markets_snapshot,
-    wc2026_polymarket_token_odds_history_hourly,
+    polymarket_wc2026_dbt,
+    polymarket_wc2026_ops_market_scope_registry,
+    polymarket_wc2026_raw_market_metadata_backfill,
+    polymarket_wc2026_raw_markets_snapshot,
+    polymarket_wc2026_raw_token_odds_history_hourly,
 )
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
@@ -63,7 +63,7 @@ def _fake_sync_market_scope_registry(**kwargs):
 
 
 def _seed_dlt_owned_markets(market_page: list[dict]) -> None:
-    """dlt owns wc2026_polymarket_raw.markets; snapshot sync only writes tokens."""
+    """dlt owns polymarket_wc2026_raw.markets; snapshot sync only writes tokens."""
     df = process_markets_dataframe(market_page)
     market_data, _token_data = prepare_batch_for_db(df)
     if not market_data:
@@ -73,7 +73,7 @@ def _seed_dlt_owned_markets(market_page: list[dict]) -> None:
         create_test_markets_table(conn)
         conn.executemany(
             """
-            INSERT OR REPLACE INTO "wc2026_polymarket_raw"."markets"
+            INSERT OR REPLACE INTO "polymarket_wc2026_raw"."markets"
                 (
                     id, question, category, description, outcomes, volume, active, closed,
                     created_at, scraped_at, end_date, slug, event_slug, event_id,
@@ -88,11 +88,11 @@ def _seed_dlt_owned_markets(market_page: list[dict]) -> None:
             market_data,
         )
         conn.execute(
-            'ALTER TABLE "wc2026_polymarket_raw"."markets" '
+            'ALTER TABLE "polymarket_wc2026_raw"."markets" '
             "ADD COLUMN IF NOT EXISTS _dlt_id TEXT"
         )
         conn.execute(
-            'UPDATE "wc2026_polymarket_raw"."markets" SET _dlt_id = id WHERE _dlt_id IS NULL'
+            'UPDATE "polymarket_wc2026_raw"."markets" SET _dlt_id = id WHERE _dlt_id IS NULL'
         )
 
 
@@ -239,11 +239,11 @@ oddsfox:
 
     result = materialize(
         [
-            wc2026_polymarket_markets_snapshot,
-            wc2026_polymarket_market_registry,
-            wc2026_polymarket_market_metadata_backfill,
-            wc2026_polymarket_token_odds_history_hourly,
-            wc2026_polymarket_dbt,
+            polymarket_wc2026_raw_markets_snapshot,
+            polymarket_wc2026_ops_market_scope_registry,
+            polymarket_wc2026_raw_market_metadata_backfill,
+            polymarket_wc2026_raw_token_odds_history_hourly,
+            polymarket_wc2026_dbt,
         ],
         resources={
             "dbt": DbtCliResource(
@@ -255,12 +255,12 @@ oddsfox:
         },
         run_config={
             "ops": {
-                "wc2026_polymarket_markets_snapshot": {
+                "polymarket_wc2026_raw_markets_snapshot": {
                     "config": {
                         "discovery_mode": "targeted",
                     }
                 },
-                "wc2026_polymarket_token_odds_history_hourly": {
+                "polymarket_wc2026_raw_token_odds_history_hourly": {
                     "config": {
                         "workers": 1,
                         "batch_size": 1000,
@@ -277,7 +277,7 @@ oddsfox:
                         "progress_poll_seconds": 1,
                     }
                 },
-                "wc2026_polymarket_dbt": {
+                "polymarket_wc2026_dbt": {
                     "config": {
                         "progress_log_interval_events": 1,
                         "progress_log_interval_seconds": 1,
@@ -312,27 +312,27 @@ def test_refresh_path_materializes(
     with connection.get_connection() as conn:
         checks = (
             conn.execute(
-                'select count(*) from "wc2026_polymarket_raw"."markets"'
+                'select count(*) from "polymarket_wc2026_raw"."markets"'
             ).fetchone()
             == (1,),
             conn.execute(
-                'select count(*) from "wc2026_polymarket_raw"."market_tokens"'
+                'select count(*) from "polymarket_wc2026_raw"."market_tokens"'
             ).fetchone()
             == (1,),
             conn.execute(
-                'select count(*) from "wc2026_polymarket_raw"."odds_history"'
+                'select count(*) from "polymarket_wc2026_raw"."odds_history"'
             ).fetchone()[0]
             > 0,
             conn.execute(
-                'select count(*) from "wc2026_polymarket_raw"."token_odds_daily"'
+                'select count(*) from "polymarket_wc2026_raw"."token_odds_daily"'
             ).fetchone()[0]
             > 0,
             conn.execute(
-                "select count(*) from wc2026_polymarket_staging.stg_wc2026_polymarket_markets"
+                "select count(*) from polymarket_wc2026_staging.stg_polymarket_wc2026_markets"
             ).fetchone()
             == (1,),
             conn.execute(
-                "select count(*) from wc2026_polymarket_staging.stg_wc2026_polymarket_market_tokens"
+                "select count(*) from polymarket_wc2026_staging.stg_polymarket_wc2026_market_tokens"
             ).fetchone()
             == (2,),
         )

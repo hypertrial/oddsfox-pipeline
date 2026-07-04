@@ -19,11 +19,11 @@ def _load_compact_module():
 def _create_compactable_db(path: Path) -> None:
     conn = duckdb.connect(str(path))
     try:
-        conn.execute("create schema wc2026_polymarket_raw")
-        conn.execute("create table wc2026_polymarket_raw.markets (id varchar)")
-        conn.execute("insert into wc2026_polymarket_raw.markets values ('m1')")
+        conn.execute("create schema polymarket_wc2026_raw")
+        conn.execute("create table polymarket_wc2026_raw.markets (id varchar)")
+        conn.execute("insert into polymarket_wc2026_raw.markets values ('m1')")
         conn.execute(
-            "create view wc2026_polymarket_raw.market_ids as select id from wc2026_polymarket_raw.markets"
+            "create view polymarket_wc2026_raw.market_ids as select id from polymarket_wc2026_raw.markets"
         )
         conn.execute("checkpoint")
     finally:
@@ -54,7 +54,7 @@ def test_compact_warehouse_dry_run_verifies_without_swap(monkeypatch, tmp_path):
     conn = duckdb.connect(str(db_path), read_only=True)
     try:
         assert conn.execute(
-            "select id from wc2026_polymarket_raw.markets"
+            "select id from polymarket_wc2026_raw.markets"
         ).fetchall() == [("m1",)]
     finally:
         conn.close()

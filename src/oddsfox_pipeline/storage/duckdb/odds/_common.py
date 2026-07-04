@@ -4,17 +4,17 @@ from datetime import date, datetime, timezone
 from typing import Dict, Iterable, List, Set, Tuple
 
 from oddsfox_pipeline.storage.duckdb.connection import (
-    wc2026_polymarket_ops_tbl,
-    wc2026_polymarket_raw_tbl,
+    polymarket_wc2026_ops_tbl,
+    polymarket_wc2026_raw_tbl,
 )
 
 logger = logging.getLogger(__name__)
 _TOKEN_STATE_CHUNK_SIZE = 2_000
 
-_TAB_ODDS_HISTORY = wc2026_polymarket_raw_tbl("odds_history")
-_TAB_TOKEN_ODDS_DAILY = wc2026_polymarket_raw_tbl("token_odds_daily")
-_TAB_TOKEN_SYNC_LEDGER = wc2026_polymarket_ops_tbl("token_sync_ledger")
-_TAB_TOKEN_SYNC_SKIPS = wc2026_polymarket_ops_tbl("token_sync_skips")
+_TAB_ODDS_HISTORY = polymarket_wc2026_raw_tbl("odds_history")
+_TAB_TOKEN_ODDS_DAILY = polymarket_wc2026_raw_tbl("token_odds_daily")
+_TAB_TOKEN_SYNC_LEDGER = polymarket_wc2026_ops_tbl("token_sync_ledger")
+_TAB_TOKEN_SYNC_SKIPS = polymarket_wc2026_ops_tbl("token_sync_skips")
 
 TokenSyncSnapshot = Tuple[Dict[str, int], Set[str], Dict[str, str]]
 TokenSyncSnapshotWithScheduler = Tuple[

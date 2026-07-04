@@ -2,26 +2,28 @@
 
 from __future__ import annotations
 
-WC2026_POLYMARKET_RAW_SCHEMA = "wc2026_polymarket_raw"
-WC2026_POLYMARKET_OPS_SCHEMA = "wc2026_polymarket_ops"
+from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_POLYMARKET, schema_name
+
+POLYMARKET_WC2026_RAW_SCHEMA = schema_name(SOURCE_POLYMARKET, SCOPE_WC2026, "raw")
+POLYMARKET_WC2026_OPS_SCHEMA = schema_name(SOURCE_POLYMARKET, SCOPE_WC2026, "ops")
 
 
-def wc2026_polymarket_q(schema: str, table: str) -> str:
+def polymarket_wc2026_q(schema: str, table: str) -> str:
     return f'"{schema}"."{table}"'
 
 
-def wc2026_polymarket_raw_tbl(name: str) -> str:
-    return wc2026_polymarket_q(WC2026_POLYMARKET_RAW_SCHEMA, name)
+def polymarket_wc2026_raw_tbl(name: str) -> str:
+    return polymarket_wc2026_q(POLYMARKET_WC2026_RAW_SCHEMA, name)
 
 
-def wc2026_polymarket_ops_tbl(name: str) -> str:
-    return wc2026_polymarket_q(WC2026_POLYMARKET_OPS_SCHEMA, name)
+def polymarket_wc2026_ops_tbl(name: str) -> str:
+    return polymarket_wc2026_q(POLYMARKET_WC2026_OPS_SCHEMA, name)
 
 
 __all__ = [
-    "WC2026_POLYMARKET_OPS_SCHEMA",
-    "WC2026_POLYMARKET_RAW_SCHEMA",
-    "wc2026_polymarket_ops_tbl",
-    "wc2026_polymarket_q",
-    "wc2026_polymarket_raw_tbl",
+    "POLYMARKET_WC2026_OPS_SCHEMA",
+    "POLYMARKET_WC2026_RAW_SCHEMA",
+    "polymarket_wc2026_ops_tbl",
+    "polymarket_wc2026_q",
+    "polymarket_wc2026_raw_tbl",
 ]

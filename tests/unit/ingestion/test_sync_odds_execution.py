@@ -23,9 +23,9 @@ from tests.integration.ingestion._odds_sync_harness import (
 
 from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
-from oddsfox_pipeline.storage.duckdb.connection import wc2026_polymarket_raw_tbl
+from oddsfox_pipeline.storage.duckdb.connection import polymarket_wc2026_raw_tbl
 
-_T_OH = wc2026_polymarket_raw_tbl("odds_history")
+_T_OH = polymarket_wc2026_raw_tbl("odds_history")
 
 
 def _plan():

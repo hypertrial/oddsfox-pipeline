@@ -10,11 +10,11 @@ import duckdb
 
 from oddsfox_pipeline.config import settings as _settings
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-    WC2026_POLYMARKET_OPS_SCHEMA,
-    WC2026_POLYMARKET_RAW_SCHEMA,
-    wc2026_polymarket_ops_tbl,
-    wc2026_polymarket_q,
-    wc2026_polymarket_raw_tbl,
+    POLYMARKET_WC2026_OPS_SCHEMA,
+    POLYMARKET_WC2026_RAW_SCHEMA,
+    polymarket_wc2026_ops_tbl,
+    polymarket_wc2026_q,
+    polymarket_wc2026_raw_tbl,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     bootstrap_polymarket_tables,
@@ -142,13 +142,13 @@ def init_duck_db() -> None:
     if not _SCHEMA_LOGGED:
         logger.info(
             "Ensuring DuckDB Polymarket schemas (%s, %s)",
-            WC2026_POLYMARKET_RAW_SCHEMA,
-            WC2026_POLYMARKET_OPS_SCHEMA,
+            POLYMARKET_WC2026_RAW_SCHEMA,
+            POLYMARKET_WC2026_OPS_SCHEMA,
         )
         _SCHEMA_LOGGED = True
     try:
-        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{WC2026_POLYMARKET_RAW_SCHEMA}"')
-        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{WC2026_POLYMARKET_OPS_SCHEMA}"')
+        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_RAW_SCHEMA}"')
+        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_OPS_SCHEMA}"')
         bootstrap_polymarket_tables(conn)
         ensure_polymarket_indexes(conn)
         _SCHEMA_INITIALIZED = True
@@ -188,8 +188,8 @@ def _use_conn(conn=None):
 
 
 __all__ = [
-    "WC2026_POLYMARKET_OPS_SCHEMA",
-    "WC2026_POLYMARKET_RAW_SCHEMA",
+    "POLYMARKET_WC2026_OPS_SCHEMA",
+    "POLYMARKET_WC2026_RAW_SCHEMA",
     "_use_conn",
     "active_duckdb_path",
     "ensure_duck_db",
@@ -199,8 +199,8 @@ __all__ = [
     "is_duckdb_lock_io_error",
     "open_duckdb_connection",
     "open_writable_duckdb_connection",
-    "wc2026_polymarket_ops_tbl",
-    "wc2026_polymarket_q",
-    "wc2026_polymarket_raw_tbl",
+    "polymarket_wc2026_ops_tbl",
+    "polymarket_wc2026_q",
+    "polymarket_wc2026_raw_tbl",
     "reset_duckdb_connection_state",
 ]

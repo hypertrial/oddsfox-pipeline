@@ -228,7 +228,7 @@ def test_scan_collection_parity_with_closure_gate_on_vs_off(monkeypatch):
         event_tags=("fifa-world-cup",),
     )
     monkeypatch.setattr(
-        config_settings, "WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS", 1, raising=False
+        config_settings, "POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_ROUNDS", 1, raising=False
     )
     monkeypatch.setattr(
         scope_mod,
@@ -262,7 +262,7 @@ def test_scan_collection_parity_with_closure_gate_on_vs_off(monkeypatch):
 
     monkeypatch.setattr(
         config_settings,
-        "WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_KEYWORD_GATE",
+        "POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_KEYWORD_GATE",
         True,
         raising=False,
     )
@@ -272,7 +272,7 @@ def test_scan_collection_parity_with_closure_gate_on_vs_off(monkeypatch):
 
     monkeypatch.setattr(
         config_settings,
-        "WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_KEYWORD_GATE",
+        "POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_KEYWORD_GATE",
         False,
         raising=False,
     )

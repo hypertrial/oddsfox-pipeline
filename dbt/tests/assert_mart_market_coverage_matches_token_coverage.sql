@@ -9,7 +9,7 @@ with expected as (
         min(first_odds_date) as first_odds_date,
         max(last_odds_date) as last_odds_date,
         max(case when token_days_observed > 0 then 1 else 0 end) as has_odds_data
-    from {{ ref('wc2026_token_coverage') }}
+    from {{ ref('polymarket_wc2026_token_coverage') }}
     group by 1, 2, 3
 ),
 
@@ -23,7 +23,7 @@ actual as (
         first_odds_date,
         last_odds_date,
         has_odds_data
-    from {{ ref('wc2026_market_coverage') }}
+    from {{ ref('polymarket_wc2026_market_coverage') }}
 )
 
 select

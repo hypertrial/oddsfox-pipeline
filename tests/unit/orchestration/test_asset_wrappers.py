@@ -8,9 +8,9 @@ import pytest
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 from oddsfox_pipeline.orchestration import config as orch_config
 from oddsfox_pipeline.orchestration.assets import (
-    wc2026_polymarket_market_registry,
-    wc2026_polymarket_raw_markets,
-    wc2026_polymarket_token_odds_history_hourly,
+    polymarket_wc2026_ops_market_scope_registry,
+    polymarket_wc2026_raw_markets,
+    polymarket_wc2026_raw_token_odds_history_hourly,
 )
 
 
@@ -64,7 +64,7 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
     ensure_indexes = MagicMock()
     monkeypatch.setattr(assets_mod, "ensure_polymarket_indexes", ensure_indexes)
 
-    fn = wc2026_polymarket_raw_markets.op.compute_fn.decorated_fn
+    fn = polymarket_wc2026_raw_markets.op.compute_fn.decorated_fn
     assert list(fn(MagicMock(), fake_dlt)) == ["event"]
 
     pipeline.drop_pending_packages.assert_called_once()
@@ -84,7 +84,7 @@ def test_market_scope_registry_skips_when_snapshot_already_refreshed(monkeypatch
     )
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {"x": 1})
 
-    fn = wc2026_polymarket_market_registry.op.compute_fn.decorated_fn
+    fn = polymarket_wc2026_ops_market_scope_registry.op.compute_fn.decorated_fn
     result = fn(MagicMock(), orch_config.MarketScopeRegistryConfig())
 
     run_summary = result.metadata["run_summary"].value
@@ -107,7 +107,7 @@ def test_market_scope_registry_runs_sync_when_snapshot_did_not_refresh(monkeypat
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
     monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
 
-    fn = wc2026_polymarket_market_registry.op.compute_fn.decorated_fn
+    fn = polymarket_wc2026_ops_market_scope_registry.op.compute_fn.decorated_fn
     result = fn(
         MagicMock(),
         orch_config.MarketScopeRegistryConfig(
@@ -146,7 +146,7 @@ def test_market_scope_registry_force_refresh_bypasses_snapshot_metric_check(
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
     monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
 
-    fn = wc2026_polymarket_market_registry.op.compute_fn.decorated_fn
+    fn = polymarket_wc2026_ops_market_scope_registry.op.compute_fn.decorated_fn
     result = fn(MagicMock(), orch_config.MarketScopeRegistryConfig(force_refresh=True))
 
     assert checked_metrics == []
@@ -323,7 +323,7 @@ def test_odds_assets_delegate_to_materializer(monkeypatch):
 
     ctx = MagicMock()
     assert (
-        wc2026_polymarket_token_odds_history_hourly.op.compute_fn.decorated_fn(
+        polymarket_wc2026_raw_token_odds_history_hourly.op.compute_fn.decorated_fn(
             ctx, orch_config.HourlyOddsSyncConfig()
         )
         == "ok"

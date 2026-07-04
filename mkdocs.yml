@@ -35,6 +35,7 @@ nav:
       - Troubleshooting: troubleshooting.md
   - Reference:
       - Configuration: configuration.md
+      - Naming: naming.md
       - Warehouse: warehouse.md
       - Data Contracts: data-contracts.md
       - Scripts: scripts.md

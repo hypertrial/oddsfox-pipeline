@@ -50,18 +50,18 @@ The only supported market scope is `wc2026`; see [Configuration](configuration.m
 
 ```mermaid
 flowchart TD
-    raw["wc2026_polymarket_raw"] --> staging["wc2026_polymarket_staging"]
-    ops["wc2026_polymarket_ops"] --> staging
-    staging --> token_universe["int_wc2026_polymarket_token_universe"]
-    staging --> wc2026_markets_int["int_wc2026_polymarket_markets"]
+    raw["polymarket_wc2026_raw"] --> staging["polymarket_wc2026_staging"]
+    ops["polymarket_wc2026_ops"] --> staging
+    staging --> token_universe["int_polymarket_wc2026_token_universe"]
+    staging --> wc2026_markets_int["int_polymarket_wc2026_markets"]
     ops --> wc2026_markets_int
-    wc2026_markets_int --> wc2026_markets["wc2026_markets"]
-    token_universe --> wc2026_tokens["int_wc2026_polymarket_market_tokens"]
+    wc2026_markets_int --> polymarket_wc2026_markets["polymarket_wc2026_markets"]
+    token_universe --> wc2026_tokens["int_polymarket_wc2026_market_tokens"]
     wc2026_markets_int --> wc2026_tokens
-    token_universe --> coverage["wc2026_token_coverage"]
-    coverage --> wc2026_market_coverage["wc2026_market_coverage"]
-    wc2026_tokens --> hourly["wc2026_token_hourly_odds"]
-    wc2026_tokens --> daily["wc2026_token_daily_odds"]
+    token_universe --> coverage["polymarket_wc2026_token_coverage"]
+    coverage --> polymarket_wc2026_market_coverage["polymarket_wc2026_market_coverage"]
+    wc2026_tokens --> hourly["polymarket_wc2026_token_hourly_odds"]
+    wc2026_tokens --> daily["polymarket_wc2026_token_daily_odds"]
 ```
 
 Text fallback: staging normalizes raw and ops tables, intermediates establish
@@ -71,8 +71,8 @@ market universe (`scope_name`, `market_id`).
 
 ## Operating Model
 
-- `wc2026_full_pipeline` is the one-click full manual pipeline.
-- `wc2026_hourly_odds_ingest` is the hourly odds job (`fidelity=60`).
+- `polymarket_wc2026_full_pipeline` is the one-click full manual pipeline.
+- `polymarket_wc2026_hourly_odds_ingest` is the hourly odds job (`fidelity=60`).
 - Schedules are stopped by default and should stay off until manual runs pass.
 - DuckDB allows one read-write writer, so scripts provide read-only inspection
   and repair paths for local operators.

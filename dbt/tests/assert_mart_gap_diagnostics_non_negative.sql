@@ -4,7 +4,7 @@ select
     clob_token_id,
     token_days_observed,
     max_gap_days
-from {{ ref('wc2026_token_coverage') }}
+from {{ ref('polymarket_wc2026_token_coverage') }}
 where
     token_days_observed < 0
     or max_gap_days < 0

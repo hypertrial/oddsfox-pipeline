@@ -11,8 +11,8 @@ import oddsfox_pipeline.storage.duckdb.markets as markets
 from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 from oddsfox_pipeline.storage.duckdb.connection import (
     get_connection,
-    wc2026_polymarket_ops_tbl,
-    wc2026_polymarket_raw_tbl,
+    polymarket_wc2026_ops_tbl,
+    polymarket_wc2026_raw_tbl,
 )
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
@@ -20,14 +20,14 @@ from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
 )
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import create_test_markets_table
 
-T_M = wc2026_polymarket_raw_tbl("markets")
-T_MT = wc2026_polymarket_raw_tbl("market_tokens")
-T_OH = wc2026_polymarket_raw_tbl("odds_history")
-T_TOD = wc2026_polymarket_raw_tbl("token_odds_daily")
-T_LED = wc2026_polymarket_ops_tbl("token_sync_ledger")
-T_SK = wc2026_polymarket_ops_tbl("token_sync_skips")
-T_PRE = wc2026_polymarket_ops_tbl("pipeline_run_events")
-T_UNR = wc2026_polymarket_ops_tbl("market_metadata_unresolved")
+T_M = polymarket_wc2026_raw_tbl("markets")
+T_MT = polymarket_wc2026_raw_tbl("market_tokens")
+T_OH = polymarket_wc2026_raw_tbl("odds_history")
+T_TOD = polymarket_wc2026_raw_tbl("token_odds_daily")
+T_LED = polymarket_wc2026_ops_tbl("token_sync_ledger")
+T_SK = polymarket_wc2026_ops_tbl("token_sync_skips")
+T_PRE = polymarket_wc2026_ops_tbl("pipeline_run_events")
+T_UNR = polymarket_wc2026_ops_tbl("market_metadata_unresolved")
 
 
 @pytest.fixture

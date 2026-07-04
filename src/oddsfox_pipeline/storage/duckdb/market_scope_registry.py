@@ -9,9 +9,9 @@ from typing import List, Sequence
 from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_connection
 from oddsfox_pipeline.storage.duckdb.dlt_batch import load_market_scope_registry_stage
-from oddsfox_pipeline.storage.duckdb.schemas.constants import wc2026_polymarket_ops_tbl
+from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_wc2026_ops_tbl
 
-_TAB_REGISTRY = wc2026_polymarket_ops_tbl("market_scope_registry")
+_TAB_REGISTRY = polymarket_wc2026_ops_tbl("market_scope_registry")
 
 
 @dataclass(frozen=True)

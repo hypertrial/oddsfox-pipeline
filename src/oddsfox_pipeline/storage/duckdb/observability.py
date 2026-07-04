@@ -9,63 +9,66 @@ from typing import Any
 import duckdb
 
 from oddsfox_pipeline.storage.duckdb.connection import (
-    WC2026_POLYMARKET_OPS_SCHEMA,
-    WC2026_POLYMARKET_RAW_SCHEMA,
+    POLYMARKET_WC2026_OPS_SCHEMA,
+    POLYMARKET_WC2026_RAW_SCHEMA,
     get_connection,
-    wc2026_polymarket_ops_tbl,
-    wc2026_polymarket_q,
-    wc2026_polymarket_raw_tbl,
+    polymarket_wc2026_ops_tbl,
+    polymarket_wc2026_q,
+    polymarket_wc2026_raw_tbl,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
-    WC2026_POLYMARKET_INTERMEDIATE_SCHEMA,
-    WC2026_POLYMARKET_MARTS_SCHEMA,
-    WC2026_POLYMARKET_OBSERVABILITY_SCHEMA,
-    WC2026_POLYMARKET_STAGING_SCHEMA,
+    POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+    POLYMARKET_WC2026_MARTS_SCHEMA,
+    POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+    POLYMARKET_WC2026_STAGING_SCHEMA,
 )
 
 logger = logging.getLogger(__name__)
 
 _POLY_RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
-    (WC2026_POLYMARKET_RAW_SCHEMA, "markets"),
-    (WC2026_POLYMARKET_RAW_SCHEMA, "market_tokens"),
-    (WC2026_POLYMARKET_RAW_SCHEMA, "odds_history"),
-    (WC2026_POLYMARKET_RAW_SCHEMA, "token_odds_daily"),
-    (WC2026_POLYMARKET_OPS_SCHEMA, "market_scope_registry"),
-    (WC2026_POLYMARKET_OPS_SCHEMA, "token_sync_ledger"),
-    (WC2026_POLYMARKET_OPS_SCHEMA, "token_sync_skips"),
-    (WC2026_POLYMARKET_OPS_SCHEMA, "pipeline_run_events"),
-    (WC2026_POLYMARKET_OPS_SCHEMA, "sync_run_metrics"),
+    (POLYMARKET_WC2026_RAW_SCHEMA, "markets"),
+    (POLYMARKET_WC2026_RAW_SCHEMA, "market_tokens"),
+    (POLYMARKET_WC2026_RAW_SCHEMA, "odds_history"),
+    (POLYMARKET_WC2026_RAW_SCHEMA, "token_odds_daily"),
+    (POLYMARKET_WC2026_OPS_SCHEMA, "market_scope_registry"),
+    (POLYMARKET_WC2026_OPS_SCHEMA, "token_sync_ledger"),
+    (POLYMARKET_WC2026_OPS_SCHEMA, "token_sync_skips"),
+    (POLYMARKET_WC2026_OPS_SCHEMA, "pipeline_run_events"),
+    (POLYMARKET_WC2026_OPS_SCHEMA, "sync_run_metrics"),
 )
 _RAW_TABLES_POLY: tuple[str, ...] = tuple(t for _, t in _POLY_RAW_OPS_TABLES)
 
 _DBT_MODELS: tuple[tuple[str, str], ...] = (
-    (WC2026_POLYMARKET_STAGING_SCHEMA, "stg_wc2026_polymarket_markets"),
-    (WC2026_POLYMARKET_STAGING_SCHEMA, "stg_wc2026_polymarket_market_tokens"),
-    (WC2026_POLYMARKET_STAGING_SCHEMA, "stg_wc2026_polymarket_odds"),
-    (WC2026_POLYMARKET_STAGING_SCHEMA, "stg_wc2026_polymarket_odds_daily"),
-    (WC2026_POLYMARKET_STAGING_SCHEMA, "stg_wc2026_polymarket_pipeline_run_events"),
-    (WC2026_POLYMARKET_STAGING_SCHEMA, "stg_wc2026_polymarket_sync_ledger"),
-    (WC2026_POLYMARKET_STAGING_SCHEMA, "stg_wc2026_polymarket_token_sync_skips"),
-    (WC2026_POLYMARKET_INTERMEDIATE_SCHEMA, "int_wc2026_polymarket_markets"),
-    (WC2026_POLYMARKET_INTERMEDIATE_SCHEMA, "int_wc2026_polymarket_token_universe"),
-    (WC2026_POLYMARKET_INTERMEDIATE_SCHEMA, "int_wc2026_polymarket_market_tokens"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_markets"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_market_tokens"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds_daily"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_pipeline_run_events"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_sync_ledger"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_token_sync_skips"),
+    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_markets"),
+    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_token_universe"),
+    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_market_tokens"),
     (
-        WC2026_POLYMARKET_INTERMEDIATE_SCHEMA,
-        "int_wc2026_polymarket_token_daily_timeseries",
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_token_daily_timeseries",
     ),
-    (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_market_coverage"),
-    (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_markets"),
-    (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_token_coverage"),
-    (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_token_hourly_odds"),
-    (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_token_daily_odds"),
-    (WC2026_POLYMARKET_OBSERVABILITY_SCHEMA, "wc2026_sync_run_observability"),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_market_coverage"),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_markets"),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_token_coverage"),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_token_hourly_odds"),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_token_daily_odds"),
+    (
+        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+        "polymarket_wc2026_sync_run_observability",
+    ),
 )
 
-_TAB_MT = wc2026_polymarket_raw_tbl("market_tokens")
-_TAB_OH = wc2026_polymarket_raw_tbl("odds_history")
-_TAB_TOD = wc2026_polymarket_raw_tbl("token_odds_daily")
-_TAB_LED = wc2026_polymarket_ops_tbl("token_sync_ledger")
-_TAB_SKP = wc2026_polymarket_ops_tbl("token_sync_skips")
+_TAB_MT = polymarket_wc2026_raw_tbl("market_tokens")
+_TAB_OH = polymarket_wc2026_raw_tbl("odds_history")
+_TAB_TOD = polymarket_wc2026_raw_tbl("token_odds_daily")
+_TAB_LED = polymarket_wc2026_ops_tbl("token_sync_ledger")
+_TAB_SKP = polymarket_wc2026_ops_tbl("token_sync_skips")
 
 _MARKET_TOKEN_IDS_CTE = f"""
 WITH market_token_ids AS (
@@ -140,7 +143,7 @@ def snapshot_raw_layer(conn=None, *, level: str = "full") -> dict[str, Any]:
 
     def _fill(c) -> None:
         for schema, table in _POLY_RAW_OPS_TABLES:
-            exists, n = _table_row_count(c, wc2026_polymarket_q(schema, table))
+            exists, n = _table_row_count(c, polymarket_wc2026_q(schema, table))
             out[f"{table}_rows"] = n
             out[f"{table}_missing"] = not exists
 

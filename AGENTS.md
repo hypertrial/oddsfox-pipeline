@@ -17,7 +17,7 @@ cp .env.example .env
 Default warehouse: `oddsfox.duckdb` in the repo root. Keep schedules disabled in local dev and CI unless intentionally running live ingestion:
 
 ```dotenv
-WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
+POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 ## AI agent guidance
@@ -36,7 +36,7 @@ backward-compatibility layer unless the task explicitly requests one.
 - **Warehouse reset over migration:** operators with pre-layout DuckDB files
   should delete the warehouse (`rm oddsfox.duckdb*`) and rerun quickstart.
 - **Public contracts:** [docs/data-contracts.md](docs/data-contracts.md) marts
-  and Dagster asset names are the current API. Breaking changes belong in
+  and Dagster asset keys are the current API. Breaking changes belong in
   [CHANGELOG.md](CHANGELOG.md), not hidden compat layers.
 - **Ponytail alignment:** deletion over addition applies here — prefer removing
   dead paths over preserving them.
@@ -97,7 +97,7 @@ src/oddsfox_pipeline/
   resources/       # HTTP, outbound URL, progress guardrails
   storage/duckdb/  # Connection, schemas, markets/odds persistence, profiling
 dbt/
-  models/wc2026_polymarket/{staging,intermediate,marts,observability}/
+  models/polymarket_wc2026/{staging,intermediate,marts,observability}/
   tests/           # Singular dbt data tests (assert_*)
 tests/
   unit/            # Mocked config, ingestion, storage, orchestration
@@ -121,7 +121,7 @@ Imports use src-layout paths: `from oddsfox_pipeline.config.settings import …`
 
 - sqlfluff: DuckDB dialect, dbt templater, max line length 130.
 - Lint/fix: `dbt/models`, `dbt/tests` only (see Makefile).
-- Layer naming: `wc2026_polymarket_staging`, `wc2026_polymarket_intermediate`, `wc2026_polymarket_marts`, `wc2026_polymarket_observability`.
+- Layer naming: `polymarket_wc2026_staging`, `polymarket_wc2026_intermediate`, `polymarket_wc2026_marts`, `polymarket_wc2026_observability`.
 
 **Tests** ([tests/README.md](tests/README.md)):
 
@@ -131,18 +131,18 @@ Imports use src-layout paths: `from oddsfox_pipeline.config.settings import …`
 
 ## Orchestration guardrails
 
-Asset order (routine pipeline):
+Asset key order (routine pipeline; flat op names use the same subject order):
 
-1. `wc2026_polymarket_raw_markets`
-2. `wc2026_polymarket_markets_snapshot`
-3. `wc2026_polymarket_market_registry`
-4. `wc2026_polymarket_market_metadata_backfill`
-5. `wc2026_polymarket_token_odds_history_hourly`
-6. `wc2026_polymarket_dbt`
+1. `polymarket/wc2026/raw/markets`
+2. `polymarket/wc2026/raw/markets_snapshot`
+3. `polymarket/wc2026/ops/market_scope_registry`
+4. `polymarket/wc2026/raw/market_metadata_backfill`
+5. `polymarket/wc2026/raw/token_odds_history_hourly`
+6. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`
 
-Key jobs: `wc2026_market_registry_refresh`, `wc2026_hourly_odds_ingest`, `wc2026_dbt_build`, `wc2026_full_pipeline`.
+Key jobs: `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`.
 
-Schedules target `wc2026_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
+Schedules target `polymarket_wc2026_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 
 **Market scope:** v0.1.x supports only `wc2026`. Dagster asset configs do not
 accept a scope selector, and dbt builds the fixed WC2026 graph. See

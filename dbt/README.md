@@ -10,10 +10,10 @@ See the operator docs for warehouse details:
 
 Modeled layers:
 
-- `wc2026_polymarket_staging`
-- `wc2026_polymarket_intermediate`
-- `wc2026_polymarket_marts`
-- `wc2026_polymarket_observability`
+- `polymarket_wc2026_staging`
+- `polymarket_wc2026_intermediate`
+- `polymarket_wc2026_marts`
+- `polymarket_wc2026_observability`
 
 Run locally:
 
@@ -23,4 +23,4 @@ dbt build --full-refresh --project-dir dbt --profiles-dir dbt/profiles
 ```
 
 WC2026 scoping is encoded in the model graph and
-`wc2026_polymarket_ops.market_scope_registry`; there is no dbt scope-selection var.
+`polymarket_wc2026_ops.market_scope_registry`; there is no dbt scope-selection var.

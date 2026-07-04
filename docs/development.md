@@ -26,7 +26,7 @@ Keep schedules disabled for local development unless intentionally testing live
 ingestion:
 
 ```dotenv
-WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
+POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 ## Quality Gate
@@ -69,17 +69,17 @@ warehouse/profile size evidence that justifies the change.
 Treat Costguard medium/low advisories as measurement prompts. Current measured
 debt includes:
 
-- `int_wc2026_polymarket_token_universe` is materialized as a table because profiling
+- `int_polymarket_wc2026_token_universe` is materialized as a table because profiling
   showed it is reused heavily by WC2026 marts and the dbt build stayed
   neutral or faster after the change.
-- `int_wc2026_polymarket_market_tokens` is materialized as a table because it
+- `int_polymarket_wc2026_market_tokens` is materialized as a table because it
   fans out to multiple downstream WC2026 marts. Costguard now tracks its
   remaining incremental-conversion question as `SQLCOST040`.
-- `SQLCOST040`: `int_wc2026_polymarket_token_universe` and
-  `wc2026_token_coverage` rebuild as full tables. Defer incremental conversion
+- `SQLCOST040`: `int_polymarket_wc2026_token_universe` and
+  `polymarket_wc2026_token_coverage` rebuild as full tables. Defer incremental conversion
   until row-volume profiling defines safe predicates.
-- Low advisories: `ORDER BY` without `LIMIT` in `wc2026_token_coverage` and
-  `wc2026_token_hourly_odds`.
+- Low advisories: `ORDER BY` without `LIMIT` in `polymarket_wc2026_token_coverage` and
+  `polymarket_wc2026_token_hourly_odds`.
 
 Do not change materializations on advisory text alone. Capture dbt build
 runtime, relevant relation sizes from `scripts/profile_warehouse.py`, and the

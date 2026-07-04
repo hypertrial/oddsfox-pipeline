@@ -49,19 +49,19 @@ See [Architecture](docs/architecture.md) and [Warehouse](docs/warehouse.md).
 
 ## Data Outputs
 
-Current Polymarket analytics outputs live in `wc2026_polymarket_marts`:
+Current Polymarket analytics outputs live in `polymarket_wc2026_marts`:
 
-- `wc2026_token_coverage`: token-level coverage and health.
-- `wc2026_market_coverage`: market-level daily coverage rollup.
-- `wc2026_token_hourly_odds`: full WC2026 hourly OHLC odds time series.
-- `wc2026_token_daily_odds`: full WC2026 daily OHLC odds time series.
-- `wc2026_markets`: WC2026 market universe (`scope_name`, `market_id` grain).
-- `wc2026_knockout_token_hourly_odds`: graph-ready WC2026 knockout hourly odds with stage/team classification.
+- `polymarket_wc2026_token_coverage`: token-level coverage and health.
+- `polymarket_wc2026_market_coverage`: market-level daily coverage rollup.
+- `polymarket_wc2026_token_hourly_odds`: full WC2026 hourly OHLC odds time series.
+- `polymarket_wc2026_token_daily_odds`: full WC2026 daily OHLC odds time series.
+- `polymarket_wc2026_markets`: WC2026 market universe (`scope_name`, `market_id` grain).
+- `polymarket_wc2026_knockout_token_hourly_odds`: graph-ready WC2026 knockout hourly odds with stage/team classification.
 
-Dagster registers WC2026 jobs only: `wc2026_market_registry_refresh`,
-`wc2026_hourly_odds_ingest`, `wc2026_dbt_build`, and `wc2026_full_pipeline`.
+Dagster registers WC2026 jobs only: `polymarket_wc2026_market_registry_refresh`,
+`polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline`.
 
-See [Data Contracts](docs/data-contracts.md).
+See [Data Contracts](docs/data-contracts.md) and [Naming](docs/naming.md).
 
 ## Development
 

@@ -1,11 +1,11 @@
 from oddsfox_pipeline.orchestration import polymarket_ops as _ops
 from oddsfox_pipeline.orchestration.assets_polymarket import (
-    wc2026_polymarket_dbt,
-    wc2026_polymarket_market_metadata_backfill,
-    wc2026_polymarket_market_registry,
-    wc2026_polymarket_markets_snapshot,
-    wc2026_polymarket_raw_markets,
-    wc2026_polymarket_token_odds_history_hourly,
+    polymarket_wc2026_dbt,
+    polymarket_wc2026_ops_market_scope_registry,
+    polymarket_wc2026_raw_market_metadata_backfill,
+    polymarket_wc2026_raw_markets,
+    polymarket_wc2026_raw_markets_snapshot,
+    polymarket_wc2026_raw_token_odds_history_hourly,
 )
 from oddsfox_pipeline.orchestration.dbt_project import (
     DBT_DAGSTER_GROUP_NAME,
@@ -38,11 +38,11 @@ __all__ = [
     "DBT_DAGSTER_GROUP_NAME",
     "DBT_PROJECT",
     "PolymarketDagsterDbtTranslator",
-    "wc2026_polymarket_dbt",
-    "wc2026_polymarket_market_metadata_backfill",
-    "wc2026_polymarket_raw_markets",
-    "wc2026_polymarket_markets_snapshot",
-    "wc2026_polymarket_token_odds_history_hourly",
-    "wc2026_polymarket_market_registry",
+    "polymarket_wc2026_dbt",
+    "polymarket_wc2026_raw_market_metadata_backfill",
+    "polymarket_wc2026_raw_markets",
+    "polymarket_wc2026_raw_markets_snapshot",
+    "polymarket_wc2026_raw_token_odds_history_hourly",
+    "polymarket_wc2026_ops_market_scope_registry",
     "prepare_dbt_project",
 ]

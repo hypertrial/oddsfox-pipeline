@@ -17,10 +17,10 @@ def test_metadata_backfill_asset_invokes_progress_callback():
     from dagster import materialize
 
     from oddsfox_pipeline.orchestration.assets import (
-        wc2026_polymarket_market_metadata_backfill,
+        polymarket_wc2026_raw_market_metadata_backfill,
     )
 
-    op_key = wc2026_polymarket_market_metadata_backfill.key.to_python_identifier()
+    op_key = polymarket_wc2026_raw_market_metadata_backfill.op.name
 
     def combined(**kw):
         cb = kw.get("progress_callback")
@@ -39,7 +39,7 @@ def test_metadata_backfill_asset_invokes_progress_callback():
         ),
     ):
         materialize(
-            [wc2026_polymarket_market_metadata_backfill],
+            [polymarket_wc2026_raw_market_metadata_backfill],
             run_config={
                 "ops": {
                     op_key: {
@@ -58,10 +58,10 @@ def test_metadata_backfill_config_branches():
     from dagster import materialize
 
     from oddsfox_pipeline.orchestration.assets import (
-        wc2026_polymarket_market_metadata_backfill,
+        polymarket_wc2026_raw_market_metadata_backfill,
     )
 
-    op_key = wc2026_polymarket_market_metadata_backfill.key.to_python_identifier()
+    op_key = polymarket_wc2026_raw_market_metadata_backfill.op.name
     cfg = {
         "batch_size": 20,
         "force": False,
@@ -80,7 +80,7 @@ def test_metadata_backfill_config_branches():
         ),
     ):
         materialize(
-            [wc2026_polymarket_market_metadata_backfill],
+            [polymarket_wc2026_raw_market_metadata_backfill],
             run_config={"ops": {op_key: {"config": cfg}}},
         )
 
@@ -101,7 +101,7 @@ def test_metadata_backfill_config_branches():
         ),
     ):
         materialize(
-            [wc2026_polymarket_market_metadata_backfill],
+            [polymarket_wc2026_raw_market_metadata_backfill],
             run_config={"ops": {op_key: {"config": cfg2}}},
         )
 
@@ -110,10 +110,10 @@ def test_metadata_backfill_forwards_event_slug_fallback_and_gamma_kwargs():
     from dagster import materialize
 
     from oddsfox_pipeline.orchestration.assets import (
-        wc2026_polymarket_market_metadata_backfill,
+        polymarket_wc2026_raw_market_metadata_backfill,
     )
 
-    op_key = wc2026_polymarket_market_metadata_backfill.key.to_python_identifier()
+    op_key = polymarket_wc2026_raw_market_metadata_backfill.op.name
     captured = {}
 
     def capture_metadata(**kw):
@@ -131,7 +131,7 @@ def test_metadata_backfill_forwards_event_slug_fallback_and_gamma_kwargs():
         ),
     ):
         materialize(
-            [wc2026_polymarket_market_metadata_backfill],
+            [polymarket_wc2026_raw_market_metadata_backfill],
             run_config={
                 "ops": {
                     op_key: {
@@ -166,7 +166,7 @@ def test_metadata_backfill_deletes_orphan_market_tokens_after_backfill(monkeypat
     from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
     from oddsfox_pipeline.orchestration import config as orch_config
     from oddsfox_pipeline.orchestration.assets import (
-        wc2026_polymarket_market_metadata_backfill,
+        polymarket_wc2026_raw_market_metadata_backfill,
     )
 
     calls: list[str] = []
@@ -183,7 +183,7 @@ def test_metadata_backfill_deletes_orphan_market_tokens_after_backfill(monkeypat
         lambda: calls.append("cleanup") or 2,
     )
 
-    fn = wc2026_polymarket_market_metadata_backfill.op.compute_fn.decorated_fn
+    fn = polymarket_wc2026_raw_market_metadata_backfill.op.compute_fn.decorated_fn
     ctx = MagicMock()
     result = fn(ctx, orch_config.MetadataBackfillConfig())
 
@@ -198,10 +198,10 @@ def test_metadata_backfill_guardrail_poll_checks_and_raises_worker_errors(monkey
 
     from oddsfox_pipeline.orchestration import assets as assets_mod
     from oddsfox_pipeline.orchestration.assets import (
-        wc2026_polymarket_market_metadata_backfill,
+        polymarket_wc2026_raw_market_metadata_backfill,
     )
 
-    op_key = wc2026_polymarket_market_metadata_backfill.key.to_python_identifier()
+    op_key = polymarket_wc2026_raw_market_metadata_backfill.op.name
     check_calls = {"count": 0}
     clock = _FakeClock()
     _patch_guardrail_clock(monkeypatch, assets_mod, clock)
@@ -234,7 +234,7 @@ def test_metadata_backfill_guardrail_poll_checks_and_raises_worker_errors(monkey
         ),
     ):
         materialize(
-            [wc2026_polymarket_market_metadata_backfill],
+            [polymarket_wc2026_raw_market_metadata_backfill],
             run_config={
                 "ops": {
                     op_key: {
@@ -265,7 +265,7 @@ def test_metadata_backfill_guardrail_poll_checks_and_raises_worker_errors(monkey
     ):
         with pytest.raises(RuntimeError, match="boom phase"):
             materialize(
-                [wc2026_polymarket_market_metadata_backfill],
+                [polymarket_wc2026_raw_market_metadata_backfill],
                 run_config={
                     "ops": {
                         op_key: {

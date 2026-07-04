@@ -8,7 +8,7 @@ shipped adapter. For public mart guarantees, see
 
 ## Raw Tables
 
-Schema: `wc2026_polymarket_raw`
+Schema: `polymarket_wc2026_raw`
 
 - `markets`: dlt-owned Gamma market landing table with frozen column/type contract.
 - `market_tokens`: one row per market with CLOB token JSON; current batches land through dlt staging and finalize into this canonical table with `INSERT OR REPLACE`.
@@ -21,7 +21,7 @@ Schema: `wc2026_polymarket_raw`
 
 ## Ops Tables
 
-Schema: `wc2026_polymarket_ops`
+Schema: `polymarket_wc2026_ops`
 
 - `market_scope_registry`: market ids admitted to the WC2026 market scope; current batches
   land through dlt staging before the canonical upsert preserves existing non-null event fields.
@@ -37,39 +37,39 @@ Schema: `wc2026_polymarket_ops`
 
 ## dbt Schemas
 
-- `wc2026_polymarket_staging`
-- `wc2026_polymarket_intermediate`
-- `wc2026_polymarket_marts`
-- `wc2026_polymarket_observability`
+- `polymarket_wc2026_staging`
+- `polymarket_wc2026_intermediate`
+- `polymarket_wc2026_marts`
+- `polymarket_wc2026_observability`
 
 ## dbt Intermediate
 
-Schema: `wc2026_polymarket_intermediate`
+Schema: `polymarket_wc2026_intermediate`
 
-- `int_wc2026_polymarket_token_universe`: materialized canonical one-row-per-token
+- `int_polymarket_wc2026_token_universe`: materialized canonical one-row-per-token
   join of market tokens to market labels, state, and volume.
-- `int_wc2026_polymarket_markets`: markets admitted by the fixed WC2026 scope;
+- `int_polymarket_wc2026_markets`: markets admitted by the fixed WC2026 scope;
   one row per `(scope_name, market_id)`.
-- `int_wc2026_polymarket_market_tokens`: WC2026 subset of the token universe.
-- `int_wc2026_polymarket_token_daily_timeseries`: token-level daily odds joined to the token universe.
+- `int_polymarket_wc2026_market_tokens`: WC2026 subset of the token universe.
+- `int_polymarket_wc2026_token_daily_timeseries`: token-level daily odds joined to the token universe.
 
 ## dbt Marts
 
-Schema: `wc2026_polymarket_marts`
+Schema: `polymarket_wc2026_marts`
 
-- `wc2026_market_coverage`: market-level daily odds coverage rolled up from `wc2026_token_coverage`.
-- `wc2026_token_coverage`: token-level health and coverage, including daily coverage,
+- `polymarket_wc2026_market_coverage`: market-level daily odds coverage rolled up from `polymarket_wc2026_token_coverage`.
+- `polymarket_wc2026_token_coverage`: token-level health and coverage, including daily coverage,
   sync ledger state, persisted skip reason, gap diagnostics, and market fully
   checked rollups.
-- `wc2026_token_hourly_odds`: full hourly OHLC odds time series for WC2026 tokens (dbt
+- `polymarket_wc2026_token_hourly_odds`: full hourly OHLC odds time series for WC2026 tokens (dbt
   view over `odds_history`; not materialized to save disk).
-- `wc2026_token_daily_odds`: full daily OHLC odds time series for WC2026 tokens (dbt
-  view over `int_wc2026_polymarket_token_daily_timeseries`; not materialized to save disk).
-- `wc2026_markets`: WC2026 market universe; one row per `(scope_name, market_id)`.
+- `polymarket_wc2026_token_daily_odds`: full daily OHLC odds time series for WC2026 tokens (dbt
+  view over `int_polymarket_wc2026_token_daily_timeseries`; not materialized to save disk).
+- `polymarket_wc2026_markets`: WC2026 market universe; one row per `(scope_name, market_id)`.
 
-Schema: `wc2026_polymarket_observability`
+Schema: `polymarket_wc2026_observability`
 
-- `wc2026_sync_run_observability`: run-level ingestion and odds-sync telemetry.
+- `polymarket_wc2026_sync_run_observability`: run-level ingestion and odds-sync telemetry.
 
 ## dlt Landing And Canonical Tables
 
@@ -78,14 +78,14 @@ landing for `markets`, `market_tokens`, `odds_history`,
 `market_scope_registry`, and `pipeline_run_events`; stage tables and `_dlt*`
 metadata tables are internal implementation details.
 
-`wc2026_polymarket_raw.markets` is created by `wc2026_polymarket_raw_markets`. The
+`polymarket_wc2026_raw.markets` is created by `polymarket_wc2026_raw_markets`. The
 `dbt-build-ci` target creates an empty source fixture only in its disposable
 DuckDB database.
 
 Manual reset:
 
 ```sql
-DROP TABLE IF EXISTS wc2026_polymarket_raw.markets;
+DROP TABLE IF EXISTS polymarket_wc2026_raw.markets;
 ```
 
-Then materialize `wc2026_polymarket_raw_markets`.
+Then materialize `polymarket_wc2026_raw_markets`.

@@ -8,38 +8,40 @@ from oddsfox_pipeline.config.settings import (
     resolve_dbt_executable,
 )
 from oddsfox_pipeline.orchestration.assets import (
-    wc2026_polymarket_dbt,
-    wc2026_polymarket_market_metadata_backfill,
-    wc2026_polymarket_market_registry,
-    wc2026_polymarket_markets_snapshot,
-    wc2026_polymarket_raw_markets,
-    wc2026_polymarket_token_odds_history_hourly,
+    polymarket_wc2026_dbt,
+    polymarket_wc2026_ops_market_scope_registry,
+    polymarket_wc2026_raw_market_metadata_backfill,
+    polymarket_wc2026_raw_markets,
+    polymarket_wc2026_raw_markets_snapshot,
+    polymarket_wc2026_raw_token_odds_history_hourly,
 )
 from oddsfox_pipeline.orchestration.jobs import (
-    wc2026_dbt_build,
-    wc2026_full_pipeline,
-    wc2026_hourly_odds_ingest,
-    wc2026_market_registry_refresh,
+    polymarket_wc2026_dbt_build,
+    polymarket_wc2026_full_pipeline,
+    polymarket_wc2026_hourly_odds_ingest,
+    polymarket_wc2026_market_registry_refresh,
 )
-from oddsfox_pipeline.orchestration.schedules import wc2026_hourly_odds_schedule
+from oddsfox_pipeline.orchestration.schedules import (
+    polymarket_wc2026_hourly_odds_schedule,
+)
 
 defs = Definitions(
     assets=[
-        wc2026_polymarket_raw_markets,
-        wc2026_polymarket_markets_snapshot,
-        wc2026_polymarket_market_registry,
-        wc2026_polymarket_market_metadata_backfill,
-        wc2026_polymarket_token_odds_history_hourly,
-        wc2026_polymarket_dbt,
+        polymarket_wc2026_raw_markets,
+        polymarket_wc2026_raw_markets_snapshot,
+        polymarket_wc2026_ops_market_scope_registry,
+        polymarket_wc2026_raw_market_metadata_backfill,
+        polymarket_wc2026_raw_token_odds_history_hourly,
+        polymarket_wc2026_dbt,
     ],
     jobs=[
-        wc2026_hourly_odds_ingest,
-        wc2026_market_registry_refresh,
-        wc2026_dbt_build,
-        wc2026_full_pipeline,
+        polymarket_wc2026_hourly_odds_ingest,
+        polymarket_wc2026_market_registry_refresh,
+        polymarket_wc2026_dbt_build,
+        polymarket_wc2026_full_pipeline,
     ],
     schedules=[
-        wc2026_hourly_odds_schedule,
+        polymarket_wc2026_hourly_odds_schedule,
     ],
     resources={
         "dbt": DbtCliResource(

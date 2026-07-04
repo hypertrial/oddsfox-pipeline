@@ -12,15 +12,15 @@ from oddsfox_pipeline.ingestion.polymarket import scope_sql
 from oddsfox_pipeline.storage.duckdb.connection import (
     ensure_duck_db,
     get_connection,
-    wc2026_polymarket_ops_tbl,
-    wc2026_polymarket_raw_tbl,
+    polymarket_wc2026_ops_tbl,
+    polymarket_wc2026_raw_tbl,
 )
 
-_TAB_MARKETS = wc2026_polymarket_raw_tbl("markets")
-_TAB_MARKET_TOKENS = wc2026_polymarket_raw_tbl("market_tokens")
-_TAB_TOKEN_SYNC_LEDGER = wc2026_polymarket_ops_tbl("token_sync_ledger")
-_TAB_TOKEN_SYNC_SKIPS = wc2026_polymarket_ops_tbl("token_sync_skips")
-_TAB_MARKET_METADATA_UNRESOLVED = wc2026_polymarket_ops_tbl(
+_TAB_MARKETS = polymarket_wc2026_raw_tbl("markets")
+_TAB_MARKET_TOKENS = polymarket_wc2026_raw_tbl("market_tokens")
+_TAB_TOKEN_SYNC_LEDGER = polymarket_wc2026_ops_tbl("token_sync_ledger")
+_TAB_TOKEN_SYNC_SKIPS = polymarket_wc2026_ops_tbl("token_sync_skips")
+_TAB_MARKET_METADATA_UNRESOLVED = polymarket_wc2026_ops_tbl(
     "market_metadata_unresolved"
 )
 

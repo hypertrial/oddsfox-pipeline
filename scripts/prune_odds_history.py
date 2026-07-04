@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Delete wc2026_polymarket_raw.odds_history rows older than a retention window."""
+"""Delete polymarket_wc2026_raw.odds_history rows older than a retention window."""
 
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ ensure_src_on_path()
 import duckdb  # noqa: E402
 
 from oddsfox_pipeline.config import settings  # noqa: E402
-from oddsfox_pipeline.storage.duckdb.schemas.constants import wc2026_polymarket_raw_tbl  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_wc2026_raw_tbl  # noqa: E402
 
-_ODDS_HISTORY = wc2026_polymarket_raw_tbl("odds_history")
+_ODDS_HISTORY = polymarket_wc2026_raw_tbl("odds_history")
 _DEFAULT_RETENTION_DAYS = 365
 
 

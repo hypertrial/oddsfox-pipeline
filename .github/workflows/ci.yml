@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
+  POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
 
 jobs:
   validate:

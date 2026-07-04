@@ -39,7 +39,7 @@ def test_snapshot_refreshed_scope_name_single_scope():
 
 
 def test_load_market_scope_config_includes_default_wc2026_preset(monkeypatch):
-    monkeypatch.delenv("WC2026_POLYMARKET_SCOPE_EVENT_TAGS", raising=False)
+    monkeypatch.delenv("POLYMARKET_WC2026_SCOPE_EVENT_TAGS", raising=False)
     cfg = load_market_scope_config()
     assert cfg.scope_name == "wc2026"
     assert "2026-fifa-world-cup-winner" in cfg.event_slugs
@@ -89,9 +89,9 @@ def test_market_scope_config_and_sql_helpers():
 
 
 def test_load_market_scope_config_yaml_validation(tmp_path, monkeypatch):
-    monkeypatch.delenv("WC2026_POLYMARKET_SCOPE_EVENT_SLUGS", raising=False)
-    monkeypatch.delenv("WC2026_POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES", raising=False)
-    monkeypatch.delenv("WC2026_POLYMARKET_SCOPE_EVENT_TAGS", raising=False)
+    monkeypatch.delenv("POLYMARKET_WC2026_SCOPE_EVENT_SLUGS", raising=False)
+    monkeypatch.delenv("POLYMARKET_WC2026_SCOPE_EVENT_SLUG_PREFIXES", raising=False)
+    monkeypatch.delenv("POLYMARKET_WC2026_SCOPE_EVENT_TAGS", raising=False)
     good = tmp_path / "good.yml"
     good.write_text(
         """

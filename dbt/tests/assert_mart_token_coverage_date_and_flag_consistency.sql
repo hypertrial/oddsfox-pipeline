@@ -6,7 +6,7 @@ select
     last_odds_date,
     has_daily_odds,
     avg_gap_days
-from {{ ref('wc2026_token_coverage') }}
+from {{ ref('polymarket_wc2026_token_coverage') }}
 where
     avg_gap_days < 0
     or (

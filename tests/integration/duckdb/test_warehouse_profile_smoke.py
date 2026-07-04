@@ -13,10 +13,10 @@ from oddsfox_pipeline.storage.duckdb.profile.report import (
 def test_warehouse_profile_smoke(tmp_path):
     db_path = tmp_path / "profile.duckdb"
     with duckdb.connect(str(db_path)) as conn:
-        conn.execute("CREATE SCHEMA wc2026_polymarket_raw")
+        conn.execute("CREATE SCHEMA polymarket_wc2026_raw")
         conn.execute(
             """
-            CREATE TABLE wc2026_polymarket_raw.profile_probe (
+            CREATE TABLE polymarket_wc2026_raw.profile_probe (
                 id TEXT,
                 price DOUBLE,
                 active BOOLEAN
@@ -24,19 +24,19 @@ def test_warehouse_profile_smoke(tmp_path):
             """
         )
         conn.execute(
-            "INSERT INTO wc2026_polymarket_raw.profile_probe VALUES ('m1', 0.5, TRUE)"
+            "INSERT INTO polymarket_wc2026_raw.profile_probe VALUES ('m1', 0.5, TRUE)"
         )
 
         relations = discover_relations(
             conn,
-            schema_whitelist={"wc2026_polymarket_raw"},
+            schema_whitelist={"polymarket_wc2026_raw"},
             include_views=False,
         )
         report = build_warehouse_profile_report(
             conn,
             ProfileConfig(
                 duckdb_path=db_path,
-                schemas={"wc2026_polymarket_raw"},
+                schemas={"polymarket_wc2026_raw"},
                 include_views=False,
                 stats_level=StatsLevel.full,
             ),

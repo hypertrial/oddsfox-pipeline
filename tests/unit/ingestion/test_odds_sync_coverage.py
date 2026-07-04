@@ -14,12 +14,12 @@ pytest.importorskip("duckdb")
 from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
 from oddsfox_pipeline.ingestion.polymarket.odds.fetch import BadRequestError
 from oddsfox_pipeline.storage.duckdb.connection import (
-    wc2026_polymarket_ops_tbl,
-    wc2026_polymarket_raw_tbl,
+    polymarket_wc2026_ops_tbl,
+    polymarket_wc2026_raw_tbl,
 )
 
-_TOD = wc2026_polymarket_raw_tbl("token_odds_daily")
-_T_LED = wc2026_polymarket_ops_tbl("token_sync_ledger")
+_TOD = polymarket_wc2026_raw_tbl("token_odds_daily")
+_T_LED = polymarket_wc2026_ops_tbl("token_sync_ledger")
 
 
 def test_parse_created_at_variants():

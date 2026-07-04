@@ -13,21 +13,21 @@ from typing import Any, Sequence
 import yaml
 
 from oddsfox_pipeline.config.settings import (
-    DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE,
-    WC2026_POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES,
-    WC2026_POLYMARKET_SCOPE_EVENT_SLUGS,
-    WC2026_POLYMARKET_SCOPE_EVENT_TAGS,
-    WC2026_POLYMARKET_SCOPE_KEYSET_CLOSED,
-    WC2026_POLYMARKET_SCOPE_KEYSET_RELATED_TAGS,
-    WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
-    WC2026_POLYMARKET_SCOPE_MARKET_IDS,
-    WC2026_POLYMARKET_SCOPE_REGISTRY_MAX_EVENT_PAGES,
-    WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_KEYWORD_GATE,
-    WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS,
-    WC2026_POLYMARKET_SCOPE_TAG_CRAWL_DENYLIST,
-    WC2026_POLYMARKET_SCOPE_TAG_CRAWL_MAX,
-    WC2026_POLYMARKET_SCOPE_TAG_DISCOVERY,
-    WC2026_POLYMARKET_SCOPE_TAG_DISCOVERY_KEYWORDS,
+    DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
+    POLYMARKET_WC2026_SCOPE_EVENT_SLUG_PREFIXES,
+    POLYMARKET_WC2026_SCOPE_EVENT_SLUGS,
+    POLYMARKET_WC2026_SCOPE_EVENT_TAGS,
+    POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED,
+    POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS,
+    POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
+    POLYMARKET_WC2026_SCOPE_MARKET_IDS,
+    POLYMARKET_WC2026_SCOPE_REGISTRY_MAX_EVENT_PAGES,
+    POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_KEYWORD_GATE,
+    POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_ROUNDS,
+    POLYMARKET_WC2026_SCOPE_TAG_CRAWL_DENYLIST,
+    POLYMARKET_WC2026_SCOPE_TAG_CRAWL_MAX,
+    POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY,
+    POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY_KEYWORDS,
 )
 
 
@@ -97,7 +97,7 @@ def _read_seed(path: Path) -> tuple[str, dict[str, Any]]:
     if not isinstance(raw, dict):
         raise ValueError(f"Invalid YAML root in {path}")
     default_scope = (
-        str(raw.get("default_scope") or DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE)
+        str(raw.get("default_scope") or DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE)
         .strip()
         .lower()
     )
@@ -125,7 +125,7 @@ class MarketScopeConfig:
     market_ids: tuple[str, ...]
     registry_max_event_pages: int | None
     event_tags: tuple[str, ...] = ()
-    scope_name: str = DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE
+    scope_name: str = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
     keyset_closed: bool | None = None
     keyset_volume_min: float | None = None
     keyset_related_tags: bool = True
@@ -157,9 +157,9 @@ def load_market_scope_config(
     path = seed_path or default_market_scopes_seed_path()
     _default_scope, scopes = _read_seed(path)
     wc2026_scope = _validate_slug_token(
-        scope_name or DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE
+        scope_name or DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
     )
-    if wc2026_scope != DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE:
+    if wc2026_scope != DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE:
         raise ValueError(f"market_scope must be 'wc2026', got {wc2026_scope!r}")
     payload = _scope_payload(scopes, wc2026_scope, path=path)
 
@@ -182,11 +182,11 @@ def load_market_scope_config(
         payload.get("tag_crawl_denylist"), key="tag_crawl_denylist", path=path
     )
 
-    env_slugs = _parse_csv_list(WC2026_POLYMARKET_SCOPE_EVENT_SLUGS)
-    env_prefixes = _parse_csv_list(WC2026_POLYMARKET_SCOPE_EVENT_SLUG_PREFIXES)
-    env_tags = _parse_csv_list(WC2026_POLYMARKET_SCOPE_EVENT_TAGS)
-    env_market_ids = _parse_csv_list(WC2026_POLYMARKET_SCOPE_MARKET_IDS)
-    env_keywords = _parse_csv_list(WC2026_POLYMARKET_SCOPE_TAG_DISCOVERY_KEYWORDS)
+    env_slugs = _parse_csv_list(POLYMARKET_WC2026_SCOPE_EVENT_SLUGS)
+    env_prefixes = _parse_csv_list(POLYMARKET_WC2026_SCOPE_EVENT_SLUG_PREFIXES)
+    env_tags = _parse_csv_list(POLYMARKET_WC2026_SCOPE_EVENT_TAGS)
+    env_market_ids = _parse_csv_list(POLYMARKET_WC2026_SCOPE_MARKET_IDS)
+    env_keywords = _parse_csv_list(POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY_KEYWORDS)
 
     slugs = list(event_slugs_override or ()) or list(env_slugs) or seed_slugs
     prefixes = (
@@ -203,8 +203,8 @@ def load_market_scope_config(
     keywords = list(env_keywords) or seed_keywords
 
     registry_pages = (
-        WC2026_POLYMARKET_SCOPE_REGISTRY_MAX_EVENT_PAGES
-        if WC2026_POLYMARKET_SCOPE_REGISTRY_MAX_EVENT_PAGES is not None
+        POLYMARKET_WC2026_SCOPE_REGISTRY_MAX_EVENT_PAGES
+        if POLYMARKET_WC2026_SCOPE_REGISTRY_MAX_EVENT_PAGES is not None
         else _optional_int(
             payload.get("registry_max_event_pages"),
             key="registry_max_event_pages",
@@ -242,29 +242,29 @@ def load_market_scope_config(
         registry_max_event_pages=registry_pages,
         event_tags=tuple(_validate_slug_token(t) for t in tags),
         keyset_closed=(
-            WC2026_POLYMARKET_SCOPE_KEYSET_CLOSED
-            if os.getenv("WC2026_POLYMARKET_SCOPE_KEYSET_CLOSED") is not None
+            POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED
+            if os.getenv("POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED") is not None
             else seed_closed
         ),
         keyset_volume_min=(
-            WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN
-            if os.getenv("WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN") is not None
+            POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN
+            if os.getenv("POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN") is not None
             else seed_volume
         ),
         keyset_related_tags=(
-            WC2026_POLYMARKET_SCOPE_KEYSET_RELATED_TAGS
-            if os.getenv("WC2026_POLYMARKET_SCOPE_KEYSET_RELATED_TAGS") is not None
+            POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS
+            if os.getenv("POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS") is not None
             else (True if seed_related is None else seed_related)
         ),
         tag_discovery=(
-            WC2026_POLYMARKET_SCOPE_TAG_DISCOVERY
-            if os.getenv("WC2026_POLYMARKET_SCOPE_TAG_DISCOVERY") is not None
+            POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY
+            if os.getenv("POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY") is not None
             else (True if seed_discovery is None else seed_discovery)
         ),
         tag_discovery_keywords=tuple(k.strip().lower() for k in keywords if k.strip()),
         tag_closure_rounds=(
-            WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS
-            if os.getenv("WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_ROUNDS") is not None
+            POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_ROUNDS
+            if os.getenv("POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_ROUNDS") is not None
             else max(
                 0,
                 _optional_int(
@@ -276,16 +276,16 @@ def load_market_scope_config(
             )
         ),
         tag_crawl_max=(
-            WC2026_POLYMARKET_SCOPE_TAG_CRAWL_MAX
-            if os.getenv("WC2026_POLYMARKET_SCOPE_TAG_CRAWL_MAX") is not None
+            POLYMARKET_WC2026_SCOPE_TAG_CRAWL_MAX
+            if os.getenv("POLYMARKET_WC2026_SCOPE_TAG_CRAWL_MAX") is not None
             else tag_crawl_max
         ),
         tag_closure_keyword_gate=(
-            WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_KEYWORD_GATE
-            if os.getenv("WC2026_POLYMARKET_SCOPE_TAG_CLOSURE_KEYWORD_GATE") is not None
+            POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_KEYWORD_GATE
+            if os.getenv("POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_KEYWORD_GATE") is not None
             else (True if seed_gate is None else seed_gate)
         ),
-        tag_crawl_denylist=tuple(WC2026_POLYMARKET_SCOPE_TAG_CRAWL_DENYLIST)
+        tag_crawl_denylist=tuple(POLYMARKET_WC2026_SCOPE_TAG_CRAWL_DENYLIST)
         or tuple(d.strip().lower() for d in seed_denylist if d.strip()),
     )
 

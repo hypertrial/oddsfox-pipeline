@@ -5,12 +5,12 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from oddsfox_pipeline.config.settings_polymarket import (
-    DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE,
+    DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
 )
 from oddsfox_pipeline.storage.duckdb.connection import (
     ensure_duck_db,
     get_connection,
-    wc2026_polymarket_ops_tbl,
+    polymarket_wc2026_ops_tbl,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import append_pipeline_run_event_stage
 
@@ -23,7 +23,7 @@ def _metadata_get(key: str) -> Optional[str]:
     ensure_duck_db()
     with get_connection() as conn:
         row = conn.execute(
-            f"SELECT value FROM {wc2026_polymarket_ops_tbl('scrape_metadata')} WHERE key = ?",
+            f"SELECT value FROM {polymarket_wc2026_ops_tbl('scrape_metadata')} WHERE key = ?",
             [key],
         ).fetchone()
         return row[0] if row else None
@@ -34,7 +34,7 @@ def _metadata_set(key: str, value: str):
     with get_connection() as conn:
         conn.execute(
             f"""
-            INSERT OR REPLACE INTO {wc2026_polymarket_ops_tbl("scrape_metadata")} (key, value)
+            INSERT OR REPLACE INTO {polymarket_wc2026_ops_tbl("scrape_metadata")} (key, value)
             VALUES (?, ?)
             """,
             [key, value],
@@ -139,7 +139,7 @@ def save_sync_run_metrics(task: str, metrics: dict[str, Any], history_limit: int
     with get_connection() as conn:
         conn.execute(
             f"""
-            INSERT OR REPLACE INTO {wc2026_polymarket_ops_tbl("sync_run_metrics")} (
+            INSERT OR REPLACE INTO {polymarket_wc2026_ops_tbl("sync_run_metrics")} (
                 task_name, recorded_at, metrics_json, history_json
             )
             VALUES (?, ?, ?, ?)
@@ -168,7 +168,7 @@ def get_sync_run_metrics(task: str) -> Optional[dict[str, Any]]:
             row = conn.execute(
                 f"""
                 SELECT metrics_json
-                FROM {wc2026_polymarket_ops_tbl("sync_run_metrics")}
+                FROM {polymarket_wc2026_ops_tbl("sync_run_metrics")}
                 WHERE task_name = ?
                 """,
                 [task],
@@ -204,7 +204,7 @@ def _scope_discovery_key(scope_name: str, suffix: str) -> str:
 
 
 def get_market_scope_discovery_fully_checked(
-    scope_name: str = DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE,
+    scope_name: str = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
 ) -> Optional[bool]:
     """Return whether a full keyset market-scope discovery completed cleanly."""
     raw = _metadata_get(_scope_discovery_key(scope_name, "fully_checked"))
@@ -214,14 +214,14 @@ def get_market_scope_discovery_fully_checked(
 
 
 def get_market_scope_discovery_scope_config_hash(
-    scope_name: str = DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE,
+    scope_name: str = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
 ) -> Optional[str]:
     raw = _metadata_get(_scope_discovery_key(scope_name, "scope_config_hash"))
     return raw if raw else None
 
 
 def set_market_scope_discovery_fully_checked(
-    scope_name: str = DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE,
+    scope_name: str = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
     fully_checked: bool = False,
     *,
     scope_config_hash: str,

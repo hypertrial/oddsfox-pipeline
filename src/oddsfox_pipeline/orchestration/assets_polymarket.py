@@ -3,20 +3,21 @@ from typing import Any, Callable
 import dlt
 from dagster import (
     AssetExecutionContext,
-    AssetKey,
+    AssetSpec,
     MaterializeResult,
     MetadataValue,
-    asset,
+    multi_asset,
 )
 from dagster_dbt import DbtCliResource, dbt_assets
 from dagster_dlt import DagsterDltResource, DagsterDltTranslator, dlt_assets
 
-from oddsfox_pipeline.config.settings import DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE
+from oddsfox_pipeline.config.settings import DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
 from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
     collect_raw_markets,
     normalize_market_payloads_for_dlt,
     polymarket_markets_source,
 )
+from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_POLYMARKET, asset_key
 from oddsfox_pipeline.orchestration import polymarket_asset_helpers as asset_helpers
 from oddsfox_pipeline.orchestration import polymarket_ops as ops
 from oddsfox_pipeline.orchestration.config import (
@@ -45,16 +46,31 @@ from oddsfox_pipeline.storage.duckdb.observability import (
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import ensure_polymarket_indexes
 
 _DLT_PIPELINE_BY_PATH = asset_helpers._DLT_PIPELINE_BY_PATH
-WC2026_SCOPE_NAME = DEFAULT_WC2026_POLYMARKET_MARKET_SCOPE
+POLYMARKET_WC2026_SCOPE_NAME = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
+POLYMARKET_WC2026_RAW_MARKETS = asset_key(
+    SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "markets"
+)
+POLYMARKET_WC2026_RAW_MARKETS_SNAPSHOT = asset_key(
+    SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "markets_snapshot"
+)
+POLYMARKET_WC2026_OPS_MARKET_SCOPE_REGISTRY = asset_key(
+    SOURCE_POLYMARKET, SCOPE_WC2026, "ops", "market_scope_registry"
+)
+POLYMARKET_WC2026_RAW_MARKET_METADATA_BACKFILL = asset_key(
+    SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "market_metadata_backfill"
+)
+POLYMARKET_WC2026_RAW_TOKEN_ODDS_HISTORY_HOURLY = asset_key(
+    SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "token_odds_history_hourly"
+)
 
 
-class Wc2026PolymarketDltTranslator(DagsterDltTranslator):
+class PolymarketWc2026DltTranslator(DagsterDltTranslator):
     def get_asset_spec(self, data):
         spec = super().get_asset_spec(data)
         resource = data.resource
-        if resource.source_name == "wc2026_polymarket" and resource.name == "markets":
+        if resource.source_name == "polymarket_wc2026" and resource.name == "markets":
             return spec.replace_attributes(
-                key=AssetKey("wc2026_polymarket_raw_markets"),
+                key=POLYMARKET_WC2026_RAW_MARKETS,
                 deps=[],
             )
         return (
@@ -157,20 +173,20 @@ _POLYMARKET_DLT_PIPELINE = get_polymarket_dlt_pipeline()
 
 
 @dlt_assets(
-    name="wc2026_polymarket_raw_markets",
+    name="polymarket_wc2026_raw_markets",
     group_name="ingestion",
     dlt_source=polymarket_markets_source(),
     dlt_pipeline=_POLYMARKET_DLT_PIPELINE,
-    dagster_dlt_translator=Wc2026PolymarketDltTranslator(),
+    dagster_dlt_translator=PolymarketWc2026DltTranslator(),
 )
-def wc2026_polymarket_raw_markets(
+def polymarket_wc2026_raw_markets(
     context: AssetExecutionContext,
     dlt: DagsterDltResource,
 ):
     pipeline = get_polymarket_dlt_pipeline()
     if pipeline.has_pending_data:
         context.log.info(
-            "Clearing pending dlt packages for wc2026_polymarket_raw before extract"
+            "Clearing pending dlt packages for polymarket_wc2026_raw before extract"
         )
         pipeline.drop_pending_packages()
     rows = normalize_market_payloads_for_dlt(collect_raw_markets())
@@ -180,17 +196,22 @@ def wc2026_polymarket_raw_markets(
         ensure_polymarket_indexes(conn)
 
 
-@asset(
-    name="wc2026_polymarket_markets_snapshot",
-    deps=["wc2026_polymarket_raw_markets"],
+@multi_asset(
+    name="polymarket_wc2026_raw_markets_snapshot",
+    specs=[
+        AssetSpec(
+            key=POLYMARKET_WC2026_RAW_MARKETS_SNAPSHOT,
+            deps=[POLYMARKET_WC2026_RAW_MARKETS],
+        )
+    ],
     group_name="ingestion",
 )
-def wc2026_polymarket_markets_snapshot(
+def polymarket_wc2026_raw_markets_snapshot(
     context: AssetExecutionContext,
     config: MarketsSyncConfig,
 ) -> MaterializeResult:
     guardrail = ops.ProgressGuardrail(
-        asset="wc2026_polymarket_markets_snapshot",
+        asset="polymarket_wc2026_raw_markets_snapshot",
         logger=context.log,
         progress_log_interval_seconds=config.progress_log_interval_seconds,
         no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
@@ -206,7 +227,7 @@ def wc2026_polymarket_markets_snapshot(
         )
 
     context.log.info(
-        "wc2026_polymarket_markets_snapshot start (discovery_mode=%s, progress_log_interval_pages=%s, progress_log_interval_seconds=%s, no_progress_soft_timeout_seconds=%s, no_progress_hard_timeout_seconds=%s)",
+        "polymarket_wc2026_raw_markets_snapshot start (discovery_mode=%s, progress_log_interval_pages=%s, progress_log_interval_seconds=%s, no_progress_soft_timeout_seconds=%s, no_progress_hard_timeout_seconds=%s)",
         config.discovery_mode,
         config.progress_log_interval_pages,
         config.progress_log_interval_seconds,
@@ -218,7 +239,7 @@ def wc2026_polymarket_markets_snapshot(
         phase="start",
         diagnostics={
             "mode": "market_scope_event_first",
-            "scope_name": WC2026_SCOPE_NAME,
+            "scope_name": POLYMARKET_WC2026_SCOPE_NAME,
             "discovery_mode": config.discovery_mode,
         },
         force_log=True,
@@ -229,7 +250,7 @@ def wc2026_polymarket_markets_snapshot(
         return ops.sync_markets(
             discovery_mode=config.discovery_mode,
             force_full_discovery=config.force_full_discovery,
-            scope_name=WC2026_SCOPE_NAME,
+            scope_name=POLYMARKET_WC2026_SCOPE_NAME,
             max_event_pages=config.max_event_pages,
             max_pages_without_progress=config.max_pages_without_progress,
             keyset_closed=config.keyset_closed,
@@ -257,7 +278,7 @@ def wc2026_polymarket_markets_snapshot(
         force_log=True,
     )
     context.log.info(
-        "DuckDB delta after wc2026_polymarket_markets_snapshot: %s", raw_delta
+        "DuckDB delta after polymarket_wc2026_raw_markets_snapshot: %s", raw_delta
     )
     context.log.info("Run summary for sync_markets: %s", run_summary)
     return MaterializeResult(
@@ -268,12 +289,17 @@ def wc2026_polymarket_markets_snapshot(
     )
 
 
-@asset(
-    name="wc2026_polymarket_market_registry",
-    deps=[wc2026_polymarket_markets_snapshot],
+@multi_asset(
+    name="polymarket_wc2026_ops_market_scope_registry",
+    specs=[
+        AssetSpec(
+            key=POLYMARKET_WC2026_OPS_MARKET_SCOPE_REGISTRY,
+            deps=[POLYMARKET_WC2026_RAW_MARKETS_SNAPSHOT],
+        )
+    ],
     group_name="ingestion",
 )
-def wc2026_polymarket_market_registry(
+def polymarket_wc2026_ops_market_scope_registry(
     context: AssetExecutionContext,
     config: MarketScopeRegistryConfig,
 ) -> MaterializeResult:
@@ -290,7 +316,7 @@ def wc2026_polymarket_market_registry(
         if (
             snapshot_metrics
             and snapshot_metrics.get("registry_refreshed") is True
-            and refreshed_scope_name == WC2026_SCOPE_NAME
+            and refreshed_scope_name == POLYMARKET_WC2026_SCOPE_NAME
         ):
             context.log.info(
                 "Skipping market-scope registry refresh; snapshot already refreshed registry"
@@ -299,7 +325,7 @@ def wc2026_polymarket_market_registry(
             run_summary = {
                 "skipped": True,
                 "reason": "snapshot_refreshed_registry",
-                "scope_name": WC2026_SCOPE_NAME,
+                "scope_name": POLYMARKET_WC2026_SCOPE_NAME,
                 "snapshot_metrics": snapshot_metrics,
             }
             return MaterializeResult(
@@ -313,7 +339,7 @@ def wc2026_polymarket_market_registry(
 
     def _sync_registry(_pre: dict[str, Any]) -> dict[str, Any]:
         return ops.sync_market_scope_registry(
-            scope_name=WC2026_SCOPE_NAME,
+            scope_name=POLYMARKET_WC2026_SCOPE_NAME,
             max_event_pages=config.max_event_pages,
             max_pages_without_progress=config.max_pages_without_progress,
             keyset_closed=config.keyset_closed,
@@ -329,17 +355,22 @@ def wc2026_polymarket_market_registry(
     return MaterializeResult(metadata=raw_metadata)
 
 
-@asset(
-    name="wc2026_polymarket_market_metadata_backfill",
-    deps=[wc2026_polymarket_market_registry],
+@multi_asset(
+    name="polymarket_wc2026_raw_market_metadata_backfill",
+    specs=[
+        AssetSpec(
+            key=POLYMARKET_WC2026_RAW_MARKET_METADATA_BACKFILL,
+            deps=[POLYMARKET_WC2026_OPS_MARKET_SCOPE_REGISTRY],
+        )
+    ],
     group_name="ingestion",
 )
-def wc2026_polymarket_market_metadata_backfill(
+def polymarket_wc2026_raw_market_metadata_backfill(
     context: AssetExecutionContext,
     config: MetadataBackfillConfig,
 ) -> MaterializeResult:
     guardrail = ops.ProgressGuardrail(
-        asset="wc2026_polymarket_market_metadata_backfill",
+        asset="polymarket_wc2026_raw_market_metadata_backfill",
         logger=context.log,
         progress_log_interval_seconds=config.progress_log_interval_seconds,
         no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
@@ -376,7 +407,7 @@ def wc2026_polymarket_market_metadata_backfill(
                 progress_callback=_metadata_progress,
                 progress_every_n_batches=config.progress_log_interval_batches,
                 gamma_requests_per_second=config.gamma_requests_per_second,
-                market_scope=WC2026_SCOPE_NAME,
+                market_scope=POLYMARKET_WC2026_SCOPE_NAME,
                 event_slug_fallback_max_pages=config.event_slug_fallback_max_pages,
                 event_slug_fallback_max_pages_without_progress=config.event_slug_fallback_max_pages_without_progress,
                 event_slug_fallback_progress_every_pages=config.event_slug_fallback_progress_pages,
@@ -404,12 +435,17 @@ def wc2026_polymarket_market_metadata_backfill(
     )
 
 
-@asset(
-    name="wc2026_polymarket_token_odds_history_hourly",
-    deps=[wc2026_polymarket_market_metadata_backfill],
+@multi_asset(
+    name="polymarket_wc2026_raw_token_odds_history_hourly",
+    specs=[
+        AssetSpec(
+            key=POLYMARKET_WC2026_RAW_TOKEN_ODDS_HISTORY_HOURLY,
+            deps=[POLYMARKET_WC2026_RAW_MARKET_METADATA_BACKFILL],
+        )
+    ],
     group_name="ingestion",
 )
-def wc2026_polymarket_token_odds_history_hourly(
+def polymarket_wc2026_raw_token_odds_history_hourly(
     context: AssetExecutionContext,
     config: HourlyOddsSyncConfig,
 ) -> MaterializeResult:
@@ -419,17 +455,17 @@ def wc2026_polymarket_token_odds_history_hourly(
 @dbt_assets(
     manifest=DBT_PROJECT.manifest_path,
     project=DBT_PROJECT,
-    name="wc2026_polymarket_dbt",
+    name="polymarket_wc2026_dbt",
     dagster_dbt_translator=PolymarketDagsterDbtTranslator(),
 )
-def wc2026_polymarket_dbt(
+def polymarket_wc2026_dbt(
     context: AssetExecutionContext, dbt: DbtCliResource, config: DbtBuildConfig
 ):
     pre_raw = snapshot_raw_layer(level=config.raw_snapshot_level)
     pre_dbt = snapshot_dbt_models()
 
     yield from ops.stream_dbt_build(
-        asset_name="wc2026_polymarket_dbt",
+        asset_name="polymarket_wc2026_dbt",
         context=context,
         dbt=dbt,
         config=config,
@@ -451,10 +487,15 @@ def wc2026_polymarket_dbt(
 
 
 __all__ = [
-    "wc2026_polymarket_dbt",
-    "wc2026_polymarket_market_metadata_backfill",
-    "wc2026_polymarket_raw_markets",
-    "wc2026_polymarket_markets_snapshot",
-    "wc2026_polymarket_token_odds_history_hourly",
-    "wc2026_polymarket_market_registry",
+    "POLYMARKET_WC2026_OPS_MARKET_SCOPE_REGISTRY",
+    "POLYMARKET_WC2026_RAW_MARKET_METADATA_BACKFILL",
+    "POLYMARKET_WC2026_RAW_MARKETS",
+    "POLYMARKET_WC2026_RAW_MARKETS_SNAPSHOT",
+    "POLYMARKET_WC2026_RAW_TOKEN_ODDS_HISTORY_HOURLY",
+    "polymarket_wc2026_dbt",
+    "polymarket_wc2026_raw_market_metadata_backfill",
+    "polymarket_wc2026_raw_markets",
+    "polymarket_wc2026_raw_markets_snapshot",
+    "polymarket_wc2026_raw_token_odds_history_hourly",
+    "polymarket_wc2026_ops_market_scope_registry",
 ]

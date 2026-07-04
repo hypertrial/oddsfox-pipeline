@@ -8,7 +8,7 @@ implementation details to callers.
 import logging
 from typing import Any, Callable, Dict
 
-from oddsfox_pipeline.config.settings import WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN
+from oddsfox_pipeline.config.settings import POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN
 from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     DISCOVERY_MODE_FULL_KEYSET,
     DISCOVERY_MODE_TARGETED,
@@ -52,7 +52,7 @@ def _sync_markets_for_scope(
     max_pages_without_progress: int | None,
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
-    keyset_volume_min: float | None = WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
+    keyset_volume_min: float | None = POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> Dict[str, Any]:
     """Ingest WC2026 markets via targeted or full keyset Gamma discovery."""
@@ -131,7 +131,7 @@ def sync_markets(
     max_pages_without_progress: int | None = None,
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
-    keyset_volume_min: float | None = WC2026_POLYMARKET_SCOPE_KEYSET_VOLUME_MIN,
+    keyset_volume_min: float | None = POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
     progress_log_interval_pages: int = 10,
     progress_log_interval_seconds: int = 60,
@@ -152,7 +152,7 @@ def sync_markets(
     )
     logger.info("Starting Polymarket Markets Sync (discovery_mode=%s)", effective_mode)
     guardrail = ProgressGuardrail(
-        asset="wc2026_polymarket_markets_snapshot",
+        asset="polymarket_wc2026_raw_markets_snapshot",
         logger=logger,
         progress_log_interval_seconds=progress_log_interval_seconds,
         no_progress_soft_timeout_seconds=no_progress_soft_timeout_seconds,

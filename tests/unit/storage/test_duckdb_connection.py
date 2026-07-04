@@ -296,7 +296,7 @@ def test_init_duck_db_idempotent(monkeypatch, tmp_path, isolated_env):
             for r in c.execute(
                 """
                 SELECT table_name FROM information_schema.tables
-                WHERE table_schema IN ('wc2026_polymarket_raw', 'wc2026_polymarket_ops')
+                WHERE table_schema IN ('polymarket_wc2026_raw', 'polymarket_wc2026_ops')
                 """
             ).fetchall()
         )
@@ -338,7 +338,7 @@ def test_ensure_duck_db_switches_active_path_without_manual_reset(
             """
             SELECT COUNT(*)
             FROM information_schema.tables
-            WHERE table_schema IN ('wc2026_polymarket_raw', 'wc2026_polymarket_ops')
+            WHERE table_schema IN ('polymarket_wc2026_raw', 'polymarket_wc2026_ops')
             """
         ).fetchone()[0]
     assert table_count > 0
@@ -473,8 +473,8 @@ def test_create_indexes_swallows_errors(monkeypatch, tmp_path, isolated_env):
 
 def test_create_indexes_includes_market_indexes_when_markets_table_exists():
     with duckdb.connect(":memory:") as c:
-        c.execute("CREATE SCHEMA wc2026_polymarket_raw")
-        c.execute("CREATE SCHEMA wc2026_polymarket_ops")
+        c.execute("CREATE SCHEMA polymarket_wc2026_raw")
+        c.execute("CREATE SCHEMA polymarket_wc2026_ops")
         polymarket_schema.bootstrap_polymarket_tables(c)
         polymarket_schema.create_test_markets_table(c)
 
@@ -484,7 +484,7 @@ def test_create_indexes_includes_market_indexes_when_markets_table_exists():
             """
             SELECT index_name
             FROM duckdb_indexes()
-            WHERE schema_name = 'wc2026_polymarket_raw' AND table_name = 'markets'
+            WHERE schema_name = 'polymarket_wc2026_raw' AND table_name = 'markets'
             """
         ).fetchall()
         assert {str(name) for (name,) in rows} >= {
@@ -500,7 +500,7 @@ def _odds_history_index_names(c: duckdb.DuckDBPyConnection) -> set[str]:
         """
         SELECT index_name
         FROM duckdb_indexes()
-        WHERE schema_name = 'wc2026_polymarket_raw' AND table_name = 'odds_history'
+        WHERE schema_name = 'polymarket_wc2026_raw' AND table_name = 'odds_history'
         """
     ).fetchall()
     return {str(name) for (name,) in rows}
@@ -511,7 +511,7 @@ def _odds_history_primary_key_columns(c: duckdb.DuckDBPyConnection) -> list[str]
         """
         SELECT constraint_type, constraint_column_names
         FROM duckdb_constraints()
-        WHERE schema_name = 'wc2026_polymarket_raw' AND table_name = 'odds_history'
+        WHERE schema_name = 'polymarket_wc2026_raw' AND table_name = 'odds_history'
         """
     ).fetchall()
     for constraint_type, columns in rows:

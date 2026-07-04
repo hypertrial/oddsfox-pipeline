@@ -15,7 +15,7 @@ cp .env.example .env
 The default warehouse is `oddsfox.duckdb` in the repo root. Keep schedules disabled in local dev and CI unless you intentionally run live ingestion:
 
 ```dotenv
-WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
+POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 See [docs/quickstart.md](docs/quickstart.md) and [docs/configuration.md](docs/configuration.md) for full operator setup.

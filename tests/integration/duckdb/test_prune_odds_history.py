@@ -10,13 +10,13 @@ import duckdb
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.storage.duckdb.connection import init_duck_db
-from oddsfox_pipeline.storage.duckdb.schemas.constants import wc2026_polymarket_raw_tbl
+from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_wc2026_raw_tbl
 
 _SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 sys.path.insert(0, str(_SCRIPTS_DIR))
 from prune_odds_history import prune_odds_history  # noqa: E402
 
-_ODDS_HISTORY = wc2026_polymarket_raw_tbl("odds_history")
+_ODDS_HISTORY = polymarket_wc2026_raw_tbl("odds_history")
 
 
 def _insert_odds_row(

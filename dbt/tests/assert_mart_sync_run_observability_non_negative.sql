@@ -1,5 +1,5 @@
 select *
-from {{ ref('wc2026_sync_run_observability') }}
+from {{ ref('polymarket_wc2026_sync_run_observability') }}
 where
     coalesce(planned_tokens, 0) < 0
     or coalesce(processed_tokens, 0) < 0

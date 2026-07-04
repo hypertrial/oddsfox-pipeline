@@ -26,7 +26,7 @@ cp .env.example .env
 For a local dry run, keep schedules disabled:
 
 ```dotenv
-WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
+POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 CLOB credentials are optional unless a live authenticated flow requires them.
@@ -56,17 +56,19 @@ Standalone `make dbt-build` uses the fixed WC2026 dbt model graph.
 uv run make dagster-dev
 ```
 
-Open the Dagster UI shown in the terminal. Materialize `wc2026_polymarket_raw_markets` before `wc2026_polymarket_markets_snapshot`.
+Open the Dagster UI shown in the terminal. Materialize
+`polymarket/wc2026/raw/markets` before
+`polymarket/wc2026/raw/markets_snapshot`.
 
 ## 5. Run the Pipeline
 
-For a full manual run, launch `wc2026_full_pipeline`.
+For a full manual run, launch `polymarket_wc2026_full_pipeline`.
 
 For a safer staged run:
 
-1. `wc2026_market_registry_refresh`
-2. `wc2026_hourly_odds_ingest`
-3. `wc2026_dbt_build`
+1. `polymarket_wc2026_market_registry_refresh`
+2. `polymarket_wc2026_hourly_odds_ingest`
+3. `polymarket_wc2026_dbt_build`
 
 Leave schedules off until these jobs complete successfully.
 

@@ -134,14 +134,14 @@ def test_get_sync_run_metrics_handles_corrupt_table_payloads(duck):
     with metadata.get_connection() as conn:
         conn.execute(
             """
-            INSERT OR REPLACE INTO wc2026_polymarket_ops.sync_run_metrics
+            INSERT OR REPLACE INTO polymarket_wc2026_ops.sync_run_metrics
             (task_name, recorded_at, metrics_json, history_json)
             VALUES ('bad_table_json', CURRENT_TIMESTAMP, '{not-json', '[]')
             """
         )
         conn.execute(
             """
-            INSERT OR REPLACE INTO wc2026_polymarket_ops.sync_run_metrics
+            INSERT OR REPLACE INTO polymarket_wc2026_ops.sync_run_metrics
             (task_name, recorded_at, metrics_json, history_json)
             VALUES ('table_list_payload', CURRENT_TIMESTAMP, '[1, 2, 3]', '[]')
             """

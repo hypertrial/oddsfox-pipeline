@@ -30,7 +30,8 @@ uv run python -m dbt.cli.main parse --project-dir dbt --profiles-dir dbt/profile
 
 ## dlt ContainerInjectableContextMangled
 
-If `wc2026_polymarket_raw_markets` fails during extract with:
+If `polymarket/wc2026/raw/markets` (`polymarket_wc2026_raw_markets` op) fails
+during extract with:
 
 ```text
 ContainerInjectableContextMangled: When restoring context `DestinationCapabilitiesContext` ...
@@ -41,24 +42,25 @@ an older build nested a second dlt pipeline (registry staging) inside the market
 Fix:
 
 1. Pull the latest code.
-2. Stop Dagster, then rerun `wc2026_polymarket_raw_markets`.
+2. Stop Dagster, then rerun `polymarket/wc2026/raw/markets`.
 
 ## dlt Market Schema Conflict
 
-If dlt cannot load `wc2026_polymarket_raw.markets` because the local table schema does
+If dlt cannot load `polymarket_wc2026_raw.markets` because the local table schema does
 not match the current source contract, drop the table and rerun
-`wc2026_polymarket_raw_markets`:
+`polymarket/wc2026/raw/markets`:
 
 ```sql
-DROP TABLE IF EXISTS wc2026_polymarket_raw.markets;
+DROP TABLE IF EXISTS polymarket_wc2026_raw.markets;
 ```
 
 ## Markets vs Snapshot Responsibilities
 
-- `wc2026_polymarket_raw_markets` owns `wc2026_polymarket_raw.markets` rows (dlt merge on `id`).
-- `wc2026_polymarket_markets_snapshot` refreshes the WC2026 registry and writes `wc2026_polymarket_raw.market_tokens` only; it does not upsert markets rows.
+- `polymarket/wc2026/raw/markets` owns `polymarket_wc2026_raw.markets` rows (dlt merge on `id`).
+- `polymarket/wc2026/raw/markets_snapshot` refreshes the WC2026 registry and writes `polymarket_wc2026_raw.market_tokens` only; it does not upsert markets rows.
 
-If markets metadata looks stale after a snapshot run, materialize `wc2026_polymarket_raw_markets` first.
+If markets metadata looks stale after a snapshot run, materialize
+`polymarket/wc2026/raw/markets` first.
 
 ## Stale Warehouse
 
@@ -74,7 +76,7 @@ Then rerun the quickstart.
 
 - Lower `MARKETS_REQUESTS_PER_SECOND` or `ODDS_REQUESTS_PER_SECOND`.
 - Re-run the failed Dagster job; token sync state is ledgered.
-- Check `wc2026_polymarket_ops.pipeline_run_events` and `wc2026_polymarket_ops.sync_run_metrics` for the latest run payloads.
+- Check `polymarket_wc2026_ops.pipeline_run_events` and `polymarket_wc2026_ops.sync_run_metrics` for the latest run payloads.
 - If the latest sync metrics include `pipeline_run_event_append_failed`, the
   ingestion run continued but the append-only telemetry event failed to land;
   inspect `pipeline_run_event_append_error` and rerun after fixing storage.

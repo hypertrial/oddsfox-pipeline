@@ -7,9 +7,9 @@ def test_staging_markets_is_source_conformed():
     sql = (
         DBT_ROOT
         / "models"
-        / "wc2026_polymarket"
+        / "polymarket_wc2026"
         / "staging"
-        / "stg_wc2026_polymarket_markets.sql"
+        / "stg_polymarket_wc2026_markets.sql"
     ).read_text()
     lowered = sql.lower()
 
@@ -22,14 +22,14 @@ def test_intermediate_wc2026_markets_owns_scope_logic():
     sql = (
         DBT_ROOT
         / "models"
-        / "wc2026_polymarket"
+        / "polymarket_wc2026"
         / "intermediate"
-        / "int_wc2026_polymarket_markets.sql"
+        / "int_polymarket_wc2026_markets.sql"
     ).read_text()
     lowered = sql.lower()
 
-    assert "{{ ref('stg_wc2026_polymarket_markets') }}" in lowered
-    assert "{{ source('wc2026_polymarket_ops', 'market_scope_registry') }}" in lowered
+    assert "{{ ref('stg_polymarket_wc2026_markets') }}" in lowered
+    assert "{{ source('polymarket_wc2026_ops', 'market_scope_registry') }}" in lowered
     assert "active_market_scopes" not in lowered
     assert "where lower(scope_name) = 'wc2026'" in lowered
     assert "scope_name" in lowered
@@ -40,13 +40,13 @@ def test_wc2026_hourly_aggregates_canonical_odds():
     sql = (
         DBT_ROOT
         / "models"
-        / "wc2026_polymarket"
+        / "polymarket_wc2026"
         / "marts"
-        / "wc2026_token_hourly_odds.sql"
+        / "polymarket_wc2026_token_hourly_odds.sql"
     ).read_text()
     lowered = sql.lower()
 
-    assert "{{ ref('int_wc2026_polymarket_market_tokens') }}" in lowered
-    assert "{{ ref('stg_wc2026_polymarket_odds') }}" in lowered
+    assert "{{ ref('int_polymarket_wc2026_market_tokens') }}" in lowered
+    assert "{{ ref('stg_polymarket_wc2026_odds') }}" in lowered
     assert "date_trunc('hour', odds_timestamp)" in lowered
     assert "selected_" not in lowered
