@@ -166,7 +166,8 @@ class HourlyOddsSyncConfig(OddsSyncConfig):
     force: bool = True
     skip_recent_minutes: int = 1
     overlap_minutes: int = 60
-    window_hours: int = 72
+    window_hours: int = 336
+    history_backfill_days: int = Field(default=14, ge=0)
     routine_interval_hours: int = Field(default=1, ge=1)
     min_volume: float | None = Field(default=POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD)
     max_volume: float | None = None

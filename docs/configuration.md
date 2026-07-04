@@ -63,7 +63,11 @@ is the default scope source.
 Dagster hourly odds config uses history-oriented option names:
 
 - `rebuild_history`: bypass routine skip planning and rebuild token history.
-- `history_backfill_days`: rebuild only the trailing N days of history.
+- `history_backfill_days`: rebuild only the trailing N days of history. The packaged
+  `polymarket_wc2026_hourly_odds_ingest` and `polymarket_wc2026_full_pipeline` jobs
+  default this to `14` (trailing two weeks).
+- `window_hours`: maximum CLOB fetch window per request. Hourly/full-pipeline jobs
+  default this to `336` (14 days), aligned with the default backfill window.
 
 The old minutely-oriented names are not accepted in v0.1.x.
 

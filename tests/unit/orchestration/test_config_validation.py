@@ -58,7 +58,8 @@ def test_hourly_odds_config_defaults_to_hourly_whale_sync():
     assert cfg.fidelity == 60
     assert cfg.force is True
     assert cfg.overlap_minutes == 60
-    assert cfg.window_hours == 72
+    assert cfg.window_hours == 336
+    assert cfg.history_backfill_days == 14
     assert cfg.routine_interval_hours == 1
     assert cfg.min_volume == 100000.0
     assert cfg.max_volume is None
