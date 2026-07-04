@@ -24,3 +24,12 @@ dbt build --full-refresh --project-dir dbt --profiles-dir dbt/profiles
 
 WC2026 scoping is encoded in the model graph and
 `polymarket_wc2026_ops.market_scope_registry`; there is no dbt scope-selection var.
+
+Public time-series marts are dbt tables:
+
+- `polymarket_wc2026_token_hourly_odds`
+- `polymarket_wc2026_token_daily_odds`
+- `polymarket_wc2026_knockout_token_hourly_odds`
+
+If a local DuckDB file still has older view relation types for these marts,
+reset the local warehouse or drop the affected dbt schemas before rebuilding.

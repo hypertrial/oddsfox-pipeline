@@ -28,7 +28,8 @@ def _patch_guardrail_clock(monkeypatch, assets_mod, clock: _FakeClock) -> None:
             kwargs.setdefault("clock", clock)
             super().__init__(*args, **kwargs)
 
-    monkeypatch.setattr(assets_mod, "ProgressGuardrail", _ClockedProgressGuardrail)
+    if hasattr(assets_mod, "ProgressGuardrail"):
+        monkeypatch.setattr(assets_mod, "ProgressGuardrail", _ClockedProgressGuardrail)
     monkeypatch.setattr(
         pipeline_ops_mod, "ProgressGuardrail", _ClockedProgressGuardrail
     )

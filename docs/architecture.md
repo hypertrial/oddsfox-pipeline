@@ -34,7 +34,8 @@ Text fallback: prediction-market metadata and odds APIs feed DuckDB raw and ops
 schemas. Dagster runs the ingest and dbt steps. dbt publishes local analytics
 marts for coverage, health, and WC2026 odds time series.
 
-The only supported market scope is `wc2026`; see [Configuration](configuration.md).
+The shipped Dagster/dbt graph is fixed to `wc2026`; see
+[Configuration](configuration.md) for the seed-backed helper boundary.
 
 ## Main Components
 

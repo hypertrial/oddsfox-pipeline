@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# Facade module: imported names are intentionally available as module attributes.
+# ruff: noqa: F401
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -18,6 +20,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.deps import (
     OddsSyncRuntime,
     PlanningRuntime,
     WriterRuntime,
+    replace_odds_sync_runtime,
 )
 from oddsfox_pipeline.ingestion.polymarket.odds.engine import (
     init_db as _engine_init_db,
@@ -53,6 +56,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.support import (
     MAX_INFLIGHT_CAP,
     MAX_WORKERS_CAP,
     InflightTokenFuture,
+    OddsSyncOptions,
     PlanningState,
     TokenPlan,
     WriterBuffers,
@@ -97,9 +101,35 @@ _maybe_auto_tune_rps = _writer_mod.maybe_auto_tune_rps
 _build_inflight_future_diagnostics = build_inflight_future_diagnostics
 _build_planning_context = build_planning_context
 
+_PLAN_OPTION_KEYS = frozenset(
+    {
+        "clob_cutoff_date",
+        "fidelity",
+        "force",
+        "rebuild_history",
+        "overlap_minutes",
+        "skip_recent_minutes",
+        "market_page_size",
+        "reconcile_ledger",
+        "short_range_first",
+        "market_scope",
+        "ended_market_grace_days",
+        "min_volume",
+        "max_volume",
+        "history_backfill_days",
+        "empty_token_skip_budgets",
+        "empty_token_skip_runs",
+    }
+)
+
 
 def _iter_token_plans_paged(*args, **kwargs):
     fac = sys.modules[__name__]
+    if "options" not in kwargs:
+        option_kwargs = {
+            key: kwargs.pop(key) for key in list(_PLAN_OPTION_KEYS) if key in kwargs
+        }
+        kwargs["options"] = OddsSyncOptions(**option_kwargs)
     kwargs.setdefault("iter_due_market_tokens_fn", fac.iter_due_market_tokens)
     kwargs.setdefault("iter_markets_with_tokens_fn", fac.iter_markets_with_tokens)
     kwargs.setdefault("get_token_sync_snapshot_fn", fac.get_token_sync_snapshot)
@@ -254,62 +284,15 @@ iter_token_plans_paged = _iter_token_plans_paged
 iter_windows = _iter_windows
 
 __all__ = [
-    "DEFAULT_AUTOTUNE_429_THRESHOLD",
-    "DEFAULT_AUTOTUNE_ERROR_THRESHOLD",
-    "DEFAULT_AUTOTUNE_WINDOW_REQUESTS",
-    "DEFAULT_EMPTY_RETRY_BASE_HOURS",
-    "DEFAULT_EMPTY_RETRY_MAX_HOURS",
-    "DEFAULT_EMPTY_TOKEN_SKIP_RUNS",
-    "DEFAULT_ERROR_RETRY_MINUTES",
-    "DEFAULT_MARKET_PAGE_SIZE",
-    "DEFAULT_MIN_SPLIT_WINDOW_MINUTES",
-    "DEFAULT_OVERLAP_MINUTES",
-    "DEFAULT_ROUTINE_INTERVAL_HOURS",
-    "DEFAULT_SKIP_RECENT_MINUTES",
-    "DEFAULT_TRANSIENT_BACKOFF_SECONDS",
-    "DEFAULT_TRANSIENT_RETRIES",
-    "DEFAULT_WINDOW_HOURS",
-    "DEFAULT_WRITER_CHUNK_ROWS",
-    "DEFAULT_WRITER_FLUSH_ROWS",
-    "InflightTokenFuture",
-    "MAX_FLUSH_ROWS_CAP",
-    "MAX_INFLIGHT_CAP",
-    "MAX_WORKERS_CAP",
-    "NoProgressTimeoutError",
+    "EngineRuntime",
+    "ExecutionRuntime",
+    "OddsSyncOptions",
     "OddsSyncRuntime",
-    "PlanningState",
-    "ProgressGuardrail",
-    "Queue",
-    "RateLimiter",
-    "Thread",
-    "ThreadPoolExecutor",
-    "TokenPlan",
-    "TokenSyncSchedulerState",
-    "WriterBuffers",
-    "build_single_token_plan",
-    "count_candidate_market_tokens",
-    "datetime",
+    "PlanningRuntime",
+    "WriterRuntime",
     "default_odds_sync_runtime",
-    "ensure_duck_db",
-    "fetch_token_history_with_retry",
-    "get_connection",
-    "get_token_sync_snapshot",
     "init_db",
-    "iter_due_market_tokens",
-    "iter_markets_with_tokens",
-    "iter_token_plans_paged",
-    "iter_windows",
     "reconcile_odds_ledger",
-    "refresh_token_odds_daily",
-    "save_odds_bulk_upsert",
-    "save_skipped_tokens",
-    "save_sync_run_metrics",
-    "snapshot_raw_layer",
+    "replace_odds_sync_runtime",
     "sync_odds",
-    "time",
-    "timezone",
-    "tqdm",
-    "upsert_skipped_tokens_batch",
-    "upsert_token_sync_state_batch",
-    "wait",
 ]

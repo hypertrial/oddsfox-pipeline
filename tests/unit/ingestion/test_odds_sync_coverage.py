@@ -96,7 +96,7 @@ def test_build_single_token_plan_keys():
         now_ts=now,
         fidelity=1440,
         force=False,
-        rebuild_minutely=False,
+        rebuild_history=False,
         overlap_seconds=0,
         recent_seconds=0,
         empty_token_skip_budgets=budgets,
@@ -117,7 +117,7 @@ def test_build_single_token_plan_keys():
         now_ts=now,
         fidelity=1440,
         force=False,
-        rebuild_minutely=False,
+        rebuild_history=False,
         overlap_seconds=0,
         recent_seconds=999999999,
         empty_token_skip_budgets=None,
@@ -142,7 +142,7 @@ def test_iter_token_plans_paged_uses_current_market_iterator_signature(monkeypat
         clob_cutoff_date="2024-01-01",
         fidelity=1440,
         force=True,
-        rebuild_minutely=True,
+        rebuild_history=True,
         overlap_minutes=0,
         skip_recent_minutes=0,
         market_page_size=100,
@@ -442,7 +442,19 @@ def test_sync_odds_accepts_explicit_plan_iterator_with_runtime():
 
 
 def test_odds_sync_all_excludes_private_helpers():
-    assert [name for name in odds_sync.__all__ if name.startswith("_")] == []
+    assert odds_sync.__all__ == [
+        "EngineRuntime",
+        "ExecutionRuntime",
+        "OddsSyncOptions",
+        "OddsSyncRuntime",
+        "PlanningRuntime",
+        "WriterRuntime",
+        "default_odds_sync_runtime",
+        "init_db",
+        "reconcile_odds_ledger",
+        "replace_odds_sync_runtime",
+        "sync_odds",
+    ]
 
 
 def test_odds_sync_runtime_flat_property_accessors():

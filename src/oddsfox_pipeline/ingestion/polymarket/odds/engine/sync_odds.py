@@ -26,6 +26,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.support import (
     DEFAULT_WINDOW_HOURS,
     DEFAULT_WRITER_CHUNK_ROWS,
     DEFAULT_WRITER_FLUSH_ROWS,
+    OddsSyncOptions,
     planning_state_to_dict,
 )
 from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
@@ -57,14 +58,14 @@ def sync_odds(
     skip_recent_minutes: int = DEFAULT_SKIP_RECENT_MINUTES,
     overlap_minutes: int = DEFAULT_OVERLAP_MINUTES,
     window_hours: int = DEFAULT_WINDOW_HOURS,
-    rebuild_minutely: bool = False,
+    rebuild_history: bool = False,
     reconcile_ledger: bool = False,
     short_range_first: bool = True,
     market_scope: str = DEFAULT_MARKET_SCOPE,
     ended_market_grace_days: int | None = None,
     min_volume: float | None = None,
     max_volume: float | None = None,
-    minutely_backfill_days: int = 0,
+    history_backfill_days: int = 0,
     empty_token_skip_runs: int = DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
     empty_token_skip_budgets: Dict[str, int] | None = None,
     routine_interval_hours: int = DEFAULT_ROUTINE_INTERVAL_HOURS,
@@ -90,6 +91,24 @@ def sync_odds(
     runtime: OddsSyncRuntime,
 ) -> Dict[str, Any]:
     run_started = runtime.time_mod.monotonic()
+    options = OddsSyncOptions(
+        clob_cutoff_date=clob_cutoff_date,
+        fidelity=fidelity,
+        force=force,
+        rebuild_history=rebuild_history,
+        overlap_minutes=overlap_minutes,
+        skip_recent_minutes=skip_recent_minutes,
+        market_page_size=market_page_size,
+        reconcile_ledger=reconcile_ledger,
+        short_range_first=short_range_first,
+        market_scope=market_scope,
+        ended_market_grace_days=ended_market_grace_days,
+        min_volume=min_volume,
+        max_volume=max_volume,
+        history_backfill_days=history_backfill_days,
+        empty_token_skip_budgets=empty_token_skip_budgets,
+        empty_token_skip_runs=empty_token_skip_runs,
+    )
     params = normalize_sync_params(
         batch_size=batch_size,
         window_hours=window_hours,
@@ -111,22 +130,7 @@ def sync_odds(
     )
     boot = bootstrap_planning(
         runtime,
-        clob_cutoff_date=clob_cutoff_date,
-        fidelity=fidelity,
-        force=force,
-        rebuild_minutely=rebuild_minutely,
-        overlap_minutes=overlap_minutes,
-        skip_recent_minutes=skip_recent_minutes,
-        market_page_size=market_page_size,
-        reconcile_ledger=reconcile_ledger,
-        short_range_first=short_range_first,
-        market_scope=market_scope,
-        ended_market_grace_days=ended_market_grace_days,
-        min_volume=min_volume,
-        max_volume=max_volume,
-        minutely_backfill_days=minutely_backfill_days,
-        empty_token_skip_budgets=empty_token_skip_budgets,
-        empty_token_skip_runs=empty_token_skip_runs,
+        options=options,
         plan_iterator_factory=plan_iterator_factory,
     )
     if boot.first_plan is None:

@@ -78,7 +78,8 @@ def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_g
 
     import oddsfox_pipeline.orchestration.assets as assets_mod
 
-    _patch_progress_guardrail_module(monkeypatch, assets_mod, clock)
+    if hasattr(assets_mod, "ProgressGuardrail"):
+        _patch_progress_guardrail_module(monkeypatch, assets_mod, clock)
 
     monkeypatch.setattr(
         polymarket_ops_mod, "sync_market_scope_registry", _stub_registry

@@ -75,6 +75,11 @@ debt includes:
 - `int_polymarket_wc2026_market_tokens` is materialized as a table because it
   fans out to multiple downstream WC2026 marts. Costguard now tracks its
   remaining incremental-conversion question as `SQLCOST040`.
+- Public time-series marts (`polymarket_wc2026_token_hourly_odds`,
+  `polymarket_wc2026_token_daily_odds`, and
+  `polymarket_wc2026_knockout_token_hourly_odds`) are materialized as tables.
+  Incremental conversion is intentionally deferred until ingestion exposes a
+  reliable late-arrival watermark.
 - `SQLCOST040`: `int_polymarket_wc2026_token_universe` and
   `polymarket_wc2026_token_coverage` rebuild as full tables. Defer incremental conversion
   until row-volume profiling defines safe predicates.

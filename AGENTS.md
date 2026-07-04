@@ -144,8 +144,9 @@ Key jobs: `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly
 
 Schedules target `polymarket_wc2026_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 
-**Market scope:** v0.1.x supports only `wc2026`. Dagster asset configs do not
-accept a scope selector, and dbt builds the fixed WC2026 graph. See
+**Market scope:** v0.1.x ships only the fixed `wc2026` Dagster/dbt graph.
+Polymarket scope helpers may load other slug-like seed entries for tests and
+future work, but Dagster asset configs do not accept a scope selector. See
 [docs/configuration.md](docs/configuration.md).
 
 DuckDB is local-only runtime state. For read-only inspection prefer `scripts/profile_warehouse.py` over opening the warehouse read-write.

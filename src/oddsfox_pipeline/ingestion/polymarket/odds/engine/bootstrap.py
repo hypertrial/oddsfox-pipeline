@@ -13,6 +13,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.planning import (
 from oddsfox_pipeline.ingestion.polymarket.odds.support import (
     DEFAULT_WRITER_CHUNK_ROWS,
     DEFAULT_WRITER_FLUSH_ROWS,
+    OddsSyncOptions,
     PlanningState,
     build_planning_context,
     log_planning_context,
@@ -113,43 +114,13 @@ def create_plan_iterator(
     plan_iterator_factory: Callable[..., Any],
     *,
     now_ts: int,
-    clob_cutoff_date: str,
-    fidelity: int,
-    force: bool,
-    rebuild_minutely: bool,
-    overlap_minutes: int,
-    skip_recent_minutes: int,
-    market_page_size: int,
-    reconcile_ledger: bool,
-    short_range_first: bool,
-    market_scope: str,
-    ended_market_grace_days: int | None,
-    min_volume: float | None,
-    max_volume: float | None,
-    minutely_backfill_days: int,
-    empty_token_skip_budgets: Dict[str, int] | None,
-    empty_token_skip_runs: int,
+    options: OddsSyncOptions,
     on_invalid_tokens_batch: Callable[[List[tuple[str, str]]], None],
     count_due_market_token_exclusions_fn: Callable[..., Any] | None,
 ):
     return plan_iterator_factory(
         now_ts=now_ts,
-        clob_cutoff_date=clob_cutoff_date,
-        fidelity=fidelity,
-        force=force,
-        rebuild_minutely=rebuild_minutely,
-        overlap_minutes=overlap_minutes,
-        skip_recent_minutes=skip_recent_minutes,
-        market_page_size=market_page_size,
-        reconcile_ledger=reconcile_ledger,
-        short_range_first=short_range_first,
-        market_scope=market_scope,
-        ended_market_grace_days=ended_market_grace_days,
-        min_volume=min_volume,
-        max_volume=max_volume,
-        minutely_backfill_days=minutely_backfill_days,
-        empty_token_skip_budgets=empty_token_skip_budgets,
-        empty_token_skip_runs=empty_token_skip_runs,
+        options=options,
         on_invalid_tokens_batch=on_invalid_tokens_batch,
         count_due_market_token_exclusions_fn=count_due_market_token_exclusions_fn,
     )
@@ -172,22 +143,7 @@ class PlanningBootstrap:
 def bootstrap_planning(
     runtime: OddsSyncRuntime,
     *,
-    clob_cutoff_date: str,
-    fidelity: int,
-    force: bool,
-    rebuild_minutely: bool,
-    overlap_minutes: int,
-    skip_recent_minutes: int,
-    market_page_size: int,
-    reconcile_ledger: bool,
-    short_range_first: bool,
-    market_scope: str,
-    ended_market_grace_days: int | None,
-    min_volume: float | None,
-    max_volume: float | None,
-    minutely_backfill_days: int,
-    empty_token_skip_budgets: Dict[str, int] | None,
-    empty_token_skip_runs: int,
+    options: OddsSyncOptions,
     plan_iterator_factory: Callable[..., Any] = iter_token_plans_paged,
 ) -> PlanningBootstrap:
     runtime.ensure_duck_db()
@@ -198,21 +154,19 @@ def bootstrap_planning(
     boot.persist_invalid_tokens_batch = make_persist_invalid_tokens_batch(
         runtime, boot.persisted_invalid_tokens
     )
-    due_only = (
-        not force and not rebuild_minutely and not int(minutely_backfill_days) > 0
-    )
-    effective_ended_grace = ended_market_grace_days
-    cutoff_created_at = parse_cutoff_date(clob_cutoff_date).strftime(
+    due_only = options.due_only
+    effective_ended_grace = options.ended_market_grace_days
+    cutoff_created_at = parse_cutoff_date(options.clob_cutoff_date).strftime(
         "%Y-%m-%d %H:%M:%S"
     )
     try:
         counts = runtime.count_candidate_market_tokens(
             cutoff_created_at=cutoff_created_at,
-            market_scope=market_scope,
+            market_scope=options.market_scope,
             ended_market_grace_days=effective_ended_grace,
             due_only=due_only,
-            min_volume=min_volume,
-            max_volume=max_volume,
+            min_volume=options.min_volume,
+            max_volume=options.max_volume,
         )
         boot.candidate_tokens = int(counts.get("candidate_tokens", 0) or 0)
         boot.candidate_markets = int(counts.get("candidate_markets", 0) or 0)
@@ -221,7 +175,7 @@ def bootstrap_planning(
             "(scope=%s, due_only=%s)",
             boot.candidate_tokens,
             boot.candidate_markets,
-            market_scope,
+            options.market_scope,
             due_only,
         )
     except Exception:
@@ -232,22 +186,7 @@ def bootstrap_planning(
     boot.plan_iter = create_plan_iterator(
         plan_iterator_factory,
         now_ts=now_ts,
-        clob_cutoff_date=clob_cutoff_date,
-        fidelity=fidelity,
-        force=force,
-        rebuild_minutely=rebuild_minutely,
-        overlap_minutes=overlap_minutes,
-        skip_recent_minutes=skip_recent_minutes,
-        market_page_size=market_page_size,
-        reconcile_ledger=reconcile_ledger,
-        short_range_first=short_range_first,
-        market_scope=market_scope,
-        ended_market_grace_days=ended_market_grace_days,
-        min_volume=min_volume,
-        max_volume=max_volume,
-        minutely_backfill_days=minutely_backfill_days,
-        empty_token_skip_budgets=empty_token_skip_budgets,
-        empty_token_skip_runs=empty_token_skip_runs,
+        options=options,
         on_invalid_tokens_batch=boot.persist_invalid_tokens_batch,
         count_due_market_token_exclusions_fn=runtime.count_due_market_token_exclusions,
     )

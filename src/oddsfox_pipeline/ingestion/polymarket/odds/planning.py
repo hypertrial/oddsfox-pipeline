@@ -7,11 +7,11 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from oddsfox_pipeline.ingestion.polymarket.odds.support import (
     DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
+    OddsSyncOptions,
     PlanningState,
     TokenPlan,
     is_probably_clob_token,
 )
-from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 from oddsfox_pipeline.storage.duckdb import (
     TokenSyncSchedulerState,
     count_due_market_token_exclusions,
@@ -63,15 +63,15 @@ def build_single_token_plan(
     now_ts: int,
     fidelity: int,
     force: bool,
-    rebuild_minutely: bool,
+    rebuild_history: bool,
     overlap_seconds: int,
     recent_seconds: int,
-    minutely_backfill_floor_ts: int | None = None,
+    history_backfill_floor_ts: int | None = None,
     empty_run_streak: int = 0,
     empty_token_skip_budgets: Optional[Dict[str, int]] = None,
     empty_token_skip_runs: int = DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
 ) -> Tuple[Optional[TokenPlan], Optional[str], Optional[Tuple[str, str]]]:
-    bypass_routine_skips = rebuild_minutely or minutely_backfill_floor_ts is not None
+    bypass_routine_skips = rebuild_history or history_backfill_floor_ts is not None
     if token_id in seen_tokens:
         return None, "dup_token", None
     seen_tokens.add(token_id)
@@ -96,10 +96,10 @@ def build_single_token_plan(
                 empty_token_skip_budgets.pop(token_id, None)
             return None, "empty_cache_skip", None
     latest_ts = latest_timestamps.get(token_id)
-    if rebuild_minutely:
+    if rebuild_history:
         start_ts = created_ts
-    elif minutely_backfill_floor_ts is not None:
-        start_ts = max(created_ts, int(minutely_backfill_floor_ts))
+    elif history_backfill_floor_ts is not None:
+        start_ts = max(created_ts, int(history_backfill_floor_ts))
     elif latest_ts is not None:
         if (not force) and ((now_ts - int(latest_ts)) < recent_seconds):
             return None, "recent_skip", None
@@ -127,22 +127,7 @@ def build_single_token_plan(
 def iter_token_plans_paged(
     *,
     now_ts: int,
-    clob_cutoff_date: str,
-    fidelity: int,
-    force: bool,
-    rebuild_minutely: bool,
-    overlap_minutes: int,
-    skip_recent_minutes: int,
-    market_page_size: int,
-    reconcile_ledger: bool = False,
-    short_range_first: bool = True,
-    market_scope: str = DEFAULT_MARKET_SCOPE,
-    ended_market_grace_days: int | None = None,
-    min_volume: float | None = None,
-    max_volume: float | None = None,
-    minutely_backfill_days: int = 0,
-    empty_token_skip_budgets: Optional[Dict[str, int]] = None,
-    empty_token_skip_runs: int = DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
+    options: OddsSyncOptions,
     on_invalid_tokens_batch: Callable[[List[Tuple[str, str]]], None] | None = None,
     token_id_allowlist: set[str] | None = None,
     token_id_denylist: set[str] | None = None,
@@ -154,27 +139,29 @@ def iter_token_plans_paged(
     ),
     token_sync_scheduler_state_cls: type = TokenSyncSchedulerState,
 ):
-    cutoff_dt = parse_cutoff_date(clob_cutoff_date)
-    overlap_seconds = max(0, int(overlap_minutes * 60))
-    recent_seconds = max(0, int(skip_recent_minutes * 60))
-    minutely_backfill = int(minutely_backfill_days) > 0
-    minutely_backfill_floor_ts = (
-        now_ts - int(minutely_backfill_days) * 86400 if minutely_backfill else None
+    cutoff_dt = parse_cutoff_date(options.clob_cutoff_date)
+    overlap_seconds = max(0, int(options.overlap_minutes * 60))
+    recent_seconds = max(0, int(options.skip_recent_minutes * 60))
+    history_backfill = int(options.history_backfill_days) > 0
+    history_backfill_floor_ts = (
+        now_ts - int(options.history_backfill_days) * 86400
+        if history_backfill
+        else None
     )
-    due_only = not force and not rebuild_minutely and not minutely_backfill
+    due_only = options.due_only
     planning_state = PlanningState()
     invalid_tokens: Dict[str, str] = {}
     seen_tokens: set[str] = set()
-    empty_token_skip_budgets = empty_token_skip_budgets or {}
+    empty_token_skip_budgets = options.empty_token_skip_budgets or {}
     cutoff_created_at = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
-    effective_ended_grace = ended_market_grace_days
+    effective_ended_grace = options.ended_market_grace_days
     if due_only and count_due_market_token_exclusions_fn is not None:
         exclusion_counts = count_due_market_token_exclusions_fn(
             cutoff_created_at=cutoff_created_at,
-            market_scope=market_scope,
+            market_scope=options.market_scope,
             ended_market_grace_days=effective_ended_grace,
-            min_volume=min_volume,
-            max_volume=max_volume,
+            min_volume=options.min_volume,
+            max_volume=options.max_volume,
         )
         planning_state.scope_skip += int(exclusion_counts.get("scope_skip", 0) or 0)
         planning_state.ended_market_skip += int(
@@ -182,22 +169,22 @@ def iter_token_plans_paged(
         )
     row_pages = (
         iter_due_market_tokens_fn(
-            page_size=market_page_size,
+            page_size=options.market_page_size,
             cutoff_created_at=cutoff_created_at,
-            market_scope=market_scope,
+            market_scope=options.market_scope,
             ended_market_grace_days=effective_ended_grace,
-            min_volume=min_volume,
-            max_volume=max_volume,
+            min_volume=options.min_volume,
+            max_volume=options.max_volume,
         )
         if due_only
         else iter_markets_with_tokens_fn(
-            page_size=market_page_size,
+            page_size=options.market_page_size,
             cutoff_created_at=cutoff_created_at,
             json_array_only=True,
-            market_scope=market_scope,
+            market_scope=options.market_scope,
             ended_market_grace_days=effective_ended_grace,
-            min_volume=min_volume,
-            max_volume=max_volume,
+            min_volume=options.min_volume,
+            max_volume=options.max_volume,
         )
     )
     for page_rows in row_pages:
@@ -255,7 +242,7 @@ def iter_token_plans_paged(
                 repair_ledger=True,
                 include_scheduler_state=True,
             )
-            if reconcile_ledger
+            if options.reconcile_ledger
             else get_token_sync_snapshot_fn(token_ids, include_scheduler_state=True)
         )
         if len(snapshot) == 4:
@@ -283,15 +270,15 @@ def iter_token_plans_paged(
                     persisted_skips=persisted_skips,
                     seen_tokens=seen_tokens,
                     now_ts=now_ts,
-                    fidelity=fidelity,
-                    force=force,
-                    rebuild_minutely=rebuild_minutely,
+                    fidelity=options.fidelity,
+                    force=options.force,
+                    rebuild_history=options.rebuild_history,
                     overlap_seconds=overlap_seconds,
                     recent_seconds=recent_seconds,
-                    minutely_backfill_floor_ts=minutely_backfill_floor_ts,
+                    history_backfill_floor_ts=history_backfill_floor_ts,
                     empty_run_streak=scheduler_state.empty_run_streak,
                     empty_token_skip_budgets=empty_token_skip_budgets,
-                    empty_token_skip_runs=empty_token_skip_runs,
+                    empty_token_skip_runs=options.empty_token_skip_runs,
                 )
                 if skip_key:
                     setattr(
@@ -316,7 +303,7 @@ def iter_token_plans_paged(
                         continue
                     planning_state.plans += 1
                     page_plans.append(token_plan)
-        if short_range_first and page_plans:
+        if options.short_range_first and page_plans:
             page_plans.sort(
                 key=lambda plan: (plan.end_ts - plan.start_ts, plan.created_at_ts)
             )

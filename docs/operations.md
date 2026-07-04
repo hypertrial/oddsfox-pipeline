@@ -29,7 +29,7 @@ Flat Dagster op names remain source-first, for example
 
 ## WC2026 Scope
 
-`wc2026` is the only supported market scope.
+The shipped Dagster jobs and dbt graph are fixed to `wc2026`.
 
 - `polymarket/wc2026/raw/markets_snapshot` and `polymarket/wc2026/ops/market_scope_registry`
   refresh `polymarket_wc2026_ops.market_scope_registry` for WC2026.

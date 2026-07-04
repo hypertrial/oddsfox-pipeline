@@ -19,7 +19,11 @@ from _export_common import mart_exists as _mart_exists
 from _export_common import qualified_mart_name, snapshot_duckdb_files
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
-MART_SCHEMA: Final = "polymarket_wc2026_marts"
+from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
+    POLYMARKET_WC2026_MARTS_SCHEMA,
+)
+
+MART_SCHEMA: Final = POLYMARKET_WC2026_MARTS_SCHEMA
 MART_NAME: Final = "polymarket_wc2026_knockout_token_hourly_odds"
 
 

@@ -23,9 +23,8 @@ from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 def test_validate_market_scope_accepts_slug_like_scopes():
     assert validate_market_scope() == "wc2026"
     assert validate_market_scope("wc2026") == "wc2026"
-    with pytest.raises(ValueError, match="wc2026"):
-        validate_market_scope("custom-scope")
-    with pytest.raises(ValueError, match="wc2026"):
+    assert validate_market_scope("custom-scope") == "custom-scope"
+    with pytest.raises(ValueError, match="slug-like"):
         validate_market_scope("bad scope")
 
 
@@ -78,14 +77,14 @@ def test_market_scope_config_and_sql_helpers():
     assert "market_scope_registry" in sql
     assert "scope_name = 'wc2026'" in sql
     assert "event_slug" not in sql
-    with pytest.raises(ValueError, match="wc2026"):
+    assert "scope_name = 'custom-scope'" in market_scope_predicate_sql("custom-scope")
+    with pytest.raises(ValueError, match="string"):
         market_scope_sql(["wc2026", "us-politics"])
-    with pytest.raises(ValueError, match="wc2026"):
-        market_scope_predicate_sql("all")
+    with pytest.raises(ValueError, match="slug-like"):
+        market_scope_predicate_sql("bad scope")
     assert not event_matches_scope_config(None)
     assert is_market_scope_row(market_id="seed1", in_registry=True, config=cfg)
-    with pytest.raises(ValueError, match="wc2026"):
-        is_market_scope_row(market_id="x", market_scope="all", config=cfg)
+    assert not is_market_scope_row(market_id="x", market_scope="all", config=cfg)
 
 
 def test_load_market_scope_config_yaml_validation(tmp_path, monkeypatch):
@@ -106,8 +105,9 @@ scopes:
 """,
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="wc2026"):
-        load_market_scope_config(seed_path=good, scope_name="custom")
+    custom_cfg = load_market_scope_config(seed_path=good, scope_name="custom")
+    assert custom_cfg.scope_name == "custom"
+    assert custom_cfg.event_slug_prefixes == ("pre",)
 
     bad = tmp_path / "bad.yml"
     bad.write_text("not-a-dict", encoding="utf-8")
@@ -155,6 +155,48 @@ scopes:
     bad5.write_text("default_scope: wc2026\nscopes: {}\n", encoding="utf-8")
     with pytest.raises(ValueError, match="scopes must be"):
         load_market_scope_config(seed_path=bad5)
+
+
+def test_load_market_scope_config_supports_seed_backed_second_scope(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        scope_config_mod,
+        "POLYMARKET_WC2026_SCOPE_EVENT_TAGS",
+        "wc2026-env",
+    )
+    seed = tmp_path / "multi.yml"
+    seed.write_text(
+        """
+default_scope: wc2026
+scopes:
+  wc2026:
+    event_slugs: [world-cup]
+    event_slug_prefixes: []
+    event_tags: [wc2026-seed]
+    market_ids: []
+  euros:
+    event_slugs: [euro-winner]
+    event_slug_prefixes: [euro]
+    event_tags: [euro-tag]
+    market_ids: [m-1]
+    keyset_volume_min: 2500
+    tag_discovery: false
+""",
+        encoding="utf-8",
+    )
+
+    wc2026 = load_market_scope_config(seed_path=seed, scope_name="wc2026")
+    euros = load_market_scope_config(seed_path=seed, scope_name="euros")
+
+    assert wc2026.event_tags == ("wc2026-env",)
+    assert euros.scope_name == "euros"
+    assert euros.event_slugs == ("euro-winner",)
+    assert euros.event_slug_prefixes == ("euro",)
+    assert euros.event_tags == ("euro-tag",)
+    assert euros.market_ids == ("m-1",)
+    assert euros.keyset_volume_min == 2500.0
+    assert euros.tag_discovery is False
 
 
 def test_market_scope_yaml_scalar_validation_helpers(tmp_path):

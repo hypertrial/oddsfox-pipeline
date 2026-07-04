@@ -56,6 +56,34 @@ class TokenPlan:
     empty_run_streak: int = 0
 
 
+@dataclass(frozen=True)
+class OddsSyncOptions:
+    clob_cutoff_date: str = "2023-01-01"
+    fidelity: int = 1440
+    force: bool = False
+    rebuild_history: bool = False
+    overlap_minutes: int = DEFAULT_OVERLAP_MINUTES
+    skip_recent_minutes: int = DEFAULT_SKIP_RECENT_MINUTES
+    market_page_size: int = DEFAULT_MARKET_PAGE_SIZE
+    reconcile_ledger: bool = False
+    short_range_first: bool = True
+    market_scope: str = "wc2026"
+    ended_market_grace_days: int | None = None
+    min_volume: float | None = None
+    max_volume: float | None = None
+    history_backfill_days: int = 0
+    empty_token_skip_budgets: Dict[str, int] | None = None
+    empty_token_skip_runs: int = DEFAULT_EMPTY_TOKEN_SKIP_RUNS
+
+    @property
+    def due_only(self) -> bool:
+        return (
+            not self.force
+            and not self.rebuild_history
+            and not int(self.history_backfill_days) > 0
+        )
+
+
 @dataclass
 class WriterBuffers:
     odds_map: Dict[Tuple[str, int], float]
@@ -235,6 +263,7 @@ __all__ = [
     "MAX_FLUSH_ROWS_CAP",
     "MAX_INFLIGHT_CAP",
     "MAX_WORKERS_CAP",
+    "OddsSyncOptions",
     "PlanningState",
     "TokenPlan",
     "WriterBuffers",

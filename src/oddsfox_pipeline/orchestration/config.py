@@ -130,7 +130,7 @@ class OddsSyncConfig(GuardrailConfig):
     skip_recent_minutes: int = 15
     overlap_minutes: int = 5
     window_hours: int = 8760
-    rebuild_minutely: bool = False
+    rebuild_history: bool = False
     reconcile_ledger: bool = False
     empty_skip_runs: int = 2
     routine_interval_hours: int = Field(default=6, ge=1)
@@ -144,7 +144,7 @@ class OddsSyncConfig(GuardrailConfig):
     ended_market_grace_days: int | None = Field(default=7, ge=0)
     min_volume: float | None = None
     max_volume: float | None = Field(default=POLYMARKET_WC2026_WHALE_MIN_VOLUME_USD)
-    minutely_backfill_days: int = Field(default=0, ge=0)
+    history_backfill_days: int = Field(default=0, ge=0)
 
     @field_validator("min_volume", "max_volume")
     @classmethod

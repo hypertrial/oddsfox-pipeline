@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import yaml
+
 
 def test_dbt_project_is_polymarket_wc2026_only():
     dbt_root = Path(__file__).resolve().parents[2] / "dbt"
@@ -30,3 +32,17 @@ def test_dbt_project_version():
 
     assert "version: 0.1.4" in text
     assert "profile: oddsfox" in text
+
+
+def test_time_series_marts_are_materialized_tables():
+    project = yaml.safe_load(
+        (Path(__file__).resolve().parents[2] / "dbt" / "dbt_project.yml").read_text()
+    )
+    marts = project["models"]["oddsfox"]["polymarket_wc2026"]["marts"]
+
+    assert marts["polymarket_wc2026_token_hourly_odds"]["+materialized"] == "table"
+    assert marts["polymarket_wc2026_token_daily_odds"]["+materialized"] == "table"
+    assert (
+        marts["polymarket_wc2026_knockout_token_hourly_odds"]["+materialized"]
+        == "table"
+    )

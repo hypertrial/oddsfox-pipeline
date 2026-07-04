@@ -14,10 +14,10 @@ Schema: `polymarket_wc2026_marts`
 | `polymarket_wc2026_markets` | One row per `(scope_name, market_id)` | Canonical WC2026 market universe with scope attribution. |
 | `polymarket_wc2026_token_coverage` | One row per `clob_token_id` | Token health, daily coverage, sync ledger state, skip state, gap health, and market fully checked rollups. |
 | `polymarket_wc2026_market_coverage` | One row per market | Market-level coverage rolled up from `polymarket_wc2026_token_coverage`. |
-| `polymarket_wc2026_token_hourly_odds` | One row per `(clob_token_id, odds_hour_utc)` | Full hourly OHLC odds time series for WC2026 tokens (dbt view). |
-| `polymarket_wc2026_token_daily_odds` | One row per `(clob_token_id, odds_date_utc)` | Full daily OHLC odds time series for WC2026 tokens (dbt view). |
+| `polymarket_wc2026_token_hourly_odds` | One row per `(clob_token_id, odds_hour_utc)` | Full hourly OHLC odds time series for WC2026 tokens (dbt table). |
+| `polymarket_wc2026_token_daily_odds` | One row per `(clob_token_id, odds_date_utc)` | Full daily OHLC odds time series for WC2026 tokens (dbt table). |
 | `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | WC2026 knockout stage market tokens with sports metadata, latest hourly price, and result metadata. |
-| `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Graph-ready WC2026 knockout hourly odds with stage/team classification and Yes/No sibling token IDs. |
+| `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Graph-ready WC2026 knockout hourly odds with stage/team classification and Yes/No sibling token IDs (dbt table). |
 
 ## Health And Observability
 
@@ -63,6 +63,10 @@ DuckDB schemas use flat `polymarket_wc2026_*` names.
 There are no compatibility views, env aliases, or migration shims in v0.1.x.
 Delete old local warehouse files (`rm oddsfox.duckdb*`) and rerun quickstart
 after upgrading from older layouts.
+
+Public time-series marts are materialized as dbt tables. If an existing local
+DuckDB warehouse still has these relations as views, reset the warehouse or
+drop the affected dbt schemas before rebuilding.
 
 ## Breaking change: token_latest_odds removed (v0.1.1)
 

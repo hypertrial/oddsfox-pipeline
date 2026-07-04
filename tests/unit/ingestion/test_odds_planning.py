@@ -27,7 +27,7 @@ def test_build_single_token_plan_budget_and_latest_branches():
         now_ts=200,
         fidelity=1440,
         force=False,
-        rebuild_minutely=False,
+        rebuild_history=False,
         overlap_seconds=0,
         recent_seconds=0,
         empty_token_skip_budgets=budgets,
@@ -50,7 +50,7 @@ def test_build_single_token_plan_budget_and_latest_branches():
         now_ts=200,
         fidelity=1440,
         force=False,
-        rebuild_minutely=False,
+        rebuild_history=False,
         overlap_seconds=20,
         recent_seconds=10,
         empty_token_skip_budgets={},
@@ -73,7 +73,7 @@ def test_build_single_token_plan_budget_and_latest_branches():
         now_ts=200,
         fidelity=1440,
         force=False,
-        rebuild_minutely=False,
+        rebuild_history=False,
         overlap_seconds=0,
         recent_seconds=10,
         empty_token_skip_budgets={},
@@ -94,7 +94,7 @@ def test_build_single_token_plan_budget_and_latest_branches():
         now_ts=200,
         fidelity=1440,
         force=True,
-        rebuild_minutely=False,
+        rebuild_history=False,
         overlap_seconds=0,
         recent_seconds=0,
         empty_token_skip_budgets={},
@@ -117,7 +117,7 @@ def test_force_does_not_reopen_closed_fully_checked_token():
         now_ts=1_900_000_000,
         fidelity=1,
         force=True,
-        rebuild_minutely=False,
+        rebuild_history=False,
         overlap_seconds=120,
         recent_seconds=60,
         empty_token_skip_budgets={},
@@ -150,7 +150,7 @@ def test_iter_token_plans_paged_collects_invalids_and_done_value(monkeypatch):
         clob_cutoff_date="2023-01-01",
         fidelity=1440,
         force=True,
-        rebuild_minutely=True,
+        rebuild_history=True,
         overlap_minutes=0,
         skip_recent_minutes=0,
         market_page_size=10,
@@ -199,7 +199,7 @@ def test_iter_token_plans_paged_force_passes_ended_market_grace(monkeypatch):
             clob_cutoff_date="2023-01-01",
             fidelity=1440,
             force=True,
-            rebuild_minutely=False,
+            rebuild_history=False,
             overlap_minutes=0,
             skip_recent_minutes=0,
             market_page_size=10,
@@ -236,22 +236,24 @@ def test_bootstrap_planning_force_counts_with_ended_market_grace():
     runtime = Runtime()
     boot = bootstrap_planning(
         runtime,
-        clob_cutoff_date="2023-01-01",
-        fidelity=1440,
-        force=True,
-        rebuild_minutely=False,
-        overlap_minutes=0,
-        skip_recent_minutes=0,
-        market_page_size=10,
-        reconcile_ledger=False,
-        short_range_first=True,
-        market_scope="wc2026",
-        ended_market_grace_days=7,
-        min_volume=None,
-        max_volume=None,
-        minutely_backfill_days=0,
-        empty_token_skip_budgets=None,
-        empty_token_skip_runs=0,
+        options=odds_sync.OddsSyncOptions(
+            clob_cutoff_date="2023-01-01",
+            fidelity=1440,
+            force=True,
+            rebuild_history=False,
+            overlap_minutes=0,
+            skip_recent_minutes=0,
+            market_page_size=10,
+            reconcile_ledger=False,
+            short_range_first=True,
+            market_scope="wc2026",
+            ended_market_grace_days=7,
+            min_volume=None,
+            max_volume=None,
+            history_backfill_days=0,
+            empty_token_skip_budgets=None,
+            empty_token_skip_runs=0,
+        ),
         plan_iterator_factory=lambda **kwargs: iter(()),
     )
 
@@ -278,7 +280,7 @@ def test_iter_token_plans_paged_skips_unparseable_created_at(monkeypatch):
                 clob_cutoff_date="2023-01-01",
                 fidelity=1440,
                 force=True,
-                rebuild_minutely=True,
+                rebuild_history=True,
                 overlap_minutes=0,
                 skip_recent_minutes=0,
                 market_page_size=10,
@@ -329,7 +331,7 @@ def test_iter_token_plans_paged_due_only_uses_due_iterator_and_scheduler_state(
             clob_cutoff_date="2023-01-01",
             fidelity=1440,
             force=False,
-            rebuild_minutely=False,
+            rebuild_history=False,
             overlap_minutes=0,
             skip_recent_minutes=0,
             market_page_size=10,
@@ -371,7 +373,7 @@ def test_iter_token_plans_paged_due_only_skips_bad_rows(monkeypatch):
         clob_cutoff_date="2023-01-01",
         fidelity=1440,
         force=False,
-        rebuild_minutely=False,
+        rebuild_history=False,
         overlap_minutes=0,
         skip_recent_minutes=0,
         market_page_size=10,
@@ -390,7 +392,7 @@ def test_iter_token_plans_paged_due_only_skips_bad_rows(monkeypatch):
     assert planning_state.pre_clob_markets == 1
 
 
-def test_build_single_token_plan_minutely_backfill_floor():
+def test_build_single_token_plan_history_backfill_floor():
     tok = "f" * 33 + "12"
     now_ts = 2_000_000_000
     floor_ts = now_ts - 45 * 86400
@@ -406,10 +408,10 @@ def test_build_single_token_plan_minutely_backfill_floor():
         now_ts=now_ts,
         fidelity=1,
         force=False,
-        rebuild_minutely=False,
+        rebuild_history=False,
         overlap_seconds=60,
         recent_seconds=999999,
-        minutely_backfill_floor_ts=floor_ts,
+        history_backfill_floor_ts=floor_ts,
     )
     assert skip is None
     assert plan is not None
@@ -418,7 +420,7 @@ def test_build_single_token_plan_minutely_backfill_floor():
     assert plan.fidelity == 1
 
 
-def test_iter_token_plans_paged_minutely_backfill_uses_full_iterator(monkeypatch):
+def test_iter_token_plans_paged_history_backfill_uses_full_iterator(monkeypatch):
     captured = {}
 
     def markets_pages(**kwargs):
@@ -432,11 +434,11 @@ def test_iter_token_plans_paged_minutely_backfill_uses_full_iterator(monkeypatch
         clob_cutoff_date="2023-01-01",
         fidelity=1,
         force=False,
-        rebuild_minutely=False,
+        rebuild_history=False,
         overlap_minutes=0,
         skip_recent_minutes=0,
         market_page_size=10,
-        minutely_backfill_days=45,
+        history_backfill_days=45,
         min_volume=100_000.0,
     )
     try:

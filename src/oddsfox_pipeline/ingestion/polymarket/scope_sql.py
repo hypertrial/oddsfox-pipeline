@@ -17,9 +17,7 @@ _SCOPE_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$", re.IGNORECASE)
 def _validate_scope_token(scope: str) -> str:
     normalized = scope.strip().lower()
     if not _SCOPE_RE.fullmatch(normalized):
-        raise ValueError(f"market_scope must be 'wc2026', got {scope!r}")
-    if normalized != DEFAULT_MARKET_SCOPE:
-        raise ValueError(f"market_scope must be 'wc2026', got {scope!r}")
+        raise ValueError(f"market_scope must be a slug-like token, got {scope!r}")
     return normalized
 
 
@@ -27,7 +25,7 @@ def validate_market_scope(market_scope: str | None = None) -> str:
     if market_scope is None:
         return DEFAULT_MARKET_SCOPE
     if not isinstance(market_scope, str):
-        raise ValueError(f"market_scope must be 'wc2026', got {market_scope!r}")
+        raise ValueError(f"market_scope must be a string, got {market_scope!r}")
     return _validate_scope_token(market_scope)
 
 
@@ -49,7 +47,7 @@ def market_scope_sql(
     market_scope: str | None = None,
     alias: str = "m",
 ) -> str:
-    """Return a WC2026 registry SQL AND-clause fragment."""
+    """Return a registry SQL AND-clause fragment for a market scope."""
     scope_name = validate_market_scope(market_scope)
     return f"AND {_registry_scope_sql(alias, scope_name)}"
 
@@ -58,7 +56,7 @@ def market_scope_predicate_sql(
     market_scope: str | None = None,
     alias: str = "m",
 ) -> str:
-    """Return a bare WC2026 registry boolean SQL predicate."""
+    """Return a bare registry boolean SQL predicate for a market scope."""
     scope_name = validate_market_scope(market_scope)
     return _registry_scope_sql(alias, scope_name)
 

@@ -60,6 +60,8 @@ OLD_ACTIVE_PATTERNS = (
     re.compile(r"export_wc2026_"),
     re.compile(r"repair_wc2026_"),
     re.compile(r"count_wc2026_"),
+    re.compile(r"rebuild_minutely"),
+    re.compile(r"minutely_backfill"),
 )
 
 EXPECTED_SCRIPT_FILES = {

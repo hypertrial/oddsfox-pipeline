@@ -16,8 +16,11 @@ ensure_src_on_path()
 import duckdb  # noqa: E402
 
 from oddsfox_pipeline.config import settings  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.schemas.constants import (  # noqa: E402
+    POLYMARKET_WC2026_OPS_SCHEMA,
+)
 
-_SCHEMA = "polymarket_wc2026_ops"
+_SCHEMA = POLYMARKET_WC2026_OPS_SCHEMA
 _TABLE = "token_sync_ledger"
 _REBUILD_TABLE = "token_sync_ledger_rebuild"
 _QUALIFIED_TABLE = f"{_SCHEMA}.{_TABLE}"

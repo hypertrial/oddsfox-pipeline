@@ -351,7 +351,7 @@ def test_predicate_helpers_cover_remaining_branches() -> None:
     cfg = slug_only_cfg(event_tags=("fifa-world-cup",))
     import pytest
 
-    with pytest.raises(ValueError, match="wc2026"):
+    with pytest.raises(ValueError, match="Unknown Polymarket market scope"):
         scope_predicates_mod.is_market_scope_row(
             market_id="x",
             event_slug="2026-fifa-world-cup-extra",
