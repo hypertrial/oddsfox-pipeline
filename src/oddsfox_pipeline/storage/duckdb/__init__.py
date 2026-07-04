@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+import importlib
+from typing import Any
+
 from oddsfox_pipeline.storage.duckdb.connection import (
     ensure_duck_db,
     get_connection,
@@ -5,67 +10,89 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     open_duckdb_connection,
     open_writable_duckdb_connection,
 )
-from oddsfox_pipeline.storage.duckdb.markets import (
-    count_candidate_market_tokens,
-    count_due_market_token_exclusions,
-    delete_orphan_market_tokens,
-    get_all_market_ids,
-    get_market_count,
-    get_markets_missing_any_metadata,
-    get_markets_with_tokens,
-    get_markets_without_end_date,
-    get_markets_without_event_slugs,
-    get_markets_without_slugs,
-    get_markets_without_tokens,
-    iter_due_market_tokens,
-    iter_markets_with_tokens,
-    mark_market_metadata_unresolved,
-    save_end_dates_batch,
-    save_event_slugs_batch,
-    save_market_tokens_batch,
-    save_slugs_batch,
-    save_tokens_batch,
-)
-from oddsfox_pipeline.storage.duckdb.metadata import (
-    append_pipeline_run_event,
-    get_backfill_fully_checked,
-    get_backfill_progress,
-    get_sync_run_metrics,
-    save_sync_run_metrics,
-    set_backfill_fully_checked,
-    set_backfill_progress,
-)
-from oddsfox_pipeline.storage.duckdb.observability import (
-    delta_dbt_models,
-    delta_raw_layer,
-    format_dbt_snapshot_log,
-    format_raw_snapshot_log,
-    snapshot_dbt_models,
-    snapshot_raw_layer,
-)
-from oddsfox_pipeline.storage.duckdb.odds import (
-    TokenSyncSchedulerState,
-    backfill_token_odds_daily_from_history,
-    get_fully_checked_tokens,
-    get_latest_timestamps,
-    get_skipped_tokens,
-    get_token_sync_snapshot,
-    get_tokens_with_data,
-    mark_tokens_fully_checked,
-    merge_odds_bulk_upsert,
-    prepare_odds_bulk_upsert,
-    reconcile_token_sync_ledger_from_history,
-    refresh_token_odds_daily,
-    save_odds_batch,
-    save_odds_bulk_appender,
-    save_odds_bulk_upsert,
-    save_skipped_tokens,
-    save_sync_status_batch,
-    save_token_sync_state_batch,
-    upsert_ledger_last_sync_batch,
-    upsert_skipped_tokens_batch,
-    upsert_token_sync_state_batch,
-)
+
+# ponytail: lazy submodule exports so connection-only callers (export scripts) skip dlt.
+_LAZY_EXPORTS: dict[str, tuple[str, ...]] = {
+    "oddsfox_pipeline.storage.duckdb.markets": (
+        "count_candidate_market_tokens",
+        "count_due_market_token_exclusions",
+        "delete_orphan_market_tokens",
+        "get_all_market_ids",
+        "get_market_count",
+        "get_markets_missing_any_metadata",
+        "get_markets_with_tokens",
+        "get_markets_without_end_date",
+        "get_markets_without_event_slugs",
+        "get_markets_without_slugs",
+        "get_markets_without_tokens",
+        "iter_due_market_tokens",
+        "iter_markets_with_tokens",
+        "mark_market_metadata_unresolved",
+        "save_end_dates_batch",
+        "save_event_slugs_batch",
+        "save_market_tokens_batch",
+        "save_slugs_batch",
+        "save_tokens_batch",
+    ),
+    "oddsfox_pipeline.storage.duckdb.metadata": (
+        "append_pipeline_run_event",
+        "get_backfill_fully_checked",
+        "get_backfill_progress",
+        "get_sync_run_metrics",
+        "save_sync_run_metrics",
+        "set_backfill_fully_checked",
+        "set_backfill_progress",
+    ),
+    "oddsfox_pipeline.storage.duckdb.observability": (
+        "delta_dbt_models",
+        "delta_raw_layer",
+        "format_dbt_snapshot_log",
+        "format_raw_snapshot_log",
+        "snapshot_dbt_models",
+        "snapshot_raw_layer",
+    ),
+    "oddsfox_pipeline.storage.duckdb.odds": (
+        "TokenSyncSchedulerState",
+        "backfill_token_odds_daily_from_history",
+        "get_fully_checked_tokens",
+        "get_latest_timestamps",
+        "get_skipped_tokens",
+        "get_token_sync_snapshot",
+        "get_tokens_with_data",
+        "mark_tokens_fully_checked",
+        "merge_odds_bulk_upsert",
+        "prepare_odds_bulk_upsert",
+        "reconcile_token_sync_ledger_from_history",
+        "refresh_token_odds_daily",
+        "save_odds_batch",
+        "save_odds_bulk_appender",
+        "save_odds_bulk_upsert",
+        "save_skipped_tokens",
+        "save_sync_status_batch",
+        "save_token_sync_state_batch",
+        "upsert_ledger_last_sync_batch",
+        "upsert_skipped_tokens_batch",
+        "upsert_token_sync_state_batch",
+    ),
+}
+
+_EXPORT_MODULES: dict[str, str] = {
+    name: module for module, names in _LAZY_EXPORTS.items() for name in names
+}
+
+
+def __getattr__(name: str) -> Any:
+    module_name = _EXPORT_MODULES.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(importlib.import_module(module_name), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(__all__))
+
 
 __all__ = [
     "get_connection",

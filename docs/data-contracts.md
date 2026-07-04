@@ -34,7 +34,11 @@ Schema: `polymarket_wc2026_marts`
   (scope=wc2026) ∩ reported `volume >= $100,000` USD. The floor is dynamic — markets
   crossing $100k on a later sync are admitted on the next dbt build.
 - Knockout marts inherit this universe from `polymarket_wc2026_market_tokens` and apply
-  only knockout-stage classification downstream.
+  only knockout-stage classification downstream. `stage_key` values include
+  `round_of_16` and `round_of_32` from Polymarket elimination-framed questions
+  (e.g. `Will % be eliminated in the Round of 32 of the World Cup?`) as well as
+  advance-framed questions for later stages; use the raw `question` column to
+  distinguish elimination vs. advance wording when interpreting Yes/No prices.
 - `polymarket_wc2026_token_coverage` covers every outcome token in the volume-scoped universe.
 - `polymarket_wc2026_token_hourly_odds` and `polymarket_wc2026_token_daily_odds` are full time series
   for the volume-scoped WC2026 universe.

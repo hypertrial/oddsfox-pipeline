@@ -43,11 +43,15 @@ with extracted as (
         case
             when t.question like 'Will % reach the Round of 16 at the 2026 FIFA World Cup?'
                 then replace(replace(t.question, 'Will ', ''), ' reach the Round of 16 at the 2026 FIFA World Cup?', '')
+            when t.question like 'Will % be eliminated in the Round of 16 of the World Cup?'
+                then replace(replace(t.question, 'Will ', ''), ' be eliminated in the Round of 16 of the World Cup?', '')
             else ''
         end as round_of_16_team,
         case
             when t.question like 'Will % reach the Round of 32 at the 2026 FIFA World Cup?'
                 then replace(replace(t.question, 'Will ', ''), ' reach the Round of 32 at the 2026 FIFA World Cup?', '')
+            when t.question like 'Will % be eliminated in the Round of 32 of the World Cup?'
+                then replace(replace(t.question, 'Will ', ''), ' be eliminated in the Round of 32 of the World Cup?', '')
             else ''
         end as round_of_32_team
     from {{ ref('polymarket_wc2026_market_tokens') }} as t

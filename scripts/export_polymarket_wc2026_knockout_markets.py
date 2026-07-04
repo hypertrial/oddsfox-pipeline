@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     from oddsfox_pipeline.config import settings
-    from oddsfox_pipeline.storage.duckdb import open_duckdb_connection
+    from oddsfox_pipeline.storage.duckdb.connection import open_duckdb_connection
 
     duck = Path(args.duckdb_path or settings.DUCKDB_PATH).resolve()
     if args.output is not None:
@@ -79,7 +79,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.snapshot_copy:
         args.output_dir.mkdir(parents=True, exist_ok=True)
         snap_dir = Path(
-            tempfile.mkdtemp(prefix="polymarket_wc2026_knockout_snap_", dir=str(args.output_dir))
+            tempfile.mkdtemp(
+                prefix="polymarket_wc2026_knockout_snap_", dir=str(args.output_dir)
+            )
         )
         try:
             profile_path = snapshot_duckdb_files(duck, snap_dir)

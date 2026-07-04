@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- WC2026 knockout classification now recognizes Polymarket elimination-framed
+  Round of 16/32 questions (`Will % be eliminated in the Round of X of the World Cup?`),
+  so `round_of_16` and `round_of_32` rows populate knockout marts when those markets
+  cross the volume floor.
 - Breaking: public WC2026 marts now use a volume-scoped universe (`market_scope_registry`
   ∩ reported `volume >= $100,000` USD). `int_polymarket_wc2026_markets` applies the
   floor; downstream marts and knockout exports inherit it. Default Gamma keyset discovery
