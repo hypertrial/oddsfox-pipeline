@@ -157,19 +157,6 @@ class OddsSyncConfig(GuardrailConfig):
         return parsed
 
 
-class MinutelyOddsSyncConfig(OddsSyncConfig):
-    fidelity: int = Field(default=1, ge=MIN_ODDS_FIDELITY_MINUTES)
-    force: bool = True
-    skip_recent_minutes: int = 1
-    overlap_minutes: int = 2
-    window_hours: int = 12
-    routine_interval_hours: int = Field(default=1, ge=1)
-    min_volume: float | None = Field(default=WC2026_POLYMARKET_WHALE_MIN_VOLUME_USD)
-    max_volume: float | None = None
-    minutely_backfill_days: int = Field(default=0, ge=0)
-    ended_market_grace_days: int | None = Field(default=7, ge=0)
-
-
 class HourlyOddsSyncConfig(OddsSyncConfig):
     fidelity: int = Field(default=60, ge=MIN_ODDS_FIDELITY_MINUTES)
     force: bool = True
@@ -180,11 +167,6 @@ class HourlyOddsSyncConfig(OddsSyncConfig):
     min_volume: float | None = Field(default=WC2026_POLYMARKET_WHALE_MIN_VOLUME_USD)
     max_volume: float | None = None
     ended_market_grace_days: int | None = Field(default=7, ge=0)
-
-
-class RepairConfig(Config):
-    persist_run_metrics: bool = True
-    raw_snapshot_level: str = Field(default="basic")
 
 
 class DbtBuildConfig(GuardrailConfig):
@@ -199,34 +181,6 @@ class DbtBuildConfig(GuardrailConfig):
 def wc2026_dbt_build_run_config() -> dict:
     dbt_cfg = DbtBuildConfig(full_refresh=True)
     return {"ops": {"wc2026_polymarket_dbt": {"config": dbt_cfg.model_dump()}}}
-
-
-def wc2026_minutely_odds_run_config() -> dict:
-    odds_cfg = MinutelyOddsSyncConfig(
-        force=True,
-        overlap_minutes=1,
-    )
-    return {
-        "ops": {
-            "wc2026_polymarket_token_odds_history_minutely": {
-                "config": odds_cfg.model_dump()
-            },
-        }
-    }
-
-
-def wc2026_minutely_odds_cold_run_config() -> dict:
-    odds_cfg = MinutelyOddsSyncConfig(
-        force=False,
-        overlap_minutes=2,
-    )
-    return {
-        "ops": {
-            "wc2026_polymarket_token_odds_history_minutely": {
-                "config": odds_cfg.model_dump()
-            },
-        }
-    }
 
 
 def wc2026_full_refresh_events_run_config() -> dict:

@@ -44,10 +44,8 @@ def resolve_source_slug(
         "wc2026_market_coverage",
         "wc2026_token_coverage",
         "wc2026_token_hourly_odds",
-        "wc2026_token_minutely_odds",
         "wc2026_token_daily_odds",
         "wc2026_markets",
-        "wc2026_whale_minutely_odds",
         "wc2026_sync_run_observability",
     }:
         return DBT_SOURCE_WC2026_POLYMARKET

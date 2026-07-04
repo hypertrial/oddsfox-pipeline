@@ -25,7 +25,7 @@ from oddsfox_pipeline.orchestration.assets import (
     wc2026_polymarket_market_metadata_backfill,
     wc2026_polymarket_market_registry,
     wc2026_polymarket_markets_snapshot,
-    wc2026_polymarket_token_odds_history_minutely,
+    wc2026_polymarket_token_odds_history_hourly,
 )
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
@@ -242,7 +242,7 @@ oddsfox:
             wc2026_polymarket_markets_snapshot,
             wc2026_polymarket_market_registry,
             wc2026_polymarket_market_metadata_backfill,
-            wc2026_polymarket_token_odds_history_minutely,
+            wc2026_polymarket_token_odds_history_hourly,
             wc2026_polymarket_dbt,
         ],
         resources={
@@ -260,7 +260,7 @@ oddsfox:
                         "discovery_mode": "targeted",
                     }
                 },
-                "wc2026_polymarket_token_odds_history_minutely": {
+                "wc2026_polymarket_token_odds_history_hourly": {
                     "config": {
                         "workers": 1,
                         "batch_size": 1000,

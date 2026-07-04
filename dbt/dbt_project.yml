@@ -37,13 +37,9 @@ models:
         +schema: wc2026_polymarket_marts
         +materialized: table
         +tags: ["mart", "core", "wc2026", "polymarket"]
-        wc2026_token_minutely_odds:
-          +materialized: view
         wc2026_token_hourly_odds:
           +materialized: view
         wc2026_token_daily_odds:
-          +materialized: view
-        wc2026_whale_minutely_odds:
           +materialized: view
         wc2026_markets:
           +materialized: view

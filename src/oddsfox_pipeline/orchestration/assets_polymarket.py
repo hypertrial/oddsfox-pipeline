@@ -25,9 +25,7 @@ from oddsfox_pipeline.orchestration.config import (
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
     MetadataBackfillConfig,
-    MinutelyOddsSyncConfig,
     OddsSyncConfig,
-    RepairConfig,
 )
 from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
 from oddsfox_pipeline.orchestration.translators import PolymarketDagsterDbtTranslator
@@ -407,18 +405,6 @@ def wc2026_polymarket_market_metadata_backfill(
 
 
 @asset(
-    name="wc2026_polymarket_token_odds_history_minutely",
-    deps=[wc2026_polymarket_market_metadata_backfill],
-    group_name="ingestion",
-)
-def wc2026_polymarket_token_odds_history_minutely(
-    context: AssetExecutionContext,
-    config: MinutelyOddsSyncConfig,
-) -> MaterializeResult:
-    return _materialize_odds_sync(context, config)
-
-
-@asset(
     name="wc2026_polymarket_token_odds_history_hourly",
     deps=[wc2026_polymarket_market_metadata_backfill],
     group_name="ingestion",
@@ -428,25 +414,6 @@ def wc2026_polymarket_token_odds_history_hourly(
     config: HourlyOddsSyncConfig,
 ) -> MaterializeResult:
     return _materialize_odds_sync(context, config)
-
-
-@asset(name="wc2026_polymarket_odds_repair", group_name="ingestion")
-def wc2026_polymarket_odds_repair(
-    context: AssetExecutionContext,
-    config: RepairConfig,
-) -> MaterializeResult:
-    pre = snapshot_raw_layer(level=config.raw_snapshot_level)
-    reconcile_meta = ops.reconcile_odds_ledger(
-        persist_run_metrics=config.persist_run_metrics
-    )
-    post = snapshot_raw_layer(level=config.raw_snapshot_level)
-    dd = delta_raw_layer(pre, post)
-    return MaterializeResult(
-        metadata={
-            "reconcile": MetadataValue.json(reconcile_meta),
-            **_raw_snapshot_metadata(pre, post, dd),
-        }
-    )
 
 
 @dbt_assets(
@@ -488,8 +455,6 @@ __all__ = [
     "wc2026_polymarket_market_metadata_backfill",
     "wc2026_polymarket_raw_markets",
     "wc2026_polymarket_markets_snapshot",
-    "wc2026_polymarket_odds_repair",
     "wc2026_polymarket_token_odds_history_hourly",
-    "wc2026_polymarket_token_odds_history_minutely",
     "wc2026_polymarket_market_registry",
 ]

@@ -9,10 +9,8 @@ from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 from oddsfox_pipeline.orchestration import config as orch_config
 from oddsfox_pipeline.orchestration.assets import (
     wc2026_polymarket_market_registry,
-    wc2026_polymarket_odds_repair,
     wc2026_polymarket_raw_markets,
     wc2026_polymarket_token_odds_history_hourly,
-    wc2026_polymarket_token_odds_history_minutely,
 )
 
 
@@ -325,33 +323,9 @@ def test_odds_assets_delegate_to_materializer(monkeypatch):
 
     ctx = MagicMock()
     assert (
-        wc2026_polymarket_token_odds_history_minutely.op.compute_fn.decorated_fn(
-            ctx, orch_config.MinutelyOddsSyncConfig()
-        )
-        == "ok"
-    )
-    assert (
         wc2026_polymarket_token_odds_history_hourly.op.compute_fn.decorated_fn(
             ctx, orch_config.HourlyOddsSyncConfig()
         )
         == "ok"
     )
-    assert calls[0][0] is orch_config.MinutelyOddsSyncConfig
-    assert calls[1][0] is orch_config.HourlyOddsSyncConfig
-
-
-def test_repair_asset_returns_reconcile_metadata(monkeypatch):
-    monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {"x": 1})
-    monkeypatch.setattr(
-        assets_mod, "delta_raw_layer", lambda _pre, _post: {"x": {"before": 1}}
-    )
-    monkeypatch.setattr(
-        assets_mod.ops,
-        "reconcile_odds_ledger",
-        lambda **kwargs: {"persist": kwargs["persist_run_metrics"]},
-    )
-
-    fn = wc2026_polymarket_odds_repair.op.compute_fn.decorated_fn
-    result = fn(MagicMock(), orch_config.RepairConfig(persist_run_metrics=False))
-
-    assert result.metadata["reconcile"].value == {"persist": False}
+    assert calls[0][0] is orch_config.HourlyOddsSyncConfig

@@ -12,25 +12,16 @@ from oddsfox_pipeline.orchestration.assets import (
     wc2026_polymarket_market_metadata_backfill,
     wc2026_polymarket_market_registry,
     wc2026_polymarket_markets_snapshot,
-    wc2026_polymarket_odds_repair,
     wc2026_polymarket_raw_markets,
     wc2026_polymarket_token_odds_history_hourly,
-    wc2026_polymarket_token_odds_history_minutely,
 )
 from oddsfox_pipeline.orchestration.jobs import (
     wc2026_dbt_build,
     wc2026_full_pipeline,
     wc2026_hourly_odds_ingest,
-    wc2026_knockout_export,
     wc2026_market_registry_refresh,
-    wc2026_minutely_odds_ingest,
 )
-from oddsfox_pipeline.orchestration.schedules import (
-    wc2026_hourly_odds_schedule,
-    wc2026_minutely_odds_cold_schedule,
-    wc2026_minutely_odds_live_schedule,
-    wc2026_minutely_odds_schedule,
-)
+from oddsfox_pipeline.orchestration.schedules import wc2026_hourly_odds_schedule
 
 defs = Definitions(
     assets=[
@@ -38,23 +29,16 @@ defs = Definitions(
         wc2026_polymarket_markets_snapshot,
         wc2026_polymarket_market_registry,
         wc2026_polymarket_market_metadata_backfill,
-        wc2026_polymarket_token_odds_history_minutely,
         wc2026_polymarket_token_odds_history_hourly,
-        wc2026_polymarket_odds_repair,
         wc2026_polymarket_dbt,
     ],
     jobs=[
-        wc2026_minutely_odds_ingest,
         wc2026_hourly_odds_ingest,
         wc2026_market_registry_refresh,
         wc2026_dbt_build,
-        wc2026_knockout_export,
         wc2026_full_pipeline,
     ],
     schedules=[
-        wc2026_minutely_odds_schedule,
-        wc2026_minutely_odds_cold_schedule,
-        wc2026_minutely_odds_live_schedule,
         wc2026_hourly_odds_schedule,
     ],
     resources={

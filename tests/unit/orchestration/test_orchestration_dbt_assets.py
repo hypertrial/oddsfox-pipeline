@@ -41,19 +41,19 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "wc2026_polymarket_market_metadata_backfill"
     ]
     assert tables[("wc2026_polymarket_raw", "odds_history")] == [
-        "wc2026_polymarket_token_odds_history_minutely"
+        "wc2026_polymarket_token_odds_history_hourly"
     ]
     assert tables[("wc2026_polymarket_raw", "token_odds_daily")] == [
-        "wc2026_polymarket_token_odds_history_minutely"
+        "wc2026_polymarket_token_odds_history_hourly"
     ]
     assert tables[("wc2026_polymarket_ops", "token_sync_ledger")] == [
-        "wc2026_polymarket_token_odds_history_minutely"
+        "wc2026_polymarket_token_odds_history_hourly"
     ]
     assert tables[("wc2026_polymarket_ops", "token_sync_skips")] == [
-        "wc2026_polymarket_token_odds_history_minutely"
+        "wc2026_polymarket_token_odds_history_hourly"
     ]
     assert tables[("wc2026_polymarket_ops", "pipeline_run_events")] == [
-        "wc2026_polymarket_token_odds_history_minutely"
+        "wc2026_polymarket_token_odds_history_hourly"
     ]
     assert tables[("wc2026_polymarket_ops", "market_scope_registry")] == [
         "wc2026_polymarket_market_registry"
@@ -85,7 +85,7 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
         key.to_user_string()
         for key in graph.get(AssetKey("wc2026_polymarket_stg_odds")).parent_keys
     }
-    assert "wc2026_polymarket_token_odds_history_minutely" in stg_odds_parents
+    assert "wc2026_polymarket_token_odds_history_hourly" in stg_odds_parents
 
     dangling_dbt_keys = sorted(
         key.to_user_string()

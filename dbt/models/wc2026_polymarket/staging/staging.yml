@@ -130,8 +130,7 @@ models:
   - name: avg_price
     description: Average price across observations for this UTC day when present.
   - name: observed_points
-    description: Count of canonical minutely (or finer) odds points rolled into this
-      daily aggregate.
+    description: Count of odds observations rolled into this daily aggregate.
     tests:
     - not_null
   - name: first_timestamp

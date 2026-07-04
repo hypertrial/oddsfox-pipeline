@@ -14,10 +14,8 @@ Schema: `wc2026_polymarket_marts`
 | `wc2026_markets` | One row per `(scope_name, market_id)` | Canonical WC2026 market universe with scope attribution. |
 | `wc2026_token_coverage` | One row per `clob_token_id` | Token health, daily coverage, sync ledger state, skip state, gap health, and market fully checked rollups. |
 | `wc2026_market_coverage` | One row per market | Market-level coverage rolled up from `wc2026_token_coverage`. |
-| `wc2026_token_minutely_odds` | One row per `(clob_token_id, odds_timestamp_epoch)` | Full minutely odds time series for WC2026 tokens (dbt view). |
 | `wc2026_token_hourly_odds` | One row per `(clob_token_id, odds_hour_utc)` | Full hourly OHLC odds time series for WC2026 tokens (dbt view). |
 | `wc2026_token_daily_odds` | One row per `(clob_token_id, odds_date_utc)` | Full daily OHLC odds time series for WC2026 tokens (dbt view). |
-| `wc2026_whale_minutely_odds` | One row per token timestamp | Minutely odds for WC2026 markets above the configured volume threshold (filtered view over `wc2026_token_minutely_odds`). |
 | `wc2026_knockout_markets` | One row per `clob_token_id` | WC2026 knockout stage market tokens with sports metadata, latest hourly price, and result metadata. |
 | `wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Graph-ready WC2026 knockout hourly odds with stage/team classification and Yes/No sibling token IDs. |
 
@@ -32,19 +30,17 @@ Schema: `wc2026_polymarket_marts`
 ## Current Scope Rules
 
 - `wc2026_token_coverage` covers all staged tokens.
-- `wc2026_token_minutely_odds`, `wc2026_token_hourly_odds`, and
-  `wc2026_token_daily_odds` are full time series for the fixed WC2026 registry.
-- Use `wc2026_market_registry_refresh`, `wc2026_minutely_odds_ingest`,
-  `wc2026_hourly_odds_ingest`, `wc2026_dbt_build`, `wc2026_knockout_export`, and
-  `wc2026_full_pipeline` for Dagster operations.
+- `wc2026_token_hourly_odds` and `wc2026_token_daily_odds` are full time series
+  for the fixed WC2026 registry.
+- Use `wc2026_market_registry_refresh`, `wc2026_hourly_odds_ingest`,
+  `wc2026_dbt_build`, and `wc2026_full_pipeline` for Dagster operations.
 - `wc2026_knockout_token_hourly_odds` is the WC2026-specific export surface for downstream knockout visualization artifacts.
-- `wc2026_token_minutely_odds`, `wc2026_token_hourly_odds`, `wc2026_token_daily_odds`, and `wc2026_whale_minutely_odds` include `outcome_label` (e.g. Yes/No) resolved from `outcome_index`; no join to `wc2026_markets` is required to interpret which side a row represents.
-- `wc2026_whale_minutely_odds` is filtered by the fixed WC2026 registry and
-  `wc2026_polymarket_whale_min_volume_usd`.
+- `wc2026_token_hourly_odds` and `wc2026_token_daily_odds` include `outcome_label`
+  (e.g. Yes/No) resolved from `outcome_index`; no join to `wc2026_markets` is
+  required to interpret which side a row represents.
 - After `make prune-odds-history`, `wc2026_polymarket_raw.odds_history` (and therefore
-  `wc2026_token_minutely_odds`, `wc2026_token_hourly_odds`, and
-  `wc2026_whale_minutely_odds`) only guarantees
-  the trailing ~365 days of minutely points unless you change the retention window.
+  `wc2026_token_hourly_odds`) only guarantees the trailing ~365 days of source
+  odds points unless you change the retention window.
 - `int_wc2026_polymarket_markets` is the canonical market-level WC2026 scope (grain: `scope_name`, `market_id`).
 
 ## dbt Checks
@@ -72,7 +68,6 @@ after upgrading from older layouts.
 There is no compatibility view or shim for `token_latest_odds`. Use the
 time-series marts below instead.
 
-To get the latest daily, hourly, or minutely price for a token, query
-`wc2026_token_daily_odds`, `wc2026_token_hourly_odds`, or
-`wc2026_token_minutely_odds` with the maximum time key per `clob_token_id`, or
-query the intermediate models directly.
+To get the latest daily or hourly price for a token, query
+`wc2026_token_daily_odds` or `wc2026_token_hourly_odds` with the maximum time
+key per `clob_token_id`, or query the intermediate models directly.

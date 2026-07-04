@@ -29,33 +29,6 @@ models:
         description: Polymarket market identifier.
         tests: [not_null]
 
-  - name: wc2026_token_minutely_odds
-    description: >
-      Full WC2026 minutely odds time series. One row per
-      (clob_token_id, odds_timestamp_epoch) with WC2026 market labels and volume.
-    tests:
-      - price_in_unit_interval:
-          arguments:
-            identifier_columns: [clob_token_id, odds_timestamp_epoch]
-    columns:
-      - name: clob_token_id
-        description: CLOB outcome token identifier.
-        tests: [not_null]
-      - name: market_id
-        description: Polymarket market identifier.
-        tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('wc2026_markets')
-                field: market_id
-      - name: odds_timestamp_epoch
-        description: Unix epoch seconds for the minutely observation.
-        tests: [not_null]
-      - name: price
-        description: Outcome price in [0, 1].
-        tests: [not_null]
-
   - name: wc2026_token_hourly_odds
     description: >
       Full WC2026 hourly OHLC odds time series. One row per
@@ -116,30 +89,6 @@ models:
                 field: market_id
       - name: odds_date_utc
         description: UTC calendar date for the aggregated token odds row.
-        tests: [not_null]
-
-  - name: wc2026_whale_minutely_odds
-    description: >
-      WC2026 minutely odds for high-liquidity markets
-      (market_volume_usd >= wc2026_polymarket_whale_min_volume_usd).
-    tests:
-      - price_in_unit_interval:
-          arguments:
-            identifier_columns: [clob_token_id, odds_timestamp_epoch]
-    columns:
-      - name: clob_token_id
-        description: CLOB outcome token identifier.
-        tests: [not_null]
-      - name: market_id
-        description: Polymarket market identifier.
-        tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('wc2026_markets')
-                field: market_id
-      - name: price
-        description: Outcome price in [0, 1].
         tests: [not_null]
 
   - name: wc2026_market_coverage

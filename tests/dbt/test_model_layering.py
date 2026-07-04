@@ -36,21 +36,6 @@ def test_intermediate_wc2026_markets_owns_scope_logic():
     assert "market_scope_event_slugs" not in lowered
 
 
-def test_wc2026_minutely_filters_before_odds_join():
-    sql = (
-        DBT_ROOT
-        / "models"
-        / "wc2026_polymarket"
-        / "marts"
-        / "wc2026_token_minutely_odds.sql"
-    ).read_text()
-    lowered = sql.lower()
-
-    assert "{{ ref('int_wc2026_polymarket_market_tokens') }}" in lowered
-    assert "{{ ref('stg_wc2026_polymarket_odds') }}" in lowered
-    assert "int_polymarket_token_timeseries" not in lowered
-
-
 def test_wc2026_hourly_aggregates_canonical_odds():
     sql = (
         DBT_ROOT

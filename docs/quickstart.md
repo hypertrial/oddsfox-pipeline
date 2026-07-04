@@ -26,8 +26,6 @@ cp .env.example .env
 For a local dry run, keep schedules disabled:
 
 ```dotenv
-WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=false
-WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
 WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
@@ -67,9 +65,8 @@ For a full manual run, launch `wc2026_full_pipeline`.
 For a safer staged run:
 
 1. `wc2026_market_registry_refresh`
-2. `wc2026_minutely_odds_ingest`
-3. `wc2026_hourly_odds_ingest` (optional hourly-grain refresh)
-4. `wc2026_dbt_build`
+2. `wc2026_hourly_odds_ingest`
+3. `wc2026_dbt_build`
 
 Leave schedules off until these jobs complete successfully.
 

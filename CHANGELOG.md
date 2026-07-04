@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Breaking: removed minutely ingestion, minutely odds marts, minutely schedule
+  flags, the standalone knockout Dagster job, and the unused Dagster odds repair
+  asset. `wc2026_dbt_build` and `wc2026_full_pipeline` still build the knockout
+  dbt marts.
 - Breaking v0.1.x namespace reset: OddsFox now registers only WC2026 Polymarket
   Dagster assets, jobs, schedules, DuckDB/dbt schemas, marts, and operator
   scripts. Generic Polymarket and selected-named public surfaces were removed;

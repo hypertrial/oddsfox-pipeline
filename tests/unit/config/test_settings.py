@@ -129,12 +129,8 @@ def test_optional_env_number_helpers_and_date_fallback(monkeypatch, isolated_env
 
 
 def test_env_bool_parses_truthy_and_falsey_values(monkeypatch, isolated_env):
-    monkeypatch.setenv("WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED", "yes")
-    monkeypatch.setenv("WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED", "0")
     monkeypatch.setenv("WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED", "true")
     settings = reload_all_settings_modules()
-    assert settings.WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED is True
-    assert settings.WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED is False
     assert settings.WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED is True
 
 

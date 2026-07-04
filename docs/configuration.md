@@ -52,8 +52,6 @@ The seed file `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml
 
 ## Schedules
 
-- `WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED`: enables the five-minute schedule and hourly cold trigger for `wc2026_minutely_odds_ingest`.
-- `WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED`: enables the one-minute live schedule for `wc2026_minutely_odds_ingest`.
 - `WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
 
 All schedule flags default to `false`.

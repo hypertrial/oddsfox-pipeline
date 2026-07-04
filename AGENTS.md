@@ -17,8 +17,6 @@ cp .env.example .env
 Default warehouse: `oddsfox.duckdb` in the repo root. Keep schedules disabled in local dev and CI unless intentionally running live ingestion:
 
 ```dotenv
-WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=false
-WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
 WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
@@ -139,15 +137,12 @@ Asset order (routine pipeline):
 2. `wc2026_polymarket_markets_snapshot`
 3. `wc2026_polymarket_market_registry`
 4. `wc2026_polymarket_market_metadata_backfill`
-5. `wc2026_polymarket_token_odds_history_minutely`
-6. `wc2026_polymarket_token_odds_history_hourly` (optional hourly-grain refresh)
-7. `wc2026_polymarket_dbt`
+5. `wc2026_polymarket_token_odds_history_hourly`
+6. `wc2026_polymarket_dbt`
 
-`wc2026_polymarket_odds_repair` is a repair asset, not part of the routine full pipeline.
+Key jobs: `wc2026_market_registry_refresh`, `wc2026_hourly_odds_ingest`, `wc2026_dbt_build`, `wc2026_full_pipeline`.
 
-Key jobs: `wc2026_market_registry_refresh`, `wc2026_minutely_odds_ingest`, `wc2026_hourly_odds_ingest`, `wc2026_dbt_build`, `wc2026_knockout_export`, `wc2026_full_pipeline`.
-
-Schedules target `wc2026_minutely_odds_ingest` and `wc2026_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/minutely/hourly schedules in code or `.env` unless the task explicitly requires it.
+Schedules target `wc2026_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 
 **Market scope:** v0.1.x supports only `wc2026`. Dagster asset configs do not
 accept a scope selector, and dbt builds the fixed WC2026 graph. See

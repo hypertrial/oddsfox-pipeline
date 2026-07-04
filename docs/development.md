@@ -26,8 +26,6 @@ Keep schedules disabled for local development unless intentionally testing live
 ingestion:
 
 ```dotenv
-WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED=false
-WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED=false
 WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 

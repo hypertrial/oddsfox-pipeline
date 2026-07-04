@@ -10,12 +10,7 @@ from oddsfox_pipeline.orchestration.config import (
 )
 from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.jobs import _merge_run_configs
-from oddsfox_pipeline.orchestration.schedules import (
-    wc2026_hourly_odds_schedule,
-    wc2026_minutely_odds_cold_schedule,
-    wc2026_minutely_odds_live_schedule,
-    wc2026_minutely_odds_schedule,
-)
+from oddsfox_pipeline.orchestration.schedules import wc2026_hourly_odds_schedule
 
 
 def _polymarket_sources_path() -> Path:
@@ -28,17 +23,7 @@ def _polymarket_sources_path() -> Path:
     )
 
 
-def _reload_schedules_module(
-    monkeypatch, *, standard: bool, live: bool, hourly: bool = False
-):
-    monkeypatch.setenv(
-        "WC2026_POLYMARKET_MINUTELY_ODDS_SCHEDULE_ENABLED",
-        "true" if standard else "false",
-    )
-    monkeypatch.setenv(
-        "WC2026_POLYMARKET_MINUTELY_ODDS_LIVE_SCHEDULE_ENABLED",
-        "true" if live else "false",
-    )
+def _reload_schedules_module(monkeypatch, *, hourly: bool = False):
     monkeypatch.setenv(
         "WC2026_POLYMARKET_HOURLY_ODDS_SCHEDULE_ENABLED", "true" if hourly else "false"
     )
@@ -54,9 +39,7 @@ def test_definitions_expose_v010_jobs_only():
     expected = {
         "wc2026_hourly_odds_ingest",
         "wc2026_market_registry_refresh",
-        "wc2026_minutely_odds_ingest",
         "wc2026_dbt_build",
-        "wc2026_knockout_export",
         "wc2026_full_pipeline",
     }
 
@@ -72,8 +55,6 @@ def test_definitions_expose_v010_asset_keys():
         "wc2026_polymarket_market_registry",
         "wc2026_polymarket_market_metadata_backfill",
         "wc2026_polymarket_token_odds_history_hourly",
-        "wc2026_polymarket_token_odds_history_minutely",
-        "wc2026_polymarket_odds_repair",
         "wc2026_polymarket_stg_markets",
         "wc2026_polymarket_stg_market_tokens",
         "wc2026_polymarket_stg_odds",
@@ -89,9 +70,7 @@ def test_definitions_expose_v010_asset_keys():
         "wc2026_polymarket_markets",
         "wc2026_polymarket_token_coverage",
         "wc2026_polymarket_token_hourly_odds",
-        "wc2026_polymarket_token_minutely_odds",
         "wc2026_polymarket_token_daily_odds",
-        "wc2026_polymarket_whale_minutely_odds",
         "wc2026_polymarket_market_tokens",
         "wc2026_polymarket_knockout_market_tokens",
         "wc2026_polymarket_knockout_markets",
@@ -145,70 +124,6 @@ def test_polymarket_source_dagster_asset_keys_exist_in_definitions():
     assert not missing, f"missing Dagster assets for dbt source metadata: {missing}"
 
 
-def test_minutely_schedules_default_stopped():
-    schedules = (
-        wc2026_minutely_odds_schedule,
-        wc2026_minutely_odds_cold_schedule,
-        wc2026_minutely_odds_live_schedule,
-        wc2026_hourly_odds_schedule,
-    )
-    assert all(
-        schedule.default_status == DefaultScheduleStatus.STOPPED
-        for schedule in schedules
-    )
-
-
-def test_minutely_schedules_mutually_exclusive_when_both_flags_true(
-    monkeypatch, caplog
-):
-    schedules_mod = _reload_schedules_module(monkeypatch, standard=True, live=True)
-
-    assert schedules_mod.wc2026_minutely_odds_live_schedule.default_status == (
-        DefaultScheduleStatus.RUNNING
-    )
-    assert schedules_mod.wc2026_minutely_odds_schedule.default_status == (
-        DefaultScheduleStatus.STOPPED
-    )
-    assert schedules_mod.wc2026_minutely_odds_cold_schedule.default_status == (
-        DefaultScheduleStatus.STOPPED
-    )
-    assert "keeping only wc2026_minutely_odds_live_schedule RUNNING" in caplog.text
-
-
-def test_minutely_schedules_share_job_and_cold_config():
-    schedules = (
-        wc2026_minutely_odds_schedule,
-        wc2026_minutely_odds_cold_schedule,
-        wc2026_minutely_odds_live_schedule,
-    )
-    assert {schedule.job_name for schedule in schedules} == {
-        "wc2026_minutely_odds_ingest"
-    }
-
-    context = build_schedule_context()
-    cold_run_config = (
-        wc2026_minutely_odds_cold_schedule.evaluate_tick(context)
-        .run_requests[0]
-        .run_config
-    )
-    cold_config = cold_run_config["ops"][
-        "wc2026_polymarket_token_odds_history_minutely"
-    ]["config"]
-    assert cold_config["force"] is False
-    assert cold_config["overlap_minutes"] == 2
-
-    assert (
-        wc2026_minutely_odds_schedule.evaluate_tick(context).run_requests[0].run_config
-        == {}
-    )
-    assert (
-        wc2026_minutely_odds_live_schedule.evaluate_tick(context)
-        .run_requests[0]
-        .run_config
-        == {}
-    )
-
-
 def test_hourly_schedule_targets_hourly_job_and_config():
     assert wc2026_hourly_odds_schedule.default_status == (DefaultScheduleStatus.STOPPED)
     assert wc2026_hourly_odds_schedule.job_name == "wc2026_hourly_odds_ingest"
@@ -225,9 +140,7 @@ def test_hourly_schedule_targets_hourly_job_and_config():
 
 
 def test_hourly_schedule_enabled_by_env(monkeypatch):
-    schedules_mod = _reload_schedules_module(
-        monkeypatch, standard=False, live=False, hourly=True
-    )
+    schedules_mod = _reload_schedules_module(monkeypatch, hourly=True)
 
     assert schedules_mod.wc2026_hourly_odds_schedule.default_status == (
         DefaultScheduleStatus.RUNNING

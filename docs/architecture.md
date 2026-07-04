@@ -52,21 +52,18 @@ flowchart TD
     wc2026_markets_int --> wc2026_tokens
     token_universe --> coverage["wc2026_token_coverage"]
     coverage --> wc2026_market_coverage["wc2026_market_coverage"]
-    wc2026_tokens --> minutely["wc2026_token_minutely_odds"]
     wc2026_tokens --> hourly["wc2026_token_hourly_odds"]
     wc2026_tokens --> daily["wc2026_token_daily_odds"]
-    minutely --> whale["wc2026_whale_minutely_odds"]
 ```
 
 Text fallback: staging normalizes raw and ops tables, intermediates establish
 token universes and WC2026 market scope rows, and marts publish token health,
-market coverage, full WC2026 minutely/hourly/daily odds time series, the WC2026
-market universe (`scope_name`, `market_id`), and high-volume minutely odds.
+market coverage, full WC2026 hourly/daily odds time series, and the WC2026
+market universe (`scope_name`, `market_id`).
 
 ## Operating Model
 
 - `wc2026_full_pipeline` is the one-click full manual pipeline.
-- `wc2026_minutely_odds_ingest` is the shared minutely odds job.
 - `wc2026_hourly_odds_ingest` is the hourly odds job (`fidelity=60`).
 - Schedules are stopped by default and should stay off until manual runs pass.
 - DuckDB allows one read-write writer, so scripts provide read-only inspection

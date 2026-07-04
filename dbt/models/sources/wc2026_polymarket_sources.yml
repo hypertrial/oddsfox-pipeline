@@ -48,10 +48,10 @@ sources:
           - name: updated_at
             description: UTC timestamp when this mapping row was last written by ingestion.
       - name: odds_history
-        description: Raw CLOB price history (minimum daily resolution from ingestion; may contain finer minutely points).
+        description: Raw CLOB price history observations captured by ingestion.
         meta:
           dagster:
-            asset_key: [wc2026_polymarket_token_odds_history_minutely]
+            asset_key: [wc2026_polymarket_token_odds_history_hourly]
         loaded_at_field: ingested_at
         freshness:
           warn_after: {count: 12, period: hour}
@@ -74,7 +74,7 @@ sources:
         description: Raw daily token odds aggregates derived from canonical odds_history points.
         meta:
           dagster:
-            asset_key: [wc2026_polymarket_token_odds_history_minutely]
+            asset_key: [wc2026_polymarket_token_odds_history_hourly]
         loaded_at_field: refreshed_at
         freshness:
           warn_after: {count: 12, period: hour}
@@ -102,7 +102,7 @@ sources:
         description: Operational ledger for per-token sync progress; one row per CLOB token when present.
         meta:
           dagster:
-            asset_key: [wc2026_polymarket_token_odds_history_minutely]
+            asset_key: [wc2026_polymarket_token_odds_history_hourly]
         columns:
           - name: clobTokenId
             description: CLOB outcome token identifier (primary key).
@@ -121,7 +121,7 @@ sources:
         description: Operational skip reasons for tokens that were not synced.
         meta:
           dagster:
-            asset_key: [wc2026_polymarket_token_odds_history_minutely]
+            asset_key: [wc2026_polymarket_token_odds_history_hourly]
         columns:
           - name: clobTokenId
             description: CLOB outcome token identifier (primary key).
@@ -161,7 +161,7 @@ sources:
         description: Append-only operational audit log for ingestion and repair run metrics.
         meta:
           dagster:
-            asset_key: [wc2026_polymarket_token_odds_history_minutely]
+            asset_key: [wc2026_polymarket_token_odds_history_hourly]
         loaded_at_field: recorded_at
         freshness:
           warn_after: {count: 18, period: hour}

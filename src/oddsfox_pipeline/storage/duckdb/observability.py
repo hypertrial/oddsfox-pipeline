@@ -56,10 +56,8 @@ _DBT_MODELS: tuple[tuple[str, str], ...] = (
     (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_market_coverage"),
     (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_markets"),
     (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_token_coverage"),
-    (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_token_minutely_odds"),
     (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_token_hourly_odds"),
     (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_token_daily_odds"),
-    (WC2026_POLYMARKET_MARTS_SCHEMA, "wc2026_whale_minutely_odds"),
     (WC2026_POLYMARKET_OBSERVABILITY_SCHEMA, "wc2026_sync_run_observability"),
 )
 
