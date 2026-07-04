@@ -2,7 +2,8 @@
 
 This page summarizes the public analytics surface that downstream notebooks,
 scripts, and operators should rely on. OddsFox is a prediction-market pipeline;
-the current public marts are WC2026-only Polymarket outputs. Model-level column
+the current public marts are WC2026 Polymarket odds outputs plus WC2026 FIFA
+World Cup fixtures/results used to validate team scope. Model-level column
 docs and tests live in the dbt project.
 
 ## Public Marts
@@ -14,6 +15,13 @@ Schema: `polymarket_wc2026_marts`
 | `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token universe for knockout-related markets with reported volume >= $5,000 USD. |
 | `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, and result metadata. |
 | `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata. |
+
+Schema: `international_results_wc2026_marts`
+
+| Relation | Grain | Contract |
+| --- | --- | --- |
+| `international_results_wc2026_matches` | One row per `match_id` | Clean WC2026 FIFA World Cup fixture/result rows from `martj42/international_results`, including stage, status, score, and inferred knockout advancer metadata. |
+| `international_results_wc2026_team_status` | One row per `team_name` | Canonical 48-team WC2026 roster and current tournament status derived from fixture/result rows. |
 
 ## Health And Observability
 
@@ -29,6 +37,14 @@ Schema: `polymarket_wc2026_marts`
 - Public WC2026 marts expose only knockout-related markets from the WC2026 registry
   with reported `volume >= $5,000` USD. The floor is dynamic: markets crossing
   $5,000 on a later sync are admitted on the next dbt build.
+- Public Polymarket knockout marts are additionally filtered to teams present in
+  `international_results_wc2026_team_status`, with a small alias seed for source
+  naming differences such as `USA` -> `United States`. This removes non-team
+  aggregate futures and non-participants from the public odds surface.
+- WC2026 match/result rows come from
+  `https://raw.githubusercontent.com/martj42/international_results/refs/heads/master/results.csv`
+  where `tournament = 'FIFA World Cup'` and `match_date` is between
+  `2026-06-11` and `2026-07-19`.
 - `stage_key` values are `winner`, `final`, `semifinal`, `quarterfinal`,
   `round_of_16`, and `round_of_32`.
 - Public knockout odds are normalized to the progression side. Winner/reach markets
@@ -38,6 +54,9 @@ Schema: `polymarket_wc2026_marts`
   or `market_status = 'live'` when you need live odds only. `source_state_anomaly`
   marks upstream rows where Gamma reports both active and closed; the derived status
   treats those rows as closed.
+- Use `canonical_team_name`, `tournament_status`, `is_still_alive`,
+  `eliminated_stage_key`, and `next_stage_key` on Polymarket marts when joining
+  odds to real WC2026 team state.
 - `polymarket_wc2026_knockout_markets.current_price_status` separates `fresh_live`,
   `stale_live`, `missing_live`, `historical_closed`, `historical_resolved`, and
   `inactive` rows. Live prices are fresh when the latest hourly close is no more
@@ -47,6 +66,8 @@ Schema: `polymarket_wc2026_marts`
   days of hourly OHLC rows.
 - Use `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
   `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline` for Dagster operations.
+  `international_results_wc2026_match_results_ingest` refreshes only the FIFA
+  World Cup fixture/result source and is included in the full pipeline.
 - `polymarket_wc2026_knockout_token_hourly_odds` is the WC2026-specific export surface for downstream knockout visualization artifacts.
 - After `make prune-odds-history`, `polymarket_wc2026_raw.odds_history` only guarantees the trailing ~365 days of source
   odds points unless you change the retention window.
@@ -63,6 +84,8 @@ Schema: `polymarket_wc2026_marts`
 - Knockout progression-side token selection, including elimination-framed No-token rows.
 - Knockout volume floor and trailing 30-day hourly window.
 - Knockout market and current-price status accepted values.
+- FIFA World Cup result scope, stage counts, 48-team roster shape, tied knockout
+  advancer inference/DQ surfacing, and Polymarket real-team filtering.
 - Hard-fail DQ checks for error-severity rows in `polymarket_wc2026_knockout_data_quality`.
 - Warn-level DQ checks for stale/missing live odds and unsurfaced source-state or hourly coverage issues.
 - Observability run health (warn-level: latest run error-token regression and history coverage floor).

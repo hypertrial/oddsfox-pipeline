@@ -61,6 +61,24 @@ models:
       - name: team_name
         description: Team extracted from the source question.
         tests: [not_null]
+      - name: canonical_team_name
+        description: Canonical WC2026 team name from the FIFA World Cup fixture/results mart.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('international_results_wc2026_team_status')
+                field: team_name
+      - name: tournament_status
+        description: Current tournament status from the fixture/results mart.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['active', 'eliminated', 'champion']
+      - name: is_still_alive
+        description: True when the canonical team is currently active, not eliminated or crowned champion.
+        tests: [not_null]
 
   - name: polymarket_wc2026_knockout_markets
     description: >
@@ -113,6 +131,16 @@ models:
       - name: is_current_price_fresh
         description: True for live rows whose latest hourly close is no more than 3 hours old.
         tests: [not_null]
+      - name: canonical_team_name
+        description: Canonical WC2026 team name from the FIFA World Cup fixture/results mart.
+        tests: [not_null]
+      - name: tournament_status
+        description: Current tournament status from the fixture/results mart.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['active', 'eliminated', 'champion']
 
   - name: polymarket_wc2026_knockout_token_hourly_odds
     description: >
@@ -162,3 +190,13 @@ models:
       - name: is_live_market
         description: True only for live source markets at dbt build time.
         tests: [not_null]
+      - name: canonical_team_name
+        description: Canonical WC2026 team name from the FIFA World Cup fixture/results mart.
+        tests: [not_null]
+      - name: tournament_status
+        description: Current tournament status from the fixture/results mart.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['active', 'eliminated', 'champion']

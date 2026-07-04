@@ -1,6 +1,11 @@
 from dagster import AssetSelection, define_asset_job, multiprocess_executor
 
-from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_POLYMARKET, asset_key
+from oddsfox_pipeline.naming import (
+    SCOPE_WC2026,
+    SOURCE_INTERNATIONAL_RESULTS,
+    SOURCE_POLYMARKET,
+    asset_key,
+)
 from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
@@ -15,6 +20,11 @@ _DUCKDB_WAREHOUSE_TAGS = {"duckdb_warehouse": "true"}
 _POLYMARKET_WC2026_TAGS = {
     **_DUCKDB_WAREHOUSE_TAGS,
     "source": SOURCE_POLYMARKET,
+    "scope": SCOPE_WC2026,
+}
+_INTERNATIONAL_RESULTS_WC2026_TAGS = {
+    **_DUCKDB_WAREHOUSE_TAGS,
+    "source": SOURCE_INTERNATIONAL_RESULTS,
     "scope": SCOPE_WC2026,
 }
 
@@ -37,8 +47,13 @@ POLYMARKET_WC2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "token_odds_history_hourly"),
 )
 
+INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION = AssetSelection.assets(
+    asset_key(SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "raw", "match_results"),
+)
+
 POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
-    POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
+    INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION
+    | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
     | POLYMARKET_WC2026_HOURLY_ODDS_SELECTION
     | AssetSelection.groups("analytics")
 )
@@ -65,6 +80,13 @@ polymarket_wc2026_dbt_build = define_asset_job(
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_dbt_build_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
+)
+
+international_results_wc2026_match_results_ingest = define_asset_job(
+    "international_results_wc2026_match_results_ingest",
+    selection=INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    tags=_INTERNATIONAL_RESULTS_WC2026_TAGS,
 )
 
 polymarket_wc2026_full_pipeline = define_asset_job(

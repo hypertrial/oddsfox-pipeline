@@ -7,16 +7,17 @@
 OddsFox Pipeline is an open-source, local-first batch data warehouse for
 prediction-market data.
 
-It uses Dagster to orchestrate dlt ingestion, DuckDB storage, Python sync
-ledgers, and dbt analytics models. Version `0.1.x` is a WC2026-only Polymarket
-pipeline for FIFA World Cup 2026 markets and odds. Existing local warehouses
-from older layouts must be reset with `rm oddsfox.duckdb*`.
+It uses Dagster to orchestrate dlt/CSV ingestion, DuckDB storage, Python sync
+ledgers, and dbt analytics models. Version `0.1.x` is a WC2026 pipeline for
+FIFA World Cup 2026 Polymarket odds plus fixture/results validation. Existing
+local warehouses from older layouts must be reset with `rm oddsfox.duckdb*`.
 
 ## Project Scope
 
 OddsFox is code and operator tooling, not a hosted dataset. Polymarket WC2026
-is the first shipped source adapter; future adapter contributions may cover
-Kalshi and traditional bookmakers.
+is the first shipped market adapter; the bundled `international_results`
+WC2026 CSV source is used only to validate real FIFA World Cup team scope.
+Future adapter contributions may cover Kalshi and traditional bookmakers.
 
 Every operator runs ingestion against source APIs and stores the resulting data
 in their own local DuckDB file or self-managed warehouse.
@@ -39,8 +40,8 @@ Read the full [Getting Started guide](docs/quickstart.md).
 
 OddsFox keeps the data stack local and inspectable:
 
-- Prediction-market APIs feed raw DuckDB tables; v0.1.x ships Polymarket
-  Gamma and CLOB ingestion.
+- Prediction-market APIs and the WC2026 results CSV feed raw DuckDB tables;
+  v0.1.x ships Polymarket Gamma/CLOB ingestion plus team-scope validation.
 - Dagster coordinates market discovery, registry refresh, odds sync, and dbt.
 - dbt models staging, intermediate, mart, and observability schemas.
 - Operator scripts inspect, compact, prune, and repair local warehouse state.
@@ -60,6 +61,14 @@ Current Polymarket analytics outputs live in `polymarket_wc2026_marts`:
 - `polymarket_wc2026_knockout_markets`: latest progression-side knockout
   snapshot with market/team/stage metadata and explicit current-price status.
 
+WC2026 FIFA World Cup fixture/result outputs live in
+`international_results_wc2026_marts`:
+
+- `international_results_wc2026_matches`: clean fixture/result rows with stage
+  mapping and tied-knockout advancer inference where possible.
+- `international_results_wc2026_team_status`: canonical 48-team roster and
+  current tournament status used to clean public odds marts.
+
 Operational health outputs live in `polymarket_wc2026_observability`:
 
 - `polymarket_wc2026_sync_run_observability`: run-level ingestion telemetry.
@@ -68,8 +77,11 @@ Operational health outputs live in `polymarket_wc2026_observability`:
 - `polymarket_wc2026_knockout_data_quality`: row-level DQ findings for source
   anomalies, sparse coverage, and stale or missing odds.
 
-Dagster registers WC2026 jobs only: `polymarket_wc2026_market_registry_refresh`,
-`polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline`.
+Dagster registers WC2026 jobs only:
+`international_results_wc2026_match_results_ingest`,
+`polymarket_wc2026_market_registry_refresh`,
+`polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, and
+`polymarket_wc2026_full_pipeline`.
 
 See [Data Contracts](docs/data-contracts.md) and [Naming](docs/naming.md).
 
@@ -106,6 +118,5 @@ See [Development](docs/development.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [License](LICENSE)
 
-The v0.1.x repo intentionally excludes optional soccer context sources,
-simulations, allocation tooling, website integration, and generated historical
-docs.
+The v0.1.x repo intentionally excludes simulations, allocation tooling,
+website integration, and generated historical docs.

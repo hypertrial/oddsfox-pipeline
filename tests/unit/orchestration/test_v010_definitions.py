@@ -39,6 +39,7 @@ def _reload_schedules_module(monkeypatch, *, hourly: bool = False):
 
 def test_definitions_expose_v010_jobs_only():
     expected = {
+        "international_results_wc2026_match_results_ingest",
         "polymarket_wc2026_hourly_odds_ingest",
         "polymarket_wc2026_market_registry_refresh",
         "polymarket_wc2026_dbt_build",
@@ -52,6 +53,13 @@ def test_definitions_expose_v010_jobs_only():
 
 def test_definitions_expose_v010_asset_keys():
     expected = {
+        ("international_results", "wc2026", "raw", "match_results"),
+        ("international_results", "wc2026", "staging", "match_results"),
+        ("international_results", "wc2026", "staging", "team_aliases"),
+        ("international_results", "wc2026", "intermediate", "match_teams"),
+        ("international_results", "wc2026", "marts", "matches"),
+        ("international_results", "wc2026", "marts", "team_status"),
+        ("international_results", "wc2026", "observability", "data_quality"),
         ("polymarket", "wc2026", "raw", "markets"),
         ("polymarket", "wc2026", "raw", "markets_snapshot"),
         ("polymarket", "wc2026", "ops", "market_scope_registry"),
@@ -75,7 +83,10 @@ def test_definitions_expose_v010_asset_keys():
 
     asset_keys = {tuple(key.path) for key in defs.resolve_all_asset_keys()}
     assert expected <= asset_keys
-    assert all(key[:2] == ("polymarket", "wc2026") for key in asset_keys)
+    assert all(
+        key[:2] in {("polymarket", "wc2026"), ("international_results", "wc2026")}
+        for key in asset_keys
+    )
     assert not any("selected" in part for key in asset_keys for part in key)
     excluded_source_slug = "fifa" + "index"
     assert not any(excluded_source_slug in part for key in asset_keys for part in key)
@@ -108,12 +119,20 @@ def test_wc2026_jobs_do_not_expose_scope_config():
 
 
 def test_polymarket_source_dagster_asset_keys_exist_in_definitions():
-    data = yaml.safe_load(_polymarket_sources_path().read_text())
-    yaml_asset_keys = {
-        tuple(table["meta"]["dagster"]["asset_key"])
-        for source in data["sources"]
-        for table in source["tables"]
-    }
+    source_paths = [
+        _polymarket_sources_path(),
+        _polymarket_sources_path().with_name(
+            "international_results_wc2026_sources.yml"
+        ),
+    ]
+    yaml_asset_keys = set()
+    for path in source_paths:
+        data = yaml.safe_load(path.read_text())
+        yaml_asset_keys.update(
+            tuple(table["meta"]["dagster"]["asset_key"])
+            for source in data["sources"]
+            for table in source["tables"]
+        )
     defs_asset_keys = {tuple(key.path) for key in defs.resolve_all_asset_keys()}
     missing = yaml_asset_keys - defs_asset_keys
     assert not missing, f"missing Dagster assets for dbt source metadata: {missing}"

@@ -9,6 +9,7 @@ from typing import Any
 import duckdb
 
 from oddsfox_pipeline.storage.duckdb.connection import (
+    INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
     POLYMARKET_WC2026_RAW_SCHEMA,
     get_connection,
@@ -17,6 +18,10 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     polymarket_wc2026_raw_tbl,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
+    INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA,
+    INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
+    INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
+    INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
     POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
     POLYMARKET_WC2026_MARTS_SCHEMA,
     POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
@@ -26,6 +31,7 @@ from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
 logger = logging.getLogger(__name__)
 
 _POLY_RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
+    (INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA, "match_results"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "markets"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "market_tokens"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "odds_history"),
@@ -39,6 +45,30 @@ _POLY_RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
 _RAW_TABLES_POLY: tuple[str, ...] = tuple(t for _, t in _POLY_RAW_OPS_TABLES)
 
 _DBT_MODELS: tuple[tuple[str, str], ...] = (
+    (
+        INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
+        "stg_international_results_wc2026_match_results",
+    ),
+    (
+        INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
+        "international_results_wc2026_team_aliases",
+    ),
+    (
+        INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA,
+        "int_international_results_wc2026_match_teams",
+    ),
+    (
+        INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
+        "international_results_wc2026_matches",
+    ),
+    (
+        INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
+        "international_results_wc2026_team_status",
+    ),
+    (
+        INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
+        "international_results_wc2026_data_quality",
+    ),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_markets"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_market_tokens"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds"),

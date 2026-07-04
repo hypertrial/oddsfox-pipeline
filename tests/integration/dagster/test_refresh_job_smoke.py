@@ -21,6 +21,7 @@ from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
 )
 from oddsfox_pipeline.orchestration.assets import (
     DBT_PROJECT,
+    international_results_wc2026_raw_match_results,
     polymarket_wc2026_dbt,
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_market_metadata_backfill,
@@ -231,6 +232,10 @@ oddsfox:
         "oddsfox_pipeline.orchestration.polymarket_ops.sync_market_scope_registry",
         _fake_sync_market_scope_registry,
     )
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.assets_international_results.sync_wc2026_match_results",
+        lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
+    )
 
     _seed_dlt_owned_markets(market_page)
 
@@ -239,6 +244,7 @@ oddsfox:
 
     result = materialize(
         [
+            international_results_wc2026_raw_match_results,
             polymarket_wc2026_raw_markets_snapshot,
             polymarket_wc2026_ops_market_scope_registry,
             polymarket_wc2026_raw_market_metadata_backfill,

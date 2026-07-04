@@ -10,6 +10,9 @@ pytest.importorskip("dagster_dbt")
 
 from dagster import ResourceDefinition
 
+from oddsfox_pipeline.orchestration import (
+    assets_international_results as results_assets_mod,
+)
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 from oddsfox_pipeline.orchestration.definitions import defs
 
@@ -67,6 +70,11 @@ oddsfox:
     monkeypatch.setattr(assets_mod, "format_dbt_snapshot_log", lambda _snapshot: "")
     monkeypatch.setattr(assets_mod, "get_sync_run_metrics", lambda _task: None)
     monkeypatch.setattr(assets_mod.ops, "stream_dbt_build", stream_dbt_build)
+    monkeypatch.setattr(
+        results_assets_mod,
+        "sync_wc2026_match_results",
+        lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
+    )
     monkeypatch.setattr(
         assets_mod.ops,
         "sync_markets",

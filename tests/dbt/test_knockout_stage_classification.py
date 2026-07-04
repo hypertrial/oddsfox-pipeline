@@ -32,6 +32,7 @@ _FIXTURE_ROWS = """
     ('m-r16-elim', 1, 'tok-r16e-no', 'Will Mexico be eliminated in the Round of 16 of the World Cup?', 'No'),
     ('m-r32-elim', 0, 'tok-r32e-yes', 'Will USA be eliminated in the Round of 32 of the World Cup?', 'Yes'),
     ('m-r32-elim', 1, 'tok-r32e-no', 'Will USA be eliminated in the Round of 32 of the World Cup?', 'No'),
+    ('m-italy', 0, 'tok-italy-yes', 'Will Italy win the 2026 FIFA World Cup?', 'Yes'),
     ('m-other', 0, 'tok-other', 'Will someone win the Golden Ball at the 2026 FIFA World Cup?', 'Yes')
 """
 
@@ -66,11 +67,49 @@ _FIXTURE_SOURCE = f"""
     )
 """
 
+_ALIASES = """
+    select *
+    from (values ('USA', 'United States')) as t(market_team_name, canonical_team_name)
+"""
+
+_TEAM_STATUS = """
+    select *
+    from (
+        values
+        ('Argentina', 'active', true, null, null, null, null, 0, 0, 0, 0, 0, 0, null, null),
+        ('Mexico', 'active', true, null, null, null, null, 0, 0, 0, 0, 0, 0, null, null),
+        ('United States', 'active', true, null, null, null, null, 0, 0, 0, 0, 0, 0, null, null)
+    ) as t(
+        team_name,
+        tournament_status,
+        is_still_alive,
+        eliminated_stage_key,
+        eliminated_match_date,
+        next_match_date,
+        next_stage_key,
+        matches_played,
+        wins,
+        draws,
+        losses,
+        goals_for,
+        goals_against,
+        latest_completed_match_date,
+        latest_completed_stage_key
+    )
+"""
+
 
 def _run_classification() -> list[tuple]:
     sql = MODEL_SQL.replace(
         "from {{ ref('int_polymarket_wc2026_market_tokens') }} as t",
         f"from ({_FIXTURE_SOURCE.strip()}) as t",
+    )
+    sql = sql.replace(
+        "{{ ref('international_results_wc2026_team_aliases') }}",
+        f"({_ALIASES.strip()})",
+    ).replace(
+        "{{ ref('international_results_wc2026_team_status') }}",
+        f"({_TEAM_STATUS.strip()})",
     )
     conn = duckdb.connect()
     try:
@@ -80,6 +119,7 @@ def _run_classification() -> list[tuple]:
                 clob_token_id,
                 stage_key,
                 team_name,
+                canonical_team_name,
                 stage_rank,
                 market_direction,
                 source_outcome_label,
@@ -101,6 +141,7 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
         clob_token_id: (
             stage_key,
             team_name,
+            canonical_team_name,
             stage_rank,
             market_direction,
             source_outcome_label,
@@ -112,6 +153,7 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
             clob_token_id,
             stage_key,
             team_name,
+            canonical_team_name,
             stage_rank,
             market_direction,
             source_outcome_label,
@@ -124,6 +166,7 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
     assert by_token["tok-w-yes"] == (
         "winner",
         "Argentina",
+        "Argentina",
         5,
         "winner",
         "Yes",
@@ -133,6 +176,7 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
     )
     assert by_token["tok-f-yes"] == (
         "final",
+        "Argentina",
         "Argentina",
         4,
         "advance",
@@ -144,6 +188,7 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
     assert by_token["tok-s-yes"] == (
         "semifinal",
         "Argentina",
+        "Argentina",
         3,
         "advance",
         "Yes",
@@ -154,6 +199,7 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
     assert by_token["tok-q-yes"] == (
         "quarterfinal",
         "Argentina",
+        "Argentina",
         2,
         "advance",
         "Yes",
@@ -161,22 +207,25 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
         False,
         False,
     )
-    assert by_token["tok-r16r-yes"][:5] == (
+    assert by_token["tok-r16r-yes"][:6] == (
         "round_of_16",
+        "Mexico",
         "Mexico",
         1,
         "advance",
         "Yes",
     )
-    assert by_token["tok-r32r-yes"][:5] == (
+    assert by_token["tok-r32r-yes"][:6] == (
         "round_of_32",
         "USA",
+        "United States",
         0,
         "advance",
         "Yes",
     )
-    assert by_token["tok-r16e-no"][:5] == (
+    assert by_token["tok-r16e-no"][:6] == (
         "round_of_16",
+        "Mexico",
         "Mexico",
         1,
         "elimination",
@@ -185,6 +234,7 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
     assert by_token["tok-r32e-no"] == (
         "round_of_32",
         "USA",
+        "United States",
         0,
         "elimination",
         "No",
@@ -194,4 +244,5 @@ def test_knockout_stage_classification_covers_all_stages() -> None:
     )
     assert "tok-r16e-yes" not in by_token
     assert "tok-r32e-yes" not in by_token
+    assert "tok-italy-yes" not in by_token
     assert "tok-other" not in by_token

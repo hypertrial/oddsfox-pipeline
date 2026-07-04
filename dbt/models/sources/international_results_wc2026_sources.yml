@@ -1,0 +1,40 @@
+version: 2
+
+sources:
+  - name: international_results_wc2026_raw
+    description: WC2026 slice from martj42/international_results.
+    schema: international_results_wc2026_raw
+    tables:
+      - name: match_results
+        description: Raw FIFA World Cup 2026 fixtures/results from the source CSV.
+        meta:
+          dagster:
+            asset_key: [international_results, wc2026, raw, match_results]
+        loaded_at_field: source_loaded_at
+        freshness:
+          warn_after: {count: 36, period: hour}
+          error_after: {count: 120, period: hour}
+        columns:
+          - name: match_id
+            description: Deterministic match identifier.
+            tests: [not_null, unique]
+          - name: match_date
+            description: Match date from the source CSV.
+            tests: [not_null]
+          - name: tournament
+            description: Source tournament name; fixed to FIFA World Cup for this raw slice.
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['FIFA World Cup']
+          - name: match_status
+            description: completed when both scores are present; scheduled when either score is missing.
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['completed', 'scheduled']
+          - name: source_loaded_at
+            description: UTC timestamp when ingestion loaded the source CSV.
+            tests: [not_null]

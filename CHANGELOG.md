@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Added `international_results_wc2026_match_results_ingest`, raw
+  `international_results_wc2026_raw.match_results`, and public
+  `international_results_wc2026_matches` / `international_results_wc2026_team_status`
+  marts from the `martj42/international_results` FIFA World Cup CSV slice.
+- Breaking: public Polymarket WC2026 knockout marts now require extracted teams
+  to match the FIFA World Cup 2026 fixture/result roster, removing non-team
+  regional futures and non-participant teams such as Italy from public odds
+  output while retaining live and historical real-team rows.
 - WC2026 knockout classification now recognizes Polymarket elimination-framed
   Round of 16/32 questions (`Will % be eliminated in the Round of X of the World Cup?`),
   so `round_of_16` and `round_of_32` rows populate knockout marts when those markets

@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: int_international_results_wc2026_match_teams
+    description: One row per team per WC2026 fixture/result.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [match_id, team_name]
+    columns:
+      - name: match_id
+        description: Deterministic match identifier.
+        tests: [not_null]
+      - name: team_name
+        description: Canonical source team name.
+        tests: [not_null]

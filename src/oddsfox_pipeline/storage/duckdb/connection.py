@@ -10,11 +10,16 @@ import duckdb
 
 from oddsfox_pipeline.config import settings as _settings
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
+    INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
     POLYMARKET_WC2026_RAW_SCHEMA,
+    international_results_wc2026_raw_tbl,
     polymarket_wc2026_ops_tbl,
     polymarket_wc2026_q,
     polymarket_wc2026_raw_tbl,
+)
+from oddsfox_pipeline.storage.duckdb.schemas.international_results import (
+    bootstrap_international_results_tables,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     bootstrap_polymarket_tables,
@@ -141,15 +146,20 @@ def init_duck_db() -> None:
     conn = open_writable_duckdb_connection(path)
     if not _SCHEMA_LOGGED:
         logger.info(
-            "Ensuring DuckDB Polymarket schemas (%s, %s)",
+            "Ensuring DuckDB raw/ops schemas (%s, %s, %s)",
             POLYMARKET_WC2026_RAW_SCHEMA,
             POLYMARKET_WC2026_OPS_SCHEMA,
+            INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
         )
         _SCHEMA_LOGGED = True
     try:
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_RAW_SCHEMA}"')
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_OPS_SCHEMA}"')
+        conn.execute(
+            f'CREATE SCHEMA IF NOT EXISTS "{INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA}"'
+        )
         bootstrap_polymarket_tables(conn)
+        bootstrap_international_results_tables(conn)
         ensure_polymarket_indexes(conn)
         _SCHEMA_INITIALIZED = True
     finally:
@@ -190,6 +200,7 @@ def _use_conn(conn=None):
 __all__ = [
     "POLYMARKET_WC2026_OPS_SCHEMA",
     "POLYMARKET_WC2026_RAW_SCHEMA",
+    "INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA",
     "_use_conn",
     "active_duckdb_path",
     "ensure_duck_db",
@@ -199,6 +210,7 @@ __all__ = [
     "is_duckdb_lock_io_error",
     "open_duckdb_connection",
     "open_writable_duckdb_connection",
+    "international_results_wc2026_raw_tbl",
     "polymarket_wc2026_ops_tbl",
     "polymarket_wc2026_q",
     "polymarket_wc2026_raw_tbl",

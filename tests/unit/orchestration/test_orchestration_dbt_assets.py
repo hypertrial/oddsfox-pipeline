@@ -20,19 +20,20 @@ from tests.unit.orchestration.orchestration_test_support import (
 
 
 def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
-    sources_path = (
-        Path(__file__).resolve().parents[3]
-        / "dbt"
-        / "models"
-        / "sources"
-        / "polymarket_wc2026_sources.yml"
-    )
-    data = yaml.safe_load(sources_path.read_text())
-    tables = {
-        (source["name"], table["name"]): table["meta"]["dagster"]["asset_key"]
-        for source in data["sources"]
-        for table in source["tables"]
-    }
+    sources_root = Path(__file__).resolve().parents[3] / "dbt" / "models" / "sources"
+    tables = {}
+    for source_file in (
+        "polymarket_wc2026_sources.yml",
+        "international_results_wc2026_sources.yml",
+    ):
+        data = yaml.safe_load((sources_root / source_file).read_text())
+        tables.update(
+            {
+                (source["name"], table["name"]): table["meta"]["dagster"]["asset_key"]
+                for source in data["sources"]
+                for table in source["tables"]
+            }
+        )
 
     assert tables[("polymarket_wc2026_raw", "markets")] == [
         "polymarket",
@@ -82,6 +83,12 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "ops",
         "market_scope_registry",
     ]
+    assert tables[("international_results_wc2026_raw", "match_results")] == [
+        "international_results",
+        "wc2026",
+        "raw",
+        "match_results",
+    ]
 
 
 def test_dbt_translator_does_not_override_model_dependencies():
@@ -114,6 +121,14 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
         ).parent_keys
     }
     assert "polymarket/wc2026/raw/token_odds_history_hourly" in stg_odds_parents
+
+    stg_results_parents = {
+        key.to_user_string()
+        for key in graph.get(
+            AssetKey(["international_results", "wc2026", "staging", "match_results"])
+        ).parent_keys
+    }
+    assert "international_results/wc2026/raw/match_results" in stg_results_parents
 
     dangling_dbt_keys = sorted(
         key.to_user_string()

@@ -1,8 +1,9 @@
 # AGENTS.md
 
 OddsFox is an open-source, local-first prediction-market data pipeline.
-Version `0.1.x` ships a WC2026-only Polymarket pipeline for FIFA World Cup
-2026 markets and odds.
+Version `0.1.x` ships a WC2026 Polymarket pipeline for FIFA World Cup
+2026 markets and odds, plus a small FIFA fixture/results source for real-team
+scope validation.
 Stack: **Dagster** (orchestration), **dlt** (market landing), **dbt** +
 **DuckDB** (warehouse/analytics), **uv** (deps), **Ruff** + **sqlfluff**
 (lint), **pytest** (tests).
@@ -97,6 +98,7 @@ src/oddsfox_pipeline/
   resources/       # HTTP, outbound URL, progress guardrails
   storage/duckdb/  # Connection, schemas, markets/odds persistence, profiling
 dbt/
+  models/international_results_wc2026/{staging,intermediate,marts,observability}/
   models/polymarket_wc2026/{staging,intermediate,marts,observability}/
   tests/           # Singular dbt data tests (assert_*)
 tests/
@@ -121,7 +123,8 @@ Imports use src-layout paths: `from oddsfox_pipeline.config.settings import …`
 
 - sqlfluff: DuckDB dialect, dbt templater, max line length 130.
 - Lint/fix: `dbt/models`, `dbt/tests` only (see Makefile).
-- Layer naming: `polymarket_wc2026_staging`, `polymarket_wc2026_intermediate`, `polymarket_wc2026_marts`, `polymarket_wc2026_observability`.
+- Layer naming: source-first schemas such as `polymarket_wc2026_staging`,
+  `polymarket_wc2026_marts`, and `international_results_wc2026_marts`.
 
 **Tests** ([tests/README.md](tests/README.md)):
 
@@ -138,9 +141,13 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 3. `polymarket/wc2026/ops/market_scope_registry`
 4. `polymarket/wc2026/raw/market_metadata_backfill`
 5. `polymarket/wc2026/raw/token_odds_history_hourly`
-6. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`
+6. `international_results/wc2026/raw/match_results`
+7. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`
+   and `international_results/wc2026/{staging,intermediate,marts,observability}/...`
 
-Key jobs: `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`.
+Key jobs: `international_results_wc2026_match_results_ingest`,
+`polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
+`polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`.
 
 Schedules target `polymarket_wc2026_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 

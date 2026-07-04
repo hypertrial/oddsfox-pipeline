@@ -8,6 +8,7 @@ profile: oddsfox
 flags:
   indirect_selection: buildable
 model-paths: ["models"]
+seed-paths: ["seeds"]
 test-paths: ["tests"]
 target-path: target
 clean-targets: ["target", "dbt_packages"]
@@ -43,3 +44,25 @@ models:
         +schema: polymarket_wc2026_observability
         +materialized: table
         +tags: ["mart", "observability", "wc2026", "polymarket"]
+    international_results_wc2026:
+      +tags: ["wc2026", "international_results"]
+      staging:
+        +schema: international_results_wc2026_staging
+        +tags: ["staging", "wc2026", "international_results"]
+      intermediate:
+        +schema: international_results_wc2026_intermediate
+        +tags: ["intermediate", "wc2026", "international_results"]
+      marts:
+        +schema: international_results_wc2026_marts
+        +materialized: table
+        +tags: ["mart", "core", "wc2026", "international_results"]
+      observability:
+        +schema: international_results_wc2026_observability
+        +materialized: table
+        +tags: ["mart", "observability", "wc2026", "international_results"]
+seeds:
+  oddsfox:
+    international_results_wc2026_team_aliases:
+      +schema: international_results_wc2026_staging
+      +tags: ["staging", "wc2026", "international_results"]
+      +quote_columns: false

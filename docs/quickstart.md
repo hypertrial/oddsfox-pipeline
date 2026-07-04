@@ -2,7 +2,8 @@
 
 Use this page for the first local run. It keeps schedules off until the
 warehouse, dbt project, and manual Dagster jobs are healthy. The v0.1.x
-quickstart runs the WC2026-only Polymarket pipeline.
+quickstart runs the WC2026 Polymarket pipeline plus the FIFA World Cup
+fixture/result source used to clean team scope.
 
 ## 1. Install
 
@@ -66,9 +67,10 @@ For a full manual run, launch `polymarket_wc2026_full_pipeline`.
 
 For a safer staged run:
 
-1. `polymarket_wc2026_market_registry_refresh`
-2. `polymarket_wc2026_hourly_odds_ingest`
-3. `polymarket_wc2026_dbt_build`
+1. `international_results_wc2026_match_results_ingest`
+2. `polymarket_wc2026_market_registry_refresh`
+3. `polymarket_wc2026_hourly_odds_ingest`
+4. `polymarket_wc2026_dbt_build`
 
 Leave schedules off until these jobs complete successfully.
 

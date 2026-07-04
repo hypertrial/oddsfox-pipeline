@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: international_results_wc2026_data_quality
+    description: Warning-level data quality findings for WC2026 result inference.
+    columns:
+      - name: issue_key
+        description: Stable issue identifier.
+        tests: [not_null, unique]
+      - name: severity
+        description: Issue severity.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['warn', 'error']
+      - name: observed_at
+        description: dbt build timestamp when the finding was produced.
+        tests: [not_null]

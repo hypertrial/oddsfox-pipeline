@@ -1,3 +1,6 @@
+from oddsfox_pipeline.orchestration.assets_international_results import (
+    international_results_wc2026_raw_match_results,
+)
 from oddsfox_pipeline.orchestration.assets_polymarket import (
     polymarket_wc2026_dbt,
     polymarket_wc2026_ops_market_scope_registry,
@@ -17,6 +20,7 @@ __all__ = [
     "DBT_DAGSTER_GROUP_NAME",
     "DBT_PROJECT",
     "PolymarketDagsterDbtTranslator",
+    "international_results_wc2026_raw_match_results",
     "polymarket_wc2026_dbt",
     "polymarket_wc2026_raw_market_metadata_backfill",
     "polymarket_wc2026_raw_markets",

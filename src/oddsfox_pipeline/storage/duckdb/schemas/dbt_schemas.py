@@ -8,13 +8,27 @@ from dagster import AssetKey
 
 from oddsfox_pipeline.naming import (
     SCOPE_WC2026,
+    SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_POLYMARKET,
     asset_key,
     schema_name,
 )
 
+DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026: Final = "international_results_wc2026"
 DBT_SOURCE_POLYMARKET_WC2026: Final = "polymarket_wc2026"
 
+INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA: Final = schema_name(
+    SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "staging"
+)
+INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA: Final = schema_name(
+    SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "intermediate"
+)
+INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA: Final = schema_name(
+    SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "marts"
+)
+INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA: Final = schema_name(
+    SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "observability"
+)
 POLYMARKET_WC2026_STAGING_SCHEMA: Final = schema_name(
     SOURCE_POLYMARKET, SCOPE_WC2026, "staging"
 )
@@ -33,8 +47,15 @@ POLYMARKET_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "polymarket_wc2026_knockout_data_quality",
     "polymarket_wc2026_sync_run_observability",
 )
+INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
+    "international_results_wc2026_data_quality",
+)
 
 DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
+    INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
+    INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA,
+    INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
+    INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
     POLYMARKET_WC2026_STAGING_SCHEMA,
     POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
     POLYMARKET_WC2026_MARTS_SCHEMA,
@@ -57,7 +78,19 @@ def resolve_source_slug(
         len(path_fqn) >= 2 and path_fqn[1] == "polymarket_wc2026"
     ):
         return DBT_SOURCE_POLYMARKET_WC2026
+    if "international_results" in tags or (
+        len(path_fqn) >= 2 and path_fqn[1] == "international_results_wc2026"
+    ):
+        return DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026
     name = str(props.get("name") or "")
+    if name.startswith(
+        (
+            "stg_international_results_wc2026_",
+            "int_international_results_wc2026_",
+            "international_results_wc2026_",
+        )
+    ):
+        return DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026
     if name.startswith(
         (
             "stg_polymarket_wc2026_",
@@ -70,6 +103,8 @@ def resolve_source_slug(
 
 
 def shorten_model_name(model_name: str, source_slug: str) -> str:
+    if source_slug == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
+        return _international_results_wc2026_subject(model_name)
     if source_slug == DBT_SOURCE_POLYMARKET_WC2026:
         return _polymarket_wc2026_subject(model_name)
     return model_name
@@ -94,11 +129,43 @@ def _polymarket_wc2026_layer(
     return "marts"
 
 
+def _international_results_wc2026_layer(
+    model_name: str,
+    props: Mapping[str, object] | None = None,
+    *,
+    fqn: Sequence[str] | None = None,
+) -> str:
+    path_fqn = list(fqn or (props or {}).get("fqn") or ())
+    for segment in path_fqn:
+        if segment in {"staging", "intermediate", "marts", "observability"}:
+            return segment
+    if model_name.startswith("stg_international_results_wc2026_"):
+        return "staging"
+    if model_name.startswith("int_international_results_wc2026_"):
+        return "intermediate"
+    if model_name == "international_results_wc2026_team_aliases":
+        return "staging"
+    if model_name in INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_MODELS:
+        return "observability"
+    return "marts"
+
+
 def _polymarket_wc2026_subject(model_name: str) -> str:
     for prefix in (
         "stg_polymarket_wc2026_",
         "int_polymarket_wc2026_",
         "polymarket_wc2026_",
+    ):
+        if model_name.startswith(prefix):
+            return model_name[len(prefix) :]
+    return model_name
+
+
+def _international_results_wc2026_subject(model_name: str) -> str:
+    for prefix in (
+        "stg_international_results_wc2026_",
+        "int_international_results_wc2026_",
+        "international_results_wc2026_",
     ):
         if model_name.startswith(prefix):
             return model_name[len(prefix) :]
@@ -112,6 +179,13 @@ def dbt_model_asset_key(
 ) -> AssetKey:
     source = resolve_source_slug(props, fqn=fqn)
     name = str(props.get("name") or "")
+    if source == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
+        return asset_key(
+            SOURCE_INTERNATIONAL_RESULTS,
+            SCOPE_WC2026,
+            _international_results_wc2026_layer(name, props, fqn=fqn),
+            _international_results_wc2026_subject(name),
+        )
     if source == DBT_SOURCE_POLYMARKET_WC2026:
         return asset_key(
             SOURCE_POLYMARKET,
@@ -128,6 +202,13 @@ def dbt_model_asset_key_for_name(
     *,
     layer: str | None = None,
 ) -> AssetKey:
+    if source_slug == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
+        return asset_key(
+            SOURCE_INTERNATIONAL_RESULTS,
+            SCOPE_WC2026,
+            layer or _international_results_wc2026_layer(model_name),
+            _international_results_wc2026_subject(model_name),
+        )
     if source_slug == DBT_SOURCE_POLYMARKET_WC2026:
         return asset_key(
             SOURCE_POLYMARKET,
@@ -141,7 +222,12 @@ def dbt_model_asset_key_for_name(
 __all__ = [
     "DBT_FALLBACK_SCHEMA",
     "DBT_MODELED_SCHEMAS",
+    "DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026",
     "DBT_SOURCE_POLYMARKET_WC2026",
+    "INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA",
+    "INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA",
+    "INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA",
+    "INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA",
     "POLYMARKET_WC2026_INTERMEDIATE_SCHEMA",
     "POLYMARKET_WC2026_MARTS_SCHEMA",
     "POLYMARKET_WC2026_OBSERVABILITY_SCHEMA",

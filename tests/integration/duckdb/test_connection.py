@@ -4,7 +4,7 @@ import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.storage.duckdb.connection import init_duck_db
 
 
-def test_init_duck_db_creates_polymarket_schemas_only(tmp_path, monkeypatch):
+def test_init_duck_db_creates_raw_and_ops_schemas(tmp_path, monkeypatch):
     db_path = tmp_path / "oddsfox.duckdb"
     monkeypatch.setenv("DUCKDB_PATH", str(db_path))
     monkeypatch.setenv("DUCKDB_NAME", str(db_path))
@@ -29,13 +29,22 @@ def test_init_duck_db_creates_polymarket_schemas_only(tmp_path, monkeypatch):
                 """
                 select table_schema, table_name
                 from information_schema.tables
-                where table_schema in ('polymarket_wc2026_raw', 'polymarket_wc2026_ops')
+                where table_schema in (
+                    'polymarket_wc2026_raw',
+                    'polymarket_wc2026_ops',
+                    'international_results_wc2026_raw'
+                )
                 """
             ).fetchall()
         }
 
-    assert schemas == {"polymarket_wc2026_raw", "polymarket_wc2026_ops"}
+    assert schemas == {
+        "polymarket_wc2026_raw",
+        "polymarket_wc2026_ops",
+        "international_results_wc2026_raw",
+    }
     assert {
+        ("international_results_wc2026_raw", "match_results"),
         ("polymarket_wc2026_raw", "market_tokens"),
         ("polymarket_wc2026_raw", "odds_history"),
         ("polymarket_wc2026_raw", "token_odds_daily"),

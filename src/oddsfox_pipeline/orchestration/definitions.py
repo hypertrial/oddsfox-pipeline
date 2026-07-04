@@ -8,6 +8,7 @@ from oddsfox_pipeline.config.settings import (
     resolve_dbt_executable,
 )
 from oddsfox_pipeline.orchestration.assets import (
+    international_results_wc2026_raw_match_results,
     polymarket_wc2026_dbt,
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_market_metadata_backfill,
@@ -16,6 +17,7 @@ from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
 from oddsfox_pipeline.orchestration.jobs import (
+    international_results_wc2026_match_results_ingest,
     polymarket_wc2026_dbt_build,
     polymarket_wc2026_full_pipeline,
     polymarket_wc2026_hourly_odds_ingest,
@@ -27,6 +29,7 @@ from oddsfox_pipeline.orchestration.schedules import (
 
 defs = Definitions(
     assets=[
+        international_results_wc2026_raw_match_results,
         polymarket_wc2026_raw_markets,
         polymarket_wc2026_raw_markets_snapshot,
         polymarket_wc2026_ops_market_scope_registry,
@@ -35,6 +38,7 @@ defs = Definitions(
         polymarket_wc2026_dbt,
     ],
     jobs=[
+        international_results_wc2026_match_results_ingest,
         polymarket_wc2026_hourly_odds_ingest,
         polymarket_wc2026_market_registry_refresh,
         polymarket_wc2026_dbt_build,

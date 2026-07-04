@@ -19,6 +19,12 @@ Schema: `polymarket_wc2026_raw`
 - `token_odds_daily`: daily token aggregates rebuilt by custom SQL finalizers from
   canonical `odds_history`.
 
+Schema: `international_results_wc2026_raw`
+
+- `match_results`: WC2026-only FIFA World Cup fixture/result rows from
+  `martj42/international_results`. Ingestion refreshes this table as a full
+  replacement and stores scheduled fixtures with null scores.
+
 ## Ops Tables
 
 Schema: `polymarket_wc2026_ops`
@@ -41,6 +47,10 @@ Schema: `polymarket_wc2026_ops`
 - `polymarket_wc2026_intermediate`
 - `polymarket_wc2026_marts`
 - `polymarket_wc2026_observability`
+- `international_results_wc2026_staging`
+- `international_results_wc2026_intermediate`
+- `international_results_wc2026_marts`
+- `international_results_wc2026_observability`
 
 ## dbt Intermediate
 
@@ -56,9 +66,14 @@ Schema: `polymarket_wc2026_intermediate`
 
 Schema: `polymarket_wc2026_marts`
 
-- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for knockout markets with reported volume >= $5,000 USD, plus derived `market_status` and live/historical flags.
-- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for progression-side knockout tokens (dbt table), including propagated market status.
-- `polymarket_wc2026_knockout_markets`: latest progression-side knockout snapshot with explicit current-price status. Use `is_live_market` or `current_price_status = 'fresh_live'` for live-only views; closed/resolved rows are retained as historical rows.
+- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for real WC2026 team knockout markets with reported volume >= $5,000 USD, plus derived `market_status` and live/historical flags.
+- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for real-team progression-side knockout tokens (dbt table), including propagated market and tournament status.
+- `polymarket_wc2026_knockout_markets`: latest real-team progression-side knockout snapshot with explicit current-price status. Use `is_live_market` or `current_price_status = 'fresh_live'` for live-only views; closed/resolved rows are retained as historical rows.
+
+Schema: `international_results_wc2026_marts`
+
+- `international_results_wc2026_matches`: clean FIFA World Cup 2026 fixtures/results with stage mapping and tied-knockout advancer inference from later fixtures when possible.
+- `international_results_wc2026_team_status`: canonical team roster and current tournament status used to filter Polymarket public marts.
 
 Schema: `polymarket_wc2026_observability`
 
@@ -66,12 +81,20 @@ Schema: `polymarket_wc2026_observability`
 - `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage vs public scoped tokens by stage, direction, and market status.
 - `polymarket_wc2026_knockout_data_quality`: row-level DQ findings for source-state anomalies, sparse stage coverage, and stale or missing odds.
 
+Schema: `international_results_wc2026_observability`
+
+- `international_results_wc2026_data_quality`: warning-level findings when a tied knockout match has no unique inferred advancer.
+
 ## dlt Landing And Canonical Tables
 
 Canonical raw and ops table names and schemas remain stable. dlt owns batch
 landing for `markets`, `market_tokens`, `odds_history`,
 `market_scope_registry`, and `pipeline_run_events`; stage tables and `_dlt*`
 metadata tables are internal implementation details.
+
+`international_results_wc2026_raw.match_results` is custom SQL storage, not dlt,
+because the source is a single CSV and a full WC2026 replacement is simpler than
+batch finalization.
 
 `polymarket_wc2026_raw.markets` is created by `polymarket_wc2026_raw_markets`. The
 `dbt-build-ci` target creates an empty source fixture only in its disposable

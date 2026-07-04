@@ -132,6 +132,54 @@ classified as (
             nullif(round_of_32_elimination_team, '')
         ) as team_name
     from extracted
+),
+
+team_scoped as (
+    select
+        c.market_id,
+        c.outcome_index,
+        c.clob_token_id,
+        c.token_updated_at,
+        c.question,
+        c.outcome_label,
+        c.event_slug,
+        c.market_slug,
+        c.condition_id,
+        c.sports_market_type,
+        c.game_start_time,
+        c.group_item_title,
+        c.tags,
+        c.clob_token_ids,
+        c.is_active,
+        c.is_closed,
+        c.is_resolved,
+        c.winning_outcome,
+        c.winning_clob_token_id,
+        c.market_volume_usd,
+        c.stage_key,
+        c.stage_rank,
+        c.market_direction,
+        c.team_name,
+        ts.team_name as canonical_team_name,
+        ts.tournament_status,
+        ts.is_still_alive,
+        ts.eliminated_stage_key,
+        ts.eliminated_match_date,
+        ts.next_match_date,
+        ts.next_stage_key,
+        ts.matches_played,
+        ts.wins,
+        ts.draws,
+        ts.losses,
+        ts.goals_for,
+        ts.goals_against,
+        ts.latest_completed_match_date,
+        ts.latest_completed_stage_key
+    from classified as c
+    left join {{ ref('international_results_wc2026_team_aliases') }} as a
+        on lower(c.team_name) = lower(a.market_team_name)
+    inner join {{ ref('international_results_wc2026_team_status') }} as ts
+        on lower(coalesce(a.canonical_team_name, c.team_name)) = lower(ts.team_name)
 )
 
 select
@@ -159,6 +207,21 @@ select
     c.stage_rank,
     c.market_direction,
     c.team_name,
+    c.canonical_team_name,
+    c.tournament_status,
+    c.is_still_alive,
+    c.eliminated_stage_key,
+    c.eliminated_match_date,
+    c.next_match_date,
+    c.next_stage_key,
+    c.matches_played,
+    c.wins,
+    c.draws,
+    c.losses,
+    c.goals_for,
+    c.goals_against,
+    c.latest_completed_match_date,
+    c.latest_completed_stage_key,
     case
         when coalesce(c.is_resolved, false) then 'resolved'
         when coalesce(c.is_closed, false) then 'closed'
@@ -169,7 +232,7 @@ select
     and not coalesce(c.is_closed, false)
     and coalesce(c.is_active, false) as is_live_market,
     coalesce(c.is_active, false) and coalesce(c.is_closed, false) as source_state_anomaly
-from classified as c
+from team_scoped as c
 where
     c.stage_key is not null
     and (

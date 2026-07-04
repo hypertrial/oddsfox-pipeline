@@ -1,11 +1,10 @@
 # Naming
 
 OddsFox names source-specific pipeline surfaces from source to scope to subject.
-The current canonical tuple is:
+Current canonical tuples are:
 
-- `source`: `polymarket`
-- `scope`: `wc2026`
-- `namespace`: `polymarket_wc2026`
+- `source`: `polymarket`, `scope`: `wc2026`, `namespace`: `polymarket_wc2026`
+- `source`: `international_results`, `scope`: `wc2026`, `namespace`: `international_results_wc2026`
 
 Flat names use `<source>_<scope>_<subject>[_<cadence>]`. Use flat names for
 Dagster jobs, schedules, op names, Python functions, env vars, scripts, dbt
@@ -17,6 +16,8 @@ more sources and scopes are added:
 - `polymarket/wc2026/raw/markets`
 - `polymarket/wc2026/ops/market_scope_registry`
 - `polymarket/wc2026/marts/knockout_token_hourly_odds`
+- `international_results/wc2026/raw/match_results`
+- `international_results/wc2026/marts/team_status`
 
 DuckDB and dbt schemas use `<source>_<scope>_<layer>`:
 
@@ -26,17 +27,27 @@ DuckDB and dbt schemas use `<source>_<scope>_<layer>`:
 - `polymarket_wc2026_intermediate`
 - `polymarket_wc2026_marts`
 - `polymarket_wc2026_observability`
+- `international_results_wc2026_raw`
+- `international_results_wc2026_staging`
+- `international_results_wc2026_intermediate`
+- `international_results_wc2026_marts`
+- `international_results_wc2026_observability`
 
 dbt model names use layer-specific prefixes:
 
 - staging: `stg_polymarket_wc2026_<subject>`
 - intermediate: `int_polymarket_wc2026_<subject>`
 - marts and observability: `polymarket_wc2026_<subject>`
+- staging: `stg_international_results_wc2026_<subject>`
+- intermediate: `int_international_results_wc2026_<subject>`
+- marts and observability: `international_results_wc2026_<subject>`
 
 Dagster op names stay flat even when the asset key is hierarchical. For
 example, the hourly odds asset key is
 `polymarket/wc2026/raw/token_odds_history_hourly`, and its op config key is
 `polymarket_wc2026_raw_token_odds_history_hourly`.
+The results asset key is `international_results/wc2026/raw/match_results`,
+and its op name is `international_results_wc2026_raw_match_results`.
 
 This is a v0.1.x namespace reset. Operators with an older local warehouse
 should stop Dagster, delete `oddsfox.duckdb*`, and rerun the quickstart.

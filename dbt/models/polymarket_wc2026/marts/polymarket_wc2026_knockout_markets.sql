@@ -39,6 +39,21 @@ with_prices as (
         k.stage_rank,
         k.market_direction,
         k.team_name,
+        k.canonical_team_name,
+        k.tournament_status,
+        k.is_still_alive,
+        k.eliminated_stage_key,
+        k.eliminated_match_date,
+        k.next_match_date,
+        k.next_stage_key,
+        k.matches_played,
+        k.wins,
+        k.draws,
+        k.losses,
+        k.goals_for,
+        k.goals_against,
+        k.latest_completed_match_date,
+        k.latest_completed_stage_key,
         case
             when p.current_price_hour_epoch is not null
                 then round((epoch(current_timestamp) - p.current_price_hour_epoch) / 3600.0, 4)
@@ -79,6 +94,21 @@ select
     stage_rank,
     market_direction,
     team_name,
+    canonical_team_name,
+    tournament_status,
+    is_still_alive,
+    eliminated_stage_key,
+    eliminated_match_date,
+    next_match_date,
+    next_stage_key,
+    matches_played,
+    wins,
+    draws,
+    losses,
+    goals_for,
+    goals_against,
+    latest_completed_match_date,
+    latest_completed_stage_key,
     case
         when market_status = 'resolved' then 'historical_resolved'
         when market_status = 'closed' then 'historical_closed'

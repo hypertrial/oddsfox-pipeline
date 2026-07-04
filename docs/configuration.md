@@ -3,8 +3,8 @@
 Use `.env.example` as the source of local overrides.
 For first-run steps, see [Quickstart](quickstart.md).
 
-Most settings are adapter-specific. In v0.1.x, that means the shipped
-WC2026-only Polymarket pipeline.
+Most settings are adapter-specific. In v0.1.x, that means the shipped WC2026
+Polymarket pipeline plus the fixed FIFA results CSV used for team validation.
 
 ## Warehouse and dbt
 
@@ -22,6 +22,8 @@ Most operators should leave `DBT_PROFILES_DIR` unset and use the packaged `dbt/p
 - `HTTP_READ_TIMEOUT_SECONDS`: HTTP read timeout.
 
 Lower request rates when Polymarket APIs return transient failures or timeouts.
+The `international_results` CSV refresh uses the shared HTTP timeout settings
+and has no source-specific env override.
 
 ## WC2026 Scope
 

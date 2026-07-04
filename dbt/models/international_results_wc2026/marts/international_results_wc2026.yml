@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: international_results_wc2026_matches
+    description: Clean WC2026 FIFA World Cup fixture/result mart from international_results.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [match_id]
+    columns:
+      - name: match_id
+        description: Deterministic match identifier.
+        tests: [not_null, unique]
+      - name: match_date
+        description: Match date.
+        tests: [not_null]
+      - name: stage_key
+        description: WC2026 tournament stage.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - group_stage
+                  - round_of_32
+                  - round_of_16
+                  - quarterfinal
+                  - semifinal
+                  - third_place
+                  - final
+      - name: match_status
+        description: completed when both scores are present; scheduled otherwise.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['completed', 'scheduled']
+      - name: advancer_inference_status
+        description: How knockout advancement was derived for tied completed matches.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - scheduled
+                  - not_required
+                  - inferred_from_later_fixture
+                  - missing_later_fixture
+                  - ambiguous_later_fixture
+
+  - name: international_results_wc2026_team_status
+    description: One row per WC2026 team derived from FIFA World Cup fixtures/results.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [team_name]
+    columns:
+      - name: team_name
+        description: Canonical source team name.
+        tests: [not_null, unique]
+      - name: tournament_status
+        description: Current team status derived from completed and scheduled rows.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['active', 'eliminated', 'champion']
+      - name: is_still_alive
+        description: True when the team has not been eliminated and the final winner has not been crowned.
+        tests: [not_null]

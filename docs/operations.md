@@ -4,7 +4,8 @@ Use this page when running Dagster assets, jobs, schedules, or recovery paths.
 For data outputs, see [Warehouse](warehouse.md) and
 [Data Contracts](data-contracts.md).
 
-The v0.1.x orchestration surface is WC2026-only Polymarket.
+The v0.1.x orchestration surface is WC2026 Polymarket plus a small FIFA
+World Cup fixture/result source.
 
 ## Dagster Assets
 
@@ -15,7 +16,9 @@ The main asset key order is:
 3. `polymarket/wc2026/ops/market_scope_registry`
 4. `polymarket/wc2026/raw/market_metadata_backfill`
 5. `polymarket/wc2026/raw/token_odds_history_hourly`
-6. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`
+6. `international_results/wc2026/raw/match_results`
+7. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`
+   and `international_results/wc2026/{staging,intermediate,marts,observability}/...`
 
 Flat Dagster op names remain source-first, for example
 `polymarket_wc2026_raw_token_odds_history_hourly`.
@@ -24,8 +27,9 @@ Flat Dagster op names remain source-first, for example
 
 - `polymarket_wc2026_market_registry_refresh`: WC2026 market discovery, registry refresh, and metadata backfill.
 - `polymarket_wc2026_hourly_odds_ingest`: hourly WC2026 token odds refresh (trailing 30 days by default).
+- `international_results_wc2026_match_results_ingest`: WC2026 FIFA World Cup fixture/result CSV refresh.
 - `polymarket_wc2026_dbt_build`: dbt analytics build for the WC2026 mart surface, including knockout marts.
-- `polymarket_wc2026_full_pipeline`: WC2026 market discovery, hourly odds refresh (trailing 30 days), and dbt analytics build.
+- `polymarket_wc2026_full_pipeline`: WC2026 result refresh, market discovery, hourly odds refresh (trailing 30 days), and dbt analytics build.
 
 ## WC2026 Scope
 
@@ -36,7 +40,10 @@ The shipped Dagster jobs and dbt graph are fixed to `wc2026`.
 - `polymarket/wc2026/raw/market_metadata_backfill` and
   `polymarket/wc2026/raw/token_odds_history_hourly` run over the fixed WC2026
   registry.
-- dbt model assets under `polymarket/wc2026/...` build the fixed WC2026 dbt graph.
+- `international_results/wc2026/raw/match_results` loads only FIFA World Cup rows
+  inside the 2026 tournament window and feeds real-team validation in dbt.
+- dbt model assets under `polymarket/wc2026/...` and
+  `international_results/wc2026/...` build the fixed WC2026 dbt graph.
 
 ## Schedules
 
@@ -53,6 +60,8 @@ POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ## Recovery
 
 - Re-run `polymarket_wc2026_hourly_odds_ingest` for routine odds gaps.
+- Re-run `international_results_wc2026_match_results_ingest` when the source CSV
+  updates completed scores or fixtures.
 - Run `polymarket_wc2026_dbt_build` after raw or ops table repairs.
 - Prune old `polymarket_wc2026_raw.odds_history` rows with `make prune-odds-history` (default 365-day retention; use `--dry-run` on the script to preview).
 - Reclaim DuckDB file dead space with `make compact-warehouse` after pruning or full refreshes.

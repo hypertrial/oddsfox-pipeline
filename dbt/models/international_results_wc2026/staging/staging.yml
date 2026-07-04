@@ -1,0 +1,45 @@
+version: 2
+
+models:
+  - name: stg_international_results_wc2026_match_results
+    description: Typed WC2026 FIFA World Cup fixture/result rows with stage mapping.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [match_id]
+    columns:
+      - name: match_id
+        description: Deterministic match identifier.
+        tests: [not_null, unique]
+      - name: match_date
+        description: Match date.
+        tests:
+          - not_null
+      - name: stage_key
+        description: WC2026 stage derived from tournament date windows.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - group_stage
+                  - round_of_32
+                  - round_of_16
+                  - quarterfinal
+                  - semifinal
+                  - third_place
+                  - final
+      - name: match_status
+        description: Whether source scores are populated.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['completed', 'scheduled']
+      - name: tournament
+        description: Source tournament name.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['FIFA World Cup']
