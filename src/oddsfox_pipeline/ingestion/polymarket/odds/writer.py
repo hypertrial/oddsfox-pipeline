@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime, timezone
 from queue import Empty, Queue
 from typing import Dict, List
@@ -148,6 +149,9 @@ def apply_writer_item(item, buffers: WriterBuffers, writer_stats: Dict[str, int]
             price = float(price)
             if ts <= 0:
                 writer_stats["invalid_ts_dropped"] += 1
+                continue
+            if not math.isfinite(price):
+                writer_stats["invalid_price_dropped"] += 1
                 continue
             if price < 0.0 or price > 1.0:
                 writer_stats["invalid_price_dropped"] += 1

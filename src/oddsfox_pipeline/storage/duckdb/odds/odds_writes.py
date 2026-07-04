@@ -121,7 +121,7 @@ def save_odds_bulk_upsert(
     Bulk upsert odds rows using a dlt-managed stage table.
 
     This path is resilient to overlap-driven duplicates (same token/timestamp)
-    and generally performs better than row-wise inserts for large minutely loads.
+    and generally performs better than row-wise inserts for large bulk loads.
     """
     if not records:
         return

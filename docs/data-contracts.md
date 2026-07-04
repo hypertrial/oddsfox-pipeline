@@ -50,8 +50,12 @@ Schema: `polymarket_wc2026_marts`
 - Source and staging grain.
 - Price sanity and OHLC bounds.
 - Token and market coverage consistency.
-- WC2026 odds time series parity with the WC2026 token universe.
-- WC2026 market scope.
+- WC2026 odds time series parity with the WC2026 token universe (`assert_polymarket_wc2026_token_hourly_odds_contract`, `assert_polymarket_wc2026_token_daily_odds_contract`).
+- WC2026 market scope (`accepted_values` on `scope_name` and knockout `stage_key`).
+- Knockout Yes/No sibling token consistency.
+- Observability run health (warn-level: latest run error-token regression and history coverage floor).
+
+Warn-level observability tests fail softly in `dbt build` output; treat warnings as operator signals on real warehouses, not hard CI blockers when the disposable CI fixture is healthy.
 
 ## Breaking change: source-first namespace reset
 

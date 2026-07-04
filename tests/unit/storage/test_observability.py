@@ -11,7 +11,10 @@ from oddsfox_pipeline.storage.duckdb.observability import (
     snapshot_dbt_models,
     snapshot_raw_layer,
 )
-from oddsfox_pipeline.storage.duckdb.schemas.polymarket import create_test_markets_table
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
+    create_test_markets_table,
+    seed_test_pipeline_run_event,
+)
 
 
 def test_snapshot_raw_layer_counts_polymarket_tables(
@@ -46,6 +49,29 @@ def test_snapshot_raw_layer_counts_polymarket_tables(
     assert snapshot["markets_missing"] is False
     assert "market_scope_registry_rows" in snapshot
     assert "market_tokens_distinct_tokens" not in snapshot
+
+
+def test_seed_test_pipeline_run_event_inserts_sync_odds_row(tmp_path, monkeypatch):
+    import oddsfox_pipeline.storage.duckdb.connection as conn_mod
+
+    db_path = tmp_path / "seed.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    conn_mod.reset_duckdb_connection_state()
+    init_duck_db()
+
+    with duckdb.connect(str(db_path)) as conn:
+        seed_test_pipeline_run_event(conn)
+        row = conn.execute(
+            """
+            select task_name, metrics_json
+            from polymarket_wc2026_ops.pipeline_run_events
+            """
+        ).fetchone()
+
+    assert row is not None
+    assert row[0] == "sync_odds"
+    assert '"errors": 0' in row[1]
+    assert '"history_coverage_vs_market_tokens": 0.96' in row[1]
 
 
 def test_delta_raw_layer_ignores_missing_flags():

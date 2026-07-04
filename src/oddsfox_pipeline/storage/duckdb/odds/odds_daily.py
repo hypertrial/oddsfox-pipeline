@@ -16,10 +16,10 @@ def refresh_token_odds_daily(
     conn: duckdb.DuckDBPyConnection,
 ):
     """
-    Rebuild daily OHLC rows from canonical minutely history for specific token-days
+    Rebuild daily OHLC rows from canonical point-in-time odds history for specific token-days
 
     This makes overlap re-fetches deterministic because the daily table is always
-    derived from the full set of minutely records currently stored for that day.
+    derived from the full set of odds_history records currently stored for that day.
     """
     if not token_dates:
         return
@@ -143,7 +143,7 @@ def refresh_token_odds_daily(
 
 
 def backfill_token_odds_daily_from_history() -> int:
-    """Rebuild the full daily odds table from minutely history and return row count."""
+    """Rebuild the full daily odds table from odds_history and return row count."""
     ensure_duck_db()
     with get_connection() as conn:
         conn.execute(
@@ -225,5 +225,5 @@ def backfill_token_odds_daily_from_history() -> int:
         )
         row = conn.execute(f"SELECT COUNT(*) FROM {_TAB_TOKEN_ODDS_DAILY}").fetchone()
     count = int(row[0]) if row and row[0] is not None else 0
-    logger.info("Backfilled token_odds_daily from minutely history: rows=%s", count)
+    logger.info("Backfilled token_odds_daily from odds_history: rows=%s", count)
     return count

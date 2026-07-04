@@ -228,6 +228,26 @@ def test_flush_writer_buffers_fully_checked_only(monkeypatch):
     assert stats["full_rows"] == 1
 
 
+def test_apply_writer_item_drops_non_finite_prices():
+    stats = {"invalid_ts_dropped": 0, "invalid_price_dropped": 0, "deduped": 0}
+    buffers = odds_sync.WriterBuffers(odds_map={}, state_buffer=[], skip_buffer=[])
+    odds_sync._apply_writer_item(
+        (
+            "odds",
+            [
+                ("t", 1, float("nan")),
+                ("t", 2, float("inf")),
+                ("t", 3, float("-inf")),
+                ("t", 4, 0.5),
+            ],
+        ),
+        buffers,
+        stats,
+    )
+    assert stats["invalid_price_dropped"] == 3
+    assert buffers.odds_map == {("t", 4): 0.5}
+
+
 def test_apply_writer_item_non_odds_buffers():
     stats = {"invalid_ts_dropped": 0, "invalid_price_dropped": 0, "deduped": 0}
     buffers = odds_sync.WriterBuffers(odds_map={}, state_buffer=[], skip_buffer=[])

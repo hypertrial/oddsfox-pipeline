@@ -31,28 +31,9 @@ POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 
 ## Quality Gate
 
-Run the same checks CI runs:
-
-```bash
-uv run make lint
-uv run make test
-uv run make integration-dagster
-uv run make integration-dbt
-uv run make coverage
-uv run make docs-check
-uv run make dbt-parse
-uv run make dbt-build-ci
-uv run make costguard
-```
-
-`dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
-running dbt build.
-Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
-Install the pinned local scanner with:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/install.sh | sh -s -- v2.5.0
-```
+Run the same checks as CI. The canonical command list lives in
+[AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md)
+and [CONTRIBUTING.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CONTRIBUTING.md#quality-gate).
 
 `integration-dagster` executes every registered public Dagster job with
 deterministic temp resources. `coverage` enforces 100% branch coverage for

@@ -70,9 +70,6 @@ def isolated_env(monkeypatch, tmp_path):
         "CLOB_API_SECRET",
         "CLOB_API_PASSPHRASE",
         "POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED",
-        "INTERNATIONAL_RESULTS_ENABLED",
-        "ELORATINGS_ENABLED",
-        "CLUBELO_ENABLED",
     ):
         monkeypatch.delenv(key, raising=False)
     db = tmp_path / "test.duckdb"

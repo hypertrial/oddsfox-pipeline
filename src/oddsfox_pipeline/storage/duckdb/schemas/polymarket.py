@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import uuid
+from datetime import datetime, timezone
 
 import duckdb
 
@@ -227,8 +230,49 @@ def create_test_markets_table(conn: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+def seed_test_pipeline_run_event(conn: duckdb.DuckDBPyConnection) -> None:
+    """Healthy sync_odds fixture for dbt observability tests in local CI."""
+    pre = polymarket_wc2026_ops_tbl("pipeline_run_events")
+    recorded_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    metrics = {
+        "noop": False,
+        "duration_seconds": 1.0,
+        "tokens": 10,
+        "windows": 5,
+        "rows": 100,
+        "empty": 0,
+        "errors": 0,
+        "permanent_errors": 0,
+        "invalid_tokens": 0,
+        "planning": {"plans": 10},
+        "planning_context": {
+            "market_tokens_distinct_tokens": 100,
+            "odds_history_distinct_tokens": 96,
+            "history_coverage_vs_market_tokens": 0.96,
+        },
+    }
+    conn.execute(
+        f"""
+        INSERT OR REPLACE INTO {pre} (
+            run_id,
+            task_name,
+            recorded_at,
+            metrics_json
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        [
+            str(uuid.uuid4()),
+            "sync_odds",
+            recorded_at,
+            json.dumps(metrics, sort_keys=True),
+        ],
+    )
+
+
 __all__ = [
     "bootstrap_polymarket_tables",
     "create_test_markets_table",
+    "seed_test_pipeline_run_event",
     "ensure_polymarket_indexes",
 ]

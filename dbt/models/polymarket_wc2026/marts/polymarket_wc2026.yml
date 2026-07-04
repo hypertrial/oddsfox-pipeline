@@ -10,7 +10,11 @@ models:
     columns:
       - name: scope_name
         description: Scope name, fixed to wc2026.
-        tests: [not_null]
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['wc2026']
       - name: market_id
         description: Polymarket market identifier.
         tests: [not_null]
@@ -27,32 +31,28 @@ models:
         tests: [not_null, unique]
       - name: market_id
         description: Polymarket market identifier.
-        tests: [not_null]
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('polymarket_wc2026_markets')
+                field: market_id
 
   - name: polymarket_wc2026_token_hourly_odds
     description: >
       Full WC2026 hourly OHLC odds time series. One row per
       (clob_token_id, odds_hour_utc) with WC2026 market labels and volume.
-    tests:
-      - no_duplicate_grain:
-          arguments:
-            grain_columns: [clob_token_id, odds_hour_epoch]
-      - price_columns_in_unit_interval:
-          arguments:
-            identifier_columns: [clob_token_id, odds_hour_epoch]
-            price_columns:
-              - open_price
-              - high_price
-              - low_price
-              - close_price
-              - avg_price
+      Grain, price bounds, and WC2026 membership are checked by
+      assert_polymarket_wc2026_token_hourly_odds_contract.
     columns:
-      - name: clob_token_id
-        description: CLOB outcome token identifier.
-        tests: [not_null]
       - name: market_id
         description: Polymarket market identifier.
-        tests: [not_null]
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('polymarket_wc2026_markets')
+                field: market_id
       - name: odds_hour_epoch
         description: Unix epoch seconds for the UTC hour bucket.
         tests: [not_null]
@@ -61,24 +61,9 @@ models:
     description: >
       Full WC2026 daily OHLC odds time series. One row per
       (clob_token_id, odds_date_utc) with WC2026 market labels and volume.
-    tests:
-      - no_duplicate_grain:
-          arguments:
-            grain_columns: [clob_token_id, odds_date_utc]
-            where: clob_token_id is not null and odds_date_utc is not null
-      - price_columns_in_unit_interval:
-          arguments:
-            identifier_columns: [clob_token_id, odds_date_utc]
-            price_columns:
-              - open_price
-              - high_price
-              - low_price
-              - close_price
-              - avg_price
+      Grain, price bounds, and WC2026 membership are checked by
+      assert_polymarket_wc2026_token_daily_odds_contract.
     columns:
-      - name: clob_token_id
-        description: CLOB outcome token identifier.
-        tests: [not_null]
       - name: market_id
         description: Polymarket market identifier.
         tests:
@@ -130,10 +115,25 @@ models:
         tests: [not_null, unique]
       - name: market_id
         description: Polymarket market identifier.
-        tests: [not_null]
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('polymarket_wc2026_markets')
+                field: market_id
       - name: stage_key
         description: Normalized WC2026 knockout stage key.
-        tests: [not_null]
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - winner
+                  - final
+                  - semifinal
+                  - quarterfinal
+                  - round_of_16
+                  - round_of_32
 
   - name: polymarket_wc2026_knockout_market_tokens
     description: WC2026 knockout market tokens with stage/team classification.
@@ -147,7 +147,17 @@ models:
         tests: [not_null, unique]
       - name: stage_key
         description: Normalized WC2026 knockout stage key.
-        tests: [not_null]
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - winner
+                  - final
+                  - semifinal
+                  - quarterfinal
+                  - round_of_16
+                  - round_of_32
 
   - name: polymarket_wc2026_knockout_token_hourly_odds
     description: >
@@ -172,7 +182,12 @@ models:
         tests: [not_null]
       - name: market_id
         description: Polymarket market identifier.
-        tests: [not_null]
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('polymarket_wc2026_markets')
+                field: market_id
       - name: odds_hour_epoch
         description: Unix epoch seconds for the UTC hour bucket.
         tests: [not_null]
