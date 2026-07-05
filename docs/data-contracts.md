@@ -26,7 +26,7 @@ Schema: `international_results_wc2026_marts`
 ## Health And Observability
 
 - Use `polymarket_wc2026_observability.polymarket_wc2026_sync_run_observability` for run-level ingestion
-  telemetry, request counts, and sync metrics.
+  telemetry, market-discovery provenance, request counts, and sync metrics.
 - Use `polymarket_wc2026_observability.polymarket_wc2026_knockout_stage_coverage` to inspect raw
   classified market coverage vs public scoped tokens by knockout stage, direction, and market status.
 - Use `polymarket_wc2026_observability.polymarket_wc2026_knockout_data_quality` for source-state anomalies,
@@ -37,6 +37,9 @@ Schema: `international_results_wc2026_marts`
 - Public WC2026 marts expose only knockout-related markets from the WC2026 registry
   with reported `volume >= $5,000` USD. The floor is dynamic: markets crossing
   $5,000 on a later sync are admitted on the next dbt build.
+- Shared WC2026 thresholds live in `dbt/seeds/polymarket_wc2026_contract.csv`;
+  dbt models/tests read that seed and Python parity tests assert the Dagster
+  defaults match it.
 - Public Polymarket knockout marts are additionally filtered to teams present in
   `international_results_wc2026_team_status`, with a small alias seed for source
   naming differences such as `USA` -> `United States`. This removes non-team
@@ -62,14 +65,14 @@ Schema: `international_results_wc2026_marts`
   odds to real WC2026 team state.
 - `polymarket_wc2026_knockout_markets.current_price_status` separates `fresh_live`,
   `stale_live`, `missing_live`, `historical_closed`, `historical_resolved`, and
-  `inactive` rows. Live prices are fresh when the latest hourly close is no more
-  than 3 hours old.
+  `inactive` rows. Live prices are fresh when the latest hourly close is within
+  the contract seed freshness window.
 - `polymarket_wc2026_knockout_token_hourly_odds` aggregates directly from staged
-  raw odds and the knockout token classifier, and only exposes the trailing 30
-  days of hourly OHLC rows. The export script supports `--live-only` and
+  raw odds and the shared knockout classifier, and only exposes the contract
+  seed trailing hourly window. The export script supports `--live-only` and
   `--active-teams-only` filters for downstream live views without adding another mart.
 - `international_results_wc2026_data_quality` emits a warning when the latest
-  fixture/result source load is older than 12 hours.
+  fixture/result source load is older than the contract seed freshness window.
 - Use `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
   `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline` for Dagster operations.
   `international_results_wc2026_match_results_ingest` refreshes only the FIFA
@@ -88,7 +91,7 @@ Schema: `international_results_wc2026_marts`
 - Price sanity and OHLC bounds.
 - WC2026 market scope (`accepted_values` on `scope_name` and knockout `stage_key`).
 - Knockout progression-side token selection, including elimination-framed No-token rows.
-- Knockout volume floor and trailing 30-day hourly window.
+- Knockout volume floor and trailing hourly window from the WC2026 contract seed.
 - Knockout market and current-price status accepted values.
 - FIFA World Cup result scope, stage counts, 48-team roster shape, tied knockout
   advancer inference/DQ surfacing, and Polymarket real-team filtering.

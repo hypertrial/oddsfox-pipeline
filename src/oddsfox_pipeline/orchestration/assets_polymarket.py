@@ -13,9 +13,10 @@ from dagster_dlt import DagsterDltResource, DagsterDltTranslator, dlt_assets
 
 from oddsfox_pipeline.config.settings import DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
 from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
-    collect_raw_markets,
-    normalize_market_payloads_for_dlt,
     polymarket_markets_source,
+)
+from oddsfox_pipeline.ingestion.polymarket.markets.sync import (
+    collect_market_scope_payload,
 )
 from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_POLYMARKET, asset_key
 from oddsfox_pipeline.orchestration import polymarket_asset_helpers as asset_helpers
@@ -34,7 +35,11 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     active_duckdb_path,
     get_connection,
 )
-from oddsfox_pipeline.storage.duckdb.metadata import get_sync_run_metrics
+from oddsfox_pipeline.storage.duckdb.markets import save_market_tokens_batch
+from oddsfox_pipeline.storage.duckdb.metadata import (
+    get_sync_run_metrics,
+    save_sync_run_metrics,
+)
 from oddsfox_pipeline.storage.duckdb.observability import (
     delta_dbt_models,
     delta_raw_layer,
@@ -181,17 +186,89 @@ _POLYMARKET_DLT_PIPELINE = get_polymarket_dlt_pipeline()
 )
 def polymarket_wc2026_raw_markets(
     context: AssetExecutionContext,
+    config: MarketsSyncConfig,
     dlt: DagsterDltResource,
 ):
+    guardrail = ops.ProgressGuardrail(
+        asset="polymarket_wc2026_raw_markets",
+        logger=context.log,
+        progress_log_interval_seconds=config.progress_log_interval_seconds,
+        no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
+        no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
+        work_log_interval=config.progress_log_interval_pages,
+    )
+
+    def _markets_progress(phase: str, payload: dict[str, Any]) -> None:
+        work = int(
+            payload.get("events_pages")
+            or payload.get("api_requests")
+            or payload.get("markets_fetched")
+            or 0
+        )
+        guardrail.record_progress(
+            work_increment=max(0, work),
+            phase=phase,
+            diagnostics=payload,
+        )
+        guardrail.check(phase=phase, diagnostics=payload)
+
+    context.log.info(
+        "polymarket_wc2026_raw_markets start (discovery_mode=%s, progress_log_interval_pages=%s, progress_log_interval_seconds=%s, no_progress_soft_timeout_seconds=%s, no_progress_hard_timeout_seconds=%s)",
+        config.discovery_mode,
+        config.progress_log_interval_pages,
+        config.progress_log_interval_seconds,
+        config.no_progress_soft_timeout_seconds,
+        config.no_progress_hard_timeout_seconds,
+    )
+    guardrail.record_progress(
+        work_increment=0,
+        phase="start",
+        diagnostics={
+            "mode": "market_scope_event_first",
+            "scope_name": POLYMARKET_WC2026_SCOPE_NAME,
+            "discovery_mode": config.discovery_mode,
+        },
+        force_log=True,
+    )
     pipeline = get_polymarket_dlt_pipeline()
     if pipeline.has_pending_data:
         context.log.info(
             "Clearing pending dlt packages for polymarket_wc2026_raw before extract"
         )
         pipeline.drop_pending_packages()
-    rows = normalize_market_payloads_for_dlt(collect_raw_markets())
+    collection = collect_market_scope_payload(
+        discovery_mode=config.discovery_mode,
+        force_full_discovery=config.force_full_discovery,
+        scope_name=POLYMARKET_WC2026_SCOPE_NAME,
+        max_event_pages=config.max_event_pages,
+        max_pages_without_progress=config.max_pages_without_progress,
+        keyset_closed=config.keyset_closed,
+        keyset_tag_slugs=config.keyset_tag_slugs,
+        keyset_volume_min=config.keyset_volume_min,
+        progress_callback=_markets_progress,
+    )
+    rows = collection["market_rows"]
     dlt_source = polymarket_markets_source(rows=rows)
     yield from dlt.run(context=context, dlt_pipeline=pipeline, dlt_source=dlt_source)
+    save_market_tokens_batch(collection["token_rows"])
+    run_summary = dict(collection["run_summary"])
+    guardrail_snapshot = guardrail.snapshot()
+    run_summary.update(
+        {
+            "soft_warning_count": guardrail_snapshot.get("soft_warning_count", 0),
+            "max_idle_seconds": guardrail_snapshot.get("max_idle_seconds", 0.0),
+        }
+    )
+    save_sync_run_metrics("sync_markets", run_summary)
+    guardrail.record_progress(
+        work_increment=0,
+        phase="sync_markets_complete",
+        diagnostics={
+            "total_fetched": run_summary.get("total_fetched"),
+            "aborted": run_summary.get("aborted", False),
+        },
+        force_log=True,
+    )
     with get_connection() as conn:
         ensure_polymarket_indexes(conn)
 
@@ -210,77 +287,27 @@ def polymarket_wc2026_raw_markets_snapshot(
     context: AssetExecutionContext,
     config: MarketsSyncConfig,
 ) -> MaterializeResult:
-    guardrail = ops.ProgressGuardrail(
-        asset="polymarket_wc2026_raw_markets_snapshot",
-        logger=context.log,
-        progress_log_interval_seconds=config.progress_log_interval_seconds,
-        no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
-        no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
-        work_log_interval=config.progress_log_interval_pages,
-    )
-
-    def _markets_progress(phase: str, payload: dict[str, Any]) -> None:
-        guardrail.record_progress(
-            work_increment=1,
-            phase=phase,
-            diagnostics=payload,
-        )
-
     context.log.info(
-        "polymarket_wc2026_raw_markets_snapshot start (discovery_mode=%s, progress_log_interval_pages=%s, progress_log_interval_seconds=%s, no_progress_soft_timeout_seconds=%s, no_progress_hard_timeout_seconds=%s)",
-        config.discovery_mode,
-        config.progress_log_interval_pages,
-        config.progress_log_interval_seconds,
-        config.no_progress_soft_timeout_seconds,
-        config.no_progress_hard_timeout_seconds,
-    )
-    guardrail.record_progress(
-        work_increment=0,
-        phase="start",
-        diagnostics={
-            "mode": "market_scope_event_first",
-            "scope_name": POLYMARKET_WC2026_SCOPE_NAME,
-            "discovery_mode": config.discovery_mode,
-        },
-        force_log=True,
+        "polymarket_wc2026_raw_markets_snapshot start (local snapshot only)"
     )
 
-    def _sync_markets(pre: dict[str, Any]) -> dict[str, Any]:
+    def _local_snapshot(pre: dict[str, Any]) -> dict[str, Any]:
         context.log.info("DuckDB pre-run state: %s", format_raw_snapshot_log(pre))
-        return ops.sync_markets(
-            discovery_mode=config.discovery_mode,
-            force_full_discovery=config.force_full_discovery,
-            scope_name=POLYMARKET_WC2026_SCOPE_NAME,
-            max_event_pages=config.max_event_pages,
-            max_pages_without_progress=config.max_pages_without_progress,
-            keyset_closed=config.keyset_closed,
-            keyset_tag_slugs=config.keyset_tag_slugs,
-            keyset_volume_min=config.keyset_volume_min,
-            progress_callback=_markets_progress,
-            progress_log_interval_pages=config.progress_log_interval_pages,
-            progress_log_interval_seconds=config.progress_log_interval_seconds,
-            no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
-            no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
-            progress_poll_seconds=config.progress_poll_seconds,
-        )
+        return {
+            "task": "raw_markets_snapshot",
+            "mode": "local_snapshot",
+            "scope_name": POLYMARKET_WC2026_SCOPE_NAME,
+            "skipped_external_discovery": True,
+        }
 
     run_summary, _, _, raw_delta, raw_metadata = _run_with_raw_snapshot(
         config.raw_snapshot_level,
-        _sync_markets,
-    )
-    guardrail.record_progress(
-        work_increment=0,
-        phase="sync_markets_complete",
-        diagnostics={
-            "total_fetched": run_summary.get("total_fetched"),
-            "aborted": run_summary.get("aborted", False),
-        },
-        force_log=True,
+        _local_snapshot,
     )
     context.log.info(
         "DuckDB delta after polymarket_wc2026_raw_markets_snapshot: %s", raw_delta
     )
-    context.log.info("Run summary for sync_markets: %s", run_summary)
+    context.log.info("Run summary for raw markets local snapshot: %s", run_summary)
     return MaterializeResult(
         metadata={
             "source": MetadataValue.text("gamma-api.polymarket.com"),

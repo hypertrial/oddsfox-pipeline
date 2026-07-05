@@ -60,6 +60,10 @@ overrides.
 The seed file `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml`
 is the default scope source.
 
+Shared dbt contract values such as the knockout volume floor, trailing hourly
+window, and freshness windows live in `dbt/seeds/polymarket_wc2026_contract.csv`.
+Python defaults are checked against that seed in unit tests.
+
 ## Odds History Run Config
 
 Dagster hourly odds config uses history-oriented option names:

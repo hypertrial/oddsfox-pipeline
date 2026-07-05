@@ -1,4 +1,10 @@
-with snapshot as (
+with contract as (
+    select *
+    from {{ ref('polymarket_wc2026_contract') }}
+    where scope_name = 'wc2026'
+),
+
+snapshot as (
     select *
     from {{ ref('polymarket_wc2026_knockout_markets') }}
 ),
@@ -14,12 +20,10 @@ stage_totals as (
 
 stage_expectations as (
     select
-        expectations.stage_key,
-        expectations.minimum_raw_markets_ge_5000
-    from (
-        values
-        ('round_of_32', 32)
-    ) as expectations (stage_key, minimum_raw_markets_ge_5000)
+        'round_of_32' as stage_key,
+        knockout_min_volume_usd,
+        round_of_32_min_raw_markets_ge_floor as minimum_raw_markets_ge_5000
+    from contract
 ),
 
 source_state_anomalies as (
@@ -71,19 +75,23 @@ missing_hourly_odds as (
 
 stale_live_odds as (
     select
-        'live_stale_hourly_odds:' || market_id || ':' || clob_token_id as issue_key,
+        'live_stale_hourly_odds:' || s.market_id || ':' || s.clob_token_id as issue_key,
         'warn' as severity,
         'token' as entity_type,
-        market_id,
-        clob_token_id,
-        stage_key,
-        team_name,
-        market_status,
-        'Live knockout token latest hourly odds are older than 3 hours.' as issue_detail,
+        s.market_id,
+        s.clob_token_id,
+        s.stage_key,
+        s.team_name,
+        s.market_status,
+        'Live knockout token latest hourly odds are older than '
+        || cast(contract.live_freshness_hours as varchar)
+        || ' hours.' as issue_detail,
         1 as issue_count,
         current_timestamp as observed_at
-    from snapshot
-    where current_price_status = 'stale_live'
+    from snapshot as s
+    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    cross join contract
+    where s.current_price_status = 'stale_live'
 ),
 
 active_result_teams as (
@@ -151,7 +159,9 @@ sparse_stage_coverage as (
         e.stage_key,
         cast(null as varchar) as team_name,
         cast(null as varchar) as market_status,
-        'Upstream Polymarket raw classified market coverage above $5k is '
+        'Upstream Polymarket raw classified market coverage above $'
+        || cast(e.knockout_min_volume_usd as varchar)
+        || ' is '
         || cast(coalesce(t.raw_classified_markets_ge_5000, 0) as varchar)
         || ', below the expected '
         || cast(e.minimum_raw_markets_ge_5000 as varchar)

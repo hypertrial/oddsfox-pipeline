@@ -218,6 +218,28 @@ models:
     description: UTC timestamp when the run event was recorded.
     tests:
     - not_null
+  - name: scope_name
+    description: Market scope name for market discovery events.
+  - name: discovery_mode
+    description: Polymarket market discovery mode for market discovery events.
+  - name: effective_keyset_tag_slugs
+    description: Effective keyset tag slugs used by market discovery after seed/env resolution.
+  - name: keyset_closed
+    description: Closed-market filter sent to Gamma keyset discovery.
+  - name: keyset_volume_min
+    description: Minimum volume sent to Gamma keyset discovery.
+  - name: registry_refreshed
+    description: Whether the market discovery event refreshed the market-scope registry.
+  - name: events_pages
+    description: Number of event pages scanned by market discovery.
+  - name: api_requests
+    description: Number of Gamma API requests reported by market discovery.
+  - name: markets_collected
+    description: Number of normalized market rows collected during market discovery.
+  - name: token_rows_collected
+    description: Number of raw market-token mapping rows collected during market discovery.
+  - name: total_fetched
+    description: Total market rows fetched by market discovery.
   - name: is_noop
     description: Whether the underlying task determined that no work was required.
   - name: duration_seconds

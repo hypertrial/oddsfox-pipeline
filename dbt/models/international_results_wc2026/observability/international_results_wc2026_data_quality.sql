@@ -1,4 +1,10 @@
-with tied_knockout_advancer_unknown as (
+with contract as (
+    select results_freshness_hours
+    from {{ ref('polymarket_wc2026_contract') }}
+    where scope_name = 'wc2026'
+),
+
+tied_knockout_advancer_unknown as (
     select
         'warn' as severity,
         'match' as entity_type,
@@ -32,14 +38,18 @@ stale_source as (
         cast(null as varchar) as match_id,
         cast(null as varchar) as team_name,
         cast(null as varchar) as stage_key,
-        'WC2026 international_results source latest load is older than 12 hours.'
-            as issue_detail,
+        'WC2026 international_results source latest load is older than '
+        || cast(contract.results_freshness_hours as varchar)
+        || ' hours.' as issue_detail,
         'international_results_source_stale' as issue_key,
         current_timestamp as observed_at
     from source_freshness
+    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    cross join contract
     where
-        latest_source_loaded_at is null
-        or latest_source_loaded_at < cast(current_timestamp as timestamp) - interval 12 hour
+        source_freshness.latest_source_loaded_at is null
+        or source_freshness.latest_source_loaded_at < cast(current_timestamp as timestamp)
+        - (contract.results_freshness_hours * interval '1 hour')
 )
 
 select *

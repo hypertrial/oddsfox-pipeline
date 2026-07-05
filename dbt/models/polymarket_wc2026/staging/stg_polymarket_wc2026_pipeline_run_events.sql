@@ -3,6 +3,26 @@ select
     task_name,
     recorded_at,
     metrics_json,
+    json_extract_string(metrics_json, '$.scope_name') as scope_name,
+    json_extract_string(metrics_json, '$.discovery_mode') as discovery_mode,
+    json_extract_string(metrics_json, '$.effective_keyset_tag_slugs')
+        as effective_keyset_tag_slugs,
+    try_cast(json_extract_string(metrics_json, '$.keyset_closed') as boolean)
+        as keyset_closed,
+    try_cast(json_extract_string(metrics_json, '$.keyset_volume_min') as double)
+        as keyset_volume_min,
+    try_cast(json_extract_string(metrics_json, '$.registry_refreshed') as boolean)
+        as registry_refreshed,
+    try_cast(json_extract_string(metrics_json, '$.events_pages') as bigint)
+        as events_pages,
+    try_cast(json_extract_string(metrics_json, '$.api_requests') as bigint)
+        as api_requests,
+    try_cast(json_extract_string(metrics_json, '$.markets_collected') as bigint)
+        as markets_collected,
+    try_cast(json_extract_string(metrics_json, '$.token_rows_collected') as bigint)
+        as token_rows_collected,
+    try_cast(json_extract_string(metrics_json, '$.total_fetched') as bigint)
+        as total_fetched,
     try_cast(json_extract_string(metrics_json, '$.noop') as boolean) as is_noop,
     try_cast(json_extract_string(metrics_json, '$.duration_seconds') as double)
         as duration_seconds,

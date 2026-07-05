@@ -1,4 +1,10 @@
-with current_token_prices as (
+with contract as (
+    select live_freshness_hours
+    from {{ ref('polymarket_wc2026_contract') }}
+    where scope_name = 'wc2026'
+),
+
+current_token_prices as (
     select
         clob_token_id,
         arg_max(close_price, odds_hour_epoch) as current_price,
@@ -56,6 +62,7 @@ with_prices as (
         k.goals_against,
         k.latest_completed_match_date,
         k.latest_completed_stage_key,
+        contract.live_freshness_hours,
         case
             when p.current_price_hour_epoch is not null
                 then round((epoch(current_timestamp) - p.current_price_hour_epoch) / 3600.0, 4)
@@ -63,6 +70,8 @@ with_prices as (
     from {{ ref('polymarket_wc2026_knockout_market_tokens') }} as k
     left join current_token_prices as p
         on k.clob_token_id = p.clob_token_id
+    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    cross join contract
 )
 
 select
@@ -118,8 +127,11 @@ select
         when market_status = 'closed' then 'historical_closed'
         when market_status = 'inactive' then 'inactive'
         when market_status = 'live' and current_price is null then 'missing_live'
-        when market_status = 'live' and current_price_age_hours <= 3 then 'fresh_live'
+        when market_status = 'live' and current_price_age_hours <= live_freshness_hours then 'fresh_live'
         when market_status = 'live' then 'stale_live'
     end as current_price_status,
-    coalesce(market_status = 'live' and current_price_age_hours <= 3, false) as is_current_price_fresh
+    coalesce(
+        market_status = 'live' and current_price_age_hours <= live_freshness_hours,
+        false
+    ) as is_current_price_fresh
 from with_prices

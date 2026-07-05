@@ -74,6 +74,7 @@ def test_definitions_expose_v010_asset_keys():
         ("polymarket", "wc2026", "staging", "token_sync_skips"),
         ("polymarket", "wc2026", "intermediate", "markets"),
         ("polymarket", "wc2026", "intermediate", "market_tokens"),
+        ("polymarket", "wc2026", "intermediate", "knockout_market_classification"),
         ("polymarket", "wc2026", "intermediate", "token_universe"),
         ("polymarket", "wc2026", "marts", "knockout_market_tokens"),
         ("polymarket", "wc2026", "marts", "knockout_markets"),

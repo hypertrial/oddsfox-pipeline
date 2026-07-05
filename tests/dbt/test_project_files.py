@@ -42,6 +42,8 @@ def test_dbt_project_sources_are_wc2026_only():
     assert (
         dbt_root / "seeds" / "international_results_wc2026_team_aliases.csv"
     ).exists()
+    assert (dbt_root / "seeds" / "polymarket_wc2026_contract.csv").exists()
+    assert (dbt_root / "seeds" / "schema.yml").exists()
     assert (
         dbt_root
         / "models"
@@ -77,6 +79,29 @@ def test_time_series_marts_are_materialized_tables():
     )
     assert "polymarket_wc2026_token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_daily_odds" not in marts
+
+
+def test_wc2026_contract_seed_is_configured_and_documented():
+    dbt_root = Path(__file__).resolve().parents[2] / "dbt"
+    project = yaml.safe_load((dbt_root / "dbt_project.yml").read_text())
+    seeds = project["seeds"]["oddsfox"]
+    seed_docs = yaml.safe_load((dbt_root / "seeds" / "schema.yml").read_text())
+    documented = {seed["name"] for seed in seed_docs["seeds"]}
+
+    assert seeds["polymarket_wc2026_contract"]["+schema"] == "polymarket_wc2026_staging"
+    assert "polymarket_wc2026_contract" in documented
+
+
+def test_knockout_classifier_intermediate_exists_and_is_documented():
+    dbt_root = Path(__file__).resolve().parents[2] / "dbt"
+    intermediate_root = dbt_root / "models" / "polymarket_wc2026" / "intermediate"
+    docs = yaml.safe_load((intermediate_root / "intermediate.yml").read_text())
+    documented = {model["name"] for model in docs["models"]}
+
+    assert (
+        intermediate_root / "int_polymarket_wc2026_knockout_market_classification.sql"
+    ).exists()
+    assert "int_polymarket_wc2026_knockout_market_classification" in documented
 
 
 def test_knockout_observability_models_are_documented():

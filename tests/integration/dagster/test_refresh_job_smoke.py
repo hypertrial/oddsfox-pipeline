@@ -25,6 +25,7 @@ from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_dbt,
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_market_metadata_backfill,
+    polymarket_wc2026_raw_markets,
     polymarket_wc2026_raw_markets_snapshot,
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
@@ -64,7 +65,7 @@ def _fake_sync_market_scope_registry(**kwargs):
 
 
 def _seed_dlt_owned_markets(market_page: list[dict]) -> None:
-    """dlt owns polymarket_wc2026_raw.markets; snapshot sync only writes tokens."""
+    """dlt owns polymarket_wc2026_raw.markets; this test's dlt resource is a noop."""
     df = process_markets_dataframe(market_page)
     market_data, _token_data = prepare_batch_for_db(df)
     if not market_data:
@@ -242,30 +243,33 @@ oddsfox:
     noop_dlt = MagicMock()
     noop_dlt.run.return_value = iter([])
 
-    result = materialize(
+    ingest_result = materialize(
         [
             international_results_wc2026_raw_match_results,
+            polymarket_wc2026_raw_markets,
             polymarket_wc2026_raw_markets_snapshot,
             polymarket_wc2026_ops_market_scope_registry,
             polymarket_wc2026_raw_market_metadata_backfill,
-            polymarket_wc2026_raw_token_odds_history_hourly,
-            polymarket_wc2026_dbt,
         ],
         resources={
-            "dbt": DbtCliResource(
-                project_dir=DBT_PROJECT,
-                profiles_dir=str(profiles_dir),
-                dbt_executable=resolve_dbt_executable(),
-            ),
             "dlt": noop_dlt,
         },
         run_config={
             "ops": {
-                "polymarket_wc2026_raw_markets_snapshot": {
+                "polymarket_wc2026_raw_markets": {
                     "config": {
                         "discovery_mode": "targeted",
                     }
                 },
+            }
+        },
+    )
+    assert ingest_result.success is True
+
+    odds_result = materialize(
+        [polymarket_wc2026_raw_token_odds_history_hourly],
+        run_config={
+            "ops": {
                 "polymarket_wc2026_raw_token_odds_history_hourly": {
                     "config": {
                         "workers": 1,
@@ -283,6 +287,22 @@ oddsfox:
                         "progress_poll_seconds": 1,
                     }
                 },
+            }
+        },
+    )
+    assert odds_result.success is True
+
+    dbt_result = materialize(
+        [polymarket_wc2026_dbt],
+        resources={
+            "dbt": DbtCliResource(
+                project_dir=DBT_PROJECT,
+                profiles_dir=str(profiles_dir),
+                dbt_executable=resolve_dbt_executable(),
+            ),
+        },
+        run_config={
+            "ops": {
                 "polymarket_wc2026_dbt": {
                     "config": {
                         "progress_log_interval_events": 1,
@@ -295,7 +315,7 @@ oddsfox:
             }
         },
     )
-    assert result.success is True
+    assert dbt_result.success is True
     return db_path
 
 

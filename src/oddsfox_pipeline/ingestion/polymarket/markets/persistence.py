@@ -6,9 +6,43 @@ focused on control flow rather than storage details.
 """
 
 from datetime import datetime
-from typing import List, Tuple
+from typing import Iterable, List, Tuple
 
 import polars as pl
+
+MARKET_RECORD_COLUMNS = (
+    "id",
+    "question",
+    "category",
+    "description",
+    "outcomes",
+    "volume",
+    "active",
+    "closed",
+    "created_at",
+    "scraped_at",
+    "end_date",
+    "slug",
+    "event_slug",
+    "event_id",
+    "condition_id",
+    "sports_market_type",
+    "game_start_time",
+    "group_item_title",
+    "tags",
+    "clob_token_ids",
+    "is_resolved",
+    "winning_outcome",
+    "winning_clob_token_id",
+)
+
+
+def market_records_to_dicts(market_data: Iterable[Tuple]) -> list[dict]:
+    rows_by_id: dict[str, dict] = {}
+    for row in market_data:
+        payload = dict(zip(MARKET_RECORD_COLUMNS, row, strict=True))
+        rows_by_id[str(payload["id"])] = payload
+    return list(rows_by_id.values())
 
 
 def prepare_batch_for_db(df: pl.DataFrame) -> Tuple[List[Tuple], List[Tuple]]:

@@ -173,7 +173,7 @@ models:
       - name: current_price_age_hours
         description: Age of the latest hourly close in hours at dbt build time.
       - name: is_current_price_fresh
-        description: True for live rows whose latest hourly close is no more than 3 hours old.
+        description: True for live rows whose latest hourly close is within the WC2026 contract freshness window.
         tests: [not_null]
       - name: canonical_team_name
         description: Canonical WC2026 team name from the FIFA World Cup fixture/results mart.

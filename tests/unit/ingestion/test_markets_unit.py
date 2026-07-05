@@ -116,6 +116,33 @@ def _event_market(market_id: str = "m1") -> dict:
     }
 
 
+def test_collect_market_scope_payload_returns_shared_market_and_token_rows(monkeypatch):
+    monkeypatch.setattr(
+        markets_sync, "load_market_scope_config", lambda **_kwargs: _SLUG_ONLY_CFG
+    )
+    monkeypatch.setattr(
+        markets_sync,
+        "refresh_registry_and_collect_markets_targeted",
+        lambda client, config, progress_callback=None: (
+            {"registry_rows_upserted": 1},
+            [_event_market()],
+            {"events_pages": 0, "api_requests": 1, "registry_refreshed": True},
+        ),
+    )
+
+    payload = markets_sync.collect_market_scope_payload(
+        client_factory=lambda: object(),
+        discovery_mode="targeted",
+    )
+
+    assert payload["raw_markets"][0]["id"] == "m1"
+    assert payload["market_rows"][0]["id"] == "m1"
+    assert payload["token_rows"] == [("m1", '["t1", "t2"]')]
+    assert payload["run_summary"]["markets_collected"] == 1
+    assert payload["run_summary"]["token_rows_collected"] == 1
+    assert payload["run_summary"]["api_requests"] == 1
+
+
 def test_sync_markets_targeted_saves_tokens(monkeypatch):
     saved: list = []
     progress = []

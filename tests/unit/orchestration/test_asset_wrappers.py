@@ -10,6 +10,7 @@ from oddsfox_pipeline.orchestration import config as orch_config
 from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_markets,
+    polymarket_wc2026_raw_markets_snapshot,
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
 
@@ -51,11 +52,27 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
         yield conn
 
     monkeypatch.setattr(assets_mod, "get_polymarket_dlt_pipeline", lambda: pipeline)
-    monkeypatch.setattr(assets_mod, "collect_raw_markets", lambda: [{"id": "raw"}])
+    token_rows = [("raw", '["tok-yes", "tok-no"]')]
+    saved_tokens = []
+    saved_metrics = {}
     monkeypatch.setattr(
         assets_mod,
-        "normalize_market_payloads_for_dlt",
-        lambda rows: [{"id": rows[0]["id"]}],
+        "collect_market_scope_payload",
+        lambda **_kwargs: {
+            "market_rows": [{"id": "raw"}],
+            "token_rows": token_rows,
+            "run_summary": {"task": "sync_markets", "total_fetched": 1},
+        },
+    )
+    monkeypatch.setattr(
+        assets_mod,
+        "save_market_tokens_batch",
+        lambda rows: saved_tokens.extend(rows),
+    )
+    monkeypatch.setattr(
+        assets_mod,
+        "save_sync_run_metrics",
+        lambda task, metrics: saved_metrics.update({"task": task, **metrics}),
     )
     monkeypatch.setattr(
         assets_mod, "polymarket_markets_source", lambda *, rows=(): source
@@ -65,11 +82,36 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
     monkeypatch.setattr(assets_mod, "ensure_polymarket_indexes", ensure_indexes)
 
     fn = polymarket_wc2026_raw_markets.op.compute_fn.decorated_fn
-    assert list(fn(MagicMock(), fake_dlt)) == ["event"]
+    assert list(fn(MagicMock(), orch_config.MarketsSyncConfig(), fake_dlt)) == ["event"]
 
     pipeline.drop_pending_packages.assert_called_once()
     fake_dlt.run.assert_called_once()
+    assert saved_tokens == token_rows
+    assert saved_metrics["task"] == "sync_markets"
     ensure_indexes.assert_called_once_with(conn)
+
+
+def test_raw_markets_snapshot_is_local_only(monkeypatch):
+    sync_markets = MagicMock()
+    monkeypatch.setattr(assets_mod.ops, "sync_markets", sync_markets)
+    monkeypatch.setattr(assets_mod, "format_raw_snapshot_log", lambda _snapshot: "")
+    monkeypatch.setattr(
+        assets_mod,
+        "_run_with_raw_snapshot",
+        lambda _level, run_fn: (
+            run_fn({"pre": 1}),
+            {"pre": 1},
+            {"post": 1},
+            {"delta": 0},
+            {"raw": "metadata"},
+        ),
+    )
+
+    fn = polymarket_wc2026_raw_markets_snapshot.op.compute_fn.decorated_fn
+    result = fn(MagicMock(), orch_config.MarketsSyncConfig())
+
+    sync_markets.assert_not_called()
+    assert set(result.metadata) == {"source", "raw"}
 
 
 def test_market_scope_registry_skips_when_snapshot_already_refreshed(monkeypatch):

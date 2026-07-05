@@ -1,0 +1,37 @@
+version: 2
+
+seeds:
+  - name: polymarket_wc2026_contract
+    description: Internal WC2026 contract constants shared by dbt models/tests and Python parity tests.
+    columns:
+      - name: scope_name
+        description: Fixed scope name for the WC2026 Polymarket pipeline.
+        tests: [not_null, unique]
+      - name: knockout_min_volume_usd
+        description: Minimum reported Polymarket market volume admitted into the knockout public scope.
+        tests: [not_null]
+      - name: hourly_window_days
+        description: Trailing hourly odds window in days.
+        tests: [not_null]
+      - name: hourly_window_hours
+        description: Trailing hourly odds window in hours.
+        tests: [not_null]
+      - name: live_freshness_hours
+        description: Maximum age in hours for a live knockout current price to be fresh.
+        tests: [not_null]
+      - name: results_freshness_hours
+        description: Maximum age in hours before the FIFA result source load is stale.
+        tests: [not_null]
+      - name: round_of_32_min_raw_markets_ge_floor
+        description: Warning threshold for raw Round-of-32 market coverage above the knockout volume floor.
+        tests: [not_null]
+
+  - name: international_results_wc2026_team_aliases
+    description: Small naming bridge for joining Polymarket team labels to FIFA World Cup team names.
+    columns:
+      - name: market_team_name
+        description: Team label as seen in Polymarket market questions.
+        tests: [not_null, unique]
+      - name: canonical_team_name
+        description: Canonical team name in the international_results WC2026 marts.
+        tests: [not_null]

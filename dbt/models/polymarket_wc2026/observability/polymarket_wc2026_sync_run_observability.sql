@@ -2,6 +2,17 @@ select
     run_id,
     task_name,
     recorded_at,
+    scope_name,
+    discovery_mode,
+    effective_keyset_tag_slugs,
+    keyset_closed,
+    keyset_volume_min,
+    registry_refreshed,
+    events_pages,
+    api_requests,
+    markets_collected,
+    token_rows_collected,
+    total_fetched,
     is_noop,
     duration_seconds,
     planned_tokens,
@@ -48,4 +59,4 @@ select
         else rows_fetched::double / processed_tokens
     end as rows_per_processed_token
 from {{ ref('stg_polymarket_wc2026_pipeline_run_events') }}
-where task_name in ('sync_odds', 'reconcile_odds_ledger')
+where task_name in ('sync_markets', 'sync_odds', 'reconcile_odds_ledger')

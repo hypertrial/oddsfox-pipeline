@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 import yaml
 
 from oddsfox_pipeline.config.settings_polymarket import (
     DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
+    POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
 )
 from oddsfox_pipeline.ingestion.polymarket.market_scope import load_market_scope_config
 from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
+from oddsfox_pipeline.orchestration.config import HourlyOddsSyncConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DBT_PROJECT = REPO_ROOT / "dbt" / "dbt_project.yml"
@@ -24,6 +27,7 @@ SCOPE_SEED = (
     / "seeds"
     / "market_scopes.yml"
 )
+DBT_CONTRACT_SEED = REPO_ROOT / "dbt" / "seeds" / "polymarket_wc2026_contract.csv"
 
 
 def test_default_market_scope_matches_dbt_contract() -> None:
@@ -54,6 +58,22 @@ def test_market_scope_keyset_discovery_defaults(monkeypatch) -> None:
 
     assert closed is False
     assert volume_min == 5000.0
+
+
+def test_wc2026_contract_seed_matches_python_defaults() -> None:
+    with DBT_CONTRACT_SEED.open(newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    assert len(rows) == 1
+    row = rows[0]
+    hourly_cfg = HourlyOddsSyncConfig()
+
+    assert row["scope_name"] == "wc2026"
+    assert (
+        float(row["knockout_min_volume_usd"])
+        == POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD
+    )
+    assert int(row["hourly_window_days"]) == hourly_cfg.history_backfill_days
+    assert int(row["hourly_window_hours"]) == hourly_cfg.window_hours
 
 
 def test_market_scope_keyset_discovery_omit_filters_via_empty_env(monkeypatch) -> None:

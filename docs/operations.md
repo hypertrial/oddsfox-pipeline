@@ -42,8 +42,14 @@ scripts have stale shebangs:
 
 The shipped Dagster jobs and dbt graph are fixed to `wc2026`.
 
-- `polymarket/wc2026/raw/markets_snapshot` and `polymarket/wc2026/ops/market_scope_registry`
-  refresh `polymarket_wc2026_ops.market_scope_registry` for WC2026.
+- `polymarket/wc2026/raw/markets` performs the single Gamma market discovery pass,
+  lands raw market rows through dlt, and persists token mappings from the same
+  payload after market landing succeeds.
+- `polymarket/wc2026/raw/markets_snapshot` records a local raw-layer snapshot
+  for lineage/accounting and does not call Gamma.
+- `polymarket/wc2026/ops/market_scope_registry` refreshes
+  `polymarket_wc2026_ops.market_scope_registry` only when the preceding market
+  discovery did not already refresh the registry.
 - `polymarket/wc2026/raw/market_metadata_backfill` and
   `polymarket/wc2026/raw/token_odds_history_hourly` run over the fixed WC2026
   registry.
@@ -76,10 +82,11 @@ POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 
 ## Landing And Finalization
 
-Canonical raw and ops table schemas remain stable for operators and dbt. dlt now
-lands markets, market-token batches, odds-history batches, WC2026 registry
-batches, and pipeline run-event batches; dlt stage tables and `_dlt*` metadata
-tables are internal.
+Canonical raw and ops table schemas remain stable for operators and dbt. dlt
+lands markets, odds-history batches, WC2026 registry batches, and pipeline
+run-event batches; dlt stage tables and `_dlt*` metadata tables are internal.
+Raw market-token mappings are extracted from the same Gamma payload as markets
+and finalized through the canonical DuckDB helper.
 
 Scheduler ledger rows, skip state, and daily odds aggregates remain custom SQL
 finalizers because they preserve monotonic cursors, scheduler state, first-seen

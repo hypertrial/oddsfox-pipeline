@@ -1,0 +1,2 @@
+scope_name,knockout_min_volume_usd,hourly_window_days,hourly_window_hours,live_freshness_hours,results_freshness_hours,round_of_32_min_raw_markets_ge_floor
+wc2026,5000,30,720,3,12,32

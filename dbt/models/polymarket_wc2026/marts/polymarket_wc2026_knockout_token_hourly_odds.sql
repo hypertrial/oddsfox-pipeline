@@ -1,4 +1,10 @@
-with hourly_odds as (
+with contract as (
+    select hourly_window_days
+    from {{ ref('polymarket_wc2026_contract') }}
+    where scope_name = 'wc2026'
+),
+
+hourly_odds as (
     select
         k.market_id,
         k.outcome_index,
@@ -50,11 +56,13 @@ with hourly_odds as (
     from {{ ref('polymarket_wc2026_knockout_market_tokens') }} as k
     inner join {{ ref('stg_polymarket_wc2026_odds') }} as o
         on k.clob_token_id = o.clob_token_id
+    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    cross join contract
     where
         o.price is not null
         and o.odds_timestamp is not null
         and o.odds_timestamp_epoch is not null
-        and o.odds_timestamp >= current_timestamp - interval 30 day
+        and o.odds_timestamp >= current_timestamp - (contract.hourly_window_days * interval '1 day')
 ),
 
 ranked as (

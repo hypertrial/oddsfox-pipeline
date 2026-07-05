@@ -103,3 +103,63 @@ models:
         description: Whether the market is closed in staging metadata.
       - name: market_volume_usd
         description: Reported market volume from staging metadata.
+
+  - name: int_polymarket_wc2026_knockout_market_classification
+    description: >
+      Shared WC2026 knockout market classifier used by public knockout marts and
+      observability. One row per real-team knockout market question.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_id]
+    columns:
+      - name: market_id
+        description: Polymarket market identifier.
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('stg_polymarket_wc2026_markets')
+                field: market_id
+      - name: stage_key
+        description: Normalized WC2026 knockout stage key.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - winner
+                  - final
+                  - semifinal
+                  - quarterfinal
+                  - round_of_16
+                  - round_of_32
+      - name: market_direction
+        description: Source market wording direction.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['winner', 'advance', 'elimination']
+      - name: progression_outcome_label
+        description: Stable normalized progression outcome represented by progression-side odds.
+        tests: [not_null]
+      - name: team_name
+        description: Team extracted from the source question.
+        tests: [not_null]
+      - name: canonical_team_name
+        description: Canonical WC2026 team name from the FIFA World Cup fixture/results mart.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('international_results_wc2026_team_status')
+                field: team_name
+      - name: market_status
+        description: Derived market state; closed wins over active when both source flags are true.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['resolved', 'closed', 'live', 'inactive']

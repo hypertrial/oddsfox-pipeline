@@ -157,7 +157,7 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
     assert actual_op_names == EXPECTED_OP_NAMES
     assert run_config_ops == EXPECTED_OP_NAMES - {
         "international_results_wc2026_raw_match_results",
-        "polymarket_wc2026_raw_markets",
+        "polymarket_wc2026_raw_markets_snapshot",
     }
 
 

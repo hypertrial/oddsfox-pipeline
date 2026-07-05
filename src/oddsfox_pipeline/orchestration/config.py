@@ -201,9 +201,7 @@ def polymarket_wc2026_full_refresh_events_run_config() -> dict:
     metadata_cfg = MetadataBackfillConfig()
     return {
         "ops": {
-            "polymarket_wc2026_raw_markets_snapshot": {
-                "config": markets_cfg.model_dump()
-            },
+            "polymarket_wc2026_raw_markets": {"config": markets_cfg.model_dump()},
             "polymarket_wc2026_ops_market_scope_registry": {
                 "config": registry_cfg.model_dump()
             },

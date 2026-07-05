@@ -56,10 +56,17 @@ oddsfox:
             yield None
 
     monkeypatch.setattr(assets_mod, "get_polymarket_dlt_pipeline", lambda: pipeline)
-    monkeypatch.setattr(assets_mod, "collect_raw_markets", lambda: [])
     monkeypatch.setattr(
-        assets_mod, "normalize_market_payloads_for_dlt", lambda _rows: []
+        assets_mod,
+        "collect_market_scope_payload",
+        lambda **_kwargs: {
+            "market_rows": [],
+            "token_rows": [],
+            "run_summary": {"task": "sync_markets", "total_fetched": 0},
+        },
     )
+    monkeypatch.setattr(assets_mod, "save_market_tokens_batch", lambda _rows: None)
+    monkeypatch.setattr(assets_mod, "save_sync_run_metrics", lambda *_args: None)
     monkeypatch.setattr(assets_mod, "get_connection", connection)
     monkeypatch.setattr(assets_mod, "ensure_polymarket_indexes", lambda _conn: None)
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})

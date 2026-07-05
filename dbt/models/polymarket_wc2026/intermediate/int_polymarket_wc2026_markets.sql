@@ -32,6 +32,12 @@ registry as (
         scope_name
     from {{ source('polymarket_wc2026_ops', 'market_scope_registry') }}
     where lower(scope_name) = 'wc2026'
+),
+
+contract as (
+    select knockout_min_volume_usd
+    from {{ ref('polymarket_wc2026_contract') }}
+    where scope_name = 'wc2026'
 )
 
 select
@@ -62,5 +68,6 @@ select
 from markets
 inner join registry
     on markets.market_id = registry.market_id
--- ponytail: keep in sync with POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD.
-where coalesce(markets.volume, 0) >= 5000
+-- costguard: allow cross-join, WC2026 contract seed has one row.
+cross join contract
+where coalesce(markets.volume, 0) >= contract.knockout_min_volume_usd

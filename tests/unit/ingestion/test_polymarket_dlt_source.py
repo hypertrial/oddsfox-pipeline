@@ -142,57 +142,31 @@ def test_normalize_market_payloads_for_dlt_dedupes_by_id_last_wins():
 
 
 def test_collect_raw_markets_targeted(monkeypatch):
-    client = object()
-    config = object()
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.dlt_source.build_client", lambda: client
-    )
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.dlt_source.load_market_scope_config",
-        lambda **_kwargs: config,
-    )
-
     seen = {}
 
-    def targeted(got_client, *, config):
-        seen["client"] = got_client
-        seen["config"] = config
-        return {}, [{"id": "m1"}], {}
+    def collect(**kwargs):
+        seen.update(kwargs)
+        return {"raw_markets": [{"id": "m1"}]}
 
     monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.dlt_source.refresh_registry_and_collect_markets_targeted",
-        targeted,
+        "oddsfox_pipeline.ingestion.polymarket.dlt_source.collect_market_scope_payload",
+        collect,
     )
 
     assert collect_raw_markets(discovery_mode="targeted") == [{"id": "m1"}]
-    assert seen == {"client": client, "config": config}
+    assert seen["discovery_mode"] == "targeted"
 
 
-def test_collect_raw_markets_full_keyset_resolves_tags(monkeypatch):
-    client = object()
-    config = object()
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.dlt_source.build_client", lambda: client
-    )
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.dlt_source.load_market_scope_config",
-        lambda **_kwargs: config,
-    )
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.dlt_source.resolve_keyset_tag_slugs",
-        lambda slugs, *, config, client: ["world-cup"],
-    )
-
+def test_collect_raw_markets_forwards_full_keyset_options(monkeypatch):
     seen = {}
 
-    def from_events(got_client, **kwargs):
-        seen["client"] = got_client
+    def collect(**kwargs):
         seen.update(kwargs)
-        return {}, [{"id": "m2"}], {}
+        return {"raw_markets": [{"id": "m2"}]}
 
     monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.dlt_source.refresh_registry_and_collect_markets_from_events",
-        from_events,
+        "oddsfox_pipeline.ingestion.polymarket.dlt_source.collect_market_scope_payload",
+        collect,
     )
 
     assert collect_raw_markets(
@@ -202,10 +176,8 @@ def test_collect_raw_markets_full_keyset_resolves_tags(monkeypatch):
         keyset_tag_slugs=["seed"],
         keyset_volume_min=None,
     ) == [{"id": "m2"}]
-    assert seen["client"] is client
-    assert seen["config"] is config
-    assert seen["max_pages"] == 3
+    assert seen["max_event_pages"] == 3
     assert seen["max_pages_without_progress"] == 2
     assert seen["keyset_closed"] is None
-    assert seen["keyset_tag_slugs"] == ["world-cup"]
+    assert seen["keyset_tag_slugs"] == ["seed"]
     assert seen["keyset_volume_min"] is None

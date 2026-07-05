@@ -14,6 +14,13 @@ MODEL_SQL = (
     / "marts"
     / "polymarket_wc2026_knockout_market_tokens.sql"
 ).read_text()
+CLASSIFIER_SQL = (
+    DBT_ROOT
+    / "models"
+    / "polymarket_wc2026"
+    / "intermediate"
+    / "int_polymarket_wc2026_knockout_market_classification.sql"
+).read_text()
 
 _FIXTURE_ROWS = """
     ('m-winner', 0, 'tok-w-yes', 'Will Argentina win the 2026 FIFA World Cup?', 'Yes'),
@@ -67,6 +74,34 @@ _FIXTURE_SOURCE = f"""
     )
 """
 
+_FIXTURE_MARKETS = f"""
+    select distinct
+        market_id,
+        question,
+        cast(null as varchar) as category,
+        cast(null as varchar) as description,
+        cast(null as varchar) as outcomes,
+        market_volume_usd as volume,
+        is_active,
+        is_closed,
+        cast(null as timestamp) as created_at,
+        cast(null as timestamp) as scraped_at,
+        cast(null as timestamp) as end_date,
+        market_slug as slug,
+        event_slug,
+        cast(null as varchar) as event_id,
+        condition_id,
+        sports_market_type,
+        game_start_time,
+        group_item_title,
+        tags,
+        clob_token_ids,
+        is_resolved,
+        winning_outcome,
+        winning_clob_token_id
+    from ({_FIXTURE_SOURCE.strip()}) as tokens
+"""
+
 _ALIASES = """
     select *
     from (values ('USA', 'United States')) as t(market_team_name, canonical_team_name)
@@ -100,16 +135,26 @@ _TEAM_STATUS = """
 
 
 def _run_classification() -> list[tuple]:
-    sql = MODEL_SQL.replace(
-        "from {{ ref('int_polymarket_wc2026_market_tokens') }} as t",
-        f"from ({_FIXTURE_SOURCE.strip()}) as t",
+    classifier_sql = (
+        CLASSIFIER_SQL.replace(
+            "from {{ ref('stg_polymarket_wc2026_markets') }} as m",
+            f"from ({_FIXTURE_MARKETS.strip()}) as m",
+        )
+        .replace(
+            "{{ ref('international_results_wc2026_team_aliases') }}",
+            f"({_ALIASES.strip()})",
+        )
+        .replace(
+            "{{ ref('international_results_wc2026_team_status') }}",
+            f"({_TEAM_STATUS.strip()})",
+        )
     )
-    sql = sql.replace(
-        "{{ ref('international_results_wc2026_team_aliases') }}",
-        f"({_ALIASES.strip()})",
+    sql = MODEL_SQL.replace(
+        "{{ ref('int_polymarket_wc2026_market_tokens') }}",
+        f"({_FIXTURE_SOURCE.strip()})",
     ).replace(
-        "{{ ref('international_results_wc2026_team_status') }}",
-        f"({_TEAM_STATUS.strip()})",
+        "{{ ref('int_polymarket_wc2026_knockout_market_classification') }}",
+        f"({classifier_sql})",
     )
     conn = duckdb.connect()
     try:

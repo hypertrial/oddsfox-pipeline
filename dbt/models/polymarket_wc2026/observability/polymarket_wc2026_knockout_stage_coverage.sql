@@ -1,57 +1,29 @@
-with raw_with_classification as (
-    select
-        market_id,
-        volume as market_volume_usd,
-        case
-            when coalesce(is_resolved, false) then 'resolved'
-            when coalesce(is_closed, false) then 'closed'
-            when coalesce(is_active, false) then 'live'
-            else 'inactive'
-        end as market_status,
-        coalesce(is_active, false) and coalesce(is_closed, false) as source_state_anomaly,
-        case
-            when question like 'Will % win the 2026 FIFA World Cup?' then 'winner'
-            when question like 'Will % reach the 2026 FIFA World Cup final?' then 'final'
-            when question like 'Will % reach the Semifinals at the 2026 FIFA World Cup?' then 'semifinal'
-            when question like 'Will % reach the Quarterfinals at the 2026 FIFA World Cup?' then 'quarterfinal'
-            when question like 'Will % reach the Round of 16 at the 2026 FIFA World Cup?' then 'round_of_16'
-            when question like 'Will % be eliminated in the Round of 16 of the World Cup?' then 'round_of_16'
-            when question like 'Will % reach the Round of 32 at the 2026 FIFA World Cup?' then 'round_of_32'
-            when question like 'Will % be eliminated in the Round of 32 of the World Cup?' then 'round_of_32'
-        end as stage_key,
-        case
-            when question like 'Will % win the 2026 FIFA World Cup?' then 5
-            when question like 'Will % reach the 2026 FIFA World Cup final?' then 4
-            when question like 'Will % reach the Semifinals at the 2026 FIFA World Cup?' then 3
-            when question like 'Will % reach the Quarterfinals at the 2026 FIFA World Cup?' then 2
-            when question like 'Will % reach the Round of 16 at the 2026 FIFA World Cup?' then 1
-            when question like 'Will % be eliminated in the Round of 16 of the World Cup?' then 1
-            when question like 'Will % reach the Round of 32 at the 2026 FIFA World Cup?' then 0
-            when question like 'Will % be eliminated in the Round of 32 of the World Cup?' then 0
-        end as stage_rank,
-        case
-            when question like 'Will % win the 2026 FIFA World Cup?' then 'winner'
-            when question like 'Will % be eliminated in the Round of 16 of the World Cup?' then 'elimination'
-            when question like 'Will % be eliminated in the Round of 32 of the World Cup?' then 'elimination'
-            when question like 'Will % reach %' then 'advance'
-        end as market_direction
-    from {{ ref('stg_polymarket_wc2026_markets') }}
+with contract as (
+    select *
+    from {{ ref('polymarket_wc2026_contract') }}
+    where scope_name = 'wc2026'
 ),
 
 raw_stage as (
     select
-        stage_key,
-        stage_rank,
-        market_direction,
-        market_status,
-        count(distinct market_id) as raw_classified_markets,
-        count(distinct case when coalesce(market_volume_usd, 0) >= 5000 then market_id end)
-            as raw_classified_markets_ge_5000,
-        count(distinct case when source_state_anomaly then market_id end) as raw_source_state_anomaly_markets,
-        min(market_volume_usd) as raw_min_volume_usd,
-        max(market_volume_usd) as raw_max_volume_usd
-    from raw_with_classification
-    where stage_key is not null
+        c.stage_key,
+        c.stage_rank,
+        c.market_direction,
+        c.market_status,
+        count(distinct c.market_id) as raw_classified_markets,
+        count(
+            distinct case
+                when coalesce(c.market_volume_usd, 0) >= contract.knockout_min_volume_usd
+                    then c.market_id
+            end
+        ) as raw_classified_markets_ge_5000,
+        count(distinct case when c.source_state_anomaly then c.market_id end)
+            as raw_source_state_anomaly_markets,
+        min(c.market_volume_usd) as raw_min_volume_usd,
+        max(c.market_volume_usd) as raw_max_volume_usd
+    from {{ ref('int_polymarket_wc2026_knockout_market_classification') }} as c
+    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    cross join contract
     group by 1, 2, 3, 4
 ),
 

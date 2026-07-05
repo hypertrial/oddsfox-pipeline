@@ -20,6 +20,7 @@ from oddsfox_pipeline.ingestion.polymarket.market_scope import (
 )
 from oddsfox_pipeline.ingestion.polymarket.markets.fetch import build_client
 from oddsfox_pipeline.ingestion.polymarket.markets.persistence import (
+    market_records_to_dicts,
     prepare_batch_for_db,
 )
 from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
@@ -43,21 +44,29 @@ def _resolve_discovery_mode(
     return discovery_mode
 
 
-def _sync_markets_for_scope(
-    client: object,
+def collect_market_scope_payload(
+    client_factory: Callable[[], object] | None = None,
     *,
     scope_name: str | None = None,
-    discovery_mode: DiscoveryMode,
-    max_event_pages: int | None,
-    max_pages_without_progress: int | None,
+    discovery_mode: DiscoveryMode = DISCOVERY_MODE_FULL_KEYSET,
+    force_full_discovery: bool = False,
+    max_event_pages: int | None = None,
+    max_pages_without_progress: int | None = None,
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
     keyset_volume_min: float | None = POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> Dict[str, Any]:
-    """Ingest WC2026 markets via targeted or full keyset Gamma discovery."""
+    """Collect WC2026 Gamma markets once and normalize both market and token rows."""
+    effective_mode = _resolve_discovery_mode(
+        discovery_mode=discovery_mode,
+        force_full_discovery=force_full_discovery,
+    )
+    factory = client_factory or build_client
+    client = factory()
     cfg = load_market_scope_config(scope_name=scope_name)
-    if discovery_mode == DISCOVERY_MODE_TARGETED:
+    effective_keyset_tag_slugs: list[str] | None = None
+    if effective_mode == DISCOVERY_MODE_TARGETED:
         registry_summary, raw_markets, collect_meta = (
             refresh_registry_and_collect_markets_targeted(
                 client,
@@ -82,13 +91,22 @@ def _sync_markets_for_scope(
             )
         )
 
+    market_data = []
+    token_data = []
     total_fetched = 0
     if raw_markets:
         df = process_markets_dataframe(raw_markets)
         market_data, token_data = prepare_batch_for_db(df)
-        if market_data:
-            save_market_tokens_batch(token_data)
-            total_fetched = len(market_data)
+        total_fetched = len(market_data)
+
+    collect_meta = {
+        **collect_meta,
+        "effective_keyset_tag_slugs": effective_keyset_tag_slugs or [],
+        "keyset_closed": keyset_closed,
+        "keyset_volume_min": keyset_volume_min,
+        "markets_collected": total_fetched,
+        "token_rows_collected": len(token_data),
+    }
 
     if progress_callback:
         try:
@@ -99,17 +117,24 @@ def _sync_markets_for_scope(
         except Exception:
             logger.debug("Ignoring markets progress callback failure", exc_info=True)
 
-    return {
+    run_summary = {
         "task": "sync_markets",
         "mode": "market_scope_event_first",
         "scope_name": cfg.scope_name,
-        "discovery_mode": discovery_mode,
+        "discovery_mode": effective_mode,
         "total_fetched": total_fetched,
         "registry_summary": registry_summary,
         "collect_meta": collect_meta,
         "registry_refreshed": collect_meta.get("registry_refreshed", True),
         "events_pages": collect_meta.get("events_pages", 0),
         "api_requests": collect_meta.get("api_requests", 0),
+        "markets_collected": collect_meta.get("markets_collected", total_fetched),
+        "token_rows_collected": collect_meta.get("token_rows_collected", 0),
+        "effective_keyset_tag_slugs": collect_meta.get(
+            "effective_keyset_tag_slugs", []
+        ),
+        "keyset_closed": keyset_closed,
+        "keyset_volume_min": keyset_volume_min,
         "truncated": collect_meta.get("truncated", False),
         "skipped_reason": None,
         "reached_end": not collect_meta.get("truncated", False),
@@ -119,6 +144,42 @@ def _sync_markets_for_scope(
         "aborted": False,
         "abort_reason": None,
     }
+    return {
+        "raw_markets": list(raw_markets),
+        "market_rows": market_records_to_dicts(market_data),
+        "token_rows": list(token_data),
+        "registry_summary": registry_summary,
+        "collect_meta": collect_meta,
+        "run_summary": run_summary,
+    }
+
+
+def _sync_markets_for_scope(
+    client: object,
+    *,
+    scope_name: str | None = None,
+    discovery_mode: DiscoveryMode,
+    max_event_pages: int | None,
+    max_pages_without_progress: int | None,
+    keyset_closed: bool | None = None,
+    keyset_tag_slugs: list[str] | None = None,
+    keyset_volume_min: float | None = POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
+    progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
+) -> Dict[str, Any]:
+    collection = collect_market_scope_payload(
+        client_factory=lambda: client,
+        scope_name=scope_name,
+        discovery_mode=discovery_mode,
+        max_event_pages=max_event_pages,
+        max_pages_without_progress=max_pages_without_progress,
+        keyset_closed=keyset_closed,
+        keyset_tag_slugs=keyset_tag_slugs,
+        keyset_volume_min=keyset_volume_min,
+        progress_callback=progress_callback,
+    )
+    if collection["token_rows"]:
+        save_market_tokens_batch(collection["token_rows"])
+    return dict(collection["run_summary"])
 
 
 def sync_markets(

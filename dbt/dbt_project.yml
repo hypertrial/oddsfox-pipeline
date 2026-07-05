@@ -66,3 +66,7 @@ seeds:
       +schema: international_results_wc2026_staging
       +tags: ["staging", "wc2026", "international_results"]
       +quote_columns: false
+    polymarket_wc2026_contract:
+      +schema: polymarket_wc2026_staging
+      +tags: ["staging", "wc2026", "polymarket"]
+      +quote_columns: false

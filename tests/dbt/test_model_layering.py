@@ -48,10 +48,40 @@ def test_wc2026_knockout_hourly_aggregates_canonical_odds_directly():
 
     assert "{{ ref('polymarket_wc2026_knockout_market_tokens') }}" in lowered
     assert "{{ ref('stg_polymarket_wc2026_odds') }}" in lowered
+    assert "{{ ref('polymarket_wc2026_contract') }}" in lowered
     assert "date_trunc('hour', o.odds_timestamp)" in lowered
     assert "polymarket_wc2026_token_hourly_odds" not in lowered
-    assert "interval 30 day" in lowered
+    assert "hourly_window_days" in lowered
     assert "selected_" not in lowered
+
+
+def test_wc2026_knockout_classifier_is_shared_intermediate():
+    token_sql = (
+        (
+            DBT_ROOT
+            / "models"
+            / "polymarket_wc2026"
+            / "marts"
+            / "polymarket_wc2026_knockout_market_tokens.sql"
+        )
+        .read_text()
+        .lower()
+    )
+    coverage_sql = (
+        (
+            DBT_ROOT
+            / "models"
+            / "polymarket_wc2026"
+            / "observability"
+            / "polymarket_wc2026_knockout_stage_coverage.sql"
+        )
+        .read_text()
+        .lower()
+    )
+
+    classifier_ref = "{{ ref('int_polymarket_wc2026_knockout_market_classification') }}"
+    assert classifier_ref in token_sql
+    assert classifier_ref in coverage_sql
 
 
 def test_wc2026_knockout_snapshot_keeps_historical_rows_with_status():

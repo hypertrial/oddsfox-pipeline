@@ -11,7 +11,9 @@ shipped adapter. For public mart guarantees, see
 Schema: `polymarket_wc2026_raw`
 
 - `markets`: dlt-owned Gamma market landing table with frozen column/type contract.
-- `market_tokens`: one row per market with CLOB token JSON; current batches land through dlt staging and finalize into this canonical table with `INSERT OR REPLACE`.
+- `market_tokens`: one row per market with CLOB token JSON; current batches are
+  extracted from the same Gamma payload as `markets` and finalized into this
+  canonical table with `INSERT OR REPLACE`.
 - `odds_history`: point-in-time CLOB token prices. Indexed by the composite
   primary key `(clobTokenId, timestamp)` for idempotent upserts. Operators may
   prune rows older than 365 days with `make prune-odds-history` (manual; not automatic).
@@ -59,8 +61,11 @@ Schema: `polymarket_wc2026_intermediate`
 - `int_polymarket_wc2026_token_universe`: materialized canonical one-row-per-token
   join of market tokens to market labels, state, and volume.
 - `int_polymarket_wc2026_markets`: markets admitted by the fixed WC2026 scope;
-  one row per `(scope_name, market_id)` with the $5,000 knockout volume floor.
+  one row per `(scope_name, market_id)` with the knockout volume floor from the
+  WC2026 contract seed.
 - `int_polymarket_wc2026_market_tokens`: WC2026 subset of the token universe.
+- `int_polymarket_wc2026_knockout_market_classification`: shared real-team
+  knockout market classifier used by public knockout marts and observability.
 
 ## dbt Marts
 
@@ -77,13 +82,13 @@ Schema: `international_results_wc2026_marts`
 
 Schema: `polymarket_wc2026_observability`
 
-- `polymarket_wc2026_sync_run_observability`: run-level ingestion and odds-sync telemetry.
+- `polymarket_wc2026_sync_run_observability`: run-level ingestion, market-discovery provenance, and odds-sync telemetry.
 - `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage vs public scoped tokens by stage, direction, and market status.
 - `polymarket_wc2026_knockout_data_quality`: DQ findings for aggregated source-state anomalies, sparse stage coverage, stale or missing odds, and live-team alignment.
 
 Schema: `international_results_wc2026_observability`
 
-- `international_results_wc2026_data_quality`: warning-level findings when a tied knockout match has no unique inferred advancer or when the fixture/result source load is older than 12 hours.
+- `international_results_wc2026_data_quality`: warning-level findings when a tied knockout match has no unique inferred advancer or when the fixture/result source load is stale under the WC2026 contract seed.
 
 ## dlt Landing And Canonical Tables
 
@@ -96,8 +101,11 @@ metadata tables are internal implementation details.
 because the source is a single CSV and a full WC2026 replacement is simpler than
 batch finalization.
 
-`polymarket_wc2026_raw.markets` is created by `polymarket_wc2026_raw_markets`. The
-`dbt-build-ci` target creates an empty source fixture only in its disposable
+`polymarket_wc2026_raw.markets` is created by `polymarket_wc2026_raw_markets`.
+That asset performs the single Gamma market discovery pass and persists token
+mappings from the same payload after dlt market landing succeeds. The
+`polymarket_wc2026_raw_markets_snapshot` asset is local lineage/accounting only.
+The `dbt-build-ci` target creates an empty source fixture only in its disposable
 DuckDB database.
 
 Manual reset:
