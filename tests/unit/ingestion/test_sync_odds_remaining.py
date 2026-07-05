@@ -44,7 +44,7 @@ def test_fetch_window_stack_skip_zero_span():
     assert out == []
 
 
-def test_iter_token_plans_paged_empty_tokens_list(monkeypatch):
+def test_iter_token_plans_paged_empty_tokens_list():
     def pages():
         yield [
             (
@@ -55,12 +55,6 @@ def test_iter_token_plans_paged_empty_tokens_list(monkeypatch):
             ),
         ]
 
-    monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", lambda **k: pages())
-    monkeypatch.setattr(
-        odds_sync,
-        "get_token_sync_snapshot",
-        lambda *a, **k: ({}, set(), {}),
-    )
     gen = odds_sync.iter_token_plans_paged(
         now_ts=1_800_000_000,
         clob_cutoff_date="2020-01-01",
@@ -71,11 +65,13 @@ def test_iter_token_plans_paged_empty_tokens_list(monkeypatch):
         skip_recent_minutes=0,
         market_page_size=50,
         short_range_first=False,
+        iter_markets_with_tokens_fn=lambda **k: pages(),
+        get_token_sync_snapshot_fn=lambda *a, **k: ({}, set(), {}),
     )
     assert list(gen) == []
 
 
-def test_iter_token_plans_paged_reconcile_short_first_off(monkeypatch):
+def test_iter_token_plans_paged_reconcile_short_first_off():
     tid = "b" * 33 + "12"
 
     def pages():
@@ -88,12 +84,6 @@ def test_iter_token_plans_paged_reconcile_short_first_off(monkeypatch):
             ),
         ]
 
-    monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", lambda **k: pages())
-    monkeypatch.setattr(
-        odds_sync,
-        "get_token_sync_snapshot",
-        lambda *a, **k: ({tid: 1}, set(), {}),
-    )
     seen = []
 
     def on_inv(batch):
@@ -111,12 +101,14 @@ def test_iter_token_plans_paged_reconcile_short_first_off(monkeypatch):
         reconcile_ledger=True,
         short_range_first=False,
         on_invalid_tokens_batch=on_inv,
+        iter_markets_with_tokens_fn=lambda **k: pages(),
+        get_token_sync_snapshot_fn=lambda *a, **k: ({tid: 1}, set(), {}),
     )
     plans = list(gen)
     assert plans
 
 
-def test_sync_token_plan_passes_extended_fetch_signature(monkeypatch):
+def test_sync_token_plan_passes_extended_fetch_signature():
     seen = {}
 
     def hook(status):
@@ -126,7 +118,6 @@ def test_sync_token_plan_passes_extended_fetch_signature(monkeypatch):
         seen["args"] = args
         return [(args[1], 10, 0.5)]
 
-    monkeypatch.setattr(odds_sync, "_fetch_window_with_auto_split", ft)
     q = Queue()
     plan = odds_sync.TokenPlan(
         token_id="c" * 33 + "12",
@@ -145,17 +136,17 @@ def test_sync_token_plan_passes_extended_fetch_signature(monkeypatch):
         writer_chunk_rows=1000,
         min_split_window_seconds=1,
         status_hook=hook,
+        fetch_window_fn=ft,
     )
     assert seen["args"][6] == odds_sync.DEFAULT_TRANSIENT_RETRIES
     assert seen["args"][7] == odds_sync.DEFAULT_TRANSIENT_BACKOFF_SECONDS
     assert seen["args"][8] is hook
 
 
-def test_sync_token_plan_badrequest_skip(monkeypatch):
+def test_sync_token_plan_badrequest_skip():
     def ft(*a, **k):
         raise BadRequestError("x", status=400, body="")
 
-    monkeypatch.setattr(odds_sync, "_fetch_window_with_auto_split", ft)
     q = Queue()
     plan = odds_sync.TokenPlan(
         token_id="d" * 33 + "12",
@@ -173,14 +164,14 @@ def test_sync_token_plan_badrequest_skip(monkeypatch):
         window_seconds=50,
         writer_chunk_rows=1000,
         min_split_window_seconds=1,
+        fetch_window_fn=ft,
     )
 
 
-def test_sync_token_plan_cursor_transient_empty_rows(monkeypatch):
+def test_sync_token_plan_cursor_transient_empty_rows():
     def ft(*a, **k):
         return None
 
-    monkeypatch.setattr(odds_sync, "_fetch_window_with_auto_split", ft)
     q = Queue()
     plan = odds_sync.TokenPlan(
         token_id="e" * 33 + "12",
@@ -198,6 +189,7 @@ def test_sync_token_plan_cursor_transient_empty_rows(monkeypatch):
         window_seconds=40,
         writer_chunk_rows=10000,
         min_split_window_seconds=1,
+        fetch_window_fn=ft,
     )
     assert result["error"] == 1
     assert result["permanent_error"] == 0

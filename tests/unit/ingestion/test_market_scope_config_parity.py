@@ -66,12 +66,23 @@ def test_wc2026_contract_seed_matches_python_defaults() -> None:
     assert len(rows) == 1
     row = rows[0]
     hourly_cfg = HourlyOddsSyncConfig()
+    scope_seed = yaml.safe_load(SCOPE_SEED.read_text(encoding="utf-8")) or {}
+    wc2026_scope = (scope_seed.get("scopes") or {})["wc2026"]
+    env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
 
     assert row["scope_name"] == "wc2026"
     assert (
         float(row["knockout_min_volume_usd"])
         == POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD
     )
+    assert (
+        wc2026_scope["keyset_volume_min"] == POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD
+    )
+    expected_env = (
+        "POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN="
+        f"{int(POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD)}"
+    )
+    assert expected_env in env_example
     assert int(row["hourly_window_days"]) == hourly_cfg.history_backfill_days
     assert int(row["hourly_window_hours"]) == hourly_cfg.window_hours
 

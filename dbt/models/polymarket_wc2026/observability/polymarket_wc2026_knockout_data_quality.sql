@@ -12,7 +12,7 @@ snapshot as (
 stage_totals as (
     select
         stage_key,
-        sum(raw_classified_markets_ge_5000) as raw_classified_markets_ge_5000,
+        sum(raw_classified_markets_ge_floor) as raw_classified_markets_ge_floor,
         sum(scoped_markets) as scoped_markets
     from {{ ref('polymarket_wc2026_knockout_stage_coverage') }}
     group by 1
@@ -22,7 +22,7 @@ stage_expectations as (
     select
         'round_of_32' as stage_key,
         knockout_min_volume_usd,
-        round_of_32_min_raw_markets_ge_floor as minimum_raw_markets_ge_5000
+        round_of_32_min_raw_markets_ge_floor as minimum_raw_markets_ge_floor
     from contract
 ),
 
@@ -169,7 +169,7 @@ active_team_missing_live_odds as (
         cast(null as varchar) as stage_key,
         r.team_name,
         cast(null as varchar) as market_status,
-        'Active WC2026 team has no live Polymarket knockout odds row in the public $5k scope.'
+        'Active WC2026 team has no live Polymarket knockout odds row in the public volume-floor scope.'
             as issue_detail,
         1 as issue_count,
         current_timestamp as observed_at
@@ -212,17 +212,17 @@ sparse_stage_coverage as (
         'Upstream Polymarket raw classified market coverage above $'
         || cast(e.knockout_min_volume_usd as varchar)
         || ' is '
-        || cast(coalesce(t.raw_classified_markets_ge_5000, 0) as varchar)
+        || cast(coalesce(t.raw_classified_markets_ge_floor, 0) as varchar)
         || ', below the expected '
-        || cast(e.minimum_raw_markets_ge_5000 as varchar)
+        || cast(e.minimum_raw_markets_ge_floor as varchar)
         || '; this is source availability, not public mart filtering.' as issue_detail,
-        e.minimum_raw_markets_ge_5000 - coalesce(t.raw_classified_markets_ge_5000, 0)
+        e.minimum_raw_markets_ge_floor - coalesce(t.raw_classified_markets_ge_floor, 0)
             as issue_count,
         current_timestamp as observed_at
     from stage_expectations as e
     left join stage_totals as t
         on e.stage_key = t.stage_key
-    where coalesce(t.raw_classified_markets_ge_5000, 0) < e.minimum_raw_markets_ge_5000
+    where coalesce(t.raw_classified_markets_ge_floor, 0) < e.minimum_raw_markets_ge_floor
 ),
 
 sparse_stage_missing_team_coverage as (

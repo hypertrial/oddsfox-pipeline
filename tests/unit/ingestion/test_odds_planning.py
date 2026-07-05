@@ -126,7 +126,7 @@ def test_force_does_not_reopen_closed_fully_checked_token():
     assert skip == "closed_done"
 
 
-def test_iter_token_plans_paged_collects_invalids_and_done_value(monkeypatch):
+def test_iter_token_plans_paged_collects_invalids_and_done_value():
     valid = "w" * 33 + "12"
 
     def pages():
@@ -136,13 +136,6 @@ def test_iter_token_plans_paged_collects_invalids_and_done_value(monkeypatch):
             ("noneonly", "[null]", "2024-01-01 00:00:00", False),
             ("mixed", f'[null, "short", "{valid}"]', "2024-01-01 00:00:00", False),
         ]
-
-    monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", lambda **kwargs: pages())
-    monkeypatch.setattr(
-        odds_sync,
-        "get_token_sync_snapshot",
-        lambda token_ids, **kwargs: ({}, set(), {}),
-    )
 
     invalid_batches = []
     gen = odds_sync.iter_token_plans_paged(
@@ -155,6 +148,8 @@ def test_iter_token_plans_paged_collects_invalids_and_done_value(monkeypatch):
         skip_recent_minutes=0,
         market_page_size=10,
         on_invalid_tokens_batch=invalid_batches.append,
+        iter_markets_with_tokens_fn=lambda **kwargs: pages(),
+        get_token_sync_snapshot_fn=lambda token_ids, **kwargs: ({}, set(), {}),
     )
 
     yielded = []
@@ -174,7 +169,7 @@ def test_iter_token_plans_paged_collects_invalids_and_done_value(monkeypatch):
     assert invalid_tokens == {"short": "invalid token id format"}
 
 
-def test_iter_token_plans_paged_force_passes_ended_market_grace(monkeypatch):
+def test_iter_token_plans_paged_force_passes_ended_market_grace():
     token_id = "g" * 33 + "12"
     full_calls = []
 
@@ -184,14 +179,6 @@ def test_iter_token_plans_paged_force_passes_ended_market_grace(monkeypatch):
 
     def due_pages(**kwargs):
         raise AssertionError(f"unexpected due iterator call: {kwargs}")
-
-    monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", full_pages)
-    monkeypatch.setattr(odds_sync, "iter_due_market_tokens", due_pages)
-    monkeypatch.setattr(
-        odds_sync,
-        "get_token_sync_snapshot",
-        lambda token_ids, **kwargs: ({}, set(), {}),
-    )
 
     plans = list(
         odds_sync.iter_token_plans_paged(
@@ -204,6 +191,9 @@ def test_iter_token_plans_paged_force_passes_ended_market_grace(monkeypatch):
             skip_recent_minutes=0,
             market_page_size=10,
             ended_market_grace_days=7,
+            iter_markets_with_tokens_fn=full_pages,
+            iter_due_market_tokens_fn=due_pages,
+            get_token_sync_snapshot_fn=lambda token_ids, **kwargs: ({}, set(), {}),
         )
     )
 
@@ -263,16 +253,10 @@ def test_bootstrap_planning_force_counts_with_ended_market_grace():
     assert boot.candidate_markets == 2
 
 
-def test_iter_token_plans_paged_skips_unparseable_created_at(monkeypatch):
+def test_iter_token_plans_paged_skips_unparseable_created_at():
     def pages():
         yield [("badtime", '["tok"]', None, False)]
 
-    monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", lambda **kwargs: pages())
-    monkeypatch.setattr(
-        odds_sync,
-        "get_token_sync_snapshot",
-        lambda token_ids, **kwargs: ({}, set(), {}),
-    )
     assert (
         list(
             odds_sync.iter_token_plans_paged(
@@ -284,15 +268,15 @@ def test_iter_token_plans_paged_skips_unparseable_created_at(monkeypatch):
                 overlap_minutes=0,
                 skip_recent_minutes=0,
                 market_page_size=10,
+                iter_markets_with_tokens_fn=lambda **kwargs: pages(),
+                get_token_sync_snapshot_fn=lambda token_ids, **kwargs: ({}, set(), {}),
             )
         )
         == []
     )
 
 
-def test_iter_token_plans_paged_due_only_uses_due_iterator_and_scheduler_state(
-    monkeypatch,
-):
+def test_iter_token_plans_paged_due_only_uses_due_iterator_and_scheduler_state():
     token_id = "d" * 33 + "12"
     called = {"due": 0, "full": 0}
 
@@ -304,27 +288,6 @@ def test_iter_token_plans_paged_due_only_uses_due_iterator_and_scheduler_state(
         called["full"] += 1
         yield []
 
-    monkeypatch.setattr(odds_sync, "iter_due_market_tokens", due_pages)
-    monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", full_pages)
-    monkeypatch.setattr(
-        odds_sync,
-        "count_due_market_token_exclusions",
-        lambda **kwargs: {"scope_skip": 0, "ended_market_skip": 0},
-    )
-    monkeypatch.setattr(
-        odds_sync,
-        "get_token_sync_snapshot",
-        lambda *args, **kwargs: (
-            {token_id: 100},
-            set(),
-            {},
-            {
-                token_id: odds_sync.TokenSyncSchedulerState(
-                    empty_run_streak=2,
-                )
-            },
-        ),
-    )
     plans = list(
         odds_sync.iter_token_plans_paged(
             now_ts=1_900_000_000,
@@ -335,6 +298,22 @@ def test_iter_token_plans_paged_due_only_uses_due_iterator_and_scheduler_state(
             overlap_minutes=0,
             skip_recent_minutes=0,
             market_page_size=10,
+            iter_due_market_tokens_fn=due_pages,
+            iter_markets_with_tokens_fn=full_pages,
+            count_due_market_token_exclusions_fn=lambda **kwargs: {
+                "scope_skip": 0,
+                "ended_market_skip": 0,
+            },
+            get_token_sync_snapshot_fn=lambda *args, **kwargs: (
+                {token_id: 100},
+                set(),
+                {},
+                {
+                    token_id: odds_sync.TokenSyncSchedulerState(
+                        empty_run_streak=2,
+                    )
+                },
+            ),
         )
     )
     assert called == {"due": 1, "full": 0}
@@ -343,7 +322,7 @@ def test_iter_token_plans_paged_due_only_uses_due_iterator_and_scheduler_state(
     assert plans[0].empty_run_streak == 2
 
 
-def test_iter_token_plans_paged_due_only_skips_bad_rows(monkeypatch):
+def test_iter_token_plans_paged_due_only_skips_bad_rows():
     token_id = "e" * 33 + "12"
 
     def due_pages(**kwargs):
@@ -354,20 +333,6 @@ def test_iter_token_plans_paged_due_only_skips_bad_rows(monkeypatch):
             ("good", token_id, "2024-01-01 00:00:00", False),
         ]
 
-    monkeypatch.setattr(odds_sync, "iter_due_market_tokens", due_pages)
-    monkeypatch.setattr(
-        odds_sync, "iter_markets_with_tokens", lambda **kwargs: iter(())
-    )
-    monkeypatch.setattr(
-        odds_sync,
-        "count_due_market_token_exclusions",
-        lambda **kwargs: {"scope_skip": 0, "ended_market_skip": 0},
-    )
-    monkeypatch.setattr(
-        odds_sync,
-        "get_token_sync_snapshot",
-        lambda *args, **kwargs: ({}, set(), {}, {}),
-    )
     gen = odds_sync.iter_token_plans_paged(
         now_ts=1_900_000_000,
         clob_cutoff_date="2023-01-01",
@@ -377,6 +342,13 @@ def test_iter_token_plans_paged_due_only_skips_bad_rows(monkeypatch):
         overlap_minutes=0,
         skip_recent_minutes=0,
         market_page_size=10,
+        iter_due_market_tokens_fn=due_pages,
+        iter_markets_with_tokens_fn=lambda **kwargs: iter(()),
+        count_due_market_token_exclusions_fn=lambda **kwargs: {
+            "scope_skip": 0,
+            "ended_market_skip": 0,
+        },
+        get_token_sync_snapshot_fn=lambda *args, **kwargs: ({}, set(), {}, {}),
     )
     plans = []
     done_value = None
@@ -420,15 +392,13 @@ def test_build_single_token_plan_history_backfill_floor():
     assert plan.fidelity == 1
 
 
-def test_iter_token_plans_paged_history_backfill_uses_full_iterator(monkeypatch):
+def test_iter_token_plans_paged_history_backfill_uses_full_iterator():
     captured = {}
 
     def markets_pages(**kwargs):
         captured.update(kwargs)
         return iter(())
 
-    monkeypatch.setattr(odds_sync, "iter_due_market_tokens", lambda **kwargs: iter(()))
-    monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", markets_pages)
     gen = odds_sync.iter_token_plans_paged(
         now_ts=2_000_000_000,
         clob_cutoff_date="2023-01-01",
@@ -440,6 +410,8 @@ def test_iter_token_plans_paged_history_backfill_uses_full_iterator(monkeypatch)
         market_page_size=10,
         history_backfill_days=45,
         min_volume=5_000.0,
+        iter_due_market_tokens_fn=lambda **kwargs: iter(()),
+        iter_markets_with_tokens_fn=markets_pages,
     )
     try:
         while True:

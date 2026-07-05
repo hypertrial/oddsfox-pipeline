@@ -1,11 +1,11 @@
 from typing import Dict, List, Literal, Set, Tuple, overload
 
-from oddsfox_pipeline.storage.duckdb import odds as odds_barrel
 from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_connection
 from oddsfox_pipeline.storage.duckdb.odds._common import (
     _TAB_ODDS_HISTORY,
     _TAB_TOKEN_SYNC_LEDGER,
     _TAB_TOKEN_SYNC_SKIPS,
+    _TOKEN_STATE_CHUNK_SIZE,
     TokenSyncSchedulerState,
     TokenSyncSnapshot,
     TokenSyncSnapshotWithScheduler,
@@ -70,7 +70,7 @@ def get_token_sync_snapshot(
             )
             """
         )
-        for token_chunk in _chunked(token_ids, odds_barrel._TOKEN_STATE_CHUNK_SIZE):
+        for token_chunk in _chunked(token_ids, _TOKEN_STATE_CHUNK_SIZE):
             conn.execute("DELETE FROM _token_snapshot_input")
             conn.executemany(
                 "INSERT INTO _token_snapshot_input (clobTokenId) VALUES (?)",

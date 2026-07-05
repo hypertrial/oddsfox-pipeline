@@ -187,86 +187,10 @@ class OddsSyncRuntime:
         return self.engine.time_mod
 
 
-_PLANNING_FIELDS = frozenset(
-    {
-        "iter_markets_with_tokens",
-        "iter_due_market_tokens",
-        "count_due_market_token_exclusions",
-        "count_candidate_market_tokens",
-        "get_token_sync_snapshot",
-        "token_sync_scheduler_state",
-    }
-)
-_EXECUTION_FIELDS = frozenset(
-    {
-        "fetch_window_with_auto_split_impl",
-        "fetch_token_history_with_retry",
-        "default_rate_limiter_factory",
-        "sync_token_plan",
-    }
-)
-_WRITER_FIELDS = frozenset(
-    {
-        "get_connection",
-        "refresh_token_odds_daily",
-        "save_odds_bulk_upsert",
-        "upsert_skipped_tokens_batch",
-        "upsert_token_sync_state_batch",
-        "dynamic_writer_flush_rows",
-        "flush_writer_buffers",
-        "apply_writer_item",
-        "writer_loop",
-    }
-)
-_ENGINE_FIELDS = frozenset(
-    {
-        "ensure_duck_db",
-        "snapshot_raw_layer",
-        "save_skipped_tokens",
-        "save_sync_run_metrics",
-        "reconcile_token_sync_ledger_from_history",
-        "progress_guardrail",
-        "no_progress_timeout_error",
-        "thread_cls",
-        "thread_pool_executor",
-        "wait_fn",
-        "tqdm_mod",
-        "time_mod",
-    }
-)
-
-
-def replace_odds_sync_runtime(
-    runtime: OddsSyncRuntime, **overrides: Any
-) -> OddsSyncRuntime:
-    planning = dict(vars(runtime.planning))
-    execution = dict(vars(runtime.execution))
-    writer = dict(vars(runtime.writer))
-    engine = dict(vars(runtime.engine))
-    for key, value in overrides.items():
-        if key in _PLANNING_FIELDS:
-            planning[key] = value
-        elif key in _EXECUTION_FIELDS:
-            execution[key] = value
-        elif key in _WRITER_FIELDS:
-            writer[key] = value
-        elif key in _ENGINE_FIELDS:
-            engine[key] = value
-        else:
-            raise AttributeError(f"Unknown OddsSyncRuntime field: {key}")
-    return OddsSyncRuntime(
-        planning=PlanningRuntime(**planning),
-        execution=ExecutionRuntime(**execution),
-        writer=WriterRuntime(**writer),
-        engine=EngineRuntime(**engine),
-    )
-
-
 __all__ = [
     "EngineRuntime",
     "ExecutionRuntime",
     "OddsSyncRuntime",
     "PlanningRuntime",
     "WriterRuntime",
-    "replace_odds_sync_runtime",
 ]

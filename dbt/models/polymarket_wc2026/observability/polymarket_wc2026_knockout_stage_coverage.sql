@@ -16,7 +16,7 @@ raw_stage as (
                 when coalesce(c.market_volume_usd, 0) >= contract.knockout_min_volume_usd
                     then c.market_id
             end
-        ) as raw_classified_markets_ge_5000,
+        ) as raw_classified_markets_ge_floor,
         count(distinct case when c.source_state_anomaly then c.market_id end)
             as raw_source_state_anomaly_markets,
         min(c.market_volume_usd) as raw_min_volume_usd,
@@ -86,7 +86,7 @@ select
     coalesce(s.market_status, r.market_status) as market_status,
     coalesce(s.stage_rank, r.stage_rank) as stage_rank,
     coalesce(r.raw_classified_markets, 0) as raw_classified_markets,
-    coalesce(r.raw_classified_markets_ge_5000, 0) as raw_classified_markets_ge_5000,
+    coalesce(r.raw_classified_markets_ge_floor, 0) as raw_classified_markets_ge_floor,
     coalesce(r.raw_source_state_anomaly_markets, 0) as raw_source_state_anomaly_markets,
     coalesce(s.scoped_markets, 0) as scoped_markets,
     coalesce(s.scoped_tokens, 0) as scoped_tokens,

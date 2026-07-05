@@ -32,8 +32,8 @@ models:
                 values: ['resolved', 'closed', 'live', 'inactive']
       - name: raw_classified_markets
         description: Raw loaded markets whose question matched the knockout classifier.
-      - name: raw_classified_markets_ge_5000
-        description: Raw classified markets with reported volume at or above $5,000 USD.
+      - name: raw_classified_markets_ge_floor
+        description: Raw classified markets with reported volume at or above the WC2026 contract floor.
       - name: raw_source_state_anomaly_markets
         description: Raw classified markets where source flags are both active and closed.
       - name: scoped_markets

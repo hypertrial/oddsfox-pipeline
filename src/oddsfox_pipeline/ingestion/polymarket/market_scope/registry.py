@@ -126,61 +126,72 @@ def _finalize_registry_collect(
     merged = _dedupe_registry_rows(list(scan.registry_rows) + _seed_registry_rows(cfg))
     saved = upsert_registry_rows(merged)
     total_api = scan.api_requests + api_requests
+    markets = list(scan.raw_markets)
+    scan_meta = _scan_collect_metadata(
+        scan,
+        cfg,
+        discovery_mode=discovery_mode,
+        total_api=total_api,
+        markets_collected=len(markets),
+        registry_refreshed=True,
+        keyset_closed=keyset_closed,
+        keyset_tag_slugs=keyset_tag_slugs,
+        keyset_volume_min=keyset_volume_min,
+    )
     registry_summary = {
         "task": "refresh_market_scope_registry",
-        "scope_name": cfg.scope_name,
-        "discovery_mode": discovery_mode,
-        "events_pages": scan.pages_done,
-        "truncated": scan.truncated,
         "registry_rows_upserted": saved,
         "discovered_event_slugs": list(scan.discovered_slugs),
         "by_source": _count_by_source(merged),
         "duration_seconds": round(time.monotonic() - t0, 3),
-        "api_requests": total_api,
-        "registry_refreshed": True,
     }
-    if keyset_closed is not None:
-        registry_summary["keyset_closed"] = keyset_closed
-    effective_crawl_tags = (
-        list(scan.crawl_tag_slugs)
-        if scan.crawl_tag_slugs
-        else (list(keyset_tag_slugs) if keyset_tag_slugs else [])
-    )
-    if effective_crawl_tags:
-        registry_summary["keyset_tag_slugs"] = effective_crawl_tags
-        registry_summary["crawl_tag_slugs"] = effective_crawl_tags
-    if scan.scope_tag_slugs:
-        registry_summary["scope_tag_slugs"] = list(scan.scope_tag_slugs)
-    if scan.tag_sources:
-        registry_summary["tag_sources"] = {
-            slug: list(srcs) for slug, srcs in scan.tag_sources
-        }
-    if keyset_volume_min is not None:
-        registry_summary["keyset_volume_min"] = keyset_volume_min
-    markets = list(scan.raw_markets)
-    collect_meta = {
-        "discovery_mode": discovery_mode,
-        "scope_name": cfg.scope_name,
+    registry_summary.update(scan_meta)
+    return registry_summary, markets, scan_meta
+
+
+def _scan_collect_metadata(
+    scan: MarketScopeEventsScanResult,
+    cfg: MarketScopeConfig,
+    *,
+    discovery_mode: str | None = None,
+    total_api: int | None = None,
+    markets_collected: int,
+    registry_refreshed: bool | None = None,
+    keyset_closed: bool | None = None,
+    keyset_tag_slugs: Sequence[str] | None = None,
+    keyset_volume_min: float | None = None,
+    include_fallback_crawl_tag_slugs: bool = True,
+) -> Dict[str, Any]:
+    meta: Dict[str, Any] = {
         "events_pages": scan.pages_done,
         "truncated": scan.truncated,
-        "markets_collected": len(markets),
-        "api_requests": total_api,
-        "registry_refreshed": True,
+        "markets_collected": markets_collected,
+        "scope_name": cfg.scope_name,
     }
+    if discovery_mode is not None:
+        meta["discovery_mode"] = discovery_mode
+    if total_api is not None:
+        meta["api_requests"] = total_api
+    if registry_refreshed is not None:
+        meta["registry_refreshed"] = registry_refreshed
     if keyset_closed is not None:
-        collect_meta["keyset_closed"] = keyset_closed
-    if effective_crawl_tags:
-        collect_meta["keyset_tag_slugs"] = effective_crawl_tags
-        collect_meta["crawl_tag_slugs"] = effective_crawl_tags
+        meta["keyset_closed"] = keyset_closed
+    if scan.crawl_tag_slugs:
+        crawl_tags = list(scan.crawl_tag_slugs)
+        meta["keyset_tag_slugs"] = crawl_tags
+        meta["crawl_tag_slugs"] = crawl_tags
+    elif keyset_tag_slugs:
+        fallback_tags = list(keyset_tag_slugs)
+        meta["keyset_tag_slugs"] = fallback_tags
+        if include_fallback_crawl_tag_slugs:
+            meta["crawl_tag_slugs"] = fallback_tags
     if scan.scope_tag_slugs:
-        collect_meta["scope_tag_slugs"] = list(scan.scope_tag_slugs)
+        meta["scope_tag_slugs"] = list(scan.scope_tag_slugs)
     if scan.tag_sources:
-        collect_meta["tag_sources"] = {
-            slug: list(srcs) for slug, srcs in scan.tag_sources
-        }
+        meta["tag_sources"] = {slug: list(srcs) for slug, srcs in scan.tag_sources}
     if keyset_volume_min is not None:
-        collect_meta["keyset_volume_min"] = keyset_volume_min
-    return registry_summary, markets, collect_meta
+        meta["keyset_volume_min"] = keyset_volume_min
+    return meta
 
 
 def _resolved_discovery(
@@ -204,6 +215,52 @@ def _resolved_discovery(
         keyset_volume_min=keyset_volume_min,
         tag_discovery=tag_discovery,
     )
+
+
+def _scan_events_for_scope(
+    client: Any,
+    *,
+    config: MarketScopeConfig | None = None,
+    max_pages: int | None = None,
+    max_pages_without_progress: int | None = DEFAULT_MAX_PAGES_WITHOUT_PROGRESS,
+    keyset_closed: bool | None = None,
+    keyset_tag_slugs: Sequence[str] | None = None,
+    keyset_related_tags: bool | None = None,
+    keyset_volume_min: float | None = None,
+    tag_discovery: bool | None = None,
+    progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
+    progress_task: str = "market_scope_registry_events",
+) -> tuple[
+    MarketScopeConfig,
+    ResolvedMarketScopeDiscovery,
+    MarketScopeEventsScanResult,
+]:
+    cfg = config or load_market_scope_config()
+    resolved = _resolved_discovery(
+        cfg,
+        max_pages=max_pages,
+        max_pages_without_progress=max_pages_without_progress,
+        keyset_closed=keyset_closed,
+        keyset_tag_slugs=keyset_tag_slugs,
+        keyset_related_tags=keyset_related_tags,
+        keyset_volume_min=keyset_volume_min,
+        tag_discovery=tag_discovery,
+    )
+    scan = _scan_market_scope_gamma_events(
+        client,
+        cfg,
+        max_pages=max_pages,
+        max_pages_without_progress=max_pages_without_progress,
+        keyset_closed=keyset_closed,
+        keyset_tag_slugs=keyset_tag_slugs,
+        keyset_related_tags=keyset_related_tags,
+        keyset_volume_min=keyset_volume_min,
+        tag_discovery=tag_discovery,
+        progress_callback=progress_callback,
+        progress_task=progress_task,
+        resolved=resolved,
+    )
+    return cfg, resolved, scan
 
 
 def refresh_registry_and_collect_markets_targeted(
@@ -295,21 +352,10 @@ def refresh_registry_from_events(
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> Dict[str, Any]:
     """Scan Gamma /events/keyset and upsert markets into the scope registry."""
-    cfg = config or load_market_scope_config()
     t0 = time.monotonic()
-    resolved = _resolved_discovery(
-        cfg,
-        max_pages=max_pages,
-        max_pages_without_progress=max_pages_without_progress,
-        keyset_closed=keyset_closed,
-        keyset_tag_slugs=keyset_tag_slugs,
-        keyset_related_tags=keyset_related_tags,
-        keyset_volume_min=keyset_volume_min,
-        tag_discovery=tag_discovery,
-    )
-    scan = _scan_market_scope_gamma_events(
+    cfg, resolved, scan = _scan_events_for_scope(
         client,
-        cfg,
+        config=config,
         max_pages=max_pages,
         max_pages_without_progress=max_pages_without_progress,
         keyset_closed=keyset_closed,
@@ -318,7 +364,6 @@ def refresh_registry_from_events(
         keyset_volume_min=keyset_volume_min,
         tag_discovery=tag_discovery,
         progress_callback=progress_callback,
-        resolved=resolved,
     )
     registry_summary, _, _ = _finalize_registry_collect(
         scan,
@@ -344,19 +389,9 @@ def collect_scope_markets_from_events(
     tag_discovery: bool | None = None,
 ) -> tuple[list[dict[str, Any]], Dict[str, Any]]:
     """Return raw Gamma market dicts for WC2026 events."""
-    cfg = config or load_market_scope_config()
-    resolved = _resolved_discovery(
-        cfg,
-        max_pages=max_pages,
-        keyset_closed=keyset_closed,
-        keyset_tag_slugs=keyset_tag_slugs,
-        keyset_related_tags=keyset_related_tags,
-        keyset_volume_min=keyset_volume_min,
-        tag_discovery=tag_discovery,
-    )
-    scan = _scan_market_scope_gamma_events(
+    cfg, resolved, scan = _scan_events_for_scope(
         client,
-        cfg,
+        config=config,
         max_pages=max_pages,
         keyset_closed=keyset_closed,
         keyset_tag_slugs=keyset_tag_slugs,
@@ -364,28 +399,17 @@ def collect_scope_markets_from_events(
         keyset_volume_min=keyset_volume_min,
         tag_discovery=tag_discovery,
         progress_task="market_scope_market_events",
-        resolved=resolved,
     )
     markets = list(scan.raw_markets)
-    meta = {
-        "events_pages": scan.pages_done,
-        "truncated": scan.truncated,
-        "markets_collected": len(markets),
-        "scope_name": cfg.scope_name,
-    }
-    if resolved.keyset_closed is not None:
-        meta["keyset_closed"] = resolved.keyset_closed
-    if scan.crawl_tag_slugs:
-        meta["keyset_tag_slugs"] = list(scan.crawl_tag_slugs)
-        meta["crawl_tag_slugs"] = list(scan.crawl_tag_slugs)
-    elif resolved.keyset_tag_slugs:
-        meta["keyset_tag_slugs"] = list(resolved.keyset_tag_slugs)
-    if scan.scope_tag_slugs:
-        meta["scope_tag_slugs"] = list(scan.scope_tag_slugs)
-    if scan.tag_sources:
-        meta["tag_sources"] = {slug: list(srcs) for slug, srcs in scan.tag_sources}
-    if resolved.keyset_volume_min is not None:
-        meta["keyset_volume_min"] = resolved.keyset_volume_min
+    meta = _scan_collect_metadata(
+        scan,
+        cfg,
+        markets_collected=len(markets),
+        keyset_closed=resolved.keyset_closed,
+        keyset_tag_slugs=resolved.keyset_tag_slugs,
+        keyset_volume_min=resolved.keyset_volume_min,
+        include_fallback_crawl_tag_slugs=False,
+    )
     return markets, meta
 
 
@@ -403,21 +427,10 @@ def refresh_registry_and_collect_markets_from_events(
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> tuple[Dict[str, Any], list[dict[str, Any]], Dict[str, Any]]:
     """Single /events pass: upsert registry and return raw markets for event-first sync."""
-    cfg = config or load_market_scope_config()
     t0 = time.monotonic()
-    resolved = _resolved_discovery(
-        cfg,
-        max_pages=max_pages,
-        max_pages_without_progress=max_pages_without_progress,
-        keyset_closed=keyset_closed,
-        keyset_tag_slugs=keyset_tag_slugs,
-        keyset_related_tags=keyset_related_tags,
-        keyset_volume_min=keyset_volume_min,
-        tag_discovery=tag_discovery,
-    )
-    scan = _scan_market_scope_gamma_events(
+    cfg, resolved, scan = _scan_events_for_scope(
         client,
-        cfg,
+        config=config,
         max_pages=max_pages,
         max_pages_without_progress=max_pages_without_progress,
         keyset_closed=keyset_closed,
@@ -427,7 +440,6 @@ def refresh_registry_and_collect_markets_from_events(
         tag_discovery=tag_discovery,
         progress_callback=progress_callback,
         progress_task="market_scope_market_events",
-        resolved=resolved,
     )
     return _finalize_registry_collect(
         scan,

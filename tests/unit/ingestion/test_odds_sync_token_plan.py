@@ -13,15 +13,11 @@ from tests.integration.ingestion._odds_sync_harness import make_plan
 from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
 
 
-def test_sync_token_plan_empty_then_rows_flushes_and_marks_closed(monkeypatch):
+def test_sync_token_plan_empty_then_rows_flushes_and_marks_closed():
     token_id = "x" * 33 + "12"
     queue = Queue()
     plan = make_plan(token_id, closed=True)
     calls = iter([[], [(token_id, 20, 0.4), (token_id, 21, 0.5)]])
-    monkeypatch.setattr(
-        odds_sync, "_fetch_window_with_auto_split", lambda *args, **kwargs: next(calls)
-    )
-
     result = odds_sync._sync_token_plan(
         plan,
         object(),
@@ -29,6 +25,7 @@ def test_sync_token_plan_empty_then_rows_flushes_and_marks_closed(monkeypatch):
         window_seconds=11,
         writer_chunk_rows=1,
         min_split_window_seconds=1,
+        fetch_window_fn=lambda *args, **kwargs: next(calls),
     )
 
     items = []
@@ -46,15 +43,11 @@ def test_sync_token_plan_empty_then_rows_flushes_and_marks_closed(monkeypatch):
     )
 
 
-def test_sync_token_plan_transient_uses_contiguous_checked_until(monkeypatch):
+def test_sync_token_plan_transient_uses_contiguous_checked_until():
     token_id = "y" * 33 + "12"
     queue = Queue()
     plan = make_plan(token_id)
     calls = iter([[], None])
-    monkeypatch.setattr(
-        odds_sync, "_fetch_window_with_auto_split", lambda *args, **kwargs: next(calls)
-    )
-
     result = odds_sync._sync_token_plan(
         plan,
         object(),
@@ -62,6 +55,7 @@ def test_sync_token_plan_transient_uses_contiguous_checked_until(monkeypatch):
         window_seconds=11,
         writer_chunk_rows=100,
         min_split_window_seconds=1,
+        fetch_window_fn=lambda *args, **kwargs: next(calls),
     )
 
     assert result["error"] == 1
@@ -71,15 +65,11 @@ def test_sync_token_plan_transient_uses_contiguous_checked_until(monkeypatch):
     assert item[1][0][1] == 21
 
 
-def test_sync_token_plan_transient_after_rows_uses_max_contiguous(monkeypatch):
+def test_sync_token_plan_transient_after_rows_uses_max_contiguous():
     token_id = "z" * 33 + "12"
     queue = Queue()
     plan = make_plan(token_id)
     calls = iter([[(token_id, 20, 0.4)], None])
-    monkeypatch.setattr(
-        odds_sync, "_fetch_window_with_auto_split", lambda *args, **kwargs: next(calls)
-    )
-
     result = odds_sync._sync_token_plan(
         plan,
         object(),
@@ -87,6 +77,7 @@ def test_sync_token_plan_transient_after_rows_uses_max_contiguous(monkeypatch):
         window_seconds=11,
         writer_chunk_rows=100,
         min_split_window_seconds=1,
+        fetch_window_fn=lambda *args, **kwargs: next(calls),
     )
 
     items = []
@@ -99,15 +90,11 @@ def test_sync_token_plan_transient_after_rows_uses_max_contiguous(monkeypatch):
     )
 
 
-def test_sync_token_plan_rows_after_transient_skip_contiguous_tracking(monkeypatch):
+def test_sync_token_plan_rows_after_transient_skip_contiguous_tracking():
     token_id = "n" * 33 + "12"
     queue = Queue()
     plan = make_plan(token_id)
     calls = iter([None, [(token_id, 25, 0.4)]])
-    monkeypatch.setattr(
-        odds_sync, "_fetch_window_with_auto_split", lambda *args, **kwargs: next(calls)
-    )
-
     result = odds_sync._sync_token_plan(
         plan,
         object(),
@@ -115,6 +102,7 @@ def test_sync_token_plan_rows_after_transient_skip_contiguous_tracking(monkeypat
         window_seconds=11,
         writer_chunk_rows=100,
         min_split_window_seconds=1,
+        fetch_window_fn=lambda *args, **kwargs: next(calls),
     )
 
     items = []
@@ -129,14 +117,10 @@ def test_sync_token_plan_rows_after_transient_skip_contiguous_tracking(monkeypat
     )
 
 
-def test_sync_token_plan_empty_without_errors_uses_end_cursor(monkeypatch):
+def test_sync_token_plan_empty_without_errors_uses_end_cursor():
     token_id = "q" * 33 + "12"
     queue = Queue()
     plan = make_plan(token_id)
-    monkeypatch.setattr(
-        odds_sync, "_fetch_window_with_auto_split", lambda *args, **kwargs: []
-    )
-
     result = odds_sync._sync_token_plan(
         plan,
         object(),
@@ -144,6 +128,7 @@ def test_sync_token_plan_empty_without_errors_uses_end_cursor(monkeypatch):
         window_seconds=100,
         writer_chunk_rows=100,
         min_split_window_seconds=1,
+        fetch_window_fn=lambda *args, **kwargs: [],
     )
 
     assert result["empty"] is True

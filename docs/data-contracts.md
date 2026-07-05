@@ -12,7 +12,7 @@ Schema: `polymarket_wc2026_marts`
 
 | Relation | Grain | Contract |
 | --- | --- | --- |
-| `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token universe for knockout-related markets with reported volume >= $5,000 USD, including explicit price semantics. |
+| `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token universe for knockout-related markets at or above the WC2026 contract volume floor, including explicit price semantics. |
 | `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, result metadata, and price semantics. |
 | `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
 
@@ -36,8 +36,8 @@ Schema: `international_results_wc2026_marts`
 ## Current Scope Rules
 
 - Public WC2026 marts expose only knockout-related markets from the WC2026 registry
-  with reported `volume >= $5,000` USD. The floor is dynamic: markets crossing
-  $5,000 on a later sync are admitted on the next dbt build.
+  at or above the WC2026 contract volume floor. The current floor is $5,000 USD,
+  and markets crossing it on a later sync are admitted on the next dbt build.
 - Shared WC2026 thresholds live in `dbt/seeds/polymarket_wc2026_contract.csv`;
   dbt models/tests read that seed and Python parity tests assert the Dagster
   defaults match it.
@@ -87,7 +87,7 @@ Schema: `international_results_wc2026_marts`
 - After `make prune-odds-history`, `polymarket_wc2026_raw.odds_history` only guarantees the trailing ~365 days of source
   odds points unless you change the retention window.
 - `int_polymarket_wc2026_markets` is the canonical market-level WC2026 scope (grain:
-  `scope_name`, `market_id`) with the $5,000 volume floor applied.
+  `scope_name`, `market_id`) with the WC2026 contract volume floor applied.
 
 ## dbt Checks
 

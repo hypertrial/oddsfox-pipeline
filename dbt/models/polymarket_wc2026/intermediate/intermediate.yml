@@ -4,7 +4,8 @@ models:
   - name: int_polymarket_wc2026_markets
     description: >
       WC2026 Polymarket markets admitted by polymarket_wc2026_ops.market_scope_registry
-      with reported volume >= $5,000 USD (dynamic floor; re-evaluated each dbt build).
+      at or above the WC2026 contract volume floor (currently $5,000 USD;
+      re-evaluated each dbt build).
     tests:
       - no_duplicate_grain:
           arguments:

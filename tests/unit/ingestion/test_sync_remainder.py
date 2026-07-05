@@ -52,7 +52,7 @@ def test_dynamic_writer_flush_rows_utilization_branches():
     assert out_low == min(odds_sync.MAX_FLUSH_ROWS_CAP, 5000 * 2)
 
 
-def test_fetch_window_auto_split_interval_branch(monkeypatch):
+def test_fetch_window_auto_split_interval_branch():
     calls = []
 
     def ft(*a, **k):
@@ -66,10 +66,6 @@ def test_fetch_window_auto_split_interval_branch(monkeypatch):
             raise BadRequestError("long", body="interval is too long", status=400)
         return [(token_id, end_ts - 1, 0.5)]
 
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
-        ft,
-    )
     tid = "z" * 33 + "12"
     out = odds_sync._fetch_window_with_auto_split(
         MagicMock(),
@@ -78,33 +74,34 @@ def test_fetch_window_auto_split_interval_branch(monkeypatch):
         200,
         1440,
         60,
+        fetch_token_history_fn=ft,
     )
     assert out and len(calls) >= 2
 
 
-def test_fetch_window_returns_none_on_transient_chunk(monkeypatch):
+def test_fetch_window_returns_none_on_transient_chunk():
     def ft(*a, **k):
         return None
 
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
-        ft,
-    )
     tid = "y" * 33 + "12"
     assert (
-        odds_sync._fetch_window_with_auto_split(MagicMock(), tid, 0, 50, 1440, 10)
+        odds_sync._fetch_window_with_auto_split(
+            MagicMock(),
+            tid,
+            0,
+            50,
+            1440,
+            10,
+            fetch_token_history_fn=ft,
+        )
         is None
     )
 
 
-def test_sync_token_plan_typeerror_propagates(monkeypatch):
+def test_sync_token_plan_typeerror_propagates():
     def ft(*a, **k):
         raise TypeError("bad signature")
 
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
-        ft,
-    )
     q = Queue()
     plan = odds_sync.TokenPlan(
         token_id="q" * 33 + "12",
@@ -123,17 +120,14 @@ def test_sync_token_plan_typeerror_propagates(monkeypatch):
             window_seconds=100,
             writer_chunk_rows=1000,
             min_split_window_seconds=1,
+            fetch_window_fn=ft,
         )
 
 
-def test_sync_token_plan_permanent_error_puts_skip(monkeypatch):
+def test_sync_token_plan_permanent_error_puts_skip():
     def ft(*a, **k):
         raise BadRequestError("bad", status=400, body="not interval")
 
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
-        ft,
-    )
     q = Queue()
     plan = odds_sync.TokenPlan(
         token_id="p" * 33 + "12",
@@ -151,6 +145,7 @@ def test_sync_token_plan_permanent_error_puts_skip(monkeypatch):
         window_seconds=100,
         writer_chunk_rows=1000,
         min_split_window_seconds=1,
+        fetch_window_fn=ft,
     )
     items = []
     while not q.empty():
@@ -158,16 +153,12 @@ def test_sync_token_plan_permanent_error_puts_skip(monkeypatch):
     assert items
 
 
-def test_sync_token_plan_transient_and_cursor_branches(monkeypatch):
+def test_sync_token_plan_transient_and_cursor_branches():
     """had_transient_error True with max_contiguous; empty chunk continuation."""
 
     def ft(*a, **k):
         return None  # transient
 
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
-        ft,
-    )
     q = Queue()
     plan = odds_sync.TokenPlan(
         token_id="r" * 33 + "12",
@@ -185,6 +176,7 @@ def test_sync_token_plan_transient_and_cursor_branches(monkeypatch):
         window_seconds=2000,
         writer_chunk_rows=10000,
         min_split_window_seconds=1,
+        fetch_window_fn=ft,
     )
 
 
@@ -249,7 +241,7 @@ def test_build_single_token_plan_all_skips():
     assert sk3 == "persisted_skip"
 
 
-def test_iter_token_plans_paged_reconcile_and_invalid_batch(monkeypatch):
+def test_iter_token_plans_paged_reconcile_and_invalid_batch():
     page = [
         (
             "mx",
@@ -262,13 +254,6 @@ def test_iter_token_plans_paged_reconcile_and_invalid_batch(monkeypatch):
     def iter_kw(**kwargs):
         yield page
 
-    monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", iter_kw)
-
-    monkeypatch.setattr(
-        odds_sync,
-        "get_token_sync_snapshot",
-        lambda ids, **kw: ({}, set(), {}),
-    )
     seen_batches = []
 
     def on_inv(batch):
@@ -285,6 +270,8 @@ def test_iter_token_plans_paged_reconcile_and_invalid_batch(monkeypatch):
         market_page_size=10,
         reconcile_ledger=True,
         on_invalid_tokens_batch=on_inv,
+        iter_markets_with_tokens_fn=iter_kw,
+        get_token_sync_snapshot_fn=lambda ids, **kw: ({}, set(), {}),
     )
     plans = list(gen)
     assert isinstance(plans, list)

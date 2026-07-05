@@ -3,9 +3,10 @@ version: 2
 models:
   - name: polymarket_wc2026_knockout_market_tokens
     description: >
-      WC2026 knockout progression-side token universe (scope=wc2026, volume >=
-      $5,000 USD). Winner/reach markets use the Yes token; elimination-framed
-      markets use the No token.
+      WC2026 knockout progression-side token universe (scope=wc2026, at or
+      above the WC2026 contract volume floor, currently $5,000 USD).
+      Winner/reach markets use the Yes token; elimination-framed markets use
+      the No token.
     tests:
       - no_duplicate_grain:
           arguments:

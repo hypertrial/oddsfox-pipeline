@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any
 
 import dlt
 from dagster import (
@@ -27,7 +27,6 @@ from oddsfox_pipeline.orchestration.config import (
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
     MetadataBackfillConfig,
-    OddsSyncConfig,
 )
 from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
 from oddsfox_pipeline.orchestration.translators import PolymarketDagsterDbtTranslator
@@ -50,7 +49,6 @@ from oddsfox_pipeline.storage.duckdb.observability import (
 )
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import ensure_polymarket_indexes
 
-_DLT_PIPELINE_BY_PATH = asset_helpers._DLT_PIPELINE_BY_PATH
 POLYMARKET_WC2026_SCOPE_NAME = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
 POLYMARKET_WC2026_RAW_MARKETS = asset_key(
     SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "markets"
@@ -88,93 +86,10 @@ def _snapshot_refreshed_scope_name(snapshot_metrics: dict[str, Any]) -> str | No
     return str(scope_name) if scope_name else None
 
 
-def _run_with_raw_snapshot(
-    raw_snapshot_level: str,
-    run_fn: Callable[[dict[str, Any]], dict[str, Any]],
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], dict]:
-    return asset_helpers._run_with_raw_snapshot(
-        raw_snapshot_level,
-        run_fn,
-        snapshot_raw_layer_fn=snapshot_raw_layer,
-        delta_raw_layer_fn=delta_raw_layer,
-    )
-
-
-def _raw_snapshot_metadata(
-    pre: dict[str, Any],
-    post: dict[str, Any],
-    delta: dict[str, Any],
-    *,
-    run_summary: dict[str, Any] | None = None,
-) -> dict[str, MetadataValue]:
-    return asset_helpers._raw_snapshot_metadata(
-        pre,
-        post,
-        delta,
-        run_summary=run_summary,
-    )
-
-
-def _build_odds_sync_kwargs(
-    config: OddsSyncConfig,
-    progress_callback: Callable[[str, dict[str, Any]], None],
-    *,
-    plan_iterator_factory: Callable[..., Any] | None = None,
-) -> dict[str, Any]:
-    return asset_helpers._build_odds_sync_kwargs(
-        config,
-        progress_callback,
-        plan_iterator_factory=plan_iterator_factory,
-    )
-
-
-def _odds_sync_metadata(
-    config: OddsSyncConfig,
-    run_summary: dict[str, Any],
-    raw_metadata: dict[str, MetadataValue],
-) -> dict[str, MetadataValue]:
-    return asset_helpers._odds_sync_metadata(config, run_summary, raw_metadata)
-
-
-def _run_with_guardrail_thread(
-    guardrail: Any,
-    phase_name: str,
-    run_fn: Callable[[], dict[str, Any]],
-    *,
-    poll_seconds: float,
-) -> dict[str, Any]:
-    return asset_helpers._run_with_guardrail_thread(
-        guardrail,
-        phase_name,
-        run_fn,
-        poll_seconds=poll_seconds,
-        thread_factory=ops.Thread,
-    )
-
-
-def _materialize_odds_sync(
-    context: AssetExecutionContext,
-    config: OddsSyncConfig,
-    *,
-    plan_iterator_factory: Callable[..., Any] | None = None,
-) -> MaterializeResult:
-    return asset_helpers._materialize_odds_sync(
-        context,
-        config,
-        plan_iterator_factory=plan_iterator_factory,
-        sync_odds_fn=ops.sync_odds,
-        run_with_raw_snapshot_fn=_run_with_raw_snapshot,
-    )
-
-
-def get_polymarket_dlt_pipeline() -> dlt.Pipeline:
-    return asset_helpers.get_polymarket_dlt_pipeline(
-        active_duckdb_path_fn=active_duckdb_path,
-        dlt_module=dlt,
-    )
-
-
-_POLYMARKET_DLT_PIPELINE = get_polymarket_dlt_pipeline()
+_POLYMARKET_DLT_PIPELINE = asset_helpers.get_polymarket_dlt_pipeline(
+    active_duckdb_path_fn=active_duckdb_path,
+    dlt_module=dlt,
+)
 
 
 @dlt_assets(
@@ -230,7 +145,10 @@ def polymarket_wc2026_raw_markets(
         },
         force_log=True,
     )
-    pipeline = get_polymarket_dlt_pipeline()
+    pipeline = asset_helpers.get_polymarket_dlt_pipeline(
+        active_duckdb_path_fn=active_duckdb_path,
+        dlt_module=dlt,
+    )
     if pipeline.has_pending_data:
         context.log.info(
             "Clearing pending dlt packages for polymarket_wc2026_raw before extract"
@@ -300,9 +218,11 @@ def polymarket_wc2026_raw_markets_snapshot(
             "skipped_external_discovery": True,
         }
 
-    run_summary, _, _, raw_delta, raw_metadata = _run_with_raw_snapshot(
+    run_summary, _, _, raw_delta, raw_metadata = asset_helpers._run_with_raw_snapshot(
         config.raw_snapshot_level,
         _local_snapshot,
+        snapshot_raw_layer_fn=snapshot_raw_layer,
+        delta_raw_layer_fn=delta_raw_layer,
     )
     context.log.info(
         "DuckDB delta after polymarket_wc2026_raw_markets_snapshot: %s", raw_delta
@@ -356,7 +276,7 @@ def polymarket_wc2026_ops_market_scope_registry(
                 "snapshot_metrics": snapshot_metrics,
             }
             return MaterializeResult(
-                metadata=_raw_snapshot_metadata(
+                metadata=asset_helpers._raw_snapshot_metadata(
                     pre,
                     pre,
                     {},
@@ -375,9 +295,11 @@ def polymarket_wc2026_ops_market_scope_registry(
             progress_callback=_registry_progress,
         )
 
-    run_summary, _, _, _, raw_metadata = _run_with_raw_snapshot(
+    run_summary, _, _, _, raw_metadata = asset_helpers._run_with_raw_snapshot(
         config.raw_snapshot_level,
         _sync_registry,
+        snapshot_raw_layer_fn=snapshot_raw_layer,
+        delta_raw_layer_fn=delta_raw_layer,
     )
     return MaterializeResult(metadata=raw_metadata)
 
@@ -420,7 +342,7 @@ def polymarket_wc2026_raw_market_metadata_backfill(
 
     pre = snapshot_raw_layer(level=config.raw_snapshot_level)
     backfill_summaries = [
-        _run_with_guardrail_thread(
+        asset_helpers._run_with_guardrail_thread(
             guardrail,
             "backfill_market_metadata",
             lambda: ops.backfill_market_metadata(
@@ -440,6 +362,7 @@ def polymarket_wc2026_raw_market_metadata_backfill(
                 event_slug_fallback_progress_every_pages=config.event_slug_fallback_progress_pages,
             ),
             poll_seconds=config.progress_poll_seconds,
+            thread_factory=ops.Thread,
         )
     ]
     orphan_market_tokens_removed = ops.delete_orphan_market_tokens()
@@ -453,7 +376,7 @@ def polymarket_wc2026_raw_market_metadata_backfill(
     return MaterializeResult(
         metadata={
             "batch_size": MetadataValue.int(config.batch_size),
-            **_raw_snapshot_metadata(pre, post, dd),
+            **asset_helpers._raw_snapshot_metadata(pre, post, dd),
             "backfill_summaries": MetadataValue.json(backfill_summaries),
             "orphan_market_tokens_removed": MetadataValue.int(
                 orphan_market_tokens_removed
@@ -476,7 +399,20 @@ def polymarket_wc2026_raw_token_odds_history_hourly(
     context: AssetExecutionContext,
     config: HourlyOddsSyncConfig,
 ) -> MaterializeResult:
-    return _materialize_odds_sync(context, config)
+    def _run_with_raw_snapshot(raw_snapshot_level, run_fn):
+        return asset_helpers._run_with_raw_snapshot(
+            raw_snapshot_level,
+            run_fn,
+            snapshot_raw_layer_fn=snapshot_raw_layer,
+            delta_raw_layer_fn=delta_raw_layer,
+        )
+
+    return asset_helpers._materialize_odds_sync(
+        context,
+        config,
+        sync_odds_fn=ops.sync_odds,
+        run_with_raw_snapshot_fn=_run_with_raw_snapshot,
+    )
 
 
 @dbt_assets(

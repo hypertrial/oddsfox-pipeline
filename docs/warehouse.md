@@ -72,8 +72,8 @@ Schema: `polymarket_wc2026_intermediate`
 Schema: `polymarket_wc2026_marts`
 
 - `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for real WC2026 team knockout
-  markets with reported volume >= $5,000 USD, plus derived `market_status`, source live flag, active-team live
-  flag, and explicit price semantics.
+  markets at or above the WC2026 contract volume floor, plus derived `market_status`, source live flag,
+  active-team live flag, and explicit price semantics.
 - `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for real-team progression-side
   knockout tokens (dbt table), including propagated market status, tournament status, active-team live flag, and
   `price_represents = 'progression'`.

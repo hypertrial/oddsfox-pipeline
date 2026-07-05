@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 from queue import Queue
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from tests.integration.ingestion._odds_sync_harness import make_runtime
@@ -126,17 +126,13 @@ def test_build_single_token_plan_keys():
     assert sk2 == "closed_done" or plan2 is None
 
 
-def test_iter_token_plans_paged_uses_current_market_iterator_signature(monkeypatch):
+def test_iter_token_plans_paged_uses_current_market_iterator_signature():
     seen = {}
 
     def iter_side(**kwargs):
         seen.update(kwargs)
         return iter(())
 
-    monkeypatch.setattr(odds_sync, "iter_markets_with_tokens", iter_side)
-    monkeypatch.setattr(
-        odds_sync, "get_token_sync_snapshot", lambda *a, **k: ({}, set(), {})
-    )
     gen = odds_sync.iter_token_plans_paged(
         now_ts=1_800_000_000,
         clob_cutoff_date="2024-01-01",
@@ -146,6 +142,8 @@ def test_iter_token_plans_paged_uses_current_market_iterator_signature(monkeypat
         overlap_minutes=0,
         skip_recent_minutes=0,
         market_page_size=100,
+        iter_markets_with_tokens_fn=iter_side,
+        get_token_sync_snapshot_fn=lambda *a, **k: ({}, set(), {}),
     )
     assert list(gen) == []
     assert seen["json_array_only"] is True
@@ -167,18 +165,15 @@ def test_sync_token_plan_mocked():
     def fetch_stub(*a, **k):
         return [(tid, 50, 0.4)]
 
-    with patch(
-        "oddsfox_pipeline.ingestion.polymarket.odds.sync._fetch_window_with_auto_split",
-        side_effect=fetch_stub,
-    ):
-        odds_sync._sync_token_plan(
-            plan,
-            MagicMock(),
-            q,
-            window_seconds=200,
-            writer_chunk_rows=10,
-            min_split_window_seconds=1,
-        )
+    odds_sync._sync_token_plan(
+        plan,
+        MagicMock(),
+        q,
+        window_seconds=200,
+        writer_chunk_rows=10,
+        min_split_window_seconds=1,
+        fetch_window_fn=fetch_stub,
+    )
 
 
 def test_reconcile_odds_ledger_mocked(monkeypatch):
@@ -452,15 +447,12 @@ def test_odds_sync_all_excludes_private_helpers():
         "default_odds_sync_runtime",
         "init_db",
         "reconcile_odds_ledger",
-        "replace_odds_sync_runtime",
         "sync_odds",
     ]
 
 
 def test_odds_sync_runtime_flat_property_accessors():
-    from oddsfox_pipeline.ingestion.polymarket.odds.deps import (
-        replace_odds_sync_runtime,
-    )
+    from dataclasses import replace
 
     runtime = make_runtime()
     flat_to_nested = {
@@ -488,10 +480,10 @@ def test_odds_sync_runtime_flat_property_accessors():
         assert getattr(runtime, name) is nested_value
 
     sentinel = object()
-    updated = replace_odds_sync_runtime(runtime, sync_token_plan=sentinel)
+    updated = replace(
+        runtime,
+        execution=replace(runtime.execution, sync_token_plan=sentinel),
+    )
     assert updated.execution.sync_token_plan is sentinel
-    updated = replace_odds_sync_runtime(runtime, writer_loop=sentinel)
+    updated = replace(runtime, writer=replace(runtime.writer, writer_loop=sentinel))
     assert updated.writer.writer_loop is sentinel
-
-    with pytest.raises(AttributeError, match="Unknown OddsSyncRuntime field"):
-        replace_odds_sync_runtime(runtime, not_a_field=sentinel)

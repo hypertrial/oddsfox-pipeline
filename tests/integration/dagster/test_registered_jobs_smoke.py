@@ -55,7 +55,11 @@ oddsfox:
         if False:
             yield None
 
-    monkeypatch.setattr(assets_mod, "get_polymarket_dlt_pipeline", lambda: pipeline)
+    monkeypatch.setattr(
+        assets_mod.asset_helpers,
+        "get_polymarket_dlt_pipeline",
+        lambda **_kwargs: pipeline,
+    )
     monkeypatch.setattr(
         assets_mod,
         "collect_market_scope_payload",

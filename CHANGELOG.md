@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Breaking: renamed WC2026 knockout observability columns
+  `raw_classified_markets_ge_5000` to `raw_classified_markets_ge_floor` and
+  `minimum_raw_markets_ge_5000` to `minimum_raw_markets_ge_floor`.
 - Added `international_results_wc2026_match_results_ingest`, raw
   `international_results_wc2026_raw.match_results`, and public
   `international_results_wc2026_matches` / `international_results_wc2026_team_status`

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from concurrent.futures import Future
 from contextlib import contextmanager
+from dataclasses import fields, replace
 from typing import Any, Callable, Iterator
 from unittest.mock import patch
 
 from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
-from oddsfox_pipeline.ingestion.polymarket.odds.deps import replace_odds_sync_runtime
 from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
 
 _RAW_SNAPSHOT_DEFAULTS: dict[str, Any] = {
@@ -227,7 +227,23 @@ def patch_guardrail_clock(monkeypatch, clock: FakeClock) -> None:
 
 
 def make_runtime(**overrides: Any):
-    return replace_odds_sync_runtime(odds_sync.default_odds_sync_runtime(), **overrides)
+    runtime = odds_sync.default_odds_sync_runtime()
+    remaining = dict(overrides)
+    for section_name in ("planning", "execution", "writer", "engine"):
+        section = getattr(runtime, section_name)
+        section_fields = {field.name for field in fields(section)}
+        section_overrides = {
+            key: remaining.pop(key) for key in list(remaining) if key in section_fields
+        }
+        if section_overrides:
+            runtime = replace(
+                runtime,
+                **{section_name: replace(section, **section_overrides)},
+            )
+    if remaining:
+        unknown = next(iter(remaining))
+        raise AttributeError(f"Unknown OddsSyncRuntime field: {unknown}")
+    return runtime
 
 
 def patch_sync_odds_idle(

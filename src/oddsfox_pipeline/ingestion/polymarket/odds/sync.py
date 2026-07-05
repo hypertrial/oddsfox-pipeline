@@ -2,7 +2,6 @@ from __future__ import annotations
 
 # Facade module: imported names are intentionally available as module attributes.
 # ruff: noqa: F401
-import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timezone
@@ -20,7 +19,6 @@ from oddsfox_pipeline.ingestion.polymarket.odds.deps import (
     OddsSyncRuntime,
     PlanningRuntime,
     WriterRuntime,
-    replace_odds_sync_runtime,
 )
 from oddsfox_pipeline.ingestion.polymarket.odds.engine import (
     init_db as _engine_init_db,
@@ -124,20 +122,19 @@ _PLAN_OPTION_KEYS = frozenset(
 
 
 def _iter_token_plans_paged(*args, **kwargs):
-    fac = sys.modules[__name__]
     if "options" not in kwargs:
         option_kwargs = {
             key: kwargs.pop(key) for key in list(_PLAN_OPTION_KEYS) if key in kwargs
         }
         kwargs["options"] = OddsSyncOptions(**option_kwargs)
-    kwargs.setdefault("iter_due_market_tokens_fn", fac.iter_due_market_tokens)
-    kwargs.setdefault("iter_markets_with_tokens_fn", fac.iter_markets_with_tokens)
-    kwargs.setdefault("get_token_sync_snapshot_fn", fac.get_token_sync_snapshot)
+    kwargs.setdefault("iter_due_market_tokens_fn", iter_due_market_tokens)
+    kwargs.setdefault("iter_markets_with_tokens_fn", iter_markets_with_tokens)
+    kwargs.setdefault("get_token_sync_snapshot_fn", get_token_sync_snapshot)
     kwargs.setdefault(
         "count_due_market_token_exclusions_fn",
         count_due_market_token_exclusions,
     )
-    kwargs.setdefault("token_sync_scheduler_state_cls", fac.TokenSyncSchedulerState)
+    kwargs.setdefault("token_sync_scheduler_state_cls", TokenSyncSchedulerState)
     return _planning_mod.iter_token_plans_paged(*args, **kwargs)
 
 
@@ -152,48 +149,42 @@ def _sync_token_plan(*args, **kwargs):
 
 
 def _flush_writer_buffers(*args, **kwargs):
-    fac = sys.modules[__name__]
-    kwargs.setdefault("save_odds_bulk_upsert_fn", fac.save_odds_bulk_upsert)
-    kwargs.setdefault(
-        "upsert_token_sync_state_batch_fn", fac.upsert_token_sync_state_batch
-    )
-    kwargs.setdefault("upsert_skipped_tokens_batch_fn", fac.upsert_skipped_tokens_batch)
+    kwargs.setdefault("save_odds_bulk_upsert_fn", save_odds_bulk_upsert)
+    kwargs.setdefault("upsert_token_sync_state_batch_fn", upsert_token_sync_state_batch)
+    kwargs.setdefault("upsert_skipped_tokens_batch_fn", upsert_skipped_tokens_batch)
     return _writer_mod.flush_writer_buffers(*args, **kwargs)
 
 
 def _refresh_dirty_daily_keys(*args, **kwargs):
-    fac = sys.modules[__name__]
-    kwargs.setdefault("refresh_token_odds_daily_fn", fac.refresh_token_odds_daily)
+    kwargs.setdefault("refresh_token_odds_daily_fn", refresh_token_odds_daily)
     return _writer_mod.refresh_dirty_daily_keys(*args, **kwargs)
 
 
 def _writer_loop(*args, **kwargs):
-    fac = sys.modules[__name__]
-    kwargs.setdefault("get_connection_fn", fac.get_connection)
-    kwargs.setdefault("dynamic_writer_flush_rows_fn", fac._dynamic_writer_flush_rows)
-    kwargs.setdefault("flush_writer_buffers_fn", fac._flush_writer_buffers)
-    kwargs.setdefault("apply_writer_item_fn", fac._apply_writer_item)
-    kwargs.setdefault("refresh_dirty_daily_keys_fn", fac._refresh_dirty_daily_keys)
+    kwargs.setdefault("get_connection_fn", get_connection)
+    kwargs.setdefault("dynamic_writer_flush_rows_fn", _dynamic_writer_flush_rows)
+    kwargs.setdefault("flush_writer_buffers_fn", _flush_writer_buffers)
+    kwargs.setdefault("apply_writer_item_fn", _apply_writer_item)
+    kwargs.setdefault("refresh_dirty_daily_keys_fn", _refresh_dirty_daily_keys)
     return _writer_mod.writer_loop(*args, **kwargs)
 
 
 def default_odds_sync_runtime() -> OddsSyncRuntime:
     """Return the default live-callable runtime for a Polymarket odds sync run."""
-    fac = sys.modules[__name__]
     return OddsSyncRuntime(
         planning=PlanningRuntime(
-            iter_markets_with_tokens=fac.iter_markets_with_tokens,
-            iter_due_market_tokens=fac.iter_due_market_tokens,
-            count_due_market_token_exclusions=fac.count_due_market_token_exclusions,
-            count_candidate_market_tokens=fac.count_candidate_market_tokens,
-            get_token_sync_snapshot=fac.get_token_sync_snapshot,
-            token_sync_scheduler_state=fac.TokenSyncSchedulerState,
+            iter_markets_with_tokens=iter_markets_with_tokens,
+            iter_due_market_tokens=iter_due_market_tokens,
+            count_due_market_token_exclusions=count_due_market_token_exclusions,
+            count_candidate_market_tokens=count_candidate_market_tokens,
+            get_token_sync_snapshot=get_token_sync_snapshot,
+            token_sync_scheduler_state=TokenSyncSchedulerState,
         ),
         execution=ExecutionRuntime(
-            fetch_window_with_auto_split_impl=fac._fetch_window_with_auto_split,
+            fetch_window_with_auto_split_impl=_fetch_window_with_auto_split,
             fetch_token_history_with_retry=fetch_token_history_with_retry,
             default_rate_limiter_factory=_default_rate_limiter_factory,
-            sync_token_plan=fac._sync_token_plan,
+            sync_token_plan=_sync_token_plan,
         ),
         writer=WriterRuntime(
             get_connection=get_connection,
@@ -201,24 +192,24 @@ def default_odds_sync_runtime() -> OddsSyncRuntime:
             save_odds_bulk_upsert=save_odds_bulk_upsert,
             upsert_skipped_tokens_batch=upsert_skipped_tokens_batch,
             upsert_token_sync_state_batch=upsert_token_sync_state_batch,
-            dynamic_writer_flush_rows=fac._dynamic_writer_flush_rows,
-            flush_writer_buffers=fac._flush_writer_buffers,
-            apply_writer_item=fac._apply_writer_item,
-            writer_loop=fac._writer_loop,
+            dynamic_writer_flush_rows=_dynamic_writer_flush_rows,
+            flush_writer_buffers=_flush_writer_buffers,
+            apply_writer_item=_apply_writer_item,
+            writer_loop=_writer_loop,
         ),
         engine=EngineRuntime(
-            ensure_duck_db=fac.ensure_duck_db,
-            snapshot_raw_layer=fac.snapshot_raw_layer,
+            ensure_duck_db=ensure_duck_db,
+            snapshot_raw_layer=snapshot_raw_layer,
             save_skipped_tokens=save_skipped_tokens,
             save_sync_run_metrics=save_sync_run_metrics,
             reconcile_token_sync_ledger_from_history=reconcile_token_sync_ledger_from_history,
-            progress_guardrail=fac.ProgressGuardrail,
-            no_progress_timeout_error=fac.NoProgressTimeoutError,
-            thread_cls=fac.Thread,
-            thread_pool_executor=fac.ThreadPoolExecutor,
-            wait_fn=fac.wait,
-            tqdm_mod=fac.tqdm,
-            time_mod=fac.time,
+            progress_guardrail=ProgressGuardrail,
+            no_progress_timeout_error=NoProgressTimeoutError,
+            thread_cls=Thread,
+            thread_pool_executor=ThreadPoolExecutor,
+            wait_fn=wait,
+            tqdm_mod=tqdm,
+            time_mod=time,
         ),
     )
 
@@ -293,6 +284,5 @@ __all__ = [
     "default_odds_sync_runtime",
     "init_db",
     "reconcile_odds_ledger",
-    "replace_odds_sync_runtime",
     "sync_odds",
 ]

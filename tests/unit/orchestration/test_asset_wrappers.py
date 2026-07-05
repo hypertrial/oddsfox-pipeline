@@ -7,6 +7,7 @@ import pytest
 
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 from oddsfox_pipeline.orchestration import config as orch_config
+from oddsfox_pipeline.orchestration import polymarket_asset_helpers as helpers_mod
 from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_markets,
@@ -15,7 +16,7 @@ from oddsfox_pipeline.orchestration.assets import (
 )
 
 
-def test_get_polymarket_dlt_pipeline_uses_path_cache(monkeypatch):
+def test_get_polymarket_dlt_pipeline_uses_path_cache():
     created = []
 
     class FakeDlt:
@@ -29,12 +30,16 @@ def test_get_polymarket_dlt_pipeline_uses_path_cache(monkeypatch):
             created.append(kwargs)
             return object()
 
-    monkeypatch.setattr(assets_mod, "active_duckdb_path", lambda: "/tmp/cache.duckdb")
-    monkeypatch.setattr(assets_mod, "dlt", FakeDlt)
-    assets_mod._DLT_PIPELINE_BY_PATH.clear()
+    helpers_mod._DLT_PIPELINE_BY_PATH.clear()
 
-    first = assets_mod.get_polymarket_dlt_pipeline()
-    second = assets_mod.get_polymarket_dlt_pipeline()
+    first = helpers_mod.get_polymarket_dlt_pipeline(
+        active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
+        dlt_module=FakeDlt,
+    )
+    second = helpers_mod.get_polymarket_dlt_pipeline(
+        active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
+        dlt_module=FakeDlt,
+    )
 
     assert first is second
     assert len(created) == 1
@@ -51,7 +56,11 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
     def connection():
         yield conn
 
-    monkeypatch.setattr(assets_mod, "get_polymarket_dlt_pipeline", lambda: pipeline)
+    monkeypatch.setattr(
+        assets_mod.asset_helpers,
+        "get_polymarket_dlt_pipeline",
+        lambda **_kwargs: pipeline,
+    )
     token_rows = [("raw", '["tok-yes", "tok-no"]')]
     saved_tokens = []
     saved_metrics = {}
@@ -95,23 +104,23 @@ def test_raw_markets_snapshot_is_local_only(monkeypatch):
     sync_markets = MagicMock()
     monkeypatch.setattr(assets_mod.ops, "sync_markets", sync_markets)
     monkeypatch.setattr(assets_mod, "format_raw_snapshot_log", lambda _snapshot: "")
+    snapshots = iter([{"pre": 1}, {"post": 1}])
     monkeypatch.setattr(
-        assets_mod,
-        "_run_with_raw_snapshot",
-        lambda _level, run_fn: (
-            run_fn({"pre": 1}),
-            {"pre": 1},
-            {"post": 1},
-            {"delta": 0},
-            {"raw": "metadata"},
-        ),
+        assets_mod, "snapshot_raw_layer", lambda **_kwargs: next(snapshots)
     )
+    monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
 
     fn = polymarket_wc2026_raw_markets_snapshot.op.compute_fn.decorated_fn
     result = fn(MagicMock(), orch_config.MarketsSyncConfig())
 
     sync_markets.assert_not_called()
-    assert set(result.metadata) == {"source", "raw"}
+    assert set(result.metadata) == {
+        "source",
+        "duckdb_raw_pre",
+        "duckdb_raw_post",
+        "duckdb_raw_delta",
+        "run_summary",
+    }
 
 
 def test_market_scope_registry_skips_when_snapshot_already_refreshed(monkeypatch):
@@ -197,7 +206,7 @@ def test_market_scope_registry_force_refresh_bypasses_snapshot_metric_check(
     }
 
 
-def test_materialize_odds_sync_metadata_and_plan_iterator(monkeypatch):
+def test_materialize_odds_sync_metadata_and_plan_iterator():
     captured = {}
 
     def sync_odds(**kwargs):
@@ -208,15 +217,16 @@ def test_materialize_odds_sync_metadata_and_plan_iterator(monkeypatch):
             "totals": {"rows": 2},
         }
 
-    monkeypatch.setattr(assets_mod.ops, "sync_odds", sync_odds)
-    monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {"rows": 0})
-    monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
+    def run_with_snapshot(_level, run_fn):
+        return run_fn({}), {}, {}, {}, {}
 
     plan_iterator = object()
-    result = assets_mod._materialize_odds_sync(
+    result = helpers_mod._materialize_odds_sync(
         MagicMock(),
         orch_config.OddsSyncConfig(min_volume=10.0, max_volume=20.0),
         plan_iterator_factory=plan_iterator,
+        sync_odds_fn=sync_odds,
+        run_with_raw_snapshot_fn=run_with_snapshot,
     )
 
     assert captured["plan_iterator_factory"] is plan_iterator
@@ -233,12 +243,12 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
         max_volume=20.0,
     )
 
-    kwargs = assets_mod._build_odds_sync_kwargs(
+    kwargs = helpers_mod._build_odds_sync_kwargs(
         config,
         progress,
         plan_iterator_factory=plan_iterator,
     )
-    metadata = assets_mod._odds_sync_metadata(
+    metadata = helpers_mod._odds_sync_metadata(
         config,
         {
             "planning": {"plans": 1},
@@ -257,7 +267,7 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
     assert metadata["max_volume"].value == 20.0
     assert metadata["totals"].value == {"rows": 3}
 
-    min_only_metadata = assets_mod._odds_sync_metadata(
+    min_only_metadata = helpers_mod._odds_sync_metadata(
         orch_config.OddsSyncConfig(min_volume=10.0, max_volume=None),
         {"planning": {}, "planning_context": {}, "totals": {}},
         {},
@@ -265,7 +275,7 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
     assert "min_volume" in min_only_metadata
     assert "max_volume" not in min_only_metadata
 
-    max_only_metadata = assets_mod._odds_sync_metadata(
+    max_only_metadata = helpers_mod._odds_sync_metadata(
         orch_config.OddsSyncConfig(min_volume=None, max_volume=20.0),
         {"planning": {}, "planning_context": {}, "totals": {}},
         {},
@@ -274,7 +284,7 @@ def test_odds_sync_helper_builds_kwargs_and_metadata():
     assert "max_volume" in max_only_metadata
 
 
-def test_run_with_guardrail_thread_success_and_error(monkeypatch):
+def test_run_with_guardrail_thread_success_and_error():
     class ImmediateThread:
         def __init__(self, target, daemon):
             self.target = target
@@ -292,13 +302,12 @@ def test_run_with_guardrail_thread_success_and_error(monkeypatch):
             del timeout
 
     guardrail = MagicMock()
-    monkeypatch.setattr(assets_mod.ops, "Thread", ImmediateThread)
-
-    assert assets_mod._run_with_guardrail_thread(
+    assert helpers_mod._run_with_guardrail_thread(
         guardrail,
         "phase",
         lambda: {"ok": True},
         poll_seconds=0,
+        thread_factory=ImmediateThread,
     ) == {"ok": True}
     guardrail.record_progress.assert_called_with(
         work_increment=0,
@@ -311,15 +320,16 @@ def test_run_with_guardrail_thread_success_and_error(monkeypatch):
         raise RuntimeError("boom")
 
     with pytest.raises(RuntimeError, match="boom"):
-        assets_mod._run_with_guardrail_thread(
+        helpers_mod._run_with_guardrail_thread(
             guardrail,
             "phase",
             raise_boom,
             poll_seconds=0,
+            thread_factory=ImmediateThread,
         )
 
 
-def test_run_with_guardrail_thread_checks_while_worker_alive(monkeypatch):
+def test_run_with_guardrail_thread_checks_while_worker_alive():
     class PollingThread:
         def __init__(self, target, daemon):
             self.target = target
@@ -337,14 +347,13 @@ def test_run_with_guardrail_thread_checks_while_worker_alive(monkeypatch):
             del timeout
 
     guardrail = MagicMock()
-    monkeypatch.setattr(assets_mod.ops, "Thread", PollingThread)
-
     assert (
-        assets_mod._run_with_guardrail_thread(
+        helpers_mod._run_with_guardrail_thread(
             guardrail,
             "slow_phase",
             lambda: {},
             poll_seconds=0,
+            thread_factory=PollingThread,
         )
         == {}
     )
@@ -361,7 +370,7 @@ def test_odds_assets_delegate_to_materializer(monkeypatch):
         calls.append((type(config), kwargs))
         return "ok"
 
-    monkeypatch.setattr(assets_mod, "_materialize_odds_sync", materialize)
+    monkeypatch.setattr(assets_mod.asset_helpers, "_materialize_odds_sync", materialize)
 
     ctx = MagicMock()
     assert (

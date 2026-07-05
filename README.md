@@ -53,8 +53,8 @@ See [Architecture](docs/architecture.md) and [Warehouse](docs/warehouse.md).
 Current Polymarket analytics outputs live in `polymarket_wc2026_marts`:
 
 - `polymarket_wc2026_knockout_market_tokens`: progression-side token universe
-  for knockout-related markets with reported volume >= $5,000 USD, including
-  derived live/historical status.
+  for knockout-related markets at or above the WC2026 contract volume floor
+  (currently $5,000 USD), including derived live/historical status.
 - `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC
   odds for the progression side of each knockout market, with market status
   metadata for live-only filtering.

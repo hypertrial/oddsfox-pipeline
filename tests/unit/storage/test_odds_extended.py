@@ -14,7 +14,7 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     polymarket_wc2026_ops_tbl,
     polymarket_wc2026_raw_tbl,
 )
-from oddsfox_pipeline.storage.duckdb.odds import odds_daily, odds_writes
+from oddsfox_pipeline.storage.duckdb.odds import odds_daily, odds_snapshot, odds_writes
 
 T_OH = polymarket_wc2026_raw_tbl("odds_history")
 T_TOD = polymarket_wc2026_raw_tbl("token_odds_daily")
@@ -215,7 +215,7 @@ def test_get_token_sync_snapshot_missing_only_history(duck):
 
 def test_get_token_sync_chunk_boundary(monkeypatch, duck):
     """Force multiple chunks through _chunked by lowering chunk size."""
-    monkeypatch.setattr(odds_mod, "_TOKEN_STATE_CHUNK_SIZE", 1)
+    monkeypatch.setattr(odds_snapshot, "_TOKEN_STATE_CHUNK_SIZE", 1)
     t1 = "e" * 33 + "12"
     t2 = "f" * 33 + "12"
     odds_mod.save_odds_batch([(t1, 1, 0.1), (t2, 2, 0.2)])

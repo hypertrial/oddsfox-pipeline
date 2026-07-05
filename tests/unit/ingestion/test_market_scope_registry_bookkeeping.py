@@ -187,6 +187,23 @@ def test_finalize_registry_collect_meta_branches(monkeypatch) -> None:
     assert reg["crawl_tag_slugs"] == ["crawl-a"]
     assert meta["keyset_volume_min"] == 100.0
 
+    fallback_scan = MarketScopeEventsScanResult(
+        registry_rows=(),
+        raw_markets=(),
+        pages_done=0,
+        truncated=False,
+        discovered_slugs=(),
+        crawl_tag_slugs=(),
+    )
+    fallback_reg, _markets, _meta = scope_registry_mod._finalize_registry_collect(
+        fallback_scan,
+        cfg,
+        discovery_mode=scope_registry_mod.DISCOVERY_MODE_TARGETED,
+        t0=time.monotonic(),
+        keyset_tag_slugs=["fallback-tag"],
+    )
+    assert fallback_reg["crawl_tag_slugs"] == ["fallback-tag"]
+
     reg2, _markets2, meta2 = scope_registry_mod._finalize_registry_collect(
         scan,
         cfg,
