@@ -52,10 +52,25 @@ scoped_stage as (
         max(k.market_volume_usd) as scoped_max_volume_usd,
         min(h.first_hour_utc) as first_hour_utc,
         max(h.latest_hour_utc) as latest_hour_utc,
-        sum(coalesce(h.hourly_rows, 0)) as hourly_rows
+        sum(coalesce(h.hourly_rows, 0)) as hourly_rows,
+        count(*) * max(contract.hourly_window_hours) as expected_hourly_rows,
+        round(sum(coalesce(h.hourly_rows, 0))::double / nullif(count(*), 0), 4)
+            as avg_hourly_rows_per_token,
+        min(coalesce(h.hourly_rows, 0)) as min_hourly_rows_per_token,
+        max(coalesce(h.hourly_rows, 0)) as max_hourly_rows_per_token,
+        least(
+            round(
+                sum(coalesce(h.hourly_rows, 0))::double
+                / nullif(count(*) * max(contract.hourly_window_hours), 0),
+                6
+            ),
+            1.0
+        ) as hourly_completeness_ratio
     from {{ ref('polymarket_wc2026_knockout_market_tokens') }} as k
     left join hourly_by_token as h
         on k.clob_token_id = h.clob_token_id
+    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    cross join contract
     group by 1, 2, 3, 4
 )
 
@@ -79,6 +94,11 @@ select
     coalesce(s.tokens_missing_hourly_odds, 0) as tokens_missing_hourly_odds,
     coalesce(s.source_state_anomaly_tokens, 0) as source_state_anomaly_tokens,
     coalesce(s.hourly_rows, 0) as hourly_rows,
+    coalesce(s.expected_hourly_rows, 0) as expected_hourly_rows,
+    coalesce(s.avg_hourly_rows_per_token, 0) as avg_hourly_rows_per_token,
+    coalesce(s.min_hourly_rows_per_token, 0) as min_hourly_rows_per_token,
+    coalesce(s.max_hourly_rows_per_token, 0) as max_hourly_rows_per_token,
+    coalesce(s.hourly_completeness_ratio, 0) as hourly_completeness_ratio,
     current_timestamp as observed_at
 from scoped_stage as s
 full outer join raw_stage as r

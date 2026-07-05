@@ -71,9 +71,16 @@ Schema: `polymarket_wc2026_intermediate`
 
 Schema: `polymarket_wc2026_marts`
 
-- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for real WC2026 team knockout markets with reported volume >= $5,000 USD, plus derived `market_status`, live/historical flags, and explicit price semantics.
-- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for real-team progression-side knockout tokens (dbt table), including propagated market status, tournament status, and `price_represents = 'progression'`.
-- `polymarket_wc2026_knockout_markets`: latest real-team progression-side knockout snapshot with explicit current-price status and progression outcome labels. Use `is_live_market` or `current_price_status = 'fresh_live'` for live-only views; closed/resolved rows are retained as historical rows.
+- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for real WC2026 team knockout
+  markets with reported volume >= $5,000 USD, plus derived `market_status`, source live flag, active-team live
+  flag, and explicit price semantics.
+- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for real-team progression-side
+  knockout tokens (dbt table), including propagated market status, tournament status, active-team live flag, and
+  `price_represents = 'progression'`.
+- `polymarket_wc2026_knockout_markets`: latest real-team progression-side knockout snapshot with explicit
+  current-price status and progression outcome labels. Use `is_actionable_live_market` for current live consumption;
+  use `is_active_team_live_market` when stale/missing live rows should remain visible. Closed/resolved rows are
+  retained as historical rows.
 
 Schema: `international_results_wc2026_marts`
 
@@ -83,8 +90,10 @@ Schema: `international_results_wc2026_marts`
 Schema: `polymarket_wc2026_observability`
 
 - `polymarket_wc2026_sync_run_observability`: run-level ingestion, market-discovery provenance, and odds-sync telemetry.
-- `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage vs public scoped tokens by stage, direction, and market status.
-- `polymarket_wc2026_knockout_data_quality`: DQ findings for aggregated source-state anomalies, sparse stage coverage, stale or missing odds, and live-team alignment.
+- `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage vs public scoped tokens by stage,
+  direction, and market status, including hourly completeness metrics.
+- `polymarket_wc2026_knockout_data_quality`: DQ findings for aggregated source-state anomalies, sparse stage/team
+  coverage, actionable stale or missing odds, upstream eliminated-team live lag, and live-team alignment.
 
 Schema: `international_results_wc2026_observability`
 

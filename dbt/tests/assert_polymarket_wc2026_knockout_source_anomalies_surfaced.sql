@@ -1,4 +1,12 @@
-{{ config(severity = 'warn') }}
+{{ config(
+    severity = 'warn',
+    meta = {
+        'dagster': {
+            'ref': {'name': 'polymarket_wc2026_knockout_data_quality'},
+            'asset_key': ['polymarket', 'wc2026', 'observability', 'knockout_data_quality']
+        }
+    }
+) }}
 
 select
     s.market_id,

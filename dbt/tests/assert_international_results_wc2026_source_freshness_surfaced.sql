@@ -1,4 +1,12 @@
-{{ config(severity = 'warn') }}
+{{ config(
+    severity = 'warn',
+    meta = {
+        'dagster': {
+            'ref': {'name': 'international_results_wc2026_data_quality'},
+            'asset_key': ['international_results', 'wc2026', 'observability', 'data_quality']
+        }
+    }
+) }}
 
 with contract as (
     select results_freshness_hours

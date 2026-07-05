@@ -1,3 +1,12 @@
+{{ config(
+    meta = {
+        'dagster': {
+            'ref': {'name': 'international_results_wc2026_data_quality'},
+            'asset_key': ['international_results', 'wc2026', 'observability', 'data_quality']
+        }
+    }
+) }}
+
 select
     m.match_id,
     m.stage_key

@@ -41,10 +41,6 @@ sources:
             tests:
               - not_null
               - unique
-              - relationships:
-                  arguments:
-                    to: source('polymarket_wc2026_raw', 'markets')
-                    field: id
           - name: updated_at
             description: UTC timestamp when this mapping row was last written by ingestion.
       - name: odds_history

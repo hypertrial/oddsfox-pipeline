@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import yaml
@@ -115,6 +116,12 @@ def test_knockout_observability_models_are_documented():
         if model["name"] == "polymarket_wc2026_knockout_data_quality"
         for column in model["columns"]
     }
+    coverage_columns = {
+        column["name"]
+        for model in docs["models"]
+        if model["name"] == "polymarket_wc2026_knockout_stage_coverage"
+        for column in model["columns"]
+    }
 
     assert (
         observability_root / "polymarket_wc2026_knockout_stage_coverage.sql"
@@ -123,6 +130,13 @@ def test_knockout_observability_models_are_documented():
     assert "polymarket_wc2026_knockout_stage_coverage" in documented
     assert "polymarket_wc2026_knockout_data_quality" in documented
     assert "issue_count" in dq_columns
+    assert {
+        "expected_hourly_rows",
+        "avg_hourly_rows_per_token",
+        "min_hourly_rows_per_token",
+        "max_hourly_rows_per_token",
+        "hourly_completeness_ratio",
+    }.issubset(coverage_columns)
 
 
 def test_knockout_mart_semantic_columns_are_documented():
@@ -147,6 +161,24 @@ def test_knockout_mart_semantic_columns_are_documented():
         columns = {column["name"] for column in model["columns"]}
         assert "price_represents" in columns
         assert "progression_outcome_label" in columns
+        assert "is_active_team_live_market" in columns
+        if model["name"] == "polymarket_wc2026_knockout_markets":
+            assert "is_actionable_live_market" in columns
+        else:
+            assert "is_actionable_live_market" not in columns
+
+
+def test_multi_parent_singular_tests_have_dagster_asset_metadata():
+    test_root = Path(__file__).resolve().parents[2] / "dbt" / "tests"
+
+    for path in test_root.glob("*.sql"):
+        text = path.read_text()
+        reference_count = len(re.findall(r"\{\{\s*(?:ref|source)\(", text))
+        if reference_count < 2:
+            continue
+
+        assert "'asset_key':" in text, path.name
+        assert "'ref': {'name':" in text, path.name
 
 
 def test_international_results_models_are_documented():

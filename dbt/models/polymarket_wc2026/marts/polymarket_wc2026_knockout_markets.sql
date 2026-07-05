@@ -34,6 +34,7 @@ with_prices as (
         k.is_resolved,
         k.market_status,
         k.is_live_market,
+        k.is_active_team_live_market,
         k.source_state_anomaly,
         k.winning_outcome,
         k.winning_clob_token_id,
@@ -93,6 +94,7 @@ select
     is_resolved,
     market_status,
     is_live_market,
+    is_active_team_live_market,
     source_state_anomaly,
     winning_outcome,
     winning_clob_token_id,
@@ -133,5 +135,11 @@ select
     coalesce(
         market_status = 'live' and current_price_age_hours <= live_freshness_hours,
         false
-    ) as is_current_price_fresh
+    ) as is_current_price_fresh,
+    coalesce(
+        is_active_team_live_market
+        and market_status = 'live'
+        and current_price_age_hours <= live_freshness_hours,
+        false
+    ) as is_actionable_live_market
 from with_prices

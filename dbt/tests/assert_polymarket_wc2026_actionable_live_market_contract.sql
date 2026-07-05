@@ -1,5 +1,4 @@
 {{ config(
-    severity = 'warn',
     meta = {
         'dagster': {
             'ref': {'name': 'polymarket_wc2026_knockout_markets'},
@@ -11,12 +10,14 @@
 select
     market_id,
     clob_token_id,
-    stage_key,
     team_name,
+    market_status,
+    is_active_team_live_market,
     current_price_status,
-    current_price_hour_utc,
-    current_price_age_hours
+    is_actionable_live_market
 from {{ ref('polymarket_wc2026_knockout_markets') }}
 where
-    is_active_team_live_market
-    and current_price_status in ('missing_live', 'stale_live')
+    is_actionable_live_market != coalesce(
+        is_active_team_live_market and current_price_status = 'fresh_live',
+        false
+    )

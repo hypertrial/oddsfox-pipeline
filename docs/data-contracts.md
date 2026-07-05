@@ -28,9 +28,10 @@ Schema: `international_results_wc2026_marts`
 - Use `polymarket_wc2026_observability.polymarket_wc2026_sync_run_observability` for run-level ingestion
   telemetry, market-discovery provenance, request counts, and sync metrics.
 - Use `polymarket_wc2026_observability.polymarket_wc2026_knockout_stage_coverage` to inspect raw
-  classified market coverage vs public scoped tokens by knockout stage, direction, and market status.
+  classified market coverage vs public scoped tokens by knockout stage, direction, and market status,
+  including hourly completeness against the contract seed window.
 - Use `polymarket_wc2026_observability.polymarket_wc2026_knockout_data_quality` for source-state anomalies,
-  sparse stage coverage, and stale or missing live odds findings.
+  sparse stage/team coverage, upstream eliminated-team live lag, and actionable stale or missing live odds findings.
 
 ## Current Scope Rules
 
@@ -56,17 +57,22 @@ Schema: `international_results_wc2026_marts`
   outcome represented by the price. For example, a Round-of-32 elimination market
   with `source_outcome_label = 'No'` exposes `not_eliminated_in_round_of_32`, so a
   high price means the team advanced past that round.
-- Public knockout marts keep historical closed/resolved rows. Filter `is_live_market = true`
-  or `market_status = 'live'` when you need live odds only. `source_state_anomaly`
-  marks upstream rows where Gamma reports both active and closed; the derived status
-  treats those rows as closed.
+- Public knockout marts keep historical closed/resolved rows. `is_live_market`
+  means the source market is active, open, and unresolved. `is_active_team_live_market`
+  further requires the FIFA result mart to say the team is still alive. On
+  `polymarket_wc2026_knockout_markets`, `is_actionable_live_market` is the safest
+  current-consumption filter: the team is still alive, the market is live, and the
+  latest hourly close is fresh. `source_state_anomaly` marks upstream rows where
+  Gamma reports both active and closed; the derived status treats those rows as closed.
 - Use `canonical_team_name`, `tournament_status`, `is_still_alive`,
   `eliminated_stage_key`, and `next_stage_key` on Polymarket marts when joining
   odds to real WC2026 team state.
 - `polymarket_wc2026_knockout_markets.current_price_status` separates `fresh_live`,
   `stale_live`, `missing_live`, `historical_closed`, `historical_resolved`, and
   `inactive` rows. Live prices are fresh when the latest hourly close is within
-  the contract seed freshness window.
+  the contract seed freshness window. Stale/missing live DQ findings are only
+  actionable for still-alive teams; eliminated teams that Polymarket still marks
+  live are emitted as upstream-lag warnings.
 - `polymarket_wc2026_knockout_token_hourly_odds` aggregates directly from staged
   raw odds and the shared knockout classifier, and only exposes the contract
   seed trailing hourly window. The export script supports `--live-only` and
@@ -96,8 +102,9 @@ Schema: `international_results_wc2026_marts`
 - FIFA World Cup result scope, stage counts, 48-team roster shape, tied knockout
   advancer inference/DQ surfacing, and Polymarket real-team filtering.
 - Hard-fail DQ checks for error-severity rows in `polymarket_wc2026_knockout_data_quality`.
-- Warn-level DQ checks for stale/missing live odds, unsurfaced source-state or
-  hourly coverage issues, live-team alignment, and stale fixture/result source loads.
+- Warn-level DQ checks for actionable stale/missing live odds, eliminated-team
+  upstream live lag, unsurfaced source-state or hourly coverage issues, sparse
+  stage/team coverage, live-team alignment, and stale fixture/result source loads.
 - Observability run health (warn-level: latest run error-token regression and history coverage floor).
 
 Warn-level observability tests fail softly in `dbt build` output; treat warnings as operator signals on real warehouses, not hard CI blockers when the disposable CI fixture is healthy.

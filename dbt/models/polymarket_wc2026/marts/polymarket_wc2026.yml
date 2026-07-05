@@ -64,6 +64,9 @@ models:
       - name: is_live_market
         description: True only for active, not closed, not resolved source markets.
         tests: [not_null]
+      - name: is_active_team_live_market
+        description: True when the source market is live and the WC2026 results mart says the team is still alive.
+        tests: [not_null]
       - name: source_state_anomaly
         description: True when Gamma reports both active and closed for the same market.
         tests: [not_null]
@@ -157,6 +160,9 @@ models:
           - accepted_values:
               arguments:
                 values: ['resolved', 'closed', 'live', 'inactive']
+      - name: is_active_team_live_market
+        description: True when the source market is live and the WC2026 results mart says the team is still alive.
+        tests: [not_null]
       - name: current_price_status
         description: Derived freshness/status bucket for the latest progression-side price.
         tests:
@@ -174,6 +180,9 @@ models:
         description: Age of the latest hourly close in hours at dbt build time.
       - name: is_current_price_fresh
         description: True for live rows whose latest hourly close is within the WC2026 contract freshness window.
+        tests: [not_null]
+      - name: is_actionable_live_market
+        description: True for still-alive live teams whose latest hourly close is fresh enough for current consumption.
         tests: [not_null]
       - name: canonical_team_name
         description: Canonical WC2026 team name from the FIFA World Cup fixture/results mart.
@@ -255,6 +264,9 @@ models:
                 values: ['resolved', 'closed', 'live', 'inactive']
       - name: is_live_market
         description: True only for live source markets at dbt build time.
+        tests: [not_null]
+      - name: is_active_team_live_market
+        description: True when the source market is live and the WC2026 results mart says the team is still alive.
         tests: [not_null]
       - name: canonical_team_name
         description: Canonical WC2026 team name from the FIFA World Cup fixture/results mart.

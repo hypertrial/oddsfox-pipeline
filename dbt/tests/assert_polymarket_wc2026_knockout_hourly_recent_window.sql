@@ -1,3 +1,12 @@
+{{ config(
+    meta = {
+        'dagster': {
+            'ref': {'name': 'polymarket_wc2026_knockout_token_hourly_odds'},
+            'asset_key': ['polymarket', 'wc2026', 'marts', 'knockout_token_hourly_odds']
+        }
+    }
+) }}
+
 select
     odds.clob_token_id,
     odds.odds_hour_utc

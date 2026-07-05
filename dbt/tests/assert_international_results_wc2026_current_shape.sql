@@ -1,3 +1,12 @@
+{{ config(
+    meta = {
+        'dagster': {
+            'ref': {'name': 'international_results_wc2026_team_status'},
+            'asset_key': ['international_results', 'wc2026', 'marts', 'team_status']
+        }
+    }
+) }}
+
 with counts as (
     select count(*) as team_rows
     from {{ ref('international_results_wc2026_team_status') }}

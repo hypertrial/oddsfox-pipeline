@@ -42,7 +42,8 @@ select
     c.latest_completed_stage_key,
     c.market_status,
     c.is_live_market,
-    c.source_state_anomaly
+    c.source_state_anomaly,
+    coalesce(c.is_live_market and c.is_still_alive, false) as is_active_team_live_market
 from {{ ref('int_polymarket_wc2026_market_tokens') }} as t
 inner join {{ ref('int_polymarket_wc2026_knockout_market_classification') }} as c
     on t.market_id = c.market_id

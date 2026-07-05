@@ -1,3 +1,12 @@
+{{ config(
+    meta = {
+        'dagster': {
+            'ref': {'name': 'polymarket_wc2026_knockout_stage_coverage'},
+            'asset_key': ['polymarket', 'wc2026', 'observability', 'knockout_stage_coverage']
+        }
+    }
+) }}
+
 with token_counts as (
     select
         stage_key,

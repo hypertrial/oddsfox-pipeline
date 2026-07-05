@@ -1,4 +1,12 @@
-{{ config(severity = 'warn') }}
+{{ config(
+    severity = 'warn',
+    meta = {
+        'dagster': {
+            'ref': {'name': 'polymarket_wc2026_knockout_data_quality'},
+            'asset_key': ['polymarket', 'wc2026', 'observability', 'knockout_data_quality']
+        }
+    }
+) }}
 
 with active_result_teams as (
     select team_name
@@ -26,21 +34,21 @@ missing_live_odds as (
     where l.team_name is null
 ),
 
-non_active_live_odds as (
+eliminated_live_odds as (
     select
-        'live_knockout_odds_non_active_team:' || l.team_name as issue_key,
+        'live_knockout_odds_for_eliminated_team:' || l.team_name as issue_key,
         l.team_name,
         l.live_market_rows as expected_count
     from live_odds_teams as l
-    left join active_result_teams as r
+    inner join {{ ref('international_results_wc2026_team_status') }} as r
         on lower(l.team_name) = lower(r.team_name)
-    where r.team_name is null
+    where r.tournament_status != 'active'
 ),
 
 expected_issues as (
     select * from missing_live_odds
     union all
-    select * from non_active_live_odds
+    select * from eliminated_live_odds
 )
 
 select

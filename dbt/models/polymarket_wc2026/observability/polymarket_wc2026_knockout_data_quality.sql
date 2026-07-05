@@ -26,6 +26,43 @@ stage_expectations as (
     from contract
 ),
 
+expected_stage_team_rows as (
+    select
+        e.stage_key,
+        m.home_team as team_name,
+        e.knockout_min_volume_usd
+    from stage_expectations as e
+    inner join {{ ref('international_results_wc2026_matches') }} as m
+        on e.stage_key = m.stage_key
+
+    union all
+
+    select
+        e.stage_key,
+        m.away_team as team_name,
+        e.knockout_min_volume_usd
+    from stage_expectations as e
+    inner join {{ ref('international_results_wc2026_matches') }} as m
+        on e.stage_key = m.stage_key
+),
+
+expected_stage_teams as (
+    select
+        stage_key,
+        team_name,
+        max(knockout_min_volume_usd) as knockout_min_volume_usd
+    from expected_stage_team_rows
+    group by 1, 2
+),
+
+public_stage_team_coverage as (
+    select
+        stage_key,
+        canonical_team_name as team_name
+    from snapshot
+    group by 1, 2
+),
+
 source_state_anomalies as (
     select
         'source_state_anomaly:'
@@ -70,7 +107,9 @@ missing_hourly_odds as (
         1 as issue_count,
         current_timestamp as observed_at
     from snapshot
-    where current_price is null
+    where
+        current_price is null
+        and (market_status != 'live' or is_active_team_live_market)
 ),
 
 stale_live_odds as (
@@ -91,13 +130,24 @@ stale_live_odds as (
     from snapshot as s
     -- costguard: allow cross-join, WC2026 contract seed has one row.
     cross join contract
-    where s.current_price_status = 'stale_live'
+    where
+        s.current_price_status = 'stale_live'
+        and s.is_active_team_live_market
 ),
 
 active_result_teams as (
     select team_name
     from {{ ref('international_results_wc2026_team_status') }}
     where tournament_status = 'active'
+),
+
+eliminated_result_teams as (
+    select
+        team_name,
+        eliminated_stage_key,
+        eliminated_match_date
+    from {{ ref('international_results_wc2026_team_status') }}
+    where tournament_status != 'active'
 ),
 
 live_odds_teams as (
@@ -129,24 +179,24 @@ active_team_missing_live_odds as (
     where l.team_name is null
 ),
 
-live_odds_non_active_team as (
+live_odds_for_eliminated_team as (
     select
-        'live_knockout_odds_non_active_team:' || l.team_name as issue_key,
+        'live_knockout_odds_for_eliminated_team:' || l.team_name as issue_key,
         'warn' as severity,
         'team' as entity_type,
         cast(null as varchar) as market_id,
         cast(null as varchar) as clob_token_id,
-        cast(null as varchar) as stage_key,
+        r.eliminated_stage_key as stage_key,
         l.team_name,
         'live' as market_status,
-        'Live Polymarket knockout odds exist for a team not active in the WC2026 result mart.'
+        'Polymarket still marks live knockout odds for a team eliminated in the WC2026 result mart; '
+        || 'treat this as upstream source lag, not actionable live odds.'
             as issue_detail,
         l.live_market_rows as issue_count,
         current_timestamp as observed_at
     from live_odds_teams as l
-    left join active_result_teams as r
+    inner join eliminated_result_teams as r
         on lower(l.team_name) = lower(r.team_name)
-    where r.team_name is null
 ),
 
 sparse_stage_coverage as (
@@ -173,6 +223,31 @@ sparse_stage_coverage as (
     left join stage_totals as t
         on e.stage_key = t.stage_key
     where coalesce(t.raw_classified_markets_ge_5000, 0) < e.minimum_raw_markets_ge_5000
+),
+
+sparse_stage_missing_team_coverage as (
+    select
+        'sparse_stage_missing_team_coverage:' || e.stage_key || ':' || e.team_name as issue_key,
+        'warn' as severity,
+        'team' as entity_type,
+        cast(null as varchar) as market_id,
+        cast(null as varchar) as clob_token_id,
+        e.stage_key,
+        e.team_name,
+        cast(null as varchar) as market_status,
+        'Expected WC2026 '
+        || e.stage_key
+        || ' team has no public Polymarket knockout market above $'
+        || cast(e.knockout_min_volume_usd as varchar)
+        || '; this is source availability, not public mart filtering.' as issue_detail,
+        1 as issue_count,
+        current_timestamp as observed_at
+    from expected_stage_teams as e
+    left join public_stage_team_coverage as p
+        on
+            e.stage_key = p.stage_key
+            and lower(e.team_name) = lower(p.team_name)
+    where p.team_name is null
 ),
 
 invalid_market_status as (
@@ -249,9 +324,11 @@ select * from stale_live_odds
 union all
 select * from active_team_missing_live_odds
 union all
-select * from live_odds_non_active_team
+select * from live_odds_for_eliminated_team
 union all
 select * from sparse_stage_coverage
+union all
+select * from sparse_stage_missing_team_coverage
 union all
 select * from invalid_market_status
 union all

@@ -1,4 +1,12 @@
-{{ config(severity = 'warn') }}
+{{ config(
+    severity = 'warn',
+    meta = {
+        'dagster': {
+            'ref': {'name': 'polymarket_wc2026_knockout_data_quality'},
+            'asset_key': ['polymarket', 'wc2026', 'observability', 'knockout_data_quality']
+        }
+    }
+) }}
 
 select
     s.market_id,
@@ -17,4 +25,5 @@ left join {{ ref('polymarket_wc2026_knockout_data_quality') }} as d
         and d.severity = 'warn'
 where
     s.current_price is null
+    and (s.market_status != 'live' or s.is_active_team_live_market)
     and d.issue_key is null

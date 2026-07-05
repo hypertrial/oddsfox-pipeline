@@ -46,6 +46,23 @@ models:
         description: Scoped tokens without trailing 30-day hourly odds rows.
       - name: source_state_anomaly_tokens
         description: Scoped tokens where source flags are both active and closed.
+      - name: hourly_rows
+        description: Total trailing-window hourly rows available for scoped tokens in this bucket.
+      - name: expected_hourly_rows
+        description: Scoped token count multiplied by the WC2026 contract hourly window.
+        tests: [not_null]
+      - name: avg_hourly_rows_per_token
+        description: Average trailing-window hourly row count per scoped token in this bucket.
+        tests: [not_null]
+      - name: min_hourly_rows_per_token
+        description: Minimum trailing-window hourly row count across scoped tokens in this bucket.
+        tests: [not_null]
+      - name: max_hourly_rows_per_token
+        description: Maximum trailing-window hourly row count across scoped tokens in this bucket.
+        tests: [not_null]
+      - name: hourly_completeness_ratio
+        description: Observed hourly rows divided by expected rows from the WC2026 contract window.
+        tests: [not_null]
       - name: latest_hour_utc
         description: Latest hourly odds bucket available for this bucket.
       - name: observed_at

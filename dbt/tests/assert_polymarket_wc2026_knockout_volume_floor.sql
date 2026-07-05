@@ -1,3 +1,12 @@
+{{ config(
+    meta = {
+        'dagster': {
+            'ref': {'name': 'polymarket_wc2026_knockout_market_tokens'},
+            'asset_key': ['polymarket', 'wc2026', 'marts', 'knockout_market_tokens']
+        }
+    }
+) }}
+
 select
     tokens.clob_token_id,
     tokens.market_id,

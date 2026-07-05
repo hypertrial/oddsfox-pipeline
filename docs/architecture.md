@@ -87,7 +87,8 @@ token universes and WC2026 market scope rows, FIFA result marts provide real
 team status, and Polymarket marts publish cleaned knockout progression-side
 token odds plus latest knockout snapshots. Observability models publish run
 metrics, stage coverage, result inference warnings, and DQ findings for
-live/historical status and odds freshness.
+live/historical status, active-team live consumption, odds freshness, and sparse
+team coverage.
 
 ## Operating Model
 
