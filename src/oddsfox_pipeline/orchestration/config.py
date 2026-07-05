@@ -8,6 +8,8 @@ from pydantic import Field, field_validator, model_validator
 from oddsfox_pipeline.config.settings import (
     DEFAULT_ODDS_FIDELITY_MINUTES,
     MIN_ODDS_FIDELITY_MINUTES,
+    POLYMARKET_WC2026_HOURLY_WINDOW_DAYS,
+    POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
     POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
 )
 
@@ -166,8 +168,11 @@ class HourlyOddsSyncConfig(OddsSyncConfig):
     force: bool = True
     skip_recent_minutes: int = 1
     overlap_minutes: int = 60
-    window_hours: int = 720
-    history_backfill_days: int = Field(default=30, ge=0)
+    window_hours: int = POLYMARKET_WC2026_HOURLY_WINDOW_HOURS
+    history_backfill_days: int = Field(
+        default=POLYMARKET_WC2026_HOURLY_WINDOW_DAYS,
+        ge=0,
+    )
     routine_interval_hours: int = Field(default=1, ge=1)
     min_volume: float | None = Field(default=POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD)
     max_volume: float | None = None

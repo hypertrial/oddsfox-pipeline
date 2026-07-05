@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
+import importlib
 from contextlib import contextmanager
-from queue import Empty
+from queue import Empty, Queue
+from unittest.mock import MagicMock
 
+import duckdb
 import pytest
 
 pytest.importorskip("duckdb")
 
+from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.storage.duckdb.connection import (
+    polymarket_wc2026_ops_tbl,
+    polymarket_wc2026_raw_tbl,
+)
+
+_TOD = polymarket_wc2026_raw_tbl("token_odds_daily")
+_T_LED = polymarket_wc2026_ops_tbl("token_sync_ledger")
 
 
 def test_flush_writer_buffers_writes_all_buffer_types(monkeypatch):
@@ -529,3 +540,443 @@ def test_maybe_auto_tune_delta_429_nonzero_keeps_rate(monkeypatch):
         max_rps=50,
     )
     assert limiter.set_calls == 0
+
+
+def test_dynamic_writer_flush_rows():
+    q = Queue(maxsize=10)
+    for i in range(9):
+        q.put(i)
+    assert odds_sync._dynamic_writer_flush_rows(4000, q) < 4000
+
+
+def test_dynamic_writer_flush_rows_no_maxsize():
+    q = Queue()
+    assert odds_sync._dynamic_writer_flush_rows(2000, q) == 2000
+
+
+def test_writer_buffers_apply_and_flush(monkeypatch, tmp_path):
+    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "w.duckdb"))
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+
+    reload_all_settings_modules()
+    connection.reset_duckdb_connection_state()
+    importlib.reload(connection)
+    connection.ensure_duck_db()
+
+    buf = odds_sync.WriterBuffers(odds_map={}, state_buffer=[], skip_buffer=[])
+    st = {
+        "saved": 0,
+        "saved_daily_rows": 0,
+        "sync_rows": 0,
+        "skip_rows": 0,
+        "full_rows": 0,
+        "deduped": 0,
+        "invalid_ts_dropped": 0,
+        "invalid_price_dropped": 0,
+    }
+    odds_sync._apply_writer_item(
+        ("odds", [("t", 1, 0.5), ("t", 0, 0.5), ("t", 2, 2.0)]), buf, st
+    )
+    odds_sync._apply_writer_item(
+        ("token_state", [("t", 1, None, None, 0, True)]),
+        buf,
+        st,
+    )
+    odds_sync._apply_writer_item(("skipped_tokens", [("t", "r")]), buf, st)
+
+    with connection.get_connection() as conn:
+        odds_sync._flush_writer_buffers(conn, buf, st, 1, force=True)
+        odds_sync._refresh_dirty_daily_keys(conn, buf, st)
+        daily_rows = conn.execute(f"select count(*) from {_TOD}").fetchone()[0]
+    assert daily_rows == 1
+
+
+def test_flush_writer_preserves_fully_checked_on_cursor_update(monkeypatch, tmp_path):
+    """Cursor-only flushes must not clear fully_checked (operational upsert, not row replace)."""
+    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "fc.duckdb"))
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+
+    reload_all_settings_modules()
+    connection.reset_duckdb_connection_state()
+    importlib.reload(connection)
+    connection.ensure_duck_db()
+
+    tid = "j" * 33 + "12"
+    with connection.get_connection() as conn:
+        conn.execute(
+            f"INSERT INTO {_T_LED} (clobTokenId, last_sync_timestamp, fully_checked) VALUES (?, 10, TRUE)",
+            [tid],
+        )
+
+    buf = odds_sync.WriterBuffers(
+        odds_map={},
+        state_buffer=[(tid, 99, None, None, 0, False)],
+        skip_buffer=[],
+    )
+    st = {
+        "saved": 0,
+        "saved_daily_rows": 0,
+        "sync_rows": 0,
+        "skip_rows": 0,
+        "full_rows": 0,
+    }
+    with connection.get_connection() as conn:
+        odds_sync._flush_writer_buffers(conn, buf, st, 1, force=True)
+
+    with connection.get_connection() as conn:
+        row = conn.execute(
+            f"SELECT last_sync_timestamp, fully_checked FROM {_T_LED} WHERE clobTokenId = ?",
+            [tid],
+        ).fetchone()
+    assert row[0] == 99
+    assert row[1] is True
+
+
+def test_dynamic_writer_flush_rows_qsize_exception():
+    class BadQueue:
+        maxsize = 100
+
+        def qsize(self):
+            raise RuntimeError("no size")
+
+    assert odds_sync._dynamic_writer_flush_rows(2000, BadQueue()) == 2000
+
+
+def test_dynamic_writer_flush_rows_utilization_branches():
+    q = Queue(maxsize=20)
+    for _ in range(16):  # 16/20 = 0.8
+        q.put(1)
+    out_high = odds_sync._dynamic_writer_flush_rows(8000, q)
+    assert out_high == max(1000, 8000 // 4)
+
+    q2 = Queue(maxsize=20)
+    for _ in range(11):  # 11/20 = 0.55
+        q2.put(1)
+    out_mid = odds_sync._dynamic_writer_flush_rows(8000, q2)
+    assert out_mid == max(1000, 8000 // 2)
+
+    q3 = Queue(maxsize=100)
+    for _ in range(5):  # 5/100 = 0.05
+        q3.put(1)
+    out_low = odds_sync._dynamic_writer_flush_rows(5000, q3)
+    assert out_low == min(odds_sync.MAX_FLUSH_ROWS_CAP, 5000 * 2)
+
+
+def test_maybe_auto_tune_rps_increase_and_getattr_rate(monkeypatch):
+    class Lim:
+        rate = 10.0
+
+        def get_rate(self):
+            return self.rate
+
+        def set_rate(self, r):
+            self.rate = r
+
+    lim = Lim()
+    st = {"last_total": 0, "last_429": 0, "last_error": 0}
+    odds_sync._maybe_auto_tune_rps(
+        limiter=lim,
+        runtime_status={"total": 500, "429": 0, "error": 0},
+        tune_state=st,
+        window_requests=1,
+        threshold_429=0.99,
+        threshold_error=0.99,
+        min_rps=1,
+        max_rps=50,
+    )
+
+
+def test_maybe_auto_tune_get_rate_exception_uses_attr():
+    class Lim:
+        rate = 5.0
+
+        def get_rate(self):
+            raise RuntimeError("x")
+
+        def set_rate(self, r):
+            self.rate = r
+
+    lim = Lim()
+    odds_sync._maybe_auto_tune_rps(
+        limiter=lim,
+        runtime_status={"total": 50, "429": 10, "error": 0},
+        tune_state={"last_total": 0, "last_429": 0, "last_error": 0},
+        window_requests=1,
+        threshold_429=0.0,
+        threshold_error=0.99,
+        min_rps=1,
+        max_rps=20,
+    )
+
+
+def test_writer_loop_fatal_flush_and_final_error(monkeypatch, tmp_path):
+    q: Queue = Queue()
+    stats = {
+        "saved": 0,
+        "deduped": 0,
+        "sync_rows": 0,
+        "skip_rows": 0,
+        "full_rows": 0,
+        "invalid_ts_dropped": 0,
+        "invalid_price_dropped": 0,
+        "queue_high_watermark": 0,
+    }
+    fails: list = []
+
+    class BadConn:
+        def execute(self, *a, **k):
+            raise RuntimeError("flush")
+
+        def executemany(self, *a, **k):
+            raise RuntimeError("x")
+
+    @contextmanager
+    def bad_gc():
+        yield BadConn()
+
+    monkeypatch.setattr(odds_sync, "get_connection", bad_gc)
+    q.put(("odds", [("t" * 35, 1, 0.5)]))
+    q.put(None)
+    odds_sync._writer_loop(q, 1, stats, fails)
+    assert fails
+
+
+def test_flush_writer_buffers_early_exits():
+    buf = odds_sync.WriterBuffers(odds_map={}, state_buffer=[], skip_buffer=[])
+    st = {
+        k: 0
+        for k in (
+            "saved",
+            "deduped",
+            "sync_rows",
+            "skip_rows",
+            "full_rows",
+            "invalid_ts_dropped",
+            "invalid_price_dropped",
+        )
+    }
+    odds_sync._flush_writer_buffers(MagicMock(), buf, st, 1000, force=False)
+
+
+def test_dynamic_writer_flush_rows_default_branch():
+    q = Queue(maxsize=20)
+    for _ in range(8):
+        q.put(1)
+    assert odds_sync._dynamic_writer_flush_rows(3000, q) == 3000
+
+
+def test_flush_writer_buffers_empty_buffers_noop():
+    buf = odds_sync.WriterBuffers(odds_map={}, state_buffer=[], skip_buffer=[])
+    odds_sync._flush_writer_buffers(
+        MagicMock(),
+        buf,
+        {
+            "saved": 0,
+            "saved_daily_rows": 0,
+            "sync_rows": 0,
+            "full_rows": 0,
+            "skip_rows": 0,
+        },
+        100,
+        force=False,
+    )
+
+
+def test_flush_writer_buffers_merge_error_rolls_back(monkeypatch):
+    buf = odds_sync.WriterBuffers(
+        odds_map={("t", 1): 0.5},
+        state_buffer=[],
+        skip_buffer=[],
+    )
+    bad = MagicMock()
+    bad.execute.return_value = None
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.polymarket.odds.writer.prepare_odds_bulk_upsert",
+        lambda *a, **k: "stage",
+    )
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.polymarket.odds.writer.merge_odds_bulk_upsert",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("fail")),
+    )
+    with pytest.raises(RuntimeError):
+        odds_sync._flush_writer_buffers(
+            bad,
+            buf,
+            {
+                "saved": 0,
+                "saved_daily_rows": 0,
+                "sync_rows": 0,
+                "full_rows": 0,
+                "skip_rows": 0,
+            },
+            1,
+            force=True,
+        )
+    assert "ROLLBACK" in [call.args[0] for call in bad.execute.call_args_list]
+
+
+def test_apply_writer_invalid_ts_price_dedupe():
+    st = {"invalid_ts_dropped": 0, "invalid_price_dropped": 0, "deduped": 0}
+    buf = odds_sync.WriterBuffers(odds_map={}, state_buffer=[], skip_buffer=[])
+    odds_sync._apply_writer_item(
+        ("odds", [("t", 0, 0.5), ("t", 5, -1), ("t", 5, 1.5), ("t", 5, 0.5)]), buf, st
+    )
+    odds_sync._apply_writer_item(("odds", [("t", 5, 0.5)]), buf, st)
+    assert st["invalid_ts_dropped"] >= 1
+    assert st["invalid_price_dropped"] >= 2
+    assert st["deduped"] >= 1
+
+
+def test_maybe_auto_tune_rps_branches():
+    class Limiter:
+        def __init__(self):
+            self.rate = 10.0
+
+        def get_rate(self):
+            return self.rate
+
+        def set_rate(self, r):
+            self.rate = r
+
+    lim = Limiter()
+    tune = {"last_total": 0, "last_429": 0, "last_error": 0}
+    odds_sync._maybe_auto_tune_rps(
+        limiter=None,
+        runtime_status={"total": 0},
+        tune_state=tune,
+        window_requests=10,
+        threshold_429=0.01,
+        threshold_error=0.01,
+        min_rps=1,
+        max_rps=20,
+    )
+    odds_sync._maybe_auto_tune_rps(
+        limiter=lim,
+        runtime_status={"total": 5},
+        tune_state=tune,
+        window_requests=200,
+        threshold_429=0.01,
+        threshold_error=0.01,
+        min_rps=1,
+        max_rps=20,
+    )
+    odds_sync._maybe_auto_tune_rps(
+        limiter=lim,
+        runtime_status={"total": 250, "429": 50, "error": 0},
+        tune_state={"last_total": 0, "last_429": 0, "last_error": 0},
+        window_requests=50,
+        threshold_429=0.01,
+        threshold_error=0.01,
+        min_rps=1,
+        max_rps=20,
+    )
+    odds_sync._maybe_auto_tune_rps(
+        limiter=lim,
+        runtime_status={"total": 500, "429": 0, "error": 40},
+        tune_state={"last_total": 250, "last_429": 50, "last_error": 0},
+        window_requests=50,
+        threshold_429=0.5,
+        threshold_error=0.01,
+        min_rps=1,
+        max_rps=20,
+    )
+    odds_sync._maybe_auto_tune_rps(
+        limiter=lim,
+        runtime_status={"total": 800, "429": 50, "error": 40},
+        tune_state={"last_total": 500, "last_429": 50, "last_error": 40},
+        window_requests=50,
+        threshold_429=0.99,
+        threshold_error=0.99,
+        min_rps=1,
+        max_rps=100,
+    )
+
+
+def test_maybe_auto_tune_get_rate_fallback():
+    class Lim:
+        rate = 5.0
+
+    tune = {"last_total": 0, "last_429": 0, "last_error": 0}
+    odds_sync._maybe_auto_tune_rps(
+        limiter=Lim(),
+        runtime_status={"total": 300, "429": 0, "error": 0},
+        tune_state=tune,
+        window_requests=50,
+        threshold_429=0.99,
+        threshold_error=0.99,
+        min_rps=1,
+        max_rps=50,
+    )
+
+
+def test_writer_loop_fatal_flush_and_final(monkeypatch, tmp_path):
+    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "wl.duckdb"))
+
+    reload_all_settings_modules()
+    import oddsfox_pipeline.storage.duckdb.connection as conn
+
+    conn.reset_duckdb_connection_state()
+    importlib.reload(conn)
+    conn.ensure_duck_db()
+
+    q: Queue = Queue()
+
+    def bad_flush(*a, **k):
+        raise RuntimeError("flush")
+
+    monkeypatch.setattr(odds_sync, "_dynamic_writer_flush_rows", lambda *a, **k: 1)
+    monkeypatch.setattr(odds_sync, "_flush_writer_buffers", bad_flush)
+    failures: list = []
+    stats = {
+        "saved": 0,
+        "sync_rows": 0,
+        "full_rows": 0,
+        "skip_rows": 0,
+        "deduped": 0,
+        "invalid_ts_dropped": 0,
+        "invalid_price_dropped": 0,
+        "queue_high_watermark": 0,
+    }
+    t = odds_sync.Thread(
+        target=odds_sync._writer_loop,
+        args=(q, 100, stats, failures),
+    )
+    t.start()
+    q.put(("odds", [("t", 1, 0.5)]))
+    q.put(None)
+    t.join(timeout=5)
+    assert failures
+
+
+def test_save_odds_bulk_appender_with_appender(monkeypatch, tmp_path):
+    from oddsfox_pipeline.storage.duckdb import odds as odds_mod
+
+    if not hasattr(duckdb, "Appender"):
+        pytest.skip("DuckDB Appender not available")
+    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "app.duckdb"))
+
+    reload_all_settings_modules()
+    import oddsfox_pipeline.storage.duckdb.connection as conn
+
+    conn.reset_duckdb_connection_state()
+    importlib.reload(conn)
+    conn.ensure_duck_db()
+    with odds_mod.get_connection() as c:
+        odds_mod.save_odds_bulk_appender([("app", 3, 0.4)], c)
+
+
+def test_save_odds_bulk_upsert_appender_staging(monkeypatch, tmp_path):
+    from oddsfox_pipeline.storage.duckdb import odds as odds_mod
+
+    if not hasattr(duckdb, "Appender"):
+        pytest.skip("Appender required")
+    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "stg.duckdb"))
+
+    reload_all_settings_modules()
+    import oddsfox_pipeline.storage.duckdb.connection as conn
+
+    conn.reset_duckdb_connection_state()
+    importlib.reload(conn)
+    conn.ensure_duck_db()
+    with odds_mod.get_connection() as c:
+        odds_mod.save_odds_bulk_upsert([("stg", 9, 0.7)] * 3, c, assume_deduped=False)

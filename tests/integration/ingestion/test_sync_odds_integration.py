@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("duckdb")
 
-from tests.integration.ingestion._odds_sync_harness import (
+from tests.support.odds_sync_harness import (
     FakePbar,
     ImmediatePool,
     ImmediateThread,

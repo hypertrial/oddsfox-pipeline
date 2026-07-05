@@ -5,6 +5,8 @@ import requests
 
 from oddsfox_pipeline.ingestion.polymarket.odds import fetch as odds_fetch
 from oddsfox_pipeline.ingestion.polymarket.odds import support as odds_support
+from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.ingestion.polymarket.odds.fetch import BadRequestError
 
 
 def test_build_client():
@@ -369,3 +371,85 @@ def test_helpers_response_status():
     resp = MagicMock(status_code=500, text="body")
     exc.response = resp
     assert odds_fetch._response_status_and_body(exc) == (500, "body")
+
+
+def test_is_interval_too_long_error():
+    e = BadRequestError("x", body="Interval is too long", status=400)
+    assert odds_sync._is_interval_too_long_error(e) is True
+
+
+def test_fetch_window_split_raises_when_span_small(monkeypatch):
+    def ft(*a, **k):
+        raise BadRequestError("e", body="interval is too long", status=400)
+
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
+        ft,
+    )
+    with pytest.raises(BadRequestError):
+        odds_sync._fetch_window_with_auto_split(
+            MagicMock(),
+            "w" * 33 + "12",
+            0,
+            30,
+            1440,
+            60,
+        )
+
+
+def test_fetch_window_auto_split_interval_branch():
+    calls = []
+
+    def ft(*a, **k):
+        start_ts = k["start_ts"]
+        end_ts = k["end_ts"]
+        token_id = a[1]
+        min_window_seconds = 60  # must match test arg
+        calls.append((start_ts, end_ts))
+        span = end_ts - start_ts
+        if span > min_window_seconds:
+            raise BadRequestError("long", body="interval is too long", status=400)
+        return [(token_id, end_ts - 1, 0.5)]
+
+    tid = "z" * 33 + "12"
+    out = odds_sync._fetch_window_with_auto_split(
+        MagicMock(),
+        tid,
+        0,
+        200,
+        1440,
+        60,
+        fetch_token_history_fn=ft,
+    )
+    assert out and len(calls) >= 2
+
+
+def test_fetch_window_returns_none_on_transient_chunk():
+    def ft(*a, **k):
+        return None
+
+    tid = "y" * 33 + "12"
+    assert (
+        odds_sync._fetch_window_with_auto_split(
+            MagicMock(),
+            tid,
+            0,
+            50,
+            1440,
+            10,
+            fetch_token_history_fn=ft,
+        )
+        is None
+    )
+
+
+def test_fetch_window_stack_skip_zero_span():
+    out = odds_sync._fetch_window_with_auto_split(
+        MagicMock(),
+        "a" * 33 + "12",
+        10,
+        10,
+        1440,
+        1,
+    )
+    assert out == []

@@ -70,8 +70,9 @@ flowchart TD
     wc2026_markets_int --> wc2026_tokens
     team_status --> knockout_tokens
     wc2026_tokens --> knockout_tokens["polymarket_wc2026_knockout_market_tokens"]
+    odds --> hourly_fact["int_polymarket_wc2026_token_hourly_odds"]
+    hourly_fact --> knockout_hourly
     knockout_tokens --> knockout_hourly["polymarket_wc2026_knockout_token_hourly_odds"]
-    odds --> knockout_hourly
     knockout_hourly --> knockout_markets["polymarket_wc2026_knockout_markets"]
     staging --> stage_coverage["polymarket_wc2026_knockout_stage_coverage"]
     knockout_tokens --> stage_coverage

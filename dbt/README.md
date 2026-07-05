@@ -40,3 +40,6 @@ Public knockout marts:
 
 If a local DuckDB file still has deleted broad marts or older relation types,
 reset the local warehouse or drop the affected dbt schemas before rebuilding.
+
+`polymarket_wc2026_knockout_token_hourly_odds` is a public view over the private
+incremental `int_polymarket_wc2026_token_hourly_odds` hourly price fact.

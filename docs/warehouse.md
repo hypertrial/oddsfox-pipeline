@@ -64,6 +64,8 @@ Schema: `polymarket_wc2026_intermediate`
   one row per `(scope_name, market_id)` with the knockout volume floor from the
   WC2026 contract seed.
 - `int_polymarket_wc2026_market_tokens`: WC2026 subset of the token universe.
+- `int_polymarket_wc2026_token_hourly_odds`: incremental hourly OHLC price fact
+  for raw CLOB tokens in the WC2026 contract trailing window.
 - `int_polymarket_wc2026_knockout_market_classification`: shared real-team
   knockout market classifier used by public knockout marts and observability.
 
@@ -75,8 +77,8 @@ Schema: `polymarket_wc2026_marts`
   markets at or above the WC2026 contract volume floor, plus derived `market_status`, source live flag,
   active-team live flag, and explicit price semantics.
 - `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for real-team progression-side
-  knockout tokens (dbt table), including propagated market status, tournament status, active-team live flag, and
-  `price_represents = 'progression'`.
+  knockout tokens (dbt view over the incremental hourly fact), including current market status, tournament status,
+  active-team live flag, and `price_represents = 'progression'`.
 - `polymarket_wc2026_knockout_markets`: latest real-team progression-side knockout snapshot with explicit
   current-price status and progression outcome labels. Use `is_actionable_live_market` for current live consumption;
   use `is_active_team_live_market` when stale/missing live rows should remain visible. Closed/resolved rows are

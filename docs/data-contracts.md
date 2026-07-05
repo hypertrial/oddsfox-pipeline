@@ -73,10 +73,10 @@ Schema: `international_results_wc2026_marts`
   the contract seed freshness window. Stale/missing live DQ findings are only
   actionable for still-alive teams; eliminated teams that Polymarket still marks
   live are emitted as upstream-lag warnings.
-- `polymarket_wc2026_knockout_token_hourly_odds` aggregates directly from staged
-  raw odds and the shared knockout classifier, and only exposes the contract
-  seed trailing hourly window. The export script supports `--live-only` and
-  `--active-teams-only` filters for downstream live views without adding another mart.
+- `polymarket_wc2026_knockout_token_hourly_odds` joins the private incremental
+  hourly odds fact to the shared knockout classifier, and only exposes the
+  contract seed trailing hourly window. The export script supports `--live-only`
+  and `--active-teams-only` filters for downstream live views without adding another mart.
 - `international_results_wc2026_data_quality` emits a warning when the latest
   fixture/result source load is older than the contract seed freshness window.
 - Use `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
@@ -120,7 +120,7 @@ There are no compatibility views, env aliases, or migration shims in v0.1.x.
 Delete old local warehouse files (`rm oddsfox.duckdb*`) and rerun quickstart
 after upgrading from older layouts.
 
-The knockout hourly time-series mart is materialized as a dbt table. If an
-existing local DuckDB warehouse still has deleted broad public marts or old
-relation types, reset the warehouse or drop the affected dbt schemas before
-rebuilding.
+The knockout hourly time-series mart is a dbt view over a private incremental
+hourly fact. If an existing local DuckDB warehouse still has deleted broad
+public marts or old relation types, reset the warehouse or drop the affected dbt
+schemas before rebuilding.

@@ -9,7 +9,10 @@ import yaml
 
 from oddsfox_pipeline.config.settings_polymarket import (
     DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
+    POLYMARKET_WC2026_HOURLY_WINDOW_DAYS,
+    POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
     POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
+    WC2026_CONTRACT_DEFAULTS,
 )
 from oddsfox_pipeline.ingestion.polymarket.market_scope import load_market_scope_config
 from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
@@ -71,6 +74,7 @@ def test_wc2026_contract_seed_matches_python_defaults() -> None:
     env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
 
     assert row["scope_name"] == "wc2026"
+    assert row["scope_name"] == WC2026_CONTRACT_DEFAULTS["scope_name"]
     assert (
         float(row["knockout_min_volume_usd"])
         == POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD
@@ -85,6 +89,8 @@ def test_wc2026_contract_seed_matches_python_defaults() -> None:
     assert expected_env in env_example
     assert int(row["hourly_window_days"]) == hourly_cfg.history_backfill_days
     assert int(row["hourly_window_hours"]) == hourly_cfg.window_hours
+    assert int(row["hourly_window_days"]) == POLYMARKET_WC2026_HOURLY_WINDOW_DAYS
+    assert int(row["hourly_window_hours"]) == POLYMARKET_WC2026_HOURLY_WINDOW_HOURS
 
 
 def test_market_scope_keyset_discovery_omit_filters_via_empty_env(monkeypatch) -> None:

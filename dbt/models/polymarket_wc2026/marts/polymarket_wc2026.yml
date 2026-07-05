@@ -198,8 +198,9 @@ models:
 
   - name: polymarket_wc2026_knockout_token_hourly_odds
     description: >
-      Trailing 30-day WC2026 knockout progression-side hourly OHLC odds with
-      stage/team classification and source-market metadata.
+      View over incremental trailing 30-day WC2026 knockout progression-side
+      hourly OHLC odds with current stage/team classification and source-market
+      metadata.
     tests:
       - no_duplicate_grain:
           arguments:

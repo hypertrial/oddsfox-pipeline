@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Iterator, Literal, Sequence
 
 from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
@@ -383,6 +384,77 @@ def _remaining_page_budget(max_pages: int | None, total_pages: int) -> int | Non
     return max_pages - total_pages
 
 
+@dataclass
+class _CrawlState:
+    queue: list[str | None]
+    tag_sources_map: dict[str, set[str]]
+    crawled_keys: list[str] = field(default_factory=list)
+    crawled_set: set[str] = field(default_factory=set)
+    merged: MarketScopeEventsScanResult = field(default_factory=_empty_scan_result)
+    total_pages: int = 0
+    truncated: bool = False
+
+    @classmethod
+    def from_initial_tags(
+        cls,
+        initial_crawl_tags: Sequence[str],
+        tag_sources_map: dict[str, set[str]],
+    ) -> "_CrawlState":
+        queue: list[str | None]
+        if initial_crawl_tags:
+            queue = list(dict.fromkeys(initial_crawl_tags))
+        else:
+            queue = [None]
+        return cls(queue=queue, tag_sources_map=tag_sources_map)
+
+    def mark_crawled(self, crawl_key: str) -> bool:
+        return _mark_crawled(
+            crawl_key,
+            crawled_set=self.crawled_set,
+            crawled_keys=self.crawled_keys,
+        )
+
+    def crawl_cap_reached(self, max_crawl_tags: int | None) -> bool:
+        return _crawl_cap_reached(len(self.crawled_set), max_crawl_tags)
+
+    def remaining_page_budget(self, max_pages: int | None) -> int | None:
+        return _remaining_page_budget(max_pages, self.total_pages)
+
+    def merge_pass(self, pass_scan: MarketScopeEventsScanResult) -> None:
+        self.merged = _merge_scan_results(self.merged, pass_scan)
+        self.total_pages += pass_scan.pages_done
+        if pass_scan.truncated:
+            self.truncated = True
+
+    def queue_harvested_tags(
+        self,
+        pass_scan: MarketScopeEventsScanResult,
+        *,
+        next_queue: list[str | None],
+        scope_tag_slugs: Sequence[str],
+        seed_tag_slugs: Sequence[str],
+        cfg: MarketScopeConfig,
+    ) -> None:
+        _queue_harvested_crawl_tags(
+            pass_scan.harvested_tag_slugs,
+            crawled_set=self.crawled_set,
+            next_queue=next_queue,
+            scope_tag_slugs=scope_tag_slugs,
+            seed_tag_slugs=seed_tag_slugs,
+            tag_sources_map=self.tag_sources_map,
+            cfg=cfg,
+        )
+
+    def final_crawl(self) -> tuple[str, ...]:
+        return tuple(slug for slug in self.crawled_keys if slug != "__all__")
+
+    def final_sources(self) -> tuple[tuple[str, tuple[str, ...]], ...]:
+        return tuple(
+            (slug, tuple(sorted(self.tag_sources_map.get(slug, ("unknown",)))))
+            for slug in self.final_crawl()
+        )
+
+
 def _scan_market_scope_gamma_events(
     client: Any,
     cfg: MarketScopeConfig,
@@ -431,44 +503,30 @@ def _scan_market_scope_gamma_events(
         initial_crawl_tags,
     )
 
-    crawled_keys: list[str] = []
-    crawled_set: set[str] = set()
-    if initial_crawl_tags:
-        queue: list[str | None] = list(dict.fromkeys(initial_crawl_tags))
-    else:
-        queue = [None]
-    merged = _empty_scan_result()
-    total_pages = 0
-    truncated = False
+    state = _CrawlState.from_initial_tags(initial_crawl_tags, tag_sources_map)
 
     for closure_round in range(resolved.max_closure_rounds + 1):
-        if not queue:
+        if not state.queue:
             break
         next_queue: list[str | None] = []
-        for tag_slug in queue:
+        for tag_slug in state.queue:
             crawl_key = _tag_crawl_key(tag_slug)
-            if crawl_key in crawled_set:
+            if crawl_key in state.crawled_set:
                 continue
-            if _crawl_cap_reached(len(crawled_set), resolved.max_crawl_tags):
-                truncated = True
+            if state.crawl_cap_reached(resolved.max_crawl_tags):
+                state.truncated = True
                 logger.info(
                     "Market-scope tag crawl cap reached (%s tags); stopping expansion",
                     resolved.max_crawl_tags,
                 )
                 break
 
-            remaining_pages = _remaining_page_budget(
-                resolved.total_page_budget, total_pages
-            )
+            remaining_pages = state.remaining_page_budget(resolved.total_page_budget)
             if remaining_pages is not None and remaining_pages <= 0:
-                truncated = True
+                state.truncated = True
                 break
 
-            _mark_crawled(
-                crawl_key,
-                crawled_set=crawled_set,
-                crawled_keys=crawled_keys,
-            )
+            state.mark_crawled(crawl_key)
             pass_scan = _scan_market_scope_gamma_events_keyset_pass(
                 client,
                 cfg,
@@ -483,32 +541,25 @@ def _scan_market_scope_gamma_events(
                 progress_callback=progress_callback,
                 progress_task=progress_task,
             )
-            merged = _merge_scan_results(merged, pass_scan)
-            total_pages += pass_scan.pages_done
+            state.merge_pass(pass_scan)
 
-            _queue_harvested_crawl_tags(
-                pass_scan.harvested_tag_slugs,
-                crawled_set=crawled_set,
+            state.queue_harvested_tags(
+                pass_scan,
                 next_queue=next_queue,
                 scope_tag_slugs=resolved.scope_tag_slugs,
                 seed_tag_slugs=resolved.seed_tag_slugs,
-                tag_sources_map=tag_sources_map,
                 cfg=cfg,
             )
 
-            if pass_scan.truncated:
-                truncated = True
+            if state.truncated:
                 break
 
-        if truncated:
+        if state.truncated:
             break
-        queue = list(dict.fromkeys(next_queue))
+        state.queue = list(dict.fromkeys(next_queue))
 
-    final_crawl = tuple(slug for slug in crawled_keys if slug != "__all__")
-    final_sources = tuple(
-        (slug, tuple(sorted(tag_sources_map.get(slug, ("unknown",)))))
-        for slug in final_crawl
-    )
+    final_crawl = state.final_crawl()
+    final_sources = state.final_sources()
     logger.info(
         "Market-scope tag crawl complete: %s tags (scope anchored to %s)",
         len(final_crawl),
@@ -518,12 +569,12 @@ def _scan_market_scope_gamma_events(
         logger.info("Market-scope tag crawl sources: %s", dict(final_sources))
 
     return MarketScopeEventsScanResult(
-        registry_rows=merged.registry_rows,
-        raw_markets=merged.raw_markets,
-        pages_done=total_pages,
-        truncated=truncated,
-        discovered_slugs=merged.discovered_slugs,
-        api_requests=total_pages,
+        registry_rows=state.merged.registry_rows,
+        raw_markets=state.merged.raw_markets,
+        pages_done=state.total_pages,
+        truncated=state.truncated,
+        discovered_slugs=state.merged.discovered_slugs,
+        api_requests=state.total_pages,
         crawl_tag_slugs=final_crawl,
         scope_tag_slugs=resolved.scope_tag_slugs,
         tag_sources=final_sources,

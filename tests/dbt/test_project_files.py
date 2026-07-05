@@ -68,15 +68,19 @@ def test_dbt_project_version():
     assert "profile: oddsfox" in text
 
 
-def test_time_series_marts_are_materialized_tables():
+def test_hourly_odds_materialization_shape():
     project = yaml.safe_load(
         (Path(__file__).resolve().parents[2] / "dbt" / "dbt_project.yml").read_text()
     )
+    intermediate = project["models"]["oddsfox"]["polymarket_wc2026"]["intermediate"]
     marts = project["models"]["oddsfox"]["polymarket_wc2026"]["marts"]
 
     assert (
-        marts["polymarket_wc2026_knockout_token_hourly_odds"]["+materialized"]
-        == "table"
+        intermediate["int_polymarket_wc2026_token_hourly_odds"]["+materialized"]
+        == "incremental"
+    )
+    assert (
+        marts["polymarket_wc2026_knockout_token_hourly_odds"]["+materialized"] == "view"
     )
     assert "polymarket_wc2026_token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_daily_odds" not in marts
@@ -102,7 +106,9 @@ def test_knockout_classifier_intermediate_exists_and_is_documented():
     assert (
         intermediate_root / "int_polymarket_wc2026_knockout_market_classification.sql"
     ).exists()
+    assert (intermediate_root / "int_polymarket_wc2026_token_hourly_odds.sql").exists()
     assert "int_polymarket_wc2026_knockout_market_classification" in documented
+    assert "int_polymarket_wc2026_token_hourly_odds" in documented
 
 
 def test_knockout_observability_models_are_documented():

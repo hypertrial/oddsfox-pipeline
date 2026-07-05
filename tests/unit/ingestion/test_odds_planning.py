@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 pytest.importorskip("duckdb")
@@ -420,3 +422,326 @@ def test_iter_token_plans_paged_history_backfill_uses_full_iterator():
         pass
     assert captured.get("min_volume") == 5_000.0
     assert captured.get("json_array_only") is True
+
+
+def test_empty_retry_next_check_supports_uncapped_and_capped_delay():
+    checked_at = odds_sync.datetime(2024, 1, 1, tzinfo=odds_sync.timezone.utc)
+    uncapped = odds_sync._empty_retry_next_check(
+        checked_at,
+        empty_run_streak=3,
+        base_seconds=10,
+        max_seconds=0,
+    )
+    capped = odds_sync._empty_retry_next_check(
+        checked_at,
+        empty_run_streak=3,
+        base_seconds=10,
+        max_seconds=20,
+    )
+    assert (uncapped - checked_at).total_seconds() == 40
+    assert (capped - checked_at).total_seconds() == 20
+
+
+def test_parse_cutoff_invalid():
+    assert odds_sync._parse_cutoff_date("not-a-date").year == 2023
+
+
+def test_build_single_token_plan_keys():
+    now = 1_700_000_000
+    tok = "t" * 33 + "12"
+    seen = set()
+    budgets = {tok: 1}
+    plan, skip, inv = odds_sync.build_single_token_plan(
+        token_id=tok,
+        market_id="m",
+        closed=False,
+        created_ts=1_600_000_000,
+        latest_timestamps={},
+        fully_checked_tokens=set(),
+        persisted_skips={},
+        seen_tokens=seen,
+        now_ts=now,
+        fidelity=1440,
+        force=False,
+        rebuild_history=False,
+        overlap_seconds=0,
+        recent_seconds=0,
+        empty_token_skip_budgets=budgets,
+        empty_token_skip_runs=1,
+    )
+    assert skip == "empty_cache_skip"
+
+    tok2 = "u" * 33 + "12"
+    plan2, sk2, _ = odds_sync.build_single_token_plan(
+        token_id=tok2,
+        market_id="m",
+        closed=True,
+        created_ts=1_600_000_000,
+        latest_timestamps={},
+        fully_checked_tokens={tok2},
+        persisted_skips={},
+        seen_tokens=set(),
+        now_ts=now,
+        fidelity=1440,
+        force=False,
+        rebuild_history=False,
+        overlap_seconds=0,
+        recent_seconds=999999999,
+        empty_token_skip_budgets=None,
+        empty_token_skip_runs=0,
+    )
+    assert sk2 == "closed_done" or plan2 is None
+
+
+def test_iter_token_plans_paged_uses_current_market_iterator_signature():
+    seen = {}
+
+    def iter_side(**kwargs):
+        seen.update(kwargs)
+        return iter(())
+
+    gen = odds_sync.iter_token_plans_paged(
+        now_ts=1_800_000_000,
+        clob_cutoff_date="2024-01-01",
+        fidelity=1440,
+        force=True,
+        rebuild_history=True,
+        overlap_minutes=0,
+        skip_recent_minutes=0,
+        market_page_size=100,
+        iter_markets_with_tokens_fn=iter_side,
+        get_token_sync_snapshot_fn=lambda *a, **k: ({}, set(), {}),
+    )
+    assert list(gen) == []
+    assert seen["json_array_only"] is True
+
+
+def test_build_planning_context_uses_raw_snapshot():
+    planning_state = odds_sync.PlanningState(plans=6, closed_done=2, recent_skip=1)
+    context = odds_sync._build_planning_context(
+        {
+            "market_tokens_distinct_tokens": 10,
+            "odds_history_distinct_tokens": 7,
+            "token_odds_daily_distinct_tokens": 5,
+            "ledger_distinct_tokens": 8,
+            "ledger_fully_checked_tokens": 2,
+            "token_sync_skips_distinct_tokens": 1,
+            "market_tokens_without_history": 3,
+            "history_tokens_without_market_tokens": 0,
+            "token_sync_skips_by_reason": {"invalid token id format": 1},
+        },
+        planning_state,
+        invalid_tokens=1,
+    )
+    assert context["planned_tokens"] == 6
+    assert context["history_coverage_vs_market_tokens"] == 0.7
+    assert context["token_sync_skips_by_reason"] == {"invalid token id format": 1}
+
+
+def test_build_single_token_plan_all_skips():
+    now = 1_800_000_000
+    tok_dup = "d" * 33 + "12"
+    seen = {tok_dup}
+    _, sk, _ = odds_sync.build_single_token_plan(
+        token_id=tok_dup,
+        market_id="m",
+        closed=False,
+        created_ts=1,
+        latest_timestamps={},
+        fully_checked_tokens=set(),
+        persisted_skips={},
+        seen_tokens=seen,
+        now_ts=now,
+        fidelity=1440,
+        force=False,
+        rebuild_history=False,
+        overlap_seconds=0,
+        recent_seconds=0,
+    )
+    assert sk == "dup_token"
+
+    bad = "short"
+    _, sk2, inv = odds_sync.build_single_token_plan(
+        token_id=bad,
+        market_id="m",
+        closed=False,
+        created_ts=1,
+        latest_timestamps={},
+        fully_checked_tokens=set(),
+        persisted_skips={},
+        seen_tokens=set(),
+        now_ts=now,
+        fidelity=1440,
+        force=False,
+        rebuild_history=False,
+        overlap_seconds=0,
+        recent_seconds=0,
+    )
+    assert sk2 == "invalid_token" and inv
+
+    tok = "e" * 33 + "12"
+    _, sk3, _ = odds_sync.build_single_token_plan(
+        token_id=tok,
+        market_id="m",
+        closed=False,
+        created_ts=1,
+        latest_timestamps={},
+        fully_checked_tokens=set(),
+        persisted_skips={tok: "x"},
+        seen_tokens=set(),
+        now_ts=now,
+        fidelity=1440,
+        force=False,
+        rebuild_history=False,
+        overlap_seconds=0,
+        recent_seconds=0,
+    )
+    assert sk3 == "persisted_skip"
+
+
+def test_iter_token_plans_paged_reconcile_and_invalid_batch():
+    page = [
+        (
+            "mx",
+            json.dumps(["f" * 33 + "12"]),
+            "2024-06-01 00:00:00",
+            False,
+        )
+    ]
+
+    def iter_kw(**kwargs):
+        yield page
+
+    seen_batches = []
+
+    def on_inv(batch):
+        seen_batches.append(batch)
+
+    gen = odds_sync.iter_token_plans_paged(
+        now_ts=1_900_000_000,
+        clob_cutoff_date="2020-01-01",
+        fidelity=1440,
+        force=True,
+        rebuild_history=True,
+        overlap_minutes=0,
+        skip_recent_minutes=0,
+        market_page_size=10,
+        reconcile_ledger=True,
+        on_invalid_tokens_batch=on_inv,
+        iter_markets_with_tokens_fn=iter_kw,
+        get_token_sync_snapshot_fn=lambda ids, **kw: ({}, set(), {}),
+    )
+    plans = list(gen)
+    assert isinstance(plans, list)
+
+
+def test_iter_token_plans_paged_allowlist_and_denylist_skip_tokens():
+    tok_keep = "k" * 33 + "12"
+    tok_skip = "s" * 33 + "12"
+    page = [
+        (
+            "mx",
+            json.dumps([tok_skip, tok_keep]),
+            "2024-06-01 00:00:00",
+            False,
+        )
+    ]
+
+    def iter_pages(**_kwargs):
+        yield page
+
+    def sync_snapshot(_ids, **_kwargs):
+        return {}, set(), {}
+
+    common = {
+        "now_ts": 1_900_000_000,
+        "clob_cutoff_date": "2020-01-01",
+        "fidelity": 1440,
+        "force": True,
+        "rebuild_history": False,
+        "overlap_minutes": 0,
+        "skip_recent_minutes": 0,
+        "market_page_size": 10,
+        "iter_markets_with_tokens_fn": iter_pages,
+        "get_token_sync_snapshot_fn": sync_snapshot,
+    }
+
+    allowlisted = list(
+        odds_sync.iter_token_plans_paged(
+            **common,
+            token_id_allowlist={tok_keep},
+        )
+    )
+    denied = list(
+        odds_sync.iter_token_plans_paged(
+            **common,
+            token_id_denylist={tok_skip},
+        )
+    )
+
+    assert [plan.token_id for plan in allowlisted] == [tok_keep]
+    assert [plan.token_id for plan in denied] == [tok_keep]
+
+
+def test_iter_token_plans_paged_empty_tokens_list():
+    def pages():
+        yield [
+            (
+                "m1",
+                "[]",
+                "2024-06-01 00:00:00",
+                False,
+            ),
+        ]
+
+    gen = odds_sync.iter_token_plans_paged(
+        now_ts=1_800_000_000,
+        clob_cutoff_date="2020-01-01",
+        fidelity=1440,
+        force=True,
+        rebuild_history=True,
+        overlap_minutes=0,
+        skip_recent_minutes=0,
+        market_page_size=50,
+        short_range_first=False,
+        iter_markets_with_tokens_fn=lambda **k: pages(),
+        get_token_sync_snapshot_fn=lambda *a, **k: ({}, set(), {}),
+    )
+    assert list(gen) == []
+
+
+def test_iter_token_plans_paged_reconcile_short_first_off():
+    tid = "b" * 33 + "12"
+
+    def pages():
+        yield [
+            (
+                "m1",
+                json.dumps([tid]),
+                "2024-06-01 00:00:00",
+                False,
+            ),
+        ]
+
+    seen = []
+
+    def on_inv(batch):
+        seen.extend(batch)
+
+    gen = odds_sync.iter_token_plans_paged(
+        now_ts=1_800_000_000,
+        clob_cutoff_date="2020-01-01",
+        fidelity=1440,
+        force=True,
+        rebuild_history=True,
+        overlap_minutes=0,
+        skip_recent_minutes=0,
+        market_page_size=50,
+        reconcile_ledger=True,
+        short_range_first=False,
+        on_invalid_tokens_batch=on_inv,
+        iter_markets_with_tokens_fn=lambda **k: pages(),
+        get_token_sync_snapshot_fn=lambda *a, **k: ({tid: 1}, set(), {}),
+    )
+    plans = list(gen)
+    assert plans

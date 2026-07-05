@@ -54,16 +54,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scope.
 - `int_polymarket_wc2026_market_tokens` now materializes as a dbt table to avoid
   repeated high-fanout downstream view expansion.
+- Breaking: `polymarket_wc2026_knockout_token_hourly_odds` is now a dbt view
+  over the private incremental `int_polymarket_wc2026_token_hourly_odds` fact
+  table, preserving public columns while keeping hourly prices incremental and
+  market/team metadata current at query time. Operators with old local relation
+  types should reset their DuckDB warehouse or drop the affected dbt schemas
+  before rebuilding.
 - Breaking: odds history run config renamed `rebuild_minutely` to
   `rebuild_history` and `minutely_backfill_days` to `history_backfill_days`.
   No aliases are provided.
 - Polymarket scope helpers now load any slug-like scope present in
   `market_scopes.yml`; the packaged v0.1.x Dagster/dbt graph remains fixed to
   WC2026.
-- `polymarket_wc2026_knockout_token_hourly_odds` now materializes as a dbt table.
-  Operators with old local view relations should reset their local DuckDB warehouse
-  or drop the affected dbt schemas before rebuilding.
-
 ## [0.1.4] - 2026-07-03
 
 ### Added

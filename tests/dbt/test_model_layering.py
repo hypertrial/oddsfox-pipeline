@@ -36,7 +36,27 @@ def test_intermediate_wc2026_markets_owns_scope_logic():
     assert "market_scope_event_slugs" not in lowered
 
 
-def test_wc2026_knockout_hourly_aggregates_canonical_odds_directly():
+def test_wc2026_hourly_fact_aggregates_canonical_odds_directly():
+    sql = (
+        DBT_ROOT
+        / "models"
+        / "polymarket_wc2026"
+        / "intermediate"
+        / "int_polymarket_wc2026_token_hourly_odds.sql"
+    ).read_text()
+    lowered = sql.lower()
+
+    assert "{{ ref('stg_polymarket_wc2026_odds') }}" in lowered
+    assert "{{ ref('polymarket_wc2026_contract') }}" in lowered
+    assert "date_trunc('hour', o.odds_timestamp)" in lowered
+    assert "latest_ingested_at" in lowered
+    assert "is_incremental()" in lowered
+    assert "{{ ref('polymarket_wc2026_token_hourly_odds') }}" not in lowered
+    assert "hourly_window_days" in lowered
+    assert "selected_" not in lowered
+
+
+def test_wc2026_knockout_hourly_view_joins_current_metadata_to_hourly_fact():
     sql = (
         DBT_ROOT
         / "models"
@@ -47,11 +67,8 @@ def test_wc2026_knockout_hourly_aggregates_canonical_odds_directly():
     lowered = sql.lower()
 
     assert "{{ ref('polymarket_wc2026_knockout_market_tokens') }}" in lowered
-    assert "{{ ref('stg_polymarket_wc2026_odds') }}" in lowered
-    assert "{{ ref('polymarket_wc2026_contract') }}" in lowered
-    assert "date_trunc('hour', o.odds_timestamp)" in lowered
-    assert "polymarket_wc2026_token_hourly_odds" not in lowered
-    assert "hourly_window_days" in lowered
+    assert "{{ ref('int_polymarket_wc2026_token_hourly_odds') }}" in lowered
+    assert "{{ ref('polymarket_wc2026_token_hourly_odds') }}" not in lowered
     assert "selected_" not in lowered
 
 

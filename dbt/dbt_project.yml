@@ -28,6 +28,8 @@ models:
         +tags: ["intermediate", "wc2026", "polymarket"]
         int_polymarket_wc2026_market_tokens:
           +materialized: table
+        int_polymarket_wc2026_token_hourly_odds:
+          +materialized: incremental
         int_polymarket_wc2026_token_universe:
           +materialized: table
       marts:
@@ -39,7 +41,7 @@ models:
         polymarket_wc2026_knockout_markets:
           +materialized: view
         polymarket_wc2026_knockout_token_hourly_odds:
-          +materialized: table
+          +materialized: view
       observability:
         +schema: polymarket_wc2026_observability
         +materialized: table
