@@ -82,6 +82,7 @@ def test_hourly_odds_materialization_shape():
     assert (
         marts["polymarket_wc2026_knockout_token_hourly_odds"]["+materialized"] == "view"
     )
+    assert marts["polymarket_wc2026_graph_token_hourly_odds"]["+materialized"] == "view"
     assert "polymarket_wc2026_token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_daily_odds" not in marts
 
@@ -160,14 +161,20 @@ def test_knockout_mart_semantic_columns_are_documented():
         "polymarket_wc2026_knockout_market_tokens",
         "polymarket_wc2026_knockout_markets",
         "polymarket_wc2026_knockout_token_hourly_odds",
+        "polymarket_wc2026_graph_token_hourly_odds",
     }
     for model in docs["models"]:
         if model["name"] not in expected_models:
             continue
         columns = {column["name"] for column in model["columns"]}
-        assert "price_represents" in columns
         assert "progression_outcome_label" in columns
-        assert "is_active_team_live_market" in columns
+        if model["name"] == "polymarket_wc2026_graph_token_hourly_odds":
+            assert "price_represents" not in columns
+            assert "is_progression_token" in columns
+            assert "opposite_clob_token_id" in columns
+        else:
+            assert "price_represents" in columns
+            assert "is_active_team_live_market" in columns
         if model["name"] == "polymarket_wc2026_knockout_markets":
             assert "is_actionable_live_market" in columns
         else:

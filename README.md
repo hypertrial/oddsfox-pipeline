@@ -58,6 +58,9 @@ Current Polymarket analytics outputs live in `polymarket_wc2026_marts`:
 - `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC
   odds for the progression side of each knockout market, with market status
   metadata for live-only filtering.
+- `polymarket_wc2026_graph_token_hourly_odds`: graph-build export surface with
+  both Yes/No tokens per real-team knockout market plus dbt-clean team, stage,
+  progression-side, and opposite-token semantics.
 - `polymarket_wc2026_knockout_markets`: latest progression-side knockout
   snapshot with market/team/stage metadata and explicit current-price status.
 

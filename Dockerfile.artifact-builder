@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY oddsfox-pipeline /app/oddsfox-pipeline
+COPY oddsfox-graph /app/oddsfox-graph
+
+RUN python -m pip install --upgrade pip \
+    && python -m pip install -e /app/oddsfox-pipeline -e /app/oddsfox-graph
+
+WORKDIR /app/oddsfox-pipeline
+ENTRYPOINT ["python", "scripts/build_hosted_artifacts.py", "--artifact-dir", "/artifacts", "--graph-repo", "/app/oddsfox-graph"]

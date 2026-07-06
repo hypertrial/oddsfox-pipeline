@@ -79,6 +79,9 @@ Schema: `polymarket_wc2026_marts`
 - `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for real-team progression-side
   knockout tokens (dbt view over the incremental hourly fact), including current market status, tournament status,
   active-team live flag, and `price_represents = 'progression'`.
+- `polymarket_wc2026_graph_token_hourly_odds`: trailing 30-day hourly OHLC odds
+  for both tokens of each real-team knockout market, with dbt-clean stage, team,
+  progression-token, and opposite-token semantics for graph builds.
 - `polymarket_wc2026_knockout_markets`: latest real-team progression-side knockout snapshot with explicit
   current-price status and progression outcome labels. Use `is_actionable_live_market` for current live consumption;
   use `is_active_team_live_market` when stale/missing live rows should remain visible. Closed/resolved rows are

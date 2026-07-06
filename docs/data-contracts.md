@@ -15,6 +15,7 @@ Schema: `polymarket_wc2026_marts`
 | `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token universe for knockout-related markets at or above the WC2026 contract volume floor, including explicit price semantics. |
 | `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, result metadata, and price semantics. |
 | `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
+| `polymarket_wc2026_graph_token_hourly_odds` | One row per `(market_id, clob_token_id, odds_hour_epoch)` | Graph-build export with both Yes and No tokens per real-team knockout market plus dbt-clean stage/team/progression semantics. |
 
 Schema: `international_results_wc2026_marts`
 
@@ -83,7 +84,13 @@ Schema: `international_results_wc2026_marts`
   `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline` for Dagster operations.
   `international_results_wc2026_match_results_ingest` refreshes only the FIFA
   World Cup fixture/result source and is included in the full pipeline.
-- `polymarket_wc2026_knockout_token_hourly_odds` is the WC2026-specific export surface for downstream knockout visualization artifacts.
+- `polymarket_wc2026_knockout_token_hourly_odds` remains the public
+  progression-side export for downstream knockout probability views.
+- `polymarket_wc2026_graph_token_hourly_odds` is the hosted graph input. It
+  keeps both tokens per market and exposes `is_progression_token`,
+  `opposite_clob_token_id`, `canonical_team_name`, `stage_key`, and
+  `progression_outcome_label` so `oddsfox-graph` does not infer WC2026 semantics
+  from question text when dbt already classified the market.
 - After `make prune-odds-history`, `polymarket_wc2026_raw.odds_history` only guarantees the trailing ~365 days of source
   odds points unless you change the retention window.
 - `int_polymarket_wc2026_markets` is the canonical market-level WC2026 scope (grain:

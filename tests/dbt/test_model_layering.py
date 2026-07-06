@@ -72,6 +72,27 @@ def test_wc2026_knockout_hourly_view_joins_current_metadata_to_hourly_fact():
     assert "selected_" not in lowered
 
 
+def test_wc2026_graph_hourly_view_keeps_binary_market_tokens():
+    sql = (
+        DBT_ROOT
+        / "models"
+        / "polymarket_wc2026"
+        / "marts"
+        / "polymarket_wc2026_graph_token_hourly_odds.sql"
+    ).read_text()
+    lowered = sql.lower()
+
+    assert "{{ ref('int_polymarket_wc2026_market_tokens') }}" in lowered
+    assert (
+        "{{ ref('int_polymarket_wc2026_knockout_market_classification') }}" in lowered
+    )
+    assert "{{ ref('int_polymarket_wc2026_token_hourly_odds') }}" in lowered
+    assert "is_progression_token" in lowered
+    assert "opposite_clob_token_id" in lowered
+    assert "lower(p.outcome_label) = 'yes'" in lowered
+    assert "lower(p.outcome_label) = 'no'" in lowered
+
+
 def test_wc2026_knockout_classifier_is_shared_intermediate():
     token_sql = (
         (

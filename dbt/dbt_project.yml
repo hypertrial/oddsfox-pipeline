@@ -42,6 +42,8 @@ models:
           +materialized: view
         polymarket_wc2026_knockout_token_hourly_odds:
           +materialized: view
+        polymarket_wc2026_graph_token_hourly_odds:
+          +materialized: view
       observability:
         +schema: polymarket_wc2026_observability
         +materialized: table

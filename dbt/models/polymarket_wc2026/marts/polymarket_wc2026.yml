@@ -280,3 +280,78 @@ models:
           - accepted_values:
               arguments:
                 values: ['active', 'eliminated', 'champion']
+
+  - name: polymarket_wc2026_graph_token_hourly_odds
+    description: >
+      Graph-build export surface for WC2026 knockout markets. Unlike the public
+      progression-side mart, this keeps both Yes and No tokens per market and
+      carries dbt-clean stage/team/progression semantics for oddsfox-graph.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_hour_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [clob_token_id, odds_hour_epoch]
+            price_columns:
+              - open_price
+              - high_price
+              - low_price
+              - close_price
+              - avg_price
+    columns:
+      - name: market_id
+        description: Polymarket market identifier.
+        tests: [not_null]
+      - name: outcome_index
+        description: Zero-based outcome index within the source market.
+        tests: [not_null]
+      - name: clob_token_id
+        description: Polymarket CLOB outcome token identifier.
+        tests: [not_null]
+      - name: question
+        description: Source market question.
+        tests: [not_null]
+      - name: outcome_label
+        description: Source token label, usually Yes or No.
+        tests: [not_null]
+      - name: event_slug
+        description: Polymarket event slug.
+        tests: [not_null]
+      - name: market_volume_usd
+        description: Source market volume in USD.
+        tests: [not_null]
+      - name: stage_key
+        description: dbt-clean WC2026 knockout stage key.
+        tests: [not_null]
+      - name: stage_rank
+        description: Numeric ordering for knockout progression stages.
+        tests: [not_null]
+      - name: canonical_team_name
+        description: Canonical WC2026 team name from the fixture/results mart.
+        tests: [not_null]
+      - name: market_direction
+        description: Classified question direction, such as winner, reach, or eliminated.
+        tests: [not_null]
+      - name: progression_outcome_label
+        description: Normalized semantic outcome that represents team progression for this market.
+        tests: [not_null]
+      - name: is_progression_token
+        description: True when this token price represents progressing to or past the stage.
+        tests: [not_null]
+      - name: opposite_clob_token_id
+        description: Other token in the same binary market.
+        tests: [not_null]
+      - name: market_status
+        description: Derived source market state.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['resolved', 'closed', 'live', 'inactive']
+      - name: is_still_alive
+        description: True when the canonical team is still alive in the WC2026 results mart.
+        tests: [not_null]
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the UTC hour bucket.
+        tests: [not_null]

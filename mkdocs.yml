@@ -32,6 +32,7 @@ nav:
       - Getting Started: quickstart.md
       - Architecture: architecture.md
       - Operations: operations.md
+      - Hosted Graph: hosted-graph-deployment.md
       - Troubleshooting: troubleshooting.md
   - Reference:
       - Configuration: configuration.md
