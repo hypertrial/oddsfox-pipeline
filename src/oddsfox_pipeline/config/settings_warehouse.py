@@ -18,8 +18,12 @@ if env_path.exists():
     load_dotenv(env_path)
 
 DUCKDB_NAME = os.getenv("DUCKDB_NAME", "oddsfox.duckdb")
-DUCKDB_PATH = (BASE_DIR / DUCKDB_NAME).resolve()
-os.environ.setdefault("DUCKDB_PATH", str(DUCKDB_PATH))
+_DUCKDB_PATH_ENV = os.getenv("DUCKDB_PATH")
+DUCKDB_PATH = (
+    Path(_DUCKDB_PATH_ENV).expanduser().resolve()
+    if _DUCKDB_PATH_ENV is not None
+    else (BASE_DIR / DUCKDB_NAME).resolve()
+)
 
 DBT_PROJECT_DIR = BASE_DIR / "dbt"
 _DEFAULT_DBT_PROFILES_DIR = BASE_DIR / "dbt" / "profiles"

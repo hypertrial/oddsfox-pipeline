@@ -39,6 +39,18 @@ def test_active_duckdb_path_relative_env(monkeypatch, tmp_path, isolated_env):
     assert p.is_absolute()
 
 
+def test_active_duckdb_path_prefers_duckdb_path(monkeypatch, tmp_path, isolated_env):
+    db = tmp_path / "warehouse" / "oddsfox.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", "ignored.duckdb")
+    monkeypatch.setenv("DUCKDB_PATH", str(db))
+
+    reload_all_settings_modules()
+    import oddsfox_pipeline.storage.duckdb.connection as conn
+
+    conn = importlib.reload(conn)
+    assert conn.active_duckdb_path() == db.resolve()
+
+
 def test_active_duckdb_path_uses_duckdb_path_when_name_unset(monkeypatch, tmp_path):
     """Covers the ``return DUCKDB_PATH`` branch when ``DUCKDB_NAME`` is unset."""
     import os

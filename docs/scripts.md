@@ -8,7 +8,7 @@ Run them through `uv run python` so they use the repo environment.
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
 - `export_polymarket_wc2026_knockout_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` to parquet for progression-only WC2026 knockout audits.
 - `export_polymarket_wc2026_graph_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds` to parquet for `oddsfox-graph`; this is the hosted graph input and includes both Yes/No tokens.
-- `build_hosted_artifacts.py`: run refresh, dbt, graph export, graph build, validation, and atomic publish into `/artifacts/releases/<UTC_BUILD_ID>` plus `/artifacts/current`.
+- `build_hosted_artifacts.py`: run refresh, dbt, graph export, graph build, validation, and atomic publish into `$ODDSFOX_DATA_DIR/artifacts/releases/<UTC_BUILD_ID>` plus `$ODDSFOX_DATA_DIR/artifacts/current` on the host.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_wc2026_raw.odds_history` rows older than a retention window (default 365 days).
 - `repair_polymarket_wc2026_token_sync_ledger.py`: rebuild a corrupted token sync ledger.
@@ -26,29 +26,37 @@ Run scripts through the project environment:
 ```bash
 uv run python scripts/profile_warehouse.py --snapshot-copy
 uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py
-uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py --snapshot-copy --output /tmp/wc2026_knockout_hourly.parquet
-uv run python scripts/export_polymarket_wc2026_graph_hourly_odds.py --snapshot-copy --output /tmp/wc2026_graph_hourly.parquet
-# writes /tmp/wc2026_knockout_hourly.parquet
-# writes artifacts/polymarket_wc2026_exports/polymarket_wc2026_knockout_token_hourly_odds_<UTC>.parquet
+export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-/Volumes/Mac SSD/hypertrial_trilemma/hypertrial/OddsFox/.runtime}"
+mkdir -p "$ODDSFOX_DATA_DIR/exports"
+uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py --snapshot-copy --output "$ODDSFOX_DATA_DIR/exports/wc2026_knockout_hourly.parquet"
+uv run python scripts/export_polymarket_wc2026_graph_hourly_odds.py --snapshot-copy --output "$ODDSFOX_DATA_DIR/exports/wc2026_graph_hourly.parquet"
+# writes "$ODDSFOX_DATA_DIR/exports/wc2026_knockout_hourly.parquet"
+# writes "$ODDSFOX_DATA_DIR/exports/wc2026_graph_hourly.parquet"
 ```
 
 Hosted artifact publish:
 
 ```bash
+export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-/Volumes/Mac SSD/hypertrial_trilemma/hypertrial/OddsFox/.runtime}"
+mkdir -p "$ODDSFOX_DATA_DIR"/{warehouse,artifacts,exports,dagster-home,dlt,logs}
+export DUCKDB_PATH="$ODDSFOX_DATA_DIR/warehouse/oddsfox.duckdb"
+export DAGSTER_HOME="$ODDSFOX_DATA_DIR/dagster-home"
+export DLT_DATA_DIR="$ODDSFOX_DATA_DIR/dlt"
 uv run python scripts/build_hosted_artifacts.py \
-  --artifact-dir /artifacts \
+  --artifact-dir "$ODDSFOX_DATA_DIR/artifacts" \
   --graph-repo ../oddsfox-graph
 ```
 
 For a local fixture run without network or dbt:
 
 ```bash
+export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-/Volumes/Mac SSD/hypertrial_trilemma/hypertrial/OddsFox/.runtime}"
 uv run python scripts/build_hosted_artifacts.py \
-  --artifact-dir /tmp/oddsfox-artifacts \
+  --artifact-dir "$ODDSFOX_DATA_DIR/artifacts" \
   --graph-repo ../oddsfox-graph \
   --skip-refresh \
   --skip-dbt \
-  --input-parquet /tmp/wc2026_graph_hourly.parquet \
+  --input-parquet "$ODDSFOX_DATA_DIR/exports/wc2026_graph_hourly.parquet" \
   --allow-stale-current
 ```
 

@@ -32,10 +32,32 @@ def test_http_request_timeout_tuple_from_env(monkeypatch, isolated_env):
     assert settings.HTTP_REQUEST_TIMEOUT == (1.5, 45.0)
 
 
-def test_duckdb_path_setdefault_and_profiles_dir_default(isolated_env):
+def test_duckdb_path_and_profiles_dir_default(isolated_env):
     settings = reload_all_settings_modules()
     assert settings.DUCKDB_PATH.name.endswith(".duckdb")
     assert "profiles" in str(settings.DBT_PROFILES_DIR)
+
+
+def test_duckdb_path_env_overrides_name(monkeypatch, tmp_path, isolated_env):
+    db = tmp_path / "ssd" / "oddsfox.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", "ignored.duckdb")
+    monkeypatch.setenv("DUCKDB_PATH", str(db))
+
+    settings = reload_all_settings_modules()
+
+    assert settings.DUCKDB_PATH == db.resolve()
+
+
+def test_missing_duckdb_path_does_not_override_new_name(
+    monkeypatch, tmp_path, isolated_env
+):
+    reload_all_settings_modules()
+    db = tmp_path / "next.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", str(db))
+
+    settings = reload_all_settings_modules()
+
+    assert settings.DUCKDB_PATH == db.resolve()
 
 
 def test_invalid_dbt_profiles_dir_falls_back_to_packaged_profiles(

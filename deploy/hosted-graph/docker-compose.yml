@@ -1,0 +1,69 @@
+name: oddsfox-hosted-graph
+
+services:
+  live:
+    build:
+      context: ../../../oddsfox-live
+    command:
+      - -addr
+      - 0.0.0.0:8787
+      - -artifact-dir
+      - /artifacts
+      - -replay-dir
+      - /replay
+      - -artifact-reload-interval
+      - 60s
+    volumes:
+      - type: bind
+        source: ${ODDSFOX_DATA_DIR:?set ODDSFOX_DATA_DIR}/artifacts
+        target: /artifacts
+        read_only: true
+      - type: bind
+        source: ${ODDSFOX_DATA_DIR:?set ODDSFOX_DATA_DIR}/replay
+        target: /replay
+    ports:
+      - "8787:8787"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8787/api/v0/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  dash:
+    build:
+      context: ../../../oddsfox-dash
+      args:
+        VITE_ODDSFOX_LIVE_URL: ${VITE_ODDSFOX_LIVE_URL:?set VITE_ODDSFOX_LIVE_URL}
+    ports:
+      - "4173:80"
+    depends_on:
+      - live
+
+  artifact-builder:
+    profiles: ["refresh"]
+    build:
+      context: ../../..
+      dockerfile: oddsfox-pipeline/Dockerfile.artifact-builder
+    environment:
+      DAGSTER_HOME: ${DAGSTER_HOME:-/dagster-home}
+      DLT_DATA_DIR: ${DLT_DATA_DIR:-/dlt}
+      DUCKDB_PATH: ${DUCKDB_PATH:-/warehouse/oddsfox.duckdb}
+    volumes:
+      - type: bind
+        source: ${ODDSFOX_DATA_DIR:?set ODDSFOX_DATA_DIR}/artifacts
+        target: /artifacts
+      - type: bind
+        source: ${ODDSFOX_DATA_DIR:?set ODDSFOX_DATA_DIR}/warehouse
+        target: /warehouse
+      - type: bind
+        source: ${ODDSFOX_DATA_DIR:?set ODDSFOX_DATA_DIR}/exports
+        target: /exports
+      - type: bind
+        source: ${ODDSFOX_DATA_DIR:?set ODDSFOX_DATA_DIR}/dagster-home
+        target: /dagster-home
+      - type: bind
+        source: ${ODDSFOX_DATA_DIR:?set ODDSFOX_DATA_DIR}/dlt
+        target: /dlt
+      - type: bind
+        source: ${ODDSFOX_DATA_DIR:?set ODDSFOX_DATA_DIR}/logs
+        target: /logs

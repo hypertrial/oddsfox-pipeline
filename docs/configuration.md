@@ -9,7 +9,9 @@ Polymarket pipeline plus the fixed FIFA results CSV used for team validation.
 ## Warehouse and dbt
 
 - `DUCKDB_NAME`: warehouse filename or path. Default: `oddsfox.duckdb`.
-- `DUCKDB_PATH`: optional absolute path override.
+- `DUCKDB_PATH`: optional path override. When set, it takes precedence over
+  `DUCKDB_NAME`; hosted graph deployments set this to the SSD-backed warehouse
+  path.
 - `DBT_PROFILES_DIR`: optional dbt profiles directory override.
 
 Most operators should leave `DBT_PROFILES_DIR` unset and use the packaged `dbt/profiles`.

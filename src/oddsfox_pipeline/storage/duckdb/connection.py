@@ -34,7 +34,10 @@ _ACTIVE_DUCKDB_PATH: Path | None = None
 
 
 def _resolved_duckdb_path() -> Path:
+    env_path = os.getenv("DUCKDB_PATH")
     env_name = os.getenv("DUCKDB_NAME")
+    if env_path:
+        return Path(env_path).expanduser().resolve()
     if env_name:
         env_path = Path(env_name)
         return env_path if env_path.is_absolute() else _settings.BASE_DIR / env_name
