@@ -57,6 +57,8 @@ repair scripts are part of the operator surface.
 
 | Goal | Page |
 | --- | --- |
+| See how the four OddsFox repos work together | [System Overview](system-overview.md) |
+| Run source refresh through the hosted dashboard | [Operator Runbook](operator-runbook.md) |
 | Run OddsFox locally | [Getting Started](quickstart.md) |
 | Understand the system | [Architecture](architecture.md) |
 | Operate Dagster jobs | [Operations](operations.md) |

@@ -29,6 +29,8 @@ extra_css:
 nav:
   - OddsFox:
       - Overview: index.md
+      - System Overview: system-overview.md
+      - Operator Runbook: operator-runbook.md
       - Getting Started: quickstart.md
       - Architecture: architecture.md
       - Operations: operations.md

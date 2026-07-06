@@ -4,6 +4,10 @@ This deployment keeps durable runtime data on one host SSD directory. It uses
 bind mounts, not Docker named volumes, because named-volume storage is managed by
 Docker and is not guaranteed to live on the requested SSD path.
 
+For a compact source-to-dashboard checklist, start with the
+[End-to-End Operator Runbook](operator-runbook.md). This page keeps the lower
+level deployment details and recovery commands.
+
 ## SSD Layout
 
 Set `ODDSFOX_DATA_DIR` to the host SSD root. The local default is:

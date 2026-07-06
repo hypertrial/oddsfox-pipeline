@@ -22,6 +22,16 @@ Future adapter contributions may cover Kalshi and traditional bookmakers.
 Every operator runs ingestion against source APIs and stores the resulting data
 in their own local DuckDB file or self-managed warehouse.
 
+## Part Of OddsFox
+
+`oddsfox-pipeline` is the warehouse and orchestration repo. It ingests source
+data, builds dbt marts, and exports graph parquet for `oddsfox-graph`, which
+publishes artifacts for `oddsfox-live` and `oddsfox-dash`.
+
+Read the cross-repo [System Overview](docs/system-overview.md) and
+[Operator Runbook](docs/operator-runbook.md) for the end-to-end path from source
+APIs to the dashboard.
+
 ## Quickstart
 
 ```bash

@@ -5,6 +5,9 @@ warehouse, dbt project, and manual Dagster jobs are healthy. The v0.1.x
 quickstart runs the WC2026 Polymarket pipeline plus the FIFA World Cup
 fixture/result source used to clean team scope.
 
+For the shortest source-to-dashboard flow across all four OddsFox repos, use
+the [End-to-End Operator Runbook](operator-runbook.md).
+
 ## 1. Install
 
 ```bash

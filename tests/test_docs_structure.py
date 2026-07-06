@@ -52,6 +52,8 @@ def test_readme_links_to_project_docs():
     readme = (REPO_ROOT / "README.md").read_text()
 
     assert "(docs/index.md)" in readme
+    assert "(docs/system-overview.md)" in readme
+    assert "(docs/operator-runbook.md)" in readme
     assert "(docs/quickstart.md)" in readme
     assert "(docs/architecture.md)" in readme
     assert "(docs/data-contracts.md)" in readme
@@ -77,6 +79,14 @@ def test_docs_make_targets_suppress_material_warning():
     makefile = (REPO_ROOT / "Makefile").read_text()
 
     assert "NO_MKDOCS_2_WARNING=true" in makefile
+
+
+def test_cross_repo_operator_docs_are_in_nav():
+    config = yaml.safe_load((REPO_ROOT / "mkdocs.yml").read_text())
+    targets = set(_nav_targets(config["nav"]))
+
+    assert "system-overview.md" in targets
+    assert "operator-runbook.md" in targets
 
 
 def test_docs_logo_asset_exists():
