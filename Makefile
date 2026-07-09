@@ -74,7 +74,7 @@ coverage-erase:
 	$(RUN_IN_REPO) "$(PYTHON)" -m coverage erase
 
 test-cov: coverage-erase
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(COV_APPEND_ARGS)
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests --ignore=tests/integration -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(COV_APPEND_ARGS)
 	# ponytail: tests/conftest.py auto-marks tests/integration/* as integration;
 	# run ingestion integration serially here so CI coverage matches make coverage.
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/ingestion -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS)
