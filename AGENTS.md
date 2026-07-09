@@ -86,8 +86,12 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make unit-core` | Config, resources, storage unit tests |
 | `make unit-ingest` | Ingestion unit tests |
 | `make unit-orchestration` | Orchestration/Dagster unit tests |
+| `make test-cov` | CI unit tests with coverage accumulation (`-n auto`) |
 | `make integration-dbt` | DuckDB + dbt integration smoke |
 | `make integration-dagster` | Dagster integration smoke |
+| `make integration-dbt-cov` | CI DuckDB + dbt integration with coverage append |
+| `make integration-dagster-cov` | CI Dagster integration with coverage append |
+| `make coverage-report` | CI coverage report gate (`--fail-under=100`) |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
 | `make costguard` | Run the dbt cost guardrail |
 | `make dagster-dev` | Local Dagster UI |

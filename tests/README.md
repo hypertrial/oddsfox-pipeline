@@ -22,8 +22,13 @@ make test
 make coverage
 ```
 
-`make integration-dagster` and `make coverage` are CI gates. `make coverage`
-enforces 100% branch coverage for `src/oddsfox_pipeline` except the warehouse profiling
+CI mirrors the quality gate with coverage accumulation:
+`make test-cov`, `make integration-dagster-cov`, `make integration-dbt-cov`,
+and `make coverage-report`. Local `make coverage` is still a one-shot
+equivalent.
+
+`make integration-dagster` and the CI `*-cov` targets enforce 100% branch
+coverage for `src/oddsfox_pipeline` except the warehouse profiling
 operator helpers under
 `storage/duckdb/profile/`, which are covered by smoke tests instead.
 

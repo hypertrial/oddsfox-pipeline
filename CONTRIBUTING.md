@@ -47,15 +47,19 @@ Run these before opening a pull request (they mirror [`.github/workflows/ci.yml`
 
 ```bash
 uv run make lint
-uv run make test
-uv run make integration-dagster
-uv run make integration-dbt
-uv run make coverage
+uv run make test-cov
+uv run make integration-dagster-cov
+uv run make integration-dbt-cov
+uv run make coverage-report
 uv run make docs-check
 uv run make dbt-parse
 uv run make dbt-build-ci
 uv run make costguard
 ```
+
+For local one-shot runs, `make test`, `make integration-dagster`,
+`make integration-dbt`, and `make coverage` still work without the CI
+coverage-accumulation split.
 
 `dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
 running dbt build.

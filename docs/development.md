@@ -89,9 +89,13 @@ and [Troubleshooting](troubleshooting.md#tests-writing-to-production-warehouse).
 | `uv run make unit-orchestration` | Dagster asset, job, and schedule tests. |
 | `uv run make integration-dbt` | DuckDB and dbt smoke tests. |
 | `uv run make integration-dagster` | Dagster integration smoke tests. |
+| `uv run make test-cov` | CI unit tests with coverage accumulation (`-n auto`). |
+| `uv run make integration-dagster-cov` | CI Dagster integration with coverage append. |
+| `uv run make integration-dbt-cov` | CI DuckDB + dbt integration with coverage append. |
+| `uv run make coverage-report` | CI coverage report gate (`--fail-under=100`). |
 | `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
 | `uv run make costguard` | Run the pinned dbt cost guardrail locally. |
-| `uv run make coverage` | 100% product-core branch coverage gate. |
+| `uv run make coverage` | Local one-shot 100% product-core branch coverage gate. |
 
 ## Pull Request Expectations
 
