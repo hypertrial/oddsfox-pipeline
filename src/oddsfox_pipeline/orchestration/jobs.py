@@ -1,4 +1,5 @@
 from dagster import AssetSelection, define_asset_job, multiprocess_executor
+from dagster_dbt import build_dbt_asset_selection
 
 from oddsfox_pipeline.naming import (
     SCOPE_US_MIDTERMS_2026,
@@ -7,6 +8,7 @@ from oddsfox_pipeline.naming import (
     SOURCE_POLYMARKET,
     asset_key,
 )
+from oddsfox_pipeline.orchestration.assets_polymarket import polymarket_wc2026_dbt
 from oddsfox_pipeline.orchestration.config import (
     polymarket_us_midterms_2026_full_refresh_events_run_config,
     polymarket_us_midterms_2026_hourly_odds_run_config,
@@ -83,10 +85,15 @@ POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
     ),
 )
 
+POLYMARKET_US_MIDTERMS_2026_DBT_SELECTION = build_dbt_asset_selection(
+    [polymarket_wc2026_dbt],
+    dbt_select="tag:us_midterms_2026",
+)
+
 POLYMARKET_US_MIDTERMS_2026_FULL_PIPELINE_SELECTION = (
     POLYMARKET_US_MIDTERMS_2026_MARKET_REGISTRY_SELECTION
     | POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SELECTION
-    | AssetSelection.groups("analytics")
+    | POLYMARKET_US_MIDTERMS_2026_DBT_SELECTION
 )
 
 polymarket_us_midterms_2026_market_registry_refresh = define_asset_job(

@@ -193,3 +193,12 @@ def test_hourly_schedule_enabled_by_env(monkeypatch):
     assert schedules_mod.polymarket_wc2026_hourly_odds_schedule.default_status == (
         DefaultScheduleStatus.RUNNING
     )
+
+
+def test_midterms_full_pipeline_excludes_wc2026_and_results_assets():
+    job = defs.resolve_job_def("polymarket_us_midterms_2026_full_pipeline")
+    selected = {tuple(key.path) for key in job.asset_layer.selected_asset_keys}
+
+    assert not any(key[:2] == ("international_results", "wc2026") for key in selected)
+    assert not any(key[:2] == ("polymarket", "wc2026") for key in selected)
+    assert all(key[:2] == ("polymarket", "us_midterms_2026") for key in selected)

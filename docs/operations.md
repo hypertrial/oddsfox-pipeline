@@ -38,7 +38,7 @@ Flat Dagster op names remain source-first, for example
 - `polymarket_wc2026_full_pipeline`: WC2026 result refresh, market discovery, hourly odds refresh (trailing 30 days), and dbt analytics build.
 - `polymarket_us_midterms_2026_market_registry_refresh`: targeted US midterms 2026 market discovery, registry refresh, and metadata backfill.
 - `polymarket_us_midterms_2026_hourly_odds_ingest`: hourly US midterms 2026 token odds refresh (trailing 30 days by default).
-- `polymarket_us_midterms_2026_full_pipeline`: US midterms market discovery, hourly odds refresh, and dbt analytics build (no results/validation layer).
+- `polymarket_us_midterms_2026_full_pipeline`: US midterms market discovery, hourly odds refresh, and scoped dbt build (`tag:us_midterms_2026` only; no WC2026 or FIFA results assets).
 
 For local CLI runs, prefer the Python module entrypoint if virtualenv console
 scripts have stale shebangs:
