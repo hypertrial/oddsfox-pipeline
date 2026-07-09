@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Kalshi market-registry-refresh job now lands the `events` raw table (previously
+  omitted, breaking standalone registry refreshes).
+- Scoped `kalshi_wc2026_full_pipeline` dbt builds exclude `cross_domain` tests
+  that reference Polymarket or international-results observability models outside
+  the Kalshi ancestor closure (prevents missing-relation errors under
+  `indirect_selection: buildable`). Kalshi jobs pass `dbt_exclude=tag:cross_domain`
+  at dbt CLI time so schema tests pulled in via indirect selection are skipped too.
+  Scoped builds also exclude `tag:polymarket` nodes outside the Kalshi ancestor
+  closure.
 - Scoped Polymarket market queries respect `active_polymarket_scope` through full
   query execution (midterms metadata backfill).
 - DuckDB unit test isolation when local `.env` sets `DUCKDB_PATH`.

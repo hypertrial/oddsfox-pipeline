@@ -191,6 +191,7 @@ class DbtBuildConfig(GuardrailConfig):
         ge=1,
     )
     full_refresh: bool = False
+    dbt_exclude: str | None = None
 
 
 def polymarket_us_midterms_2026_full_refresh_events_run_config() -> dict:
@@ -323,3 +324,11 @@ def kalshi_wc2026_hourly_odds_run_config() -> dict:
             },
         }
     }
+
+
+def kalshi_wc2026_dbt_build_run_config() -> dict:
+    dbt_cfg = DbtBuildConfig(
+        full_refresh=True,
+        dbt_exclude="tag:cross_domain tag:polymarket",
+    )
+    return {"ops": {"polymarket_wc2026_dbt": {"config": dbt_cfg.model_dump()}}}

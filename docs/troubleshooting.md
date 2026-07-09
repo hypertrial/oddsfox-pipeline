@@ -132,6 +132,22 @@ Fix:
 2. Use the shared `duck` fixture / `isolate_duckdb_test_env()` pattern in new
    storage tests (see [Development](development.md)).
 
+## Warehouse Writes Land in a Different Checkout
+
+Symptom: Dagster jobs or dbt builds report success, but the repo-root
+`oddsfox.duckdb` has no new schemas or row counts.
+
+Cause: `.env` sets an absolute `DUCKDB_PATH` pointing at another checkout or
+machine path. `DUCKDB_PATH` takes precedence over `DUCKDB_NAME`, so ingestion and
+dbt write to that file instead of the warehouse in the current repo.
+
+Fix:
+
+1. Point `DUCKDB_PATH` at the warehouse you intend to query (for example the
+   repo-root `oddsfox.duckdb` in this checkout), or
+2. Unset `DUCKDB_PATH` and rely on `DUCKDB_NAME=oddsfox.duckdb` so the path
+   resolves relative to the repo root.
+
 ## Midterms Metadata Backfill Uses Wrong Markets
 
 Symptom: `polymarket/us_midterms_2026/raw/market_metadata_backfill` queries WC2026

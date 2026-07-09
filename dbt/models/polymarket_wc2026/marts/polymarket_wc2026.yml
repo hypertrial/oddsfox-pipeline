@@ -92,6 +92,8 @@ models:
         tests:
           - not_null
           - relationships:
+              config:
+                tags: [cross_domain]
               arguments:
                 to: ref('international_results_wc2026_team_status')
                 field: team_name

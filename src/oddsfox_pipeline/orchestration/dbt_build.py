@@ -49,6 +49,8 @@ def stream_dbt_build(
     build_args = ["build"]
     if config.full_refresh:
         build_args.append("--full-refresh")
+    if config.dbt_exclude:
+        build_args.extend(["--exclude", config.dbt_exclude])
     invocation = dbt.cli(build_args, context=context)
     sentinel = object()
     event_queue: Queue[Any] = Queue()

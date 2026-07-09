@@ -11,6 +11,7 @@ from oddsfox_pipeline.naming import (
 )
 from oddsfox_pipeline.orchestration.assets_polymarket import polymarket_wc2026_dbt
 from oddsfox_pipeline.orchestration.config import (
+    kalshi_wc2026_dbt_build_run_config,
     kalshi_wc2026_full_refresh_events_run_config,
     kalshi_wc2026_hourly_odds_run_config,
     polymarket_us_midterms_2026_full_refresh_events_run_config,
@@ -176,6 +177,7 @@ polymarket_wc2026_full_pipeline = define_asset_job(
 )
 
 KALSHI_WC2026_MARKET_REGISTRY_SELECTION = AssetSelection.assets(
+    asset_key(SOURCE_KALSHI, SCOPE_WC2026, "raw", "events"),
     asset_key(SOURCE_KALSHI, SCOPE_WC2026, "raw", "markets"),
     asset_key(SOURCE_KALSHI, SCOPE_WC2026, "raw", "markets_snapshot"),
     asset_key(SOURCE_KALSHI, SCOPE_WC2026, "ops", "market_scope_registry"),
@@ -188,6 +190,7 @@ KALSHI_WC2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
 KALSHI_WC2026_DBT_SELECTION = build_dbt_asset_selection(
     [polymarket_wc2026_dbt],
     dbt_select="+tag:kalshi",
+    dbt_exclude="tag:cross_domain tag:polymarket",
 )
 
 KALSHI_WC2026_FULL_PIPELINE_SELECTION = (
@@ -220,7 +223,7 @@ kalshi_wc2026_full_pipeline = define_asset_job(
     config=_merge_run_configs(
         kalshi_wc2026_full_refresh_events_run_config(),
         kalshi_wc2026_hourly_odds_run_config(),
-        polymarket_wc2026_dbt_build_run_config(),
+        kalshi_wc2026_dbt_build_run_config(),
     ),
     tags=_KALSHI_WC2026_TAGS,
 )
