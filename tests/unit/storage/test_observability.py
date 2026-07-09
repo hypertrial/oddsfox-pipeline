@@ -23,6 +23,7 @@ def test_snapshot_raw_layer_counts_polymarket_tables(
     import oddsfox_pipeline.storage.duckdb.connection as conn_mod
 
     db_path = tmp_path / "obs.duckdb"
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(db_path))
     conn_mod.reset_duckdb_connection_state()
     init_duck_db()
@@ -55,6 +56,7 @@ def test_seed_test_pipeline_run_event_inserts_sync_odds_row(tmp_path, monkeypatc
     import oddsfox_pipeline.storage.duckdb.connection as conn_mod
 
     db_path = tmp_path / "seed.duckdb"
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(db_path))
     conn_mod.reset_duckdb_connection_state()
     init_duck_db()

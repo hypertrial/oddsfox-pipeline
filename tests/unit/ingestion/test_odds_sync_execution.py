@@ -121,12 +121,14 @@ def test_sync_odds_pool_without_shutdown_completes(monkeypatch):
 
 
 def test_writer_loop_smoke(monkeypatch, tmp_path):
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "wl.duckdb"))
     import importlib
 
     import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -148,12 +150,14 @@ def test_writer_loop_smoke(monkeypatch, tmp_path):
 
 
 def test_flush_writer_buffers_rollback(monkeypatch, tmp_path):
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "rb.duckdb"))
     import importlib
 
     import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -186,12 +190,14 @@ def test_flush_writer_buffers_rollback(monkeypatch, tmp_path):
 
 
 def test_flush_writer_buffers_atomic_rollback_odds_and_state(monkeypatch, tmp_path):
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "atomic.duckdb"))
     import importlib
 
     import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -975,9 +981,11 @@ def test_sync_odds_run_summary_includes_planning_context(monkeypatch):
 
 
 def test_sync_odds_no_plans_stopiteration(monkeypatch, tmp_path):
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "so.duckdb"))
 
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn.reset_duckdb_connection_state()

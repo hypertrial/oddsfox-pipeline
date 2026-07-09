@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 from queue import Empty, Queue
 from threading import Thread
 from typing import Any
@@ -12,6 +13,10 @@ from oddsfox_pipeline.orchestration.config import DbtBuildConfig
 from oddsfox_pipeline.resources.progress_guardrails import (
     NoProgressTimeoutError,
     ProgressGuardrail,
+)
+from oddsfox_pipeline.storage.duckdb.connection import (
+    active_duckdb_path,
+    ensure_duck_db,
 )
 
 
@@ -37,6 +42,9 @@ def stream_dbt_build(
         diagnostics={},
         force_log=True,
     )
+
+    ensure_duck_db()
+    os.environ["DUCKDB_PATH"] = str(active_duckdb_path())
 
     build_args = ["build"]
     if config.full_refresh:

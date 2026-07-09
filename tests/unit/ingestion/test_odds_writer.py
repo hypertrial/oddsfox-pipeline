@@ -555,10 +555,12 @@ def test_dynamic_writer_flush_rows_no_maxsize():
 
 
 def test_writer_buffers_apply_and_flush(monkeypatch, tmp_path):
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "w.duckdb"))
     import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -593,10 +595,12 @@ def test_writer_buffers_apply_and_flush(monkeypatch, tmp_path):
 
 def test_flush_writer_preserves_fully_checked_on_cursor_update(monkeypatch, tmp_path):
     """Cursor-only flushes must not clear fully_checked (operational upsert, not row replace)."""
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "fc.duckdb"))
     import oddsfox_pipeline.storage.duckdb.connection as connection
 
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -910,9 +914,11 @@ def test_maybe_auto_tune_get_rate_fallback():
 
 
 def test_writer_loop_fatal_flush_and_final(monkeypatch, tmp_path):
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "wl.duckdb"))
 
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn.reset_duckdb_connection_state()
@@ -953,9 +959,11 @@ def test_save_odds_bulk_appender_with_appender(monkeypatch, tmp_path):
 
     if not hasattr(duckdb, "Appender"):
         pytest.skip("DuckDB Appender not available")
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "app.duckdb"))
 
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn.reset_duckdb_connection_state()
@@ -970,9 +978,11 @@ def test_save_odds_bulk_upsert_appender_staging(monkeypatch, tmp_path):
 
     if not hasattr(duckdb, "Appender"):
         pytest.skip("Appender required")
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "stg.duckdb"))
 
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     import oddsfox_pipeline.storage.duckdb.connection as conn
 
     conn.reset_duckdb_connection_state()

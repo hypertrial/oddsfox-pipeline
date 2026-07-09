@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import importlib
 import time
 
 import duckdb
 import pytest
 
 import oddsfox_pipeline.storage.duckdb.odds as odds_mod
-from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 from oddsfox_pipeline.storage.duckdb.connection import (
     polymarket_wc2026_ops_tbl,
     polymarket_wc2026_raw_tbl,
@@ -20,19 +18,6 @@ T_OH = polymarket_wc2026_raw_tbl("odds_history")
 T_TOD = polymarket_wc2026_raw_tbl("token_odds_daily")
 T_LED = polymarket_wc2026_ops_tbl("token_sync_ledger")
 T_SK = polymarket_wc2026_ops_tbl("token_sync_skips")
-
-
-@pytest.fixture
-def duck(monkeypatch, tmp_path):
-    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "oe.duckdb"))
-    import oddsfox_pipeline.storage.duckdb.connection as connection
-
-    reload_all_settings_modules()
-    connection.reset_duckdb_connection_state()
-    importlib.reload(connection)
-    connection.ensure_duck_db()
-    yield connection
-    connection.reset_duckdb_connection_state()
 
 
 def test_get_latest_timestamps_ledger_beats_history(duck):

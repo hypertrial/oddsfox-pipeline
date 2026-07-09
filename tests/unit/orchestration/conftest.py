@@ -61,6 +61,7 @@ def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_g
     from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
 
     import oddsfox_pipeline.storage.duckdb.connection as connection
 

@@ -21,8 +21,10 @@ def test_refresh_registry_from_events(monkeypatch, tmp_path):
     import oddsfox_pipeline.storage.duckdb.connection as connection
     from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "registry.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -62,10 +64,12 @@ def test_markets_sync_full_keyset_mode(monkeypatch, tmp_path):
     from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
     from oddsfox_pipeline.ingestion.polymarket.markets.sync import sync_markets
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "full_keyset.duckdb"))
     monkeypatch.setenv("POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY", "false")
     monkeypatch.delenv("POLYMARKET_WC2026_SCOPE_EVENT_TAGS", raising=False)
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -128,8 +132,10 @@ def test_refresh_registry_from_events_keyset_closed_filter(monkeypatch, tmp_path
     client = MagicMock()
     client.get.return_value = page1
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "keyset_closed.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -164,8 +170,10 @@ def test_refresh_registry_from_events_keyset_tag_and_volume_filters(
     client = MagicMock()
     client.get.return_value = page1
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "keyset_filters.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -202,8 +210,10 @@ def test_full_keyset_stops_after_pages_without_progress(monkeypatch, tmp_path):
         collect_scope_markets_from_events,
     )
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "no_progress.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
 
@@ -242,8 +252,10 @@ def test_full_keyset_marks_discovery_complete(monkeypatch, tmp_path):
         get_market_scope_discovery_fully_checked,
     )
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "complete.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -278,8 +290,10 @@ def test_truncated_full_keyset_clears_fully_checked(monkeypatch, tmp_path):
         set_market_scope_discovery_fully_checked,
     )
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "truncated.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()

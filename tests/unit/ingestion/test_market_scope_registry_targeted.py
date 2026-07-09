@@ -22,8 +22,10 @@ def test_refresh_registry_and_collect_single_events_pass(monkeypatch, tmp_path):
     import oddsfox_pipeline.storage.duckdb.connection as connection
     from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "combined.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -60,8 +62,10 @@ def test_refresh_registry_with_seed_market_ids(monkeypatch, tmp_path):
     import oddsfox_pipeline.storage.duckdb.connection as connection
     from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "seed_registry.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -198,8 +202,10 @@ def test_markets_sync_targeted_discovery(monkeypatch, tmp_path):
     from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
     from oddsfox_pipeline.ingestion.polymarket.markets.sync import sync_markets
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "targeted.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -275,8 +281,10 @@ def test_refresh_registry_targeted_slug_and_markets(monkeypatch, tmp_path):
         refresh_registry_and_collect_markets_targeted,
     )
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "targeted_registry.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -331,8 +339,10 @@ def test_targeted_skips_missing_slug_and_markets_callback_errors(monkeypatch, tm
         refresh_registry_and_collect_markets_targeted,
     )
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "targeted_skip.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -383,8 +393,10 @@ def test_targeted_progress_callbacks_ignore_failures(monkeypatch, tmp_path):
         refresh_registry_and_collect_markets_targeted,
     )
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "cb_fail.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()

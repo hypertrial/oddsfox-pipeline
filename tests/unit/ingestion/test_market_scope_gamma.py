@@ -22,8 +22,10 @@ def test_iter_market_scope_gamma_events_skips_non_allowlisted(monkeypatch, tmp_p
     import oddsfox_pipeline.storage.duckdb.connection as connection
     from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "event_first.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
 
@@ -71,8 +73,10 @@ def test_gamma_events_keyset_shared_pagination_params(monkeypatch, tmp_path):
         _fill_from_events_endpoint,
     )
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "shared_pagination.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()

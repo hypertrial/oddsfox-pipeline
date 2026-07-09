@@ -3,6 +3,7 @@ import pytest
 pytest.importorskip("dagster")
 pytest.importorskip("dagster_dbt")
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -434,6 +435,37 @@ def test_stream_dbt_build_appends_full_refresh_flag():
         )
     )
     assert captured_args == [["build", "--full-refresh"]]
+
+
+def test_stream_dbt_build_syncs_duckdb_path_env(monkeypatch, tmp_path):
+    from unittest.mock import MagicMock
+
+    db_path = tmp_path / "warehouse.duckdb"
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "active_duckdb_path",
+        lambda: db_path,
+    )
+    monkeypatch.setattr(dbt_build_mod, "ensure_duck_db", lambda: None)
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            m = MagicMock()
+            m.stream = lambda: iter([])
+            m.process = MagicMock(returncode=0)
+            return m
+
+    ctx = MagicMock()
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="polymarket_wc2026_dbt",
+            context=ctx,
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(),
+        )
+    )
+    assert os.environ["DUCKDB_PATH"] == str(db_path)
 
 
 def test_stream_dbt_build_merges_heartbeat_diagnostics(monkeypatch):

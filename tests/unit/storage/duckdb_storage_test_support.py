@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 
@@ -30,12 +31,19 @@ T_PRE = polymarket_wc2026_ops_tbl("pipeline_run_events")
 T_UNR = polymarket_wc2026_ops_tbl("market_metadata_unresolved")
 
 
+def isolate_duckdb_test_env(monkeypatch, db_path: str | Path) -> None:
+    """Point tests at an isolated tmp DuckDB; block repo `.env` ``DUCKDB_PATH`` leak."""
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
+
+
 @pytest.fixture
 def duck(monkeypatch, tmp_path):
-    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "unit.duckdb"))
+    isolate_duckdb_test_env(monkeypatch, tmp_path / "unit.duckdb")
     import oddsfox_pipeline.storage.duckdb.connection as connection
 
-    reload_all_settings_modules()
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()

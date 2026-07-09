@@ -12,7 +12,9 @@ for WC2026 team validation.
 - `DUCKDB_NAME`: warehouse filename or path. Default: `oddsfox.duckdb`.
 - `DUCKDB_PATH`: optional path override. When set, it takes precedence over
   `DUCKDB_NAME`; hosted graph deployments set this to the SSD-backed warehouse
-  path.
+  path. Dagster dbt builds also sync this env var to the active Python warehouse
+  path before invoking `dbt build`, so ingestion and analytics share one DuckDB
+  file even when `DUCKDB_PATH` is unset.
 - `DBT_PROFILES_DIR`: optional dbt profiles directory override.
 
 Most operators should leave `DBT_PROFILES_DIR` unset and use the packaged `dbt/profiles`.

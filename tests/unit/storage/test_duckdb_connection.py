@@ -61,7 +61,7 @@ def test_active_duckdb_path_uses_duckdb_path_when_name_unset(monkeypatch, tmp_pa
     real_getenv = os.getenv
 
     def _getenv(name: str, default=None) -> str | None:
-        if name == "DUCKDB_NAME":
+        if name in ("DUCKDB_NAME", "DUCKDB_PATH"):
             return None
         return real_getenv(name, default)
 

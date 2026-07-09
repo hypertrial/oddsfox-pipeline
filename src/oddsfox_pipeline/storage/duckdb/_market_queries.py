@@ -213,30 +213,30 @@ def get_markets_missing_any_metadata(
     """Return market ids missing any requested metadata field."""
     with active_polymarket_scope(market_scope):
         ensure_duck_db()
-    alias = "m"
-    predicates: list[str] = []
-    if include_tokens:
-        predicates.append(_missing_tokens_predicate(alias))
-    if include_slugs:
-        predicates.append(_missing_slug_predicate(alias))
-    if include_event_slugs:
-        predicates.append(_missing_event_slug_predicate(alias))
-    if include_end_dates:
-        predicates.append(_missing_end_date_predicate(alias))
-    if not predicates:
-        return []
-    scope_clause = _market_scope_where_clause(market_scope, alias)
-    query = f"""
-        SELECT {alias}.id
-        FROM {_markets_tbl()} {alias}
-        WHERE ({" OR ".join(predicates)})
-        {scope_clause}
-    """
-    if limit:
-        query += f" LIMIT {int(limit)}"
-    with get_connection() as conn:
-        rows = conn.execute(query).fetchall()
-        return [str(row[0]) for row in rows]
+        alias = "m"
+        predicates: list[str] = []
+        if include_tokens:
+            predicates.append(_missing_tokens_predicate(alias))
+        if include_slugs:
+            predicates.append(_missing_slug_predicate(alias))
+        if include_event_slugs:
+            predicates.append(_missing_event_slug_predicate(alias))
+        if include_end_dates:
+            predicates.append(_missing_end_date_predicate(alias))
+        if not predicates:
+            return []
+        scope_clause = _market_scope_where_clause(market_scope, alias)
+        query = f"""
+            SELECT {alias}.id
+            FROM {_markets_tbl()} {alias}
+            WHERE ({" OR ".join(predicates)})
+            {scope_clause}
+        """
+        if limit:
+            query += f" LIMIT {int(limit)}"
+        with get_connection() as conn:
+            rows = conn.execute(query).fetchall()
+            return [str(row[0]) for row in rows]
 
 
 def get_markets_with_tokens() -> List[Tuple[str, str, Optional[str], Optional[bool]]]:
@@ -273,31 +273,31 @@ def iter_markets_with_tokens(
     """
     with active_polymarket_scope(market_scope):
         ensure_duck_db()
-    query_parts = [
-        f"""
+        query_parts = [
+            f"""
         SELECT mt.market_id, mt.clobTokenIds, m.created_at, m.closed
         FROM {_market_tokens_tbl()} mt
         JOIN {_markets_tbl()} m ON mt.market_id = m.id
         WHERE mt.clobTokenIds IS NOT NULL AND mt.clobTokenIds != '[]'
         """
-    ]
-    params: List = []
-    if cutoff_created_at:
-        query_parts.append("AND m.created_at >= ?")
-        params.append(cutoff_created_at)
-    if json_array_only:
-        query_parts.append("AND LEFT(LTRIM(mt.clobTokenIds), 1) = '['")
-    query_parts.append(_market_scope_where_clause(market_scope, "m"))
-    query_parts.append(_volume_where_clause(min_volume, max_volume, "m"))
-    query_parts.append(_ended_market_where_clause(ended_market_grace_days, "m"))
-    query = "\n".join(query_parts)
-    with get_connection() as conn:
-        cursor = conn.execute(query, params) if params else conn.execute(query)
-        while True:
-            rows = cursor.fetchmany(page_size)
-            if not rows:
-                break
-            yield rows
+        ]
+        params: List = []
+        if cutoff_created_at:
+            query_parts.append("AND m.created_at >= ?")
+            params.append(cutoff_created_at)
+        if json_array_only:
+            query_parts.append("AND LEFT(LTRIM(mt.clobTokenIds), 1) = '['")
+        query_parts.append(_market_scope_where_clause(market_scope, "m"))
+        query_parts.append(_volume_where_clause(min_volume, max_volume, "m"))
+        query_parts.append(_ended_market_where_clause(ended_market_grace_days, "m"))
+        query = "\n".join(query_parts)
+        with get_connection() as conn:
+            cursor = conn.execute(query, params) if params else conn.execute(query)
+            while True:
+                rows = cursor.fetchmany(page_size)
+                if not rows:
+                    break
+                yield rows
 
 
 def iter_due_market_tokens(
@@ -318,8 +318,8 @@ def iter_due_market_tokens(
     """
     with active_polymarket_scope(market_scope):
         ensure_duck_db()
-    params: List = []
-    query = f"""
+        params: List = []
+        query = f"""
         SELECT
             mt.market_id,
             json_extract_string(je.value, '$') AS clobTokenId,
@@ -327,23 +327,23 @@ def iter_due_market_tokens(
             m.closed
         {_due_token_join_sql()}
         WHERE {
-        _due_token_routine_filters(
-            cutoff_created_at,
-            params,
-            market_scope=market_scope,
-            ended_market_grace_days=ended_market_grace_days,
-            min_volume=min_volume,
-            max_volume=max_volume,
-        )
-    }
+            _due_token_routine_filters(
+                cutoff_created_at,
+                params,
+                market_scope=market_scope,
+                ended_market_grace_days=ended_market_grace_days,
+                min_volume=min_volume,
+                max_volume=max_volume,
+            )
+        }
     """
-    with get_connection() as conn:
-        cursor = conn.execute(query, params) if params else conn.execute(query)
-        while True:
-            rows = cursor.fetchmany(page_size)
-            if not rows:
-                break
-            yield rows
+        with get_connection() as conn:
+            cursor = conn.execute(query, params) if params else conn.execute(query)
+            while True:
+                rows = cursor.fetchmany(page_size)
+                if not rows:
+                    break
+                yield rows
 
 
 def count_due_market_token_exclusions(
@@ -358,28 +358,28 @@ def count_due_market_token_exclusions(
     with active_polymarket_scope(market_scope):
         scope_sql.validate_market_scope(market_scope)
         ensure_duck_db()
-    params: List = []
-    base_sql = _due_token_base_where(cutoff_created_at, params)
-    volume_sql = _volume_where_clause(min_volume, max_volume, "m")
-    scope_skip = 0
-    ended_skip = 0
-    with get_connection() as conn:
-        predicate = scope_sql.market_scope_predicate_sql(market_scope, "m")
-        row = conn.execute(
-            f"""
+        params: List = []
+        base_sql = _due_token_base_where(cutoff_created_at, params)
+        volume_sql = _volume_where_clause(min_volume, max_volume, "m")
+        scope_skip = 0
+        ended_skip = 0
+        with get_connection() as conn:
+            predicate = scope_sql.market_scope_predicate_sql(market_scope, "m")
+            row = conn.execute(
+                f"""
             SELECT COUNT(*)
             {_due_token_join_sql()}
             WHERE {base_sql}
               {volume_sql}
               AND NOT ({predicate})
             """,
-            params,
-        ).fetchone()
-        scope_skip = int(row[0]) if row and row[0] is not None else 0
-        if ended_market_grace_days is not None:
-            days = max(0, int(ended_market_grace_days))
-            row = conn.execute(
-                f"""
+                params,
+            ).fetchone()
+            scope_skip = int(row[0]) if row and row[0] is not None else 0
+            if ended_market_grace_days is not None:
+                days = max(0, int(ended_market_grace_days))
+                row = conn.execute(
+                    f"""
                 SELECT COUNT(*)
                 {_due_token_join_sql()}
                 WHERE {base_sql}
@@ -388,10 +388,10 @@ def count_due_market_token_exclusions(
                   AND m.end_date IS NOT NULL
                   AND m.end_date < CURRENT_TIMESTAMP - INTERVAL {days} DAY
                 """,
-                params,
-            ).fetchone()
-            ended_skip = int(row[0]) if row and row[0] is not None else 0
-    return {"scope_skip": scope_skip, "ended_market_skip": ended_skip}
+                    params,
+                ).fetchone()
+                ended_skip = int(row[0]) if row and row[0] is not None else 0
+        return {"scope_skip": scope_skip, "ended_market_skip": ended_skip}
 
 
 def count_candidate_market_tokens(
@@ -412,32 +412,32 @@ def count_candidate_market_tokens(
     with active_polymarket_scope(market_scope):
         scope_sql.validate_market_scope(market_scope)
         ensure_duck_db()
-    params: List = []
-    if due_only:
-        query = f"""
+        params: List = []
+        if due_only:
+            query = f"""
             SELECT COUNT(*), COUNT(DISTINCT mt.market_id)
             {_due_token_join_sql()}
             WHERE {
-            _due_token_routine_filters(
-                cutoff_created_at,
-                params,
-                market_scope=market_scope,
-                ended_market_grace_days=ended_market_grace_days,
-                min_volume=min_volume,
-                max_volume=max_volume,
-            )
-        }
+                _due_token_routine_filters(
+                    cutoff_created_at,
+                    params,
+                    market_scope=market_scope,
+                    ended_market_grace_days=ended_market_grace_days,
+                    min_volume=min_volume,
+                    max_volume=max_volume,
+                )
+            }
         """
-    else:
-        base_where = [
-            "mt.clobTokenIds IS NOT NULL",
-            "mt.clobTokenIds != '[]'",
-            "LEFT(LTRIM(mt.clobTokenIds), 1) = '['",
-        ]
-        if cutoff_created_at:
-            base_where.append("m.created_at >= ?")
-            params.append(cutoff_created_at)
-        query = f"""
+        else:
+            base_where = [
+                "mt.clobTokenIds IS NOT NULL",
+                "mt.clobTokenIds != '[]'",
+                "LEFT(LTRIM(mt.clobTokenIds), 1) = '['",
+            ]
+            if cutoff_created_at:
+                base_where.append("m.created_at >= ?")
+                params.append(cutoff_created_at)
+            query = f"""
             SELECT
                 COALESCE(SUM(json_array_length(mt.clobTokenIds)), 0),
                 COUNT(*)
@@ -448,14 +448,14 @@ def count_candidate_market_tokens(
             {_volume_where_clause(min_volume, max_volume, "m")}
             {_ended_market_where_clause(ended_market_grace_days, "m")}
         """
-    with get_connection() as conn:
-        row = conn.execute(query, params).fetchone()
-    candidate_tokens = int(row[0]) if row and row[0] is not None else 0
-    candidate_markets = int(row[1]) if row and row[1] is not None else 0
-    return {
-        "candidate_tokens": candidate_tokens,
-        "candidate_markets": candidate_markets,
-    }
+        with get_connection() as conn:
+            row = conn.execute(query, params).fetchone()
+        candidate_tokens = int(row[0]) if row and row[0] is not None else 0
+        candidate_markets = int(row[1]) if row and row[1] is not None else 0
+        return {
+            "candidate_tokens": candidate_tokens,
+            "candidate_markets": candidate_markets,
+        }
 
 
 def get_markets_without_slugs(limit: Optional[int] = None) -> List[str]:

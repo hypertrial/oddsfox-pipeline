@@ -33,8 +33,10 @@ def test_market_scope_discovery_ledger_and_scope_hash(monkeypatch, tmp_path):
         set_market_scope_discovery_fully_checked,
     )
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "ledger.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -65,8 +67,10 @@ def test_discovery_ledger_invalidates_on_scope_change(monkeypatch, tmp_path):
         set_market_scope_discovery_fully_checked,
     )
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "hash_change.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()
@@ -110,8 +114,10 @@ def test_get_registry_event_slugs(monkeypatch, tmp_path):
         upsert_registry_rows,
     )
 
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "slugs.duckdb"))
     reload_all_settings_modules()
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
     connection.reset_duckdb_connection_state()
     importlib.reload(connection)
     connection.ensure_duck_db()

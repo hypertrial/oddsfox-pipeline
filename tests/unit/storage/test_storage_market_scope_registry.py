@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import importlib
-
 import pytest
 
-from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     clear_registry,
@@ -17,22 +14,20 @@ from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
 )
 
 
-@pytest.fixture
-def duck(monkeypatch, tmp_path):
-    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "registry.duckdb"))
-    import oddsfox_pipeline.storage.duckdb.connection as connection
-
-    reload_all_settings_modules()
-    connection.reset_duckdb_connection_state()
-    importlib.reload(connection)
-    connection.ensure_duck_db()
-    clear_registry()
-    yield connection
-    clear_registry()
-
-
 def test_upsert_empty_rows_is_noop(duck):
     assert upsert_registry_rows([]) == 0
+
+
+def test_clear_registry_default_scope(duck):
+    upsert_registry_rows(
+        [
+            RegistryRow("m1", "event-a", "e1", "seed", scope_name="wc2026"),
+            RegistryRow("m2", "event-b", "e2", "seed", scope_name="us_midterms_2026"),
+        ]
+    )
+    clear_registry()
+    assert registry_market_count("wc2026") == 0
+    assert registry_market_count("us_midterms_2026") == 1
 
 
 def test_upsert_and_query_registry(duck):
