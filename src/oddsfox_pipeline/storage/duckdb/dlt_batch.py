@@ -214,10 +214,11 @@ def append_pipeline_run_event_stage(
     row: dict[str, Any],
     conn: duckdb.DuckDBPyConnection,
     *,
-    scope_name: str = SCOPE_WC2026,
+    scope_name: str | None = None,
 ) -> None:
-    ops_schema = polymarket_ops_schema(scope_name)
-    target = polymarket_ops_tbl(scope_name, "pipeline_run_events")
+    scope = scope_name or get_active_polymarket_scope()
+    ops_schema = polymarket_ops_schema(scope)
+    target = polymarket_ops_tbl(scope, "pipeline_run_events")
     stage = load_stage_rows(
         schema=ops_schema,
         stage_table="stage_pipeline_run_events_v1",

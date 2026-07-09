@@ -96,13 +96,45 @@ POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 
 ## Recovery
 
-- Re-run `polymarket_wc2026_hourly_odds_ingest` for routine odds gaps.
+- Re-run `polymarket_wc2026_hourly_odds_ingest` for routine WC2026 odds gaps.
+- Re-run `polymarket_us_midterms_2026_hourly_odds_ingest` for routine US midterms
+  odds gaps.
 - Re-run `international_results_wc2026_match_results_ingest` when the source CSV
   updates completed scores or fixtures.
-- Run `polymarket_wc2026_dbt_build` after raw or ops table repairs.
-- Prune old `polymarket_wc2026_raw.odds_history` rows with `make prune-odds-history` (default 365-day retention; use `--dry-run` on the script to preview).
+- Run `polymarket_wc2026_dbt_build` after WC2026 raw or ops table repairs.
+- Run `polymarket_us_midterms_2026_full_pipeline` (or `dbt build --select
+  tag:us_midterms_2026`) after US midterms raw or ops table repairs.
+- Prune old `polymarket_wc2026_raw.odds_history` rows with `make prune-odds-history` (default 365-day retention; use `--dry-run` on the script to preview). The script targets WC2026 raw odds only.
 - Reclaim DuckDB file dead space with `make compact-warehouse` after pruning or full refreshes.
 - Use `scripts/profile_warehouse.py` to inspect relation counts and freshness without opening the database read-write.
+
+## Post-run validation (US midterms)
+
+After a successful midterms pipeline run, spot-check the warehouse:
+
+```sql
+-- Registry coverage (expect ~20–25 markets across three event slugs)
+SELECT count(*) AS registry_markets
+FROM polymarket_us_midterms_2026_ops.market_scope_registry;
+
+-- Admitted public mart markets (volume floor excludes zero-volume placeholders)
+SELECT count(DISTINCT market_id) AS mart_markets
+FROM polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds;
+
+-- Latest hourly odds timestamp (trailing 30-day contract window)
+SELECT max(odds_hour_epoch) AS latest_hour
+FROM polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds;
+
+-- Run telemetry (populated after market discovery and odds sync jobs)
+SELECT count(*) AS pipeline_events
+FROM polymarket_us_midterms_2026_ops.pipeline_run_events;
+
+SELECT count(*) AS observability_rows
+FROM polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_sync_run_observability;
+```
+
+Confirm `dbt build --select tag:us_midterms_2026` reports all models and tests
+passing.
 
 ## Landing And Finalization
 

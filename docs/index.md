@@ -23,18 +23,19 @@ OddsFox ships code and operator tooling, not a hosted dataset. Operators run
 ingestion against source APIs and keep the resulting data in their own local or
 self-managed warehouse.
 
-The current v0.1.x implementation is WC2026-only: FIFA World Cup 2026
-Polymarket market discovery/odds sync plus FIFA fixture/results validation for
-real-team scope. See [Configuration](configuration.md).
+The current v0.1.x implementation ships two Polymarket scopes — FIFA World Cup
+2026 (`wc2026`) and US midterms 2026 (`us_midterms_2026`) — plus a FIFA
+fixture/results source used to validate WC2026 real-team scope. See
+[Configuration](configuration.md).
 
 ## Key features
 
 - **Local-first:** run the pipeline and inspect the warehouse on one machine.
 - **Dagster-orchestrated:** assets, jobs, and schedules are explicit and testable.
 - **DuckDB-backed:** raw, ops, staging, intermediate, mart, and observability schemas live in one local file.
-- **dbt-tested marts:** coverage, WC2026 odds time series, health, and observability models build with dbt data tests.
+- **dbt-tested marts:** coverage, WC2026 knockout odds time series, US midterms hourly odds, health, and observability models build with dbt data tests.
 - **Prediction-market focused:** token coverage, odds freshness, market health, and scoped marts are first-class outputs.
-- **Current Polymarket adapter:** v0.1.x ships WC2026 Polymarket discovery, CLOB odds sync, and dbt marts cleaned by FIFA fixture/results data.
+- **Current Polymarket adapter:** v0.1.x ships WC2026 knockout marts, US midterms generic market odds, CLOB odds sync, and dbt marts cleaned by FIFA fixture/results data for WC2026 team scope.
 - **Source-adapter ready:** Kalshi and traditional bookmaker adapters are welcome future contributions.
 - **Safe by default:** schedules are disabled until manual jobs and dbt builds are healthy.
 

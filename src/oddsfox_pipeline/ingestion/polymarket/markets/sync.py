@@ -275,7 +275,7 @@ def sync_markets(
             "max_idle_seconds": guardrail_snapshot.get("max_idle_seconds", 0.0),
         }
     )
-    save_sync_run_metrics("sync_markets", run_summary)
+    save_sync_run_metrics("sync_markets", run_summary, scope_name=scope_name)
     logger.info(
         "Market sync complete. Total fetched this session: %s (discovery_mode=%s)",
         run_summary.get("total_fetched", 0),

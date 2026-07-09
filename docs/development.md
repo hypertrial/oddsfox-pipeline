@@ -1,9 +1,9 @@
 # Development
 
 Use this page when changing code, dbt models, docs, or orchestration behavior.
-OddsFox is a prediction-market pipeline; v0.1.x development mostly touches the
-WC2026 Polymarket adapter, marts, and orchestration. For operator setup, start
-with [Quickstart](quickstart.md).
+OddsFox is a prediction-market pipeline; v0.1.x development touches the WC2026 and
+US midterms 2026 Polymarket adapters, marts, and orchestration. For operator
+setup, start with [Quickstart](quickstart.md).
 
 ## Repo Layout
 
@@ -67,6 +67,18 @@ debt includes:
 Do not change materializations on advisory text alone. Capture dbt build
 runtime, relevant relation sizes from `scripts/profile_warehouse.py`, and the
 Costguard finding before switching a model to table or incremental.
+
+## Local `.env` And Tests
+
+`DUCKDB_PATH` in `.env` overrides `DUCKDB_NAME` and can leak into unit tests
+when settings reload from disk. See [Configuration](configuration.md#local-development)
+and [Troubleshooting](troubleshooting.md#tests-writing-to-production-warehouse).
+
+- Use the shared `duck` fixture from `tests/unit/storage/duckdb_storage_test_support.py`
+  for storage tests that need a disposable warehouse.
+- Call `isolate_duckdb_test_env(monkeypatch, db_path)` in ingestion or
+  orchestration tests that reload settings but cannot use the `duck` fixture
+  directly.
 
 ## Targeted Test Commands
 

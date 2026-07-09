@@ -18,8 +18,8 @@ pipeline setup failures, use the sections below.
 | SSE disconnects or stops updating. | `curl -N http://127.0.0.1:8787/api/v0/stream` and check for `event: snapshot` followed by `: ping` heartbeats. | `oddsfox-live` |
 
 Use this page when a local run fails. Most fixes assume schedules are disabled
-and only one process is writing to the DuckDB warehouse. The current runbooks
-target the WC2026 Polymarket implementation.
+and only one process is writing to the DuckDB warehouse. The runbooks cover both
+shipped Polymarket scopes (`wc2026` and `us_midterms_2026`).
 
 ## DuckDB Lock Errors
 
@@ -93,7 +93,10 @@ Then rerun the quickstart.
 
 - Lower `MARKETS_REQUESTS_PER_SECOND` or `ODDS_REQUESTS_PER_SECOND`.
 - Re-run the failed Dagster job; token sync state is ledgered.
-- Check `polymarket_wc2026_ops.pipeline_run_events` and `polymarket_wc2026_ops.sync_run_metrics` for the latest run payloads.
+- Check `polymarket_wc2026_ops.pipeline_run_events` and
+  `polymarket_wc2026_ops.sync_run_metrics` for WC2026 run payloads.
+- Check `polymarket_us_midterms_2026_ops.pipeline_run_events` and
+  `polymarket_us_midterms_2026_ops.sync_run_metrics` for US midterms run payloads.
 - If the latest sync metrics include `pipeline_run_event_append_failed`, the
   ingestion run continued but the append-only telemetry event failed to land;
   inspect `pipeline_run_event_append_error` and rerun after fixing storage.
@@ -115,3 +118,37 @@ uv run python scripts/prune_odds_history.py --dry-run
 ```bash
 uv run make compact-warehouse
 ```
+
+## Tests Writing To Production Warehouse
+
+Symptom: unexpected rows appear in `oddsfox.duckdb` after `make test`.
+
+Cause: `.env` sets `DUCKDB_PATH` to the real warehouse and some tests only
+override `DUCKDB_NAME`, which loses to `DUCKDB_PATH` precedence.
+
+Fix:
+
+1. Remove or comment out `DUCKDB_PATH` in `.env` for local test runs, or
+2. Use the shared `duck` fixture / `isolate_duckdb_test_env()` pattern in new
+   storage tests (see [Development](development.md)).
+
+## Midterms Metadata Backfill Uses Wrong Markets
+
+Symptom: `polymarket/us_midterms_2026/raw/market_metadata_backfill` queries WC2026
+markets or returns zero due markets.
+
+Cause: an older build exited `active_polymarket_scope` before scoped queries ran.
+
+Fix: pull the latest code, reset a polluted warehouse if needed (`rm oddsfox.duckdb*`),
+and rerun the midterms registry refresh job.
+
+## Empty Midterms Observability
+
+Symptom: `polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_sync_run_observability`
+has zero rows after a successful midterms run.
+
+Cause: an older build wrote `pipeline_run_events` to the WC2026 ops schema.
+
+Fix: pull the latest code and rerun `polymarket_us_midterms_2026_hourly_odds_ingest`
+or the full midterms pipeline. Confirm rows land in
+`polymarket_us_midterms_2026_ops.pipeline_run_events`.

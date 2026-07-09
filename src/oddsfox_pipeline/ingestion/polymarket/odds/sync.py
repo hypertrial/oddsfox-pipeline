@@ -250,6 +250,7 @@ def sync_odds(*args, **kwargs):
 
             kwargs["plan_iterator_factory"] = _runtime_plan_iterator_factory
     persist_run_metrics = bool(kwargs.get("persist_run_metrics", True))
+    market_scope = kwargs.get("market_scope")
     result = _engine_sync_odds(*args, runtime=runtime, **kwargs)
     if persist_run_metrics and result.get("noop"):
         runtime.save_sync_run_metrics(
@@ -266,6 +267,7 @@ def sync_odds(*args, **kwargs):
                 "aborted": result.get("aborted"),
                 "abort_reason": result.get("abort_reason"),
             },
+            scope_name=market_scope,
         )
     return result
 

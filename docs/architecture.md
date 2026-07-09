@@ -3,8 +3,14 @@
 OddsFox is intentionally local-first: every routine workflow writes to a local
 DuckDB warehouse and is coordinated by Dagster jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
-v0.1.x adapter and marts focus on WC2026 Polymarket data, with FIFA World Cup
-fixture/results rows used to validate real team scope.
+v0.1.x adapters ship WC2026 Polymarket knockout marts, US midterms 2026 generic
+market odds, and FIFA World Cup fixture/results rows used to validate WC2026
+real-team scope.
+
+US midterms 2026 is a parallel Polymarket namespace: targeted Gamma discovery
+for Balance of Power, Senate control, and House control event slugs, with raw/ops
+ledgers and a simple markets-plus-hourly-odds mart. There is no FIFA join or
+knockout classifier for that scope in v1.
 
 At the generic layer, source adapters follow one shape: external market and
 odds APIs feed dlt/Python ingestion, DuckDB stores raw and ops data, dbt
@@ -39,8 +45,9 @@ feed DuckDB raw and ops schemas. Dagster runs the ingest and dbt steps. dbt
 publishes local analytics marts for WC2026 knockout odds, team scope, and
 ingestion observability.
 
-The shipped Dagster/dbt graph is fixed to `wc2026`; see
-[Configuration](configuration.md) for the seed-backed helper boundary.
+The shipped Dagster/dbt graphs are fixed per scope (`wc2026`,
+`us_midterms_2026`); see [Configuration](configuration.md) for the seed-backed
+helper boundary.
 
 ## Main Components
 
@@ -91,12 +98,23 @@ metrics, stage coverage, result inference warnings, and DQ findings for
 live/historical status, active-team live consumption, odds freshness, and sparse
 team coverage.
 
+### US midterms 2026
+
+Targeted Polymarket discovery lands in `polymarket_us_midterms_2026_raw` and
+`polymarket_us_midterms_2026_ops`. dbt builds a single public mart,
+`polymarket_us_midterms_2026_market_token_hourly_odds`, plus run observability.
+There is no `international_results` join or office-type classification in v1.
+
 ## Operating Model
 
-- `polymarket_wc2026_full_pipeline` is the one-click full manual pipeline.
+- `polymarket_wc2026_full_pipeline` is the one-click full manual WC2026 pipeline.
+- `polymarket_us_midterms_2026_full_pipeline` is the one-click full manual US
+  midterms pipeline (`tag:us_midterms_2026` dbt selection only).
 - `international_results_wc2026_match_results_ingest` refreshes fixture/results
-  and also runs inside the full pipeline.
-- `polymarket_wc2026_hourly_odds_ingest` is the hourly odds job (`fidelity=60`).
+  and also runs inside the WC2026 full pipeline.
+- `polymarket_wc2026_hourly_odds_ingest` and
+  `polymarket_us_midterms_2026_hourly_odds_ingest` are the hourly odds jobs
+  (`fidelity=60`).
 - Schedules are stopped by default and should stay off until manual runs pass.
 - DuckDB allows one read-write writer, so scripts provide read-only inspection
   and repair paths for local operators.

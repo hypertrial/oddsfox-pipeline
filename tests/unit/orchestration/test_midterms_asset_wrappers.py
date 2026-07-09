@@ -81,7 +81,7 @@ def test_midterms_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
     monkeypatch.setattr(
         assets_mod,
         "save_sync_run_metrics",
-        lambda task, metrics: saved_metrics.update({"task": task, **metrics}),
+        lambda task, metrics, **kwargs: saved_metrics.update({"task": task, **metrics}),
     )
     monkeypatch.setattr(
         assets_mod,

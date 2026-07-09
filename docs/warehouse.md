@@ -27,6 +27,15 @@ Schema: `international_results_wc2026_raw`
   `martj42/international_results`. Ingestion refreshes this table as a full
   replacement and stores scheduled fixtures with null scores.
 
+Schema: `polymarket_us_midterms_2026_raw`
+
+- `markets`: dlt-owned Gamma market landing for targeted US midterms event slugs.
+- `market_tokens`: one row per market with CLOB token JSON; finalized from the
+  same Gamma payload as `markets`.
+- `odds_history`: point-in-time CLOB token prices with the same idempotent
+  `(clobTokenId, timestamp)` primary key as WC2026.
+- `token_odds_daily`: daily token aggregates rebuilt from canonical `odds_history`.
+
 ## Ops Tables
 
 Schema: `polymarket_wc2026_ops`
@@ -43,6 +52,16 @@ Schema: `polymarket_wc2026_ops`
 - `scrape_metadata`: small key/value metadata used by backfill progress helpers.
 - `market_metadata_unresolved`: retry ledger for unresolved metadata fields.
 
+Schema: `polymarket_us_midterms_2026_ops`
+
+- `market_scope_registry`: market ids admitted to the US midterms 2026 scope.
+- `token_sync_ledger`: per-token sync progress for the midterms namespace.
+- `token_sync_skips`: persisted skip reasons for midterms tokens.
+- `pipeline_run_events`: append-only run metrics for midterms ingestion jobs.
+- `sync_run_metrics`: latest sync metrics and short history for midterms tasks.
+- `scrape_metadata`: shared key/value metadata (global across scopes).
+- `market_metadata_unresolved`: retry ledger for unresolved midterms metadata.
+
 ## dbt Schemas
 
 - `polymarket_wc2026_staging`
@@ -53,6 +72,10 @@ Schema: `polymarket_wc2026_ops`
 - `international_results_wc2026_intermediate`
 - `international_results_wc2026_marts`
 - `international_results_wc2026_observability`
+- `polymarket_us_midterms_2026_staging`
+- `polymarket_us_midterms_2026_intermediate`
+- `polymarket_us_midterms_2026_marts`
+- `polymarket_us_midterms_2026_observability`
 
 ## dbt Intermediate
 
@@ -68,6 +91,17 @@ Schema: `polymarket_wc2026_intermediate`
   for raw CLOB tokens in the WC2026 contract trailing window.
 - `int_polymarket_wc2026_knockout_market_classification`: shared real-team
   knockout market classifier used by public knockout marts and observability.
+
+Schema: `polymarket_us_midterms_2026_intermediate`
+
+- `int_polymarket_us_midterms_2026_token_universe`: one-row-per-token join of
+  market tokens to market labels, state, and volume.
+- `int_polymarket_us_midterms_2026_markets`: markets admitted by the fixed US
+  midterms scope at or above the contract volume floor.
+- `int_polymarket_us_midterms_2026_market_tokens`: midterms subset of the token
+  universe.
+- `int_polymarket_us_midterms_2026_token_hourly_odds`: incremental hourly OHLC
+  price fact for raw CLOB tokens in the contract trailing window.
 
 ## dbt Marts
 
@@ -92,6 +126,12 @@ Schema: `international_results_wc2026_marts`
 - `international_results_wc2026_matches`: clean FIFA World Cup 2026 fixtures/results with stage mapping and tied-knockout advancer inference from later fixtures when possible.
 - `international_results_wc2026_team_status`: canonical team roster and current tournament status used to filter Polymarket public marts.
 
+Schema: `polymarket_us_midterms_2026_marts`
+
+- `polymarket_us_midterms_2026_market_token_hourly_odds`: trailing 30-day hourly
+  OHLC odds for admitted US midterms market tokens joined to source metadata. This
+  is the only public midterms mart in v1.
+
 Schema: `polymarket_wc2026_observability`
 
 - `polymarket_wc2026_sync_run_observability`: run-level ingestion, market-discovery provenance, and odds-sync telemetry.
@@ -99,6 +139,11 @@ Schema: `polymarket_wc2026_observability`
   direction, and market status, including hourly completeness metrics.
 - `polymarket_wc2026_knockout_data_quality`: DQ findings for aggregated source-state anomalies, sparse stage/team
   coverage, actionable stale or missing odds, upstream eliminated-team live lag, and live-team alignment.
+
+Schema: `polymarket_us_midterms_2026_observability`
+
+- `polymarket_us_midterms_2026_sync_run_observability`: run-level ingestion and
+  odds-sync telemetry for US midterms jobs.
 
 Schema: `international_results_wc2026_observability`
 

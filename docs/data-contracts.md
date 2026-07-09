@@ -48,6 +48,13 @@ Schema: `international_results_wc2026_marts`
 - Public US midterms 2026 marts expose only targeted Balance of Power, Senate
   control, and House control markets from the `us_midterms_2026` registry at or
   above the contract volume floor ($5,000 USD by default).
+- **Balance of Power semantics:** each combo is an independent binary Yes/No
+  market. Probabilities across combos do **not** sum to 1.0 (unlike mutually
+  exclusive partitions).
+- **Volume floor exclusions:** zero-volume placeholder markets (for example
+  generic "Party A/B/C" rows) are intentionally excluded from public marts.
+- **No office-type classification** in v1; join on `market_id` / `clob_token_id`
+  and source question text.
 - Shared US midterms thresholds live in
   `dbt/seeds/polymarket_us_midterms_2026_contract.csv`; there is no results or
   candidate validation layer for this scope in v1.
@@ -96,9 +103,13 @@ Schema: `international_results_wc2026_marts`
 - `international_results_wc2026_data_quality` emits a warning when the latest
   fixture/result source load is older than the contract seed freshness window.
 - Use `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
-  `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline` for Dagster operations.
+  `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline` for WC2026
+  Dagster operations.
+- Use `polymarket_us_midterms_2026_market_registry_refresh`,
+  `polymarket_us_midterms_2026_hourly_odds_ingest`, and
+  `polymarket_us_midterms_2026_full_pipeline` for US midterms Dagster operations.
   `international_results_wc2026_match_results_ingest` refreshes only the FIFA
-  World Cup fixture/result source and is included in the full pipeline.
+  World Cup fixture/result source and is included in the WC2026 full pipeline.
 - `polymarket_wc2026_knockout_token_hourly_odds` remains the public
   progression-side export for downstream knockout probability views.
 - `polymarket_wc2026_graph_token_hourly_odds` is the hosted graph input. It
@@ -128,6 +139,8 @@ Schema: `international_results_wc2026_marts`
   upstream live lag, unsurfaced source-state or hourly coverage issues, sparse
   stage/team coverage, live-team alignment, and stale fixture/result source loads.
 - Observability run health (warn-level: latest run error-token regression and history coverage floor).
+- US midterms grain, OHLC bounds, volume floor from
+  `polymarket_us_midterms_2026_contract.csv`, and `scope_name` accepted values.
 
 Warn-level observability tests fail softly in `dbt build` output; treat warnings as operator signals on real warehouses, not hard CI blockers when the disposable CI fixture is healthy.
 

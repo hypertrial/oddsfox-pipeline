@@ -180,7 +180,9 @@ def polymarket_wc2026_raw_markets(
             "max_idle_seconds": guardrail_snapshot.get("max_idle_seconds", 0.0),
         }
     )
-    save_sync_run_metrics("sync_markets", run_summary)
+    save_sync_run_metrics(
+        "sync_markets", run_summary, scope_name=POLYMARKET_WC2026_SCOPE_NAME
+    )
     guardrail.record_progress(
         work_increment=0,
         phase="sync_markets_complete",

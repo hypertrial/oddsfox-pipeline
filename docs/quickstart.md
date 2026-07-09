@@ -83,5 +83,30 @@ For a safer staged run:
 
 Leave schedules off until these jobs complete successfully.
 
+## US midterms 2026 (optional)
+
+The midterms path uses the same install, configure, and `dbt-parse` steps above.
+Keep the midterms schedule disabled for the first manual run:
+
+```dotenv
+POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+```
+
+There is no FIFA results ingest for this scope. The full pipeline builds only
+`tag:us_midterms_2026` dbt models.
+
+For a full manual run:
+
+```bash
+.venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j polymarket_us_midterms_2026_full_pipeline
+```
+
+For a safer staged run:
+
+1. `polymarket_us_midterms_2026_market_registry_refresh`
+2. `polymarket_us_midterms_2026_hourly_odds_ingest`
+3. `polymarket_us_midterms_2026_full_pipeline` (or run `dbt build` with
+   `--select tag:us_midterms_2026` after step 2)
+
 Next: read [Operations](operations.md) before enabling schedules, and use
 [Troubleshooting](troubleshooting.md) if Dagster, DuckDB, or dbt fails.

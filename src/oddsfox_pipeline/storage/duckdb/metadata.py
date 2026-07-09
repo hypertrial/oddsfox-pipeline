@@ -75,7 +75,11 @@ def set_backfill_progress(task: str, processed: int):
 
 
 def append_pipeline_run_event(
-    task_name: str, metrics: dict[str, Any], *, recorded_at: Optional[datetime] = None
+    task_name: str,
+    metrics: dict[str, Any],
+    *,
+    recorded_at: Optional[datetime] = None,
+    scope_name: str | None = None,
 ) -> str:
     """
     Append one row to the append-only pipeline_run_events table for queryable audit history.
@@ -95,11 +99,17 @@ def append_pipeline_run_event(
         "metrics_json": json.dumps(payload, sort_keys=True),
     }
     with get_connection() as conn:
-        append_pipeline_run_event_stage(row, conn)
+        append_pipeline_run_event_stage(row, conn, scope_name=scope_name)
     return run_id
 
 
-def save_sync_run_metrics(task: str, metrics: dict[str, Any], history_limit: int = 20):
+def save_sync_run_metrics(
+    task: str,
+    metrics: dict[str, Any],
+    history_limit: int = 20,
+    *,
+    scope_name: str | None = None,
+):
     """
     Persist latest sync metrics and a short rolling history in scrape_metadata.
     """
@@ -110,7 +120,9 @@ def save_sync_run_metrics(task: str, metrics: dict[str, Any], history_limit: int
     payload["timestamp"] = now_iso
 
     try:
-        append_pipeline_run_event(task, payload, recorded_at=recorded)
+        append_pipeline_run_event(
+            task, payload, recorded_at=recorded, scope_name=scope_name
+        )
     except Exception as exc:
         payload["pipeline_run_event_append_failed"] = True
         payload["pipeline_run_event_append_error"] = f"{exc.__class__.__name__}: {exc}"

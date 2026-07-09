@@ -19,6 +19,20 @@ for WC2026 team validation.
 
 Most operators should leave `DBT_PROFILES_DIR` unset and use the packaged `dbt/profiles`.
 
+## Local development
+
+- `DUCKDB_PATH` takes precedence over `DUCKDB_NAME`. If `.env` points
+  `DUCKDB_PATH` at your real warehouse (`oddsfox.duckdb`), unit tests can write
+  to that file unless they isolate the path.
+- For local dev, either leave `DUCKDB_PATH` unset (use `DUCKDB_NAME` only) or
+  use a disposable warehouse filename while iterating.
+- `reload_all_settings_modules()` re-loads `.env` during tests. Storage tests
+  use `isolate_duckdb_test_env()` in
+  `tests/unit/storage/duckdb_storage_test_support.py` to clear `DUCKDB_PATH`
+  before and after reload.
+- US midterms hourly jobs default to the same trailing 30-day window and volume
+  floor as WC2026, aligned with `dbt/seeds/polymarket_us_midterms_2026_contract.csv`.
+
 ## API Pacing
 
 - `MARKETS_REQUESTS_PER_SECOND`: Gamma market/event request pace.

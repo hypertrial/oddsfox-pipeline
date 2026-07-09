@@ -1,7 +1,9 @@
 # OddsFox System Overview
 
-OddsFox is a local-first WC2026 prediction-market system. Operators run source
-ingestion into their own warehouse, publish graph artifacts from that warehouse,
+OddsFox is a local-first WC2026 prediction-market system with an additional US
+midterms 2026 Polymarket pipeline (warehouse and dbt marts only — no hosted
+graph or dashboard path today). Operators run source ingestion into their own
+warehouse, publish graph artifacts from that warehouse,
 serve those artifacts with a small live backend, and view them in the dashboard.
 
 ```text
@@ -26,7 +28,7 @@ so an operator can host their own API and dashboard from self-managed artifacts.
 
 | Repository | Role | Input | Output |
 | --- | --- | --- | --- |
-| `oddsfox-pipeline` | Ingests Polymarket WC2026 odds and FIFA team/result data, then builds dbt marts. | Source APIs and CSV feeds. | DuckDB warehouse and graph export parquet. |
+| `oddsfox-pipeline` | Ingests Polymarket WC2026 and US midterms 2026 odds plus FIFA team/result data, then builds dbt marts. | Source APIs and CSV feeds. | DuckDB warehouse and graph export parquet. |
 | `oddsfox-graph` | Converts token-hour odds into graph-ready artifacts. | Pipeline graph export parquet. | `graph_snapshot.json`, `knockout_artifacts.json`, parquet artifacts, and reports. |
 | `oddsfox-live` | Serves artifacts and live Polymarket token state. | Current graph artifacts plus optional public market WebSocket updates. | `/api/v0/*` JSON endpoints and SSE stream. |
 | `oddsfox-dash` | Visualizes the live API. | `oddsfox-live` JSON/SSE API. | WC2026 probability network UI. |

@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Scoped Polymarket market queries respect `active_polymarket_scope` through full
+  query execution (midterms metadata backfill).
+- DuckDB unit test isolation when local `.env` sets `DUCKDB_PATH`.
+- Dagster dbt build syncs `DUCKDB_PATH` to the active warehouse path before
+  `dbt build`.
+- Scoped `pipeline_run_events` writes for US midterms 2026 ingestion runs.
+
 ### Changed
 
+- Docs: midterms quickstart path, warehouse schemas, operations validation SQL,
+  data-contract analyst caveats, and local `.env`/test isolation guidance.
 - Breaking: renamed WC2026 knockout observability columns
   `raw_classified_markets_ge_5000` to `raw_classified_markets_ge_floor` and
   `minimum_raw_markets_ge_5000` to `minimum_raw_markets_ge_floor`.
