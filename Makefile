@@ -1,4 +1,4 @@
-.PHONY: dagster-dev duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test costguard docs-serve docs-build docs-check clean-local-artifacts format lint test coverage unit-core unit-ingest unit-orchestration integration-dbt integration-dagster check-secrets compact-warehouse prune-odds-history
+.PHONY: dagster-dev duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test costguard docs-serve docs-build docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -11,6 +11,7 @@ DBT_BUILD_DUCKDB_PATH := $(REPO_ROOT)/.cache/dbt_build.duckdb
 DBT_BUILD_ENV := DUCKDB_NAME="$(DBT_BUILD_DUCKDB_PATH)" DUCKDB_PATH="$(DBT_BUILD_DUCKDB_PATH)"
 PYTEST_FAST_MARKERS := not integration and not performance and not slow and not repo_check
 PYTEST_COVERAGE_MARKERS := not performance and not slow and not repo_check
+COV_APPEND_ARGS := --cov=oddsfox_pipeline --cov-branch --cov-append
 
 duckdb-ui:
 	duckdb "$(REPO_ROOT)/$(DUCKDB_NAME)" -ui
@@ -69,8 +70,20 @@ check-secrets:
 test:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -m "$(PYTEST_FAST_MARKERS)"
 
+coverage-erase:
+	$(RUN_IN_REPO) "$(PYTHON)" -m coverage erase
+
+test-cov: coverage-erase
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(COV_APPEND_ARGS)
+	# ponytail: tests/conftest.py auto-marks tests/integration/* as integration;
+	# run ingestion integration serially here so CI coverage matches make coverage.
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/ingestion -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS)
+
 coverage:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -m "$(PYTEST_COVERAGE_MARKERS)" --cov=oddsfox_pipeline --cov-branch --cov-report=term-missing --cov-fail-under=100
+
+coverage-report:
+	$(RUN_IN_REPO) "$(PYTHON)" -m coverage report --show-missing --fail-under=100
 
 unit-core:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/unit/config tests/unit/resources tests/unit/storage -q -n 0 -m "$(PYTEST_FAST_MARKERS)"
@@ -84,8 +97,17 @@ unit-orchestration:
 integration-dbt:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb tests/dbt -q -n 0 -m "not performance and not slow"
 
+integration-dbt-cov:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb tests/dbt -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS)
+
 integration-dagster:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster -q -n 0 -m "not performance and not slow"
+
+# ponytail: integration-dagster/-dbt stay serial (-n 0) to match the existing
+# guard on Dagster-instance/DuckDB-locked suites; revisit only after validating
+# xdist safety for those fixtures.
+integration-dagster-cov:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS)
 
 clean-local-artifacts:
 	$(RUN_IN_REPO) find . -type d -name __pycache__ -prune -exec rm -rf {} +

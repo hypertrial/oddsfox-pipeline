@@ -41,16 +41,16 @@ jobs:
         run: uv run make lint
 
       - name: Tests
-        run: uv run make test
+        run: uv run make test-cov
 
       - name: Dagster integration smoke
-        run: uv run make integration-dagster
+        run: uv run make integration-dagster-cov
 
       - name: dbt integration smoke
-        run: uv run make integration-dbt
+        run: uv run make integration-dbt-cov
 
       - name: Coverage
-        run: uv run make coverage
+        run: uv run make coverage-report
 
       - name: Docs
         run: uv run make docs-check
