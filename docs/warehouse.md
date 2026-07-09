@@ -2,8 +2,8 @@
 
 The local warehouse is DuckDB. By default it is `oddsfox.duckdb` in the repo
 root. OddsFox is designed for prediction-market data; the v0.1.x warehouse
-schemas and relation names are Polymarket-specific because that is the first
-shipped adapter. For public mart guarantees, see
+schemas and relation names are source-specific because adapters ship in parallel.
+For public mart guarantees, see
 [Data Contracts](data-contracts.md).
 
 ## Raw Tables
@@ -36,6 +36,13 @@ Schema: `polymarket_us_midterms_2026_raw`
   `(clobTokenId, timestamp)` primary key as WC2026.
 - `token_odds_daily`: daily token aggregates rebuilt from canonical `odds_history`.
 
+Schema: `kalshi_wc2026_raw`
+
+- `events`: dlt-owned Kalshi event landing table.
+- `markets`: dlt-owned Kalshi market landing table.
+- `market_candlesticks_hourly`: hourly OHLC candlesticks for admitted registry
+  markets; written by the Python candlestick sync.
+
 ## Ops Tables
 
 Schema: `polymarket_wc2026_ops`
@@ -51,6 +58,14 @@ Schema: `polymarket_wc2026_ops`
   `pipeline_run_event_append_failed` and `pipeline_run_event_append_error`.
 - `scrape_metadata`: small key/value metadata used by backfill progress helpers.
 - `market_metadata_unresolved`: retry ledger for unresolved metadata fields.
+
+Schema: `kalshi_wc2026_ops`
+
+- `market_scope_registry`: market tickers admitted to the Kalshi WC2026 scope.
+- `candlestick_sync_ledger`: per-market candlestick sync progress and scheduling
+  state.
+- `pipeline_run_events`: append-only run metrics landed through custom SQL.
+- `sync_run_metrics`: latest sync metrics and short history for Kalshi tasks.
 
 Schema: `polymarket_us_midterms_2026_ops`
 
@@ -76,6 +91,10 @@ Schema: `polymarket_us_midterms_2026_ops`
 - `polymarket_us_midterms_2026_intermediate`
 - `polymarket_us_midterms_2026_marts`
 - `polymarket_us_midterms_2026_observability`
+- `kalshi_wc2026_staging`
+- `kalshi_wc2026_intermediate`
+- `kalshi_wc2026_marts`
+- `kalshi_wc2026_observability`
 
 ## dbt Intermediate
 
@@ -102,6 +121,15 @@ Schema: `polymarket_us_midterms_2026_intermediate`
   universe.
 - `int_polymarket_us_midterms_2026_token_hourly_odds`: incremental hourly OHLC
   price fact for raw CLOB tokens in the contract trailing window.
+
+Schema: `kalshi_wc2026_intermediate`
+
+- `int_kalshi_wc2026_markets`: markets admitted by the fixed Kalshi WC2026 scope.
+- `int_kalshi_wc2026_market_hourly_odds`: incremental hourly OHLC fact from raw
+  candlesticks in the contract trailing window.
+- `int_kalshi_wc2026_stage_classification` and
+  `int_kalshi_wc2026_group_winner_classification`: shared classifiers for public
+  stage and group-winner marts.
 
 ## dbt Marts
 
@@ -132,6 +160,15 @@ Schema: `polymarket_us_midterms_2026_marts`
   OHLC odds for admitted US midterms market tokens joined to source metadata. This
   is the only public midterms mart in v1.
 
+Schema: `kalshi_wc2026_marts`
+
+- `kalshi_wc2026_stage_markets`: latest stage-of-elimination market snapshots.
+- `kalshi_wc2026_stage_market_hourly_odds`: trailing contract-window hourly odds
+  for stage markets.
+- `kalshi_wc2026_group_winner_markets`: latest group-winner market snapshots.
+- `kalshi_wc2026_group_winner_market_hourly_odds`: trailing contract-window
+  hourly odds for group-winner markets.
+
 Schema: `polymarket_wc2026_observability`
 
 - `polymarket_wc2026_sync_run_observability`: run-level ingestion, market-discovery provenance, and odds-sync telemetry.
@@ -144,6 +181,14 @@ Schema: `polymarket_us_midterms_2026_observability`
 
 - `polymarket_us_midterms_2026_sync_run_observability`: run-level ingestion and
   odds-sync telemetry for US midterms jobs.
+
+Schema: `kalshi_wc2026_observability`
+
+- `kalshi_wc2026_sync_run_observability`: run-level Kalshi ingestion telemetry.
+- `kalshi_wc2026_stage_coverage`: classified market coverage and hourly
+  completeness metrics.
+- `kalshi_wc2026_data_quality`: DQ findings for sparse coverage and stale or
+  missing live odds.
 
 Schema: `international_results_wc2026_observability`
 
@@ -159,6 +204,10 @@ metadata tables are internal implementation details.
 `international_results_wc2026_raw.match_results` is custom SQL storage, not dlt,
 because the source is a single CSV and a full WC2026 replacement is simpler than
 batch finalization.
+
+`kalshi_wc2026_raw.events` and `kalshi_wc2026_raw.markets` are created by
+`kalshi_wc2026_raw_markets`. `kalshi_wc2026_raw.market_candlesticks_hourly` is
+custom SQL storage updated by the hourly candlestick sync asset.
 
 `polymarket_wc2026_raw.markets` is created by `polymarket_wc2026_raw_markets`.
 That asset performs the single Gamma market discovery pass and persists token

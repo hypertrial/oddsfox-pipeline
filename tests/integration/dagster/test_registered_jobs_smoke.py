@@ -8,11 +8,12 @@ import pytest
 pytest.importorskip("dagster")
 pytest.importorskip("dagster_dbt")
 
-from dagster import ResourceDefinition
+from dagster import MaterializeResult, ResourceDefinition
 
 from oddsfox_pipeline.orchestration import (
     assets_international_results as results_assets_mod,
 )
+from oddsfox_pipeline.orchestration import assets_kalshi_wc2026 as kalshi_assets_mod
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 from oddsfox_pipeline.orchestration import (
     assets_polymarket_us_midterms_2026 as midterms_assets_mod,
@@ -58,36 +59,70 @@ oddsfox:
         if False:
             yield None
 
-    for module in (assets_mod, midterms_assets_mod):
-        monkeypatch.setattr(
-            module.asset_helpers,
-            "get_polymarket_dlt_pipeline",
-            lambda **_kwargs: pipeline,
-        )
-        monkeypatch.setattr(
-            module,
-            "collect_market_scope_payload",
-            lambda **_kwargs: {
-                "market_rows": [],
-                "token_rows": [],
-                "run_summary": {"task": "sync_markets", "total_fetched": 0},
-            },
-        )
-        monkeypatch.setattr(
-            module,
-            "save_market_tokens_batch",
-            lambda *_args, **_kwargs: None,
-        )
+    for module in (assets_mod, midterms_assets_mod, kalshi_assets_mod):
+        if module is kalshi_assets_mod:
+            monkeypatch.setattr(
+                module.asset_helpers,
+                "get_kalshi_dlt_pipeline",
+                lambda **_kwargs: pipeline,
+            )
+            monkeypatch.setattr(
+                module,
+                "collect_market_scope_payload",
+                lambda **_kwargs: {
+                    "scope_name": "wc2026",
+                    "events": [],
+                    "markets": [],
+                    "total_events": 0,
+                    "total_markets": 0,
+                    "registry_summary": {"registry_rows_upserted": 0},
+                },
+            )
+            monkeypatch.setattr(
+                module, "ensure_kalshi_indexes", lambda *_args, **_kwargs: None
+            )
+            monkeypatch.setattr(
+                module.asset_helpers,
+                "materialize_kalshi_candlesticks_sync",
+                lambda *_args, **_kwargs: MaterializeResult(metadata={}),
+            )
+            monkeypatch.setattr(
+                module.ops,
+                "sync_kalshi_market_scope_registry",
+                lambda **_kwargs: {"registry_rows_upserted": 0},
+            )
+        else:
+            monkeypatch.setattr(
+                module.asset_helpers,
+                "get_polymarket_dlt_pipeline",
+                lambda **_kwargs: pipeline,
+            )
+            monkeypatch.setattr(
+                module,
+                "collect_market_scope_payload",
+                lambda **_kwargs: {
+                    "market_rows": [],
+                    "token_rows": [],
+                    "run_summary": {"task": "sync_markets", "total_fetched": 0},
+                },
+            )
+            monkeypatch.setattr(
+                module,
+                "save_market_tokens_batch",
+                lambda *_args, **_kwargs: None,
+            )
+            monkeypatch.setattr(
+                module, "ensure_polymarket_indexes", lambda *_args, **_kwargs: None
+            )
         monkeypatch.setattr(
             module, "save_sync_run_metrics", lambda *_args, **_kwargs: None
         )
         monkeypatch.setattr(module, "get_connection", connection)
-        monkeypatch.setattr(
-            module, "ensure_polymarket_indexes", lambda *_args, **_kwargs: None
-        )
         monkeypatch.setattr(module, "snapshot_raw_layer", lambda **_kwargs: {})
         monkeypatch.setattr(module, "delta_raw_layer", lambda _pre, _post: {})
-        monkeypatch.setattr(module, "get_sync_run_metrics", lambda _task: None)
+        monkeypatch.setattr(
+            module, "get_sync_run_metrics", lambda *_task, **_kwargs: None
+        )
 
     monkeypatch.setattr(assets_mod, "snapshot_dbt_models", lambda: {})
     monkeypatch.setattr(assets_mod, "delta_dbt_models", lambda _pre, _post: {})

@@ -9,6 +9,10 @@ from oddsfox_pipeline.config.settings import (
 )
 from oddsfox_pipeline.orchestration.assets import (
     international_results_wc2026_raw_match_results,
+    kalshi_wc2026_ops_market_scope_registry,
+    kalshi_wc2026_raw_market_candlesticks_hourly,
+    kalshi_wc2026_raw_markets,
+    kalshi_wc2026_raw_markets_snapshot,
     polymarket_us_midterms_2026_ops_market_scope_registry,
     polymarket_us_midterms_2026_raw_market_metadata_backfill,
     polymarket_us_midterms_2026_raw_markets,
@@ -23,6 +27,9 @@ from oddsfox_pipeline.orchestration.assets import (
 )
 from oddsfox_pipeline.orchestration.jobs import (
     international_results_wc2026_match_results_ingest,
+    kalshi_wc2026_full_pipeline,
+    kalshi_wc2026_hourly_odds_ingest,
+    kalshi_wc2026_market_registry_refresh,
     polymarket_us_midterms_2026_full_pipeline,
     polymarket_us_midterms_2026_hourly_odds_ingest,
     polymarket_us_midterms_2026_market_registry_refresh,
@@ -32,6 +39,7 @@ from oddsfox_pipeline.orchestration.jobs import (
     polymarket_wc2026_market_registry_refresh,
 )
 from oddsfox_pipeline.orchestration.schedules import (
+    kalshi_wc2026_hourly_odds_schedule,
     polymarket_us_midterms_2026_hourly_odds_schedule,
     polymarket_wc2026_hourly_odds_schedule,
 )
@@ -39,6 +47,10 @@ from oddsfox_pipeline.orchestration.schedules import (
 defs = Definitions(
     assets=[
         international_results_wc2026_raw_match_results,
+        kalshi_wc2026_raw_markets,
+        kalshi_wc2026_raw_markets_snapshot,
+        kalshi_wc2026_ops_market_scope_registry,
+        kalshi_wc2026_raw_market_candlesticks_hourly,
         polymarket_wc2026_raw_markets,
         polymarket_wc2026_raw_markets_snapshot,
         polymarket_wc2026_ops_market_scope_registry,
@@ -53,6 +65,9 @@ defs = Definitions(
     ],
     jobs=[
         international_results_wc2026_match_results_ingest,
+        kalshi_wc2026_hourly_odds_ingest,
+        kalshi_wc2026_market_registry_refresh,
+        kalshi_wc2026_full_pipeline,
         polymarket_wc2026_hourly_odds_ingest,
         polymarket_wc2026_market_registry_refresh,
         polymarket_wc2026_dbt_build,
@@ -62,6 +77,7 @@ defs = Definitions(
         polymarket_us_midterms_2026_full_pipeline,
     ],
     schedules=[
+        kalshi_wc2026_hourly_odds_schedule,
         polymarket_wc2026_hourly_odds_schedule,
         polymarket_us_midterms_2026_hourly_odds_schedule,
     ],

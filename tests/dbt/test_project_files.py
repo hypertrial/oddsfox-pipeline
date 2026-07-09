@@ -56,6 +56,7 @@ def test_dbt_project_sources_are_wc2026_only():
     model_dirs = {p.name for p in (dbt_root / "models").iterdir() if p.is_dir()}
     assert model_dirs == {
         "international_results_wc2026",
+        "kalshi_wc2026",
         "polymarket_us_midterms_2026",
         "polymarket_wc2026",
         "sources",

@@ -10,18 +10,23 @@ from oddsfox_pipeline.naming import (
     SCOPE_US_MIDTERMS_2026,
     SCOPE_WC2026,
     SOURCE_INTERNATIONAL_RESULTS,
+    SOURCE_KALSHI,
     SOURCE_POLYMARKET,
     asset_key,
     schema_name,
 )
 
 DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026: Final = "international_results_wc2026"
+DBT_SOURCE_KALSHI_WC2026: Final = "kalshi_wc2026"
 DBT_SOURCE_POLYMARKET_WC2026: Final = "polymarket_wc2026"
 DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026: Final = "polymarket_us_midterms_2026"
 
 _POLYMARKET_SOURCE_SCOPES: dict[str, str] = {
     DBT_SOURCE_POLYMARKET_WC2026: SCOPE_WC2026,
     DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026: SCOPE_US_MIDTERMS_2026,
+}
+_KALSHI_SOURCE_SCOPES: dict[str, str] = {
+    DBT_SOURCE_KALSHI_WC2026: SCOPE_WC2026,
 }
 
 INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA: Final = schema_name(
@@ -48,6 +53,16 @@ POLYMARKET_WC2026_MARTS_SCHEMA: Final = schema_name(
 POLYMARKET_WC2026_OBSERVABILITY_SCHEMA: Final = schema_name(
     SOURCE_POLYMARKET, SCOPE_WC2026, "observability"
 )
+KALSHI_WC2026_STAGING_SCHEMA: Final = schema_name(
+    SOURCE_KALSHI, SCOPE_WC2026, "staging"
+)
+KALSHI_WC2026_INTERMEDIATE_SCHEMA: Final = schema_name(
+    SOURCE_KALSHI, SCOPE_WC2026, "intermediate"
+)
+KALSHI_WC2026_MARTS_SCHEMA: Final = schema_name(SOURCE_KALSHI, SCOPE_WC2026, "marts")
+KALSHI_WC2026_OBSERVABILITY_SCHEMA: Final = schema_name(
+    SOURCE_KALSHI, SCOPE_WC2026, "observability"
+)
 POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA: Final = schema_name(
     SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "staging"
 )
@@ -66,6 +81,11 @@ POLYMARKET_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "polymarket_wc2026_knockout_data_quality",
     "polymarket_wc2026_sync_run_observability",
 )
+KALSHI_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
+    "kalshi_wc2026_stage_coverage",
+    "kalshi_wc2026_data_quality",
+    "kalshi_wc2026_sync_run_observability",
+)
 POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "polymarket_us_midterms_2026_sync_run_observability",
 )
@@ -82,6 +102,10 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
     POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
     POLYMARKET_WC2026_MARTS_SCHEMA,
     POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+    KALSHI_WC2026_STAGING_SCHEMA,
+    KALSHI_WC2026_INTERMEDIATE_SCHEMA,
+    KALSHI_WC2026_MARTS_SCHEMA,
+    KALSHI_WC2026_OBSERVABILITY_SCHEMA,
     POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
     POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
     POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
@@ -91,6 +115,18 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
 
 def qualified_relation(schema: str, model_name: str) -> str:
     return f"{schema}.{model_name}"
+
+
+def _kalshi_source_slug(model_name: str) -> str | None:
+    if model_name.startswith(
+        (
+            "stg_kalshi_wc2026_",
+            "int_kalshi_wc2026_",
+            "kalshi_wc2026_",
+        )
+    ):
+        return DBT_SOURCE_KALSHI_WC2026
+    return None
 
 
 def _polymarket_source_slug(model_name: str) -> str | None:
@@ -123,9 +159,14 @@ def resolve_source_slug(
     path_fqn = list(fqn or props.get("fqn") or ())
     if len(path_fqn) >= 2 and path_fqn[1] in _POLYMARKET_SOURCE_SCOPES:
         return path_fqn[1]
+    if len(path_fqn) >= 2 and path_fqn[1] in _KALSHI_SOURCE_SCOPES:
+        return path_fqn[1]
     if len(path_fqn) >= 2 and path_fqn[1] == "international_results_wc2026":
         return DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026
     name = str(props.get("name") or "")
+    kalshi_slug = _kalshi_source_slug(name)
+    if kalshi_slug is not None:
+        return kalshi_slug
     polymarket_slug = _polymarket_source_slug(name)
     if polymarket_slug is not None:
         return polymarket_slug
@@ -177,6 +218,22 @@ def _polymarket_subject(
         if model_name.startswith(prefix):
             return model_name[len(prefix) :]
     return model_name
+
+
+def _kalshi_wc2026_layer(
+    model_name: str,
+    props: Mapping[str, object] | None = None,
+    *,
+    fqn: Sequence[str] | None = None,
+) -> str:
+    return _polymarket_layer(
+        model_name,
+        props,
+        fqn=fqn,
+        observability_models=KALSHI_WC2026_OBSERVABILITY_MODELS,
+        staging_prefix="stg_kalshi_wc2026_",
+        intermediate_prefix="int_kalshi_wc2026_",
+    )
 
 
 def _polymarket_wc2026_layer(
@@ -232,6 +289,15 @@ def _international_results_wc2026_layer(
     return "marts"
 
 
+def _kalshi_wc2026_subject(model_name: str) -> str:
+    return _polymarket_subject(
+        model_name,
+        staging_prefix="stg_kalshi_wc2026_",
+        intermediate_prefix="int_kalshi_wc2026_",
+        mart_prefix="kalshi_wc2026_",
+    )
+
+
 def _polymarket_wc2026_subject(model_name: str) -> str:
     return _polymarket_subject(
         model_name,
@@ -264,6 +330,8 @@ def _international_results_wc2026_subject(model_name: str) -> str:
 def shorten_model_name(model_name: str, source_slug: str) -> str:
     if source_slug == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
         return _international_results_wc2026_subject(model_name)
+    if source_slug == DBT_SOURCE_KALSHI_WC2026:
+        return _kalshi_wc2026_subject(model_name)
     if source_slug == DBT_SOURCE_POLYMARKET_WC2026:
         return _polymarket_wc2026_subject(model_name)
     if source_slug == DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026:
@@ -284,6 +352,13 @@ def dbt_model_asset_key(
             SCOPE_WC2026,
             _international_results_wc2026_layer(name, props, fqn=fqn),
             _international_results_wc2026_subject(name),
+        )
+    if source == DBT_SOURCE_KALSHI_WC2026:
+        return asset_key(
+            SOURCE_KALSHI,
+            SCOPE_WC2026,
+            _kalshi_wc2026_layer(name, props, fqn=fqn),
+            _kalshi_wc2026_subject(name),
         )
     if source == DBT_SOURCE_POLYMARKET_WC2026:
         return asset_key(
@@ -315,6 +390,13 @@ def dbt_model_asset_key_for_name(
             layer or _international_results_wc2026_layer(model_name),
             _international_results_wc2026_subject(model_name),
         )
+    if source_slug == DBT_SOURCE_KALSHI_WC2026:
+        return asset_key(
+            SOURCE_KALSHI,
+            SCOPE_WC2026,
+            layer or _kalshi_wc2026_layer(model_name),
+            _kalshi_wc2026_subject(model_name),
+        )
     if source_slug == DBT_SOURCE_POLYMARKET_WC2026:
         return asset_key(
             SOURCE_POLYMARKET,
@@ -336,12 +418,17 @@ __all__ = [
     "DBT_FALLBACK_SCHEMA",
     "DBT_MODELED_SCHEMAS",
     "DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026",
+    "DBT_SOURCE_KALSHI_WC2026",
     "DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026",
     "DBT_SOURCE_POLYMARKET_WC2026",
     "INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA",
+    "KALSHI_WC2026_INTERMEDIATE_SCHEMA",
+    "KALSHI_WC2026_MARTS_SCHEMA",
+    "KALSHI_WC2026_OBSERVABILITY_SCHEMA",
+    "KALSHI_WC2026_STAGING_SCHEMA",
     "POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA",
     "POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA",
     "POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA",

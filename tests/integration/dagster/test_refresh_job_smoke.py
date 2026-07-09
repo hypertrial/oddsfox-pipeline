@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -21,11 +23,18 @@ from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
     process_markets_dataframe,
 )
 from oddsfox_pipeline.orchestration import (
+    assets_kalshi_wc2026 as kalshi_assets_mod,
+)
+from oddsfox_pipeline.orchestration import (
     assets_polymarket_us_midterms_2026 as midterms_assets_mod,
 )
 from oddsfox_pipeline.orchestration.assets import (
     DBT_PROJECT,
     international_results_wc2026_raw_match_results,
+    kalshi_wc2026_ops_market_scope_registry,
+    kalshi_wc2026_raw_market_candlesticks_hourly,
+    kalshi_wc2026_raw_markets,
+    kalshi_wc2026_raw_markets_snapshot,
     polymarket_us_midterms_2026_ops_market_scope_registry,
     polymarket_us_midterms_2026_raw_market_metadata_backfill,
     polymarket_us_midterms_2026_raw_markets,
@@ -39,11 +48,21 @@ from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
+from oddsfox_pipeline.storage.duckdb.kalshi_market_scope_registry import (
+    KalshiRegistryRow,
+)
+from oddsfox_pipeline.storage.duckdb.kalshi_market_scope_registry import (
+    upsert_registry_rows as upsert_kalshi_registry_rows,
+)
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     upsert_registry_rows,
 )
 from oddsfox_pipeline.storage.duckdb.markets import save_market_tokens_batch
+from oddsfox_pipeline.storage.duckdb.schemas.kalshi import (
+    bootstrap_kalshi_tables,
+    create_all_kalshi_test_raw_tables,
+)
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     create_all_scope_test_markets_tables,
 )
@@ -144,6 +163,11 @@ oddsfox:
     monkeypatch.setenv("DUCKDB_PATH", str(db_path))
     monkeypatch.setenv("DBT_PROFILES_DIR", str(profiles_dir))
     connection.reset_duckdb_connection_state()
+
+    connection.ensure_duck_db()
+    with connection.get_connection() as conn:
+        create_all_scope_test_markets_tables(conn)
+        create_all_kalshi_test_raw_tables(conn)
 
     market_page = [
         {
@@ -587,6 +611,10 @@ oddsfox:
     monkeypatch.setenv("DUCKDB_PATH", str(db_path))
     monkeypatch.setenv("DBT_PROFILES_DIR", str(profiles_dir))
     connection.reset_duckdb_connection_state()
+    connection.ensure_duck_db()
+    with connection.get_connection() as conn:
+        create_all_scope_test_markets_tables(conn)
+        create_all_kalshi_test_raw_tables(conn)
     return profiles_dir
 
 
@@ -763,6 +791,404 @@ def test_midterms_job_executes_in_process(
             )
         ]
     )
+
+    noop_dlt = MagicMock()
+    noop_dlt.run.return_value = iter([])
+    result = defs.resolve_job_def(job_name).execute_in_process(
+        resources={
+            "dbt": DbtCliResource(
+                project_dir=DBT_PROJECT,
+                profiles_dir=str(profiles_dir),
+                dbt_executable=resolve_dbt_executable(),
+            ),
+            "dlt": noop_dlt,
+        },
+    )
+    assert result.success is True
+
+
+_KALSHI_SCOPE = "wc2026"
+_KALSHI_RAW_SCHEMA = "kalshi_wc2026_raw"
+_KALSHI_EVENT_TICKER = "KXMENWORLDCUP-WINNER"
+_KALSHI_MARKET_TICKER = "KXMENWORLDCUP-WINNER-USA"
+_KALSHI_SERIES = "KXMENWORLDCUP"
+_KALSHI_JOBS = (
+    "kalshi_wc2026_market_registry_refresh",
+    "kalshi_wc2026_hourly_odds_ingest",
+    "kalshi_wc2026_full_pipeline",
+)
+
+
+def _seed_kalshi_smoke_raw_rows(conn) -> None:
+    scraped_at = "2026-01-15 10:00:00"
+    conn.execute(
+        f"""
+        INSERT OR REPLACE INTO "{_KALSHI_RAW_SCHEMA}"."events" (
+            event_ticker,
+            series_ticker,
+            title,
+            sub_title,
+            category,
+            status,
+            open_time,
+            close_time,
+            scraped_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            _KALSHI_EVENT_TICKER,
+            _KALSHI_SERIES,
+            "Men's World Cup Winner",
+            "",
+            "Sports",
+            "open",
+            scraped_at,
+            "2026-07-19 10:00:00",
+            scraped_at,
+        ],
+    )
+    conn.execute(
+        f"""
+        INSERT OR REPLACE INTO "{_KALSHI_RAW_SCHEMA}"."markets" (
+            market_ticker,
+            event_ticker,
+            series_ticker,
+            title,
+            subtitle,
+            yes_sub_title,
+            no_sub_title,
+            status,
+            market_type,
+            open_time,
+            close_time,
+            expiration_time,
+            volume,
+            open_interest,
+            last_price_dollars,
+            scraped_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            _KALSHI_MARKET_TICKER,
+            _KALSHI_EVENT_TICKER,
+            _KALSHI_SERIES,
+            "Will United States win the Men's World Cup?",
+            "",
+            "United States",
+            "",
+            "open",
+            "binary",
+            scraped_at,
+            "2026-07-19 10:00:00",
+            "2026-07-19 10:00:00",
+            1000,
+            100,
+            "0.12",
+            scraped_at,
+        ],
+    )
+
+
+def _patch_kalshi_refresh_externals(monkeypatch) -> dict[str, list[dict]]:
+    events = [
+        {
+            "event_ticker": _KALSHI_EVENT_TICKER,
+            "series_ticker": _KALSHI_SERIES,
+            "title": "Men's World Cup Winner",
+            "sub_title": "",
+            "category": "Sports",
+            "status": "open",
+            "open_time": "2026-01-15T10:00:00Z",
+            "close_time": "2026-07-19T10:00:00Z",
+            "scraped_at": "2026-01-15T10:00:00Z",
+        }
+    ]
+    markets = [
+        {
+            "market_ticker": _KALSHI_MARKET_TICKER,
+            "event_ticker": _KALSHI_EVENT_TICKER,
+            "series_ticker": _KALSHI_SERIES,
+            "title": "Will United States win the Men's World Cup?",
+            "subtitle": "",
+            "yes_sub_title": "United States",
+            "no_sub_title": "",
+            "status": "open",
+            "market_type": "binary",
+            "open_time": "2026-01-15T10:00:00Z",
+            "close_time": "2026-07-19T10:00:00Z",
+            "expiration_time": "2026-07-19T10:00:00Z",
+            "volume": 1000,
+            "open_interest": 100,
+            "last_price_dollars": "0.12",
+            "scraped_at": "2026-01-15T10:00:00Z",
+        }
+    ]
+
+    def fake_collect_market_scope_payload(**_kwargs):
+        return {
+            "scope_name": _KALSHI_SCOPE,
+            "events": events,
+            "markets": markets,
+            "total_events": len(events),
+            "total_markets": len(markets),
+            "registry_summary": {"registry_rows_upserted": 1},
+        }
+
+    def fake_sync_kalshi_market_scope_registry(**_kwargs):
+        upsert_kalshi_registry_rows(
+            [
+                KalshiRegistryRow(
+                    _KALSHI_MARKET_TICKER,
+                    _KALSHI_EVENT_TICKER,
+                    _KALSHI_SERIES,
+                    "seed",
+                    scope_name=_KALSHI_SCOPE,
+                )
+            ]
+        )
+        return {"registry_rows_upserted": 1, "discovered_event_slugs": []}
+
+    def fake_sync_kalshi_candlesticks(**_kwargs):
+        from oddsfox_pipeline.storage.duckdb import kalshi_candlesticks
+
+        rows_written = kalshi_candlesticks.save_candlesticks_batch(
+            [
+                {
+                    "market_ticker": _KALSHI_MARKET_TICKER,
+                    "hour_start_utc": "2026-01-15 11:00:00",
+                    "open_price": 0.10,
+                    "high_price": 0.12,
+                    "low_price": 0.09,
+                    "close_price": 0.11,
+                    "avg_price": 0.105,
+                    "volume": 25,
+                }
+            ],
+        )
+        return {
+            "task": "sync_kalshi_candlesticks",
+            "scope_name": _KALSHI_SCOPE,
+            "markets_synced": 1,
+            "rows_written": rows_written,
+            "window_hours": 1,
+        }
+
+    monkeypatch.setattr(
+        kalshi_assets_mod,
+        "collect_market_scope_payload",
+        fake_collect_market_scope_payload,
+    )
+    monkeypatch.setattr(
+        kalshi_assets_mod.ops,
+        "sync_kalshi_market_scope_registry",
+        fake_sync_kalshi_market_scope_registry,
+    )
+    original_materialize = (
+        kalshi_assets_mod.asset_helpers.materialize_kalshi_candlesticks_sync
+    )
+
+    def fake_materialize_kalshi_candlesticks_sync(
+        context, config, *, scope_name, **kwargs
+    ):
+        return original_materialize(
+            context,
+            config,
+            scope_name=scope_name,
+            sync_fn=fake_sync_kalshi_candlesticks,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(
+        kalshi_assets_mod.asset_helpers,
+        "materialize_kalshi_candlesticks_sync",
+        fake_materialize_kalshi_candlesticks_sync,
+    )
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.kalshi_ops.sync_kalshi_candlesticks",
+        fake_sync_kalshi_candlesticks,
+    )
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.assets_international_results.sync_wc2026_match_results",
+        lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
+    )
+    return {"events": events, "markets": markets}
+
+
+def _configure_kalshi_smoke_env(monkeypatch, tmp_path: Path, db_name: str) -> Path:
+    db_path = tmp_path / db_name
+    profiles_dir = tmp_path / f"profiles-{db_name}"
+    profiles_dir.mkdir()
+    (profiles_dir / "profiles.yml").write_text(
+        f"""
+oddsfox:
+  outputs:
+    dev:
+      type: duckdb
+      path: {db_path}
+      schema: dbt
+      threads: 2
+  target: dev
+"""
+    )
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
+    monkeypatch.setenv("DBT_PROFILES_DIR", str(profiles_dir))
+    connection.reset_duckdb_connection_state()
+    connection.ensure_duck_db()
+    with connection.get_connection() as conn:
+        create_all_scope_test_markets_tables(conn)
+        bootstrap_kalshi_tables(conn, scope_name=_KALSHI_SCOPE)
+        create_all_kalshi_test_raw_tables(conn)
+        _seed_kalshi_smoke_raw_rows(conn)
+        upsert_kalshi_registry_rows(
+            [
+                KalshiRegistryRow(
+                    _KALSHI_MARKET_TICKER,
+                    _KALSHI_EVENT_TICKER,
+                    _KALSHI_SERIES,
+                    "seed",
+                    scope_name=_KALSHI_SCOPE,
+                )
+            ]
+        )
+    return profiles_dir
+
+
+def _materialize_kalshi_refresh_path(
+    monkeypatch, tmp_path: Path, *, db_name: str
+) -> Path:
+    profiles_dir = _configure_kalshi_smoke_env(monkeypatch, tmp_path, db_name)
+    _patch_kalshi_refresh_externals(monkeypatch)
+
+    noop_dlt = MagicMock()
+    noop_dlt.run.return_value = iter([])
+
+    ingest_result = materialize(
+        [
+            international_results_wc2026_raw_match_results,
+            kalshi_wc2026_raw_markets,
+            kalshi_wc2026_raw_markets_snapshot,
+            kalshi_wc2026_ops_market_scope_registry,
+        ],
+        resources={"dlt": noop_dlt},
+    )
+    assert ingest_result.success is True
+
+    odds_result = materialize(
+        [kalshi_wc2026_raw_market_candlesticks_hourly],
+        run_config={
+            "ops": {
+                "kalshi_wc2026_raw_market_candlesticks_hourly": {
+                    "config": {
+                        "window_hours": 1,
+                        "force": True,
+                        "progress_log_interval_markets": 1,
+                        "progress_log_interval_seconds": 1,
+                        "no_progress_soft_timeout_seconds": 120,
+                        "no_progress_hard_timeout_seconds": 600,
+                        "progress_poll_seconds": 1,
+                    }
+                },
+            }
+        },
+    )
+    assert odds_result.success is True
+
+    dbt_build = subprocess.run(
+        [
+            resolve_dbt_executable(),
+            "build",
+            "--project-dir",
+            str(DBT_PROJECT.project_dir),
+            "--profiles-dir",
+            str(profiles_dir),
+            "--select",
+            "+tag:kalshi",
+        ],
+        env=os.environ.copy(),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert dbt_build.returncode == 0, dbt_build.stdout + dbt_build.stderr
+    return profiles_dir.parent / db_name
+
+
+def test_kalshi_refresh_path_materializes(
+    monkeypatch,
+    tmp_path,
+    reset_connection_globals,
+    no_sleep,
+) -> None:
+    db_path = _materialize_kalshi_refresh_path(
+        monkeypatch,
+        tmp_path,
+        db_name="pipeline-kalshi-wc2026-smoke.duckdb",
+    )
+    with connection.get_connection() as conn:
+        checks = {
+            "raw_markets": conn.execute(
+                f'select count(*) from "{_KALSHI_RAW_SCHEMA}"."markets"'
+            ).fetchone()
+            == (1,),
+            "raw_candlesticks": conn.execute(
+                'select count(*) from "kalshi_wc2026_raw"."market_candlesticks_hourly"'
+            ).fetchone()[0]
+            > 0,
+            "staging_markets": conn.execute(
+                "select count(*) from kalshi_wc2026_staging.stg_kalshi_wc2026_markets"
+            ).fetchone()
+            == (1,),
+            "intermediate_markets": conn.execute(
+                "select count(*) from "
+                "kalshi_wc2026_intermediate.int_kalshi_wc2026_markets"
+            ).fetchone()
+            == (1,),
+        }
+        assert all(checks.values()), checks
+    assert db_path.exists()
+
+
+def _patch_kalshi_job_externals(monkeypatch) -> None:
+    _patch_kalshi_refresh_externals(monkeypatch)
+    pipeline = MagicMock(has_pending_data=False)
+
+    monkeypatch.setattr(
+        kalshi_assets_mod.asset_helpers,
+        "get_kalshi_dlt_pipeline",
+        lambda **_kwargs: pipeline,
+    )
+    monkeypatch.setattr(
+        kalshi_assets_mod, "ensure_kalshi_indexes", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        kalshi_assets_mod, "save_sync_run_metrics", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        kalshi_assets_mod.asset_helpers,
+        "materialize_kalshi_candlesticks_sync",
+        lambda context, config, **kwargs: kalshi_assets_mod.MaterializeResult(
+            metadata={"rows_written": kalshi_assets_mod.MetadataValue.int(1)}
+        ),
+    )
+
+
+@pytest.mark.parametrize("job_name", _KALSHI_JOBS)
+def test_kalshi_job_executes_in_process(
+    job_name,
+    monkeypatch,
+    tmp_path,
+    reset_connection_globals,
+    no_sleep,
+) -> None:
+    profiles_dir = _configure_kalshi_smoke_env(
+        monkeypatch,
+        tmp_path,
+        db_name=f"job-{job_name}.duckdb",
+    )
+    _patch_kalshi_job_externals(monkeypatch)
 
     noop_dlt = MagicMock()
     noop_dlt.run.return_value = iter([])

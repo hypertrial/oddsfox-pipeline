@@ -2,10 +2,10 @@
 
 This page summarizes the public analytics surface that downstream notebooks,
 scripts, and operators should rely on. OddsFox is a prediction-market pipeline;
-the current public marts are WC2026 Polymarket knockout odds outputs, US
-midterms 2026 generic market odds, plus WC2026 FIFA World Cup fixtures/results
-used to validate WC2026 team scope. Model-level column docs and tests live in
-the dbt project.
+the current public marts are WC2026 Polymarket knockout odds outputs, Kalshi WC2026
+stage and group-winner odds, US midterms 2026 generic market odds, plus WC2026
+FIFA World Cup fixtures/results used to validate WC2026 team scope. Model-level
+column docs and tests live in the dbt project.
 
 ## Public Marts
 
@@ -31,6 +31,15 @@ Schema: `international_results_wc2026_marts`
 | `international_results_wc2026_matches` | One row per `match_id` | Clean WC2026 FIFA World Cup fixture/result rows from `martj42/international_results`, including stage, status, score, and inferred knockout advancer metadata. |
 | `international_results_wc2026_team_status` | One row per `team_name` | Canonical 48-team WC2026 roster and current tournament status derived from fixture/result rows. |
 
+Schema: `kalshi_wc2026_marts`
+
+| Relation | Grain | Contract |
+| --- | --- | --- |
+| `kalshi_wc2026_stage_markets` | One row per `market_ticker` | Latest stage-of-elimination market snapshot with team/stage classification, progression-side pricing, and current-price status. |
+| `kalshi_wc2026_stage_market_hourly_odds` | One row per `(market_ticker, odds_hour_epoch)` | Trailing contract-window hourly OHLC odds for stage markets joined to classified metadata. |
+| `kalshi_wc2026_group_winner_markets` | One row per `market_ticker` | Latest group-winner market snapshot with team classification and current-price status. |
+| `kalshi_wc2026_group_winner_market_hourly_odds` | One row per `(market_ticker, odds_hour_epoch)` | Trailing contract-window hourly OHLC odds for group-winner markets. |
+
 ## Health And Observability
 
 - Use `polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_sync_run_observability`
@@ -42,6 +51,9 @@ Schema: `international_results_wc2026_marts`
   including hourly completeness against the contract seed window.
 - Use `polymarket_wc2026_observability.polymarket_wc2026_knockout_data_quality` for source-state anomalies,
   sparse stage/team coverage, upstream eliminated-team live lag, and actionable stale or missing live odds findings.
+- Use `kalshi_wc2026_observability.kalshi_wc2026_sync_run_observability` for Kalshi run-level ingestion telemetry.
+- Use `kalshi_wc2026_observability.kalshi_wc2026_stage_coverage` to inspect classified market coverage and hourly completeness against the contract seed window.
+- Use `kalshi_wc2026_observability.kalshi_wc2026_data_quality` for Kalshi source-state anomalies, sparse coverage, and stale or missing live odds findings.
 
 ## Current Scope Rules
 
@@ -58,6 +70,9 @@ Schema: `international_results_wc2026_marts`
 - Shared US midterms thresholds live in
   `dbt/seeds/polymarket_us_midterms_2026_contract.csv`; there is no results or
   candidate validation layer for this scope in v1.
+- Public Kalshi WC2026 marts expose stage-of-elimination and group-winner markets
+  from the fixed `wc2026` registry across the packaged Kalshi series tickers.
+  Shared Kalshi thresholds live in `dbt/seeds/kalshi_wc2026_contract.csv`.
 - Public WC2026 marts expose only knockout-related markets from the WC2026 registry
   at or above the WC2026 contract volume floor. The current floor is $5,000 USD,
   and markets crossing it on a later sync are admitted on the next dbt build.
@@ -108,8 +123,12 @@ Schema: `international_results_wc2026_marts`
 - Use `polymarket_us_midterms_2026_market_registry_refresh`,
   `polymarket_us_midterms_2026_hourly_odds_ingest`, and
   `polymarket_us_midterms_2026_full_pipeline` for US midterms Dagster operations.
+- Use `kalshi_wc2026_market_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
+  and `kalshi_wc2026_full_pipeline` for Kalshi WC2026 Dagster operations.
+  `kalshi_wc2026_full_pipeline` also runs `international_results_wc2026_match_results_ingest`
+  and a scoped dbt build (`+tag:kalshi`, including `international_results` parents).
   `international_results_wc2026_match_results_ingest` refreshes only the FIFA
-  World Cup fixture/result source and is included in the WC2026 full pipeline.
+  World Cup fixture/result source and is included in the Polymarket WC2026 full pipeline.
 - `polymarket_wc2026_knockout_token_hourly_odds` remains the public
   progression-side export for downstream knockout probability views.
 - `polymarket_wc2026_graph_token_hourly_odds` is the hosted graph input. It
@@ -141,6 +160,8 @@ Schema: `international_results_wc2026_marts`
 - Observability run health (warn-level: latest run error-token regression and history coverage floor).
 - US midterms grain, OHLC bounds, volume floor from
   `polymarket_us_midterms_2026_contract.csv`, and `scope_name` accepted values.
+- Kalshi WC2026 grain, OHLC order, progression-side selection, real-team scope,
+  and data-quality checks from `kalshi_wc2026_contract.csv`.
 
 Warn-level observability tests fail softly in `dbt build` output; treat warnings as operator signals on real warehouses, not hard CI blockers when the disposable CI fixture is healthy.
 

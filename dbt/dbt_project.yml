@@ -88,6 +88,32 @@ models:
         +schema: international_results_wc2026_observability
         +materialized: table
         +tags: ["mart", "observability", "wc2026", "international_results"]
+    kalshi_wc2026:
+      +tags: ["wc2026", "kalshi"]
+      staging:
+        +schema: kalshi_wc2026_staging
+        +tags: ["staging", "wc2026", "kalshi"]
+      intermediate:
+        +schema: kalshi_wc2026_intermediate
+        +tags: ["intermediate", "wc2026", "kalshi"]
+        int_kalshi_wc2026_market_hourly_odds:
+          +materialized: incremental
+      marts:
+        +schema: kalshi_wc2026_marts
+        +materialized: table
+        +tags: ["mart", "core", "wc2026", "kalshi"]
+        kalshi_wc2026_stage_markets:
+          +materialized: view
+        kalshi_wc2026_stage_market_hourly_odds:
+          +materialized: view
+        kalshi_wc2026_group_winner_markets:
+          +materialized: view
+        kalshi_wc2026_group_winner_market_hourly_odds:
+          +materialized: view
+      observability:
+        +schema: kalshi_wc2026_observability
+        +materialized: table
+        +tags: ["mart", "observability", "wc2026", "kalshi"]
 seeds:
   oddsfox:
     international_results_wc2026_team_aliases:
@@ -101,4 +127,8 @@ seeds:
     polymarket_us_midterms_2026_contract:
       +schema: polymarket_us_midterms_2026_staging
       +tags: ["staging", "us_midterms_2026", "polymarket"]
+      +quote_columns: false
+    kalshi_wc2026_contract:
+      +schema: kalshi_wc2026_staging
+      +tags: ["staging", "wc2026", "kalshi"]
       +quote_columns: false

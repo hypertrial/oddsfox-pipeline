@@ -21,6 +21,7 @@ def _polymarket_sources_paths() -> list[Path]:
         sources_dir / "polymarket_wc2026_sources.yml",
         sources_dir / "polymarket_us_midterms_2026_sources.yml",
         sources_dir / "international_results_wc2026_sources.yml",
+        sources_dir / "kalshi_wc2026_sources.yml",
     ]
 
 
@@ -43,6 +44,9 @@ def _reload_schedules_module(monkeypatch, *, hourly: bool = False):
 def test_definitions_expose_v010_jobs_only():
     expected = {
         "international_results_wc2026_match_results_ingest",
+        "kalshi_wc2026_full_pipeline",
+        "kalshi_wc2026_hourly_odds_ingest",
+        "kalshi_wc2026_market_registry_refresh",
         "polymarket_us_midterms_2026_full_pipeline",
         "polymarket_us_midterms_2026_hourly_odds_ingest",
         "polymarket_us_midterms_2026_market_registry_refresh",
@@ -66,6 +70,26 @@ def test_definitions_expose_v010_asset_keys():
         ("international_results", "wc2026", "marts", "matches"),
         ("international_results", "wc2026", "marts", "team_status"),
         ("international_results", "wc2026", "observability", "data_quality"),
+        ("kalshi", "wc2026", "raw", "events"),
+        ("kalshi", "wc2026", "raw", "markets"),
+        ("kalshi", "wc2026", "raw", "markets_snapshot"),
+        ("kalshi", "wc2026", "ops", "market_scope_registry"),
+        ("kalshi", "wc2026", "raw", "market_candlesticks_hourly"),
+        ("kalshi", "wc2026", "staging", "events"),
+        ("kalshi", "wc2026", "staging", "markets"),
+        ("kalshi", "wc2026", "staging", "market_candlesticks_hourly"),
+        ("kalshi", "wc2026", "intermediate", "markets"),
+        ("kalshi", "wc2026", "intermediate", "market_hourly_odds"),
+        ("kalshi", "wc2026", "intermediate", "stage_classification"),
+        ("kalshi", "wc2026", "intermediate", "group_winner_classification"),
+        ("kalshi", "wc2026", "marts", "contract"),
+        ("kalshi", "wc2026", "marts", "stage_markets"),
+        ("kalshi", "wc2026", "marts", "stage_market_hourly_odds"),
+        ("kalshi", "wc2026", "marts", "group_winner_markets"),
+        ("kalshi", "wc2026", "marts", "group_winner_market_hourly_odds"),
+        ("kalshi", "wc2026", "observability", "sync_run_observability"),
+        ("kalshi", "wc2026", "observability", "stage_coverage"),
+        ("kalshi", "wc2026", "observability", "data_quality"),
         ("polymarket", "us_midterms_2026", "raw", "markets"),
         ("polymarket", "us_midterms_2026", "raw", "markets_snapshot"),
         ("polymarket", "us_midterms_2026", "ops", "market_scope_registry"),
@@ -114,6 +138,7 @@ def test_definitions_expose_v010_asset_keys():
             ("polymarket", "wc2026"),
             ("polymarket", "us_midterms_2026"),
             ("international_results", "wc2026"),
+            ("kalshi", "wc2026"),
         }
         for key in asset_keys
     )

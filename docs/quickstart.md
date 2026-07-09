@@ -31,9 +31,11 @@ For a local dry run, keep schedules disabled:
 
 ```dotenv
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
-CLOB credentials are optional unless a live authenticated flow requires them.
+CLOB credentials are optional unless a live authenticated Polymarket flow requires
+them. Kalshi uses the public trade API and requires no credentials for local runs.
 
 ## 3. Validate dbt
 
@@ -82,6 +84,27 @@ For a safer staged run:
 4. `polymarket_wc2026_dbt_build`
 
 Leave schedules off until these jobs complete successfully.
+
+## Kalshi WC2026 (optional)
+
+Kalshi uses the public trade API; no API credentials are required. Keep the
+Kalshi schedule disabled for the first manual run:
+
+```dotenv
+KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+```
+
+For a full manual run:
+
+```bash
+.venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j kalshi_wc2026_full_pipeline
+```
+
+For a safer staged run:
+
+1. `kalshi_wc2026_market_registry_refresh`
+2. `kalshi_wc2026_hourly_odds_ingest`
+3. `kalshi_wc2026_full_pipeline` (or run `dbt build` with `--select +tag:kalshi` after step 2)
 
 ## US midterms 2026 (optional)
 

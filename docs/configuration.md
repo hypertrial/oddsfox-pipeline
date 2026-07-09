@@ -4,8 +4,8 @@ Use `.env.example` as the source of local overrides.
 For first-run steps, see [Quickstart](quickstart.md).
 
 Most settings are adapter-specific. In v0.1.x, that means the shipped WC2026
-and US midterms 2026 Polymarket pipelines plus the fixed FIFA results CSV used
-for WC2026 team validation.
+and US midterms 2026 Polymarket pipelines, the Kalshi WC2026 pipeline, plus the
+fixed FIFA results CSV used for WC2026 team validation.
 
 ## Warehouse and dbt
 
@@ -84,6 +84,21 @@ window, and freshness windows live in `dbt/seeds/polymarket_wc2026_contract.csv`
 and `dbt/seeds/polymarket_us_midterms_2026_contract.csv`.
 Python defaults are checked against those seeds in unit tests.
 
+## Kalshi WC2026
+
+- `KALSHI_REQUESTS_PER_SECOND`: Kalshi trade API request pace (default `5`).
+- `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly
+  `kalshi_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
+
+Kalshi uses the public HTTPS trade API at `external-api.kalshi.com`. No API key,
+secret, or passphrase is required for local docs, dbt, or mocked tests.
+
+`src/oddsfox_pipeline/ingestion/kalshi/seeds/market_scopes.yml` is the scope
+source for the fixed `wc2026` Kalshi graph. Shared contract values such as the
+trailing hourly window and freshness windows live in
+`dbt/seeds/kalshi_wc2026_contract.csv`; Python defaults are checked against that
+seed in unit tests.
+
 ## Odds History Run Config
 
 Dagster hourly odds config uses history-oriented option names:
@@ -101,6 +116,7 @@ The old minutely-oriented names are not accepted in v0.1.x.
 
 - `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
 - `POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_us_midterms_2026_hourly_odds_ingest` schedule (`fidelity=60`).
+- `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `kalshi_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
 
 All schedule flags default to `false`.
 

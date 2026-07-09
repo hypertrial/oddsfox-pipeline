@@ -4,8 +4,8 @@ Use this page when running Dagster assets, jobs, schedules, or recovery paths.
 For data outputs, see [Warehouse](warehouse.md) and
 [Data Contracts](data-contracts.md).
 
-The v0.1.x orchestration surface is WC2026 Polymarket, US midterms 2026
-Polymarket, plus a small FIFA World Cup fixture/result source.
+The v0.1.x orchestration surface is WC2026 Polymarket, Kalshi WC2026, US
+midterms 2026 Polymarket, plus a small FIFA World Cup fixture/result source.
 
 ## Dagster Assets
 
@@ -22,9 +22,15 @@ The main asset key order is:
 9. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
 10. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
 11. `international_results/wc2026/raw/match_results`
-12. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+12. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
+13. `kalshi/wc2026/raw/markets`
+14. `kalshi/wc2026/raw/markets_snapshot`
+15. `kalshi/wc2026/ops/market_scope_registry`
+16. `kalshi/wc2026/raw/market_candlesticks_hourly`
+17. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
     `polymarket/us_midterms_2026/{staging,intermediate,marts,observability}/...`,
-    and `international_results/wc2026/{staging,intermediate,marts,observability}/...`
+    `international_results/wc2026/{staging,intermediate,marts,observability}/...`,
+    and `kalshi/wc2026/{staging,intermediate,marts,observability}/...`
 
 Flat Dagster op names remain source-first, for example
 `polymarket_wc2026_raw_token_odds_history_hourly`.
@@ -39,6 +45,9 @@ Flat Dagster op names remain source-first, for example
 - `polymarket_us_midterms_2026_market_registry_refresh`: targeted US midterms 2026 market discovery, registry refresh, and metadata backfill.
 - `polymarket_us_midterms_2026_hourly_odds_ingest`: hourly US midterms 2026 token odds refresh (trailing 30 days by default).
 - `polymarket_us_midterms_2026_full_pipeline`: US midterms market discovery, hourly odds refresh, and scoped dbt build (`tag:us_midterms_2026` only; no WC2026 or FIFA results assets).
+- `kalshi_wc2026_market_registry_refresh`: Kalshi WC2026 series discovery and registry refresh.
+- `kalshi_wc2026_hourly_odds_ingest`: hourly Kalshi candlestick refresh for admitted registry markets.
+- `kalshi_wc2026_full_pipeline`: FIFA results refresh, Kalshi market discovery, hourly candlestick refresh, and scoped dbt build (`+tag:kalshi`, including `international_results` parents).
 
 For local CLI runs, prefer the Python module entrypoint if virtualenv console
 scripts have stale shebangs:
@@ -80,18 +89,34 @@ The shipped Dagster jobs and dbt graphs are fixed per scope (`wc2026`,
 - dbt model assets under `polymarket/us_midterms_2026/...` build a simple
   markets + hourly-odds mart without office-type classification.
 
+### Kalshi WC2026
+
+- `kalshi/wc2026/raw/markets` performs the Kalshi series/event/market discovery
+  pass and lands raw events and markets through dlt.
+- `kalshi/wc2026/raw/markets_snapshot` records a local raw-layer snapshot for
+  lineage/accounting and does not call Kalshi.
+- `kalshi/wc2026/ops/market_scope_registry` refreshes
+  `kalshi_wc2026_ops.market_scope_registry` when the preceding market discovery
+  did not already refresh the registry.
+- `kalshi/wc2026/raw/market_candlesticks_hourly` syncs hourly candlesticks for
+  admitted registry markets into `kalshi_wc2026_raw.market_candlesticks_hourly`.
+- dbt model assets under `kalshi/wc2026/...` build the fixed Kalshi WC2026 dbt
+  graph. Kalshi uses the public trade API; no credentials are required.
+
 ## Schedules
 
 Schedules are stopped by default.
 
 - `polymarket_wc2026_hourly_odds_schedule`: every hour for `polymarket_wc2026_hourly_odds_ingest` (`fidelity=60`).
 - `polymarket_us_midterms_2026_hourly_odds_schedule`: every hour for `polymarket_us_midterms_2026_hourly_odds_ingest` (`fidelity=60`).
+- `kalshi_wc2026_hourly_odds_schedule`: every hour for `kalshi_wc2026_hourly_odds_ingest` (`fidelity=60`).
 
 Enable only after manual jobs are healthy:
 
 ```dotenv
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 ## Recovery
@@ -99,11 +124,14 @@ POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 - Re-run `polymarket_wc2026_hourly_odds_ingest` for routine WC2026 odds gaps.
 - Re-run `polymarket_us_midterms_2026_hourly_odds_ingest` for routine US midterms
   odds gaps.
+- Re-run `kalshi_wc2026_hourly_odds_ingest` for routine Kalshi candlestick gaps.
 - Re-run `international_results_wc2026_match_results_ingest` when the source CSV
   updates completed scores or fixtures.
 - Run `polymarket_wc2026_dbt_build` after WC2026 raw or ops table repairs.
 - Run `polymarket_us_midterms_2026_full_pipeline` (or `dbt build --select
   tag:us_midterms_2026`) after US midterms raw or ops table repairs.
+- Run `kalshi_wc2026_full_pipeline` (or `dbt build --select +tag:kalshi`)
+  after Kalshi raw or ops table repairs.
 - Prune old `polymarket_wc2026_raw.odds_history` rows with `make prune-odds-history` (default 365-day retention; use `--dry-run` on the script to preview). The script targets WC2026 raw odds only.
 - Reclaim DuckDB file dead space with `make compact-warehouse` after pruning or full refreshes.
 - Use `scripts/profile_warehouse.py` to inspect relation counts and freshness without opening the database read-write.

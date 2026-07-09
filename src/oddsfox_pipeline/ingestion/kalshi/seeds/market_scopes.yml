@@ -1,0 +1,14 @@
+# Kalshi WC2026 market-scope preset for static series discovery.
+
+default_scope: wc2026
+
+scopes:
+  wc2026:
+    series_tickers:
+      - KXMENWORLDCUP
+      - KXWCSTAGEOFELIM
+      - KXWCGROUPWIN
+
+    excluded_market_suffixes:
+      KXWCSTAGEOFELIM:
+        - FW

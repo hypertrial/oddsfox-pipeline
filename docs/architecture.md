@@ -3,9 +3,9 @@
 OddsFox is intentionally local-first: every routine workflow writes to a local
 DuckDB warehouse and is coordinated by Dagster jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
-v0.1.x adapters ship WC2026 Polymarket knockout marts, US midterms 2026 generic
-market odds, and FIFA World Cup fixture/results rows used to validate WC2026
-real-team scope.
+v0.1.x adapters ship WC2026 Polymarket knockout marts, Kalshi WC2026 stage and
+group-winner marts, US midterms 2026 generic market odds, and FIFA World Cup
+fixture/results rows used to validate WC2026 real-team scope.
 
 US midterms 2026 is a parallel Polymarket namespace: targeted Gamma discovery
 for Balance of Power, Senate control, and House control event slugs, with raw/ops
@@ -26,9 +26,11 @@ Current WC2026 implementation:
 flowchart LR
     gamma["Prediction-market metadata API<br/>Polymarket Gamma in v0.1.x"] --> dlt["dlt market landing"]
     clob["Prediction-market odds API<br/>Polymarket CLOB in v0.1.x"] --> odds["Python odds sync"]
+    kalshi_api["Prediction-market metadata/odds API<br/>Kalshi trade API in v0.1.x"] --> kalshi_sync["Python candlestick sync"]
     results["FIFA results CSV<br/>international_results"] --> result_sync["Python CSV sync"]
     dlt --> raw["DuckDB raw schema"]
     odds --> raw
+    kalshi_sync --> raw
     result_sync --> raw
     raw --> ops["DuckDB ops ledgers"]
     raw --> dbt["dbt models"]
@@ -36,14 +38,15 @@ flowchart LR
     dbt --> marts["WC2026 knockout odds marts"]
     dagster["Dagster jobs and schedules"] --> dlt
     dagster --> odds
+    dagster --> kalshi_sync
     dagster --> result_sync
     dagster --> dbt
 ```
 
 Text fallback: prediction-market metadata/odds APIs and the FIFA results CSV
 feed DuckDB raw and ops schemas. Dagster runs the ingest and dbt steps. dbt
-publishes local analytics marts for WC2026 knockout odds, team scope, and
-ingestion observability.
+publishes local analytics marts for WC2026 knockout odds, Kalshi stage and
+group-winner odds, team scope, and ingestion observability.
 
 The shipped Dagster/dbt graphs are fixed per scope (`wc2026`,
 `us_midterms_2026`); see [Configuration](configuration.md) for the seed-backed
@@ -105,6 +108,15 @@ Targeted Polymarket discovery lands in `polymarket_us_midterms_2026_raw` and
 `polymarket_us_midterms_2026_market_token_hourly_odds`, plus run observability.
 There is no `international_results` join or office-type classification in v1.
 
+### Kalshi WC2026
+
+Kalshi series discovery lands events and markets in `kalshi_wc2026_raw` through
+dlt, maintains `kalshi_wc2026_ops.market_scope_registry`, and syncs hourly
+market candlesticks into `kalshi_wc2026_raw.market_candlesticks_hourly`. dbt
+builds stage and group-winner market marts plus hourly odds, coverage, and data
+quality observability. Kalshi uses the public trade API; no credentials are
+required for local runs.
+
 ## Operating Model
 
 - `polymarket_wc2026_full_pipeline` is the one-click full manual WC2026 pipeline.
@@ -115,6 +127,11 @@ There is no `international_results` join or office-type classification in v1.
 - `polymarket_wc2026_hourly_odds_ingest` and
   `polymarket_us_midterms_2026_hourly_odds_ingest` are the hourly odds jobs
   (`fidelity=60`).
+- `kalshi_wc2026_full_pipeline` is the one-click full manual Kalshi WC2026
+  pipeline (FIFA results refresh, Kalshi ingest, and `+tag:kalshi` dbt selection
+  inside the combined job config).
+- `kalshi_wc2026_hourly_odds_ingest` refreshes hourly Kalshi candlesticks for
+  admitted registry markets.
 - Schedules are stopped by default and should stay off until manual runs pass.
 - DuckDB allows one read-write writer, so scripts provide read-only inspection
   and repair paths for local operators.

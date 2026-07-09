@@ -4,6 +4,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from oddsfox_pipeline.config.settings_kalshi import (
+    DEFAULT_KALSHI_WC2026_MARKET_SCOPE,
+)
 from oddsfox_pipeline.config.settings_polymarket import (
     DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
 )
@@ -13,10 +16,34 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     polymarket_wc2026_ops_tbl,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import append_pipeline_run_event_stage
+from oddsfox_pipeline.storage.duckdb.kalshi_dlt_batch import (
+    append_kalshi_pipeline_run_event_stage,
+)
+from oddsfox_pipeline.storage.duckdb.schemas.constants import (
+    kalshi_ops_tbl,
+    polymarket_ops_tbl,
+)
 
 _BACKFILL_KEY_PREFIX = "backfill:"
 
 logger = logging.getLogger(__name__)
+
+OpsSource = str
+
+
+def _default_scope(source: OpsSource) -> str:
+    if source == "kalshi":
+        return DEFAULT_KALSHI_WC2026_MARKET_SCOPE
+    return DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
+
+
+def _ops_tbl(
+    scope_name: str | None, table: str, *, source: OpsSource = "polymarket"
+) -> str:
+    scope = str(scope_name or _default_scope(source)).strip().lower()
+    if source == "kalshi":
+        return kalshi_ops_tbl(scope, table)
+    return polymarket_ops_tbl(scope, table)
 
 
 def _metadata_get(key: str) -> Optional[str]:
@@ -80,6 +107,7 @@ def append_pipeline_run_event(
     *,
     recorded_at: Optional[datetime] = None,
     scope_name: str | None = None,
+    source: OpsSource = "polymarket",
 ) -> str:
     """
     Append one row to the append-only pipeline_run_events table for queryable audit history.
@@ -99,7 +127,12 @@ def append_pipeline_run_event(
         "metrics_json": json.dumps(payload, sort_keys=True),
     }
     with get_connection() as conn:
-        append_pipeline_run_event_stage(row, conn, scope_name=scope_name)
+        if source == "kalshi":
+            append_kalshi_pipeline_run_event_stage(
+                row, conn, scope_name=scope_name or _default_scope(source)
+            )
+        else:
+            append_pipeline_run_event_stage(row, conn, scope_name=scope_name)
     return run_id
 
 
@@ -109,6 +142,7 @@ def save_sync_run_metrics(
     history_limit: int = 20,
     *,
     scope_name: str | None = None,
+    source: OpsSource = "polymarket",
 ):
     """
     Persist latest sync metrics and a short rolling history in scrape_metadata.
@@ -121,7 +155,7 @@ def save_sync_run_metrics(
 
     try:
         append_pipeline_run_event(
-            task, payload, recorded_at=recorded, scope_name=scope_name
+            task, payload, recorded_at=recorded, scope_name=scope_name, source=source
         )
     except Exception as exc:
         payload["pipeline_run_event_append_failed"] = True
@@ -151,7 +185,7 @@ def save_sync_run_metrics(
     with get_connection() as conn:
         conn.execute(
             f"""
-            INSERT OR REPLACE INTO {polymarket_wc2026_ops_tbl("sync_run_metrics")} (
+            INSERT OR REPLACE INTO {_ops_tbl(scope_name, "sync_run_metrics", source=source)} (
                 task_name, recorded_at, metrics_json, history_json
             )
             VALUES (?, ?, ?, ?)
@@ -172,7 +206,12 @@ def save_sync_run_metrics(
     )
 
 
-def get_sync_run_metrics(task: str) -> Optional[dict[str, Any]]:
+def get_sync_run_metrics(
+    task: str,
+    *,
+    scope_name: str | None = None,
+    source: OpsSource = "polymarket",
+) -> Optional[dict[str, Any]]:
     """Return the most recent sync metrics payload for task, if present."""
     ensure_duck_db()
     with get_connection() as conn:
@@ -180,7 +219,7 @@ def get_sync_run_metrics(task: str) -> Optional[dict[str, Any]]:
             row = conn.execute(
                 f"""
                 SELECT metrics_json
-                FROM {polymarket_wc2026_ops_tbl("sync_run_metrics")}
+                FROM {_ops_tbl(scope_name, "sync_run_metrics", source=source)}
                 WHERE task_name = ?
                 """,
                 [task],

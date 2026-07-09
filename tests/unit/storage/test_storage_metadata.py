@@ -189,3 +189,38 @@ def test_get_sync_run_metrics_query_exception_falls_back(monkeypatch):
     monkeypatch.setattr(metadata, "_metadata_get", lambda _key: None)
 
     assert metadata.get_sync_run_metrics("query_error") is None
+
+
+def test_append_pipeline_run_event_kalshi_source(duck):
+    from oddsfox_pipeline.storage.duckdb.schemas.constants import kalshi_ops_tbl
+
+    run_id = metadata.append_pipeline_run_event(
+        "sync_kalshi_candlesticks",
+        {"rows_written": 2},
+        source="kalshi",
+        scope_name="wc2026",
+    )
+    pre = kalshi_ops_tbl("wc2026", "pipeline_run_events")
+    with metadata.get_connection() as conn:
+        row = conn.execute(
+            f"SELECT task_name, metrics_json FROM {pre} WHERE run_id = ?",
+            [run_id],
+        ).fetchone()
+    assert row[0] == "sync_kalshi_candlesticks"
+    assert json.loads(row[1])["rows_written"] == 2
+
+
+def test_save_and_get_sync_run_metrics_kalshi_source(duck):
+    metadata.save_sync_run_metrics(
+        "sync_kalshi_markets",
+        {"total_markets": 4},
+        source="kalshi",
+        scope_name="wc2026",
+    )
+    saved = metadata.get_sync_run_metrics(
+        "sync_kalshi_markets",
+        source="kalshi",
+        scope_name="wc2026",
+    )
+    assert saved is not None
+    assert saved["total_markets"] == 4

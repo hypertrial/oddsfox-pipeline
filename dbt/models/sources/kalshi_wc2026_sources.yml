@@ -1,0 +1,140 @@
+version: 2
+
+sources:
+  - name: kalshi_wc2026_raw
+    description: Raw Kalshi source tables landed by Python ingestion (series/events/markets + hourly candlesticks).
+    schema: kalshi_wc2026_raw
+    tables:
+      - name: events
+        description: Raw Kalshi event metadata from the public trade API.
+        meta:
+          dagster:
+            asset_key: [kalshi, wc2026, raw, markets]
+        loaded_at_field: scraped_at
+        freshness:
+          warn_after: {count: 18, period: hour}
+          error_after: {count: 72, period: hour}
+        columns:
+          - name: event_ticker
+            description: Kalshi event ticker identifier.
+            tests: [not_null, unique]
+          - name: series_ticker
+            description: Parent Kalshi series ticker.
+            tests: [not_null]
+          - name: scraped_at
+            description: UTC timestamp when this event row was last written by ingestion.
+      - name: markets
+        description: Raw Kalshi market metadata from the public trade API.
+        meta:
+          dagster:
+            asset_key: [kalshi, wc2026, raw, markets]
+        loaded_at_field: scraped_at
+        freshness:
+          warn_after: {count: 18, period: hour}
+          error_after: {count: 72, period: hour}
+        columns:
+          - name: market_ticker
+            description: Kalshi market ticker identifier.
+            tests: [not_null, unique]
+          - name: event_ticker
+            description: Parent Kalshi event ticker.
+            tests: [not_null]
+          - name: series_ticker
+            description: Parent Kalshi series ticker.
+            tests: [not_null]
+          - name: scraped_at
+            description: UTC timestamp when this market row was last written by ingestion.
+      - name: market_candlesticks_hourly
+        description: Hourly OHLC candlesticks fetched from the Kalshi candlestick API.
+        meta:
+          dagster:
+            asset_key: [kalshi, wc2026, raw, market_candlesticks_hourly]
+        loaded_at_field: refreshed_at
+        freshness:
+          warn_after: {count: 12, period: hour}
+          error_after: {count: 72, period: hour}
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [market_ticker, hour_start_utc]
+                where: market_ticker is not null and hour_start_utc is not null
+        columns:
+          - name: market_ticker
+            description: Kalshi market ticker identifier.
+            tests: [not_null]
+          - name: hour_start_utc
+            description: UTC hour bucket start for the candlestick row.
+            tests: [not_null]
+          - name: refreshed_at
+            description: UTC timestamp when this candlestick row was last written by ingestion.
+
+  - name: kalshi_wc2026_ops
+    description: Kalshi operational DuckDB tables (scope registry, candlestick ledger, run events).
+    schema: kalshi_wc2026_ops
+    tables:
+      - name: market_scope_registry
+        description: Operational registry of WC2026 Kalshi market tickers refreshed from series discovery.
+        meta:
+          dagster:
+            asset_key: [kalshi, wc2026, ops, market_scope_registry]
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [scope_name, market_ticker]
+                where: scope_name is not null and market_ticker is not null
+        columns:
+          - name: scope_name
+            description: Scope name, fixed to wc2026.
+            tests: [not_null]
+          - name: market_ticker
+            description: Kalshi market ticker within the configured scope.
+            tests: [not_null]
+          - name: event_ticker
+            description: Parent event ticker when known.
+          - name: series_ticker
+            description: Parent series ticker when known.
+          - name: source
+            description: How the row was discovered (series_api or seed).
+          - name: refreshed_at
+            description: UTC timestamp when this registry row was last upserted.
+      - name: candlestick_sync_ledger
+        description: Operational ledger for per-market candlestick sync progress.
+        meta:
+          dagster:
+            asset_key: [kalshi, wc2026, raw, market_candlesticks_hourly]
+        columns:
+          - name: market_ticker
+            description: Kalshi market ticker (primary key).
+            tests: [not_null, unique]
+          - name: last_sync_hour_start
+            description: Raw epoch seconds of the last successful sync boundary for this market.
+          - name: fully_checked
+            description: Whether ingestion has marked this market's history as fully checked.
+          - name: last_checked_at
+            description: UTC timestamp when candlestick sync last evaluated this market.
+          - name: next_check_at
+            description: UTC timestamp when this market next becomes eligible for routine syncing.
+          - name: empty_run_streak
+            description: Count of consecutive routine syncs that completed with no rows and no errors.
+      - name: pipeline_run_events
+        description: Append-only operational audit log for Kalshi ingestion run metrics.
+        meta:
+          dagster:
+            asset_key: [kalshi, wc2026, raw, market_candlesticks_hourly]
+        loaded_at_field: recorded_at
+        freshness:
+          warn_after: {count: 18, period: hour}
+          error_after: {count: 96, period: hour}
+        columns:
+          - name: run_id
+            description: UUID primary key for the recorded pipeline run event.
+            tests: [not_null, unique]
+          - name: task_name
+            description: Pipeline task that emitted the run metrics payload.
+            tests: [not_null]
+          - name: recorded_at
+            description: UTC timestamp when this run event was appended.
+            tests: [not_null]
+          - name: metrics_json
+            description: JSON payload of run metrics recorded by the Python sync layer.
+            tests: [not_null]

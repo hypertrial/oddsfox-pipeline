@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import oddsfox_pipeline.config.settings_kalshi as _settings_kalshi
 import oddsfox_pipeline.config.settings_polymarket as _settings_polymarket
 import oddsfox_pipeline.config.settings_warehouse as _settings_warehouse
 from oddsfox_pipeline.config._env import (  # noqa: F401
@@ -13,6 +14,7 @@ from oddsfox_pipeline.config._env import (  # noqa: F401
     _optional_env_int,
     _optional_env_str,
 )
+from oddsfox_pipeline.config.settings_kalshi import *  # noqa: F403
 from oddsfox_pipeline.config.settings_polymarket import *  # noqa: F403
 from oddsfox_pipeline.config.settings_warehouse import *  # noqa: F403
 
@@ -27,6 +29,7 @@ __all__ = list(
             "_optional_env_int",
             "_optional_env_str",
             *_settings_warehouse.__all__,
+            *_settings_kalshi.__all__,
             *_settings_polymarket.__all__,
         )
     )

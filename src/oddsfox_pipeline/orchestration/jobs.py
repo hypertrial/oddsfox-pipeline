@@ -5,11 +5,14 @@ from oddsfox_pipeline.naming import (
     SCOPE_US_MIDTERMS_2026,
     SCOPE_WC2026,
     SOURCE_INTERNATIONAL_RESULTS,
+    SOURCE_KALSHI,
     SOURCE_POLYMARKET,
     asset_key,
 )
 from oddsfox_pipeline.orchestration.assets_polymarket import polymarket_wc2026_dbt
 from oddsfox_pipeline.orchestration.config import (
+    kalshi_wc2026_full_refresh_events_run_config,
+    kalshi_wc2026_hourly_odds_run_config,
     polymarket_us_midterms_2026_full_refresh_events_run_config,
     polymarket_us_midterms_2026_hourly_odds_run_config,
     polymarket_wc2026_dbt_build_run_config,
@@ -31,6 +34,11 @@ _POLYMARKET_US_MIDTERMS_2026_TAGS = {
     **_DUCKDB_WAREHOUSE_TAGS,
     "source": SOURCE_POLYMARKET,
     "scope": SCOPE_US_MIDTERMS_2026,
+}
+_KALSHI_WC2026_TAGS = {
+    **_DUCKDB_WAREHOUSE_TAGS,
+    "source": SOURCE_KALSHI,
+    "scope": SCOPE_WC2026,
 }
 _INTERNATIONAL_RESULTS_WC2026_TAGS = {
     **_DUCKDB_WAREHOUSE_TAGS,
@@ -165,4 +173,54 @@ polymarket_wc2026_full_pipeline = define_asset_job(
         polymarket_wc2026_dbt_build_run_config(),
     ),
     tags=_POLYMARKET_WC2026_TAGS,
+)
+
+KALSHI_WC2026_MARKET_REGISTRY_SELECTION = AssetSelection.assets(
+    asset_key(SOURCE_KALSHI, SCOPE_WC2026, "raw", "markets"),
+    asset_key(SOURCE_KALSHI, SCOPE_WC2026, "raw", "markets_snapshot"),
+    asset_key(SOURCE_KALSHI, SCOPE_WC2026, "ops", "market_scope_registry"),
+)
+
+KALSHI_WC2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
+    asset_key(SOURCE_KALSHI, SCOPE_WC2026, "raw", "market_candlesticks_hourly"),
+)
+
+KALSHI_WC2026_DBT_SELECTION = build_dbt_asset_selection(
+    [polymarket_wc2026_dbt],
+    dbt_select="+tag:kalshi",
+)
+
+KALSHI_WC2026_FULL_PIPELINE_SELECTION = (
+    INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION
+    | KALSHI_WC2026_MARKET_REGISTRY_SELECTION
+    | KALSHI_WC2026_HOURLY_ODDS_SELECTION
+    | KALSHI_WC2026_DBT_SELECTION
+)
+
+kalshi_wc2026_market_registry_refresh = define_asset_job(
+    "kalshi_wc2026_market_registry_refresh",
+    selection=KALSHI_WC2026_MARKET_REGISTRY_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=kalshi_wc2026_full_refresh_events_run_config(),
+    tags=_KALSHI_WC2026_TAGS,
+)
+
+kalshi_wc2026_hourly_odds_ingest = define_asset_job(
+    "kalshi_wc2026_hourly_odds_ingest",
+    selection=KALSHI_WC2026_HOURLY_ODDS_SELECTION,
+    config=kalshi_wc2026_hourly_odds_run_config(),
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    tags=_KALSHI_WC2026_TAGS,
+)
+
+kalshi_wc2026_full_pipeline = define_asset_job(
+    "kalshi_wc2026_full_pipeline",
+    selection=KALSHI_WC2026_FULL_PIPELINE_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=_merge_run_configs(
+        kalshi_wc2026_full_refresh_events_run_config(),
+        kalshi_wc2026_hourly_odds_run_config(),
+        polymarket_wc2026_dbt_build_run_config(),
+    ),
+    tags=_KALSHI_WC2026_TAGS,
 )

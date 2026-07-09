@@ -7,6 +7,8 @@ from pydantic import Field, field_validator, model_validator
 
 from oddsfox_pipeline.config.settings import (
     DEFAULT_ODDS_FIDELITY_MINUTES,
+    KALSHI_WC2026_HOURLY_WINDOW_DAYS,
+    KALSHI_WC2026_HOURLY_WINDOW_HOURS,
     MIN_ODDS_FIDELITY_MINUTES,
     POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_DAYS,
     POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_HOURS,
@@ -273,6 +275,50 @@ def polymarket_wc2026_hourly_odds_run_config() -> dict:
     return {
         "ops": {
             "polymarket_wc2026_raw_token_odds_history_hourly": {
+                "config": odds_cfg.model_dump()
+            },
+        }
+    }
+
+
+class KalshiMarketsSyncConfig(GuardrailConfig):
+    progress_log_interval_pages: int = Field(default=10, ge=1)
+
+
+class KalshiMarketScopeRegistryConfig(GuardrailConfig):
+    skip_if_snapshot_refreshed: bool = True
+    force_refresh: bool = False
+
+
+class KalshiHourlyOddsSyncConfig(GuardrailConfig):
+    progress_log_interval_markets: int = Field(default=10, ge=1)
+    window_hours: int = Field(default=KALSHI_WC2026_HOURLY_WINDOW_HOURS, ge=1)
+    history_backfill_days: int = Field(
+        default=KALSHI_WC2026_HOURLY_WINDOW_DAYS,
+        ge=0,
+    )
+    force: bool = True
+    routine_interval_hours: int = Field(default=1, ge=1)
+
+
+def kalshi_wc2026_full_refresh_events_run_config() -> dict:
+    markets_cfg = KalshiMarketsSyncConfig()
+    registry_cfg = KalshiMarketScopeRegistryConfig(force_refresh=True)
+    return {
+        "ops": {
+            "kalshi_wc2026_raw_markets": {"config": markets_cfg.model_dump()},
+            "kalshi_wc2026_ops_market_scope_registry": {
+                "config": registry_cfg.model_dump()
+            },
+        }
+    }
+
+
+def kalshi_wc2026_hourly_odds_run_config() -> dict:
+    odds_cfg = KalshiHourlyOddsSyncConfig()
+    return {
+        "ops": {
+            "kalshi_wc2026_raw_market_candlesticks_hourly": {
                 "config": odds_cfg.model_dump()
             },
         }

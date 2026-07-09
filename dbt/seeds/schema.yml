@@ -51,11 +51,30 @@ seeds:
         description: Reserved coverage threshold for future observability checks.
         tests: [not_null]
 
+  - name: kalshi_wc2026_contract
+    description: Internal Kalshi WC2026 contract constants shared by dbt models/tests and Python parity tests.
+    columns:
+      - name: scope_name
+        description: Fixed scope name for the Kalshi WC2026 pipeline.
+        tests: [not_null, unique]
+      - name: hourly_window_days
+        description: Trailing hourly odds window in days (full tournament).
+        tests: [not_null]
+      - name: hourly_window_hours
+        description: Trailing hourly odds window in hours (full tournament).
+        tests: [not_null]
+      - name: live_freshness_hours
+        description: Maximum age in hours for a live current price to be fresh.
+        tests: [not_null]
+      - name: results_freshness_hours
+        description: Maximum age in hours before the FIFA result source load is stale.
+        tests: [not_null]
+
   - name: international_results_wc2026_team_aliases
-    description: Small naming bridge for joining Polymarket team labels to FIFA World Cup team names.
+    description: Small naming bridge for joining prediction-market team labels to FIFA World Cup team names.
     columns:
       - name: market_team_name
-        description: Team label as seen in Polymarket market questions.
+        description: Team label as seen in Polymarket or Kalshi market metadata.
         tests: [not_null, unique]
       - name: canonical_team_name
         description: Canonical team name in the international_results WC2026 marts.

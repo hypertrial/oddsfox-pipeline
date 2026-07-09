@@ -124,3 +124,36 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
     assert dbt_schemas.dbt_model_asset_key({"name": "other_model"}) == AssetKey(
         "dbt_other_model"
     )
+
+
+def test_dbt_schema_helpers_cover_kalshi_names():
+    assert (
+        dbt_schemas.resolve_source_slug({"name": "stg_kalshi_wc2026_markets"})
+        == dbt_schemas.DBT_SOURCE_KALSHI_WC2026
+    )
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "stg_kalshi_wc2026_markets",
+        dbt_schemas.DBT_SOURCE_KALSHI_WC2026,
+    ) == AssetKey(["kalshi", "wc2026", "staging", "markets"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "int_kalshi_wc2026_markets",
+        dbt_schemas.DBT_SOURCE_KALSHI_WC2026,
+    ) == AssetKey(["kalshi", "wc2026", "intermediate", "markets"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "kalshi_wc2026_stage_markets",
+        dbt_schemas.DBT_SOURCE_KALSHI_WC2026,
+    ) == AssetKey(["kalshi", "wc2026", "marts", "stage_markets"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "kalshi_wc2026_data_quality",
+        dbt_schemas.DBT_SOURCE_KALSHI_WC2026,
+    ) == AssetKey(["kalshi", "wc2026", "observability", "data_quality"])
+    assert dbt_schemas.dbt_model_asset_key(
+        {"name": "kalshi_wc2026_stage_coverage"}
+    ) == AssetKey(["kalshi", "wc2026", "observability", "stage_coverage"])
+    assert (
+        dbt_schemas.shorten_model_name(
+            "stg_kalshi_wc2026_markets",
+            dbt_schemas.DBT_SOURCE_KALSHI_WC2026,
+        )
+        == "markets"
+    )

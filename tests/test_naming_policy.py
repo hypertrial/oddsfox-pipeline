@@ -10,6 +10,8 @@ from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
 )
 from oddsfox_pipeline.orchestration import assets
 from oddsfox_pipeline.orchestration.config import (
+    kalshi_wc2026_full_refresh_events_run_config,
+    kalshi_wc2026_hourly_odds_run_config,
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
@@ -26,6 +28,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 EXPECTED_JOB_NAMES = {
     "international_results_wc2026_match_results_ingest",
+    "kalshi_wc2026_full_pipeline",
+    "kalshi_wc2026_hourly_odds_ingest",
+    "kalshi_wc2026_market_registry_refresh",
     "polymarket_us_midterms_2026_full_pipeline",
     "polymarket_us_midterms_2026_hourly_odds_ingest",
     "polymarket_us_midterms_2026_market_registry_refresh",
@@ -37,6 +42,10 @@ EXPECTED_JOB_NAMES = {
 
 EXPECTED_OP_NAMES = {
     "international_results_wc2026_raw_match_results",
+    "kalshi_wc2026_raw_markets",
+    "kalshi_wc2026_raw_markets_snapshot",
+    "kalshi_wc2026_ops_market_scope_registry",
+    "kalshi_wc2026_raw_market_candlesticks_hourly",
     "polymarket_us_midterms_2026_raw_markets",
     "polymarket_us_midterms_2026_raw_markets_snapshot",
     "polymarket_us_midterms_2026_ops_market_scope_registry",
@@ -75,16 +84,25 @@ EXPECTED_ASSET_KEYS = {
     ("polymarket", "wc2026", "intermediate", "token_universe"),
     ("polymarket", "wc2026", "marts", "knockout_token_hourly_odds"),
     ("polymarket", "wc2026", "observability", "sync_run_observability"),
+    ("kalshi", "wc2026", "raw", "events"),
+    ("kalshi", "wc2026", "raw", "markets"),
+    ("kalshi", "wc2026", "raw", "markets_snapshot"),
+    ("kalshi", "wc2026", "ops", "market_scope_registry"),
+    ("kalshi", "wc2026", "raw", "market_candlesticks_hourly"),
+    ("kalshi", "wc2026", "staging", "markets"),
+    ("kalshi", "wc2026", "marts", "stage_markets"),
+    ("kalshi", "wc2026", "marts", "group_winner_markets"),
+    ("kalshi", "wc2026", "observability", "sync_run_observability"),
 }
 
 OLD_ACTIVE_PATTERNS = (
     re.compile(r"wc2026_polymarket"),
     re.compile(r"WC2026_POLYMARKET"),
-    re.compile(r"(?<!polymarket_)wc2026_market_registry_refresh"),
-    re.compile(r"(?<!polymarket_)wc2026_hourly_odds_ingest"),
-    re.compile(r"(?<!polymarket_)wc2026_dbt_build"),
-    re.compile(r"(?<!polymarket_)wc2026_full_pipeline"),
-    re.compile(r"(?<!polymarket_)wc2026_hourly_odds_schedule"),
+    re.compile(r"(?<!polymarket_)(?<!kalshi_)wc2026_market_registry_refresh"),
+    re.compile(r"(?<!polymarket_)(?<!kalshi_)wc2026_hourly_odds_ingest"),
+    re.compile(r"(?<!polymarket_)(?<!kalshi_)wc2026_dbt_build"),
+    re.compile(r"(?<!polymarket_)(?<!kalshi_)wc2026_full_pipeline"),
+    re.compile(r"(?<!polymarket_)(?<!kalshi_)wc2026_hourly_odds_schedule"),
     re.compile(r"export_wc2026_"),
     re.compile(r"repair_wc2026_"),
     re.compile(r"count_wc2026_"),
@@ -140,11 +158,12 @@ def test_public_jobs_are_source_first_and_tagged():
 
     assert {job.name for job in jobs} == EXPECTED_JOB_NAMES
     for job in jobs:
-        expected_source = (
-            "international_results"
-            if job.name.startswith("international_results_")
-            else "polymarket"
-        )
+        if job.name.startswith("international_results_"):
+            expected_source = "international_results"
+        elif job.name.startswith("kalshi_"):
+            expected_source = "kalshi"
+        else:
+            expected_source = "polymarket"
         assert job.tags["source"] == expected_source
         if job.name.startswith("polymarket_us_midterms_2026_"):
             assert job.tags["scope"] == "us_midterms_2026"
@@ -154,10 +173,12 @@ def test_public_jobs_are_source_first_and_tagged():
 
 def test_public_schedule_is_source_first_and_targets_source_first_job():
     assert {schedule.name for schedule in defs.schedules} == {
+        "kalshi_wc2026_hourly_odds_schedule",
         "polymarket_us_midterms_2026_hourly_odds_schedule",
         "polymarket_wc2026_hourly_odds_schedule",
     }
     assert {schedule.job_name for schedule in defs.schedules} == {
+        "kalshi_wc2026_hourly_odds_ingest",
         "polymarket_us_midterms_2026_hourly_odds_ingest",
         "polymarket_wc2026_hourly_odds_ingest",
     }
@@ -166,6 +187,10 @@ def test_public_schedule_is_source_first_and_targets_source_first_job():
 def test_dagster_op_names_and_run_config_keys_are_source_first():
     actual_op_names = {
         assets.international_results_wc2026_raw_match_results.op.name,
+        assets.kalshi_wc2026_raw_markets.op.name,
+        assets.kalshi_wc2026_raw_markets_snapshot.op.name,
+        assets.kalshi_wc2026_ops_market_scope_registry.op.name,
+        assets.kalshi_wc2026_raw_market_candlesticks_hourly.op.name,
         assets.polymarket_us_midterms_2026_raw_markets.op.name,
         assets.polymarket_us_midterms_2026_raw_markets_snapshot.op.name,
         assets.polymarket_us_midterms_2026_ops_market_scope_registry.op.name,
@@ -182,11 +207,14 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         set(polymarket_wc2026_full_refresh_events_run_config()["ops"])
         | set(polymarket_wc2026_hourly_odds_run_config()["ops"])
         | set(polymarket_wc2026_dbt_build_run_config()["ops"])
+        | set(kalshi_wc2026_full_refresh_events_run_config()["ops"])
+        | set(kalshi_wc2026_hourly_odds_run_config()["ops"])
     )
 
     assert actual_op_names == EXPECTED_OP_NAMES
     assert run_config_ops == EXPECTED_OP_NAMES - {
         "international_results_wc2026_raw_match_results",
+        "kalshi_wc2026_raw_markets_snapshot",
         "polymarket_us_midterms_2026_raw_markets",
         "polymarket_us_midterms_2026_raw_markets_snapshot",
         "polymarket_us_midterms_2026_ops_market_scope_registry",
@@ -206,6 +234,7 @@ def test_registered_asset_keys_are_hierarchical_source_scope_layer():
             ("polymarket", "wc2026"),
             ("polymarket", "us_midterms_2026"),
             ("international_results", "wc2026"),
+            ("kalshi", "wc2026"),
         }
         for key in asset_keys
     )
@@ -221,10 +250,12 @@ def test_dbt_project_uses_source_first_directory_and_schemas():
     assert (ROOT / "dbt" / "models" / "polymarket_wc2026").is_dir()
     assert (ROOT / "dbt" / "models" / "polymarket_us_midterms_2026").is_dir()
     assert (ROOT / "dbt" / "models" / "international_results_wc2026").is_dir()
+    assert (ROOT / "dbt" / "models" / "kalshi_wc2026").is_dir()
     assert not (ROOT / "dbt" / "models" / "wc2026_polymarket").exists()
 
     project = yaml.safe_load((ROOT / "dbt" / "dbt_project.yml").read_text())
     model_cfg = project["models"]["oddsfox"]["polymarket_wc2026"]
+    kalshi_cfg = project["models"]["oddsfox"]["kalshi_wc2026"]
     midterms_cfg = project["models"]["oddsfox"]["polymarket_us_midterms_2026"]
     results_cfg = project["models"]["oddsfox"]["international_results_wc2026"]
 
@@ -232,6 +263,10 @@ def test_dbt_project_uses_source_first_directory_and_schemas():
     assert model_cfg["intermediate"]["+schema"] == "polymarket_wc2026_intermediate"
     assert model_cfg["marts"]["+schema"] == "polymarket_wc2026_marts"
     assert model_cfg["observability"]["+schema"] == "polymarket_wc2026_observability"
+    assert kalshi_cfg["staging"]["+schema"] == "kalshi_wc2026_staging"
+    assert kalshi_cfg["intermediate"]["+schema"] == "kalshi_wc2026_intermediate"
+    assert kalshi_cfg["marts"]["+schema"] == "kalshi_wc2026_marts"
+    assert kalshi_cfg["observability"]["+schema"] == "kalshi_wc2026_observability"
     assert midterms_cfg["staging"]["+schema"] == "polymarket_us_midterms_2026_staging"
     assert (
         midterms_cfg["intermediate"]["+schema"]
@@ -268,6 +303,10 @@ def test_dbt_model_filenames_are_source_first_by_layer():
         "international_results_wc2026/intermediate": "int_international_results_wc2026_",
         "international_results_wc2026/marts": "international_results_wc2026_",
         "international_results_wc2026/observability": "international_results_wc2026_",
+        "kalshi_wc2026/staging": "stg_kalshi_wc2026_",
+        "kalshi_wc2026/intermediate": "int_kalshi_wc2026_",
+        "kalshi_wc2026/marts": "kalshi_wc2026_",
+        "kalshi_wc2026/observability": "kalshi_wc2026_",
     }
 
     for path, prefix in layer_prefixes.items():
@@ -303,6 +342,10 @@ def test_storage_schema_constants_are_source_first():
         "polymarket_wc2026_intermediate",
         "polymarket_wc2026_marts",
         "polymarket_wc2026_observability",
+        "kalshi_wc2026_staging",
+        "kalshi_wc2026_intermediate",
+        "kalshi_wc2026_marts",
+        "kalshi_wc2026_observability",
         "polymarket_us_midterms_2026_staging",
         "polymarket_us_midterms_2026_intermediate",
         "polymarket_us_midterms_2026_marts",
@@ -335,6 +378,11 @@ def test_dbt_source_metadata_uses_hierarchical_asset_keys():
                 / "international_results_wc2026_sources.yml"
             ).read_text()
         )["sources"]
+        + yaml.safe_load(
+            (
+                ROOT / "dbt" / "models" / "sources" / "kalshi_wc2026_sources.yml"
+            ).read_text()
+        )["sources"]
     )
     source_asset_keys = {
         tuple(table["meta"]["dagster"]["asset_key"])
@@ -350,6 +398,7 @@ def test_dbt_source_metadata_uses_hierarchical_asset_keys():
             ("polymarket", "wc2026"),
             ("polymarket", "us_midterms_2026"),
             ("international_results", "wc2026"),
+            ("kalshi", "wc2026"),
         }
         for key in source_asset_keys
     )

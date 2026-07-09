@@ -1,6 +1,12 @@
 from oddsfox_pipeline.orchestration.assets_international_results import (
     international_results_wc2026_raw_match_results,
 )
+from oddsfox_pipeline.orchestration.assets_kalshi_wc2026 import (
+    kalshi_wc2026_ops_market_scope_registry,
+    kalshi_wc2026_raw_market_candlesticks_hourly,
+    kalshi_wc2026_raw_markets,
+    kalshi_wc2026_raw_markets_snapshot,
+)
 from oddsfox_pipeline.orchestration.assets_polymarket import (
     polymarket_wc2026_dbt,
     polymarket_wc2026_ops_market_scope_registry,
@@ -28,6 +34,10 @@ __all__ = [
     "DBT_PROJECT",
     "PolymarketDagsterDbtTranslator",
     "international_results_wc2026_raw_match_results",
+    "kalshi_wc2026_ops_market_scope_registry",
+    "kalshi_wc2026_raw_market_candlesticks_hourly",
+    "kalshi_wc2026_raw_markets",
+    "kalshi_wc2026_raw_markets_snapshot",
     "polymarket_us_midterms_2026_ops_market_scope_registry",
     "polymarket_us_midterms_2026_raw_market_metadata_backfill",
     "polymarket_us_midterms_2026_raw_markets",

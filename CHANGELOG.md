@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Kalshi WC2026 pipeline for winner, knockout stage-of-elimination, and group-winner
+  markets (`kalshi/wc2026/...` Dagster assets, `kalshi_wc2026_*` DuckDB schemas,
+  and public `kalshi_wc2026_marts` relations). Additive; Polymarket contracts are
+  unchanged.
+
 ### Fixed
 
 - Scoped Polymarket market queries respect `active_polymarket_scope` through full
