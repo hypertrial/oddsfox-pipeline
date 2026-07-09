@@ -104,7 +104,7 @@ For a safer staged run:
 
 1. `kalshi_wc2026_market_registry_refresh`
 2. `kalshi_wc2026_hourly_odds_ingest`
-3. `kalshi_wc2026_full_pipeline` (or run `dbt build` with `--select +tag:kalshi` after step 2)
+3. `kalshi_wc2026_full_pipeline` (or run `dbt build --select +tag:kalshi --exclude tag:cross_domain tag:polymarket` after step 2)
 
 ## US midterms 2026 (optional)
 

@@ -47,7 +47,7 @@ Flat Dagster op names remain source-first, for example
 - `polymarket_us_midterms_2026_full_pipeline`: US midterms market discovery, hourly odds refresh, and scoped dbt build (`tag:us_midterms_2026` only; no WC2026 or FIFA results assets).
 - `kalshi_wc2026_market_registry_refresh`: Kalshi WC2026 series discovery and registry refresh.
 - `kalshi_wc2026_hourly_odds_ingest`: hourly Kalshi candlestick refresh for admitted registry markets.
-- `kalshi_wc2026_full_pipeline`: FIFA results refresh, Kalshi market discovery, hourly candlestick refresh, and scoped dbt build (`+tag:kalshi`, including `international_results` parents).
+- `kalshi_wc2026_full_pipeline`: FIFA results refresh, Kalshi market discovery, hourly candlestick refresh, and scoped dbt build (`+tag:kalshi`, including `international_results` parents; excludes `tag:cross_domain` and `tag:polymarket` tests outside that closure).
 
 For local CLI runs, prefer the Python module entrypoint if virtualenv console
 scripts have stale shebangs:
@@ -130,7 +130,7 @@ KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 - Run `polymarket_wc2026_dbt_build` after WC2026 raw or ops table repairs.
 - Run `polymarket_us_midterms_2026_full_pipeline` (or `dbt build --select
   tag:us_midterms_2026`) after US midterms raw or ops table repairs.
-- Run `kalshi_wc2026_full_pipeline` (or `dbt build --select +tag:kalshi`)
+- Run `kalshi_wc2026_full_pipeline` (or `dbt build --select +tag:kalshi --exclude tag:cross_domain tag:polymarket`)
   after Kalshi raw or ops table repairs.
 - Prune old `polymarket_wc2026_raw.odds_history` rows with `make prune-odds-history` (default 365-day retention; use `--dry-run` on the script to preview). The script targets WC2026 raw odds only.
 - Reclaim DuckDB file dead space with `make compact-warehouse` after pruning or full refreshes.
