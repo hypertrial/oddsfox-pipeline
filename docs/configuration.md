@@ -4,7 +4,8 @@ Use `.env.example` as the source of local overrides.
 For first-run steps, see [Quickstart](quickstart.md).
 
 Most settings are adapter-specific. In v0.1.x, that means the shipped WC2026
-Polymarket pipeline plus the fixed FIFA results CSV used for team validation.
+and US midterms 2026 Polymarket pipelines plus the fixed FIFA results CSV used
+for WC2026 team validation.
 
 ## Warehouse and dbt
 
@@ -27,20 +28,20 @@ Lower request rates when Polymarket APIs return transient failures or timeouts.
 The `international_results` CSV refresh uses the shared HTTP timeout settings
 and has no source-specific env override.
 
-## WC2026 Scope
+## Polymarket scopes
 
 | Preset | Focus |
 | --- | --- |
 | `wc2026` | FIFA World Cup 2026 |
+| `us_midterms_2026` | Balance of Power, Senate control, and House control 2026 midterms |
 
 `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml` is the
-scope source. The packaged seed contains only `wc2026`, and the shipped
-Dagster jobs, assets, env vars, and dbt graph remain fixed to WC2026 in
-v0.1.x.
+scope source. The packaged seed contains `wc2026` and `us_midterms_2026`, and
+the shipped Dagster jobs, assets, and dbt graphs are fixed per scope in v0.1.x.
 
 Polymarket scope helper code accepts any slug-like scope that exists in the
 seed file, which keeps tests and future adapter work seed-backed instead of
-hard-coded. That does not add a runtime scope selector or non-WC2026 marts.
+hard-coded. That does not add a runtime scope selector.
 
 ### WC2026 field overrides (advanced)
 
@@ -63,8 +64,9 @@ The seed file `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml
 is the default scope source.
 
 Shared dbt contract values such as the knockout volume floor, trailing hourly
-window, and freshness windows live in `dbt/seeds/polymarket_wc2026_contract.csv`.
-Python defaults are checked against that seed in unit tests.
+window, and freshness windows live in `dbt/seeds/polymarket_wc2026_contract.csv`
+and `dbt/seeds/polymarket_us_midterms_2026_contract.csv`.
+Python defaults are checked against those seeds in unit tests.
 
 ## Odds History Run Config
 
@@ -82,6 +84,7 @@ The old minutely-oriented names are not accepted in v0.1.x.
 ## Schedules
 
 - `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
+- `POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_us_midterms_2026_hourly_odds_ingest` schedule (`fidelity=60`).
 
 All schedule flags default to `false`.
 

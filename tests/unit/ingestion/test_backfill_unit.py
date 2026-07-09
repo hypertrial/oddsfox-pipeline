@@ -202,12 +202,26 @@ def test_backfill_market_metadata_fetches_once_and_saves_all_fields(
         ]
 
     monkeypatch.setattr(bf_metadata, "_fetch_markets_batch", fetch_markets)
-    monkeypatch.setattr(bf_metadata, "save_tokens_batch", saved["tokens"].extend)
-    monkeypatch.setattr(bf_metadata, "save_slugs_batch", saved["slugs"].extend)
     monkeypatch.setattr(
-        bf_metadata, "save_event_slugs_batch", saved["event_slugs"].extend
+        bf_metadata,
+        "save_tokens_batch",
+        lambda rows, scope_name=None: saved["tokens"].extend(rows),
     )
-    monkeypatch.setattr(bf_metadata, "save_end_dates_batch", saved["end_dates"].extend)
+    monkeypatch.setattr(
+        bf_metadata,
+        "save_slugs_batch",
+        lambda rows, scope_name=None: saved["slugs"].extend(rows),
+    )
+    monkeypatch.setattr(
+        bf_metadata,
+        "save_event_slugs_batch",
+        lambda rows, scope_name=None: saved["event_slugs"].extend(rows),
+    )
+    monkeypatch.setattr(
+        bf_metadata,
+        "save_end_dates_batch",
+        lambda rows, scope_name=None: saved["end_dates"].extend(rows),
+    )
     monkeypatch.setattr(
         bf_metadata,
         "set_backfill_fully_checked",
@@ -273,12 +287,14 @@ def test_backfill_market_metadata_records_unresolved_event_slug_cooldown(
             },
         ),
     )
-    monkeypatch.setattr(bf_metadata, "save_slugs_batch", lambda rows: None)
+    monkeypatch.setattr(
+        bf_metadata, "save_slugs_batch", lambda rows, scope_name=None: None
+    )
     monkeypatch.setattr(bf_metadata, "set_backfill_fully_checked", lambda *args: None)
     monkeypatch.setattr(
         bf_metadata,
         "mark_market_metadata_unresolved",
-        lambda rows, retry_after_hours: unresolved.extend(
+        lambda rows, retry_after_hours, scope_name=None: unresolved.extend(
             [(tuple(row), retry_after_hours) for row in rows]
         ),
     )
@@ -311,8 +327,12 @@ def test_backfill_market_metadata_skips_missing_market_rows(
         "_fetch_markets_batch",
         lambda *args, **kwargs: [{"id": "1", "slug": "s", "clobTokenIds": ["t"]}],
     )
-    monkeypatch.setattr(bf_metadata, "save_tokens_batch", lambda rows: None)
-    monkeypatch.setattr(bf_metadata, "save_slugs_batch", lambda rows: None)
+    monkeypatch.setattr(
+        bf_metadata, "save_tokens_batch", lambda rows, scope_name=None: None
+    )
+    monkeypatch.setattr(
+        bf_metadata, "save_slugs_batch", lambda rows, scope_name=None: None
+    )
     monkeypatch.setattr(bf_metadata, "set_backfill_fully_checked", lambda *a: None)
     out = bf.backfill_market_metadata(batch_size=50, include_slugs=False)
     assert out["processed"] == 2
@@ -333,7 +353,9 @@ def test_backfill_market_metadata_max_markets_clears_ledger(
         "_fetch_markets_batch",
         lambda *args, **kwargs: [{"id": "1", "slug": "s", "clobTokenIds": ["t"]}],
     )
-    monkeypatch.setattr(bf_metadata, "save_tokens_batch", lambda rows: None)
+    monkeypatch.setattr(
+        bf_metadata, "save_tokens_batch", lambda rows, scope_name=None: None
+    )
     flags = []
     monkeypatch.setattr(
         bf_metadata,
@@ -383,8 +405,14 @@ def test_backfill_market_metadata_partial_field_extraction(
         bf_metadata, "get_markets_missing_any_metadata", lambda **kwargs: ["2"]
     )
     slug_rows = []
-    monkeypatch.setattr(bf_metadata, "save_slugs_batch", slug_rows.extend)
-    monkeypatch.setattr(bf_metadata, "save_tokens_batch", lambda rows: None)
+    monkeypatch.setattr(
+        bf_metadata,
+        "save_slugs_batch",
+        lambda rows, scope_name=None: slug_rows.extend(rows),
+    )
+    monkeypatch.setattr(
+        bf_metadata, "save_tokens_batch", lambda rows, scope_name=None: None
+    )
     bf.backfill_market_metadata(
         include_tokens=True,
         include_slugs=True,
@@ -471,8 +499,12 @@ def test_backfill_market_metadata_progress_callbacks(monkeypatch, duck_ready, no
             {"id": "1", "slug": "s", "clobTokenIds": ["t"], "events": []}
         ],
     )
-    monkeypatch.setattr(bf_metadata, "save_tokens_batch", lambda rows: None)
-    monkeypatch.setattr(bf_metadata, "save_slugs_batch", lambda rows: None)
+    monkeypatch.setattr(
+        bf_metadata, "save_tokens_batch", lambda rows, scope_name=None: None
+    )
+    monkeypatch.setattr(
+        bf_metadata, "save_slugs_batch", lambda rows, scope_name=None: None
+    )
     monkeypatch.setattr(
         bf_metadata,
         "_fill_from_events_endpoint",

@@ -3,26 +3,52 @@ from __future__ import annotations
 from typing import List, Optional, Tuple
 
 from oddsfox_pipeline.ingestion.polymarket import scope_sql
-
-# ponytail: module-reference import (not `from ... import name`) so this file can
-# be imported mid-load of `scope_sql` (which imports storage.duckdb.schemas.constants,
-# which triggers this package's __init__ before scope_sql finishes defining its
-# names). Attribute access below happens at call time, after both modules are fully
-# loaded, so it sidesteps the circular-import ordering.
 from oddsfox_pipeline.storage.duckdb.connection import (
     ensure_duck_db,
     get_connection,
-    polymarket_wc2026_ops_tbl,
-    polymarket_wc2026_raw_tbl,
+)
+from oddsfox_pipeline.storage.duckdb.polymarket_scope import (
+    active_polymarket_scope,
+    get_active_polymarket_scope,
+)
+from oddsfox_pipeline.storage.duckdb.schemas.constants import (
+    polymarket_ops_tbl,
+    polymarket_raw_tbl,
 )
 
-_TAB_MARKETS = polymarket_wc2026_raw_tbl("markets")
-_TAB_MARKET_TOKENS = polymarket_wc2026_raw_tbl("market_tokens")
-_TAB_TOKEN_SYNC_LEDGER = polymarket_wc2026_ops_tbl("token_sync_ledger")
-_TAB_TOKEN_SYNC_SKIPS = polymarket_wc2026_ops_tbl("token_sync_skips")
-_TAB_MARKET_METADATA_UNRESOLVED = polymarket_wc2026_ops_tbl(
-    "market_metadata_unresolved"
-)
+
+def _markets_tbl() -> str:
+    return polymarket_raw_tbl(get_active_polymarket_scope(), "markets")
+
+
+def _market_tokens_tbl() -> str:
+    return polymarket_raw_tbl(get_active_polymarket_scope(), "market_tokens")
+
+
+def _token_sync_ledger_tbl() -> str:
+    return polymarket_ops_tbl(get_active_polymarket_scope(), "token_sync_ledger")
+
+
+def _token_sync_skips_tbl() -> str:
+    return polymarket_ops_tbl(get_active_polymarket_scope(), "token_sync_skips")
+
+
+def _market_metadata_unresolved_tbl() -> str:
+    return polymarket_ops_tbl(
+        get_active_polymarket_scope(), "market_metadata_unresolved"
+    )
+
+
+def _due_token_join_sql() -> str:
+    return f"""
+    FROM {_market_tokens_tbl()} mt
+    JOIN {_markets_tbl()} m ON mt.market_id = m.id
+    CROSS JOIN LATERAL json_each(mt.clobTokenIds) AS je
+    LEFT JOIN {_token_sync_ledger_tbl()} l
+      ON l.clobTokenId = json_extract_string(je.value, '$')
+    LEFT JOIN {_token_sync_skips_tbl()} s
+      ON s.clobTokenId = json_extract_string(je.value, '$')
+"""
 
 
 def _fetch_market_ids(base_query: str, limit: Optional[int] = None) -> List[str]:
@@ -49,17 +75,6 @@ def _ended_market_where_clause(
         f"AND NOT ({alias}.end_date IS NOT NULL "
         f"AND {alias}.end_date < CURRENT_TIMESTAMP - INTERVAL {days} DAY)"
     )
-
-
-_DUE_TOKEN_JOIN_SQL = f"""
-    FROM {_TAB_MARKET_TOKENS} mt
-    JOIN {_TAB_MARKETS} m ON mt.market_id = m.id
-    CROSS JOIN LATERAL json_each(mt.clobTokenIds) AS je
-    LEFT JOIN {_TAB_TOKEN_SYNC_LEDGER} l
-      ON l.clobTokenId = json_extract_string(je.value, '$')
-    LEFT JOIN {_TAB_TOKEN_SYNC_SKIPS} s
-      ON s.clobTokenId = json_extract_string(je.value, '$')
-"""
 
 
 def _due_token_base_where(
@@ -132,7 +147,7 @@ def _volume_where_clause(
 
 
 def _missing_tokens_predicate(alias: str) -> str:
-    return f"{alias}.id NOT IN (SELECT market_id FROM {_TAB_MARKET_TOKENS})"
+    return f"{alias}.id NOT IN (SELECT market_id FROM {_market_tokens_tbl()})"
 
 
 def _missing_slug_predicate(alias: str) -> str:
@@ -144,7 +159,7 @@ def _missing_event_slug_predicate(alias: str) -> str:
         ({alias}.event_slug IS NULL OR {alias}.event_slug = '')
         AND NOT EXISTS (
             SELECT 1
-            FROM {_TAB_MARKET_METADATA_UNRESOLVED} u
+            FROM {_market_metadata_unresolved_tbl()} u
             WHERE u.market_id = {alias}.id
               AND u.field_name = 'event_slug'
               AND u.next_retry_at > CURRENT_TIMESTAMP
@@ -159,7 +174,7 @@ def _missing_end_date_predicate(alias: str) -> str:
 def get_market_count() -> int:
     ensure_duck_db()
     with get_connection() as conn:
-        result = conn.execute(f"SELECT COUNT(*) FROM {_TAB_MARKETS}").fetchone()
+        result = conn.execute(f"SELECT COUNT(*) FROM {_markets_tbl()}").fetchone()
         return int(result[0]) if result else 0
 
 
@@ -170,7 +185,7 @@ def get_all_market_ids() -> set:
     """
     ensure_duck_db()
     with get_connection() as conn:
-        rows = conn.execute(f"SELECT id FROM {_TAB_MARKETS}").fetchall()
+        rows = conn.execute(f"SELECT id FROM {_markets_tbl()}").fetchall()
         return {row[0] for row in rows}
 
 
@@ -179,8 +194,8 @@ def get_markets_without_tokens(limit: Optional[int] = None) -> List[str]:
     return _fetch_market_ids(
         f"""
         SELECT id
-        FROM {_TAB_MARKETS}
-        WHERE id NOT IN (SELECT market_id FROM {_TAB_MARKET_TOKENS})
+        FROM {_markets_tbl()}
+        WHERE id NOT IN (SELECT market_id FROM {_market_tokens_tbl()})
     """,
         limit=limit,
     )
@@ -196,7 +211,8 @@ def get_markets_missing_any_metadata(
     market_scope: str = "wc2026",
 ) -> List[str]:
     """Return market ids missing any requested metadata field."""
-    ensure_duck_db()
+    with active_polymarket_scope(market_scope):
+        ensure_duck_db()
     alias = "m"
     predicates: list[str] = []
     if include_tokens:
@@ -212,7 +228,7 @@ def get_markets_missing_any_metadata(
     scope_clause = _market_scope_where_clause(market_scope, alias)
     query = f"""
         SELECT {alias}.id
-        FROM {_TAB_MARKETS} {alias}
+        FROM {_markets_tbl()} {alias}
         WHERE ({" OR ".join(predicates)})
         {scope_clause}
     """
@@ -232,8 +248,8 @@ def get_markets_with_tokens() -> List[Tuple[str, str, Optional[str], Optional[bo
         rows = conn.execute(
             f"""
             SELECT mt.market_id, mt.clobTokenIds, m.created_at, m.closed
-            FROM {_TAB_MARKET_TOKENS} mt
-            JOIN {_TAB_MARKETS} m ON mt.market_id = m.id
+            FROM {_market_tokens_tbl()} mt
+            JOIN {_markets_tbl()} m ON mt.market_id = m.id
             WHERE mt.clobTokenIds IS NOT NULL AND mt.clobTokenIds != '[]'
             """
         ).fetchall()
@@ -255,12 +271,13 @@ def iter_markets_with_tokens(
 
     This avoids loading the full market-token corpus into memory for large syncs.
     """
-    ensure_duck_db()
+    with active_polymarket_scope(market_scope):
+        ensure_duck_db()
     query_parts = [
         f"""
         SELECT mt.market_id, mt.clobTokenIds, m.created_at, m.closed
-        FROM {_TAB_MARKET_TOKENS} mt
-        JOIN {_TAB_MARKETS} m ON mt.market_id = m.id
+        FROM {_market_tokens_tbl()} mt
+        JOIN {_markets_tbl()} m ON mt.market_id = m.id
         WHERE mt.clobTokenIds IS NOT NULL AND mt.clobTokenIds != '[]'
         """
     ]
@@ -299,7 +316,8 @@ def iter_due_market_tokens(
     the past. Persisted skip reasons and fully checked closed tokens are excluded
     here so routine runs do not revisit them.
     """
-    ensure_duck_db()
+    with active_polymarket_scope(market_scope):
+        ensure_duck_db()
     params: List = []
     query = f"""
         SELECT
@@ -307,7 +325,7 @@ def iter_due_market_tokens(
             json_extract_string(je.value, '$') AS clobTokenId,
             m.created_at,
             m.closed
-        {_DUE_TOKEN_JOIN_SQL}
+        {_due_token_join_sql()}
         WHERE {
         _due_token_routine_filters(
             cutoff_created_at,
@@ -337,8 +355,9 @@ def count_due_market_token_exclusions(
     max_volume: float | None = None,
 ) -> dict[str, int]:
     """Count due-token candidates skipped by routine scope/freshness filters."""
-    scope_sql.validate_market_scope(market_scope)
-    ensure_duck_db()
+    with active_polymarket_scope(market_scope):
+        scope_sql.validate_market_scope(market_scope)
+        ensure_duck_db()
     params: List = []
     base_sql = _due_token_base_where(cutoff_created_at, params)
     volume_sql = _volume_where_clause(min_volume, max_volume, "m")
@@ -349,7 +368,7 @@ def count_due_market_token_exclusions(
         row = conn.execute(
             f"""
             SELECT COUNT(*)
-            {_DUE_TOKEN_JOIN_SQL}
+            {_due_token_join_sql()}
             WHERE {base_sql}
               {volume_sql}
               AND NOT ({predicate})
@@ -362,7 +381,7 @@ def count_due_market_token_exclusions(
             row = conn.execute(
                 f"""
                 SELECT COUNT(*)
-                {_DUE_TOKEN_JOIN_SQL}
+                {_due_token_join_sql()}
                 WHERE {base_sql}
                   {volume_sql}
                   AND ({predicate})
@@ -390,13 +409,14 @@ def count_candidate_market_tokens(
     When False, mirrors ``iter_markets_with_tokens`` with ``json_array_only=True``.
     Per-token planner drops (recent_skip, invalid id, dup) are not reflected here.
     """
-    scope_sql.validate_market_scope(market_scope)
-    ensure_duck_db()
+    with active_polymarket_scope(market_scope):
+        scope_sql.validate_market_scope(market_scope)
+        ensure_duck_db()
     params: List = []
     if due_only:
         query = f"""
             SELECT COUNT(*), COUNT(DISTINCT mt.market_id)
-            {_DUE_TOKEN_JOIN_SQL}
+            {_due_token_join_sql()}
             WHERE {
             _due_token_routine_filters(
                 cutoff_created_at,
@@ -421,8 +441,8 @@ def count_candidate_market_tokens(
             SELECT
                 COALESCE(SUM(json_array_length(mt.clobTokenIds)), 0),
                 COUNT(*)
-            FROM {_TAB_MARKET_TOKENS} mt
-            JOIN {_TAB_MARKETS} m ON mt.market_id = m.id
+            FROM {_market_tokens_tbl()} mt
+            JOIN {_markets_tbl()} m ON mt.market_id = m.id
             WHERE {" AND ".join(base_where)}
             {_market_scope_where_clause(market_scope, "m")}
             {_volume_where_clause(min_volume, max_volume, "m")}
@@ -443,7 +463,7 @@ def get_markets_without_slugs(limit: Optional[int] = None) -> List[str]:
     return _fetch_market_ids(
         f"""
         SELECT id
-        FROM {_TAB_MARKETS}
+        FROM {_markets_tbl()}
         WHERE (slug IS NULL OR slug = '')
           AND TRY_CAST(id AS BIGINT) IS NOT NULL
           AND TRY_CAST(id AS BIGINT) > 0
@@ -457,7 +477,7 @@ def get_markets_without_event_slugs(limit: Optional[int] = None) -> List[str]:
     return _fetch_market_ids(
         f"""
         SELECT id
-        FROM {_TAB_MARKETS}
+        FROM {_markets_tbl()}
         WHERE (event_slug IS NULL OR event_slug = '')
           AND TRY_CAST(id AS BIGINT) IS NOT NULL
           AND TRY_CAST(id AS BIGINT) > 0
@@ -472,7 +492,7 @@ def get_markets_without_end_date(limit: Optional[int] = None) -> List[str]:
     return _fetch_market_ids(
         f"""
         SELECT id
-        FROM {_TAB_MARKETS}
+        FROM {_markets_tbl()}
         WHERE (end_date IS NULL OR CAST(end_date AS VARCHAR) = '')
     """,
         limit=limit,

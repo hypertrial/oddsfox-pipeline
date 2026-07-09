@@ -10,13 +10,15 @@ from typing import Any
 import dlt
 import duckdb
 
+from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb import connection as duckdb_connection
+from oddsfox_pipeline.storage.duckdb.polymarket_scope import get_active_polymarket_scope
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-    POLYMARKET_WC2026_OPS_SCHEMA,
-    POLYMARKET_WC2026_RAW_SCHEMA,
-    polymarket_wc2026_ops_tbl,
-    polymarket_wc2026_q,
-    polymarket_wc2026_raw_tbl,
+    polymarket_ops_schema,
+    polymarket_ops_tbl,
+    polymarket_q,
+    polymarket_raw_schema,
+    polymarket_raw_tbl,
 )
 
 DLT_STRICT_SCHEMA_CONTRACT = {
@@ -25,10 +27,10 @@ DLT_STRICT_SCHEMA_CONTRACT = {
     "data_type": "freeze",
 }
 
-_TAB_MARKET_TOKENS = polymarket_wc2026_raw_tbl("market_tokens")
-_TAB_ODDS_HISTORY = polymarket_wc2026_raw_tbl("odds_history")
-_TAB_PIPELINE_RUN_EVENTS = polymarket_wc2026_ops_tbl("pipeline_run_events")
-_TAB_MARKET_SCOPE_REGISTRY = polymarket_wc2026_ops_tbl("market_scope_registry")
+_TAB_MARKET_TOKENS = polymarket_raw_tbl(SCOPE_WC2026, "market_tokens")
+_TAB_ODDS_HISTORY = polymarket_raw_tbl(SCOPE_WC2026, "odds_history")
+_TAB_PIPELINE_RUN_EVENTS = polymarket_ops_tbl(SCOPE_WC2026, "pipeline_run_events")
+_TAB_MARKET_SCOPE_REGISTRY = polymarket_ops_tbl(SCOPE_WC2026, "market_scope_registry")
 
 _PIPELINES: dict[tuple[str, str], dlt.Pipeline] = {}
 _BATCH_PIPELINE_RUN_ID = f"{os.getpid():x}"
@@ -109,7 +111,7 @@ def load_stage_rows(
         columns=columns,
         schema_contract=DLT_STRICT_SCHEMA_CONTRACT,
     )
-    return polymarket_wc2026_q(schema, stage_table)
+    return polymarket_q(schema, stage_table)
 
 
 def _with_row_order(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -119,16 +121,20 @@ def _with_row_order(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
 def load_market_tokens_stage(
     rows: Sequence[dict[str, Any]],
     conn: duckdb.DuckDBPyConnection,
+    *,
+    scope_name: str = SCOPE_WC2026,
 ) -> None:
+    raw_schema = polymarket_raw_schema(scope_name)
+    target = polymarket_raw_tbl(scope_name, "market_tokens")
     stage = load_stage_rows(
-        schema=POLYMARKET_WC2026_RAW_SCHEMA,
+        schema=raw_schema,
         stage_table="stage_market_tokens_v1",
         rows=_with_row_order(rows),
         columns=MARKET_TOKEN_COLUMNS,
     )
     conn.execute(
         f"""
-        INSERT OR REPLACE INTO {_TAB_MARKET_TOKENS}
+        INSERT OR REPLACE INTO {target}
         (market_id, clobTokenIds, updated_at)
         SELECT market_id, clob_token_ids, updated_at
         FROM (
@@ -150,25 +156,41 @@ def load_market_tokens_stage(
 def load_odds_history_stage(
     rows: Sequence[dict[str, Any]],
     conn: duckdb.DuckDBPyConnection,
+    *,
+    scope_name: str | None = None,
 ) -> None:
-    stage = prepare_odds_history_stage(rows)
-    merge_odds_history_stage(conn, stage)
+    scope = scope_name or get_active_polymarket_scope()
+    stage = prepare_odds_history_stage(rows, scope_name=scope)
+    merge_odds_history_stage(conn, stage, scope_name=scope)
 
 
-def prepare_odds_history_stage(rows: Sequence[dict[str, Any]]) -> str:
+def prepare_odds_history_stage(
+    rows: Sequence[dict[str, Any]],
+    *,
+    scope_name: str | None = None,
+) -> str:
     """Load odds rows into a dlt stage table; call before ``BEGIN`` on ``conn``."""
+    scope = scope_name or get_active_polymarket_scope()
     return load_stage_rows(
-        schema=POLYMARKET_WC2026_RAW_SCHEMA,
+        schema=polymarket_raw_schema(scope),
         stage_table="stage_odds_history_v1",
         rows=_with_row_order(rows),
         columns=ODDS_HISTORY_COLUMNS,
     )
 
 
-def merge_odds_history_stage(conn: duckdb.DuckDBPyConnection, stage: str) -> None:
+def merge_odds_history_stage(
+    conn: duckdb.DuckDBPyConnection,
+    stage: str,
+    *,
+    scope_name: str | None = None,
+) -> None:
+    target = polymarket_raw_tbl(
+        scope_name or get_active_polymarket_scope(), "odds_history"
+    )
     conn.execute(
         f"""
-        INSERT OR REPLACE INTO {_TAB_ODDS_HISTORY}
+        INSERT OR REPLACE INTO {target}
         (clobTokenId, timestamp, price, ingested_at)
         SELECT clob_token_id, timestamp, price, ingested_at
         FROM (
@@ -191,16 +213,20 @@ def merge_odds_history_stage(conn: duckdb.DuckDBPyConnection, stage: str) -> Non
 def append_pipeline_run_event_stage(
     row: dict[str, Any],
     conn: duckdb.DuckDBPyConnection,
+    *,
+    scope_name: str = SCOPE_WC2026,
 ) -> None:
+    ops_schema = polymarket_ops_schema(scope_name)
+    target = polymarket_ops_tbl(scope_name, "pipeline_run_events")
     stage = load_stage_rows(
-        schema=POLYMARKET_WC2026_OPS_SCHEMA,
+        schema=ops_schema,
         stage_table="stage_pipeline_run_events_v1",
         rows=[row],
         columns=PIPELINE_RUN_EVENT_COLUMNS,
     )
     conn.execute(
         f"""
-        INSERT INTO {_TAB_PIPELINE_RUN_EVENTS}
+        INSERT INTO {target}
         (run_id, task_name, recorded_at, metrics_json)
         SELECT run_id, task_name, recorded_at, metrics_json
         FROM {stage}
@@ -211,16 +237,20 @@ def append_pipeline_run_event_stage(
 def load_market_scope_registry_stage(
     rows: Sequence[dict[str, Any]],
     conn: duckdb.DuckDBPyConnection,
+    *,
+    scope_name: str = SCOPE_WC2026,
 ) -> None:
+    ops_schema = polymarket_ops_schema(scope_name)
+    target = polymarket_ops_tbl(scope_name, "market_scope_registry")
     stage = load_stage_rows(
-        schema=POLYMARKET_WC2026_OPS_SCHEMA,
+        schema=ops_schema,
         stage_table="stage_market_scope_registry_v1",
         rows=_with_row_order(rows),
         columns=MARKET_SCOPE_REGISTRY_COLUMNS,
     )
     conn.execute(
         f"""
-        INSERT INTO {_TAB_MARKET_SCOPE_REGISTRY}
+        INSERT INTO {target}
         (scope_name, market_id, event_slug, event_id, source, refreshed_at)
         SELECT scope_name, market_id, event_slug, event_id, source, refreshed_at
         FROM (
@@ -241,11 +271,11 @@ def load_market_scope_registry_stage(
         ON CONFLICT(scope_name, market_id) DO UPDATE SET
           event_slug=COALESCE(
               excluded.event_slug,
-              {_TAB_MARKET_SCOPE_REGISTRY}.event_slug
+              {target}.event_slug
           ),
           event_id=COALESCE(
               excluded.event_id,
-              {_TAB_MARKET_SCOPE_REGISTRY}.event_id
+              {target}.event_id
           ),
           source=excluded.source,
           refreshed_at=excluded.refreshed_at

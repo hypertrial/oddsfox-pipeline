@@ -201,16 +201,16 @@ def backfill_market_metadata(
                     processed += 1
                     pbar.update(1)
                 if token_rows:
-                    save_tokens_batch(token_rows)
+                    save_tokens_batch(token_rows, scope_name=market_scope)
                     saved["tokens"] += len(token_rows)
                 if slug_rows:
-                    save_slugs_batch(slug_rows)
+                    save_slugs_batch(slug_rows, scope_name=market_scope)
                     saved["slugs"] += len(slug_rows)
                 if event_slug_rows:
-                    save_event_slugs_batch(event_slug_rows)
+                    save_event_slugs_batch(event_slug_rows, scope_name=market_scope)
                     saved["event_slugs"] += len(event_slug_rows)
                 if end_date_rows:
-                    save_end_dates_batch(end_date_rows)
+                    save_end_dates_batch(end_date_rows, scope_name=market_scope)
                     saved["end_dates"] += len(end_date_rows)
             except (GammaRequestError, OSError) as exc:
                 logger.error("Error during combined metadata backfill batch: %s", exc)
@@ -283,6 +283,7 @@ def backfill_market_metadata(
         mark_market_metadata_unresolved(
             unresolved_event_slugs,
             retry_after_hours=event_slug_unresolved_retry_hours,
+            scope_name=market_scope,
         )
 
     completed_all = processed >= total_markets and not failed_batches

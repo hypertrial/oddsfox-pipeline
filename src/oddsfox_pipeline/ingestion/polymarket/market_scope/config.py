@@ -43,7 +43,7 @@ def _parse_csv_list(raw: str | None) -> tuple[str, ...]:
 
 def _validate_slug_token(slug: str) -> str:
     s = slug.strip()
-    if not s or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", s, flags=re.IGNORECASE):
+    if not s or not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", s, flags=re.IGNORECASE):
         raise ValueError(f"Invalid event slug token: {slug!r}")
     return s.lower()
 

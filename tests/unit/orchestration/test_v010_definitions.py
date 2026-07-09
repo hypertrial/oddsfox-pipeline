@@ -15,14 +15,17 @@ from oddsfox_pipeline.orchestration.schedules import (
 )
 
 
+def _polymarket_sources_paths() -> list[Path]:
+    sources_dir = Path(__file__).resolve().parents[3] / "dbt" / "models" / "sources"
+    return [
+        sources_dir / "polymarket_wc2026_sources.yml",
+        sources_dir / "polymarket_us_midterms_2026_sources.yml",
+        sources_dir / "international_results_wc2026_sources.yml",
+    ]
+
+
 def _polymarket_sources_path() -> Path:
-    return (
-        Path(__file__).resolve().parents[3]
-        / "dbt"
-        / "models"
-        / "sources"
-        / "polymarket_wc2026_sources.yml"
-    )
+    return _polymarket_sources_paths()[0]
 
 
 def _reload_schedules_module(monkeypatch, *, hourly: bool = False):
@@ -40,6 +43,9 @@ def _reload_schedules_module(monkeypatch, *, hourly: bool = False):
 def test_definitions_expose_v010_jobs_only():
     expected = {
         "international_results_wc2026_match_results_ingest",
+        "polymarket_us_midterms_2026_full_pipeline",
+        "polymarket_us_midterms_2026_hourly_odds_ingest",
+        "polymarket_us_midterms_2026_market_registry_refresh",
         "polymarket_wc2026_hourly_odds_ingest",
         "polymarket_wc2026_market_registry_refresh",
         "polymarket_wc2026_dbt_build",
@@ -60,6 +66,24 @@ def test_definitions_expose_v010_asset_keys():
         ("international_results", "wc2026", "marts", "matches"),
         ("international_results", "wc2026", "marts", "team_status"),
         ("international_results", "wc2026", "observability", "data_quality"),
+        ("polymarket", "us_midterms_2026", "raw", "markets"),
+        ("polymarket", "us_midterms_2026", "raw", "markets_snapshot"),
+        ("polymarket", "us_midterms_2026", "ops", "market_scope_registry"),
+        ("polymarket", "us_midterms_2026", "raw", "market_metadata_backfill"),
+        ("polymarket", "us_midterms_2026", "raw", "token_odds_history_hourly"),
+        ("polymarket", "us_midterms_2026", "staging", "markets"),
+        ("polymarket", "us_midterms_2026", "staging", "market_tokens"),
+        ("polymarket", "us_midterms_2026", "staging", "odds"),
+        ("polymarket", "us_midterms_2026", "staging", "odds_daily"),
+        ("polymarket", "us_midterms_2026", "staging", "pipeline_run_events"),
+        ("polymarket", "us_midterms_2026", "staging", "sync_ledger"),
+        ("polymarket", "us_midterms_2026", "staging", "token_sync_skips"),
+        ("polymarket", "us_midterms_2026", "intermediate", "markets"),
+        ("polymarket", "us_midterms_2026", "intermediate", "market_tokens"),
+        ("polymarket", "us_midterms_2026", "intermediate", "token_universe"),
+        ("polymarket", "us_midterms_2026", "intermediate", "token_hourly_odds"),
+        ("polymarket", "us_midterms_2026", "marts", "market_token_hourly_odds"),
+        ("polymarket", "us_midterms_2026", "observability", "sync_run_observability"),
         ("polymarket", "wc2026", "raw", "markets"),
         ("polymarket", "wc2026", "raw", "markets_snapshot"),
         ("polymarket", "wc2026", "ops", "market_scope_registry"),
@@ -85,7 +109,12 @@ def test_definitions_expose_v010_asset_keys():
     asset_keys = {tuple(key.path) for key in defs.resolve_all_asset_keys()}
     assert expected <= asset_keys
     assert all(
-        key[:2] in {("polymarket", "wc2026"), ("international_results", "wc2026")}
+        key[:2]
+        in {
+            ("polymarket", "wc2026"),
+            ("polymarket", "us_midterms_2026"),
+            ("international_results", "wc2026"),
+        }
         for key in asset_keys
     )
     assert not any("selected" in part for key in asset_keys for part in key)
@@ -120,12 +149,7 @@ def test_wc2026_jobs_do_not_expose_scope_config():
 
 
 def test_polymarket_source_dagster_asset_keys_exist_in_definitions():
-    source_paths = [
-        _polymarket_sources_path(),
-        _polymarket_sources_path().with_name(
-            "international_results_wc2026_sources.yml"
-        ),
-    ]
+    source_paths = _polymarket_sources_paths()
     yaml_asset_keys = set()
     for path in source_paths:
         data = yaml.safe_load(path.read_text())

@@ -9,9 +9,13 @@ from typing import List, Sequence
 from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_connection
 from oddsfox_pipeline.storage.duckdb.dlt_batch import load_market_scope_registry_stage
-from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_wc2026_ops_tbl
+from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_ops_tbl
 
-_TAB_REGISTRY = polymarket_wc2026_ops_tbl("market_scope_registry")
+_TAB_REGISTRY = polymarket_ops_tbl(DEFAULT_MARKET_SCOPE, "market_scope_registry")
+
+
+def _registry_tbl(scope_name: str) -> str:
+    return polymarket_ops_tbl(_normalize_scope(scope_name), "market_scope_registry")
 
 
 @dataclass(frozen=True)
@@ -39,30 +43,36 @@ def upsert_registry_rows(rows: Sequence[RegistryRow]) -> int:
         return 0
     ensure_duck_db()
     now = _utc_now()
-    payload = [
-        {
-            "scope_name": _normalize_scope(r.scope_name),
-            "market_id": r.market_id,
-            "event_slug": r.event_slug,
-            "event_id": r.event_id,
-            "source": r.source,
-            "refreshed_at": now,
-        }
-        for r in rows
-    ]
+    by_scope: dict[str, list[dict[str, object]]] = {}
+    for row in rows:
+        scope = _normalize_scope(row.scope_name)
+        by_scope.setdefault(scope, []).append(
+            {
+                "scope_name": scope,
+                "market_id": row.market_id,
+                "event_slug": row.event_slug,
+                "event_id": row.event_id,
+                "source": row.source,
+                "refreshed_at": now,
+            }
+        )
+    total = 0
     with get_connection() as conn:
-        load_market_scope_registry_stage(payload, conn)
-    return len(payload)
+        for scope, payload in by_scope.items():
+            load_market_scope_registry_stage(payload, conn, scope_name=scope)
+            total += len(payload)
+    return total
 
 
 def get_registry_market_ids(scope_name: str = DEFAULT_MARKET_SCOPE) -> List[str]:
     ensure_duck_db()
     scope = _normalize_scope(scope_name)
+    registry = _registry_tbl(scope)
     with get_connection() as conn:
         result = conn.execute(
             f"""
             SELECT market_id
-            FROM {_TAB_REGISTRY}
+            FROM {registry}
             WHERE scope_name = ?
             ORDER BY market_id
             """,
@@ -77,8 +87,9 @@ def registry_market_count(scope_name: str | None = None) -> int:
         if scope_name is None:
             row = conn.execute(f"SELECT COUNT(*) FROM {_TAB_REGISTRY}").fetchone()
         else:
+            registry = _registry_tbl(scope_name)
             row = conn.execute(
-                f"SELECT COUNT(*) FROM {_TAB_REGISTRY} WHERE scope_name = ?",
+                f"SELECT COUNT(*) FROM {registry} WHERE scope_name = ?",
                 [_normalize_scope(scope_name)],
             ).fetchone()
     return int(row[0]) if row and row[0] is not None else 0
@@ -87,13 +98,14 @@ def registry_market_count(scope_name: str | None = None) -> int:
 def clear_registry(scope_name: str | None = None) -> None:
     """Remove registry rows; optionally limit to one scope (tests only)."""
     ensure_duck_db()
+    scope = _normalize_scope(scope_name) if scope_name is not None else None
     with get_connection() as conn:
-        if scope_name is None:
+        if scope is None:
             conn.execute(f"DELETE FROM {_TAB_REGISTRY}")
         else:
             conn.execute(
-                f"DELETE FROM {_TAB_REGISTRY} WHERE scope_name = ?",
-                [_normalize_scope(scope_name)],
+                f"DELETE FROM {_registry_tbl(scope)} WHERE scope_name = ?",
+                [scope],
             )
 
 
@@ -102,14 +114,17 @@ def get_registry_event_slugs(scope_name: str | None = None) -> List[str]:
     ensure_duck_db()
     params: list[str] = []
     where_scope = ""
+    registry = _TAB_REGISTRY
     if scope_name is not None:
+        scope = _normalize_scope(scope_name)
+        registry = _registry_tbl(scope)
         where_scope = "AND scope_name = ?"
-        params.append(_normalize_scope(scope_name))
+        params.append(scope)
     with get_connection() as conn:
         result = conn.execute(
             f"""
             SELECT DISTINCT event_slug
-            FROM {_TAB_REGISTRY}
+            FROM {registry}
             WHERE event_slug IS NOT NULL
               AND TRIM(event_slug) != ''
               {where_scope}

@@ -44,6 +44,20 @@ def test_get_polymarket_dlt_pipeline_uses_path_cache():
     assert first is second
     assert len(created) == 1
 
+    helpers_mod._DLT_PIPELINE_BY_PATH.clear()
+    midterms = helpers_mod.get_polymarket_dlt_pipeline(
+        scope_name="us_midterms_2026",
+        active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
+        dlt_module=FakeDlt,
+    )
+    wc2026 = helpers_mod.get_polymarket_dlt_pipeline(
+        scope_name="wc2026",
+        active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
+        dlt_module=FakeDlt,
+    )
+    assert midterms is not wc2026
+    assert len(created) == 3
+
 
 def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
     pipeline = MagicMock(has_pending_data=True)
@@ -76,7 +90,7 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
     monkeypatch.setattr(
         assets_mod,
         "save_market_tokens_batch",
-        lambda rows: saved_tokens.extend(rows),
+        lambda rows, scope_name=None: saved_tokens.extend(rows),
     )
     monkeypatch.setattr(
         assets_mod,
@@ -84,7 +98,7 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
         lambda task, metrics: saved_metrics.update({"task": task, **metrics}),
     )
     monkeypatch.setattr(
-        assets_mod, "polymarket_markets_source", lambda *, rows=(): source
+        assets_mod, "polymarket_wc2026_markets_source", lambda *, rows=(): source
     )
     monkeypatch.setattr(assets_mod, "get_connection", connection)
     ensure_indexes = MagicMock()
@@ -97,7 +111,7 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
     fake_dlt.run.assert_called_once()
     assert saved_tokens == token_rows
     assert saved_metrics["task"] == "sync_markets"
-    ensure_indexes.assert_called_once_with(conn)
+    ensure_indexes.assert_called_once_with(conn, scope_name="wc2026")
 
 
 def test_raw_markets_snapshot_is_local_only(monkeypatch):

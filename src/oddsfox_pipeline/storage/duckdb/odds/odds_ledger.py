@@ -5,13 +5,13 @@ import duckdb
 
 from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_connection
 from oddsfox_pipeline.storage.duckdb.odds._common import (
-    _SQL_UPSERT_LEDGER_LAST_SYNC,
-    _SQL_UPSERT_LEDGER_STATE,
-    _SQL_UPSERT_TOKEN_SYNC_SKIP,
-    _TAB_ODDS_HISTORY,
-    _TAB_TOKEN_SYNC_LEDGER,
-    _TAB_TOKEN_SYNC_SKIPS,
     logger,
+    odds_history_tbl,
+    sql_upsert_ledger_last_sync,
+    sql_upsert_ledger_state,
+    sql_upsert_token_sync_skip,
+    token_sync_ledger_tbl,
+    token_sync_skips_tbl,
 )
 
 
@@ -22,7 +22,7 @@ def upsert_ledger_last_sync_batch(
     """Advance per-token sync cursors without clobbering other ledger columns (e.g. fully_checked)."""
     if not token_timestamps:
         return
-    conn.executemany(_SQL_UPSERT_LEDGER_LAST_SYNC, token_timestamps)
+    conn.executemany(sql_upsert_ledger_last_sync(), token_timestamps)
 
 
 def upsert_token_sync_state_batch(
@@ -41,7 +41,7 @@ def upsert_token_sync_state_batch(
     """Persist per-token scheduler state without regressing existing ledger progress."""
     if not token_states:
         return
-    conn.executemany(_SQL_UPSERT_LEDGER_STATE, token_states)
+    conn.executemany(sql_upsert_ledger_state(), token_states)
 
 
 def upsert_skipped_tokens_batch(
@@ -51,7 +51,7 @@ def upsert_skipped_tokens_batch(
     """Persist or update skip reasons without resetting created_at on existing rows."""
     if not token_reasons:
         return
-    conn.executemany(_SQL_UPSERT_TOKEN_SYNC_SKIP, token_reasons)
+    conn.executemany(sql_upsert_token_sync_skip(), token_reasons)
 
 
 def get_latest_timestamps() -> Dict[str, int]:
@@ -62,13 +62,13 @@ def get_latest_timestamps() -> Dict[str, int]:
     timestamps: Dict[str, int] = {}
     with get_connection() as conn:
         history_rows = conn.execute(
-            f"SELECT clobTokenId, MAX(timestamp) FROM {_TAB_ODDS_HISTORY} GROUP BY clobTokenId"
+            f"SELECT clobTokenId, MAX(timestamp) FROM {odds_history_tbl()} GROUP BY clobTokenId"
         ).fetchall()
         for token_id, ts in history_rows:
             timestamps[token_id] = int(ts)
 
         ledger_rows = conn.execute(
-            f"SELECT clobTokenId, last_sync_timestamp FROM {_TAB_TOKEN_SYNC_LEDGER}"
+            f"SELECT clobTokenId, last_sync_timestamp FROM {token_sync_ledger_tbl()}"
         ).fetchall()
         for token_id, ts in ledger_rows:
             if ts is None:
@@ -88,7 +88,7 @@ def get_tokens_with_data() -> Set[str]:
     ensure_duck_db()
     with get_connection() as conn:
         rows = conn.execute(
-            f"SELECT DISTINCT clobTokenId FROM {_TAB_ODDS_HISTORY}"
+            f"SELECT DISTINCT clobTokenId FROM {odds_history_tbl()}"
         ).fetchall()
         tokens = {row[0] for row in rows}
     logger.debug("DuckDB tokens with data: %d", len(tokens))
@@ -100,7 +100,7 @@ def get_fully_checked_tokens() -> Set[str]:
     ensure_duck_db()
     with get_connection() as conn:
         rows = conn.execute(
-            f"SELECT clobTokenId FROM {_TAB_TOKEN_SYNC_LEDGER} WHERE fully_checked = TRUE"
+            f"SELECT clobTokenId FROM {token_sync_ledger_tbl()} WHERE fully_checked = TRUE"
         ).fetchall()
         tokens = {row[0] for row in rows}
     logger.debug("DuckDB fully checked tokens: %d", len(tokens))
@@ -112,7 +112,7 @@ def get_skipped_tokens() -> Dict[str, str]:
     ensure_duck_db()
     with get_connection() as conn:
         rows = conn.execute(
-            f"SELECT clobTokenId, reason FROM {_TAB_TOKEN_SYNC_SKIPS}"
+            f"SELECT clobTokenId, reason FROM {token_sync_skips_tbl()}"
         ).fetchall()
         return {row[0]: row[1] for row in rows}
 
@@ -135,7 +135,7 @@ def mark_tokens_fully_checked(token_ids: List[str]):
     with get_connection() as conn:
         conn.executemany(
             f"""
-            INSERT INTO {_TAB_TOKEN_SYNC_LEDGER} (clobTokenId, fully_checked)
+            INSERT INTO {token_sync_ledger_tbl()} (clobTokenId, fully_checked)
             VALUES (?, TRUE)
             ON CONFLICT(clobTokenId) DO UPDATE SET fully_checked = TRUE
             """,
@@ -156,7 +156,7 @@ def reconcile_token_sync_ledger_from_history() -> Dict[str, int]:
     ensure_duck_db()
     with get_connection() as conn:
         scanned_row = conn.execute(
-            f"SELECT COUNT(DISTINCT clobTokenId) FROM {_TAB_ODDS_HISTORY}"
+            f"SELECT COUNT(DISTINCT clobTokenId) FROM {odds_history_tbl()}"
         ).fetchone()
         scanned_tokens = (
             int(scanned_row[0]) if scanned_row and scanned_row[0] is not None else 0
@@ -166,12 +166,12 @@ def reconcile_token_sync_ledger_from_history() -> Dict[str, int]:
             f"""
             WITH history AS (
                 SELECT clobTokenId, MAX(timestamp) AS max_history_ts
-                FROM {_TAB_ODDS_HISTORY}
+                FROM {odds_history_tbl()}
                 GROUP BY clobTokenId
             )
             SELECT COUNT(*)
             FROM history h
-            LEFT JOIN {_TAB_TOKEN_SYNC_LEDGER} l ON l.clobTokenId = h.clobTokenId
+            LEFT JOIN {token_sync_ledger_tbl()} l ON l.clobTokenId = h.clobTokenId
             WHERE l.last_sync_timestamp IS NULL OR h.max_history_ts > l.last_sync_timestamp
             """
         ).fetchone()
@@ -181,11 +181,11 @@ def reconcile_token_sync_ledger_from_history() -> Dict[str, int]:
 
         conn.execute(
             f"""
-            INSERT INTO {_TAB_TOKEN_SYNC_LEDGER} (clobTokenId, last_sync_timestamp)
+            INSERT INTO {token_sync_ledger_tbl()} (clobTokenId, last_sync_timestamp)
             SELECT h.clobTokenId, h.max_history_ts
             FROM (
                 SELECT clobTokenId, MAX(timestamp) AS max_history_ts
-                FROM {_TAB_ODDS_HISTORY}
+                FROM {odds_history_tbl()}
                 GROUP BY clobTokenId
             ) h
             ON CONFLICT(clobTokenId) DO UPDATE SET

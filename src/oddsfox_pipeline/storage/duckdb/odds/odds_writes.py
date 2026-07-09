@@ -9,9 +9,9 @@ from oddsfox_pipeline.storage.duckdb.dlt_batch import (
     prepare_odds_history_stage,
 )
 from oddsfox_pipeline.storage.duckdb.odds._common import (
-    _TAB_ODDS_HISTORY,
     _utc_now,
     logger,
+    odds_history_tbl,
 )
 
 
@@ -48,7 +48,7 @@ def save_odds_bulk_appender(
 def _ensure_odds_history_schema(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute(
         f"""
-        CREATE TABLE IF NOT EXISTS {_TAB_ODDS_HISTORY} (
+        CREATE TABLE IF NOT EXISTS {odds_history_tbl()} (
             clobTokenId TEXT,
             timestamp BIGINT,
             price DOUBLE,
@@ -58,7 +58,7 @@ def _ensure_odds_history_schema(conn: duckdb.DuckDBPyConnection) -> None:
         """
     )
     conn.execute(
-        f"ALTER TABLE {_TAB_ODDS_HISTORY} ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMP"
+        f"ALTER TABLE {odds_history_tbl()} ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMP"
     )
 
 

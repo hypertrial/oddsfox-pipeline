@@ -56,6 +56,7 @@ def test_dbt_project_sources_are_wc2026_only():
     model_dirs = {p.name for p in (dbt_root / "models").iterdir() if p.is_dir()}
     assert model_dirs == {
         "international_results_wc2026",
+        "polymarket_us_midterms_2026",
         "polymarket_wc2026",
         "sources",
     }
@@ -96,6 +97,32 @@ def test_wc2026_contract_seed_is_configured_and_documented():
 
     assert seeds["polymarket_wc2026_contract"]["+schema"] == "polymarket_wc2026_staging"
     assert "polymarket_wc2026_contract" in documented
+    assert (
+        seeds["polymarket_us_midterms_2026_contract"]["+schema"]
+        == "polymarket_us_midterms_2026_staging"
+    )
+    assert "polymarket_us_midterms_2026_contract" in documented
+
+
+def test_us_midterms_2026_mart_materialization_shape():
+    project = yaml.safe_load(
+        (Path(__file__).resolve().parents[2] / "dbt" / "dbt_project.yml").read_text()
+    )
+    intermediate = project["models"]["oddsfox"]["polymarket_us_midterms_2026"][
+        "intermediate"
+    ]
+    marts = project["models"]["oddsfox"]["polymarket_us_midterms_2026"]["marts"]
+
+    assert (
+        intermediate["int_polymarket_us_midterms_2026_token_hourly_odds"][
+            "+materialized"
+        ]
+        == "incremental"
+    )
+    assert (
+        marts["polymarket_us_midterms_2026_market_token_hourly_odds"]["+materialized"]
+        == "view"
+    )
 
 
 def test_knockout_classifier_intermediate_exists_and_is_documented():

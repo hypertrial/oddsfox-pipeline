@@ -35,7 +35,7 @@ def test_metadata_backfill_asset_invokes_progress_callback():
         ),
         patch(
             "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
-            lambda: 0,
+            lambda **_kwargs: 0,
         ),
     ):
         materialize(
@@ -76,7 +76,7 @@ def test_metadata_backfill_config_branches():
         ),
         patch(
             "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
-            lambda: 0,
+            lambda **_kwargs: 0,
         ),
     ):
         materialize(
@@ -97,7 +97,7 @@ def test_metadata_backfill_config_branches():
         ),
         patch(
             "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
-            lambda: 0,
+            lambda **_kwargs: 0,
         ),
     ):
         materialize(
@@ -127,7 +127,7 @@ def test_metadata_backfill_forwards_event_slug_fallback_and_gamma_kwargs():
         ),
         patch(
             "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
-            lambda: 0,
+            lambda **_kwargs: 0,
         ),
     ):
         materialize(
@@ -180,7 +180,7 @@ def test_metadata_backfill_deletes_orphan_market_tokens_after_backfill(monkeypat
     monkeypatch.setattr(
         polymarket_ops_mod,
         "delete_orphan_market_tokens",
-        lambda: calls.append("cleanup") or 2,
+        lambda **_kwargs: calls.append("cleanup") or 2,
     )
 
     fn = polymarket_wc2026_raw_market_metadata_backfill.op.compute_fn.decorated_fn
@@ -230,7 +230,7 @@ def test_metadata_backfill_guardrail_poll_checks_and_raises_worker_errors(monkey
         ),
         patch(
             "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
-            lambda: 0,
+            lambda **_kwargs: 0,
         ),
     ):
         materialize(
@@ -260,7 +260,7 @@ def test_metadata_backfill_guardrail_poll_checks_and_raises_worker_errors(monkey
         ),
         patch(
             "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
-            lambda: 0,
+            lambda **_kwargs: 0,
         ),
     ):
         with pytest.raises(RuntimeError, match="boom phase"):

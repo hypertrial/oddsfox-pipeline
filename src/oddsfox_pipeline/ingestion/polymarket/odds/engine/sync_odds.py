@@ -90,152 +90,156 @@ def sync_odds(
     persist_run_metrics: bool = True,
     runtime: OddsSyncRuntime,
 ) -> Dict[str, Any]:
-    run_started = runtime.time_mod.monotonic()
-    options = OddsSyncOptions(
-        clob_cutoff_date=clob_cutoff_date,
-        fidelity=fidelity,
-        force=force,
-        rebuild_history=rebuild_history,
-        overlap_minutes=overlap_minutes,
-        skip_recent_minutes=skip_recent_minutes,
-        market_page_size=market_page_size,
-        reconcile_ledger=reconcile_ledger,
-        short_range_first=short_range_first,
-        market_scope=market_scope,
-        ended_market_grace_days=ended_market_grace_days,
-        min_volume=min_volume,
-        max_volume=max_volume,
-        history_backfill_days=history_backfill_days,
-        empty_token_skip_budgets=empty_token_skip_budgets,
-        empty_token_skip_runs=empty_token_skip_runs,
-    )
-    params = normalize_sync_params(
-        batch_size=batch_size,
-        window_hours=window_hours,
-        writer_chunk_rows=writer_chunk_rows,
-        writer_flush_rows=writer_flush_rows,
-        min_split_window_minutes=min_split_window_minutes,
-        routine_interval_hours=routine_interval_hours,
-        empty_retry_base_hours=empty_retry_base_hours,
-        empty_retry_max_hours=empty_retry_max_hours,
-        error_retry_minutes=error_retry_minutes,
-    )
-    guardrail = setup_guardrail(
-        runtime,
-        progress_log_interval_seconds=progress_log_interval_seconds,
-        no_progress_soft_timeout_seconds=no_progress_soft_timeout_seconds,
-        no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,
-        progress_log_interval_tokens=progress_log_interval_tokens,
-        progress_callback=progress_callback,
-    )
-    boot = bootstrap_planning(
-        runtime,
-        options=options,
-        plan_iterator_factory=plan_iterator_factory,
-    )
-    if boot.first_plan is None:
-        return build_noop_sync_result(
-            runtime=runtime,
-            guardrail=guardrail,
-            run_started=run_started,
-            raw_pre=boot.raw_pre,
-            planning_state=boot.planning_state,
-            invalid_tokens=boot.invalid_tokens,
-            persist_invalid_tokens_batch=boot.persist_invalid_tokens_batch,
-        )
+    from oddsfox_pipeline.storage.duckdb.polymarket_scope import active_polymarket_scope
 
-    (
-        effective_workers,
-        shared_rate_limiter,
-        runtime_status,
-        runtime_status_lock,
-        tune_state,
-        get_worker_client,
-        on_http_status,
-    ) = setup_rate_limiting(
-        max_workers=max_workers,
-        requests_per_second=requests_per_second,
-        rate_limiter_factory=rate_limiter_factory,
-        client_factory=client_factory,
-        runtime=runtime,
-    )
-    configured_rps = (
-        requests_per_second
-        if requests_per_second is not None
-        else (ODDS_REQUESTS_PER_SECOND or max_workers)
-    )
-    configured_rps = max(1, int(configured_rps)) if configured_rps else None
-    effective_max_rps = (
-        max(2, effective_workers, configured_rps or 0)
-        if auto_tune_max_rps is None
-        else max(int(auto_tune_max_rps), max(1, configured_rps or 1))
-    )
-    write_queue, writer_stats, writer_failures, writer_thread = setup_writer(
-        runtime,
-        effective_workers=effective_workers,
-        writer_flush_rows=params.writer_flush_rows,
-    )
-    pool = PoolResources(
-        effective_workers=effective_workers,
-        shared_rate_limiter=shared_rate_limiter,
-        runtime_status=runtime_status,
-        runtime_status_lock=runtime_status_lock,
-        tune_state=tune_state,
-        get_worker_client=get_worker_client,
-        write_queue=write_queue,
-        writer_stats=writer_stats,
-        writer_failures=writer_failures,
-        writer_thread=writer_thread,
-        totals={
-            "processed_tokens": 0,
-            "rows": 0,
-            "windows": 0,
-            "empty": 0,
-            "error": 0,
-            "permanent_error": 0,
-            "fully_checked": 0,
-            "distinct_markets": 0,
-        },
-    )
-    pool_result = run_sync_pool(
-        runtime,
-        boot,
-        params,
-        guardrail,
-        pool,
-        first_plan=boot.first_plan,
-        effective_max_rps=effective_max_rps,
-        auto_tune_rps=auto_tune_rps,
-        auto_tune_window_requests=auto_tune_window_requests,
-        auto_tune_429_threshold=auto_tune_429_threshold,
-        auto_tune_error_threshold=auto_tune_error_threshold,
-        auto_tune_min_rps=auto_tune_min_rps,
-        transient_retries=transient_retries,
-        transient_backoff_seconds=transient_backoff_seconds,
-        progress_callback=progress_callback,
-        progress_poll_seconds=progress_poll_seconds,
-        on_http_status=on_http_status,
-    )
-    return finalize_sync_odds_run(
-        runtime=runtime,
-        run_started=run_started,
-        guardrail=guardrail,
-        raw_pre=boot.raw_pre,
-        planning_state=pool_result.planning_state,
-        invalid_tokens=pool_result.invalid_tokens,
-        persist_invalid_tokens_batch=boot.persist_invalid_tokens_batch,
-        totals=pool_result.totals,
-        writer_stats=writer_stats,
-        runtime_status_lock=runtime_status_lock,
-        runtime_status=runtime_status,
-        shared_rate_limiter=shared_rate_limiter,
-        aborted=pool_result.aborted,
-        abort_reason=pool_result.abort_reason,
-        no_progress_error=pool_result.no_progress_error,
-        write_queue=write_queue,
-        writer_thread=writer_thread,
-        writer_failures=writer_failures,
-        progress_poll_seconds=progress_poll_seconds,
-        persist_run_metrics=persist_run_metrics,
-        planning_state_to_dict=planning_state_to_dict,
-    )
+    with active_polymarket_scope(market_scope):
+        run_started = runtime.time_mod.monotonic()
+        options = OddsSyncOptions(
+            clob_cutoff_date=clob_cutoff_date,
+            fidelity=fidelity,
+            force=force,
+            rebuild_history=rebuild_history,
+            overlap_minutes=overlap_minutes,
+            skip_recent_minutes=skip_recent_minutes,
+            market_page_size=market_page_size,
+            reconcile_ledger=reconcile_ledger,
+            short_range_first=short_range_first,
+            market_scope=market_scope,
+            ended_market_grace_days=ended_market_grace_days,
+            min_volume=min_volume,
+            max_volume=max_volume,
+            history_backfill_days=history_backfill_days,
+            empty_token_skip_budgets=empty_token_skip_budgets,
+            empty_token_skip_runs=empty_token_skip_runs,
+        )
+        params = normalize_sync_params(
+            batch_size=batch_size,
+            window_hours=window_hours,
+            writer_chunk_rows=writer_chunk_rows,
+            writer_flush_rows=writer_flush_rows,
+            min_split_window_minutes=min_split_window_minutes,
+            routine_interval_hours=routine_interval_hours,
+            empty_retry_base_hours=empty_retry_base_hours,
+            empty_retry_max_hours=empty_retry_max_hours,
+            error_retry_minutes=error_retry_minutes,
+        )
+        guardrail = setup_guardrail(
+            runtime,
+            progress_log_interval_seconds=progress_log_interval_seconds,
+            no_progress_soft_timeout_seconds=no_progress_soft_timeout_seconds,
+            no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,
+            progress_log_interval_tokens=progress_log_interval_tokens,
+            progress_callback=progress_callback,
+        )
+        boot = bootstrap_planning(
+            runtime,
+            options=options,
+            plan_iterator_factory=plan_iterator_factory,
+        )
+        if boot.first_plan is None:
+            return build_noop_sync_result(
+                runtime=runtime,
+                guardrail=guardrail,
+                run_started=run_started,
+                raw_pre=boot.raw_pre,
+                planning_state=boot.planning_state,
+                invalid_tokens=boot.invalid_tokens,
+                persist_invalid_tokens_batch=boot.persist_invalid_tokens_batch,
+            )
+
+        (
+            effective_workers,
+            shared_rate_limiter,
+            runtime_status,
+            runtime_status_lock,
+            tune_state,
+            get_worker_client,
+            on_http_status,
+        ) = setup_rate_limiting(
+            max_workers=max_workers,
+            requests_per_second=requests_per_second,
+            rate_limiter_factory=rate_limiter_factory,
+            client_factory=client_factory,
+            runtime=runtime,
+        )
+        configured_rps = (
+            requests_per_second
+            if requests_per_second is not None
+            else (ODDS_REQUESTS_PER_SECOND or max_workers)
+        )
+        configured_rps = max(1, int(configured_rps)) if configured_rps else None
+        effective_max_rps = (
+            max(2, effective_workers, configured_rps or 0)
+            if auto_tune_max_rps is None
+            else max(int(auto_tune_max_rps), max(1, configured_rps or 1))
+        )
+        write_queue, writer_stats, writer_failures, writer_thread = setup_writer(
+            runtime,
+            effective_workers=effective_workers,
+            writer_flush_rows=params.writer_flush_rows,
+            market_scope=market_scope,
+        )
+        pool = PoolResources(
+            effective_workers=effective_workers,
+            shared_rate_limiter=shared_rate_limiter,
+            runtime_status=runtime_status,
+            runtime_status_lock=runtime_status_lock,
+            tune_state=tune_state,
+            get_worker_client=get_worker_client,
+            write_queue=write_queue,
+            writer_stats=writer_stats,
+            writer_failures=writer_failures,
+            writer_thread=writer_thread,
+            totals={
+                "processed_tokens": 0,
+                "rows": 0,
+                "windows": 0,
+                "empty": 0,
+                "error": 0,
+                "permanent_error": 0,
+                "fully_checked": 0,
+                "distinct_markets": 0,
+            },
+        )
+        pool_result = run_sync_pool(
+            runtime,
+            boot,
+            params,
+            guardrail,
+            pool,
+            first_plan=boot.first_plan,
+            effective_max_rps=effective_max_rps,
+            auto_tune_rps=auto_tune_rps,
+            auto_tune_window_requests=auto_tune_window_requests,
+            auto_tune_429_threshold=auto_tune_429_threshold,
+            auto_tune_error_threshold=auto_tune_error_threshold,
+            auto_tune_min_rps=auto_tune_min_rps,
+            transient_retries=transient_retries,
+            transient_backoff_seconds=transient_backoff_seconds,
+            progress_callback=progress_callback,
+            progress_poll_seconds=progress_poll_seconds,
+            on_http_status=on_http_status,
+        )
+        return finalize_sync_odds_run(
+            runtime=runtime,
+            run_started=run_started,
+            guardrail=guardrail,
+            raw_pre=boot.raw_pre,
+            planning_state=pool_result.planning_state,
+            invalid_tokens=pool_result.invalid_tokens,
+            persist_invalid_tokens_batch=boot.persist_invalid_tokens_batch,
+            totals=pool_result.totals,
+            writer_stats=writer_stats,
+            runtime_status_lock=runtime_status_lock,
+            runtime_status=runtime_status,
+            shared_rate_limiter=shared_rate_limiter,
+            aborted=pool_result.aborted,
+            abort_reason=pool_result.abort_reason,
+            no_progress_error=pool_result.no_progress_error,
+            write_queue=write_queue,
+            writer_thread=writer_thread,
+            writer_failures=writer_failures,
+            progress_poll_seconds=progress_poll_seconds,
+            persist_run_metrics=persist_run_metrics,
+            planning_state_to_dict=planning_state_to_dict,
+        )

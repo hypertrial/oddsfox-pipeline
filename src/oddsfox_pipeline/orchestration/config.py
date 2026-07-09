@@ -8,6 +8,9 @@ from pydantic import Field, field_validator, model_validator
 from oddsfox_pipeline.config.settings import (
     DEFAULT_ODDS_FIDELITY_MINUTES,
     MIN_ODDS_FIDELITY_MINUTES,
+    POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_DAYS,
+    POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_HOURS,
+    POLYMARKET_US_MIDTERMS_2026_MIN_VOLUME_USD,
     POLYMARKET_WC2026_HOURLY_WINDOW_DAYS,
     POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
     POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
@@ -186,6 +189,54 @@ class DbtBuildConfig(GuardrailConfig):
         ge=1,
     )
     full_refresh: bool = False
+
+
+def polymarket_us_midterms_2026_full_refresh_events_run_config() -> dict:
+    markets_cfg = MarketsSyncConfig(
+        discovery_mode="targeted",
+        force_full_discovery=True,
+        max_pages_without_progress=None,
+    )
+    registry_cfg = MarketScopeRegistryConfig(
+        force_refresh=True,
+        max_pages_without_progress=None,
+    )
+    metadata_cfg = MetadataBackfillConfig()
+    return {
+        "ops": {
+            "polymarket_us_midterms_2026_raw_markets": {
+                "config": markets_cfg.model_dump()
+            },
+            "polymarket_us_midterms_2026_ops_market_scope_registry": {
+                "config": registry_cfg.model_dump()
+            },
+            "polymarket_us_midterms_2026_raw_market_metadata_backfill": {
+                "config": metadata_cfg.model_dump()
+            },
+        }
+    }
+
+
+def polymarket_us_midterms_2026_hourly_odds_run_config() -> dict:
+    odds_cfg = HourlyOddsSyncConfig(
+        fidelity=60,
+        force=True,
+        skip_recent_minutes=1,
+        overlap_minutes=60,
+        window_hours=POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_HOURS,
+        history_backfill_days=POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_DAYS,
+        routine_interval_hours=1,
+        min_volume=POLYMARKET_US_MIDTERMS_2026_MIN_VOLUME_USD,
+        max_volume=None,
+        ended_market_grace_days=7,
+    )
+    return {
+        "ops": {
+            "polymarket_us_midterms_2026_raw_token_odds_history_hourly": {
+                "config": odds_cfg.model_dump()
+            },
+        }
+    }
 
 
 def polymarket_wc2026_dbt_build_run_config() -> dict:

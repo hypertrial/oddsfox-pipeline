@@ -48,6 +48,30 @@ models:
         +schema: polymarket_wc2026_observability
         +materialized: table
         +tags: ["mart", "observability", "wc2026", "polymarket"]
+    polymarket_us_midterms_2026:
+      +tags: ["us_midterms_2026", "polymarket"]
+      staging:
+        +schema: polymarket_us_midterms_2026_staging
+        +tags: ["staging", "us_midterms_2026", "polymarket"]
+      intermediate:
+        +schema: polymarket_us_midterms_2026_intermediate
+        +tags: ["intermediate", "us_midterms_2026", "polymarket"]
+        int_polymarket_us_midterms_2026_market_tokens:
+          +materialized: table
+        int_polymarket_us_midterms_2026_token_hourly_odds:
+          +materialized: incremental
+        int_polymarket_us_midterms_2026_token_universe:
+          +materialized: table
+      marts:
+        +schema: polymarket_us_midterms_2026_marts
+        +materialized: table
+        +tags: ["mart", "core", "us_midterms_2026", "polymarket"]
+        polymarket_us_midterms_2026_market_token_hourly_odds:
+          +materialized: view
+      observability:
+        +schema: polymarket_us_midterms_2026_observability
+        +materialized: table
+        +tags: ["mart", "observability", "us_midterms_2026", "polymarket"]
     international_results_wc2026:
       +tags: ["wc2026", "international_results"]
       staging:
@@ -73,4 +97,8 @@ seeds:
     polymarket_wc2026_contract:
       +schema: polymarket_wc2026_staging
       +tags: ["staging", "wc2026", "polymarket"]
+      +quote_columns: false
+    polymarket_us_midterms_2026_contract:
+      +schema: polymarket_us_midterms_2026_staging
+      +tags: ["staging", "us_midterms_2026", "polymarket"]
       +quote_columns: false

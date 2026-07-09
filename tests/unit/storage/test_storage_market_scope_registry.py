@@ -50,30 +50,32 @@ def test_upsert_and_query_registry(duck):
 def test_registry_grain_includes_scope_name(duck):
     n = upsert_registry_rows(
         [
-            RegistryRow("m1", "event-a", "e1", "seed", scope_name="scope-a"),
-            RegistryRow("m1", "event-b", "e2", "seed", scope_name="scope-b"),
+            RegistryRow("m1", "event-a", "e1", "seed", scope_name="wc2026"),
+            RegistryRow("m1", "event-b", "e2", "seed", scope_name="us_midterms_2026"),
         ]
     )
 
     assert n == 2
-    assert registry_market_count() == 2
-    assert registry_market_count("scope-a") == 1
-    assert get_registry_market_ids("scope-a") == ["m1"]
-    assert get_registry_market_ids("scope-b") == ["m1"]
+    assert (
+        registry_market_count("wc2026") + registry_market_count("us_midterms_2026") == 2
+    )
+    assert registry_market_count("wc2026") == 1
+    assert get_registry_market_ids("wc2026") == ["m1"]
+    assert get_registry_market_ids("us_midterms_2026") == ["m1"]
 
 
 def test_registry_helpers_are_scope_aware(duck):
     upsert_registry_rows(
         [
-            RegistryRow("m1", "event-a", "e1", "seed", scope_name="scope-a"),
-            RegistryRow("m2", "event-b", "e2", "seed", scope_name="scope-b"),
+            RegistryRow("m1", "event-a", "e1", "seed", scope_name="wc2026"),
+            RegistryRow("m2", "event-b", "e2", "seed", scope_name="us_midterms_2026"),
         ]
     )
 
-    assert get_registry_event_slugs("scope-a") == ["event-a"]
-    clear_registry("scope-a")
-    assert registry_market_count("scope-a") == 0
-    assert registry_market_count("scope-b") == 1
+    assert get_registry_event_slugs("wc2026") == ["event-a"]
+    clear_registry("wc2026")
+    assert registry_market_count("wc2026") == 0
+    assert registry_market_count("us_midterms_2026") == 1
     with pytest.raises(ValueError, match="scope_name"):
         get_registry_market_ids("")
 

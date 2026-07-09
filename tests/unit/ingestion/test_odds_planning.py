@@ -745,3 +745,19 @@ def test_iter_token_plans_paged_reconcile_short_first_off():
     )
     plans = list(gen)
     assert plans
+
+
+def test_iter_token_plans_paged_accepts_prebuilt_options(monkeypatch):
+    from oddsfox_pipeline.ingestion.polymarket.odds.support import OddsSyncOptions
+
+    captured: dict = {}
+    options = OddsSyncOptions(force=True, rebuild_history=True)
+
+    def fake_paged(*_args, **kwargs):
+        captured.update(kwargs)
+        return iter(())
+
+    monkeypatch.setattr(odds_sync._planning_mod, "iter_token_plans_paged", fake_paged)
+    list(odds_sync.iter_token_plans_paged(options=options))
+
+    assert captured["options"] is options

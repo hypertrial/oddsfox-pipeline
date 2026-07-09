@@ -24,6 +24,7 @@ def test_validate_market_scope_accepts_slug_like_scopes():
     assert validate_market_scope() == "wc2026"
     assert validate_market_scope("wc2026") == "wc2026"
     assert validate_market_scope("custom-scope") == "custom-scope"
+    assert validate_market_scope("us_midterms_2026") == "us_midterms_2026"
     with pytest.raises(ValueError, match="slug-like"):
         validate_market_scope("bad scope")
 
@@ -197,6 +198,21 @@ scopes:
     assert euros.market_ids == ("m-1",)
     assert euros.keyset_volume_min == 2500.0
     assert euros.tag_discovery is False
+
+
+def test_load_us_midterms_2026_scope_from_packaged_seed():
+    from oddsfox_pipeline.ingestion.polymarket.market_scope.config import (
+        load_market_scope_config,
+    )
+
+    cfg = load_market_scope_config(scope_name="us_midterms_2026")
+    assert cfg.scope_name == "us_midterms_2026"
+    assert cfg.event_slugs == (
+        "balance-of-power-2026-midterms",
+        "which-party-will-win-the-house-in-2026",
+        "which-party-will-win-the-senate-in-2026",
+    )
+    assert cfg.tag_discovery is False
 
 
 def test_market_scope_yaml_scalar_validation_helpers(tmp_path):

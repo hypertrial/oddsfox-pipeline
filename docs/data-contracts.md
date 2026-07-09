@@ -2,11 +2,18 @@
 
 This page summarizes the public analytics surface that downstream notebooks,
 scripts, and operators should rely on. OddsFox is a prediction-market pipeline;
-the current public marts are WC2026 Polymarket odds outputs plus WC2026 FIFA
-World Cup fixtures/results used to validate team scope. Model-level column
-docs and tests live in the dbt project.
+the current public marts are WC2026 Polymarket knockout odds outputs, US
+midterms 2026 generic market odds, plus WC2026 FIFA World Cup fixtures/results
+used to validate WC2026 team scope. Model-level column docs and tests live in
+the dbt project.
 
 ## Public Marts
+
+Schema: `polymarket_us_midterms_2026_marts`
+
+| Relation | Grain | Contract |
+| --- | --- | --- |
+| `polymarket_us_midterms_2026_market_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for admitted US midterms 2026 market tokens joined to source market metadata. No office-type classification in v1. |
 
 Schema: `polymarket_wc2026_marts`
 
@@ -26,6 +33,8 @@ Schema: `international_results_wc2026_marts`
 
 ## Health And Observability
 
+- Use `polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_sync_run_observability`
+  for US midterms run-level ingestion telemetry.
 - Use `polymarket_wc2026_observability.polymarket_wc2026_sync_run_observability` for run-level ingestion
   telemetry, market-discovery provenance, request counts, and sync metrics.
 - Use `polymarket_wc2026_observability.polymarket_wc2026_knockout_stage_coverage` to inspect raw
@@ -36,6 +45,12 @@ Schema: `international_results_wc2026_marts`
 
 ## Current Scope Rules
 
+- Public US midterms 2026 marts expose only targeted Balance of Power, Senate
+  control, and House control markets from the `us_midterms_2026` registry at or
+  above the contract volume floor ($5,000 USD by default).
+- Shared US midterms thresholds live in
+  `dbt/seeds/polymarket_us_midterms_2026_contract.csv`; there is no results or
+  candidate validation layer for this scope in v1.
 - Public WC2026 marts expose only knockout-related markets from the WC2026 registry
   at or above the WC2026 contract volume floor. The current floor is $5,000 USD,
   and markets crossing it on a later sync are admitted on the next dbt build.

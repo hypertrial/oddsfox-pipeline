@@ -10,6 +10,8 @@ import duckdb
 
 from oddsfox_pipeline.storage.duckdb.connection import (
     INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
+    POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA,
+    POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
     POLYMARKET_WC2026_RAW_SCHEMA,
     get_connection,
@@ -22,6 +24,10 @@ from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
     INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
     INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
     INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
+    POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
+    POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
+    POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA,
+    POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
     POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
     POLYMARKET_WC2026_MARTS_SCHEMA,
     POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
@@ -41,6 +47,15 @@ _POLY_RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
     (POLYMARKET_WC2026_OPS_SCHEMA, "token_sync_skips"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "pipeline_run_events"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "sync_run_metrics"),
+    (POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA, "markets"),
+    (POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA, "market_tokens"),
+    (POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA, "odds_history"),
+    (POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA, "token_odds_daily"),
+    (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "market_scope_registry"),
+    (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "token_sync_ledger"),
+    (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "token_sync_skips"),
+    (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "pipeline_run_events"),
+    (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "sync_run_metrics"),
 )
 _RAW_TABLES_POLY: tuple[str, ...] = tuple(t for _, t in _POLY_RAW_OPS_TABLES)
 
@@ -100,6 +115,58 @@ _DBT_MODELS: tuple[tuple[str, str], ...] = (
     (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
         "polymarket_wc2026_sync_run_observability",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_markets",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_market_tokens",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_odds",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_odds_daily",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_pipeline_run_events",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_sync_ledger",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_token_sync_skips",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_us_midterms_2026_markets",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_us_midterms_2026_token_universe",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_us_midterms_2026_market_tokens",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_us_midterms_2026_token_hourly_odds",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
+        "polymarket_us_midterms_2026_market_token_hourly_odds",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA,
+        "polymarket_us_midterms_2026_sync_run_observability",
     ),
 )
 
@@ -183,8 +250,12 @@ def snapshot_raw_layer(conn=None, *, level: str = "full") -> dict[str, Any]:
     def _fill(c) -> None:
         for schema, table in _POLY_RAW_OPS_TABLES:
             exists, n = _table_row_count(c, polymarket_wc2026_q(schema, table))
-            out[f"{table}_rows"] = n
-            out[f"{table}_missing"] = not exists
+            qualified = f"{schema}.{table}"
+            out[f"{qualified}_rows"] = n
+            out[f"{qualified}_missing"] = not exists
+            if schema in (POLYMARKET_WC2026_RAW_SCHEMA, POLYMARKET_WC2026_OPS_SCHEMA):
+                out[f"{table}_rows"] = n
+                out[f"{table}_missing"] = not exists
 
         if snapshot_level == "basic":
             return

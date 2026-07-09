@@ -100,6 +100,7 @@ src/oddsfox_pipeline/
 dbt/
   models/international_results_wc2026/{staging,intermediate,marts,observability}/
   models/polymarket_wc2026/{staging,intermediate,marts,observability}/
+  models/polymarket_us_midterms_2026/{staging,intermediate,marts,observability}/
   tests/           # Singular dbt data tests (assert_*)
 tests/
   unit/            # Mocked config, ingestion, storage, orchestration
@@ -124,7 +125,8 @@ Imports use src-layout paths: `from oddsfox_pipeline.config.settings import …`
 - sqlfluff: DuckDB dialect, dbt templater, max line length 130.
 - Lint/fix: `dbt/models`, `dbt/tests` only (see Makefile).
 - Layer naming: source-first schemas such as `polymarket_wc2026_staging`,
-  `polymarket_wc2026_marts`, and `international_results_wc2026_marts`.
+  `polymarket_wc2026_marts`, `polymarket_us_midterms_2026_marts`, and
+  `international_results_wc2026_marts`.
 
 **Tests** ([tests/README.md](tests/README.md)):
 
@@ -141,20 +143,31 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 3. `polymarket/wc2026/ops/market_scope_registry`
 4. `polymarket/wc2026/raw/market_metadata_backfill`
 5. `polymarket/wc2026/raw/token_odds_history_hourly`
-6. `international_results/wc2026/raw/match_results`
-7. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`
+6. `polymarket/us_midterms_2026/raw/markets`
+7. `polymarket/us_midterms_2026/raw/markets_snapshot`
+8. `polymarket/us_midterms_2026/ops/market_scope_registry`
+9. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
+10. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
+11. `international_results/wc2026/raw/match_results`
+12. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+   `polymarket/us_midterms_2026/{staging,intermediate,marts,observability}/...`,
    and `international_results/wc2026/{staging,intermediate,marts,observability}/...`
 
 Key jobs: `international_results_wc2026_match_results_ingest`,
 `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
-`polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`.
+`polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`,
+`polymarket_us_midterms_2026_market_registry_refresh`,
+`polymarket_us_midterms_2026_hourly_odds_ingest`,
+`polymarket_us_midterms_2026_full_pipeline`.
 
-Schedules target `polymarket_wc2026_hourly_odds_ingest`; all are **stopped by default**. Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
+Schedules target `polymarket_wc2026_hourly_odds_ingest` and
+`polymarket_us_midterms_2026_hourly_odds_ingest`; all are **stopped by default**.
+Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 
-**Market scope:** v0.1.x ships only the fixed `wc2026` Dagster/dbt graph.
-Polymarket scope helpers may load other slug-like seed entries for tests and
-future work, but Dagster asset configs do not accept a scope selector. See
-[docs/configuration.md](docs/configuration.md).
+**Market scope:** v0.1.x ships fixed Dagster/dbt graphs for `wc2026` and
+`us_midterms_2026`. Polymarket scope helpers may load other slug-like seed
+entries for tests and future work, but Dagster asset configs do not accept a
+runtime scope selector. See [docs/configuration.md](docs/configuration.md).
 
 DuckDB is local-only runtime state. For read-only inspection prefer `scripts/profile_warehouse.py` over opening the warehouse read-write.
 

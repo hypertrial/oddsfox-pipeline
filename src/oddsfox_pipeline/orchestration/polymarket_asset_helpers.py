@@ -5,7 +5,10 @@ from typing import Any, Callable
 import dlt
 from dagster import AssetExecutionContext, MaterializeResult, MetadataValue
 
-from oddsfox_pipeline.config.settings import DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
+from oddsfox_pipeline.naming import (
+    SCOPE_WC2026,
+    schema_name,
+)
 from oddsfox_pipeline.orchestration import polymarket_ops as ops
 from oddsfox_pipeline.orchestration.config import OddsSyncConfig
 from oddsfox_pipeline.storage.duckdb.connection import active_duckdb_path
@@ -69,6 +72,7 @@ def _build_odds_sync_kwargs(
     config: OddsSyncConfig,
     progress_callback: Callable[[str, dict[str, Any]], None],
     *,
+    market_scope: str = SCOPE_WC2026,
     plan_iterator_factory: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
     sync_kwargs: dict[str, Any] = {
@@ -86,7 +90,7 @@ def _build_odds_sync_kwargs(
         "rebuild_history": config.rebuild_history,
         "reconcile_ledger": config.reconcile_ledger,
         "short_range_first": config.short_range_first,
-        "market_scope": DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
+        "market_scope": market_scope,
         "ended_market_grace_days": config.ended_market_grace_days,
         "min_volume": config.min_volume,
         "max_volume": config.max_volume,
@@ -175,6 +179,7 @@ def _materialize_odds_sync(
     context: AssetExecutionContext,
     config: OddsSyncConfig,
     *,
+    market_scope: str = SCOPE_WC2026,
     plan_iterator_factory: Callable[..., Any] | None = None,
     sync_odds_fn: Callable[..., dict[str, Any]] = ops.sync_odds,
     run_with_raw_snapshot_fn: Callable[
@@ -194,6 +199,7 @@ def _materialize_odds_sync(
     sync_kwargs = _build_odds_sync_kwargs(
         config,
         _odds_progress,
+        market_scope=market_scope,
         plan_iterator_factory=plan_iterator_factory,
     )
     run_summary, _, _, _, raw_metadata = run_with_raw_snapshot_fn(
@@ -209,19 +215,22 @@ _DLT_PIPELINE_BY_PATH: dict[str, dlt.Pipeline] = {}
 
 def get_polymarket_dlt_pipeline(
     *,
+    scope_name: str = SCOPE_WC2026,
     active_duckdb_path_fn: Callable[[], Any] = active_duckdb_path,
     dlt_module: Any = dlt,
 ) -> dlt.Pipeline:
     db_path = str(active_duckdb_path_fn())
-    cached = _DLT_PIPELINE_BY_PATH.get(db_path)
+    dataset_name = schema_name("polymarket", scope_name, "raw")
+    cache_key = f"{db_path}:{dataset_name}"
+    cached = _DLT_PIPELINE_BY_PATH.get(cache_key)
     if cached is not None:
         return cached
     pipe = dlt_module.pipeline(
-        pipeline_name="polymarket_wc2026_raw",
+        pipeline_name=f"{dataset_name}_landing",
         destination=dlt_module.destinations.duckdb(credentials=db_path),
-        dataset_name="polymarket_wc2026_raw",
+        dataset_name=dataset_name,
     )
-    _DLT_PIPELINE_BY_PATH[db_path] = pipe
+    _DLT_PIPELINE_BY_PATH[cache_key] = pipe
     return pipe
 
 

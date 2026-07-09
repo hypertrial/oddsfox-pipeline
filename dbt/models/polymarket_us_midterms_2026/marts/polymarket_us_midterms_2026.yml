@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: polymarket_us_midterms_2026_market_token_hourly_odds
+    description: >
+      US midterms 2026 market tokens joined to admitted markets and trailing
+      hourly OHLC odds. No office-type classification in v1.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_hour_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [clob_token_id, odds_hour_epoch]
+            price_columns:
+              - open_price
+              - high_price
+              - low_price
+              - close_price
+              - avg_price
+    columns:
+      - name: clob_token_id
+        description: Polymarket CLOB outcome token identifier.
+        tests: [not_null]
+      - name: market_id
+        description: Polymarket market identifier.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_polymarket_us_midterms_2026_markets')
+                field: market_id
+      - name: outcome_index
+        description: Zero-based outcome index within the source market.
+        tests: [not_null]
+      - name: outcome_label
+        description: Source token label, usually Yes or No.
+        tests: [not_null]
+      - name: question
+        description: Source market question.
+        tests: [not_null]
+      - name: event_slug
+        description: Polymarket event slug.
+        tests: [not_null]
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the UTC hour bucket.
+        tests: [not_null]

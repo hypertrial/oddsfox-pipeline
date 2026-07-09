@@ -14,6 +14,9 @@ from oddsfox_pipeline.orchestration import (
     assets_international_results as results_assets_mod,
 )
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
+from oddsfox_pipeline.orchestration import (
+    assets_polymarket_us_midterms_2026 as midterms_assets_mod,
+)
 from oddsfox_pipeline.orchestration.definitions import defs
 
 
@@ -55,31 +58,41 @@ oddsfox:
         if False:
             yield None
 
-    monkeypatch.setattr(
-        assets_mod.asset_helpers,
-        "get_polymarket_dlt_pipeline",
-        lambda **_kwargs: pipeline,
-    )
-    monkeypatch.setattr(
-        assets_mod,
-        "collect_market_scope_payload",
-        lambda **_kwargs: {
-            "market_rows": [],
-            "token_rows": [],
-            "run_summary": {"task": "sync_markets", "total_fetched": 0},
-        },
-    )
-    monkeypatch.setattr(assets_mod, "save_market_tokens_batch", lambda _rows: None)
-    monkeypatch.setattr(assets_mod, "save_sync_run_metrics", lambda *_args: None)
-    monkeypatch.setattr(assets_mod, "get_connection", connection)
-    monkeypatch.setattr(assets_mod, "ensure_polymarket_indexes", lambda _conn: None)
-    monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
-    monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
+    for module in (assets_mod, midterms_assets_mod):
+        monkeypatch.setattr(
+            module.asset_helpers,
+            "get_polymarket_dlt_pipeline",
+            lambda **_kwargs: pipeline,
+        )
+        monkeypatch.setattr(
+            module,
+            "collect_market_scope_payload",
+            lambda **_kwargs: {
+                "market_rows": [],
+                "token_rows": [],
+                "run_summary": {"task": "sync_markets", "total_fetched": 0},
+            },
+        )
+        monkeypatch.setattr(
+            module,
+            "save_market_tokens_batch",
+            lambda *_args, **_kwargs: None,
+        )
+        monkeypatch.setattr(
+            module, "save_sync_run_metrics", lambda *_args, **_kwargs: None
+        )
+        monkeypatch.setattr(module, "get_connection", connection)
+        monkeypatch.setattr(
+            module, "ensure_polymarket_indexes", lambda *_args, **_kwargs: None
+        )
+        monkeypatch.setattr(module, "snapshot_raw_layer", lambda **_kwargs: {})
+        monkeypatch.setattr(module, "delta_raw_layer", lambda _pre, _post: {})
+        monkeypatch.setattr(module, "get_sync_run_metrics", lambda _task: None)
+
     monkeypatch.setattr(assets_mod, "snapshot_dbt_models", lambda: {})
     monkeypatch.setattr(assets_mod, "delta_dbt_models", lambda _pre, _post: {})
     monkeypatch.setattr(assets_mod, "format_raw_snapshot_log", lambda _snapshot: "")
     monkeypatch.setattr(assets_mod, "format_dbt_snapshot_log", lambda _snapshot: "")
-    monkeypatch.setattr(assets_mod, "get_sync_run_metrics", lambda _task: None)
     monkeypatch.setattr(assets_mod.ops, "stream_dbt_build", stream_dbt_build)
     monkeypatch.setattr(
         results_assets_mod,
@@ -108,7 +121,9 @@ oddsfox:
         "backfill_market_metadata",
         lambda **_kwargs: {"task": "backfill_market_metadata", "skipped": True},
     )
-    monkeypatch.setattr(assets_mod.ops, "delete_orphan_market_tokens", lambda: 0)
+    monkeypatch.setattr(
+        assets_mod.ops, "delete_orphan_market_tokens", lambda **_kwargs: 0
+    )
     monkeypatch.setattr(
         assets_mod.ops,
         "sync_odds",

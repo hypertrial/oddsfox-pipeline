@@ -500,10 +500,10 @@ def test_create_indexes_includes_market_indexes_when_markets_table_exists():
             """
         ).fetchall()
         assert {str(name) for (name,) in rows} >= {
-            "idx_category",
-            "idx_volume",
-            "idx_slug",
-            "idx_event_slug",
+            "idx_wc2026_category",
+            "idx_wc2026_volume",
+            "idx_wc2026_slug",
+            "idx_wc2026_event_slug",
         }
 
 

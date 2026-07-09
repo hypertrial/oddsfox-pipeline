@@ -2,14 +2,14 @@ from typing import Dict, List, Literal, Set, Tuple, overload
 
 from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_connection
 from oddsfox_pipeline.storage.duckdb.odds._common import (
-    _TAB_ODDS_HISTORY,
-    _TAB_TOKEN_SYNC_LEDGER,
-    _TAB_TOKEN_SYNC_SKIPS,
     _TOKEN_STATE_CHUNK_SIZE,
     TokenSyncSchedulerState,
     TokenSyncSnapshot,
     TokenSyncSnapshotWithScheduler,
     _chunked,
+    odds_history_tbl,
+    token_sync_ledger_tbl,
+    token_sync_skips_tbl,
 )
 from oddsfox_pipeline.storage.duckdb.odds.odds_ledger import (
     upsert_ledger_last_sync_batch,
@@ -88,8 +88,8 @@ def get_token_sync_snapshot(
                     COALESCE(l.empty_run_streak, 0) AS empty_run_streak,
                     s.reason
                 FROM _token_snapshot_input t
-                LEFT JOIN {_TAB_TOKEN_SYNC_LEDGER} l ON l.clobTokenId = t.clobTokenId
-                LEFT JOIN {_TAB_TOKEN_SYNC_SKIPS} s ON s.clobTokenId = t.clobTokenId
+                LEFT JOIN {token_sync_ledger_tbl()} l ON l.clobTokenId = t.clobTokenId
+                LEFT JOIN {token_sync_skips_tbl()} s ON s.clobTokenId = t.clobTokenId
                 """
             ).fetchall()
 
@@ -135,7 +135,7 @@ def get_token_sync_snapshot(
                 history_rows = conn.execute(
                     f"""
                     SELECT clobTokenId, MAX(timestamp) AS max_history_ts
-                    FROM {_TAB_ODDS_HISTORY}
+                    FROM {odds_history_tbl()}
                     WHERE clobTokenId IN (SELECT clobTokenId FROM _token_snapshot_ledger)
                     GROUP BY clobTokenId
                     """
@@ -170,7 +170,7 @@ def get_token_sync_snapshot(
                 history_rows = conn.execute(
                     f"""
                     SELECT clobTokenId, MAX(timestamp) AS max_history_ts
-                    FROM {_TAB_ODDS_HISTORY}
+                    FROM {odds_history_tbl()}
                     WHERE clobTokenId IN (SELECT clobTokenId FROM _token_snapshot_missing)
                     GROUP BY clobTokenId
                     """

@@ -3,37 +3,47 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Dict, Iterable, List, Set, Tuple
 
-from oddsfox_pipeline.storage.duckdb.connection import (
-    polymarket_wc2026_ops_tbl,
-    polymarket_wc2026_raw_tbl,
+from oddsfox_pipeline.storage.duckdb.polymarket_scope import get_active_polymarket_scope
+from oddsfox_pipeline.storage.duckdb.schemas.constants import (
+    polymarket_ops_tbl,
+    polymarket_raw_tbl,
 )
 
 logger = logging.getLogger(__name__)
 _TOKEN_STATE_CHUNK_SIZE = 2_000
 
-_TAB_ODDS_HISTORY = polymarket_wc2026_raw_tbl("odds_history")
-_TAB_TOKEN_ODDS_DAILY = polymarket_wc2026_raw_tbl("token_odds_daily")
-_TAB_TOKEN_SYNC_LEDGER = polymarket_wc2026_ops_tbl("token_sync_ledger")
-_TAB_TOKEN_SYNC_SKIPS = polymarket_wc2026_ops_tbl("token_sync_skips")
-
-TokenSyncSnapshot = Tuple[Dict[str, int], Set[str], Dict[str, str]]
-TokenSyncSnapshotWithScheduler = Tuple[
-    Dict[str, int],
-    Set[str],
-    Dict[str, str],
-    Dict[str, "TokenSyncSchedulerState"],
-]
-
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
 # Sentinel for monotonic ledger cursor merges when last_sync_timestamp is NULL.
 _LEDGER_TS_SENTINEL = "CAST(-9223372036854775808 AS BIGINT)"
 
-_SQL_UPSERT_LEDGER_LAST_SYNC = f"""
-INSERT INTO {_TAB_TOKEN_SYNC_LEDGER} (clobTokenId, last_sync_timestamp)
+
+def odds_history_tbl(scope_name: str | None = None) -> str:
+    return polymarket_raw_tbl(
+        scope_name or get_active_polymarket_scope(), "odds_history"
+    )
+
+
+def token_odds_daily_tbl(scope_name: str | None = None) -> str:
+    return polymarket_raw_tbl(
+        scope_name or get_active_polymarket_scope(), "token_odds_daily"
+    )
+
+
+def token_sync_ledger_tbl(scope_name: str | None = None) -> str:
+    return polymarket_ops_tbl(
+        scope_name or get_active_polymarket_scope(), "token_sync_ledger"
+    )
+
+
+def token_sync_skips_tbl(scope_name: str | None = None) -> str:
+    return polymarket_ops_tbl(
+        scope_name or get_active_polymarket_scope(), "token_sync_skips"
+    )
+
+
+def sql_upsert_ledger_last_sync(scope_name: str | None = None) -> str:
+    tab = token_sync_ledger_tbl(scope_name)
+    return f"""
+INSERT INTO {tab} (clobTokenId, last_sync_timestamp)
 VALUES (?, ?)
 ON CONFLICT(clobTokenId) DO UPDATE SET
     last_sync_timestamp = GREATEST(
@@ -42,8 +52,11 @@ ON CONFLICT(clobTokenId) DO UPDATE SET
     )
 """
 
-_SQL_UPSERT_LEDGER_STATE = f"""
-INSERT INTO {_TAB_TOKEN_SYNC_LEDGER} (
+
+def sql_upsert_ledger_state(scope_name: str | None = None) -> str:
+    tab = token_sync_ledger_tbl(scope_name)
+    return f"""
+INSERT INTO {tab} (
     clobTokenId,
     last_sync_timestamp,
     last_checked_at,
@@ -70,12 +83,37 @@ ON CONFLICT(clobTokenId) DO UPDATE SET
         OR COALESCE(excluded.fully_checked, FALSE)
 """
 
-_SQL_UPSERT_TOKEN_SYNC_SKIP = f"""
-INSERT INTO {_TAB_TOKEN_SYNC_SKIPS} (clobTokenId, reason)
+
+def sql_upsert_token_sync_skip(scope_name: str | None = None) -> str:
+    tab = token_sync_skips_tbl(scope_name)
+    return f"""
+INSERT INTO {tab} (clobTokenId, reason)
 VALUES (?, ?)
 ON CONFLICT(clobTokenId) DO UPDATE SET
     reason = excluded.reason
 """
+
+
+# Backward-compatible aliases for WC2026 importers.
+_TAB_ODDS_HISTORY = odds_history_tbl()
+_TAB_TOKEN_ODDS_DAILY = token_odds_daily_tbl()
+_TAB_TOKEN_SYNC_LEDGER = token_sync_ledger_tbl()
+_TAB_TOKEN_SYNC_SKIPS = token_sync_skips_tbl()
+_SQL_UPSERT_LEDGER_LAST_SYNC = sql_upsert_ledger_last_sync()
+_SQL_UPSERT_LEDGER_STATE = sql_upsert_ledger_state()
+_SQL_UPSERT_TOKEN_SYNC_SKIP = sql_upsert_token_sync_skip()
+
+TokenSyncSnapshot = Tuple[Dict[str, int], Set[str], Dict[str, str]]
+TokenSyncSnapshotWithScheduler = Tuple[
+    Dict[str, int],
+    Set[str],
+    Dict[str, str],
+    Dict[str, "TokenSyncSchedulerState"],
+]
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 @dataclass(frozen=True)

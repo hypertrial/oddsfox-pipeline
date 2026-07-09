@@ -5,9 +5,9 @@ import duckdb
 
 from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_connection
 from oddsfox_pipeline.storage.duckdb.odds._common import (
-    _TAB_ODDS_HISTORY,
-    _TAB_TOKEN_ODDS_DAILY,
     logger,
+    odds_history_tbl,
+    token_odds_daily_tbl,
 )
 
 
@@ -28,7 +28,7 @@ def refresh_token_odds_daily(
     try:
         conn.execute(
             f"""
-            CREATE TABLE IF NOT EXISTS {_TAB_TOKEN_ODDS_DAILY} (
+            CREATE TABLE IF NOT EXISTS {token_odds_daily_tbl()} (
                 clobTokenId TEXT,
                 odds_date_utc DATE,
                 open_price DOUBLE,
@@ -45,7 +45,7 @@ def refresh_token_odds_daily(
             """
         )
         conn.execute(
-            f"ALTER TABLE {_TAB_TOKEN_ODDS_DAILY} ADD COLUMN IF NOT EXISTS refreshed_at TIMESTAMP"
+            f"ALTER TABLE {token_odds_daily_tbl()} ADD COLUMN IF NOT EXISTS refreshed_at TIMESTAMP"
         )
         conn.execute(
             """
@@ -68,7 +68,7 @@ def refresh_token_odds_daily(
         )
         conn.execute(
             f"""
-            DELETE FROM {_TAB_TOKEN_ODDS_DAILY} d
+            DELETE FROM {token_odds_daily_tbl()} d
             WHERE EXISTS (
                 SELECT 1
                 FROM _token_odds_daily_refresh r
@@ -79,7 +79,7 @@ def refresh_token_odds_daily(
         )
         conn.execute(
             f"""
-            INSERT INTO {_TAB_TOKEN_ODDS_DAILY} (
+            INSERT INTO {token_odds_daily_tbl()} (
                 clobTokenId,
                 odds_date_utc,
                 open_price,
@@ -98,7 +98,7 @@ def refresh_token_odds_daily(
                     CAST(TIMESTAMP '1970-01-01' + h.timestamp * INTERVAL 1 SECOND AS DATE) AS odds_date_utc,
                     h.timestamp,
                     h.price
-                FROM {_TAB_ODDS_HISTORY} h
+                FROM {odds_history_tbl()} h
                 JOIN _token_odds_daily_refresh r
                   ON r.clobTokenId = h.clobTokenId
                  AND r.odds_date_utc = CAST(TIMESTAMP '1970-01-01' + h.timestamp * INTERVAL 1 SECOND AS DATE)
@@ -148,7 +148,7 @@ def backfill_token_odds_daily_from_history() -> int:
     with get_connection() as conn:
         conn.execute(
             f"""
-            CREATE TABLE IF NOT EXISTS {_TAB_TOKEN_ODDS_DAILY} (
+            CREATE TABLE IF NOT EXISTS {token_odds_daily_tbl()} (
                 clobTokenId TEXT,
                 odds_date_utc DATE,
                 open_price DOUBLE,
@@ -165,12 +165,12 @@ def backfill_token_odds_daily_from_history() -> int:
             """
         )
         conn.execute(
-            f"ALTER TABLE {_TAB_TOKEN_ODDS_DAILY} ADD COLUMN IF NOT EXISTS refreshed_at TIMESTAMP"
+            f"ALTER TABLE {token_odds_daily_tbl()} ADD COLUMN IF NOT EXISTS refreshed_at TIMESTAMP"
         )
-        conn.execute(f"DELETE FROM {_TAB_TOKEN_ODDS_DAILY}")
+        conn.execute(f"DELETE FROM {token_odds_daily_tbl()}")
         conn.execute(
             f"""
-            INSERT INTO {_TAB_TOKEN_ODDS_DAILY} (
+            INSERT INTO {token_odds_daily_tbl()} (
                 clobTokenId,
                 odds_date_utc,
                 open_price,
@@ -189,7 +189,7 @@ def backfill_token_odds_daily_from_history() -> int:
                     CAST(TIMESTAMP '1970-01-01' + timestamp * INTERVAL 1 SECOND AS DATE) AS odds_date_utc,
                     timestamp,
                     price
-                FROM {_TAB_ODDS_HISTORY}
+                FROM {odds_history_tbl()}
             ),
             ranked AS (
                 SELECT
@@ -223,7 +223,7 @@ def backfill_token_odds_daily_from_history() -> int:
             GROUP BY 1, 2
             """
         )
-        row = conn.execute(f"SELECT COUNT(*) FROM {_TAB_TOKEN_ODDS_DAILY}").fetchone()
+        row = conn.execute(f"SELECT COUNT(*) FROM {token_odds_daily_tbl()}").fetchone()
     count = int(row[0]) if row and row[0] is not None else 0
     logger.info("Backfilled token_odds_daily from odds_history: rows=%s", count)
     return count

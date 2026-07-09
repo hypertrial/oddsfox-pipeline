@@ -7,11 +7,11 @@ import re
 from oddsfox_pipeline.config.settings_polymarket import (
     DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
 )
-from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_wc2026_ops_tbl
+from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_ops_tbl
 
 DEFAULT_MARKET_SCOPE = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
 
-_SCOPE_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$", re.IGNORECASE)
+_SCOPE_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$", re.IGNORECASE)
 
 
 def _validate_scope_token(scope: str) -> str:
@@ -34,7 +34,7 @@ def _quote(value: str) -> str:
 
 
 def _registry_scope_sql(alias: str, scope_name: str) -> str:
-    registry = polymarket_wc2026_ops_tbl("market_scope_registry")
+    registry = polymarket_ops_tbl(scope_name, "market_scope_registry")
     return (
         f"{alias}.id IN ("
         f"SELECT market_id FROM {registry} "

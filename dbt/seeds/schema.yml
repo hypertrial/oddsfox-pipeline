@@ -26,6 +26,31 @@ seeds:
         description: Warning threshold for raw Round-of-32 market coverage above the knockout volume floor.
         tests: [not_null]
 
+  - name: polymarket_us_midterms_2026_contract
+    description: Internal US midterms 2026 contract constants shared by dbt models/tests.
+    columns:
+      - name: scope_name
+        description: Fixed scope name for the US midterms 2026 Polymarket pipeline.
+        tests: [not_null, unique]
+      - name: knockout_min_volume_usd
+        description: Minimum reported Polymarket market volume admitted into the scoped public mart.
+        tests: [not_null]
+      - name: hourly_window_days
+        description: Trailing hourly odds window in days.
+        tests: [not_null]
+      - name: hourly_window_hours
+        description: Trailing hourly odds window in hours.
+        tests: [not_null]
+      - name: live_freshness_hours
+        description: Maximum age in hours for a live current price to be fresh.
+        tests: [not_null]
+      - name: results_freshness_hours
+        description: Reserved freshness threshold for a future results source.
+        tests: [not_null]
+      - name: round_of_32_min_raw_markets_ge_floor
+        description: Reserved coverage threshold for future observability checks.
+        tests: [not_null]
+
   - name: international_results_wc2026_team_aliases
     description: Small naming bridge for joining Polymarket team labels to FIFA World Cup team names.
     columns:

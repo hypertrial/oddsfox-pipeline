@@ -40,7 +40,7 @@ def test_default_market_scope_matches_dbt_contract() -> None:
 
     assert DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE == DEFAULT_MARKET_SCOPE == "wc2026"
     assert seed.get("default_scope") == DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
-    assert tuple((seed.get("scopes") or {}).keys()) == ("wc2026",)
+    assert tuple((seed.get("scopes") or {}).keys()) == ("wc2026", "us_midterms_2026")
     assert "MARKET_SCOPES" not in ENV_EXAMPLE.read_text(encoding="utf-8")
     assert "active_market_scopes" not in (raw.get("vars") or {})
     assert cfg.scope_name == "wc2026"

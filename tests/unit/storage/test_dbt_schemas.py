@@ -8,6 +8,12 @@ from oddsfox_pipeline.storage.duckdb.schemas import dbt_schemas
 def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
     assert dbt_schemas.qualified_relation("schema", "model") == "schema.model"
     assert (
+        dbt_schemas.resolve_source_slug(
+            {"name": "stg_polymarket_us_midterms_2026_markets"}
+        )
+        == dbt_schemas.DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026
+    )
+    assert (
         dbt_schemas.resolve_source_slug({"name": "polymarket_wc2026_knockout_markets"})
         == dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026
     )
@@ -16,6 +22,12 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
             {"name": "international_results_wc2026_matches"}
         )
         == dbt_schemas.DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026
+    )
+    assert (
+        dbt_schemas.resolve_source_slug(
+            {"name": "polymarket_us_midterms_2026_market_token_hourly_odds"}
+        )
+        == dbt_schemas.DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026
     )
     assert (
         dbt_schemas.resolve_source_slug({"name": "other_model"})
@@ -86,6 +98,25 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         "polymarket_wc2026_knockout_data_quality",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
     ) == AssetKey(["polymarket", "wc2026", "observability", "knockout_data_quality"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "polymarket_us_midterms_2026_market_token_hourly_odds",
+        dbt_schemas.DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026,
+    ) == AssetKey(
+        ["polymarket", "us_midterms_2026", "marts", "market_token_hourly_odds"]
+    )
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "polymarket_us_midterms_2026_sync_run_observability",
+        dbt_schemas.DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026,
+    ) == AssetKey(
+        ["polymarket", "us_midterms_2026", "observability", "sync_run_observability"]
+    )
+    assert (
+        dbt_schemas.shorten_model_name(
+            "stg_polymarket_us_midterms_2026_markets",
+            dbt_schemas.DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026,
+        )
+        == "markets"
+    )
     assert dbt_schemas.dbt_model_asset_key_for_name(
         "other_model",
         dbt_schemas.DBT_FALLBACK_SCHEMA,

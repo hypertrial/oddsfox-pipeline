@@ -115,6 +115,7 @@ def setup_writer(
     *,
     effective_workers: int,
     writer_flush_rows: int,
+    market_scope: str,
 ) -> tuple[Queue, Dict[str, int], List[Exception], Any]:
     write_queue: Queue = Queue(
         maxsize=min(max(100, effective_workers * 8), MAX_INFLIGHT_CAP)
@@ -131,8 +132,22 @@ def setup_writer(
         "queue_high_watermark": 0,
     }
     writer_failures: List[Exception] = []
+
+    def _scoped_writer_loop(
+        queue: Queue,
+        flush_rows: int,
+        stats: Dict[str, int],
+        failures: List[Exception],
+    ) -> None:
+        from oddsfox_pipeline.storage.duckdb.polymarket_scope import (
+            active_polymarket_scope,
+        )
+
+        with active_polymarket_scope(market_scope):
+            runtime.writer_loop(queue, flush_rows, stats, failures)
+
     writer_thread = runtime.thread_cls(
-        target=runtime.writer_loop,
+        target=_scoped_writer_loop,
         args=(write_queue, writer_flush_rows, writer_stats, writer_failures),
         daemon=True,
     )

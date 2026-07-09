@@ -11,6 +11,8 @@ import duckdb
 from oddsfox_pipeline.config import settings as _settings
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
+    POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA,
+    POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
     POLYMARKET_WC2026_RAW_SCHEMA,
     international_results_wc2026_raw_tbl,
@@ -22,8 +24,8 @@ from oddsfox_pipeline.storage.duckdb.schemas.international_results import (
     bootstrap_international_results_tables,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
-    bootstrap_polymarket_tables,
-    ensure_polymarket_indexes,
+    bootstrap_all_polymarket_tables,
+    ensure_all_polymarket_indexes,
 )
 
 logger = logging.getLogger(__name__)
@@ -149,9 +151,11 @@ def init_duck_db() -> None:
     conn = open_writable_duckdb_connection(path)
     if not _SCHEMA_LOGGED:
         logger.info(
-            "Ensuring DuckDB raw/ops schemas (%s, %s, %s)",
+            "Ensuring DuckDB raw/ops schemas (%s, %s, %s, %s, %s, %s)",
             POLYMARKET_WC2026_RAW_SCHEMA,
             POLYMARKET_WC2026_OPS_SCHEMA,
+            POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA,
+            POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA,
             INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
         )
         _SCHEMA_LOGGED = True
@@ -159,11 +163,17 @@ def init_duck_db() -> None:
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_RAW_SCHEMA}"')
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_OPS_SCHEMA}"')
         conn.execute(
+            f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA}"'
+        )
+        conn.execute(
+            f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA}"'
+        )
+        conn.execute(
             f'CREATE SCHEMA IF NOT EXISTS "{INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA}"'
         )
-        bootstrap_polymarket_tables(conn)
+        bootstrap_all_polymarket_tables(conn)
         bootstrap_international_results_tables(conn)
-        ensure_polymarket_indexes(conn)
+        ensure_all_polymarket_indexes(conn)
         _SCHEMA_INITIALIZED = True
     finally:
         conn.close()
@@ -201,6 +211,8 @@ def _use_conn(conn=None):
 
 
 __all__ = [
+    "POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA",
+    "POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA",
     "POLYMARKET_WC2026_OPS_SCHEMA",
     "POLYMARKET_WC2026_RAW_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA",

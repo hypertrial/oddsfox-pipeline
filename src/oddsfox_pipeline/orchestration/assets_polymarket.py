@@ -13,7 +13,7 @@ from dagster_dlt import DagsterDltResource, DagsterDltTranslator, dlt_assets
 
 from oddsfox_pipeline.config.settings import DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
 from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
-    polymarket_markets_source,
+    polymarket_wc2026_markets_source,
 )
 from oddsfox_pipeline.ingestion.polymarket.markets.sync import (
     collect_market_scope_payload,
@@ -95,7 +95,7 @@ _POLYMARKET_DLT_PIPELINE = asset_helpers.get_polymarket_dlt_pipeline(
 @dlt_assets(
     name="polymarket_wc2026_raw_markets",
     group_name="ingestion",
-    dlt_source=polymarket_markets_source(),
+    dlt_source=polymarket_wc2026_markets_source(),
     dlt_pipeline=_POLYMARKET_DLT_PIPELINE,
     dagster_dlt_translator=PolymarketWc2026DltTranslator(),
 )
@@ -146,6 +146,7 @@ def polymarket_wc2026_raw_markets(
         force_log=True,
     )
     pipeline = asset_helpers.get_polymarket_dlt_pipeline(
+        scope_name=POLYMARKET_WC2026_SCOPE_NAME,
         active_duckdb_path_fn=active_duckdb_path,
         dlt_module=dlt,
     )
@@ -166,9 +167,11 @@ def polymarket_wc2026_raw_markets(
         progress_callback=_markets_progress,
     )
     rows = collection["market_rows"]
-    dlt_source = polymarket_markets_source(rows=rows)
+    dlt_source = polymarket_wc2026_markets_source(rows=rows)
     yield from dlt.run(context=context, dlt_pipeline=pipeline, dlt_source=dlt_source)
-    save_market_tokens_batch(collection["token_rows"])
+    save_market_tokens_batch(
+        collection["token_rows"], scope_name=POLYMARKET_WC2026_SCOPE_NAME
+    )
     run_summary = dict(collection["run_summary"])
     guardrail_snapshot = guardrail.snapshot()
     run_summary.update(
@@ -188,7 +191,7 @@ def polymarket_wc2026_raw_markets(
         force_log=True,
     )
     with get_connection() as conn:
-        ensure_polymarket_indexes(conn)
+        ensure_polymarket_indexes(conn, scope_name=POLYMARKET_WC2026_SCOPE_NAME)
 
 
 @multi_asset(
@@ -365,7 +368,9 @@ def polymarket_wc2026_raw_market_metadata_backfill(
             thread_factory=ops.Thread,
         )
     ]
-    orphan_market_tokens_removed = ops.delete_orphan_market_tokens()
+    orphan_market_tokens_removed = ops.delete_orphan_market_tokens(
+        scope_name=POLYMARKET_WC2026_SCOPE_NAME
+    )
     if orphan_market_tokens_removed:
         context.log.info(
             "Removed %s orphan market_tokens row(s) (market_id not in markets) after metadata backfill",

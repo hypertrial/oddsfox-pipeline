@@ -4,8 +4,8 @@ Use this page when running Dagster assets, jobs, schedules, or recovery paths.
 For data outputs, see [Warehouse](warehouse.md) and
 [Data Contracts](data-contracts.md).
 
-The v0.1.x orchestration surface is WC2026 Polymarket plus a small FIFA
-World Cup fixture/result source.
+The v0.1.x orchestration surface is WC2026 Polymarket, US midterms 2026
+Polymarket, plus a small FIFA World Cup fixture/result source.
 
 ## Dagster Assets
 
@@ -16,9 +16,15 @@ The main asset key order is:
 3. `polymarket/wc2026/ops/market_scope_registry`
 4. `polymarket/wc2026/raw/market_metadata_backfill`
 5. `polymarket/wc2026/raw/token_odds_history_hourly`
-6. `international_results/wc2026/raw/match_results`
-7. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`
-   and `international_results/wc2026/{staging,intermediate,marts,observability}/...`
+6. `polymarket/us_midterms_2026/raw/markets`
+7. `polymarket/us_midterms_2026/raw/markets_snapshot`
+8. `polymarket/us_midterms_2026/ops/market_scope_registry`
+9. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
+10. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
+11. `international_results/wc2026/raw/match_results`
+12. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+    `polymarket/us_midterms_2026/{staging,intermediate,marts,observability}/...`,
+    and `international_results/wc2026/{staging,intermediate,marts,observability}/...`
 
 Flat Dagster op names remain source-first, for example
 `polymarket_wc2026_raw_token_odds_history_hourly`.
@@ -30,6 +36,9 @@ Flat Dagster op names remain source-first, for example
 - `international_results_wc2026_match_results_ingest`: WC2026 FIFA World Cup fixture/result CSV refresh.
 - `polymarket_wc2026_dbt_build`: dbt analytics build for the WC2026 mart surface, including knockout marts.
 - `polymarket_wc2026_full_pipeline`: WC2026 result refresh, market discovery, hourly odds refresh (trailing 30 days), and dbt analytics build.
+- `polymarket_us_midterms_2026_market_registry_refresh`: targeted US midterms 2026 market discovery, registry refresh, and metadata backfill.
+- `polymarket_us_midterms_2026_hourly_odds_ingest`: hourly US midterms 2026 token odds refresh (trailing 30 days by default).
+- `polymarket_us_midterms_2026_full_pipeline`: US midterms market discovery, hourly odds refresh, and dbt analytics build (no results/validation layer).
 
 For local CLI runs, prefer the Python module entrypoint if virtualenv console
 scripts have stale shebangs:
@@ -38,9 +47,12 @@ scripts have stale shebangs:
 .venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_full_pipeline
 ```
 
-## WC2026 Scope
+## Polymarket scopes
 
-The shipped Dagster jobs and dbt graph are fixed to `wc2026`.
+The shipped Dagster jobs and dbt graphs are fixed per scope (`wc2026`,
+`us_midterms_2026`).
+
+### WC2026
 
 - `polymarket/wc2026/raw/markets` performs the single Gamma market discovery pass,
   lands raw market rows through dlt, and persists token mappings from the same
@@ -58,16 +70,28 @@ The shipped Dagster jobs and dbt graph are fixed to `wc2026`.
 - dbt model assets under `polymarket/wc2026/...` and
   `international_results/wc2026/...` build the fixed WC2026 dbt graph.
 
+### US midterms 2026
+
+- `polymarket/us_midterms_2026/raw/markets` uses targeted discovery for Balance
+  of Power, Senate control, and House control event slugs only.
+- `polymarket/us_midterms_2026/ops/market_scope_registry` and downstream odds
+  assets mirror the WC2026 raw/ops flow in a parallel namespace.
+- There is no results ingestion or candidate/race validation layer for this scope in v1.
+- dbt model assets under `polymarket/us_midterms_2026/...` build a simple
+  markets + hourly-odds mart without office-type classification.
+
 ## Schedules
 
 Schedules are stopped by default.
 
 - `polymarket_wc2026_hourly_odds_schedule`: every hour for `polymarket_wc2026_hourly_odds_ingest` (`fidelity=60`).
+- `polymarket_us_midterms_2026_hourly_odds_schedule`: every hour for `polymarket_us_midterms_2026_hourly_odds_ingest` (`fidelity=60`).
 
 Enable only after manual jobs are healthy:
 
 ```dotenv
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 ## Recovery
