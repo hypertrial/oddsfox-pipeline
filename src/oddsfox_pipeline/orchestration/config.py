@@ -17,6 +17,11 @@ from oddsfox_pipeline.config.settings import (
     POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
     POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
 )
+from oddsfox_pipeline.orchestration.scope_registry import (
+    KALSHI_WC2026_SCOPE,
+    POLYMARKET_US_MIDTERMS_2026_SCOPE,
+    POLYMARKET_WC2026_SCOPE,
+)
 
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_PAGES = 20_000
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_NO_PROGRESS_PAGES = 25
@@ -191,6 +196,7 @@ class DbtBuildConfig(GuardrailConfig):
         ge=1,
     )
     full_refresh: bool = False
+    dbt_select: str | None = None
     dbt_exclude: str | None = None
 
 
@@ -243,7 +249,20 @@ def polymarket_us_midterms_2026_hourly_odds_run_config() -> dict:
 
 
 def polymarket_wc2026_dbt_build_run_config() -> dict:
-    dbt_cfg = DbtBuildConfig(full_refresh=True)
+    dbt_cfg = DbtBuildConfig(
+        full_refresh=True,
+        dbt_select=POLYMARKET_WC2026_SCOPE.dbt_select,
+        dbt_exclude=POLYMARKET_WC2026_SCOPE.dbt_exclude,
+    )
+    return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}
+
+
+def polymarket_us_midterms_2026_dbt_build_run_config() -> dict:
+    dbt_cfg = DbtBuildConfig(
+        full_refresh=True,
+        dbt_select=POLYMARKET_US_MIDTERMS_2026_SCOPE.dbt_select,
+        dbt_exclude=POLYMARKET_US_MIDTERMS_2026_SCOPE.dbt_exclude,
+    )
     return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}
 
 
@@ -329,6 +348,7 @@ def kalshi_wc2026_hourly_odds_run_config() -> dict:
 def kalshi_wc2026_dbt_build_run_config() -> dict:
     dbt_cfg = DbtBuildConfig(
         full_refresh=True,
-        dbt_exclude="tag:cross_domain tag:polymarket",
+        dbt_select=KALSHI_WC2026_SCOPE.dbt_select,
+        dbt_exclude=KALSHI_WC2026_SCOPE.dbt_exclude,
     )
     return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}

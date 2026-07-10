@@ -27,9 +27,11 @@ from oddsfox_pipeline.orchestration.assets import (
 )
 from oddsfox_pipeline.orchestration.jobs import (
     international_results_wc2026_match_results_ingest,
+    kalshi_wc2026_dbt_build,
     kalshi_wc2026_full_pipeline,
     kalshi_wc2026_hourly_odds_ingest,
     kalshi_wc2026_market_registry_refresh,
+    polymarket_us_midterms_2026_dbt_build,
     polymarket_us_midterms_2026_full_pipeline,
     polymarket_us_midterms_2026_hourly_odds_ingest,
     polymarket_us_midterms_2026_market_registry_refresh,
@@ -67,6 +69,7 @@ defs = Definitions(
         international_results_wc2026_match_results_ingest,
         kalshi_wc2026_hourly_odds_ingest,
         kalshi_wc2026_market_registry_refresh,
+        kalshi_wc2026_dbt_build,
         kalshi_wc2026_full_pipeline,
         polymarket_wc2026_hourly_odds_ingest,
         polymarket_wc2026_market_registry_refresh,
@@ -74,6 +77,7 @@ defs = Definitions(
         polymarket_wc2026_full_pipeline,
         polymarket_us_midterms_2026_hourly_odds_ingest,
         polymarket_us_midterms_2026_market_registry_refresh,
+        polymarket_us_midterms_2026_dbt_build,
         polymarket_us_midterms_2026_full_pipeline,
     ],
     schedules=[

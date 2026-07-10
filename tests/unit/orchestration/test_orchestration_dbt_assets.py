@@ -462,6 +462,44 @@ def test_stream_dbt_build_appends_dbt_exclude_flag():
     assert captured_args == [["build", "--exclude", "tag:cross_domain"]]
 
 
+def test_stream_dbt_build_appends_dbt_select_before_exclude_flags():
+    from unittest.mock import MagicMock
+
+    captured_args: list[list[str]] = []
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            captured_args.append(list(args))
+            m = MagicMock()
+            m.stream = lambda: iter(["event"])
+            m.process = MagicMock(returncode=0)
+            return m
+
+    ctx = MagicMock()
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=ctx,
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(
+                full_refresh=True,
+                dbt_select="+tag:kalshi",
+                dbt_exclude="tag:cross_domain tag:polymarket",
+            ),
+        )
+    )
+    assert captured_args == [
+        [
+            "build",
+            "--full-refresh",
+            "--select",
+            "+tag:kalshi",
+            "--exclude",
+            "tag:cross_domain tag:polymarket",
+        ]
+    ]
+
+
 def test_stream_dbt_build_syncs_duckdb_path_env(monkeypatch, tmp_path):
     from unittest.mock import MagicMock
 

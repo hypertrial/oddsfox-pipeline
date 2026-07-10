@@ -414,6 +414,7 @@ _MIDTERMS_VALID_TOKEN_NO = "m" * 33 + "02"
 _MIDTERMS_JOBS = (
     "polymarket_us_midterms_2026_market_registry_refresh",
     "polymarket_us_midterms_2026_hourly_odds_ingest",
+    "polymarket_us_midterms_2026_dbt_build",
     "polymarket_us_midterms_2026_full_pipeline",
 )
 
@@ -815,6 +816,7 @@ _KALSHI_SERIES = "KXMENWORLDCUP"
 _KALSHI_JOBS = (
     "kalshi_wc2026_market_registry_refresh",
     "kalshi_wc2026_hourly_odds_ingest",
+    "kalshi_wc2026_dbt_build",
     "kalshi_wc2026_full_pipeline",
 )
 

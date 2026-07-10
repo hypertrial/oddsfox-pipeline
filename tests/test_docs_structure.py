@@ -80,6 +80,22 @@ def test_landing_docs_describe_shipped_kalshi_support():
     )
 
 
+def test_operator_docs_describe_scoped_runner():
+    texts = {
+        "docs/quickstart.md": (REPO_ROOT / "docs" / "quickstart.md").read_text(),
+        "docs/operations.md": (REPO_ROOT / "docs" / "operations.md").read_text(),
+        "docs/scripts.md": (REPO_ROOT / "docs" / "scripts.md").read_text(),
+        "docs/development.md": (REPO_ROOT / "docs" / "development.md").read_text(),
+    }
+    combined = "\n".join(texts.values())
+
+    assert "scripts/run_scope.py" in combined
+    assert "polymarket:wc2026" in combined
+    assert "polymarket:us_midterms_2026" in combined
+    assert "kalshi:wc2026" in combined
+    assert "ScopeSpec" in combined
+
+
 def test_github_templates_exist():
     required = [
         ".github/ISSUE_TEMPLATE/bug_report.yml",

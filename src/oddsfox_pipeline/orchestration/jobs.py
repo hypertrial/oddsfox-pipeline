@@ -14,11 +14,17 @@ from oddsfox_pipeline.orchestration.config import (
     kalshi_wc2026_dbt_build_run_config,
     kalshi_wc2026_full_refresh_events_run_config,
     kalshi_wc2026_hourly_odds_run_config,
+    polymarket_us_midterms_2026_dbt_build_run_config,
     polymarket_us_midterms_2026_full_refresh_events_run_config,
     polymarket_us_midterms_2026_hourly_odds_run_config,
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+)
+from oddsfox_pipeline.orchestration.scope_registry import (
+    KALSHI_WC2026_SCOPE,
+    POLYMARKET_US_MIDTERMS_2026_SCOPE,
+    POLYMARKET_WC2026_SCOPE,
 )
 
 _ANALYTICS_BUILD_EXECUTOR = multiprocess_executor.configured(
@@ -66,6 +72,12 @@ POLYMARKET_WC2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "token_odds_history_hourly"),
 )
 
+POLYMARKET_WC2026_DBT_SELECTION = build_dbt_asset_selection(
+    [oddsfox_dbt],
+    dbt_select=POLYMARKET_WC2026_SCOPE.dbt_select,
+    dbt_exclude=POLYMARKET_WC2026_SCOPE.dbt_exclude,
+)
+
 INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "raw", "match_results"),
 )
@@ -74,7 +86,7 @@ POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
     INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION
     | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
     | POLYMARKET_WC2026_HOURLY_ODDS_SELECTION
-    | AssetSelection.groups("analytics")
+    | POLYMARKET_WC2026_DBT_SELECTION
 )
 
 POLYMARKET_US_MIDTERMS_2026_MARKET_REGISTRY_SELECTION = AssetSelection.assets(
@@ -96,7 +108,8 @@ POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
 
 POLYMARKET_US_MIDTERMS_2026_DBT_SELECTION = build_dbt_asset_selection(
     [oddsfox_dbt],
-    dbt_select="tag:us_midterms_2026",
+    dbt_select=POLYMARKET_US_MIDTERMS_2026_SCOPE.dbt_select,
+    dbt_exclude=POLYMARKET_US_MIDTERMS_2026_SCOPE.dbt_exclude,
 )
 
 POLYMARKET_US_MIDTERMS_2026_FULL_PIPELINE_SELECTION = (
@@ -106,7 +119,7 @@ POLYMARKET_US_MIDTERMS_2026_FULL_PIPELINE_SELECTION = (
 )
 
 polymarket_us_midterms_2026_market_registry_refresh = define_asset_job(
-    "polymarket_us_midterms_2026_market_registry_refresh",
+    POLYMARKET_US_MIDTERMS_2026_SCOPE.registry_job_name,
     selection=POLYMARKET_US_MIDTERMS_2026_MARKET_REGISTRY_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_us_midterms_2026_full_refresh_events_run_config(),
@@ -114,7 +127,7 @@ polymarket_us_midterms_2026_market_registry_refresh = define_asset_job(
 )
 
 polymarket_us_midterms_2026_hourly_odds_ingest = define_asset_job(
-    "polymarket_us_midterms_2026_hourly_odds_ingest",
+    POLYMARKET_US_MIDTERMS_2026_SCOPE.odds_job_name,
     selection=POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SELECTION,
     config=polymarket_us_midterms_2026_hourly_odds_run_config(),
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
@@ -122,19 +135,19 @@ polymarket_us_midterms_2026_hourly_odds_ingest = define_asset_job(
 )
 
 polymarket_us_midterms_2026_full_pipeline = define_asset_job(
-    "polymarket_us_midterms_2026_full_pipeline",
+    POLYMARKET_US_MIDTERMS_2026_SCOPE.full_job_name,
     selection=POLYMARKET_US_MIDTERMS_2026_FULL_PIPELINE_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=_merge_run_configs(
         polymarket_us_midterms_2026_full_refresh_events_run_config(),
         polymarket_us_midterms_2026_hourly_odds_run_config(),
-        polymarket_wc2026_dbt_build_run_config(),
+        polymarket_us_midterms_2026_dbt_build_run_config(),
     ),
     tags=_POLYMARKET_US_MIDTERMS_2026_TAGS,
 )
 
 polymarket_wc2026_market_registry_refresh = define_asset_job(
-    "polymarket_wc2026_market_registry_refresh",
+    POLYMARKET_WC2026_SCOPE.registry_job_name,
     selection=POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_full_refresh_events_run_config(),
@@ -142,7 +155,7 @@ polymarket_wc2026_market_registry_refresh = define_asset_job(
 )
 
 polymarket_wc2026_hourly_odds_ingest = define_asset_job(
-    "polymarket_wc2026_hourly_odds_ingest",
+    POLYMARKET_WC2026_SCOPE.odds_job_name,
     selection=POLYMARKET_WC2026_HOURLY_ODDS_SELECTION,
     config=polymarket_wc2026_hourly_odds_run_config(),
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
@@ -150,11 +163,19 @@ polymarket_wc2026_hourly_odds_ingest = define_asset_job(
 )
 
 polymarket_wc2026_dbt_build = define_asset_job(
-    "polymarket_wc2026_dbt_build",
-    selection=AssetSelection.groups("analytics"),
+    POLYMARKET_WC2026_SCOPE.dbt_job_name,
+    selection=POLYMARKET_WC2026_DBT_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_dbt_build_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
+)
+
+polymarket_us_midterms_2026_dbt_build = define_asset_job(
+    POLYMARKET_US_MIDTERMS_2026_SCOPE.dbt_job_name,
+    selection=POLYMARKET_US_MIDTERMS_2026_DBT_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_us_midterms_2026_dbt_build_run_config(),
+    tags=_POLYMARKET_US_MIDTERMS_2026_TAGS,
 )
 
 international_results_wc2026_match_results_ingest = define_asset_job(
@@ -165,7 +186,7 @@ international_results_wc2026_match_results_ingest = define_asset_job(
 )
 
 polymarket_wc2026_full_pipeline = define_asset_job(
-    "polymarket_wc2026_full_pipeline",
+    POLYMARKET_WC2026_SCOPE.full_job_name,
     selection=POLYMARKET_WC2026_FULL_PIPELINE_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=_merge_run_configs(
@@ -189,8 +210,8 @@ KALSHI_WC2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
 
 KALSHI_WC2026_DBT_SELECTION = build_dbt_asset_selection(
     [oddsfox_dbt],
-    dbt_select="+tag:kalshi",
-    dbt_exclude="tag:cross_domain tag:polymarket",
+    dbt_select=KALSHI_WC2026_SCOPE.dbt_select,
+    dbt_exclude=KALSHI_WC2026_SCOPE.dbt_exclude,
 )
 
 KALSHI_WC2026_FULL_PIPELINE_SELECTION = (
@@ -201,7 +222,7 @@ KALSHI_WC2026_FULL_PIPELINE_SELECTION = (
 )
 
 kalshi_wc2026_market_registry_refresh = define_asset_job(
-    "kalshi_wc2026_market_registry_refresh",
+    KALSHI_WC2026_SCOPE.registry_job_name,
     selection=KALSHI_WC2026_MARKET_REGISTRY_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=kalshi_wc2026_full_refresh_events_run_config(),
@@ -209,15 +230,23 @@ kalshi_wc2026_market_registry_refresh = define_asset_job(
 )
 
 kalshi_wc2026_hourly_odds_ingest = define_asset_job(
-    "kalshi_wc2026_hourly_odds_ingest",
+    KALSHI_WC2026_SCOPE.odds_job_name,
     selection=KALSHI_WC2026_HOURLY_ODDS_SELECTION,
     config=kalshi_wc2026_hourly_odds_run_config(),
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     tags=_KALSHI_WC2026_TAGS,
 )
 
+kalshi_wc2026_dbt_build = define_asset_job(
+    KALSHI_WC2026_SCOPE.dbt_job_name,
+    selection=KALSHI_WC2026_DBT_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=kalshi_wc2026_dbt_build_run_config(),
+    tags=_KALSHI_WC2026_TAGS,
+)
+
 kalshi_wc2026_full_pipeline = define_asset_job(
-    "kalshi_wc2026_full_pipeline",
+    KALSHI_WC2026_SCOPE.full_job_name,
     selection=KALSHI_WC2026_FULL_PIPELINE_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=_merge_run_configs(

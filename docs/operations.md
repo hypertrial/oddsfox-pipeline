@@ -44,13 +44,36 @@ Flat Dagster op names remain source-first, for example
 - `polymarket_wc2026_full_pipeline`: WC2026 result refresh, market discovery, hourly odds refresh (trailing 30 days), and dbt analytics build.
 - `polymarket_us_midterms_2026_market_registry_refresh`: targeted US midterms 2026 market discovery, registry refresh, and metadata backfill.
 - `polymarket_us_midterms_2026_hourly_odds_ingest`: hourly US midterms 2026 token odds refresh (trailing 30 days by default).
+- `polymarket_us_midterms_2026_dbt_build`: scoped US midterms dbt build (`tag:us_midterms_2026`).
 - `polymarket_us_midterms_2026_full_pipeline`: US midterms market discovery, hourly odds refresh, and scoped dbt build (`tag:us_midterms_2026` only; no WC2026 or FIFA results assets).
 - `kalshi_wc2026_market_registry_refresh`: Kalshi WC2026 series discovery and registry refresh.
 - `kalshi_wc2026_hourly_odds_ingest`: hourly Kalshi candlestick refresh for admitted registry markets.
+- `kalshi_wc2026_dbt_build`: scoped Kalshi dbt build (`+tag:kalshi`, excluding cross-domain Polymarket tests).
 - `kalshi_wc2026_full_pipeline`: FIFA results refresh, Kalshi market discovery, hourly candlestick refresh, and scoped dbt build (`+tag:kalshi`, including `international_results` parents; excludes `tag:cross_domain` and `tag:polymarket` tests outside that closure).
 
-For local CLI runs, prefer the Python module entrypoint if virtualenv console
-scripts have stale shebangs:
+## Run A Scope
+
+Use `scripts/run_scope.py` for local CLI runs. It maps known scope refs to fixed
+Dagster jobs; it is not a runtime market-scope selector and does not accept
+arbitrary dbt selectors.
+
+```bash
+uv run python scripts/run_scope.py --list
+uv run python scripts/run_scope.py polymarket:wc2026 --step full
+uv run python scripts/run_scope.py polymarket:wc2026 kalshi:wc2026 --step dbt
+uv run python scripts/run_scope.py polymarket_us_midterms_2026 --step odds --dry-run
+```
+
+Supported refs are `polymarket:wc2026` (`polymarket_wc2026`),
+`polymarket:us_midterms_2026` (`polymarket_us_midterms_2026`), and
+`kalshi:wc2026` (`kalshi_wc2026`). Supported steps are `registry`, `odds`,
+`dbt`, and `full`.
+
+For WC2026 scopes, `full` refreshes `international_results_wc2026_match_results_ingest`
+before dbt. If you run staged `dbt` steps manually, refresh that results job
+first so real-team validation inputs are current.
+
+The direct Dagster equivalent remains available:
 
 ```bash
 .venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_full_pipeline
@@ -128,10 +151,8 @@ KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 - Re-run `international_results_wc2026_match_results_ingest` when the source CSV
   updates completed scores or fixtures.
 - Run `polymarket_wc2026_dbt_build` after WC2026 raw or ops table repairs.
-- Run `polymarket_us_midterms_2026_full_pipeline` (or `dbt build --select
-  tag:us_midterms_2026`) after US midterms raw or ops table repairs.
-- Run `kalshi_wc2026_full_pipeline` (or `dbt build --select +tag:kalshi --exclude tag:cross_domain tag:polymarket`)
-  after Kalshi raw or ops table repairs.
+- Run `polymarket_us_midterms_2026_dbt_build` after US midterms raw or ops table repairs.
+- Run `kalshi_wc2026_dbt_build` after Kalshi raw or ops table repairs.
 - Prune old `polymarket_wc2026_raw.odds_history` rows with `make prune-odds-history` (default 365-day retention; use `--dry-run` on the script to preview). The script targets WC2026 raw odds only.
 - Reclaim DuckDB file dead space with `make compact-warehouse` after pruning or full refreshes.
 - Use `scripts/profile_warehouse.py` to inspect relation counts and freshness without opening the database read-write.

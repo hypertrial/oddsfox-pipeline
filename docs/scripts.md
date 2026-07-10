@@ -5,6 +5,7 @@ Run them through `uv run python` so they use the repo environment.
 
 ## Warehouse
 
+- `run_scope.py`: run a fixed Dagster step for one or more shipped scopes, such as `polymarket:wc2026`, `polymarket:us_midterms_2026`, or `kalshi:wc2026`. Namespace aliases such as `polymarket_wc2026`, `polymarket_us_midterms_2026`, and `kalshi_wc2026` are accepted.
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
 - `export_polymarket_wc2026_knockout_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` to parquet for progression-only WC2026 knockout audits.
 - `export_polymarket_wc2026_graph_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds` to parquet for `oddsfox-graph`; this is the hosted graph input and includes both Yes/No tokens.
@@ -24,6 +25,9 @@ make compact-warehouse           # reclaim dead space after rebuilds or pruning
 Run scripts through the project environment:
 
 ```bash
+uv run python scripts/run_scope.py --list
+uv run python scripts/run_scope.py polymarket:wc2026 --step full
+uv run python scripts/run_scope.py polymarket:wc2026 kalshi:wc2026 --step dbt
 uv run python scripts/profile_warehouse.py --snapshot-copy
 uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py
 export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-/Volumes/Mac SSD/hypertrial_trilemma/hypertrial/OddsFox/.runtime}"

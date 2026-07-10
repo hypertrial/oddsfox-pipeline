@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from oddsfox_pipeline.orchestration.config import (
+    DbtBuildConfig,
     GuardrailConfig,
     HourlyOddsSyncConfig,
     MarketScopeRegistryConfig,
@@ -63,3 +64,15 @@ def test_hourly_odds_config_defaults_to_knockout_30_day_sync():
     assert cfg.routine_interval_hours == 1
     assert cfg.min_volume == 5000.0
     assert cfg.max_volume is None
+
+
+def test_dbt_build_config_accepts_fixed_scope_selectors():
+    cfg = DbtBuildConfig(
+        full_refresh=True,
+        dbt_select="+tag:polymarket,tag:wc2026",
+        dbt_exclude="tag:kalshi",
+    )
+
+    assert cfg.full_refresh is True
+    assert cfg.dbt_select == "+tag:polymarket,tag:wc2026"
+    assert cfg.dbt_exclude == "tag:kalshi"

@@ -3,6 +3,8 @@ from pathlib import Path
 
 import yaml
 
+from oddsfox_pipeline.orchestration.scope_registry import SHIPPED_SCOPE_SPECS
+
 
 def test_dbt_project_sources_are_wc2026_only():
     dbt_root = Path(__file__).resolve().parents[2] / "dbt"
@@ -68,6 +70,22 @@ def test_dbt_project_version():
 
     assert "version: 0.1.4" in text
     assert "profile: oddsfox" in text
+
+
+def test_shipped_scope_specs_have_matching_dbt_project_entries():
+    dbt_root = Path(__file__).resolve().parents[2] / "dbt"
+    project = yaml.safe_load((dbt_root / "dbt_project.yml").read_text())
+    models = project["models"]["oddsfox"]
+    seeds = project["seeds"]["oddsfox"]
+
+    for spec in SHIPPED_SCOPE_SPECS:
+        assert spec.namespace in models
+        assert {spec.source, spec.scope} <= set(models[spec.namespace]["+tags"])
+        assert f"{spec.namespace}_contract" in seeds
+        assert (dbt_root / "models" / spec.namespace).is_dir()
+        assert (
+            dbt_root / "models" / "sources" / f"{spec.namespace}_sources.yml"
+        ).is_file()
 
 
 def test_hourly_odds_materialization_shape():

@@ -27,6 +27,8 @@ ingestion:
 
 ```dotenv
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 ## Quality Gate
@@ -67,6 +69,24 @@ debt includes:
 Do not change materializations on advisory text alone. Capture dbt build
 runtime, relevant relation sizes from `scripts/profile_warehouse.py`, and the
 Costguard finding before switching a model to table or incremental.
+
+## Adding A Scope
+
+OddsFox v0.1.x ships fixed scopes, not a runtime scope selector. Add a scope by
+making the static surfaces explicit and letting the guard tests catch drift:
+
+1. Add the source discovery seed entry, for example in the Polymarket or Kalshi
+   `market_scopes.yml`.
+2. Add a `ScopeSpec` in `oddsfox_pipeline.orchestration.scope_registry` with the
+   source/scope ref, namespace alias, fixed Dagster jobs, and dbt selector.
+3. Add explicit Dagster assets/jobs in the source module; keep asset keys and op
+   names source-first and scope-first.
+4. Add dbt source YAML, model folder tags, and a contract seed when the scope
+   ships analytics.
+5. Update quickstart, operations, scripts, and this checklist when operator
+   behavior changes.
+6. Run the registry, dbt-structure, orchestration, and docs tests before the
+   broader quality gate.
 
 ## Local `.env` And Tests
 

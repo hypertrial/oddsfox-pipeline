@@ -113,10 +113,11 @@ Dagster registers source-first jobs:
 `polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, and
 `polymarket_wc2026_full_pipeline`;
 `polymarket_us_midterms_2026_market_registry_refresh`,
-`polymarket_us_midterms_2026_hourly_odds_ingest`, and
+`polymarket_us_midterms_2026_hourly_odds_ingest`,
+`polymarket_us_midterms_2026_dbt_build`, and
 `polymarket_us_midterms_2026_full_pipeline`;
 `kalshi_wc2026_market_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
-and `kalshi_wc2026_full_pipeline`.
+`kalshi_wc2026_dbt_build`, and `kalshi_wc2026_full_pipeline`.
 
 See [Data Contracts](docs/data-contracts.md) and [Naming](docs/naming.md).
 

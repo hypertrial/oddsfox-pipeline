@@ -68,20 +68,25 @@ Open the Dagster UI shown in the terminal. Materialize
 
 ## 5. Run the Pipeline
 
-For a full manual run, launch `polymarket_wc2026_full_pipeline`.
-If a local virtualenv console script points at an old path, use the module
-entrypoint instead:
+For a full manual run, use the scoped runner:
 
 ```bash
-.venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_full_pipeline
+uv run python scripts/run_scope.py polymarket:wc2026 --step full
 ```
+
+`polymarket_wc2026` is accepted as an alias for `polymarket:wc2026`.
 
 For a safer staged run:
 
-1. `international_results_wc2026_match_results_ingest`
-2. `polymarket_wc2026_market_registry_refresh`
-3. `polymarket_wc2026_hourly_odds_ingest`
-4. `polymarket_wc2026_dbt_build`
+```bash
+.venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j international_results_wc2026_match_results_ingest
+uv run python scripts/run_scope.py polymarket:wc2026 --step registry
+uv run python scripts/run_scope.py polymarket:wc2026 --step odds
+uv run python scripts/run_scope.py polymarket:wc2026 --step dbt
+```
+
+The underlying jobs are `polymarket_wc2026_market_registry_refresh`,
+`polymarket_wc2026_hourly_odds_ingest`, and `polymarket_wc2026_dbt_build`.
 
 Leave schedules off until these jobs complete successfully.
 
@@ -97,14 +102,22 @@ KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 For a full manual run:
 
 ```bash
-.venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j kalshi_wc2026_full_pipeline
+uv run python scripts/run_scope.py kalshi:wc2026 --step full
 ```
+
+`kalshi_wc2026` is accepted as an alias for `kalshi:wc2026`.
 
 For a safer staged run:
 
-1. `kalshi_wc2026_market_registry_refresh`
-2. `kalshi_wc2026_hourly_odds_ingest`
-3. `kalshi_wc2026_full_pipeline` (or run `dbt build --select +tag:kalshi --exclude tag:cross_domain tag:polymarket` after step 2)
+```bash
+.venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j international_results_wc2026_match_results_ingest
+uv run python scripts/run_scope.py kalshi:wc2026 --step registry
+uv run python scripts/run_scope.py kalshi:wc2026 --step odds
+uv run python scripts/run_scope.py kalshi:wc2026 --step dbt
+```
+
+The underlying jobs are `kalshi_wc2026_market_registry_refresh`,
+`kalshi_wc2026_hourly_odds_ingest`, and `kalshi_wc2026_dbt_build`.
 
 ## US midterms 2026 (optional)
 
@@ -121,15 +134,29 @@ There is no FIFA results ingest for this scope. The full pipeline builds only
 For a full manual run:
 
 ```bash
-.venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j polymarket_us_midterms_2026_full_pipeline
+uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step full
 ```
+
+`polymarket_us_midterms_2026` is accepted as an alias for
+`polymarket:us_midterms_2026`.
 
 For a safer staged run:
 
-1. `polymarket_us_midterms_2026_market_registry_refresh`
-2. `polymarket_us_midterms_2026_hourly_odds_ingest`
-3. `polymarket_us_midterms_2026_full_pipeline` (or run `dbt build` with
-   `--select tag:us_midterms_2026` after step 2)
+```bash
+uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step registry
+uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step odds
+uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step dbt
+```
+
+The underlying jobs are `polymarket_us_midterms_2026_market_registry_refresh`,
+`polymarket_us_midterms_2026_hourly_odds_ingest`, and
+`polymarket_us_midterms_2026_dbt_build`.
+
+To inspect all shipped scope refs before running:
+
+```bash
+uv run python scripts/run_scope.py --list
+```
 
 Next: read [Operations](operations.md) before enabling schedules, and use
 [Troubleshooting](troubleshooting.md) if Dagster, DuckDB, or dbt fails.

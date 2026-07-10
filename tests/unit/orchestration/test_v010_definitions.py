@@ -44,9 +44,11 @@ def _reload_schedules_module(monkeypatch, *, hourly: bool = False):
 def test_definitions_expose_v010_jobs_only():
     expected = {
         "international_results_wc2026_match_results_ingest",
+        "kalshi_wc2026_dbt_build",
         "kalshi_wc2026_full_pipeline",
         "kalshi_wc2026_hourly_odds_ingest",
         "kalshi_wc2026_market_registry_refresh",
+        "polymarket_us_midterms_2026_dbt_build",
         "polymarket_us_midterms_2026_full_pipeline",
         "polymarket_us_midterms_2026_hourly_odds_ingest",
         "polymarket_us_midterms_2026_market_registry_refresh",
@@ -227,3 +229,39 @@ def test_midterms_full_pipeline_excludes_wc2026_and_results_assets():
     assert not any(key[:2] == ("international_results", "wc2026") for key in selected)
     assert not any(key[:2] == ("polymarket", "wc2026") for key in selected)
     assert all(key[:2] == ("polymarket", "us_midterms_2026") for key in selected)
+
+
+def test_scoped_dbt_jobs_select_only_their_expected_scope_assets():
+    midterms = {
+        tuple(key.path)
+        for key in defs.resolve_job_def(
+            "polymarket_us_midterms_2026_dbt_build"
+        ).asset_layer.selected_asset_keys
+    }
+    kalshi = {
+        tuple(key.path)
+        for key in defs.resolve_job_def(
+            "kalshi_wc2026_dbt_build"
+        ).asset_layer.selected_asset_keys
+    }
+    wc2026 = {
+        tuple(key.path)
+        for key in defs.resolve_job_def(
+            "polymarket_wc2026_dbt_build"
+        ).asset_layer.selected_asset_keys
+    }
+
+    assert midterms
+    assert all(key[:2] == ("polymarket", "us_midterms_2026") for key in midterms)
+
+    assert kalshi
+    assert any(key[:2] == ("international_results", "wc2026") for key in kalshi)
+    assert any(key[:2] == ("kalshi", "wc2026") for key in kalshi)
+    assert not any(key[:2] == ("polymarket", "wc2026") for key in kalshi)
+    assert not any(key[:2] == ("polymarket", "us_midterms_2026") for key in kalshi)
+
+    assert wc2026
+    assert any(key[:2] == ("international_results", "wc2026") for key in wc2026)
+    assert any(key[:2] == ("polymarket", "wc2026") for key in wc2026)
+    assert not any(key[:2] == ("kalshi", "wc2026") for key in wc2026)
+    assert not any(key[:2] == ("polymarket", "us_midterms_2026") for key in wc2026)
