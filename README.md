@@ -8,16 +8,17 @@ OddsFox Pipeline is an open-source, local-first batch data warehouse for
 prediction-market data.
 
 It uses Dagster to orchestrate dlt/CSV ingestion, DuckDB storage, Python sync
-ledgers, and dbt analytics models. Version `0.1.x` is a WC2026 pipeline for
-FIFA World Cup 2026 Polymarket odds plus fixture/results validation. Existing
-local warehouses from older layouts must be reset with `rm oddsfox.duckdb*`.
+ledgers, and dbt analytics models. Version `0.1.x` ships WC2026 Polymarket
+odds, US midterms 2026 Polymarket odds, Kalshi WC2026 odds, and FIFA
+fixture/results validation. Existing local warehouses from older layouts must
+be reset with `rm oddsfox.duckdb*`.
 
 ## Project Scope
 
-OddsFox is code and operator tooling, not a hosted dataset. Polymarket WC2026
-is the first shipped market adapter; the bundled `international_results`
-WC2026 CSV source is used only to validate real FIFA World Cup team scope.
-Future adapter contributions may cover Kalshi and traditional bookmakers.
+OddsFox is code and operator tooling, not a hosted dataset. The shipped market
+adapters cover Polymarket WC2026, Polymarket US midterms 2026, and Kalshi
+WC2026. The bundled `international_results` WC2026 CSV source is used only to
+validate real FIFA World Cup team scope.
 
 Every operator runs ingestion against source APIs and stores the resulting data
 in their own local DuckDB file or self-managed warehouse.
@@ -51,7 +52,8 @@ Read the full [Getting Started guide](docs/quickstart.md).
 OddsFox keeps the data stack local and inspectable:
 
 - Prediction-market APIs and the WC2026 results CSV feed raw DuckDB tables;
-  v0.1.x ships Polymarket Gamma/CLOB ingestion plus team-scope validation.
+  v0.1.x ships Polymarket Gamma/CLOB ingestion, Kalshi public trade API
+  ingestion, and team-scope validation.
 - Dagster coordinates market discovery, registry refresh, odds sync, and dbt.
 - dbt models staging, intermediate, mart, and observability schemas.
 - Operator scripts inspect, compact, prune, and repair local warehouse state.
@@ -60,7 +62,7 @@ See [Architecture](docs/architecture.md) and [Warehouse](docs/warehouse.md).
 
 ## Data Outputs
 
-Current Polymarket analytics outputs live in `polymarket_wc2026_marts`:
+Current Polymarket WC2026 analytics outputs live in `polymarket_wc2026_marts`:
 
 - `polymarket_wc2026_knockout_market_tokens`: progression-side token universe
   for knockout-related markets at or above the WC2026 contract volume floor
@@ -90,11 +92,31 @@ Operational health outputs live in `polymarket_wc2026_observability`:
 - `polymarket_wc2026_knockout_data_quality`: row-level DQ findings for source
   anomalies, sparse coverage, and stale or missing odds.
 
-Dagster registers WC2026 jobs only:
+Polymarket US midterms 2026 outputs live in
+`polymarket_us_midterms_2026_marts`:
+
+- `polymarket_us_midterms_2026_market_token_hourly_odds`: trailing hourly OHLC
+  odds for scoped midterms market tokens.
+
+Kalshi WC2026 outputs live in `kalshi_wc2026_marts`:
+
+- `kalshi_wc2026_stage_markets` and
+  `kalshi_wc2026_stage_market_hourly_odds`: stage-of-elimination markets and
+  hourly candlesticks.
+- `kalshi_wc2026_group_winner_markets` and
+  `kalshi_wc2026_group_winner_market_hourly_odds`: group-winner markets and
+  hourly candlesticks.
+
+Dagster registers source-first jobs:
 `international_results_wc2026_match_results_ingest`,
 `polymarket_wc2026_market_registry_refresh`,
 `polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, and
-`polymarket_wc2026_full_pipeline`.
+`polymarket_wc2026_full_pipeline`;
+`polymarket_us_midterms_2026_market_registry_refresh`,
+`polymarket_us_midterms_2026_hourly_odds_ingest`, and
+`polymarket_us_midterms_2026_full_pipeline`;
+`kalshi_wc2026_market_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
+and `kalshi_wc2026_full_pipeline`.
 
 See [Data Contracts](docs/data-contracts.md) and [Naming](docs/naming.md).
 

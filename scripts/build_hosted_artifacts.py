@@ -59,7 +59,6 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--pipeline-python", type=Path, default=Path(sys.executable))
     parser.add_argument("--graph-python", type=Path, default=None)
     parser.add_argument("--release-id", default="")
-    parser.add_argument("--refresh-command", default="")
     parser.add_argument("--skip-refresh", action="store_true")
     parser.add_argument("--skip-dbt", action="store_true")
     parser.add_argument("--input-parquet", type=Path, default=None)
@@ -90,8 +89,6 @@ def run_forever(args: argparse.Namespace) -> None:
         ]
         if args.graph_python:
             command.extend(["--graph-python", str(args.graph_python)])
-        if args.refresh_command:
-            command.extend(["--refresh-command", args.refresh_command])
         if args.skip_refresh:
             command.append("--skip-refresh")
         if args.skip_dbt:
@@ -108,9 +105,6 @@ def run_forever(args: argparse.Namespace) -> None:
 
 def run_refresh(args: argparse.Namespace) -> None:
     if args.skip_refresh:
-        return
-    if args.refresh_command:
-        subprocess.run(args.refresh_command, cwd=REPO_ROOT, shell=True, check=True)
         return
     subprocess.run(
         [

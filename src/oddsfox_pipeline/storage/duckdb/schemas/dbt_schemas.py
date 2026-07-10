@@ -112,6 +112,157 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
     POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA,
 )
 
+DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
+    (
+        INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
+        "stg_international_results_wc2026_match_results",
+    ),
+    (
+        INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
+        "international_results_wc2026_team_aliases",
+    ),
+    (
+        INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA,
+        "int_international_results_wc2026_match_teams",
+    ),
+    (
+        INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
+        "international_results_wc2026_matches",
+    ),
+    (
+        INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
+        "international_results_wc2026_team_status",
+    ),
+    (
+        INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
+        "international_results_wc2026_data_quality",
+    ),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_markets"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_market_tokens"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds_daily"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_pipeline_run_events"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_sync_ledger"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_token_sync_skips"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "polymarket_wc2026_contract"),
+    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_markets"),
+    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_token_universe"),
+    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_market_tokens"),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_token_hourly_odds",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_knockout_market_classification",
+    ),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_market_tokens"),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_markets"),
+    (
+        POLYMARKET_WC2026_MARTS_SCHEMA,
+        "polymarket_wc2026_knockout_token_hourly_odds",
+    ),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_graph_token_hourly_odds"),
+    (
+        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+        "polymarket_wc2026_knockout_stage_coverage",
+    ),
+    (
+        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+        "polymarket_wc2026_knockout_data_quality",
+    ),
+    (
+        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+        "polymarket_wc2026_sync_run_observability",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_markets",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_market_tokens",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_odds",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_odds_daily",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_pipeline_run_events",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_sync_ledger",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "stg_polymarket_us_midterms_2026_token_sync_skips",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
+        "polymarket_us_midterms_2026_contract",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_us_midterms_2026_markets",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_us_midterms_2026_token_universe",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_us_midterms_2026_market_tokens",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_us_midterms_2026_token_hourly_odds",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
+        "polymarket_us_midterms_2026_market_token_hourly_odds",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA,
+        "polymarket_us_midterms_2026_sync_run_observability",
+    ),
+    (KALSHI_WC2026_STAGING_SCHEMA, "stg_kalshi_wc2026_events"),
+    (KALSHI_WC2026_STAGING_SCHEMA, "stg_kalshi_wc2026_markets"),
+    (
+        KALSHI_WC2026_STAGING_SCHEMA,
+        "stg_kalshi_wc2026_market_candlesticks_hourly",
+    ),
+    (KALSHI_WC2026_STAGING_SCHEMA, "kalshi_wc2026_contract"),
+    (KALSHI_WC2026_INTERMEDIATE_SCHEMA, "int_kalshi_wc2026_markets"),
+    (KALSHI_WC2026_INTERMEDIATE_SCHEMA, "int_kalshi_wc2026_market_hourly_odds"),
+    (
+        KALSHI_WC2026_INTERMEDIATE_SCHEMA,
+        "int_kalshi_wc2026_stage_classification",
+    ),
+    (
+        KALSHI_WC2026_INTERMEDIATE_SCHEMA,
+        "int_kalshi_wc2026_group_winner_classification",
+    ),
+    (KALSHI_WC2026_MARTS_SCHEMA, "kalshi_wc2026_stage_markets"),
+    (KALSHI_WC2026_MARTS_SCHEMA, "kalshi_wc2026_stage_market_hourly_odds"),
+    (KALSHI_WC2026_MARTS_SCHEMA, "kalshi_wc2026_group_winner_markets"),
+    (
+        KALSHI_WC2026_MARTS_SCHEMA,
+        "kalshi_wc2026_group_winner_market_hourly_odds",
+    ),
+    (KALSHI_WC2026_OBSERVABILITY_SCHEMA, "kalshi_wc2026_stage_coverage"),
+    (KALSHI_WC2026_OBSERVABILITY_SCHEMA, "kalshi_wc2026_data_quality"),
+    (
+        KALSHI_WC2026_OBSERVABILITY_SCHEMA,
+        "kalshi_wc2026_sync_run_observability",
+    ),
+)
+
 
 def qualified_relation(schema: str, model_name: str) -> str:
     return f"{schema}.{model_name}"
@@ -390,6 +541,7 @@ def dbt_model_asset_key(
 
 __all__ = [
     "DBT_FALLBACK_SCHEMA",
+    "DBT_EXPECTED_RELATIONS",
     "DBT_MODELED_SCHEMAS",
     "DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026",
     "DBT_SOURCE_KALSHI_WC2026",

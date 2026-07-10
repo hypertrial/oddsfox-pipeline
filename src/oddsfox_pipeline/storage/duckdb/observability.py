@@ -10,33 +10,21 @@ import duckdb
 
 from oddsfox_pipeline.storage.duckdb.connection import (
     INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
+    KALSHI_WC2026_OPS_SCHEMA,
+    KALSHI_WC2026_RAW_SCHEMA,
     POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA,
     POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
     POLYMARKET_WC2026_RAW_SCHEMA,
     get_connection,
     polymarket_wc2026_ops_tbl,
-    polymarket_wc2026_q,
     polymarket_wc2026_raw_tbl,
 )
-from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
-    INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA,
-    INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
-    INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
-    INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-    POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
-    POLYMARKET_WC2026_MARTS_SCHEMA,
-    POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
-    POLYMARKET_WC2026_STAGING_SCHEMA,
-)
+from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import DBT_EXPECTED_RELATIONS
 
 logger = logging.getLogger(__name__)
 
-_POLY_RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
+_RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
     (INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA, "match_results"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "markets"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "market_tokens"),
@@ -56,118 +44,17 @@ _POLY_RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
     (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "token_sync_skips"),
     (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "pipeline_run_events"),
     (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "sync_run_metrics"),
+    (KALSHI_WC2026_RAW_SCHEMA, "events"),
+    (KALSHI_WC2026_RAW_SCHEMA, "markets"),
+    (KALSHI_WC2026_RAW_SCHEMA, "market_candlesticks_hourly"),
+    (KALSHI_WC2026_OPS_SCHEMA, "market_scope_registry"),
+    (KALSHI_WC2026_OPS_SCHEMA, "candlestick_sync_ledger"),
+    (KALSHI_WC2026_OPS_SCHEMA, "pipeline_run_events"),
+    (KALSHI_WC2026_OPS_SCHEMA, "sync_run_metrics"),
 )
-_RAW_TABLES_POLY: tuple[str, ...] = tuple(t for _, t in _POLY_RAW_OPS_TABLES)
-
-_DBT_MODELS: tuple[tuple[str, str], ...] = (
-    (
-        INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
-        "stg_international_results_wc2026_match_results",
-    ),
-    (
-        INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
-        "international_results_wc2026_team_aliases",
-    ),
-    (
-        INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA,
-        "int_international_results_wc2026_match_teams",
-    ),
-    (
-        INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
-        "international_results_wc2026_matches",
-    ),
-    (
-        INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
-        "international_results_wc2026_team_status",
-    ),
-    (
-        INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
-        "international_results_wc2026_data_quality",
-    ),
-    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_markets"),
-    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_market_tokens"),
-    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds"),
-    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds_daily"),
-    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_pipeline_run_events"),
-    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_sync_ledger"),
-    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_token_sync_skips"),
-    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_markets"),
-    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_token_universe"),
-    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_market_tokens"),
-    (
-        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_wc2026_token_hourly_odds",
-    ),
-    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_market_tokens"),
-    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_markets"),
-    (
-        POLYMARKET_WC2026_MARTS_SCHEMA,
-        "polymarket_wc2026_knockout_token_hourly_odds",
-    ),
-    (
-        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
-        "polymarket_wc2026_knockout_stage_coverage",
-    ),
-    (
-        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
-        "polymarket_wc2026_knockout_data_quality",
-    ),
-    (
-        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
-        "polymarket_wc2026_sync_run_observability",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_markets",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_market_tokens",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_odds",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_odds_daily",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_pipeline_run_events",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_sync_ledger",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_token_sync_skips",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_us_midterms_2026_markets",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_us_midterms_2026_token_universe",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_us_midterms_2026_market_tokens",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_us_midterms_2026_token_hourly_odds",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
-        "polymarket_us_midterms_2026_market_token_hourly_odds",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA,
-        "polymarket_us_midterms_2026_sync_run_observability",
-    ),
+_WC2026_POLY_SCHEMAS = (POLYMARKET_WC2026_RAW_SCHEMA, POLYMARKET_WC2026_OPS_SCHEMA)
+_RAW_SHORT_LOG_TABLES: tuple[str, ...] = tuple(
+    table for schema, table in _RAW_OPS_TABLES if schema in _WC2026_POLY_SCHEMAS
 )
 
 _TAB_MT = polymarket_wc2026_raw_tbl("market_tokens")
@@ -248,12 +135,12 @@ def snapshot_raw_layer(conn=None, *, level: str = "full") -> dict[str, Any]:
     out: dict[str, Any] = {}
 
     def _fill(c) -> None:
-        for schema, table in _POLY_RAW_OPS_TABLES:
-            exists, n = _table_row_count(c, polymarket_wc2026_q(schema, table))
+        for schema, table in _RAW_OPS_TABLES:
+            exists, n = _table_row_count(c, _qualified(schema, table))
             qualified = f"{schema}.{table}"
             out[f"{qualified}_rows"] = n
             out[f"{qualified}_missing"] = not exists
-            if schema in (POLYMARKET_WC2026_RAW_SCHEMA, POLYMARKET_WC2026_OPS_SCHEMA):
+            if schema in _WC2026_POLY_SCHEMAS:
                 out[f"{table}_rows"] = n
                 out[f"{table}_missing"] = not exists
 
@@ -353,7 +240,7 @@ def snapshot_dbt_models(conn=None) -> dict[str, Any]:
     out: dict[str, Any] = {}
 
     def _fill(c) -> None:
-        for schema, model in _DBT_MODELS:
+        for schema, model in DBT_EXPECTED_RELATIONS:
             key = f"{schema}.{model}"
             try:
                 row = c.execute(
@@ -389,8 +276,11 @@ def delta_dbt_models(before: dict[str, Any], after: dict[str, Any]) -> dict[str,
 def format_raw_snapshot_log(snapshot: dict[str, Any]) -> str:
     """Single-line key=value summary for raw layer operator logs."""
     parts: list[str] = []
-    for table in _RAW_TABLES_POLY:
+    for table in _RAW_SHORT_LOG_TABLES:
         parts.append(f"{table}={snapshot.get(f'{table}_rows')}")
+    for schema, table in _RAW_OPS_TABLES:
+        qualified = f"{schema}.{table}"
+        parts.append(f"{qualified}={snapshot.get(f'{qualified}_rows')}")
     for extra in (
         "market_tokens_distinct_tokens",
         "odds_history_distinct_tokens",

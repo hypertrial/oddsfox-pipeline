@@ -244,7 +244,7 @@ def polymarket_us_midterms_2026_hourly_odds_run_config() -> dict:
 
 def polymarket_wc2026_dbt_build_run_config() -> dict:
     dbt_cfg = DbtBuildConfig(full_refresh=True)
-    return {"ops": {"polymarket_wc2026_dbt": {"config": dbt_cfg.model_dump()}}}
+    return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}
 
 
 def polymarket_wc2026_full_refresh_events_run_config() -> dict:
@@ -331,4 +331,4 @@ def kalshi_wc2026_dbt_build_run_config() -> dict:
         full_refresh=True,
         dbt_exclude="tag:cross_domain tag:polymarket",
     )
-    return {"ops": {"polymarket_wc2026_dbt": {"config": dbt_cfg.model_dump()}}}
+    return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}

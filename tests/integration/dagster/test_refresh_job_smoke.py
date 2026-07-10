@@ -35,12 +35,12 @@ from oddsfox_pipeline.orchestration.assets import (
     kalshi_wc2026_raw_market_candlesticks_hourly,
     kalshi_wc2026_raw_markets,
     kalshi_wc2026_raw_markets_snapshot,
+    oddsfox_dbt,
     polymarket_us_midterms_2026_ops_market_scope_registry,
     polymarket_us_midterms_2026_raw_market_metadata_backfill,
     polymarket_us_midterms_2026_raw_markets,
     polymarket_us_midterms_2026_raw_markets_snapshot,
     polymarket_us_midterms_2026_raw_token_odds_history_hourly,
-    polymarket_wc2026_dbt,
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_market_metadata_backfill,
     polymarket_wc2026_raw_markets,
@@ -334,7 +334,7 @@ oddsfox:
     assert odds_result.success is True
 
     dbt_result = materialize(
-        [polymarket_wc2026_dbt],
+        [oddsfox_dbt],
         resources={
             "dbt": DbtCliResource(
                 project_dir=DBT_PROJECT,
@@ -344,7 +344,7 @@ oddsfox:
         },
         run_config={
             "ops": {
-                "polymarket_wc2026_dbt": {
+                "oddsfox_dbt": {
                     "config": {
                         "progress_log_interval_events": 1,
                         "progress_log_interval_seconds": 1,
@@ -679,7 +679,7 @@ def _materialize_midterms_refresh_path(
     assert odds_result.success is True
 
     dbt_result = materialize(
-        [polymarket_wc2026_dbt],
+        [oddsfox_dbt],
         resources={
             "dbt": DbtCliResource(
                 project_dir=DBT_PROJECT,
@@ -689,7 +689,7 @@ def _materialize_midterms_refresh_path(
         },
         run_config={
             "ops": {
-                "polymarket_wc2026_dbt": {
+                "oddsfox_dbt": {
                     "config": {
                         "progress_log_interval_events": 1,
                         "progress_log_interval_seconds": 1,

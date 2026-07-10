@@ -63,7 +63,6 @@ def test_run_forever_carries_fixture_input_parquet(tmp_path: Path) -> None:
         graph_repo=tmp_path / "graph",
         graph_python=None,
         graph_lookback_days=30,
-        refresh_command="",
         skip_refresh=True,
         skip_dbt=True,
         input_parquet=tmp_path / "fixture.parquet",
@@ -82,3 +81,30 @@ def test_run_forever_carries_fixture_input_parquet(tmp_path: Path) -> None:
     command = run.call_args.args[0]
     assert "--input-parquet" in command
     assert str(args.input_parquet) in command
+    assert "--refresh-command" not in command
+
+
+def test_run_refresh_uses_fixed_dagster_command(tmp_path: Path) -> None:
+    builder = _load_builder_module()
+    args = SimpleNamespace(
+        pipeline_python=Path("/usr/bin/python3"),
+        skip_refresh=False,
+    )
+
+    with patch.object(builder.subprocess, "run") as run:
+        builder.run_refresh(args)
+
+    assert run.call_args.kwargs.get("shell") is not True
+    assert run.call_args.kwargs["cwd"] == builder.REPO_ROOT
+    command = run.call_args.args[0]
+    assert command == [
+        "/usr/bin/python3",
+        "-m",
+        "dagster",
+        "job",
+        "execute",
+        "-m",
+        "oddsfox_pipeline.orchestration.definitions",
+        "-j",
+        "polymarket_wc2026_full_pipeline",
+    ]

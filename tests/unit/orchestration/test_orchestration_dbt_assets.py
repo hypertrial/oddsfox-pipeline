@@ -140,7 +140,7 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
 
 
 def test_dbt_assets_definition_streams_build_events(monkeypatch):
-    from oddsfox_pipeline.orchestration.assets import polymarket_wc2026_dbt
+    from oddsfox_pipeline.orchestration.assets import oddsfox_dbt
 
     monkeypatch.setattr(
         "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
@@ -154,14 +154,14 @@ def test_dbt_assets_definition_streams_build_events(monkeypatch):
             m.stream = lambda: iter(["event"])
             return m
 
-    fn = polymarket_wc2026_dbt.op.compute_fn.decorated_fn
+    fn = oddsfox_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     events = list(fn(ctx, MockDbt(), orch_config.DbtBuildConfig()))
     assert events == ["event"]
 
 
 def test_dbt_assets_does_not_delete_orphan_market_tokens(monkeypatch):
-    from oddsfox_pipeline.orchestration.assets import polymarket_wc2026_dbt
+    from oddsfox_pipeline.orchestration.assets import oddsfox_dbt
 
     monkeypatch.setattr(
         "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",
@@ -175,14 +175,14 @@ def test_dbt_assets_does_not_delete_orphan_market_tokens(monkeypatch):
             m.stream = lambda: iter([])
             return m
 
-    fn = polymarket_wc2026_dbt.op.compute_fn.decorated_fn
+    fn = oddsfox_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     list(fn(ctx, MockDbt(), orch_config.DbtBuildConfig()))
 
 
 def test_dbt_assets_guardrail_hard_timeout_terminates_process(monkeypatch):
     from oddsfox_pipeline.orchestration import assets as assets_mod
-    from oddsfox_pipeline.orchestration.assets import polymarket_wc2026_dbt
+    from oddsfox_pipeline.orchestration.assets import oddsfox_dbt
 
     clock = _FakeClock()
     _patch_guardrail_clock(monkeypatch, assets_mod, clock)
@@ -207,7 +207,7 @@ def test_dbt_assets_guardrail_hard_timeout_terminates_process(monkeypatch):
             m.stream = lambda: iter(())
             return m
 
-    fn = polymarket_wc2026_dbt.op.compute_fn.decorated_fn
+    fn = oddsfox_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     with pytest.raises(Exception):
         list(
@@ -227,9 +227,9 @@ def test_dbt_assets_guardrail_hard_timeout_terminates_process(monkeypatch):
 
 def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
     from oddsfox_pipeline.orchestration import assets as assets_mod
-    from oddsfox_pipeline.orchestration.assets import polymarket_wc2026_dbt
+    from oddsfox_pipeline.orchestration.assets import oddsfox_dbt
 
-    fn = polymarket_wc2026_dbt.op.compute_fn.decorated_fn
+    fn = oddsfox_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     clock = _FakeClock()
     _patch_guardrail_clock(monkeypatch, assets_mod, clock)
@@ -282,7 +282,7 @@ def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
 
 
 def test_dbt_assets_raises_when_build_returns_nonzero_after_stream():
-    from oddsfox_pipeline.orchestration.assets import polymarket_wc2026_dbt
+    from oddsfox_pipeline.orchestration.assets import oddsfox_dbt
 
     class NonZeroReturncodeDbt:
         def cli(self, *a, **k):
@@ -290,7 +290,7 @@ def test_dbt_assets_raises_when_build_returns_nonzero_after_stream():
             m.stream = lambda: iter(["event"])
             return m
 
-    fn = polymarket_wc2026_dbt.op.compute_fn.decorated_fn
+    fn = oddsfox_dbt.op.compute_fn.decorated_fn
     ctx = MagicMock()
     with pytest.raises(RuntimeError, match="exit code 1"):
         list(fn(ctx, NonZeroReturncodeDbt(), orch_config.DbtBuildConfig()))
@@ -428,7 +428,7 @@ def test_stream_dbt_build_appends_full_refresh_flag():
     ctx = MagicMock()
     list(
         dbt_build_mod.stream_dbt_build(
-            asset_name="polymarket_wc2026_dbt",
+            asset_name="oddsfox_dbt",
             context=ctx,
             dbt=MockDbt(),
             config=orch_config.DbtBuildConfig(full_refresh=True),
@@ -453,7 +453,7 @@ def test_stream_dbt_build_appends_dbt_exclude_flag():
     ctx = MagicMock()
     list(
         dbt_build_mod.stream_dbt_build(
-            asset_name="polymarket_wc2026_dbt",
+            asset_name="oddsfox_dbt",
             context=ctx,
             dbt=MockDbt(),
             config=orch_config.DbtBuildConfig(dbt_exclude="tag:cross_domain"),
@@ -484,7 +484,7 @@ def test_stream_dbt_build_syncs_duckdb_path_env(monkeypatch, tmp_path):
     ctx = MagicMock()
     list(
         dbt_build_mod.stream_dbt_build(
-            asset_name="polymarket_wc2026_dbt",
+            asset_name="oddsfox_dbt",
             context=ctx,
             dbt=MockDbt(),
             config=orch_config.DbtBuildConfig(),
@@ -521,7 +521,7 @@ def test_stream_dbt_build_merges_heartbeat_diagnostics(monkeypatch):
 
     list(
         dbt_build_mod.stream_dbt_build(
-            asset_name="polymarket_wc2026_dbt",
+            asset_name="oddsfox_dbt",
             context=ctx,
             dbt=MockDbt(),
             config=orch_config.DbtBuildConfig(
@@ -565,7 +565,7 @@ def test_stream_dbt_build_ignores_non_dict_heartbeat(monkeypatch):
 
     list(
         dbt_build_mod.stream_dbt_build(
-            asset_name="polymarket_wc2026_dbt",
+            asset_name="oddsfox_dbt",
             context=MagicMock(),
             dbt=MockDbt(),
             config=orch_config.DbtBuildConfig(

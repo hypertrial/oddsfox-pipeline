@@ -11,6 +11,7 @@ from oddsfox_pipeline.storage.duckdb.observability import (
     snapshot_dbt_models,
     snapshot_raw_layer,
 )
+from oddsfox_pipeline.storage.duckdb.schemas.kalshi import create_test_kalshi_raw_tables
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     create_test_markets_table,
     seed_test_pipeline_run_event,
@@ -48,8 +49,43 @@ def test_snapshot_raw_layer_counts_polymarket_tables(
 
     assert snapshot["markets_rows"] == 1
     assert snapshot["markets_missing"] is False
+    assert snapshot["polymarket_wc2026_raw.markets_rows"] == 1
+    assert snapshot["polymarket_wc2026_raw.markets_missing"] is False
     assert "market_scope_registry_rows" in snapshot
     assert "market_tokens_distinct_tokens" not in snapshot
+
+
+def test_snapshot_raw_layer_counts_kalshi_tables(tmp_path, monkeypatch, isolated_env):
+    import oddsfox_pipeline.storage.duckdb.connection as conn_mod
+
+    db_path = tmp_path / "kalshi-obs.duckdb"
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    conn_mod.reset_duckdb_connection_state()
+    init_duck_db()
+
+    with duckdb.connect(str(db_path)) as conn:
+        create_test_kalshi_raw_tables(conn)
+        conn.execute(
+            """
+            insert into kalshi_wc2026_raw.events (
+                event_ticker, series_ticker, title, sub_title, category, status,
+                open_time, close_time, scraped_at
+            )
+            values (
+                'KXWCUP-26', 'KXWCUP', 'Winner', 'sub', 'sports', 'open',
+                current_timestamp, current_timestamp, current_timestamp
+            )
+            """
+        )
+
+        snapshot = snapshot_raw_layer(conn=conn, level="basic")
+
+    assert snapshot["kalshi_wc2026_raw.events_rows"] == 1
+    assert snapshot["kalshi_wc2026_raw.events_missing"] is False
+    assert snapshot["kalshi_wc2026_raw.market_candlesticks_hourly_rows"] == 0
+    assert snapshot["kalshi_wc2026_ops.candlestick_sync_ledger_rows"] == 0
+    assert "events_rows" not in snapshot
 
 
 def test_seed_test_pipeline_run_event_inserts_sync_odds_row(tmp_path, monkeypatch):
@@ -91,6 +127,10 @@ def test_snapshot_dbt_models_reports_missing_relations(tmp_path):
         "exists": False,
         "rows": None,
     }
+    assert snapshot["kalshi_wc2026_marts.kalshi_wc2026_stage_markets"] == {
+        "exists": False,
+        "rows": None,
+    }
 
 
 def test_dbt_delta_and_formatters():
@@ -114,6 +154,9 @@ def test_dbt_delta_and_formatters():
         }
     }
     assert "markets=2" in format_raw_snapshot_log({"markets_rows": 2})
+    assert "kalshi_wc2026_raw.events=1" in format_raw_snapshot_log(
+        {"kalshi_wc2026_raw.events_rows": 1}
+    )
     assert (
         "polymarket_wc2026_knockout_markets:exists=True,rows=3"
         in format_dbt_snapshot_log(after)

@@ -44,15 +44,18 @@ def test_wc2026_hourly_fact_aggregates_canonical_odds_directly():
         / "intermediate"
         / "int_polymarket_wc2026_token_hourly_odds.sql"
     ).read_text()
+    macro_sql = (DBT_ROOT / "macros" / "polymarket_models.sql").read_text()
     lowered = sql.lower()
+    lowered_macro = macro_sql.lower()
 
-    assert "{{ ref('stg_polymarket_wc2026_odds') }}" in lowered
-    assert "{{ ref('polymarket_wc2026_contract') }}" in lowered
-    assert "date_trunc('hour', o.odds_timestamp)" in lowered
-    assert "latest_ingested_at" in lowered
-    assert "is_incremental()" in lowered
+    assert "polymarket_token_hourly_odds_sql(" in lowered
+    assert "ref('stg_polymarket_wc2026_odds')" in lowered
+    assert "ref('polymarket_wc2026_contract')" in lowered
+    assert "date_trunc('hour', o.odds_timestamp)" in lowered_macro
+    assert "latest_ingested_at" in lowered_macro
+    assert "is_incremental()" in lowered_macro
     assert "{{ ref('polymarket_wc2026_token_hourly_odds') }}" not in lowered
-    assert "hourly_window_days" in lowered
+    assert "hourly_window_days" in lowered_macro
     assert "selected_" not in lowered
 
 

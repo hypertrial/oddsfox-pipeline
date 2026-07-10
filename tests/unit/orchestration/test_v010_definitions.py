@@ -164,13 +164,13 @@ def test_wc2026_jobs_do_not_expose_scope_config():
     full_config = _merge_run_configs(
         polymarket_wc2026_full_refresh_events_run_config(),
         polymarket_wc2026_hourly_odds_run_config(),
-        {"ops": {"polymarket_wc2026_dbt": {"config": {"full_refresh": True}}}},
+        {"ops": {"oddsfox_dbt": {"config": {"full_refresh": True}}}},
     )["ops"]
 
     assert legacy_key not in set(_nested_keys(registry_config))
     assert legacy_key not in set(_nested_keys(hourly_config))
     assert legacy_key not in set(_nested_keys(full_config))
-    assert "polymarket_wc2026_dbt" in full_config
+    assert "oddsfox_dbt" in full_config
 
 
 def test_polymarket_source_dagster_asset_keys_exist_in_definitions():

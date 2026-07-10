@@ -63,6 +63,23 @@ def test_readme_links_to_project_docs():
     assert "(LICENSE)" in readme
 
 
+def test_landing_docs_describe_shipped_kalshi_support():
+    texts = {
+        "README.md": (REPO_ROOT / "README.md").read_text(),
+        "docs/index.md": (REPO_ROOT / "docs" / "index.md").read_text(),
+        "CONTRIBUTING.md": (REPO_ROOT / "CONTRIBUTING.md").read_text(),
+    }
+
+    for text in texts.values():
+        assert "Kalshi WC2026" in text
+
+    combined = "\n".join(texts.values()).lower()
+    assert "future adapter contributions may cover kalshi" not in combined
+    assert (
+        "kalshi and traditional bookmaker adapters are welcome future" not in combined
+    )
+
+
 def test_github_templates_exist():
     required = [
         ".github/ISSUE_TEMPLATE/bug_report.yml",

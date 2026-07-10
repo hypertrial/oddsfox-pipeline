@@ -9,7 +9,7 @@ from oddsfox_pipeline.naming import (
     SOURCE_POLYMARKET,
     asset_key,
 )
-from oddsfox_pipeline.orchestration.assets_polymarket import polymarket_wc2026_dbt
+from oddsfox_pipeline.orchestration.assets_polymarket import oddsfox_dbt
 from oddsfox_pipeline.orchestration.config import (
     kalshi_wc2026_dbt_build_run_config,
     kalshi_wc2026_full_refresh_events_run_config,
@@ -95,7 +95,7 @@ POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
 )
 
 POLYMARKET_US_MIDTERMS_2026_DBT_SELECTION = build_dbt_asset_selection(
-    [polymarket_wc2026_dbt],
+    [oddsfox_dbt],
     dbt_select="tag:us_midterms_2026",
 )
 
@@ -188,7 +188,7 @@ KALSHI_WC2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
 )
 
 KALSHI_WC2026_DBT_SELECTION = build_dbt_asset_selection(
-    [polymarket_wc2026_dbt],
+    [oddsfox_dbt],
     dbt_select="+tag:kalshi",
     dbt_exclude="tag:cross_domain tag:polymarket",
 )

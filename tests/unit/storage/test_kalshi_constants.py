@@ -7,6 +7,9 @@ from oddsfox_pipeline.storage.duckdb.schemas import constants
 
 
 def test_kalshi_schema_helpers_use_wc2026_defaults_and_custom_scopes():
+    assert constants.polymarket_wc2026_q("polymarket_wc2026_raw", "markets") == (
+        '"polymarket_wc2026_raw"."markets"'
+    )
     assert constants.kalshi_q("kalshi_wc2026_raw", "markets") == (
         '"kalshi_wc2026_raw"."markets"'
     )

@@ -56,7 +56,7 @@ EXPECTED_OP_NAMES = {
     "polymarket_wc2026_ops_market_scope_registry",
     "polymarket_wc2026_raw_market_metadata_backfill",
     "polymarket_wc2026_raw_token_odds_history_hourly",
-    "polymarket_wc2026_dbt",
+    "oddsfox_dbt",
 }
 
 EXPECTED_ASSET_KEYS = {
@@ -201,7 +201,7 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         assets.polymarket_wc2026_ops_market_scope_registry.op.name,
         assets.polymarket_wc2026_raw_market_metadata_backfill.op.name,
         assets.polymarket_wc2026_raw_token_odds_history_hourly.op.name,
-        assets.polymarket_wc2026_dbt.op.name,
+        assets.oddsfox_dbt.op.name,
     }
     run_config_ops = (
         set(polymarket_wc2026_full_refresh_events_run_config()["ops"])

@@ -24,9 +24,9 @@ ingestion against source APIs and keep the resulting data in their own local or
 self-managed warehouse.
 
 The current v0.1.x implementation ships two Polymarket scopes — FIFA World Cup
-2026 (`wc2026`) and US midterms 2026 (`us_midterms_2026`) — plus a FIFA
-fixture/results source used to validate WC2026 real-team scope. See
-[Configuration](configuration.md).
+2026 (`wc2026`) and US midterms 2026 (`us_midterms_2026`) — plus Kalshi WC2026
+stage and group-winner markets and a FIFA fixture/results source used to
+validate WC2026 real-team scope. See [Configuration](configuration.md).
 
 ## Key features
 
@@ -36,7 +36,7 @@ fixture/results source used to validate WC2026 real-team scope. See
 - **dbt-tested marts:** coverage, WC2026 knockout odds time series, US midterms hourly odds, health, and observability models build with dbt data tests.
 - **Prediction-market focused:** token coverage, odds freshness, market health, and scoped marts are first-class outputs.
 - **Current Polymarket adapter:** v0.1.x ships WC2026 knockout marts, US midterms generic market odds, CLOB odds sync, and dbt marts cleaned by FIFA fixture/results data for WC2026 team scope.
-- **Source-adapter ready:** Kalshi and traditional bookmaker adapters are welcome future contributions.
+- **Current Kalshi adapter:** v0.1.x ships WC2026 stage and group-winner markets from the public Kalshi trade API.
 - **Safe by default:** schedules are disabled until manual jobs and dbt builds are healthy.
 
 ## Example workflow

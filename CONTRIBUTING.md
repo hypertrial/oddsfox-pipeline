@@ -2,9 +2,9 @@
 
 Thank you for your interest in contributing. OddsFox is an open-source,
 local-first prediction-market data pipeline built with Dagster, dlt, dbt, and
-DuckDB. Version `0.1.x` ships a WC2026 Polymarket pipeline for FIFA World Cup
-2026 markets and odds, plus a small FIFA fixture/results source for real-team
-scope validation.
+DuckDB. Version `0.1.x` ships WC2026 and US midterms 2026 Polymarket pipelines,
+a Kalshi WC2026 pipeline, plus a small FIFA fixture/results source for
+real-team scope validation.
 
 ## Development setup
 
@@ -17,17 +17,19 @@ The default warehouse is `oddsfox.duckdb` in the repo root. Keep schedules disab
 
 ```dotenv
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 See [docs/quickstart.md](docs/quickstart.md) and [docs/configuration.md](docs/configuration.md) for full operator setup.
 
 ## Source adapter contributions
 
-Polymarket WC2026 is the first shipped market adapter. The bundled
-`international_results` WC2026 source validates team scope; it is not a
-bookmaker/market adapter. Contributions may add or improve adapters for Kalshi,
-traditional bookmakers, and other odds sources when they keep the pipeline
-local-first and operator-owned.
+Polymarket WC2026, Polymarket US midterms 2026, and Kalshi WC2026 are the
+shipped market adapters. The bundled `international_results` WC2026 source
+validates team scope; it is not a bookmaker/market adapter. Contributions may
+add or improve adapters for traditional bookmakers and other odds sources when
+they keep the pipeline local-first and operator-owned.
 
 Useful contribution areas include ingestion adapters, Dagster assets and jobs,
 dbt models and tests, DuckDB storage, docs, and operator scripts. Adapter PRs

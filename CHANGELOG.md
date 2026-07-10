@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unused CLOB authenticated-request path (`ClobAuth`, `CLOB_API_KEY` /
   `CLOB_API_SECRET` / `CLOB_API_PASSPHRASE`). Polymarket and Kalshi ingestion
   use unauthenticated public API endpoints only.
+- `scripts/build_hosted_artifacts.py --refresh-command`; hosted artifact refreshes
+  now use the fixed Dagster pipeline command or `--skip-refresh` only.
 
 ### Fixed
 
@@ -40,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Breaking: renamed the shared Dagster dbt asset/op and run-config key from
+  `polymarket_wc2026_dbt` to `oddsfox_dbt`. Existing job names such as
+  `polymarket_wc2026_dbt_build` are unchanged.
 - Docs: midterms quickstart path, warehouse schemas, operations validation SQL,
   data-contract analyst caveats, and local `.env`/test isolation guidance.
 - Breaking: renamed WC2026 knockout observability columns
@@ -139,7 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `PolymarketDagsterDbtTranslator` now honors `meta.dagster.asset_key` on dbt
-  sources (with duplicate-source keys enabled) so `polymarket_wc2026_dbt` waits for
+  sources (with duplicate-source keys enabled) so the shared dbt asset waits for
   ingestion assets instead of running immediately after `polymarket_wc2026_raw_markets`.
 - Removed tautological dbt tests on selected-scope minutely/daily/whale marts
   (`mart_matches_selected_scope`, redundant `no_duplicate_grain`, whale subset
@@ -171,7 +176,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   extra `importlib.reload` per module.
 - Orchestration ops facade collapsed through `polymarket_wc2026_ops.py`.
 - Orphan `market_tokens` cleanup now runs after metadata/token backfill instead
-  of inside the dbt asset, keeping `polymarket_wc2026_dbt` read-only against raw
+  of inside the dbt asset, keeping the shared dbt asset read-only against raw
   tables.
 - DuckDB market storage internals split into query and mutation modules while
   preserving the `oddsfox_pipeline.storage.duckdb.markets` facade.

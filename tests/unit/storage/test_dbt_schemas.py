@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from dagster import AssetKey
 
 from oddsfox_pipeline.storage.duckdb.schemas import dbt_schemas
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
@@ -157,3 +161,14 @@ def test_dbt_schema_helpers_cover_kalshi_names():
         )
         == "markets"
     )
+
+
+def test_expected_dbt_relations_cover_models_and_seeds():
+    expected_names = {name for _, name in dbt_schemas.DBT_EXPECTED_RELATIONS}
+    model_names = {path.stem for path in (ROOT / "dbt" / "models").rglob("*.sql")}
+    seed_names = {path.stem for path in (ROOT / "dbt" / "seeds").glob("*.csv")}
+
+    missing = (model_names | seed_names) - expected_names
+
+    assert not missing
+    assert "kalshi_wc2026_sync_run_observability" in expected_names
