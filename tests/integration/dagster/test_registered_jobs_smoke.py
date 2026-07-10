@@ -10,6 +10,7 @@ pytest.importorskip("dagster_dbt")
 
 from dagster import MaterializeResult, ResourceDefinition
 
+import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.orchestration import (
     assets_international_results as results_assets_mod,
 )
@@ -19,6 +20,16 @@ from oddsfox_pipeline.orchestration import (
     assets_polymarket_us_midterms_2026 as midterms_assets_mod,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
+from oddsfox_pipeline.orchestration.scope_registry import SCOPE_STEPS, iter_scope_specs
+
+_NON_SCOPE_JOB_NAMES = {"international_results_wc2026_match_results_ingest"}
+
+
+def _expected_public_job_names() -> set[str]:
+    scoped_jobs = {
+        spec.job_for_step(step) for spec in iter_scope_specs() for step in SCOPE_STEPS
+    }
+    return scoped_jobs | _NON_SCOPE_JOB_NAMES
 
 
 def _registered_job_names() -> list[str]:
@@ -29,6 +40,7 @@ def _registered_job_names() -> list[str]:
 
 @pytest.fixture
 def patched_dagster_runtime(monkeypatch, tmp_path):
+    connection.reset_duckdb_connection_state()
     db_path = tmp_path / "registered_jobs.duckdb"
     profiles_dir = tmp_path / "profiles"
     profiles_dir.mkdir()
@@ -52,7 +64,7 @@ oddsfox:
     conn = MagicMock()
 
     @contextmanager
-    def connection():
+    def mock_connection():
         yield conn
 
     def stream_dbt_build(**_kwargs):
@@ -117,7 +129,7 @@ oddsfox:
         monkeypatch.setattr(
             module, "save_sync_run_metrics", lambda *_args, **_kwargs: None
         )
-        monkeypatch.setattr(module, "get_connection", connection)
+        monkeypatch.setattr(module, "get_connection", mock_connection)
         monkeypatch.setattr(module, "snapshot_raw_layer", lambda **_kwargs: {})
         monkeypatch.setattr(module, "delta_raw_layer", lambda _pre, _post: {})
         monkeypatch.setattr(
@@ -167,10 +179,17 @@ oddsfox:
 
     fake_dlt = MagicMock()
     fake_dlt.run.return_value = iter([])
-    return {
-        "dbt": ResourceDefinition.hardcoded_resource(MagicMock()),
-        "dlt": ResourceDefinition.hardcoded_resource(fake_dlt),
-    }
+    try:
+        yield {
+            "dbt": ResourceDefinition.hardcoded_resource(MagicMock()),
+            "dlt": ResourceDefinition.hardcoded_resource(fake_dlt),
+        }
+    finally:
+        connection.reset_duckdb_connection_state()
+
+
+def test_registered_dagster_jobs_match_shipped_scope_inventory():
+    assert set(_registered_job_names()) == _expected_public_job_names()
 
 
 @pytest.mark.parametrize("job_name", _registered_job_names())

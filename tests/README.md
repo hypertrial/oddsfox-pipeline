@@ -16,6 +16,7 @@ Useful commands:
 make unit-core
 make unit-ingest
 make unit-orchestration
+make dagster-jobs-smoke
 make integration-dbt
 make integration-dagster
 make test
@@ -27,10 +28,12 @@ CI mirrors the quality gate with coverage accumulation:
 and `make coverage-report`. Local `make coverage` is still a one-shot
 equivalent.
 
-`make integration-dagster` and the CI `*-cov` targets enforce 100% branch
-coverage for `src/oddsfox_pipeline` except the warehouse profiling
-operator helpers under
-`storage/duckdb/profile/`, which are covered by smoke tests instead.
+`make dagster-jobs-smoke` runs every registered public Dagster job headlessly
+with temp DuckDB state and mocked external APIs. `make integration-dagster` and
+the CI `*-cov` targets include that smoke plus deeper seeded Dagster runs and
+enforce 100% branch coverage for `src/oddsfox_pipeline` except the warehouse
+profiling operator helpers under `storage/duckdb/profile/`, which are covered by
+smoke tests instead.
 
 When `.env` sets `DUCKDB_PATH`, use `isolate_duckdb_test_env()` from
 `tests/unit/storage/duckdb_storage_test_support.py` so tests do not write to the

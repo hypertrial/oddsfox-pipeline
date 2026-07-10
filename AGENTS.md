@@ -86,6 +86,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make unit-core` | Config, resources, storage unit tests |
 | `make unit-ingest` | Ingestion unit tests |
 | `make unit-orchestration` | Orchestration/Dagster unit tests |
+| `make dagster-jobs-smoke` | Headless smoke for every registered public Dagster job with mocked externals |
 | `make test-cov` | CI unit tests with coverage accumulation (`-n auto`) |
 | `make integration-dbt` | DuckDB + dbt integration smoke |
 | `make integration-dagster` | Dagster integration smoke |

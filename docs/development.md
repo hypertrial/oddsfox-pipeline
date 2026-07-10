@@ -37,10 +37,12 @@ Run the same checks as CI. The canonical command list lives in
 [AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md)
 and [CONTRIBUTING.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CONTRIBUTING.md#quality-gate).
 
-`integration-dagster` executes every registered public Dagster job with
-deterministic temp resources. `coverage` enforces 100% branch coverage for
-product-core package code; warehouse profiling helpers are smoke-tested instead.
-Both run in GitHub Actions and should pass locally before opening a pull request.
+`dagster-jobs-smoke` executes every registered public Dagster job with
+deterministic temp resources, mocked external APIs, and no `dagster-dev`
+server. `integration-dagster` includes that check plus deeper seeded Dagster
+smokes. `coverage` enforces 100% branch coverage for product-core package code;
+warehouse profiling helpers are smoke-tested instead. These gates run in GitHub
+Actions and should pass locally before opening a pull request.
 
 Costguard medium/low findings are measured dbt debt, not automatic
 materialization work. Before changing dbt materializations or adding
@@ -107,6 +109,7 @@ and [Troubleshooting](troubleshooting.md#tests-writing-to-production-warehouse).
 | `uv run make unit-core` | Config, resource, and storage unit tests. |
 | `uv run make unit-ingest` | Polymarket ingestion and odds sync tests. |
 | `uv run make unit-orchestration` | Dagster asset, job, and schedule tests. |
+| `uv run make dagster-jobs-smoke` | Headless deterministic smoke for every registered public Dagster job. |
 | `uv run make integration-dbt` | DuckDB and dbt smoke tests. |
 | `uv run make integration-dagster` | Dagster integration smoke tests. |
 | `uv run make test-cov` | CI unit tests with coverage accumulation (`-n auto`). |

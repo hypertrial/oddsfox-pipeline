@@ -51,11 +51,25 @@ Flat Dagster op names remain source-first, for example
 - `kalshi_wc2026_dbt_build`: scoped Kalshi dbt build (`+tag:kalshi`, excluding cross-domain Polymarket tests).
 - `kalshi_wc2026_full_pipeline`: FIFA results refresh, Kalshi market discovery, hourly candlestick refresh, and scoped dbt build (`+tag:kalshi`, including `international_results` parents; excludes `tag:cross_domain` and `tag:polymarket` tests outside that closure).
 
+## Headless Job Smoke
+
+To verify that every registered public Dagster job can execute without starting
+`dagster-dev`, run:
+
+```bash
+uv run make dagster-jobs-smoke
+```
+
+This deterministic smoke uses temp DuckDB state and mocked external APIs. It
+checks Dagster job registration, asset selection, run config, and resource
+wiring. It is not a live ingestion run.
+
 ## Run A Scope
 
 Use `scripts/run_scope.py` for local CLI runs. It maps known scope refs to fixed
 Dagster jobs; it is not a runtime market-scope selector and does not accept
-arbitrary dbt selectors.
+arbitrary dbt selectors. Unlike `dagster-jobs-smoke`, this command executes the
+real fixed jobs and may call configured external sources.
 
 ```bash
 uv run python scripts/run_scope.py --list
