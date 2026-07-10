@@ -119,11 +119,3 @@ The old minutely-oriented names are not accepted in v0.1.x.
 - `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `kalshi_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
 
 All schedule flags default to `false`.
-
-## CLOB Credentials
-
-- `CLOB_API_KEY`
-- `CLOB_API_SECRET`
-- `CLOB_API_PASSPHRASE`
-
-Leave unset for local docs, dbt, and mocked tests.

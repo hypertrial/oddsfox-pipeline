@@ -29,6 +29,9 @@ from oddsfox_pipeline.orchestration.config import (
     MetadataBackfillConfig,
 )
 from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
+from oddsfox_pipeline.orchestration.snapshot_helpers import (
+    _snapshot_refreshed_scope_name,
+)
 from oddsfox_pipeline.orchestration.translators import PolymarketDagsterDbtTranslator
 from oddsfox_pipeline.storage.duckdb.connection import (
     active_duckdb_path,
@@ -79,11 +82,6 @@ class PolymarketWc2026DltTranslator(DagsterDltTranslator):
         return (
             spec  # pragma: no cover - current WC2026 dlt source exposes only markets.
         )
-
-
-def _snapshot_refreshed_scope_name(snapshot_metrics: dict[str, Any]) -> str | None:
-    scope_name = snapshot_metrics.get("scope_name")
-    return str(scope_name) if scope_name else None
 
 
 _POLYMARKET_DLT_PIPELINE = asset_helpers.get_polymarket_dlt_pipeline(

@@ -1,6 +1,3 @@
-import base64
-import hashlib
-import hmac
 import logging
 import time
 from threading import Lock
@@ -14,50 +11,6 @@ from oddsfox_pipeline.config.settings import HTTP_REQUEST_TIMEOUT
 from oddsfox_pipeline.resources.http_retry import TRANSIENT_HTTP_STATUSES
 
 logger = logging.getLogger(__name__)
-
-
-def _bytes_from_hex(hex_str: str) -> bytes:
-    """Thin wrapper so hex-decode failures are testable without patching builtins."""
-    return bytes.fromhex(hex_str)
-
-
-class ClobAuth:
-    def __init__(self, api_key: str, api_secret: str, api_passphrase: str):
-        self.api_key = api_key
-        self.api_secret = api_secret
-        self.api_passphrase = api_passphrase
-        self._secret_bytes = self._decode_secret(api_secret)
-
-    def _decode_secret(self, secret: str) -> bytes:
-        try:
-            return base64.b64decode(secret)
-        except Exception:
-            pass
-        try:
-            if len(secret) == 64 and all(c in "0123456789abcdefABCDEF" for c in secret):
-                return _bytes_from_hex(secret)
-        except Exception:
-            pass
-        return secret.encode("utf-8")
-
-    def sign(
-        self, method: str, path: str, body: str = "", timestamp: str | None = None
-    ) -> dict:
-        if timestamp is None:
-            timestamp = str(int(time.time()))
-        message = timestamp + method + path + body
-        signature = hmac.new(
-            self._secret_bytes,
-            message.encode("utf-8"),
-            hashlib.sha256,
-        ).digest()
-        signature_b64 = base64.b64encode(signature).decode("utf-8")
-        return {
-            "CLOB-API-KEY": self.api_key,
-            "CLOB-API-SIGN": signature_b64,
-            "CLOB-API-TIMESTAMP": timestamp,
-            "CLOB-API-PASSPHRASE": self.api_passphrase,
-        }
 
 
 class RateLimiter:
@@ -105,20 +58,11 @@ class APIClient:
         retries: int = 3,
         backoff_factor: float = 1.0,
         requests_per_second: Optional[float] = None,
-        api_key: Optional[str] = None,
-        api_secret: Optional[str] = None,
-        api_passphrase: Optional[str] = None,
-        auth: Optional[ClobAuth] = None,
         rate_limiter: Optional[RateLimiter] = None,
         request_timeout: Optional[float | tuple[float, float]] = HTTP_REQUEST_TIMEOUT,
     ):
         self.base_url = base_url.rstrip("/") if base_url else ""
         self.session = requests.Session()
-        self.auth = auth or (
-            ClobAuth(api_key, api_secret, api_passphrase)
-            if all([api_key, api_secret, api_passphrase])
-            else None
-        )
         self.rate_limit_lock = Lock()
         self.rate_limiter = rate_limiter
         self.request_timeout = request_timeout
@@ -153,7 +97,6 @@ class APIClient:
         self,
         endpoint: str,
         params: dict | None = None,
-        use_auth: bool = False,
         **kwargs,
     ):
         self._wait_for_rate_limit()
@@ -163,12 +106,6 @@ class APIClient:
             else endpoint
         )
         headers = kwargs.pop("headers", {})
-        if use_auth and self.auth:
-            path = endpoint
-            if params:
-                query_string = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
-                path = f"{endpoint}?{query_string}"
-            headers.update(self.auth.sign("GET", path))
         if "timeout" not in kwargs and self.request_timeout is not None:
             kwargs["timeout"] = self.request_timeout
         response = self.session.get(url, params=params, headers=headers, **kwargs)

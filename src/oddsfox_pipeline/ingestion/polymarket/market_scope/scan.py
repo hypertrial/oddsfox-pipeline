@@ -4,12 +4,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Iterator, Literal, Sequence
+from typing import Any, Callable, Iterable, Literal, Sequence
 
-from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
-    EventsPageMeta,
-    iter_gamma_events_keyset,
-)
+from oddsfox_pipeline.ingestion.polymarket.gamma_events import iter_gamma_events_keyset
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import RegistryRow
 
 from .config import MarketScopeConfig
@@ -21,6 +18,7 @@ from .predicates import (
     _filter_crawl_tag_slugs,
     event_in_scope,
     event_matches_scope_config,
+    resolve_keyset_crawl_tags,
     resolve_market_scope_discovery,
 )
 
@@ -30,7 +28,6 @@ DISCOVERY_MODE_TARGETED = "targeted"
 DISCOVERY_MODE_FULL_KEYSET = "full_keyset"
 DiscoveryMode = Literal["targeted", "full_keyset"]
 DEFAULT_MAX_PAGES_WITHOUT_PROGRESS = 25
-_EVENTS_PAGE_MARKER: object = object()
 
 
 def _event_slug_from_market(market: dict[str, Any]) -> tuple[str | None, str | None]:
@@ -192,54 +189,6 @@ def _empty_scan_result() -> MarketScopeEventsScanResult:
         discovered_slugs=(),
         api_requests=0,
     )
-
-
-def _iter_market_scope_gamma_events(
-    client: Any,
-    cfg: MarketScopeConfig,
-    *,
-    max_pages: int | None,
-    keyset_closed: bool | None = None,
-    keyset_tag_slug: str | None = None,
-    keyset_related_tags: bool | None = None,
-    keyset_volume_min: float | None = None,
-    scope_tag_slugs: Sequence[str] | None = None,
-    progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
-    progress_task: str = "market_scope_registry_events",
-) -> Iterator[tuple[dict[str, Any], str, EventsPageMeta]]:
-    """Yield (event_dict, normalized_event_slug, page_meta) for scoped events."""
-    resolved = resolve_market_scope_discovery(
-        cfg,
-        max_pages=max_pages,
-        max_pages_without_progress=None,
-        keyset_closed=keyset_closed,
-        keyset_related_tags=keyset_related_tags,
-        keyset_volume_min=keyset_volume_min,
-    )
-    for events, page_meta in iter_gamma_events_keyset(
-        client,
-        max_pages=resolved.pass_page_cap,
-        keyset_closed=resolved.keyset_closed,
-        keyset_tag_slug=keyset_tag_slug,
-        keyset_related_tags=resolved.keyset_related_tags,
-        keyset_volume_min=resolved.keyset_volume_min,
-        progress_callback=progress_callback,
-        progress_task=progress_task,
-    ):
-        if not events:
-            break
-        for event in events:
-            event_slug = (event.get("slug") or "").strip().lower()
-            if not event_slug or not event_in_scope(
-                event,
-                config=cfg,
-                keyset_tag_slug=keyset_tag_slug,
-                keyset_related_tags=resolved.keyset_related_tags,
-                scope_tag_slugs=scope_tag_slugs,
-            ):
-                continue
-            yield event, event_slug, page_meta
-        yield _EVENTS_PAGE_MARKER, "", page_meta
 
 
 def _scan_market_scope_gamma_events_keyset_pass(
@@ -481,11 +430,7 @@ def _scan_market_scope_gamma_events(
         keyset_volume_min=keyset_volume_min,
         tag_discovery=tag_discovery,
     )
-    from oddsfox_pipeline.ingestion.polymarket.market_scope import (
-        resolve_keyset_crawl_tags as _resolve_keyset_crawl_tags,
-    )
-
-    initial_crawl_tags, tag_sources_map = _resolve_keyset_crawl_tags(
+    initial_crawl_tags, tag_sources_map = resolve_keyset_crawl_tags(
         resolved.keyset_tag_slugs,
         config=cfg,
         client=client,

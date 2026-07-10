@@ -1,3 +1,3 @@
-from oddsfox_pipeline.resources.http import APIClient, ClobAuth, RateLimiter
+from oddsfox_pipeline.resources.http import APIClient, RateLimiter
 
-__all__ = ["APIClient", "ClobAuth", "RateLimiter"]
+__all__ = ["APIClient", "RateLimiter"]

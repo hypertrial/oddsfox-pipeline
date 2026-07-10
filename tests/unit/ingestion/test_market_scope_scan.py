@@ -410,41 +410,6 @@ def test_market_scope_internal_collect_helpers():
     assert merged.api_requests == 1
 
 
-def test_iter_market_scope_gamma_events_stops_on_empty_page():
-    cfg = MarketScopeConfig(
-        event_slugs=("2026-fifa-world-cup-winner-595",),
-        event_slug_prefixes=(),
-        market_ids=(),
-        registry_max_event_pages=5,
-    )
-    client = MagicMock()
-    client.get.return_value = {"events": [], "next_cursor": None}
-    yielded = list(
-        scope_scan_mod._iter_market_scope_gamma_events(client, cfg, max_pages=5)
-    )
-    assert yielded == []
-
-
-def test_iter_market_scope_gamma_events_yields_allowlisted_only():
-    cfg = slug_only_cfg(event_slugs=("2026-fifa-world-cup-winner-595",))
-    client = MagicMock()
-    client.get.return_value = {
-        "events": [
-            {"id": "1", "slug": "2026-fifa-world-cup-winner-595", "markets": []},
-            {"id": "2", "slug": "other", "markets": []},
-        ],
-        "next_cursor": None,
-    }
-    yielded = list(
-        scope_scan_mod._iter_market_scope_gamma_events(client, cfg, max_pages=5)
-    )
-    events = [
-        item for item in yielded if item[0] is not scope_scan_mod._EVENTS_PAGE_MARKER
-    ]
-    assert len(events) == 1
-    assert events[0][1] == "2026-fifa-world-cup-winner-595"
-
-
 def test_scan_tag_crawl_max_truncates(monkeypatch):
     cfg = MarketScopeConfig(
         event_slugs=(),

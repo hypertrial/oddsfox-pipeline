@@ -21,6 +21,9 @@ from oddsfox_pipeline.orchestration.config import (
     KalshiMarketScopeRegistryConfig,
     KalshiMarketsSyncConfig,
 )
+from oddsfox_pipeline.orchestration.snapshot_helpers import (
+    _snapshot_refreshed_scope_name,
+)
 from oddsfox_pipeline.storage.duckdb.connection import (
     active_duckdb_path,
     get_connection,
@@ -65,11 +68,6 @@ class KalshiWc2026DltTranslator(DagsterDltTranslator):
                 deps=[],
             )
         return spec
-
-
-def _snapshot_refreshed_scope_name(snapshot_metrics: dict[str, Any]) -> str | None:
-    scope_name = snapshot_metrics.get("scope_name")
-    return str(scope_name) if scope_name else None
 
 
 _KALSHI_DLT_PIPELINE = asset_helpers.get_kalshi_dlt_pipeline(

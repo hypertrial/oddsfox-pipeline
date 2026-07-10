@@ -1,10 +1,9 @@
-import base64
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
-from oddsfox_pipeline.resources.http import APIClient, ClobAuth, RateLimiter
+from oddsfox_pipeline.resources.http import APIClient, RateLimiter
 from oddsfox_pipeline.resources.http_retry import (
     TRANSIENT_HTTP_STATUSES,
     exponential_backoff_seconds,
@@ -31,50 +30,6 @@ def test_retry_after_and_backoff_helpers():
 
     assert exponential_backoff_seconds(0) == 2.0
     assert exponential_backoff_seconds(4, cap=8.0) == 8.0
-
-
-def test_clob_auth_base64_secret():
-    secret = base64.b64encode(b"hello-world").decode()
-    auth = ClobAuth("k", secret, "p")
-    assert auth._secret_bytes == b"hello-world"
-
-
-def test_clob_auth_hex_secret():
-    raw = b"\xab" * 32
-    secret = raw.hex()
-    with patch(
-        "oddsfox_pipeline.resources.http.base64.b64decode",
-        side_effect=Exception("force hex branch"),
-    ):
-        auth = ClobAuth("k", secret, "p")
-    assert auth._secret_bytes == raw
-
-
-def test_clob_auth_plain_utf8_secret():
-    auth = ClobAuth("k", "not-base64-not-64-hex", "p")
-    assert auth._secret_bytes == b"not-base64-not-64-hex"
-
-
-def test_clob_auth_hex_branch_inner_exception():
-    """Cover inner except when hex decode fails despite passing the hex shape check."""
-    secret = "a" * 64  # length + charset pass bytes.fromhex in normal cases
-
-    with patch(
-        "oddsfox_pipeline.resources.http.base64.b64decode", side_effect=Exception("x")
-    ):
-        with patch(
-            "oddsfox_pipeline.resources.http._bytes_from_hex",
-            side_effect=ValueError("fromhex failed"),
-        ):
-            auth = ClobAuth("k", secret, "p")
-    assert auth._secret_bytes == secret.encode("utf-8")
-
-
-def test_clob_auth_sign_with_explicit_timestamp():
-    auth = ClobAuth("k", "secret", "p")
-    headers = auth.sign("GET", "/path", body="{}", timestamp="12345")
-    assert headers["CLOB-API-TIMESTAMP"] == "12345"
-    assert "CLOB-API-SIGN" in headers
 
 
 def test_rate_limiter_negative_rate_raises():
@@ -125,16 +80,9 @@ def test_api_client_get_with_relative_endpoint_and_params():
     session = MagicMock()
     session.get.return_value.json.return_value = {"ok": True}
     session.get.return_value.raise_for_status = MagicMock()
-    auth = ClobAuth("k", "secret", "p")
-    client = APIClient(
-        base_url="https://api.example.com",
-        api_key="k",
-        api_secret="secret",
-        api_passphrase="p",
-    )
+    client = APIClient(base_url="https://api.example.com")
     client.session = session
-    client.auth = auth
-    out = client.get("/x", params={"b": "2", "a": "1"}, use_auth=True)
+    out = client.get("/x", params={"b": "2", "a": "1"})
     assert out == {"ok": True}
     session.get.assert_called_once()
     url = session.get.call_args[0][0]
@@ -222,41 +170,6 @@ def test_api_client_http_error_propagates():
     client.session.get = MagicMock(side_effect=err)
     with pytest.raises(requests.HTTPError):
         client.get("/fail")
-
-
-def test_api_client_auth_factory():
-    client = APIClient(
-        base_url="https://x.com",
-        api_key="a",
-        api_secret=base64.b64encode(b"s").decode(),
-        api_passphrase="p",
-    )
-    assert client.auth is not None
-
-
-def test_api_client_explicit_auth():
-    auth = ClobAuth("k", "x" * 64, "p")
-    client = APIClient(base_url="https://x.com", auth=auth)
-    assert client.auth is auth
-
-
-def test_api_client_get_use_auth_without_params():
-    session = MagicMock()
-    session.get.return_value.json.return_value = {"ok": True}
-    session.get.return_value.raise_for_status = MagicMock()
-    auth = ClobAuth("k", "secret", "p")
-    client = APIClient(
-        base_url="https://api.example.com",
-        api_key="k",
-        api_secret="secret",
-        api_passphrase="p",
-    )
-    client.session = session
-    client.auth = auth
-    client.get("/path-only", params=None, use_auth=True)
-    session.get.assert_called_once()
-    call_kw = session.get.call_args[1]
-    assert "headers" in call_kw
 
 
 def test_rate_limiter_wait_skips_sleep_when_sleep_time_zero(monkeypatch):

@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and public `kalshi_wc2026_marts` relations). Additive; Polymarket contracts are
   unchanged.
 
+### Removed
+
+- Unused CLOB authenticated-request path (`ClobAuth`, `CLOB_API_KEY` /
+  `CLOB_API_SECRET` / `CLOB_API_PASSPHRASE`). Polymarket and Kalshi ingestion
+  use unauthenticated public API endpoints only.
+
 ### Fixed
 
 - Kalshi market-registry-refresh job now lands the `events` raw table (previously

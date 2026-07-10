@@ -339,6 +339,45 @@ def shorten_model_name(model_name: str, source_slug: str) -> str:
     return model_name
 
 
+def dbt_model_asset_key_for_name(
+    model_name: str,
+    source_slug: str,
+    *,
+    layer: str | None = None,
+    props: Mapping[str, object] | None = None,
+    fqn: Sequence[str] | None = None,
+) -> AssetKey:
+    if source_slug == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
+        return asset_key(
+            SOURCE_INTERNATIONAL_RESULTS,
+            SCOPE_WC2026,
+            layer or _international_results_wc2026_layer(model_name, props, fqn=fqn),
+            _international_results_wc2026_subject(model_name),
+        )
+    if source_slug == DBT_SOURCE_KALSHI_WC2026:
+        return asset_key(
+            SOURCE_KALSHI,
+            SCOPE_WC2026,
+            layer or _kalshi_wc2026_layer(model_name, props, fqn=fqn),
+            _kalshi_wc2026_subject(model_name),
+        )
+    if source_slug == DBT_SOURCE_POLYMARKET_WC2026:
+        return asset_key(
+            SOURCE_POLYMARKET,
+            SCOPE_WC2026,
+            layer or _polymarket_wc2026_layer(model_name, props, fqn=fqn),
+            _polymarket_wc2026_subject(model_name),
+        )
+    if source_slug == DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026:
+        return asset_key(
+            SOURCE_POLYMARKET,
+            SCOPE_US_MIDTERMS_2026,
+            layer or _polymarket_us_midterms_2026_layer(model_name, props, fqn=fqn),
+            _polymarket_us_midterms_2026_subject(model_name),
+        )
+    return AssetKey(f"{source_slug}_{shorten_model_name(model_name, source_slug)}")
+
+
 def dbt_model_asset_key(
     props: Mapping[str, object],
     *,
@@ -346,72 +385,7 @@ def dbt_model_asset_key(
 ) -> AssetKey:
     source = resolve_source_slug(props, fqn=fqn)
     name = str(props.get("name") or "")
-    if source == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
-        return asset_key(
-            SOURCE_INTERNATIONAL_RESULTS,
-            SCOPE_WC2026,
-            _international_results_wc2026_layer(name, props, fqn=fqn),
-            _international_results_wc2026_subject(name),
-        )
-    if source == DBT_SOURCE_KALSHI_WC2026:
-        return asset_key(
-            SOURCE_KALSHI,
-            SCOPE_WC2026,
-            _kalshi_wc2026_layer(name, props, fqn=fqn),
-            _kalshi_wc2026_subject(name),
-        )
-    if source == DBT_SOURCE_POLYMARKET_WC2026:
-        return asset_key(
-            SOURCE_POLYMARKET,
-            SCOPE_WC2026,
-            _polymarket_wc2026_layer(name, props, fqn=fqn),
-            _polymarket_wc2026_subject(name),
-        )
-    if source == DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026:
-        return asset_key(
-            SOURCE_POLYMARKET,
-            SCOPE_US_MIDTERMS_2026,
-            _polymarket_us_midterms_2026_layer(name, props, fqn=fqn),
-            _polymarket_us_midterms_2026_subject(name),
-        )
-    return AssetKey(f"{source}_{shorten_model_name(name, source)}")
-
-
-def dbt_model_asset_key_for_name(
-    model_name: str,
-    source_slug: str,
-    *,
-    layer: str | None = None,
-) -> AssetKey:
-    if source_slug == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
-        return asset_key(
-            SOURCE_INTERNATIONAL_RESULTS,
-            SCOPE_WC2026,
-            layer or _international_results_wc2026_layer(model_name),
-            _international_results_wc2026_subject(model_name),
-        )
-    if source_slug == DBT_SOURCE_KALSHI_WC2026:
-        return asset_key(
-            SOURCE_KALSHI,
-            SCOPE_WC2026,
-            layer or _kalshi_wc2026_layer(model_name),
-            _kalshi_wc2026_subject(model_name),
-        )
-    if source_slug == DBT_SOURCE_POLYMARKET_WC2026:
-        return asset_key(
-            SOURCE_POLYMARKET,
-            SCOPE_WC2026,
-            layer or _polymarket_wc2026_layer(model_name),
-            _polymarket_wc2026_subject(model_name),
-        )
-    if source_slug == DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026:
-        return asset_key(
-            SOURCE_POLYMARKET,
-            SCOPE_US_MIDTERMS_2026,
-            layer or _polymarket_us_midterms_2026_layer(model_name),
-            _polymarket_us_midterms_2026_subject(model_name),
-        )
-    return AssetKey(f"{source_slug}_{shorten_model_name(model_name, source_slug)}")
+    return dbt_model_asset_key_for_name(name, source, props=props, fqn=fqn)
 
 
 __all__ = [

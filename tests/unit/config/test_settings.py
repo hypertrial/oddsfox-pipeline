@@ -106,16 +106,6 @@ def test_load_dotenv_called_only_when_dotenv_exists(monkeypatch, isolated_env):
     assert mock_load.called
 
 
-def test_clob_env_vars_exposed(monkeypatch, isolated_env):
-    monkeypatch.setenv("CLOB_API_KEY", "k")
-    monkeypatch.setenv("CLOB_API_SECRET", "s")
-    monkeypatch.setenv("CLOB_API_PASSPHRASE", "p")
-    settings = reload_all_settings_modules()
-    assert settings.CLOB_API_KEY == "k"
-    assert settings.CLOB_API_SECRET == "s"
-    assert settings.CLOB_API_PASSPHRASE == "p"
-
-
 def test_optional_env_str_strips_and_ignores_blank(monkeypatch, isolated_env):
     settings = reload_all_settings_modules()
     monkeypatch.setenv("_ODDSFOX_OPTIONAL_ENV_STR_HELPER", "  token-value  ")

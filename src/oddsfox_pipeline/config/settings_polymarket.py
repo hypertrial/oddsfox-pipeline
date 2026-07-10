@@ -1,4 +1,4 @@
-"""Polymarket / HTTP tuning and CLOB env vars."""
+"""Polymarket / HTTP tuning and scope env vars."""
 
 from __future__ import annotations
 
@@ -158,14 +158,8 @@ def _parse_scope_tag_crawl_denylist() -> tuple[str, ...]:
 
 
 POLYMARKET_WC2026_SCOPE_TAG_CRAWL_DENYLIST = _parse_scope_tag_crawl_denylist()
-CLOB_API_KEY = os.getenv("CLOB_API_KEY")
-CLOB_API_SECRET = os.getenv("CLOB_API_SECRET")
-CLOB_API_PASSPHRASE = os.getenv("CLOB_API_PASSPHRASE")
 
 __all__ = [
-    "CLOB_API_KEY",
-    "CLOB_API_PASSPHRASE",
-    "CLOB_API_SECRET",
     "CLOB_API_URL",
     "GAMMA_API_URL",
     "HTTP_CONNECT_TIMEOUT_SECONDS",
