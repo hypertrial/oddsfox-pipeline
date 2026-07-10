@@ -28,6 +28,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "dagster-dg-cli>=1.13.0",
+  "great_expectations>=1.0.0",
+  "hypothesis>=6.100.0",
   "mkdocs>=1.6.0",
   "mkdocs-material>=9.5.0",
   "pip-audit>=2.7.0",
@@ -37,6 +39,7 @@ dev = [
   "ruff>=0.9.0",
   "sqlfluff>=3.0.0",
   "sqlfluff-templater-dbt>=3.0.0",
+  "vcrpy>=6.0.0",
 ]
 
 [tool.setuptools]
@@ -54,6 +57,7 @@ filterwarnings = [
 ]
 markers = [
   "facade: facade-level orchestration tests",
+  "contract: replay-only external API contract tests excluded from default gates",
   "integration: hits external tools or shared resources",
   "performance: long-running benchmarks",
   "slow: expensive checks excluded from normal unit runs",

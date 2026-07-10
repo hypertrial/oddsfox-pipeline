@@ -1,0 +1,30 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://gamma-api.polymarket.com/markets/pm-wc-arg-win
+    response:
+      body:
+        string: '{"id":"pm-wc-arg-win","question":"Will Argentina win the 2026 FIFA World Cup?","category":"Sports","description":"Synthetic replay fixture for contract parsing.","outcomes":["Yes","No"],"volumeNum":1000.0,"active":true,"closed":false,"createdAt":"2026-01-01T00:00:00.000Z","endDate":"2026-07-19T00:00:00.000Z","conditionId":"cond-wc-arg","sportsMarketType":"outright","gameStartTime":null,"groupItemTitle":"Argentina","tags":[{"slug":"fifa-world-cup"}],"resolved":false,"winningOutcome":null,"winningClobTokenId":null,"clobTokenIds":["pm-wc-arg-yes","pm-wc-arg-no"],"slug":"will-argentina-win-the-2026-fifa-world-cup","events":[{"id":"evt-wc-winner","slug":"2026-fifa-world-cup-winner"}]}'
+      headers:
+        Content-Type:
+          - application/json
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://gamma-api.polymarket.com/events/slug/2026-fifa-world-cup-winner
+    response:
+      body:
+        string: '{"id":"evt-wc-winner","slug":"2026-fifa-world-cup-winner","title":"2026 FIFA World Cup Winner","tags":[{"id":"tag-wc","slug":"fifa-world-cup"}]}'
+      headers:
+        Content-Type:
+          - application/json
+      status:
+        code: 200
+        message: OK
+version: 1

@@ -1,0 +1,3 @@
+model_name,market_ticker,semantic_key,canonical_team_name,odds_hour_epoch,close_price
+kalshi_wc2026_stage_market_hourly_odds,KXWCSTAGEOFELIM-26ARG-R16,not_eliminated_in_round_of_16,Argentina,4070944800,0.68
+kalshi_wc2026_group_winner_market_hourly_odds,KXWCGROUPWIN-26A-MEX,A,Mexico,4070944800,0.41

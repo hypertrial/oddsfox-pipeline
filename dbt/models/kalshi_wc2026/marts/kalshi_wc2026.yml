@@ -105,3 +105,125 @@ models:
       - name: is_actionable_live_market
         description: True for still-alive live teams whose latest hourly price is fresh.
         tests: [not_null]
+
+unit_tests:
+  - name: test_kalshi_stage_markets_current_price_status_edges
+    model: kalshi_wc2026_stage_markets
+    given:
+      - input: ref('kalshi_wc2026_contract')
+        rows:
+          - {scope_name: "wc2026", live_freshness_hours: 12}
+      - input: ref('kalshi_wc2026_stage_market_hourly_odds')
+        rows:
+          - {
+              market_ticker: "OTHER-MARKET",
+              odds_hour_utc: "2026-01-01 00:00:00",
+              odds_hour_epoch: 1767225600,
+              progression_close_price: 0.50
+            }
+      - input: ref('int_kalshi_wc2026_stage_classification')
+        rows:
+          - {
+              market_ticker: "LIVE-NO-PRICE",
+              event_ticker: "KXWCSTAGEOFELIM-26ARG",
+              series_ticker: "KXWCSTAGEOFELIM",
+              event_suffix: "26ARG",
+              market_suffix: "R16",
+              title: "Argentina",
+              subtitle: "",
+              yes_sub_title: "Argentina",
+              no_sub_title: "",
+              status: "active",
+              market_type: "binary",
+              open_time: "2026-01-01 00:00:00",
+              close_time: "2026-07-19 00:00:00",
+              expiration_time: "2026-07-19 00:00:00",
+              market_volume: 100,
+              open_interest: 10,
+              last_price: 0.45,
+              scraped_at: "2026-01-01 00:00:00",
+              scope_name: "wc2026",
+              team_name: "Argentina",
+              stage_key: "round_of_16",
+              stage_rank: 2,
+              market_direction: "elimination",
+              progression_outcome_label: "not_eliminated_in_round_of_16",
+              price_represents: "progression",
+              canonical_team_name: "Argentina",
+              tournament_status: "active",
+              is_still_alive: true,
+              eliminated_stage_key: null,
+              eliminated_match_date: null,
+              next_match_date: null,
+              next_stage_key: null,
+              matches_played: 0,
+              wins: 0,
+              draws: 0,
+              losses: 0,
+              goals_for: 0,
+              goals_against: 0,
+              latest_completed_match_date: null,
+              latest_completed_stage_key: null,
+              market_status: "live",
+              is_live_market: true,
+              source_state_anomaly: false
+            }
+          - {
+              market_ticker: "RESOLVED-WITH-PRICE",
+              event_ticker: "KXWCSTAGEOFELIM-26MEX",
+              series_ticker: "KXWCSTAGEOFELIM",
+              event_suffix: "26MEX",
+              market_suffix: "R16",
+              title: "Mexico",
+              subtitle: "",
+              yes_sub_title: "Mexico",
+              no_sub_title: "",
+              status: "finalized",
+              market_type: "binary",
+              open_time: "2026-01-01 00:00:00",
+              close_time: "2026-07-19 00:00:00",
+              expiration_time: "2026-07-19 00:00:00",
+              market_volume: 100,
+              open_interest: 10,
+              last_price: 0.55,
+              scraped_at: "2026-01-01 00:00:00",
+              scope_name: "wc2026",
+              team_name: "Mexico",
+              stage_key: "round_of_16",
+              stage_rank: 2,
+              market_direction: "elimination",
+              progression_outcome_label: "not_eliminated_in_round_of_16",
+              price_represents: "progression",
+              canonical_team_name: "Mexico",
+              tournament_status: "eliminated",
+              is_still_alive: false,
+              eliminated_stage_key: "round_of_16",
+              eliminated_match_date: "2026-07-01",
+              next_match_date: null,
+              next_stage_key: null,
+              matches_played: 4,
+              wins: 2,
+              draws: 1,
+              losses: 1,
+              goals_for: 5,
+              goals_against: 4,
+              latest_completed_match_date: "2026-07-01",
+              latest_completed_stage_key: "round_of_16",
+              market_status: "resolved",
+              is_live_market: false,
+              source_state_anomaly: false
+            }
+    expect:
+      rows:
+        - {
+            market_ticker: "LIVE-NO-PRICE",
+            current_price_status: "missing_live",
+            is_current_price_fresh: false,
+            is_actionable_live_market: false
+          }
+        - {
+            market_ticker: "RESOLVED-WITH-PRICE",
+            current_price_status: "historical_resolved",
+            is_current_price_fresh: false,
+            is_actionable_live_market: false
+          }

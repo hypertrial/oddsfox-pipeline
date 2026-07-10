@@ -52,10 +52,14 @@ uv run make lint
 uv run make test-cov
 uv run make integration-dagster-cov
 uv run make integration-dbt-cov
+uv run make dbt-unit
+uv run make golden-dbt
+uv run make dbt-source-freshness-ci
 uv run make coverage-report
 uv run make docs-check
 uv run make dbt-parse
 uv run make dbt-build-ci
+uv run make data-quality
 uv run make costguard
 ```
 
@@ -64,7 +68,9 @@ For local one-shot runs, `make test`, `make integration-dagster`,
 coverage-accumulation split.
 
 `dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
-running dbt build.
+running dbt build. `contract-http` runs replay-only HTTP contract tests from
+checked-in sanitized cassettes and is manual/nightly, not part of the default
+CI gate.
 Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 

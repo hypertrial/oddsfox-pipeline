@@ -95,3 +95,123 @@ models:
               arguments:
                 to: ref('international_results_wc2026_team_status')
                 field: team_name
+
+unit_tests:
+  - name: test_kalshi_wc2026_stage_classifier_series_suffixes
+    model: int_kalshi_wc2026_stage_classification
+    given:
+      - input: ref('int_kalshi_wc2026_markets')
+        rows:
+          - {
+              market_ticker: "KXWCSTAGEOFELIM-26ARG-R16",
+              event_ticker: "KXWCSTAGEOFELIM-26ARG",
+              series_ticker: "KXWCSTAGEOFELIM",
+              event_suffix: "26ARG",
+              market_suffix: "R16",
+              title: "Argentina",
+              subtitle: "",
+              yes_sub_title: "Argentina",
+              no_sub_title: "",
+              status: "active",
+              market_type: "binary",
+              open_time: "2026-01-01 00:00:00",
+              close_time: "2026-07-19 00:00:00",
+              expiration_time: "2026-07-19 00:00:00",
+              volume: 100,
+              open_interest: 10,
+              last_price: 0.45,
+              scraped_at: "2026-01-01 00:00:00",
+              scope_name: "wc2026"
+            }
+      - input: ref('international_results_wc2026_team_aliases')
+        rows: []
+      - input: ref('international_results_wc2026_team_status')
+        rows:
+          - {
+              team_name: "Argentina",
+              tournament_status: "active",
+              is_still_alive: true,
+              eliminated_stage_key: null,
+              eliminated_match_date: null,
+              next_match_date: null,
+              next_stage_key: null,
+              matches_played: 0,
+              wins: 0,
+              draws: 0,
+              losses: 0,
+              goals_for: 0,
+              goals_against: 0,
+              latest_completed_match_date: null,
+              latest_completed_stage_key: null
+            }
+    expect:
+      rows:
+        - {
+            market_ticker: "KXWCSTAGEOFELIM-26ARG-R16",
+            stage_key: "round_of_16",
+            stage_rank: 2,
+            market_direction: "elimination",
+            progression_outcome_label: "not_eliminated_in_round_of_16",
+            price_represents: "progression",
+            canonical_team_name: "Argentina",
+            market_status: "live",
+            is_live_market: true
+          }
+
+  - name: test_kalshi_wc2026_group_winner_classifier_group_suffix
+    model: int_kalshi_wc2026_group_winner_classification
+    given:
+      - input: ref('int_kalshi_wc2026_markets')
+        rows:
+          - {
+              market_ticker: "KXWCGROUPWIN-26A-MEX",
+              event_ticker: "KXWCGROUPWIN-26A",
+              series_ticker: "KXWCGROUPWIN",
+              event_suffix: "26A",
+              market_suffix: "MEX",
+              title: "Mexico",
+              subtitle: "",
+              yes_sub_title: "Mexico",
+              no_sub_title: "",
+              status: "finalized",
+              market_type: "binary",
+              open_time: "2026-01-01 00:00:00",
+              close_time: "2026-07-19 00:00:00",
+              expiration_time: "2026-07-19 00:00:00",
+              volume: 100,
+              open_interest: 10,
+              last_price: 0.25,
+              scraped_at: "2026-01-01 00:00:00",
+              scope_name: "wc2026"
+            }
+      - input: ref('international_results_wc2026_team_aliases')
+        rows: []
+      - input: ref('international_results_wc2026_team_status')
+        rows:
+          - {
+              team_name: "Mexico",
+              tournament_status: "active",
+              is_still_alive: true,
+              eliminated_stage_key: null,
+              eliminated_match_date: null,
+              next_match_date: null,
+              next_stage_key: null,
+              matches_played: 0,
+              wins: 0,
+              draws: 0,
+              losses: 0,
+              goals_for: 0,
+              goals_against: 0,
+              latest_completed_match_date: null,
+              latest_completed_stage_key: null
+            }
+    expect:
+      rows:
+        - {
+            market_ticker: "KXWCGROUPWIN-26A-MEX",
+            group_letter: "A",
+            price_represents: "group_winner_probability",
+            canonical_team_name: "Mexico",
+            market_status: "resolved",
+            is_live_market: false
+          }

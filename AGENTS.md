@@ -20,6 +20,7 @@ Default warehouse: `oddsfox.duckdb` in the repo root. Keep schedules disabled in
 
 ```dotenv
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
@@ -58,10 +59,14 @@ uv run make lint
 uv run make test-cov
 uv run make integration-dagster-cov
 uv run make integration-dbt-cov
+uv run make dbt-unit
+uv run make golden-dbt
+uv run make dbt-source-freshness-ci
 uv run make coverage-report
 uv run make docs-check
 uv run make dbt-parse
 uv run make dbt-build-ci
+uv run make data-quality
 uv run make costguard
 ```
 
@@ -70,7 +75,8 @@ For local one-shot runs, `make test`, `make integration-dagster`,
 coverage-accumulation split.
 
 `dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
-running dbt build.
+running dbt build. `contract-http` is replay-only and manual/nightly; it is not
+part of the default CI gate.
 Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 
@@ -92,8 +98,13 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make integration-dagster` | Dagster integration smoke |
 | `make integration-dbt-cov` | CI DuckDB + dbt integration with coverage append |
 | `make integration-dagster-cov` | CI Dagster integration with coverage append |
+| `make dbt-unit` | dbt unit tests for high-risk SQL branches |
+| `make golden-dbt` | Exact-output dbt mart regression fixtures |
+| `make dbt-source-freshness-ci` | Seed fresh temp source rows and run dbt source freshness |
 | `make coverage-report` | CI coverage report gate (`--fail-under=100`) |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
+| `make data-quality` | Great Expectations data-quality report against the disposable dbt build |
+| `make contract-http` | Replay-only HTTP contract tests; manual/nightly, excluded from default gates |
 | `make costguard` | Run the dbt cost guardrail |
 | `make dagster-dev` | Local Dagster UI |
 | `make docs-serve` | MkDocs dev server |
@@ -143,6 +154,7 @@ Imports use src-layout paths: `from oddsfox_pipeline.config.settings import …`
 **Tests** ([tests/README.md](tests/README.md)):
 
 - Default `make test` excludes `integration`, `performance`, `slow`, `repo_check`.
+- Default `make test` and `make test-cov` also exclude `contract` replay tests.
 - Mark slow/external tests with the appropriate pytest marker; do not widen default test scope without reason.
 - Add or update tests for behavior changes in the matching `tests/unit/` or `tests/integration/` subtree.
 

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 from tests.unit.ingestion.market_scope_test_support import slug_only_cfg
 
 from oddsfox_pipeline.ingestion.polymarket import market_scope as scope_mod
@@ -18,6 +21,18 @@ from oddsfox_pipeline.ingestion.polymarket.market_scope import (
 )
 from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     predicates as scope_predicates_mod,
+)
+from oddsfox_pipeline.ingestion.polymarket.market_scope.config import (
+    _validate_slug_token,
+)
+from oddsfox_pipeline.ingestion.polymarket.market_scope_tags import (
+    _normalize_slug_token,
+)
+
+_VALID_TAG_SLUGS = st.from_regex(r"[A-Za-z0-9][A-Za-z0-9-]{0,32}", fullmatch=True)
+_INVALID_SCOPE_SLUGS = st.one_of(
+    st.text(min_size=0, max_size=16).map(lambda value: f"-{value}"),
+    st.text(min_size=0, max_size=16).map(lambda value: f"a/{value}"),
 )
 
 
@@ -40,6 +55,36 @@ def test_event_in_scope_rejects_related_pass_without_wc_tag():
         keyset_related_tags=True,
         scope_tag_slugs=cfg.event_tags,
     )
+
+
+@given(_VALID_TAG_SLUGS)
+def test_scope_slug_normalization_property_lowercases_valid_slugs(slug):
+    expected = slug.lower()
+
+    assert _validate_slug_token(f" {slug.upper()} ") == expected
+    assert _normalize_slug_token(f" {slug.upper()} ") == expected
+
+
+@given(_VALID_TAG_SLUGS)
+def test_event_scope_tag_property_matches_normalized_tags(slug):
+    normalized = slug.lower()
+    cfg = MarketScopeConfig(
+        event_slugs=(),
+        event_slug_prefixes=(),
+        market_ids=(),
+        registry_max_event_pages=None,
+        event_tags=(normalized,),
+    )
+    event = {"slug": "anything", "tags": [{"slug": slug.upper()}]}
+
+    assert event_matches_scope_tags(event, config=cfg)
+    assert event_in_scope(event, config=cfg)
+
+
+@given(_INVALID_SCOPE_SLUGS)
+def test_invalid_scope_slug_property_rejects_unsafe_tokens(value):
+    with pytest.raises(ValueError):
+        _validate_slug_token(value)
 
 
 def test_event_in_scope_related_pass_keeps_wc_tagged_event():

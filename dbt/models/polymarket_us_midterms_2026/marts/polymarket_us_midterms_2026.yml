@@ -45,3 +45,52 @@ models:
       - name: odds_hour_epoch
         description: Unix epoch seconds for the UTC hour bucket.
         tests: [not_null]
+
+unit_tests:
+  - name: test_us_midterms_hourly_mart_preserves_token_hour_grain
+    model: polymarket_us_midterms_2026_market_token_hourly_odds
+    given:
+      - input: ref('int_polymarket_us_midterms_2026_market_tokens')
+        rows:
+          - {
+              market_id: "midterms-market-1",
+              outcome_index: 0,
+              clob_token_id: "token-yes",
+              outcome_label: "Yes"
+            }
+      - input: ref('int_polymarket_us_midterms_2026_markets')
+        rows:
+          - {
+              market_id: "midterms-market-1",
+              question: "Which party will win the 2026 House popular vote?",
+              event_slug: "us-midterms-2026",
+              is_active: true,
+              is_closed: false,
+              volume: 25000.0
+            }
+      - input: ref('int_polymarket_us_midterms_2026_token_hourly_odds')
+        rows:
+          - {
+              clob_token_id: "token-yes",
+              odds_hour_utc: "2026-01-01 00:00:00",
+              odds_hour_epoch: 1767225600,
+              open_price: 0.40,
+              high_price: 0.45,
+              low_price: 0.39,
+              close_price: 0.44,
+              avg_price: 0.42,
+              observed_points: 3,
+              first_timestamp: 1767225600,
+              first_observed_at: "2026-01-01 00:00:00",
+              last_timestamp: 1767229200,
+              last_observed_at: "2026-01-01 01:00:00"
+            }
+    expect:
+      rows:
+        - {
+            market_id: "midterms-market-1",
+            clob_token_id: "token-yes",
+            odds_hour_epoch: 1767225600,
+            close_price: 0.44,
+            observed_points: 3
+          }

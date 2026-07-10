@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pytest
 import yaml
+from hypothesis import given
+from hypothesis import strategies as st
 
 from oddsfox_pipeline.ingestion.kalshi.series_scope.config import (
     default_market_scopes_seed_path as kalshi_scope_seed_path,
@@ -26,6 +28,8 @@ from oddsfox_pipeline.orchestration.scope_registry import (
     scope_spec_index,
 )
 
+_KNOWN_SCOPE_ALIASES = {alias for spec in SHIPPED_SCOPE_SPECS for alias in spec.aliases}
+
 
 def test_scope_registry_lookup_accepts_keys_and_namespace_aliases():
     assert get_scope_spec("polymarket:wc2026") is POLYMARKET_WC2026_SCOPE
@@ -40,6 +44,23 @@ def test_scope_registry_lookup_accepts_keys_and_namespace_aliases():
         POLYMARKET_US_MIDTERMS_2026_SCOPE,
     )
     assert iter_scope_specs(source=SOURCE_KALSHI) == (KALSHI_WC2026_SCOPE,)
+
+
+@given(st.sampled_from(SHIPPED_SCOPE_SPECS), st.booleans())
+def test_scope_registry_lookup_property_accepts_all_aliases(spec, use_namespace):
+    alias = spec.namespace if use_namespace else spec.key
+
+    assert get_scope_spec(f" {alias} ") is spec
+
+
+@given(
+    st.from_regex(r"unknown_[a-z0-9_]{1,32}", fullmatch=True).filter(
+        lambda ref: ref not in _KNOWN_SCOPE_ALIASES
+    )
+)
+def test_scope_registry_lookup_property_rejects_unknown_aliases(ref):
+    with pytest.raises(ValueError, match="Unknown scope"):
+        get_scope_spec(ref)
 
 
 def test_scope_registry_rejects_unknown_and_duplicate_aliases():

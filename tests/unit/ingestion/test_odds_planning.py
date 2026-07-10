@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 pytest.importorskip("duckdb")
 
@@ -12,6 +14,10 @@ from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
 from oddsfox_pipeline.ingestion.polymarket.odds.engine.bootstrap import (
     bootstrap_planning,
 )
+
+
+def _valid_token(seed: int) -> str:
+    return f"{seed:030x}12"
 
 
 def test_build_single_token_plan_budget_and_latest_branches():
@@ -103,6 +109,74 @@ def test_build_single_token_plan_budget_and_latest_branches():
         empty_token_skip_runs=0,
     )
     assert skip == "already_current"
+
+
+@given(
+    created_ts=st.integers(min_value=1, max_value=2_000_000_000),
+    duration=st.integers(min_value=1, max_value=31_536_000),
+    overlap_seconds=st.integers(min_value=0, max_value=86_400),
+    latest_offset=st.none() | st.integers(min_value=0, max_value=31_536_000),
+)
+def test_build_single_token_plan_property_emits_bounded_windows(
+    created_ts,
+    duration,
+    overlap_seconds,
+    latest_offset,
+):
+    now_ts = created_ts + duration
+    latest_ts = (
+        None if latest_offset is None else min(now_ts - 1, created_ts + latest_offset)
+    )
+    token = _valid_token(created_ts + duration + overlap_seconds)
+    seen_tokens: set[str] = set()
+
+    plan, skip, invalid = odds_sync.build_single_token_plan(
+        token_id=token,
+        market_id="m",
+        closed=False,
+        created_ts=created_ts,
+        latest_timestamps={} if latest_ts is None else {token: latest_ts},
+        fully_checked_tokens=set(),
+        persisted_skips={},
+        seen_tokens=seen_tokens,
+        now_ts=now_ts,
+        fidelity=60,
+        force=True,
+        rebuild_history=False,
+        overlap_seconds=overlap_seconds,
+        recent_seconds=0,
+        empty_token_skip_budgets={},
+        empty_token_skip_runs=0,
+    )
+
+    assert invalid is None
+    assert skip is None
+    assert plan is not None
+    assert plan.created_at_ts == created_ts
+    assert created_ts <= plan.start_ts < plan.end_ts == now_ts
+    if latest_ts is not None:
+        assert plan.start_ts == max(created_ts, latest_ts - overlap_seconds)
+
+    duplicate, duplicate_skip, _ = odds_sync.build_single_token_plan(
+        token_id=token,
+        market_id="m",
+        closed=False,
+        created_ts=created_ts,
+        latest_timestamps={},
+        fully_checked_tokens=set(),
+        persisted_skips={},
+        seen_tokens=seen_tokens,
+        now_ts=now_ts,
+        fidelity=60,
+        force=True,
+        rebuild_history=False,
+        overlap_seconds=overlap_seconds,
+        recent_seconds=0,
+        empty_token_skip_budgets={},
+        empty_token_skip_runs=0,
+    )
+    assert duplicate is None
+    assert duplicate_skip == "dup_token"
 
 
 def test_force_does_not_reopen_closed_fully_checked_token():

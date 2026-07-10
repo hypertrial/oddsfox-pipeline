@@ -16,6 +16,8 @@ concurrency:
 
 env:
   POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
+  POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
+  KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
 
 jobs:
   validate:
@@ -49,6 +51,15 @@ jobs:
       - name: dbt integration smoke
         run: uv run make integration-dbt-cov
 
+      - name: dbt unit tests
+        run: uv run make dbt-unit
+
+      - name: Golden dbt fixtures
+        run: uv run make golden-dbt
+
+      - name: Source freshness
+        run: uv run make dbt-source-freshness-ci
+
       - name: Coverage
         run: uv run make coverage-report
 
@@ -60,6 +71,9 @@ jobs:
 
       - name: dbt build
         run: uv run make dbt-build-ci
+
+      - name: Data quality
+        run: uv run make data-quality
 
       - name: Set up Python for Costguard
         uses: actions/setup-python@v5

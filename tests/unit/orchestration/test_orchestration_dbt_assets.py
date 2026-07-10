@@ -100,6 +100,18 @@ def test_dbt_translator_does_not_override_model_dependencies():
     assert "get_asset_spec" not in PolymarketDagsterDbtTranslator.__dict__
 
 
+def test_dbt_translator_enables_source_visibility_settings():
+    from oddsfox_pipeline.orchestration.translators import (
+        PolymarketDagsterDbtTranslator,
+    )
+
+    settings = PolymarketDagsterDbtTranslator().settings
+
+    assert settings.enable_duplicate_source_asset_keys is True
+    assert settings.enable_source_metadata is True
+    assert settings.enable_source_tests_as_checks is True
+
+
 def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
     from dagster import AssetKey
 
@@ -498,6 +510,107 @@ def test_stream_dbt_build_appends_dbt_select_before_exclude_flags():
             "tag:cross_domain tag:polymarket",
         ]
     ]
+
+
+def test_stream_dbt_build_fetches_row_counts_and_column_metadata():
+    from unittest.mock import MagicMock
+
+    calls: list[object] = []
+
+    class FakeDbtEventStream:
+        def fetch_row_counts(self):
+            calls.append("row_counts")
+            return self
+
+        def fetch_column_metadata(self, *, with_column_lineage=True):
+            calls.append(("column_metadata", with_column_lineage))
+            return self
+
+        def __iter__(self):
+            yield "event"
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            m = MagicMock()
+            m.adapter.cleanup_connections = lambda: calls.append("cleanup")
+            m.stream = lambda: FakeDbtEventStream()
+            m.process = MagicMock(returncode=0)
+            return m
+
+    ctx = MagicMock()
+    events = list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=ctx,
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(fetch_dbt_metadata=True),
+        )
+    )
+    assert events == ["event"]
+    assert calls == ["row_counts", ("column_metadata", False), "cleanup"]
+
+
+def test_stream_dbt_build_skips_dbt_metadata_fetch_by_default():
+    from unittest.mock import MagicMock
+
+    class FakeDbtEventStream:
+        def fetch_row_counts(self):
+            raise AssertionError("row counts should be opt-in")
+
+        def fetch_column_metadata(self, *, with_column_lineage=True):
+            raise AssertionError("column metadata should be opt-in")
+
+        def __iter__(self):
+            yield "event"
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            m = MagicMock()
+            m.stream = lambda: FakeDbtEventStream()
+            m.process = MagicMock(returncode=0)
+            return m
+
+    ctx = MagicMock()
+    events = list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=ctx,
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(),
+        )
+    )
+    assert events == ["event"]
+
+
+def test_stream_dbt_build_handles_missing_opt_in_dbt_metadata_hooks():
+    class MockDbt:
+        def cli(self, args, context=None):
+            m = MagicMock()
+            m.stream = lambda: iter(["event"])
+            m.process = MagicMock(returncode=0)
+            return m
+
+    events = list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=MagicMock(),
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(fetch_dbt_metadata=True),
+        )
+    )
+    assert events == ["event"]
+
+
+def test_cleanup_dbt_adapter_handles_adapter_shapes():
+    calls: list[str] = []
+
+    dbt_build_mod._cleanup_dbt_adapter(MagicMock(adapter=None))
+
+    adapter = MagicMock()
+    adapter.cleanup_connections.side_effect = lambda: calls.append("connections")
+    adapter.connections.cleanup_all.side_effect = lambda: calls.append("all")
+    dbt_build_mod._cleanup_dbt_adapter(MagicMock(adapter=adapter))
+    assert calls == ["connections", "all"]
 
 
 def test_stream_dbt_build_syncs_duckdb_path_env(monkeypatch, tmp_path):

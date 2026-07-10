@@ -1,4 +1,4 @@
-.PHONY: dagster-dev dagster-jobs-smoke duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test costguard docs-serve docs-build docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
+.PHONY: dagster-dev dagster-jobs-smoke duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality contract-http costguard docs-serve docs-build docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -9,8 +9,12 @@ DBT_LINT_DUCKDB_PATH := $(REPO_ROOT)/.cache/dbt_lint.duckdb
 DBT_LINT_ENV := DUCKDB_PATH="$(DBT_LINT_DUCKDB_PATH)"
 DBT_BUILD_DUCKDB_PATH := $(REPO_ROOT)/.cache/dbt_build.duckdb
 DBT_BUILD_ENV := DUCKDB_NAME="$(DBT_BUILD_DUCKDB_PATH)" DUCKDB_PATH="$(DBT_BUILD_DUCKDB_PATH)"
-PYTEST_FAST_MARKERS := not integration and not performance and not slow and not repo_check
-PYTEST_COVERAGE_MARKERS := not performance and not slow and not repo_check
+DBT_UNIT_DUCKDB_PATH := $(REPO_ROOT)/.cache/dbt_unit.duckdb
+DBT_UNIT_ENV := DUCKDB_NAME="$(DBT_UNIT_DUCKDB_PATH)" DUCKDB_PATH="$(DBT_UNIT_DUCKDB_PATH)"
+DBT_FRESHNESS_DUCKDB_PATH := $(REPO_ROOT)/.cache/dbt_source_freshness.duckdb
+DBT_FRESHNESS_ENV := DUCKDB_NAME="$(DBT_FRESHNESS_DUCKDB_PATH)" DUCKDB_PATH="$(DBT_FRESHNESS_DUCKDB_PATH)"
+PYTEST_FAST_MARKERS := not integration and not performance and not slow and not repo_check and not contract
+PYTEST_COVERAGE_MARKERS := not performance and not slow and not repo_check and not contract
 COV_APPEND_ARGS := --cov=oddsfox_pipeline --cov-branch --cov-append
 
 duckdb-ui:
@@ -40,6 +44,29 @@ dbt-build-ci:
 dbt-parse:
 	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
 	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m dbt.cli.main parse --project-dir dbt --profiles-dir dbt/profiles
+
+dbt-unit:
+	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
+	$(RUN_IN_REPO) rm -f "$(DBT_UNIT_DUCKDB_PATH)" "$(DBT_UNIT_DUCKDB_PATH).wal" "$(DBT_UNIT_DUCKDB_PATH)-wal" "$(DBT_UNIT_DUCKDB_PATH)-shm"
+	$(RUN_IN_REPO) $(DBT_UNIT_ENV) "$(PYTHON)" -c "import oddsfox_pipeline.storage.duckdb.connection as connection; from oddsfox_pipeline.storage.duckdb.schemas.kalshi import create_all_kalshi_test_raw_tables, seed_test_kalshi_pipeline_run_event; from oddsfox_pipeline.storage.duckdb.schemas.polymarket import create_all_scope_test_markets_tables, seed_test_pipeline_run_event; connection.reset_duckdb_connection_state(); connection.init_duck_db(); conn = connection.get_persistent_connection(); create_all_scope_test_markets_tables(conn); seed_test_pipeline_run_event(conn); create_all_kalshi_test_raw_tables(conn); seed_test_kalshi_pipeline_run_event(conn); conn.close()"
+	$(RUN_IN_REPO) $(DBT_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main seed --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(DBT_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main run --empty --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(DBT_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main test --select "test_type:unit" --project-dir dbt --profiles-dir dbt/profiles
+
+dbt-source-freshness-ci:
+	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
+	$(RUN_IN_REPO) rm -f "$(DBT_FRESHNESS_DUCKDB_PATH)" "$(DBT_FRESHNESS_DUCKDB_PATH).wal" "$(DBT_FRESHNESS_DUCKDB_PATH)-wal" "$(DBT_FRESHNESS_DUCKDB_PATH)-shm"
+	$(RUN_IN_REPO) $(DBT_FRESHNESS_ENV) "$(PYTHON)" scripts/seed_dbt_source_freshness.py
+	$(RUN_IN_REPO) $(DBT_FRESHNESS_ENV) "$(PYTHON)" -m dbt.cli.main source freshness --project-dir dbt --profiles-dir dbt/profiles
+
+golden-dbt:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb/test_golden_marts.py -q -n 0 -m "not performance and not slow"
+
+data-quality: dbt-build-ci
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/run_gx_data_quality.py --duckdb-path "$(DBT_BUILD_DUCKDB_PATH)"
+
+contract-http:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/contract -q -n 0 -m "contract"
 
 costguard: dbt-build-ci
 	$(RUN_IN_REPO) cd dbt && "$(COSTGUARD)" scan

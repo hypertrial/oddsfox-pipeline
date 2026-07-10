@@ -64,6 +64,24 @@ This deterministic smoke uses temp DuckDB state and mocked external APIs. It
 checks Dagster job registration, asset selection, run config, and resource
 wiring. It is not a live ingestion run.
 
+## Deterministic Validation
+
+Use these checks when you need CI-like confidence without live APIs or
+`dagster-dev`:
+
+```bash
+uv run make dbt-unit
+uv run make golden-dbt
+uv run make dbt-source-freshness-ci
+uv run make data-quality
+```
+
+`dbt-unit` covers SQL branch behavior, `golden-dbt` compares exact public mart
+fixture rows, `dbt-source-freshness-ci` seeds current source timestamps before
+running dbt freshness, and `data-quality` writes local Great Expectations
+report artifacts under `.cache/`. `contract-http` is replay-only and manual or
+nightly; it is not part of the default deterministic gate.
+
 ## Run A Scope
 
 Use `scripts/run_scope.py` for local CLI runs. It maps known scope refs to fixed

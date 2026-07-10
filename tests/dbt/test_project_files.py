@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 import yaml
+from scripts.seed_dbt_source_freshness import FRESHNESS_SOURCE_TABLES
 
 from oddsfox_pipeline.orchestration.scope_registry import SHIPPED_SCOPE_SPECS
 
@@ -92,6 +93,26 @@ def test_shipped_scope_specs_have_matching_dbt_project_entries():
         assert (
             dbt_root / "models" / "sources" / f"{spec.namespace}_sources.yml"
         ).is_file()
+
+
+def test_dbt_source_freshness_tables_are_seeded_for_ci():
+    sources_root = Path(__file__).resolve().parents[2] / "dbt" / "models" / "sources"
+    freshness_tables: set[tuple[str, str]] = set()
+
+    for source_path in sources_root.glob("*_sources.yml"):
+        data = yaml.safe_load(source_path.read_text(encoding="utf-8"))
+        for source in data["sources"]:
+            source_name = source["name"]
+            for table in source["tables"]:
+                if "freshness" not in table:
+                    continue
+                assert table.get("loaded_at_field"), (
+                    f"{source_name}.{table['name']} has freshness without "
+                    "loaded_at_field"
+                )
+                freshness_tables.add((source_name, table["name"]))
+
+    assert freshness_tables == FRESHNESS_SOURCE_TABLES
 
 
 def test_hourly_odds_materialization_shape():

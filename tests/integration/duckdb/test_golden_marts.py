@@ -1,0 +1,396 @@
+"""Golden-row regression coverage for shipped public marts."""
+
+from __future__ import annotations
+
+import csv
+import os
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+import duckdb
+from tests.integration.conftest import write_dbt_profile
+
+import oddsfox_pipeline.storage.duckdb.connection as connection
+from oddsfox_pipeline.naming import SCOPE_US_MIDTERMS_2026, SCOPE_WC2026
+from oddsfox_pipeline.storage.duckdb.connection import init_duck_db
+from oddsfox_pipeline.storage.duckdb.schemas.constants import (
+    international_results_wc2026_raw_tbl,
+    kalshi_ops_tbl,
+    kalshi_raw_tbl,
+    polymarket_ops_tbl,
+    polymarket_raw_tbl,
+)
+from oddsfox_pipeline.storage.duckdb.schemas.kalshi import (
+    create_all_kalshi_test_raw_tables,
+)
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
+    create_all_scope_test_markets_tables,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DBT_ROOT = REPO_ROOT / "dbt"
+GOLDEN_ROOT = REPO_ROOT / "tests" / "fixtures" / "golden"
+ODDS_HOUR = datetime(2099, 1, 1, 10, tzinfo=timezone.utc)
+ODDS_HOUR_EPOCH = int(ODDS_HOUR.timestamp())
+
+
+def _run_dbt(args: list[str], *, profiles_dir: Path, env: dict[str, str]) -> None:
+    cmd = [
+        sys.executable,
+        "-m",
+        "dbt.cli.main",
+        *args,
+        "--project-dir",
+        str(DBT_ROOT),
+        "--profiles-dir",
+        str(profiles_dir),
+    ]
+    proc = subprocess.run(
+        cmd,
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+def _expected(name: str) -> list[dict[str, str]]:
+    with (GOLDEN_ROOT / name).open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _dict_rows(conn: duckdb.DuckDBPyConnection, query: str) -> list[dict[str, str]]:
+    cursor = conn.execute(query)
+    columns = [col[0] for col in cursor.description]
+    return [dict(zip(columns, map(str, row))) for row in cursor.fetchall()]
+
+
+def _seed_international_results(conn: duckdb.DuckDBPyConnection) -> None:
+    conn.execute(
+        f"""
+        insert into {international_results_wc2026_raw_tbl("match_results")}
+        (
+            match_id,
+            match_date,
+            home_team,
+            away_team,
+            home_score,
+            away_score,
+            tournament,
+            city,
+            country,
+            neutral,
+            match_status,
+            source_url,
+            source_row_number,
+            source_row_hash,
+            source_loaded_at
+        )
+        values (
+            'golden-arg-mex',
+            date '2026-06-12',
+            'Argentina',
+            'Mexico',
+            null,
+            null,
+            'FIFA World Cup',
+            'Mexico City',
+            'Mexico',
+            true,
+            'scheduled',
+            'https://example.com/results.csv',
+            1,
+            'golden-hash',
+            timestamp '2099-01-01 00:00:00'
+        )
+        """
+    )
+
+
+def _seed_polymarket_scope(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    scope_name: str,
+    market_id: str,
+    token_id: str,
+    question: str,
+    event_slug: str,
+    close_price: float,
+) -> None:
+    conn.execute(
+        f"""
+        insert into {polymarket_raw_tbl(scope_name, "markets")}
+        (
+            id,
+            question,
+            category,
+            description,
+            outcomes,
+            volume,
+            active,
+            closed,
+            created_at,
+            scraped_at,
+            end_date,
+            slug,
+            event_slug,
+            event_id,
+            condition_id,
+            sports_market_type,
+            game_start_time,
+            group_item_title,
+            tags,
+            clob_token_ids,
+            is_resolved,
+            winning_outcome,
+            winning_clob_token_id
+        )
+        values (?, ?, 'sports', '', '["Yes","No"]', 10000.0, true, false,
+            timestamp '2099-01-01 00:00:00', timestamp '2099-01-01 00:00:00',
+            timestamp '2099-07-19 00:00:00', ?, ?, 'event-1',
+            'condition-1', 'outright', null, null, '[]', ?, false, null, null)
+        """,
+        [market_id, question, market_id, event_slug, f'["{token_id}","{token_id}-no"]'],
+    )
+    conn.execute(
+        f"""
+        insert into {polymarket_raw_tbl(scope_name, "market_tokens")}
+        (market_id, clobTokenIds, updated_at)
+        values (?, ?, timestamp '2099-01-01 00:00:00')
+        """,
+        [market_id, f'["{token_id}","{token_id}-no"]'],
+    )
+    conn.execute(
+        f"""
+        insert into {polymarket_ops_tbl(scope_name, "market_scope_registry")}
+        (scope_name, market_id, event_slug, event_id, source, refreshed_at)
+        values (?, ?, ?, 'event-1', 'golden', timestamp '2099-01-01 00:00:00')
+        """,
+        [scope_name, market_id, event_slug],
+    )
+    conn.executemany(
+        f"""
+        insert into {polymarket_raw_tbl(scope_name, "odds_history")}
+        (clobTokenId, timestamp, price, ingested_at)
+        values (?, ?, ?, timestamp '2099-01-01 11:00:00')
+        """,
+        [
+            (token_id, ODDS_HOUR_EPOCH + 300, close_price - 0.1),
+            (token_id, ODDS_HOUR_EPOCH + 2700, close_price),
+        ],
+    )
+
+
+def _seed_kalshi(conn: duckdb.DuckDBPyConnection) -> None:
+    rows = [
+        (
+            "KXWCSTAGEOFELIM-26ARG-R16",
+            "KXWCSTAGEOFELIM-26ARG",
+            "KXWCSTAGEOFELIM",
+            "Argentina",
+            "",
+            "Argentina",
+            "",
+            "active",
+            "binary",
+            100,
+            10,
+            "0.32",
+        ),
+        (
+            "KXWCGROUPWIN-26A-MEX",
+            "KXWCGROUPWIN-26A",
+            "KXWCGROUPWIN",
+            "Mexico",
+            "",
+            "Mexico",
+            "",
+            "active",
+            "binary",
+            100,
+            10,
+            "0.41",
+        ),
+    ]
+    conn.executemany(
+        f"""
+        insert into {kalshi_raw_tbl(SCOPE_WC2026, "markets")}
+        (
+            market_ticker,
+            event_ticker,
+            series_ticker,
+            title,
+            subtitle,
+            yes_sub_title,
+            no_sub_title,
+            status,
+            market_type,
+            open_time,
+            close_time,
+            expiration_time,
+            volume,
+            open_interest,
+            last_price_dollars,
+            scraped_at
+        )
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, timestamp '2099-01-01 00:00:00',
+            timestamp '2099-07-19 00:00:00', timestamp '2099-07-19 00:00:00',
+            ?, ?, ?, timestamp '2099-01-01 00:00:00')
+        """,
+        rows,
+    )
+    conn.executemany(
+        f"""
+        insert into {kalshi_ops_tbl(SCOPE_WC2026, "market_scope_registry")}
+        (scope_name, market_ticker, event_ticker, series_ticker, source, refreshed_at)
+        values ('wc2026', ?, ?, ?, 'golden', timestamp '2099-01-01 00:00:00')
+        """,
+        [(row[0], row[1], row[2]) for row in rows],
+    )
+    conn.executemany(
+        f"""
+        insert into {kalshi_raw_tbl(SCOPE_WC2026, "market_candlesticks_hourly")}
+        (
+            market_ticker,
+            hour_start_utc,
+            open_price,
+            high_price,
+            low_price,
+            close_price,
+            avg_price,
+            volume,
+            refreshed_at
+        )
+        values (?, timestamp '2099-01-01 10:00:00', ?, ?, ?, ?, ?, 100,
+            timestamp '2099-01-01 11:00:00')
+        """,
+        [
+            ("KXWCSTAGEOFELIM-26ARG-R16", 0.30, 0.34, 0.29, 0.32, 0.31),
+            ("KXWCGROUPWIN-26A-MEX", 0.39, 0.42, 0.38, 0.41, 0.40),
+        ],
+    )
+
+
+def test_public_marts_match_golden_rows(tmp_path: Path, monkeypatch, dbt_profiles_dir):
+    db_path = tmp_path / "golden.duckdb"
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    write_dbt_profile(dbt_profiles_dir, db_path)
+    connection.reset_duckdb_connection_state()
+    init_duck_db()
+
+    with duckdb.connect(str(db_path)) as conn:
+        create_all_scope_test_markets_tables(conn)
+        create_all_kalshi_test_raw_tables(conn)
+        _seed_international_results(conn)
+        _seed_polymarket_scope(
+            conn,
+            scope_name=SCOPE_WC2026,
+            market_id="pm-wc-arg-win",
+            token_id="pm-wc-arg-yes",
+            question="Will Argentina win the 2026 FIFA World Cup?",
+            event_slug="world-cup",
+            close_price=0.70,
+        )
+        _seed_polymarket_scope(
+            conn,
+            scope_name=SCOPE_US_MIDTERMS_2026,
+            market_id="pm-mid-house",
+            token_id="pm-mid-house-yes",
+            question="Which party will win the 2026 House popular vote?",
+            event_slug="us-midterms-2026",
+            close_price=0.54,
+        )
+        _seed_kalshi(conn)
+
+    env = os.environ.copy()
+    env["DUCKDB_PATH"] = str(db_path)
+    env["DUCKDB_NAME"] = str(db_path)
+    _run_dbt(["seed"], profiles_dir=dbt_profiles_dir, env=env)
+    _run_dbt(
+        [
+            "run",
+            "--full-refresh",
+            "--select",
+            "+international_results_wc2026_team_status",
+            "+polymarket_wc2026_knockout_token_hourly_odds",
+            "+polymarket_us_midterms_2026_market_token_hourly_odds",
+            "+kalshi_wc2026_stage_market_hourly_odds",
+            "+kalshi_wc2026_group_winner_market_hourly_odds",
+        ],
+        profiles_dir=dbt_profiles_dir,
+        env=env,
+    )
+
+    with duckdb.connect(str(db_path), read_only=True) as conn:
+        assert _dict_rows(
+            conn,
+            """
+            select
+                team_name,
+                tournament_status,
+                case when is_still_alive then 'true' else 'false' end
+                    as is_still_alive,
+                cast(matches_played as varchar) as matches_played,
+                next_stage_key
+            from international_results_wc2026_marts.international_results_wc2026_team_status
+            order by team_name
+            """,
+        ) == _expected("international_results_wc2026_team_status.csv")
+        assert _dict_rows(
+            conn,
+            """
+            select
+                market_id,
+                clob_token_id,
+                stage_key,
+                market_direction,
+                canonical_team_name,
+                cast(odds_hour_epoch as varchar) as odds_hour_epoch,
+                cast(close_price as varchar) as close_price,
+                cast(observed_points as varchar) as observed_points
+            from polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds
+            order by market_id, clob_token_id, odds_hour_epoch
+            """,
+        ) == _expected("polymarket_wc2026_knockout_token_hourly_odds.csv")
+        assert _dict_rows(
+            conn,
+            """
+            select
+                market_id,
+                clob_token_id,
+                question,
+                event_slug,
+                cast(odds_hour_epoch as varchar) as odds_hour_epoch,
+                cast(close_price as varchar) as close_price,
+                cast(observed_points as varchar) as observed_points
+            from polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds
+            order by market_id, clob_token_id, odds_hour_epoch
+            """,
+        ) == _expected("polymarket_us_midterms_2026_market_token_hourly_odds.csv")
+        assert _dict_rows(
+            conn,
+            """
+            select
+                'kalshi_wc2026_stage_market_hourly_odds' as model_name,
+                market_ticker,
+                progression_outcome_label as semantic_key,
+                canonical_team_name,
+                cast(odds_hour_epoch as varchar) as odds_hour_epoch,
+                cast(round(progression_close_price, 6) as varchar) as close_price
+            from kalshi_wc2026_marts.kalshi_wc2026_stage_market_hourly_odds
+            union all
+            select
+                'kalshi_wc2026_group_winner_market_hourly_odds' as model_name,
+                market_ticker,
+                group_letter as semantic_key,
+                canonical_team_name,
+                cast(odds_hour_epoch as varchar) as odds_hour_epoch,
+                cast(round(close_price, 6) as varchar) as close_price
+            from kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds
+            order by model_name desc, market_ticker
+            """,
+        ) == _expected("kalshi_wc2026_hourly_odds.csv")

@@ -210,3 +210,118 @@ models:
           - accepted_values:
               arguments:
                 values: ['resolved', 'closed', 'live', 'inactive']
+
+unit_tests:
+  - name: test_polymarket_wc2026_knockout_classifier_question_patterns
+    model: int_polymarket_wc2026_knockout_market_classification
+    given:
+      - input: ref('stg_polymarket_wc2026_markets')
+        rows:
+          - {
+              market_id: "m-winner",
+              question: "Will Argentina win the 2026 FIFA World Cup?",
+              category: "sports",
+              description: "",
+              outcomes: '["Yes","No"]',
+              volume: 10000.0,
+              is_active: true,
+              is_closed: false,
+              created_at: "2026-01-01 00:00:00",
+              scraped_at: "2026-01-01 00:00:00",
+              end_date: "2026-07-19 00:00:00",
+              slug: "argentina-win-world-cup",
+              event_slug: "world-cup",
+              event_id: "event-1",
+              condition_id: "condition-1",
+              sports_market_type: "outright",
+              game_start_time: null,
+              group_item_title: null,
+              tags: "[]",
+              clob_token_ids: '["yes","no"]',
+              is_resolved: false,
+              winning_outcome: null,
+              winning_clob_token_id: null
+            }
+          - {
+              market_id: "m-r16-elim",
+              question: "Will Mexico be eliminated in the Round of 16 of the World Cup?",
+              category: "sports",
+              description: "",
+              outcomes: '["Yes","No"]',
+              volume: 10000.0,
+              is_active: false,
+              is_closed: true,
+              created_at: "2026-01-01 00:00:00",
+              scraped_at: "2026-01-01 00:00:00",
+              end_date: "2026-07-01 00:00:00",
+              slug: "mexico-r16-elim",
+              event_slug: "world-cup",
+              event_id: "event-2",
+              condition_id: "condition-2",
+              sports_market_type: "stage",
+              game_start_time: null,
+              group_item_title: null,
+              tags: "[]",
+              clob_token_ids: '["yes","no"]',
+              is_resolved: true,
+              winning_outcome: "Yes",
+              winning_clob_token_id: "yes"
+            }
+      - input: ref('international_results_wc2026_team_aliases')
+        rows: []
+      - input: ref('international_results_wc2026_team_status')
+        rows:
+          - {
+              team_name: "Argentina",
+              tournament_status: "active",
+              is_still_alive: true,
+              eliminated_stage_key: null,
+              eliminated_match_date: null,
+              next_match_date: null,
+              next_stage_key: null,
+              matches_played: 0,
+              wins: 0,
+              draws: 0,
+              losses: 0,
+              goals_for: 0,
+              goals_against: 0,
+              latest_completed_match_date: null,
+              latest_completed_stage_key: null
+            }
+          - {
+              team_name: "Mexico",
+              tournament_status: "eliminated",
+              is_still_alive: false,
+              eliminated_stage_key: "round_of_16",
+              eliminated_match_date: "2026-07-01",
+              next_match_date: null,
+              next_stage_key: null,
+              matches_played: 4,
+              wins: 2,
+              draws: 1,
+              losses: 1,
+              goals_for: 5,
+              goals_against: 4,
+              latest_completed_match_date: "2026-07-01",
+              latest_completed_stage_key: "round_of_16"
+            }
+    expect:
+      rows:
+        - {
+            market_id: "m-winner",
+            stage_key: "winner",
+            market_direction: "winner",
+            progression_outcome_label: "win_world_cup",
+            team_name: "Argentina",
+            canonical_team_name: "Argentina",
+            market_status: "live"
+          }
+        - {
+            market_id: "m-r16-elim",
+            stage_key: "round_of_16",
+            market_direction: "elimination",
+            progression_outcome_label: "not_eliminated_in_round_of_16",
+            team_name: "Mexico",
+            canonical_team_name: "Mexico",
+            market_status: "resolved"
+          }

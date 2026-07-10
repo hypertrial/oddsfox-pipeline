@@ -44,6 +44,19 @@ smokes. `coverage` enforces 100% branch coverage for product-core package code;
 warehouse profiling helpers are smoke-tested instead. These gates run in GitHub
 Actions and should pass locally before opening a pull request.
 
+The deterministic trust checks are separate from live ingestion. `dbt-unit`
+exercises high-risk SQL branches with dbt unit tests, `golden-dbt` compares
+public mart rows against exact fixtures, `dbt-source-freshness-ci` seeds current
+loaded-at rows before `dbt source freshness`, and `data-quality` writes a local
+Great Expectations report under `.cache/`. `contract-http` replays sanitized
+HTTP cassettes and is manual/nightly; default CI and `make test` exclude the
+`contract` marker.
+
+Dagster dbt assets enable dbt source tests as asset checks. Row-count and
+column metadata fetching is available through `DbtBuildConfig` but stays
+opt-in because DuckDB in-process integration tests share local database
+connections.
+
 Costguard high findings must be fixed or justified with an inline suppression
 and dbt grain tests that prove the intended shape. Medium/low findings are
 measured dbt debt, not automatic materialization work. Before changing dbt
@@ -119,8 +132,13 @@ and [Troubleshooting](troubleshooting.md#tests-writing-to-production-warehouse).
 | `uv run make test-cov` | CI unit tests with coverage accumulation (`-n auto`). |
 | `uv run make integration-dagster-cov` | CI Dagster integration with coverage append. |
 | `uv run make integration-dbt-cov` | CI DuckDB + dbt integration with coverage append. |
+| `uv run make dbt-unit` | dbt unit tests for classifier and mart edge-case SQL. |
+| `uv run make golden-dbt` | Exact-output public mart regression fixtures. |
+| `uv run make dbt-source-freshness-ci` | Seed temp source rows and run dbt source freshness. |
 | `uv run make coverage-report` | CI coverage report gate (`--fail-under=100`). |
 | `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
+| `uv run make data-quality` | Great Expectations-style data-quality report for the disposable dbt build. |
+| `uv run make contract-http` | Replay-only HTTP contract tests; manual/nightly, not default CI. |
 | `uv run make costguard` | Run the pinned dbt cost guardrail locally. |
 | `uv run make coverage` | Local one-shot 100% product-core branch coverage gate. |
 

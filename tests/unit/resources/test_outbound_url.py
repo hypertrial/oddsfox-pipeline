@@ -1,7 +1,10 @@
 import socket
+from unittest.mock import patch
 from urllib.parse import urlparse
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from oddsfox_pipeline.resources.outbound_url import (
     OutboundUrlError,
@@ -40,6 +43,28 @@ def test_validate_outbound_https_url_accepts_public_https(monkeypatch):
     assert validate_outbound_https_url("https://example.com/path") == (
         "https://example.com/path"
     )
+
+
+@given(st.from_regex(r"[a-z][a-z0-9-]{0,16}", fullmatch=True))
+def test_validate_outbound_https_url_property_accepts_public_https(label):
+    host = f"{label}.example.com"
+
+    def fake_getaddrinfo(resolved_host, *args, **kwargs):
+        assert resolved_host == host
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))]
+
+    clear_outbound_url_host_cache()
+    with patch("socket.getaddrinfo", fake_getaddrinfo):
+        assert validate_outbound_https_url(f"https://{host}/data.csv") == (
+            f"https://{host}/data.csv"
+        )
+    clear_outbound_url_host_cache()
+
+
+@given(st.sampled_from(("127.0.0.1", "10.0.0.1", "169.254.1.1", "0.0.0.0")))
+def test_validate_outbound_https_url_property_rejects_non_public_ip_literals(ip):
+    with pytest.raises(OutboundUrlError):
+        validate_outbound_https_url(f"https://{ip}/data.csv")
 
 
 @pytest.mark.parametrize(

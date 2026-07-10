@@ -20,6 +20,19 @@ from oddsfox_pipeline.storage.duckdb.connection import (
 )
 
 
+def _cleanup_dbt_adapter(invocation: Any) -> None:
+    adapter = getattr(invocation, "adapter", None)
+    cleanup_connections = getattr(adapter, "cleanup_connections", None)
+    if callable(cleanup_connections):
+        with contextlib.suppress(Exception):
+            cleanup_connections()
+    connections = getattr(adapter, "connections", None)
+    cleanup_all = getattr(connections, "cleanup_all", None)
+    if callable(cleanup_all):
+        with contextlib.suppress(Exception):
+            cleanup_all()
+
+
 def stream_dbt_build(
     *,
     asset_name: str,
@@ -60,11 +73,21 @@ def stream_dbt_build(
 
     def _producer() -> None:
         try:
-            for event in invocation.stream():
+            event_stream = invocation.stream()
+            if config.fetch_dbt_metadata and hasattr(event_stream, "fetch_row_counts"):
+                event_stream = event_stream.fetch_row_counts()
+            if config.fetch_dbt_metadata and hasattr(
+                event_stream, "fetch_column_metadata"
+            ):
+                event_stream = event_stream.fetch_column_metadata(
+                    with_column_lineage=False
+                )
+            for event in event_stream:
                 event_queue.put(event)
         except Exception as exc:  # pragma: no cover
             producer_error.append(exc)
         finally:
+            _cleanup_dbt_adapter(invocation)
             event_queue.put(sentinel)
 
     producer = Thread(target=_producer, daemon=True)

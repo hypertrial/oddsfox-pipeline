@@ -13,6 +13,8 @@ class PolymarketDagsterDbtTranslator(DagsterDbtTranslator):
         super().__init__(
             settings=DagsterDbtTranslatorSettings(
                 enable_duplicate_source_asset_keys=True,
+                enable_source_metadata=True,
+                enable_source_tests_as_checks=True,
             )
         )
 

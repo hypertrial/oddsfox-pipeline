@@ -198,6 +198,7 @@ class DbtBuildConfig(GuardrailConfig):
     full_refresh: bool = False
     dbt_select: str | None = None
     dbt_exclude: str | None = None
+    fetch_dbt_metadata: bool = False
 
 
 def polymarket_us_midterms_2026_full_refresh_events_run_config() -> dict:
