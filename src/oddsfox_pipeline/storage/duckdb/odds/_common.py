@@ -94,15 +94,6 @@ ON CONFLICT(clobTokenId) DO UPDATE SET
 """
 
 
-# Backward-compatible aliases for WC2026 importers.
-_TAB_ODDS_HISTORY = odds_history_tbl()
-_TAB_TOKEN_ODDS_DAILY = token_odds_daily_tbl()
-_TAB_TOKEN_SYNC_LEDGER = token_sync_ledger_tbl()
-_TAB_TOKEN_SYNC_SKIPS = token_sync_skips_tbl()
-_SQL_UPSERT_LEDGER_LAST_SYNC = sql_upsert_ledger_last_sync()
-_SQL_UPSERT_LEDGER_STATE = sql_upsert_ledger_state()
-_SQL_UPSERT_TOKEN_SYNC_SKIP = sql_upsert_token_sync_skip()
-
 TokenSyncSnapshot = Tuple[Dict[str, int], Set[str], Dict[str, str]]
 TokenSyncSnapshotWithScheduler = Tuple[
     Dict[str, int],
