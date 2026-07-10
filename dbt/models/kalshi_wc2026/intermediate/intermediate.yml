@@ -1,0 +1,97 @@
+version: 2
+
+models:
+  - name: int_kalshi_wc2026_market_hourly_odds
+    description: >
+      Incremental hourly OHLC fact for Kalshi WC2026 markets in the trailing
+      contract window.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_ticker, odds_hour_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [market_ticker, odds_hour_epoch]
+            price_columns:
+              - open_price
+              - high_price
+              - low_price
+              - close_price
+              - avg_price
+    columns:
+      - name: market_ticker
+        description: Kalshi market ticker.
+        tests: [not_null]
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the UTC hour bucket.
+        tests: [not_null]
+      - name: odds_hour_utc
+        description: UTC hourly odds bucket.
+        tests: [not_null]
+
+  - name: int_kalshi_wc2026_stage_classification
+    description: >
+      One row per Kalshi WC2026 stage market joined to FIFA team status.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_ticker]
+    columns:
+      - name: market_ticker
+        description: Kalshi market ticker.
+        tests: [not_null, unique]
+      - name: stage_key
+        description: Normalized WC2026 stage key.
+        tests: [not_null]
+      - name: market_direction
+        description: Source market wording direction.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['winner', 'elimination']
+      - name: progression_outcome_label
+        description: Normalized team progression outcome represented by the market.
+        tests: [not_null]
+      - name: canonical_team_name
+        description: Canonical WC2026 team name from the fixture/results mart.
+        tests:
+          - not_null
+          - relationships:
+              config:
+                tags: [cross_domain]
+              arguments:
+                to: ref('international_results_wc2026_team_status')
+                field: team_name
+
+  - name: int_kalshi_wc2026_group_winner_classification
+    description: >
+      One row per Kalshi WC2026 group-winner market joined to FIFA team status.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_ticker]
+    columns:
+      - name: market_ticker
+        description: Kalshi market ticker.
+        tests: [not_null, unique]
+      - name: group_letter
+        description: FIFA World Cup group letter inferred from the Kalshi event.
+        tests: [not_null]
+      - name: price_represents
+        description: Semantic meaning of public price fields.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['group_winner_probability']
+      - name: canonical_team_name
+        description: Canonical WC2026 team name from the fixture/results mart.
+        tests:
+          - not_null
+          - relationships:
+              config:
+                tags: [cross_domain]
+              arguments:
+                to: ref('international_results_wc2026_team_status')
+                field: team_name

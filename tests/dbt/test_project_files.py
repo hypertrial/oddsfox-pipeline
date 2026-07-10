@@ -22,6 +22,12 @@ def test_dbt_project_sources_are_wc2026_only():
         dbt_root / "models" / "polymarket_wc2026" / "marts" / "polymarket_wc2026.yml"
     ).exists()
     assert (
+        dbt_root / "models" / "kalshi_wc2026" / "intermediate" / "intermediate.yml"
+    ).exists()
+    assert (
+        dbt_root / "models" / "kalshi_wc2026" / "marts" / "kalshi_wc2026.yml"
+    ).exists()
+    assert (
         dbt_root
         / "models"
         / "international_results_wc2026"
@@ -269,3 +275,22 @@ def test_international_results_models_are_documented():
     assert "international_results_wc2026_matches" in documented_marts
     assert "international_results_wc2026_team_status" in documented_marts
     assert "international_results_wc2026_data_quality" in documented_observability
+
+
+def test_kalshi_wc2026_models_are_documented():
+    dbt_root = Path(__file__).resolve().parents[2] / "dbt"
+    kalshi_root = dbt_root / "models" / "kalshi_wc2026"
+    intermediate = yaml.safe_load(
+        (kalshi_root / "intermediate" / "intermediate.yml").read_text()
+    )
+    marts = yaml.safe_load((kalshi_root / "marts" / "kalshi_wc2026.yml").read_text())
+    documented_intermediate = {model["name"] for model in intermediate["models"]}
+    documented_marts = {model["name"] for model in marts["models"]}
+
+    assert "int_kalshi_wc2026_market_hourly_odds" in documented_intermediate
+    assert "int_kalshi_wc2026_stage_classification" in documented_intermediate
+    assert "int_kalshi_wc2026_group_winner_classification" in documented_intermediate
+    assert "kalshi_wc2026_stage_market_hourly_odds" in documented_marts
+    assert "kalshi_wc2026_group_winner_market_hourly_odds" in documented_marts
+    assert "kalshi_wc2026_stage_markets" in documented_marts
+    assert "kalshi_wc2026_group_winner_markets" in documented_marts

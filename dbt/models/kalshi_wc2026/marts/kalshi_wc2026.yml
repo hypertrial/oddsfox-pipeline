@@ -1,0 +1,107 @@
+version: 2
+
+models:
+  - name: kalshi_wc2026_stage_market_hourly_odds
+    description: >
+      Kalshi WC2026 stage markets joined to trailing hourly OHLC odds and
+      current FIFA team status.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_ticker, odds_hour_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [market_ticker, odds_hour_epoch]
+            price_columns:
+              - yes_open_price
+              - yes_high_price
+              - yes_low_price
+              - yes_close_price
+              - yes_avg_price
+              - progression_open_price
+              - progression_high_price
+              - progression_low_price
+              - progression_close_price
+              - progression_avg_price
+    columns:
+      - name: market_ticker
+        description: Kalshi market ticker.
+        tests: [not_null]
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the UTC hour bucket.
+        tests: [not_null]
+      - name: progression_outcome_label
+        description: Normalized team progression outcome represented by the market.
+        tests: [not_null]
+      - name: canonical_team_name
+        description: Canonical WC2026 team name from the fixture/results mart.
+        tests: [not_null]
+
+  - name: kalshi_wc2026_group_winner_market_hourly_odds
+    description: >
+      Kalshi WC2026 group-winner markets joined to trailing hourly OHLC odds and
+      current FIFA team status.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_ticker, odds_hour_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [market_ticker, odds_hour_epoch]
+            price_columns:
+              - open_price
+              - high_price
+              - low_price
+              - close_price
+              - avg_price
+    columns:
+      - name: market_ticker
+        description: Kalshi market ticker.
+        tests: [not_null]
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the UTC hour bucket.
+        tests: [not_null]
+      - name: group_letter
+        description: FIFA World Cup group letter inferred from the Kalshi event.
+        tests: [not_null]
+      - name: canonical_team_name
+        description: Canonical WC2026 team name from the fixture/results mart.
+        tests: [not_null]
+
+  - name: kalshi_wc2026_stage_markets
+    description: >
+      Latest Kalshi WC2026 stage market snapshot with current progression-side
+      price status.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_ticker]
+    columns:
+      - name: market_ticker
+        description: Kalshi market ticker.
+        tests: [not_null, unique]
+      - name: current_price_status
+        description: Derived freshness/status bucket for the latest progression price.
+        tests: [not_null]
+      - name: is_actionable_live_market
+        description: True for still-alive live teams whose latest hourly price is fresh.
+        tests: [not_null]
+
+  - name: kalshi_wc2026_group_winner_markets
+    description: >
+      Latest Kalshi WC2026 group-winner market snapshot with current price
+      status.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_ticker]
+    columns:
+      - name: market_ticker
+        description: Kalshi market ticker.
+        tests: [not_null, unique]
+      - name: current_price_status
+        description: Derived freshness/status bucket for the latest group-winner price.
+        tests: [not_null]
+      - name: is_actionable_live_market
+        description: True for still-alive live teams whose latest hourly price is fresh.
+        tests: [not_null]

@@ -10,6 +10,9 @@ models:
       - no_duplicate_grain:
           arguments:
             grain_columns: [scope_name, market_id]
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_id]
     columns:
       - name: market_id
         description: Polymarket market identifier.

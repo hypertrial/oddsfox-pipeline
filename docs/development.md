@@ -44,10 +44,12 @@ smokes. `coverage` enforces 100% branch coverage for product-core package code;
 warehouse profiling helpers are smoke-tested instead. These gates run in GitHub
 Actions and should pass locally before opening a pull request.
 
-Costguard medium/low findings are measured dbt debt, not automatic
-materialization work. Before changing dbt materializations or adding
-incremental models, capture the failing advisory, dbt build runtime, and
-warehouse/profile size evidence that justifies the change.
+Costguard high findings must be fixed or justified with an inline suppression
+and dbt grain tests that prove the intended shape. Medium/low findings are
+measured dbt debt, not automatic materialization work. Before changing dbt
+materializations or adding incremental models, capture the failing advisory,
+dbt build runtime, and warehouse/profile size evidence that justifies the
+change.
 
 ## dbt Materialization Debt
 
@@ -67,6 +69,8 @@ debt includes:
   questions. Keep collecting row-volume profiling before further conversions.
 - Low advisories may still flag `ORDER BY` without `LIMIT` in table-building
   marts; treat them as profiling prompts, not automatic refactors.
+- Remaining medium/low Costguard advisories are known dbt debt and do not make
+  the gate fail while the scanner exits successfully.
 
 Do not change materializations on advisory text alone. Capture dbt build
 runtime, relevant relation sizes from `scripts/profile_warehouse.py`, and the

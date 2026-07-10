@@ -1,3 +1,6 @@
+-- costguard: disable-file=SQLCOST038
+-- Hourly odds intentionally joins fact rows to one-row-per-token/current-market
+-- metadata; odds_hour_epoch stays on the fact side and is not a dimension key.
 select
     t.market_id,
     t.outcome_index,
