@@ -57,26 +57,31 @@ Mirrors [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Use `uv run make
 ```bash
 uv run make lint
 uv run make test-cov
-uv run make integration-dagster-cov
+uv run make dagster-jobs-smoke-cov
+uv run make dagster-refresh-cov
 uv run make integration-dbt-cov
 uv run make dbt-unit
 uv run make golden-dbt
 uv run make dbt-source-freshness-ci
 uv run make coverage-report
 uv run make docs-check
+uv run make check-secrets
 uv run make dbt-parse
 uv run make dbt-build-ci
-uv run make data-quality
+uv run make gx-data-quality
 uv run make costguard
 ```
 
-For local one-shot runs, `make test`, `make integration-dagster`,
-`make integration-dbt`, and `make coverage` still work without the CI
-coverage-accumulation split.
+CI runs these checks as parallel jobs and uses a docs-only fast lane for
+changes limited to README/top-level docs, `docs/**`, `mkdocs.yml`, and project
+policy docs. For local one-shot runs, `make test`, `make integration-dagster`,
+`make integration-dbt`, `make data-quality`, and `make coverage` still work
+without the CI coverage-accumulation split.
 
 `dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
-running dbt build. `contract-http` is replay-only and manual/nightly; it is not
-part of the default CI gate.
+running dbt build. CI then calls `gx-data-quality` against that existing
+disposable database so data-quality checks do not rebuild dbt. `contract-http`
+is replay-only and manual/nightly; it is not part of the default CI gate.
 Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 
@@ -93,19 +98,24 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make unit-ingest` | Ingestion unit tests |
 | `make unit-orchestration` | Orchestration/Dagster unit tests |
 | `make dagster-jobs-smoke` | Headless smoke for every registered public Dagster job with mocked externals |
+| `make dagster-jobs-smoke-cov` | CI coverage version of registered public Dagster job smoke |
+| `make dagster-refresh-cov` | CI coverage for deeper seeded Dagster refresh-path smoke tests |
 | `make test-cov` | CI unit tests with coverage accumulation (`-n auto`) |
 | `make integration-dbt` | DuckDB + dbt integration smoke |
 | `make integration-dagster` | Dagster integration smoke |
 | `make integration-dbt-cov` | CI DuckDB + dbt integration with coverage append |
-| `make integration-dagster-cov` | CI Dagster integration with coverage append |
+| `make integration-dagster-cov` | Local wrapper for both split CI Dagster coverage targets |
 | `make dbt-unit` | dbt unit tests for high-risk SQL branches |
 | `make golden-dbt` | Exact-output dbt mart regression fixtures |
 | `make dbt-source-freshness-ci` | Seed fresh temp source rows and run dbt source freshness |
 | `make coverage-report` | CI coverage report gate (`--fail-under=100`) |
+| `make check-secrets` | Repo policy check for tracked secret leakage |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
-| `make data-quality` | Great Expectations data-quality report against the disposable dbt build |
+| `make gx-data-quality` | Great Expectations data-quality report against an existing disposable dbt build |
+| `make data-quality` | Safe local wrapper that rebuilds disposable dbt state before `gx-data-quality` |
 | `make contract-http` | Replay-only HTTP contract tests; manual/nightly, excluded from default gates |
-| `make costguard` | Run the dbt cost guardrail |
+| `make costguard-scan` | Run the dbt cost guardrail against an existing dbt build |
+| `make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard |
 | `make dagster-dev` | Local Dagster UI |
 | `make docs-serve` | MkDocs dev server |
 

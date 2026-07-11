@@ -20,9 +20,304 @@ env:
   KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
 
 jobs:
-  validate:
+  detect-changes:
+    name: detect-changes
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+      full_ci: ${{ steps.filter.outputs.full_ci }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed files
+        id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docs_only=false
+          full_ci=true
+          changed_files=""
+
+          if [[ "${{ github.event_name }}" != "workflow_dispatch" ]]; then
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              git fetch origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}" --depth=1
+              changed_files="$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD || true)"
+            else
+              before="${{ github.event.before }}"
+              if [[ -n "$before" && ! "$before" =~ ^0+$ ]]; then
+                changed_files="$(git diff --name-only "$before" "${{ github.sha }}" || true)"
+              fi
+            fi
+
+            if [[ -n "$changed_files" ]]; then
+              docs_only=true
+              while IFS= read -r path; do
+                [[ -z "$path" ]] && continue
+                case "$path" in
+                  docs/*|README.md|CHANGELOG.md|CONTRIBUTING.md|CODE_OF_CONDUCT.md|SECURITY.md|LICENSE|mkdocs.yml)
+                    ;;
+                  *)
+                    docs_only=false
+                    ;;
+                esac
+              done <<< "$changed_files"
+
+              if [[ "$docs_only" == "true" ]]; then
+                full_ci=false
+              fi
+            fi
+          fi
+
+          {
+            echo "docs_only=$docs_only"
+            echo "full_ci=$full_ci"
+          } >> "$GITHUB_OUTPUT"
+
+  docs-policy:
+    name: docs-policy
+    needs: detect-changes
+    if: ${{ always() && needs['detect-changes'].result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install package and dev tools
+        run: uv sync --extra dev
+
+      - name: Docs
+        run: uv run make docs-check
+
+      - name: Secrets policy
+        run: uv run make check-secrets
+
+  lint:
+    name: lint
+    needs: detect-changes
+    if: ${{ needs['detect-changes'].outputs.full_ci == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install package and dev tools
+        run: uv sync --extra dev
+
+      - name: Lint
+        run: uv run make lint
+
+  unit-coverage:
+    name: unit-coverage
+    needs: detect-changes
+    if: ${{ needs['detect-changes'].outputs.full_ci == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install package and dev tools
+        run: uv sync --extra dev
+
+      - name: Tests
+        run: uv run make test-cov
+
+      - name: Prepare coverage artifact
+        run: mv .coverage .coverage.unit
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: .coverage.unit
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  dagster-jobs-coverage:
+    name: dagster-jobs-coverage
+    needs: detect-changes
+    if: ${{ needs['detect-changes'].outputs.full_ci == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install package and dev tools
+        run: uv sync --extra dev
+
+      - name: Dagster registered jobs smoke
+        run: uv run make dagster-jobs-smoke-cov
+
+      - name: Prepare coverage artifact
+        run: mv .coverage .coverage.dagster-jobs
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-dagster-jobs
+          path: .coverage.dagster-jobs
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  dagster-refresh-coverage:
+    name: dagster-refresh-coverage
+    needs: detect-changes
+    if: ${{ needs['detect-changes'].outputs.full_ci == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install package and dev tools
+        run: uv sync --extra dev
+
+      - name: Dagster refresh-path smoke
+        run: uv run make dagster-refresh-cov
+
+      - name: Prepare coverage artifact
+        run: mv .coverage .coverage.dagster-refresh
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-dagster-refresh
+          path: .coverage.dagster-refresh
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  dbt-integration-coverage:
+    name: dbt-integration-coverage
+    needs: detect-changes
+    if: ${{ needs['detect-changes'].outputs.full_ci == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install package and dev tools
+        run: uv sync --extra dev
+
+      - name: dbt integration smoke
+        run: uv run make integration-dbt-cov
+
+      - name: Prepare coverage artifact
+        run: mv .coverage .coverage.dbt-integration
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-dbt-integration
+          path: .coverage.dbt-integration
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  dbt-project-tests:
+    name: dbt-project-tests
+    needs: detect-changes
+    if: ${{ needs['detect-changes'].outputs.full_ci == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install package and dev tools
+        run: uv sync --extra dev
+
+      - name: dbt unit tests
+        run: uv run make dbt-unit
+
+      - name: Golden dbt fixtures
+        run: uv run make golden-dbt
+
+      - name: Source freshness
+        run: uv run make dbt-source-freshness-ci
+
+      - name: dbt parse
+        run: uv run make dbt-parse
+
+  dbt-build-quality:
+    name: dbt-build-quality
+    needs: detect-changes
+    if: ${{ needs['detect-changes'].outputs.full_ci == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,41 +334,11 @@ jobs:
       - name: Install package and dev tools
         run: uv sync --extra dev
 
-      - name: Lint
-        run: uv run make lint
-
-      - name: Tests
-        run: uv run make test-cov
-
-      - name: Dagster integration smoke
-        run: uv run make integration-dagster-cov
-
-      - name: dbt integration smoke
-        run: uv run make integration-dbt-cov
-
-      - name: dbt unit tests
-        run: uv run make dbt-unit
-
-      - name: Golden dbt fixtures
-        run: uv run make golden-dbt
-
-      - name: Source freshness
-        run: uv run make dbt-source-freshness-ci
-
-      - name: Coverage
-        run: uv run make coverage-report
-
-      - name: Docs
-        run: uv run make docs-check
-
-      - name: dbt parse
-        run: uv run make dbt-parse
-
       - name: dbt build
         run: uv run make dbt-build-ci
 
       - name: Data quality
-        run: uv run make data-quality
+        run: uv run make gx-data-quality
 
       - name: Set up Python for Costguard
         uses: actions/setup-python@v5
@@ -103,3 +368,91 @@ jobs:
           path: dbt/costguard-receipt.json
           if-no-files-found: ignore
           retention-days: 14
+
+  coverage-report:
+    name: coverage-report
+    needs:
+      - detect-changes
+      - unit-coverage
+      - dagster-jobs-coverage
+      - dagster-refresh-coverage
+      - dbt-integration-coverage
+    if: ${{ needs['detect-changes'].outputs.full_ci == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install package and dev tools
+        run: uv sync --extra dev
+
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: .coverage-artifacts
+          merge-multiple: true
+
+      - name: Combine coverage
+        run: uv run python -m coverage combine .coverage-artifacts
+
+      - name: Coverage
+        run: uv run make coverage-report
+
+  ci-success:
+    name: ci-success
+    needs:
+      - detect-changes
+      - docs-policy
+      - lint
+      - unit-coverage
+      - dagster-jobs-coverage
+      - dagster-refresh-coverage
+      - dbt-integration-coverage
+      - dbt-project-tests
+      - dbt-build-quality
+      - coverage-report
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check required jobs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          failed=0
+          check() {
+            local name="$1"
+            local result="$2"
+            if [[ "$result" != "success" ]]; then
+              echo "::error::$name ended with $result"
+              failed=1
+            fi
+          }
+
+          check "detect-changes" "${{ needs['detect-changes'].result }}"
+          check "docs-policy" "${{ needs['docs-policy'].result }}"
+
+          if [[ "${{ needs['detect-changes'].outputs.full_ci }}" == "true" ]]; then
+            check "lint" "${{ needs.lint.result }}"
+            check "unit-coverage" "${{ needs['unit-coverage'].result }}"
+            check "dagster-jobs-coverage" "${{ needs['dagster-jobs-coverage'].result }}"
+            check "dagster-refresh-coverage" "${{ needs['dagster-refresh-coverage'].result }}"
+            check "dbt-integration-coverage" "${{ needs['dbt-integration-coverage'].result }}"
+            check "dbt-project-tests" "${{ needs['dbt-project-tests'].result }}"
+            check "dbt-build-quality" "${{ needs['dbt-build-quality'].result }}"
+            check "coverage-report" "${{ needs['coverage-report'].result }}"
+          fi
+
+          exit "$failed"

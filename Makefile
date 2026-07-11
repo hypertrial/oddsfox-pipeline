@@ -1,4 +1,4 @@
-.PHONY: dagster-dev dagster-jobs-smoke duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality contract-http costguard docs-serve docs-build docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
+.PHONY: dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt gx-data-quality data-quality contract-http costguard costguard-scan docs-serve docs-build docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -62,21 +62,25 @@ dbt-source-freshness-ci:
 golden-dbt:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb/test_golden_marts.py -q -n 0 -m "not performance and not slow"
 
-data-quality: dbt-build-ci
+gx-data-quality:
 	$(RUN_IN_REPO) "$(PYTHON)" scripts/run_gx_data_quality.py --duckdb-path "$(DBT_BUILD_DUCKDB_PATH)"
+
+data-quality: dbt-build-ci gx-data-quality
 
 contract-http:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/contract -q -n 0 -m "contract"
 
-costguard: dbt-build-ci
+costguard-scan:
 	$(RUN_IN_REPO) cd dbt && "$(COSTGUARD)" scan
+
+costguard: dbt-build-ci costguard-scan
 
 docs-serve:
 	$(RUN_IN_REPO) NO_MKDOCS_2_WARNING=true "$(PYTHON)" -m mkdocs serve -a 127.0.0.1:8000
 
 docs-build docs-check:
 	$(RUN_IN_REPO) NO_MKDOCS_2_WARNING=true "$(PYTHON)" -m mkdocs build --strict
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_docs_structure.py::test_built_docs_use_material_homepage -q -n 0
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_docs_structure.py -q -n 0
 
 format:
 	$(RUN_IN_REPO) ruff format src tests
@@ -124,6 +128,12 @@ unit-orchestration:
 dagster-jobs-smoke:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster/test_registered_jobs_smoke.py -q -n 0 -m "not performance and not slow"
 
+dagster-jobs-smoke-cov:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster/test_registered_jobs_smoke.py -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS)
+
+dagster-refresh-cov:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster/test_refresh_job_smoke.py -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS)
+
 integration-dbt:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb tests/dbt -q -n 0 -m "not performance and not slow"
 
@@ -133,11 +143,9 @@ integration-dbt-cov:
 integration-dagster:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster -q -n 0 -m "not performance and not slow"
 
-# ponytail: integration-dagster/-dbt stay serial (-n 0) to match the existing
-# guard on Dagster-instance/DuckDB-locked suites; revisit only after validating
-# xdist safety for those fixtures.
-integration-dagster-cov:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS)
+# ponytail: keep each Dagster group serial (-n 0) until xdist safety is proven
+# for Dagster instance and DuckDB-locked fixtures.
+integration-dagster-cov: dagster-jobs-smoke-cov dagster-refresh-cov
 
 clean-local-artifacts:
 	$(RUN_IN_REPO) find . -type d -name __pycache__ -prune -exec rm -rf {} +

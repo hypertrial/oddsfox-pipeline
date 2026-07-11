@@ -41,16 +41,19 @@ and [CONTRIBUTING.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/C
 deterministic temp resources, mocked external APIs, and no `dagster-dev`
 server. `integration-dagster` includes that check plus deeper seeded Dagster
 smokes. `coverage` enforces 100% branch coverage for product-core package code;
-warehouse profiling helpers are smoke-tested instead. These gates run in GitHub
-Actions and should pass locally before opening a pull request.
+warehouse profiling helpers are smoke-tested instead. These gates run as
+parallel GitHub Actions jobs, with a docs-only fast lane for README/top-level
+docs, `docs/**`, `mkdocs.yml`, and project policy docs. The same checks should
+pass locally before opening a pull request.
 
 The deterministic trust checks are separate from live ingestion. `dbt-unit`
 exercises high-risk SQL branches with dbt unit tests, `golden-dbt` compares
 public mart rows against exact fixtures, `dbt-source-freshness-ci` seeds current
-loaded-at rows before `dbt source freshness`, and `data-quality` writes a local
-Great Expectations report under `.cache/`. `contract-http` replays sanitized
-HTTP cassettes and is manual/nightly; default CI and `make test` exclude the
-`contract` marker.
+loaded-at rows before `dbt source freshness`, and `gx-data-quality` writes a
+local Great Expectations report under `.cache/` after `dbt-build-ci` has already
+created the disposable warehouse. `data-quality` remains the safe local wrapper
+that rebuilds first. `contract-http` replays sanitized HTTP cassettes and is
+manual/nightly; default CI and `make test` exclude the `contract` marker.
 
 Dagster dbt assets enable dbt source tests as asset checks. Row-count and
 column metadata fetching is available through `DbtBuildConfig` but stays
@@ -127,19 +130,24 @@ and [Troubleshooting](troubleshooting.md#tests-writing-to-production-warehouse).
 | `uv run make unit-ingest` | Polymarket ingestion and odds sync tests. |
 | `uv run make unit-orchestration` | Dagster asset, job, and schedule tests. |
 | `uv run make dagster-jobs-smoke` | Headless deterministic smoke for every registered public Dagster job. |
+| `uv run make dagster-jobs-smoke-cov` | CI coverage version of registered public Dagster job smoke. |
+| `uv run make dagster-refresh-cov` | CI coverage for deeper seeded Dagster refresh-path smoke tests. |
 | `uv run make integration-dbt` | DuckDB and dbt smoke tests. |
 | `uv run make integration-dagster` | Dagster integration smoke tests. |
 | `uv run make test-cov` | CI unit tests with coverage accumulation (`-n auto`). |
-| `uv run make integration-dagster-cov` | CI Dagster integration with coverage append. |
+| `uv run make integration-dagster-cov` | Local wrapper for both split CI Dagster coverage targets. |
 | `uv run make integration-dbt-cov` | CI DuckDB + dbt integration with coverage append. |
 | `uv run make dbt-unit` | dbt unit tests for classifier and mart edge-case SQL. |
 | `uv run make golden-dbt` | Exact-output public mart regression fixtures. |
 | `uv run make dbt-source-freshness-ci` | Seed temp source rows and run dbt source freshness. |
 | `uv run make coverage-report` | CI coverage report gate (`--fail-under=100`). |
+| `uv run make check-secrets` | Repo policy check for tracked secret leakage. |
 | `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
-| `uv run make data-quality` | Great Expectations-style data-quality report for the disposable dbt build. |
+| `uv run make gx-data-quality` | Great Expectations-style report against an existing disposable dbt build. |
+| `uv run make data-quality` | Safe local wrapper that rebuilds disposable dbt state before `gx-data-quality`. |
 | `uv run make contract-http` | Replay-only HTTP contract tests; manual/nightly, not default CI. |
-| `uv run make costguard` | Run the pinned dbt cost guardrail locally. |
+| `uv run make costguard-scan` | Run the pinned dbt cost guardrail against an existing dbt build. |
+| `uv run make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard. |
 | `uv run make coverage` | Local one-shot 100% product-core branch coverage gate. |
 
 ## Pull Request Expectations

@@ -132,20 +132,30 @@ semantics, [Data Contracts](docs/data-contracts.md) for formal guarantees, and
 ```bash
 uv run make lint
 uv run make test-cov
-uv run make integration-dagster-cov
+uv run make dagster-jobs-smoke-cov
+uv run make dagster-refresh-cov
 uv run make integration-dbt-cov
+uv run make dbt-unit
+uv run make golden-dbt
+uv run make dbt-source-freshness-ci
 uv run make coverage-report
 uv run make docs-check
+uv run make check-secrets
 uv run make dbt-parse
 uv run make dbt-build-ci
+uv run make gx-data-quality
 uv run make costguard
 ```
 
-For local one-shot runs, `make test`, `make integration-dagster`,
-`make integration-dbt`, and `make coverage` still work without the CI
-coverage-accumulation split.
+CI runs these checks as parallel jobs and uses a docs-only fast lane for
+README/top-level docs, `docs/**`, `mkdocs.yml`, and project policy docs. For
+local one-shot runs, `make test`, `make integration-dagster`,
+`make integration-dbt`, `make data-quality`, and `make coverage` still work
+without the CI coverage-accumulation split.
 
 `dbt-build-ci` uses a disposable DuckDB database under `.cache/` for CI parity.
+CI calls `gx-data-quality` against that existing build; local `data-quality`
+remains the safe wrapper that rebuilds first.
 Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 

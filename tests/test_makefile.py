@@ -51,3 +51,17 @@ def test_dagster_dev_recipe_prefers_dg_with_python_fallback():
     assert 'if test -x "' in script
     assert '/.venv/bin/dg" dev' in script
     assert "-m dagster dev" in script
+
+
+def test_ci_split_targets_remain_wired():
+    makefile = (REPO_ROOT / "Makefile").read_text()
+
+    assert "gx-data-quality:" in makefile
+    assert "data-quality: dbt-build-ci gx-data-quality" in makefile
+    assert "costguard-scan:" in makefile
+    assert "costguard: dbt-build-ci costguard-scan" in makefile
+    assert "dagster-jobs-smoke-cov:" in makefile
+    assert "dagster-refresh-cov:" in makefile
+    assert "integration-dagster-cov: dagster-jobs-smoke-cov dagster-refresh-cov" in (
+        makefile
+    )
