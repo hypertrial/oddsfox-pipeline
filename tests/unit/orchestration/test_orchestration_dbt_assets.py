@@ -388,6 +388,29 @@ def test_prepare_dbt_project_prepares_manifest_outside_dagster_dev_when_missing(
     assert manifest.exists()
 
 
+def test_prepare_dbt_project_skips_prepare_when_manifest_exists_outside_dev(tmp_path):
+    pytest.importorskip("dagster_dbt")
+
+    from oddsfox_pipeline.orchestration import dbt_project as dbt_project_mod
+
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("{}")
+
+    class FakePreparer:
+        def using_dagster_dev(self):
+            return False
+
+        def prepare(self, _project):
+            raise AssertionError("existing manifests should not be prepared")
+
+    class FakeProject:
+        manifest_path = manifest
+        preparer = FakePreparer()
+
+    project = FakeProject()
+    dbt_project_mod.prepare_dbt_project(project, preparer=project.preparer)
+
+
 def test_oddsfox_dbt_project_preparer_uses_resolved_executable(monkeypatch):
     pytest.importorskip("dagster_dbt")
 
