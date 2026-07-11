@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Callable
 
 import dlt
@@ -68,6 +69,13 @@ def _run_with_raw_snapshot(
 _DLT_PIPELINE_BY_PATH: dict[str, dlt.Pipeline] = {}
 
 
+def _dlt_pipeline_name(dataset_name: str) -> str:
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    if worker:
+        return f"{dataset_name}_{worker}_landing"
+    return f"{dataset_name}_landing"
+
+
 def get_kalshi_dlt_pipeline(
     *,
     scope_name: str = SCOPE_WC2026,
@@ -81,7 +89,7 @@ def get_kalshi_dlt_pipeline(
     if cached is not None:
         return cached
     pipe = dlt_module.pipeline(
-        pipeline_name=f"{dataset_name}_landing",
+        pipeline_name=_dlt_pipeline_name(dataset_name),
         destination=dlt_module.destinations.duckdb(credentials=db_path),
         dataset_name=dataset_name,
     )

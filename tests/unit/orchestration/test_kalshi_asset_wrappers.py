@@ -16,7 +16,7 @@ from oddsfox_pipeline.orchestration.assets import (
 )
 
 
-def test_get_kalshi_dlt_pipeline_uses_path_cache():
+def test_get_kalshi_dlt_pipeline_uses_path_cache(monkeypatch):
     created = []
 
     class FakeDlt:
@@ -31,6 +31,7 @@ def test_get_kalshi_dlt_pipeline_uses_path_cache():
             return object()
 
     assets_mod.asset_helpers._DLT_PIPELINE_BY_PATH.clear()
+    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
     first = assets_mod.asset_helpers.get_kalshi_dlt_pipeline(
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
@@ -43,6 +44,15 @@ def test_get_kalshi_dlt_pipeline_uses_path_cache():
 
     assert first is second
     assert len(created) == 1
+    assert created[0]["pipeline_name"] == "kalshi_wc2026_raw_landing"
+
+    assets_mod.asset_helpers._DLT_PIPELINE_BY_PATH.clear()
+    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw2")
+    assets_mod.asset_helpers.get_kalshi_dlt_pipeline(
+        active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
+        dlt_module=FakeDlt,
+    )
+    assert created[-1]["pipeline_name"] == "kalshi_wc2026_raw_gw2_landing"
     assets_mod.asset_helpers._DLT_PIPELINE_BY_PATH.clear()
 
 

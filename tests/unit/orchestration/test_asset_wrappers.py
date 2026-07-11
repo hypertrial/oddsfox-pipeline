@@ -16,7 +16,7 @@ from oddsfox_pipeline.orchestration.assets import (
 )
 
 
-def test_get_polymarket_dlt_pipeline_uses_path_cache():
+def test_get_polymarket_dlt_pipeline_uses_path_cache(monkeypatch):
     created = []
 
     class FakeDlt:
@@ -31,6 +31,7 @@ def test_get_polymarket_dlt_pipeline_uses_path_cache():
             return object()
 
     helpers_mod._DLT_PIPELINE_BY_PATH.clear()
+    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
     first = helpers_mod.get_polymarket_dlt_pipeline(
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
@@ -43,6 +44,7 @@ def test_get_polymarket_dlt_pipeline_uses_path_cache():
 
     assert first is second
     assert len(created) == 1
+    assert created[0]["pipeline_name"] == "polymarket_wc2026_raw_landing"
 
     helpers_mod._DLT_PIPELINE_BY_PATH.clear()
     midterms = helpers_mod.get_polymarket_dlt_pipeline(
@@ -57,6 +59,14 @@ def test_get_polymarket_dlt_pipeline_uses_path_cache():
     )
     assert midterms is not wc2026
     assert len(created) == 3
+
+    helpers_mod._DLT_PIPELINE_BY_PATH.clear()
+    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw2")
+    helpers_mod.get_polymarket_dlt_pipeline(
+        active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
+        dlt_module=FakeDlt,
+    )
+    assert created[-1]["pipeline_name"] == "polymarket_wc2026_raw_gw2_landing"
 
 
 def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
