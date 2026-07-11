@@ -66,6 +66,25 @@ def test_readme_links_to_project_docs():
     assert "(LICENSE)" in readme
 
 
+def test_readme_covers_first_run_analyst_path():
+    readme = (REPO_ROOT / "README.md").read_text()
+
+    required_terms = [
+        "uv run make docs-serve",
+        "http://127.0.0.1:8000",
+        "(docs/analyst-guide.md)",
+        "(docs/query-cookbook.md)",
+        "(docs/data-dictionary.md)",
+        "`*_marts`",
+        "`*_observability`",
+        "is_actionable_live_market",
+        "current_price_status",
+    ]
+
+    for term in required_terms:
+        assert term in readme
+
+
 def test_landing_docs_describe_shipped_kalshi_support():
     texts = {
         "README.md": (REPO_ROOT / "README.md").read_text(),

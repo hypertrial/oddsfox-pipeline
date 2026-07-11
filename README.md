@@ -33,7 +33,34 @@ Read the cross-repo [System Overview](docs/system-overview.md) and
 [Operator Runbook](docs/operator-runbook.md) for the end-to-end path from source
 APIs to the dashboard.
 
+## Start Here
+
+| Reader | First step |
+| --- | --- |
+| Analysts querying the warehouse | Serve the docs with `uv run make docs-serve`, open `http://127.0.0.1:8000`, then start with the [Analyst Guide](docs/analyst-guide.md), [Query Cookbook](docs/query-cookbook.md), and [Data Dictionary](docs/data-dictionary.md). |
+| Operators running ingestion | Use the [Getting Started guide](docs/quickstart.md) and local Dagster setup below. |
+| Contributors changing code | Use the [Development guide](docs/development.md) and [CONTRIBUTING.md](CONTRIBUTING.md). |
+
 ## Quickstart
+
+Read or query an existing warehouse:
+
+```bash
+uv sync --extra dev
+uv run make docs-serve
+```
+
+Keep the docs server running and open `http://127.0.0.1:8000`. In another
+terminal, query the default warehouse:
+
+```bash
+duckdb oddsfox.duckdb
+```
+
+The default warehouse is `oddsfox.duckdb` in the repo root. If `.env` sets
+`DUCKDB_PATH`, open that file instead.
+
+Run the local pipeline:
 
 ```bash
 uv sync --extra dev
@@ -47,10 +74,14 @@ builds are healthy.
 
 Read the full [Getting Started guide](docs/quickstart.md).
 
-If you mainly want to query the warehouse, start with the
-[Analyst Guide](docs/analyst-guide.md), then use the
-[Query Cookbook](docs/query-cookbook.md) and
-[Data Dictionary](docs/data-dictionary.md).
+Analyst rules of thumb:
+
+- Query `*_marts` first.
+- Use `*_observability` for freshness, coverage, and trust checks.
+- Treat `*_raw`, `*_ops`, staging, and intermediate schemas as internal or
+  debugging surfaces.
+- For current live analysis, prefer `is_actionable_live_market`, then inspect
+  `current_price_status`.
 
 ## Architecture
 
@@ -67,50 +98,18 @@ See [Architecture](docs/architecture.md) and [Warehouse](docs/warehouse.md).
 
 ## Data Outputs
 
-Current Polymarket WC2026 analytics outputs live in `polymarket_wc2026_marts`:
+Main public analytics schemas:
 
-- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe
-  for knockout-related markets at or above the WC2026 contract volume floor
-  (currently $5,000 USD), including derived live/historical status.
-- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC
-  odds for the progression side of each knockout market, with market status
-  metadata for live-only filtering.
-- `polymarket_wc2026_graph_token_hourly_odds`: graph-build export surface with
-  both Yes/No tokens per real-team knockout market plus dbt-clean team, stage,
-  progression-side, and opposite-token semantics.
-- `polymarket_wc2026_knockout_markets`: latest progression-side knockout
-  snapshot with market/team/stage metadata and explicit current-price status.
-
-WC2026 FIFA World Cup fixture/result outputs live in
-`international_results_wc2026_marts`:
-
-- `international_results_wc2026_matches`: clean fixture/result rows with stage
-  mapping and tied-knockout advancer inference where possible.
-- `international_results_wc2026_team_status`: canonical 48-team roster and
-  current tournament status used to clean public odds marts.
-
-Operational health outputs live in `polymarket_wc2026_observability`:
-
-- `polymarket_wc2026_sync_run_observability`: run-level ingestion telemetry.
-- `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage
-  versus scoped tokens by stage, direction, and market status.
-- `polymarket_wc2026_knockout_data_quality`: row-level DQ findings for source
-  anomalies, sparse coverage, and stale or missing odds.
-
-Polymarket US midterms 2026 outputs live in
-`polymarket_us_midterms_2026_marts`:
-
-- `polymarket_us_midterms_2026_market_token_hourly_odds`: trailing hourly OHLC
-  odds for scoped midterms market tokens.
-
-Kalshi WC2026 outputs live in `kalshi_wc2026_marts`:
-
-- `kalshi_wc2026_stage_markets` and
-  `kalshi_wc2026_stage_market_hourly_odds`: stage-of-elimination markets and
-  hourly candlesticks.
-- `kalshi_wc2026_group_winner_markets` and
-  `kalshi_wc2026_group_winner_market_hourly_odds`: group-winner markets and
-  hourly candlesticks.
+- `polymarket_wc2026_marts`: WC2026 Polymarket knockout market snapshots,
+  progression-side hourly odds, token classification, and graph exports.
+- `international_results_wc2026_marts`: WC2026 fixtures, results, and canonical
+  team status used to clean public odds marts.
+- `polymarket_us_midterms_2026_marts`: scoped US midterms 2026 Polymarket
+  hourly odds.
+- `kalshi_wc2026_marts`: Kalshi WC2026 stage and group-winner market snapshots
+  and hourly candlesticks.
+- `*_observability`: ingestion telemetry, freshness, coverage, and data-quality
+  checks for analyst trust and operator debugging.
 
 Dagster registers source-first jobs:
 `international_results_wc2026_match_results_ingest`,
@@ -124,8 +123,9 @@ Dagster registers source-first jobs:
 `kalshi_wc2026_market_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
 `kalshi_wc2026_dbt_build`, and `kalshi_wc2026_full_pipeline`.
 
-See [Data Contracts](docs/data-contracts.md), [Data Dictionary](docs/data-dictionary.md),
-and [Naming](docs/naming.md).
+See [Data Dictionary](docs/data-dictionary.md) for analyst-facing table
+semantics, [Data Contracts](docs/data-contracts.md) for formal guarantees, and
+[Naming](docs/naming.md) for schema and asset naming.
 
 ## Development
 
