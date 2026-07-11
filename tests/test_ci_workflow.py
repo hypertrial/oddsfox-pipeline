@@ -35,4 +35,12 @@ def test_ci_workflow_keeps_parallel_fast_lane_contract():
     assert "uv run python -m coverage combine .coverage-artifacts" in workflow
     assert "Check required jobs" in workflow
     assert "actions/checkout@v4" not in workflow
+    assert "actions/setup-python@v5" not in workflow
+    assert "astral-sh/setup-uv@v5" not in workflow
+    assert "actions/upload-artifact@v4" not in workflow
+    assert "actions/download-artifact@v4" not in workflow
     assert "actions/checkout@v6" in workflow
+    assert "actions/setup-python@v6" in workflow
+    assert "astral-sh/setup-uv@v8" in workflow
+    assert "actions/upload-artifact@v6" in workflow
+    assert "actions/download-artifact@v7" in workflow
