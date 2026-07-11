@@ -6,6 +6,10 @@ schemas and relation names are source-specific because adapters ship in parallel
 For public mart guarantees, see
 [Data Contracts](data-contracts.md).
 
+If you are analyzing data rather than operating the pipeline, start with the
+[Analyst Guide](analyst-guide.md), [Query Cookbook](query-cookbook.md), and
+[Data Dictionary](data-dictionary.md).
+
 ## Raw Tables
 
 Schema: `polymarket_wc2026_raw`

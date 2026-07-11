@@ -7,6 +7,10 @@ stage and group-winner odds, US midterms 2026 generic market odds, plus WC2026
 FIFA World Cup fixtures/results used to validate WC2026 team scope. Model-level
 column docs and tests live in the dbt project.
 
+For practical analyst workflows, use the [Analyst Guide](analyst-guide.md),
+[Query Cookbook](query-cookbook.md), and [Data Dictionary](data-dictionary.md).
+This page remains the formal contract summary.
+
 ## Public Marts
 
 Schema: `polymarket_us_midterms_2026_marts`

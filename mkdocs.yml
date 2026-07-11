@@ -36,6 +36,10 @@ nav:
       - Operations: operations.md
       - Hosted Graph: hosted-graph-deployment.md
       - Troubleshooting: troubleshooting.md
+  - Analysts:
+      - Analyst Guide: analyst-guide.md
+      - Query Cookbook: query-cookbook.md
+      - Data Dictionary: data-dictionary.md
   - Reference:
       - Configuration: configuration.md
       - Naming: naming.md

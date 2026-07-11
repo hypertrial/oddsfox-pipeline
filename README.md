@@ -47,6 +47,11 @@ builds are healthy.
 
 Read the full [Getting Started guide](docs/quickstart.md).
 
+If you mainly want to query the warehouse, start with the
+[Analyst Guide](docs/analyst-guide.md), then use the
+[Query Cookbook](docs/query-cookbook.md) and
+[Data Dictionary](docs/data-dictionary.md).
+
 ## Architecture
 
 OddsFox keeps the data stack local and inspectable:
@@ -119,7 +124,8 @@ Dagster registers source-first jobs:
 `kalshi_wc2026_market_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
 `kalshi_wc2026_dbt_build`, and `kalshi_wc2026_full_pipeline`.
 
-See [Data Contracts](docs/data-contracts.md) and [Naming](docs/naming.md).
+See [Data Contracts](docs/data-contracts.md), [Data Dictionary](docs/data-dictionary.md),
+and [Naming](docs/naming.md).
 
 ## Development
 

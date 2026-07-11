@@ -52,6 +52,9 @@ def test_readme_links_to_project_docs():
     readme = (REPO_ROOT / "README.md").read_text()
 
     assert "(docs/index.md)" in readme
+    assert "(docs/analyst-guide.md)" in readme
+    assert "(docs/query-cookbook.md)" in readme
+    assert "(docs/data-dictionary.md)" in readme
     assert "(docs/system-overview.md)" in readme
     assert "(docs/operator-runbook.md)" in readme
     assert "(docs/quickstart.md)" in readme
@@ -120,6 +123,54 @@ def test_cross_repo_operator_docs_are_in_nav():
 
     assert "system-overview.md" in targets
     assert "operator-runbook.md" in targets
+
+
+def test_analyst_docs_are_in_nav_and_linked_from_homepage():
+    config = yaml.safe_load((REPO_ROOT / "mkdocs.yml").read_text())
+    targets = set(_nav_targets(config["nav"]))
+    homepage = (REPO_ROOT / "docs" / "index.md").read_text()
+
+    assert "analyst-guide.md" in targets
+    assert "query-cookbook.md" in targets
+    assert "data-dictionary.md" in targets
+    assert "[Analyst Guide](analyst-guide.md)" in homepage
+    assert "[Query Cookbook](query-cookbook.md)" in homepage
+    assert "[Data Dictionary](data-dictionary.md)" in homepage
+
+
+def test_analyst_docs_cover_public_marts_and_trust_fields():
+    texts = {
+        "docs/analyst-guide.md": (REPO_ROOT / "docs" / "analyst-guide.md").read_text(),
+        "docs/query-cookbook.md": (
+            REPO_ROOT / "docs" / "query-cookbook.md"
+        ).read_text(),
+        "docs/data-dictionary.md": (
+            REPO_ROOT / "docs" / "data-dictionary.md"
+        ).read_text(),
+    }
+    combined = "\n".join(texts.values())
+
+    required_terms = [
+        "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets",
+        ("polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds"),
+        ("polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds"),
+        ("international_results_wc2026_marts.international_results_wc2026_matches"),
+        ("international_results_wc2026_marts.international_results_wc2026_team_status"),
+        "kalshi_wc2026_marts.kalshi_wc2026_stage_markets",
+        "kalshi_wc2026_marts.kalshi_wc2026_stage_market_hourly_odds",
+        "kalshi_wc2026_marts.kalshi_wc2026_group_winner_markets",
+        ("kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds"),
+        (
+            "polymarket_us_midterms_2026_marts."
+            "polymarket_us_midterms_2026_market_token_hourly_odds"
+        ),
+        "is_actionable_live_market",
+        "current_price_status",
+        "price_represents",
+    ]
+
+    for term in required_terms:
+        assert term in combined
 
 
 def test_docs_logo_asset_exists():
