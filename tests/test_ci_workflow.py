@@ -34,3 +34,5 @@ def test_ci_workflow_keeps_parallel_fast_lane_contract():
     assert "include-hidden-files: true" in workflow
     assert "uv run python -m coverage combine .coverage-artifacts" in workflow
     assert "Check required jobs" in workflow
+    assert "actions/checkout@v4" not in workflow
+    assert "actions/checkout@v6" in workflow
