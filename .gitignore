@@ -199,6 +199,7 @@ data/
 !dbt/seeds/*.csv
 !tests/fixtures/**/*.csv
 *.json
+!vercel.json
 *.feather
 *.pkl
 *.pickle

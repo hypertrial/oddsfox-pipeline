@@ -165,6 +165,12 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 
 See [Development](docs/development.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Documentation Website
+
+Vercel builds the MkDocs site from `main` using [`vercel.json`](vercel.json) and
+publishes it at [data.oddsfox.io](https://data.oddsfox.io/). Validate documentation
+changes locally with `uv run make docs-check` before pushing.
+
 ## Community
 
 - [Docs](docs/index.md)

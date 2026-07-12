@@ -1,5 +1,6 @@
 site_name: OddsFox Docs
 site_description: Public docs for the OddsFox prediction-market data pipeline.
+site_url: https://data.oddsfox.io/
 repo_name: hypertrial/oddsfox-pipeline
 repo_url: https://github.com/hypertrial/oddsfox-pipeline
 theme:
