@@ -6,7 +6,6 @@
   "outputDirectory": "site",
   "trailingSlash": true,
   "redirects": [
-    { "source": "/github", "destination": "https://github.com/hypertrial/oddsfox-pipeline", "permanent": false },
     { "source": "/quickstart", "destination": "/getting-started/", "permanent": true },
     { "source": "/operator-runbook", "destination": "/guides/deploy-hosted-stack/", "permanent": true },
     { "source": "/hosted-graph-deployment", "destination": "/guides/deploy-hosted-stack/", "permanent": true },

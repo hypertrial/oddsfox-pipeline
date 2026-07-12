@@ -63,7 +63,7 @@ def test_homepage_desktop_geometry_and_actions(chromium, docs_url):
     assert not _has_horizontal_overflow(page)
     assert page.locator("h1", has_text="OddsFox Pipeline").is_visible()
     assert page.locator(
-        ".md-header .md-source[href='https://data.oddsfox.io/github/']"
+        ".md-header .md-source[href='https://github.com/hypertrial/oddsfox-pipeline']"
     ).is_visible()
     assert page.locator(".of-hero .md-button[href='getting-started/']").is_visible()
     assert page.locator(

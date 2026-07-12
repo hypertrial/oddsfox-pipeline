@@ -66,7 +66,7 @@ def test_material_theme_uses_native_navigation_and_dark_palette():
 
     assert config["theme"]["name"] == "material"
     assert config["site_name"] == "OddsFox Pipeline"
-    assert config["repo_url"] == "https://data.oddsfox.io/github/"
+    assert config["repo_url"] == "https://github.com/hypertrial/oddsfox-pipeline"
     assert config["repo_name"] == "hypertrial/oddsfox-pipeline"
     assert config["theme"]["logo"] == "assets/images/oddsfox-favicon.png"
     assert config["theme"]["font"] is False
@@ -107,19 +107,12 @@ def test_material_theme_uses_native_navigation_and_dark_palette():
 def test_vercel_redirects_cover_every_moved_page():
     config = json.loads((REPO_ROOT / "vercel.json").read_text())
     redirects = config["redirects"]
-    github = next(item for item in redirects if item["source"] == "/github")
-    moved_pages = [item for item in redirects if item["source"] != "/github"]
-    actual = {item["source"]: item["destination"] for item in moved_pages}
+    actual = {item["source"]: item["destination"] for item in redirects}
 
     assert config["trailingSlash"] is True
     assert len({item["source"] for item in redirects}) == len(redirects)
-    assert github == {
-        "source": "/github",
-        "destination": "https://github.com/hypertrial/oddsfox-pipeline",
-        "permanent": False,
-    }
     assert actual == REDIRECTS
-    assert all(item["permanent"] is True for item in moved_pages)
+    assert all(item["permanent"] is True for item in redirects)
     assert not (set(actual) & set(actual.values()))
 
     nav_urls = {
@@ -250,7 +243,7 @@ def test_built_homepage_and_diagrams_are_semantic():
 
     assert re.search(r'<h1[^>]+id="oddsfox-pipeline"[^>]*>OddsFox Pipeline', home_html)
     assert 'class="md-source"' in home_html
-    assert 'href="https://data.oddsfox.io/github/"' in home_html
+    assert 'href="https://github.com/hypertrial/oddsfox-pipeline"' in home_html
     assert "hypertrial/oddsfox-pipeline" in home_html
     assert 'href="getting-started/"' in home_html
     assert 'href="guides/query-the-warehouse/"' in home_html

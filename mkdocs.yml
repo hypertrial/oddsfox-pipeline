@@ -1,7 +1,7 @@
 site_name: OddsFox Pipeline
 site_description: Public documentation for the OddsFox Pipeline prediction-market data pipeline.
 site_url: https://data.oddsfox.io/
-repo_url: https://data.oddsfox.io/github/
+repo_url: https://github.com/hypertrial/oddsfox-pipeline
 repo_name: hypertrial/oddsfox-pipeline
 strict: true
 
