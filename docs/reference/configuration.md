@@ -1,7 +1,7 @@
 # Configuration
 
 Use `.env.example` as the source of local overrides.
-For first-run steps, see [Quickstart](quickstart.md).
+For first-run steps, see [Quickstart](../getting-started/index.md).
 
 Most settings are adapter-specific. In v0.1.x, that means the shipped WC2026
 and US midterms 2026 Polymarket pipelines, the Kalshi WC2026 pipeline, plus the

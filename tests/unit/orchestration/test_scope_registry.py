@@ -113,9 +113,15 @@ def test_scope_specs_are_documented():
     repo_root = Path(__file__).resolve().parents[3]
     docs = "\n".join(
         [
-            (repo_root / "docs" / "quickstart.md").read_text(encoding="utf-8"),
-            (repo_root / "docs" / "operations.md").read_text(encoding="utf-8"),
-            (repo_root / "docs" / "scripts.md").read_text(encoding="utf-8"),
+            (repo_root / "docs" / "getting-started" / "index.md").read_text(
+                encoding="utf-8"
+            ),
+            (repo_root / "docs" / "guides" / "run-a-scope.md").read_text(
+                encoding="utf-8"
+            ),
+            (repo_root / "docs" / "reference" / "scripts.md").read_text(
+                encoding="utf-8"
+            ),
         ]
     )
 

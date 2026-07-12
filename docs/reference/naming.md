@@ -1,6 +1,6 @@
 # Naming
 
-OddsFox names source-specific pipeline surfaces from source to scope to subject.
+OddsFox Pipeline names source-specific surfaces from source to scope to subject.
 Current canonical tuples are:
 
 - `source`: `polymarket`, `scope`: `wc2026`, `namespace`: `polymarket_wc2026`

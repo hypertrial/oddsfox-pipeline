@@ -1,14 +1,15 @@
 # Warehouse
 
 The local warehouse is DuckDB. By default it is `oddsfox.duckdb` in the repo
-root. OddsFox is designed for prediction-market data; the v0.1.x warehouse
+root. OddsFox Pipeline is designed for prediction-market data; the v0.1.x warehouse
 schemas and relation names are source-specific because adapters ship in parallel.
 For public mart guarantees, see
-[Data Contracts](data-contracts.md).
+[Data contracts](data-contracts.md).
 
 If you are analyzing data rather than operating the pipeline, start with the
-[Analyst Guide](analyst-guide.md), [Query Cookbook](query-cookbook.md), and
-[Data Dictionary](data-dictionary.md).
+[Query the warehouse](../guides/query-the-warehouse.md),
+[Query recipes](../guides/query-recipes.md), and
+[Data dictionary](data-dictionary.md).
 
 ## Raw Tables
 
@@ -162,7 +163,7 @@ Schema: `polymarket_us_midterms_2026_marts`
 
 - `polymarket_us_midterms_2026_market_token_hourly_odds`: trailing 30-day hourly
   OHLC odds for admitted US midterms market tokens joined to source metadata. This
-  is the only public midterms mart in v1.
+  is the only public midterms mart in v0.1.x.
 
 Schema: `kalshi_wc2026_marts`
 

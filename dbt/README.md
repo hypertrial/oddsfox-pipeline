@@ -5,8 +5,8 @@ fixture/result data in DuckDB.
 
 See the operator docs for warehouse details:
 
-- [Warehouse](../docs/warehouse.md)
-- [Operations](../docs/operations.md)
+- [Warehouse](../docs/reference/warehouse.md)
+- [Orchestration](../docs/reference/orchestration.md)
 
 Modeled layers:
 

@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Reorganized the documentation into operator-first getting-started, guide,
+  reference, concept, and development sections.
+- Replaced the oversized landing page with a compact responsive homepage, a
+  consistent dark palette, rendered Mermaid diagrams, and
+  permanent redirects for moved public documentation URLs.
 - Refreshed the MkDocs site with the OddsFox website palette, locally hosted
   Inter and JetBrains Mono fonts, a fox favicon, responsive task navigation,
   and a logo-led technical homepage.
@@ -261,7 +266,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- `token_latest_odds` mart (use time-series marts; see docs/data-contracts.md).
+- `token_latest_odds` mart (use time-series marts; see
+  `docs/reference/data-contracts.md`).
 - Redundant `odds_history` indexes (~1.45 GiB legacy index footprint on
   upgrade).
 - Dead `wc2026_event_tags` dbt var.

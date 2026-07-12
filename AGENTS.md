@@ -1,6 +1,6 @@
 # AGENTS.md
 
-OddsFox is an open-source, local-first prediction-market data pipeline.
+OddsFox Pipeline is an open-source, local-first prediction-market data pipeline.
 Version `0.1.x` ships a WC2026 Polymarket pipeline for FIFA World Cup
 2026 markets and odds, a Kalshi WC2026 pipeline for stage and group-winner
 markets, plus a small FIFA fixture/results source for real-team
@@ -32,14 +32,14 @@ Other agents should read this `AGENTS.md` at the repo root.
 
 ## No legacy support (v0.1.x)
 
-OddsFox is v0.1.x — too new for a supported legacy surface, migration path, or
+OddsFox Pipeline is v0.1.x — too new for a supported legacy surface, migration path, or
 backward-compatibility layer unless the task explicitly requests one.
 
 - **Remove and replace** old APIs, config values, warehouse layouts, and marts;
   do not add adapters, aliases, deprecation periods, or dual code paths.
 - **Warehouse reset over migration:** operators with pre-layout DuckDB files
   should delete the warehouse (`rm oddsfox.duckdb*`) and rerun quickstart.
-- **Public contracts:** [docs/data-contracts.md](docs/data-contracts.md) marts
+- **Public contracts:** [Data contracts](docs/reference/data-contracts.md) marts
   and Dagster asset keys are the current API. Breaking changes belong in
   [CHANGELOG.md](CHANGELOG.md), not hidden compat layers.
 - **Ponytail alignment:** deletion over addition applies here — prefer removing
@@ -212,7 +212,7 @@ Do not enable live/hourly schedules in code or `.env` unless the task explicitly
 `us_midterms_2026` on Polymarket plus `wc2026` on Kalshi. Polymarket scope
 helpers may load other slug-like seed entries for tests and future work, but
 Dagster asset configs do not accept a runtime scope selector. See
-[docs/configuration.md](docs/configuration.md).
+[Configuration](docs/reference/configuration.md).
 
 **Kalshi env vars:** `KALSHI_REQUESTS_PER_SECOND`,
 `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`. Kalshi uses the public trade API;
@@ -236,7 +236,7 @@ DuckDB is local-only runtime state. For read-only inspection prefer `scripts/pro
 
 ## Further reading
 
-- [OddsFox docs](docs/index.md) — overview, runbooks, warehouse, troubleshooting
+- [OddsFox Pipeline docs](docs/index.md) — overview, runbooks, warehouse, troubleshooting
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contributor workflow and CI parity
-- [docs/operations.md](docs/operations.md) — assets, jobs, schedules, recovery
-- [docs/configuration.md](docs/configuration.md) — `.env` reference
+- [Orchestration](docs/reference/orchestration.md) — assets, jobs, and schedules
+- [Configuration](docs/reference/configuration.md) — `.env` reference

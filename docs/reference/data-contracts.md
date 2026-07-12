@@ -1,14 +1,16 @@
 # Data Contracts
 
 This page summarizes the public analytics surface that downstream notebooks,
-scripts, and operators should rely on. OddsFox is a prediction-market pipeline;
+scripts, and operators should rely on. OddsFox Pipeline is a prediction-market pipeline;
 the current public marts are WC2026 Polymarket knockout odds outputs, Kalshi WC2026
 stage and group-winner odds, US midterms 2026 generic market odds, plus WC2026
 FIFA World Cup fixtures/results used to validate WC2026 team scope. Model-level
 column docs and tests live in the dbt project.
 
-For practical analyst workflows, use the [Analyst Guide](analyst-guide.md),
-[Query Cookbook](query-cookbook.md), and [Data Dictionary](data-dictionary.md).
+For practical analyst workflows, use
+[Query the warehouse](../guides/query-the-warehouse.md),
+[Query recipes](../guides/query-recipes.md), and
+[Data dictionary](data-dictionary.md).
 This page remains the formal contract summary.
 
 ## Public Marts
@@ -17,7 +19,7 @@ Schema: `polymarket_us_midterms_2026_marts`
 
 | Relation | Grain | Contract |
 | --- | --- | --- |
-| `polymarket_us_midterms_2026_market_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for admitted US midterms 2026 market tokens joined to source market metadata. No office-type classification in v1. |
+| `polymarket_us_midterms_2026_market_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for admitted US midterms 2026 market tokens joined to source market metadata. No office-type classification in v0.1.x. |
 
 Schema: `polymarket_wc2026_marts`
 
@@ -69,11 +71,11 @@ Schema: `kalshi_wc2026_marts`
   exclusive partitions).
 - **Volume floor exclusions:** zero-volume placeholder markets (for example
   generic "Party A/B/C" rows) are intentionally excluded from public marts.
-- **No office-type classification** in v1; join on `market_id` / `clob_token_id`
+- **No office-type classification** in v0.1.x; join on `market_id` / `clob_token_id`
   and source question text.
 - Shared US midterms thresholds live in
   `dbt/seeds/polymarket_us_midterms_2026_contract.csv`; there is no results or
-  candidate validation layer for this scope in v1.
+  candidate validation layer for this scope in v0.1.x.
 - Public Kalshi WC2026 marts expose stage-of-elimination and group-winner markets
   from the fixed `wc2026` registry across the packaged Kalshi series tickers.
   Shared Kalshi thresholds live in `dbt/seeds/kalshi_wc2026_contract.csv`.

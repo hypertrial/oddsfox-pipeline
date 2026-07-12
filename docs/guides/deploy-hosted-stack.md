@@ -1,6 +1,6 @@
-# End-to-End Operator Runbook
+# Deploy the hosted stack
 
-Use this runbook to get from an empty local runtime directory to a visible
+Use this guide to get from an empty local runtime directory to a visible
 WC2026 dashboard. It assumes the OddsFox workspace has `oddsfox-pipeline`,
 `oddsfox-graph`, `oddsfox-live`, and `oddsfox-dash` checked out as sibling
 directories, with `oddsfox-pipeline` as the command root.

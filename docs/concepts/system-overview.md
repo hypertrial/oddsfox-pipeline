@@ -1,6 +1,6 @@
-# OddsFox System Overview
+# OddsFox Pipeline system overview
 
-OddsFox is a local-first WC2026 prediction-market system with an additional US
+OddsFox Pipeline is a local-first WC2026 prediction-market system with an additional US
 midterms 2026 Polymarket pipeline (warehouse and dbt marts only — no hosted
 graph or dashboard path today). Operators run source ingestion into their own
 warehouse, publish graph artifacts from that warehouse,
@@ -16,7 +16,7 @@ Polymarket and FIFA sources
 
 ## Local-First Data, Hosted Runtime
 
-OddsFox ships code and operator tooling, not a shared hosted dataset. Each
+OddsFox Pipeline ships code and operator tooling, not a shared hosted dataset. Each
 operator runs ingestion against source APIs and owns the resulting DuckDB file
 or self-managed warehouse.
 
@@ -45,5 +45,5 @@ so an operator can host their own API and dashboard from self-managed artifacts.
 ## Operator Path
 
 For the shortest end-to-end path from source APIs to a visible dashboard, use
-the [Operator Runbook](operator-runbook.md). For the live API contract, see the
+the [hosted-stack guide](../guides/deploy-hosted-stack.md). For the live API contract, see the
 [`oddsfox-live` API documentation](https://github.com/hypertrial/oddsfox-live/blob/main/docs/api.md).

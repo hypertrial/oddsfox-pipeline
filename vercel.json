@@ -3,5 +3,26 @@
   "framework": null,
   "installCommand": "python3 -m venv .venv-vercel && .venv-vercel/bin/python -m pip install \"mkdocs==1.6.1\" \"mkdocs-material==9.7.6\"",
   "buildCommand": "NO_MKDOCS_2_WARNING=true .venv-vercel/bin/python -m mkdocs build --strict",
-  "outputDirectory": "site"
+  "outputDirectory": "site",
+  "trailingSlash": true,
+  "redirects": [
+    { "source": "/github", "destination": "https://github.com/hypertrial/oddsfox-pipeline", "permanent": false },
+    { "source": "/quickstart", "destination": "/getting-started/", "permanent": true },
+    { "source": "/operator-runbook", "destination": "/guides/deploy-hosted-stack/", "permanent": true },
+    { "source": "/hosted-graph-deployment", "destination": "/guides/deploy-hosted-stack/", "permanent": true },
+    { "source": "/operations", "destination": "/reference/orchestration/", "permanent": true },
+    { "source": "/troubleshooting", "destination": "/guides/troubleshooting/", "permanent": true },
+    { "source": "/analyst-guide", "destination": "/guides/query-the-warehouse/", "permanent": true },
+    { "source": "/query-cookbook", "destination": "/guides/query-recipes/", "permanent": true },
+    { "source": "/configuration", "destination": "/reference/configuration/", "permanent": true },
+    { "source": "/warehouse", "destination": "/reference/warehouse/", "permanent": true },
+    { "source": "/data-contracts", "destination": "/reference/data-contracts/", "permanent": true },
+    { "source": "/data-dictionary", "destination": "/reference/data-dictionary/", "permanent": true },
+    { "source": "/scripts", "destination": "/reference/scripts/", "permanent": true },
+    { "source": "/naming", "destination": "/reference/naming/", "permanent": true },
+    { "source": "/system-overview", "destination": "/concepts/system-overview/", "permanent": true },
+    { "source": "/architecture", "destination": "/concepts/architecture/", "permanent": true },
+    { "source": "/community", "destination": "/development/community/", "permanent": true },
+    { "source": "/changelog", "destination": "/development/changelog/", "permanent": true }
+  ]
 }

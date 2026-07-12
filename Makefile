@@ -78,9 +78,11 @@ costguard: dbt-build-ci costguard-scan
 docs-serve:
 	$(RUN_IN_REPO) NO_MKDOCS_2_WARNING=true "$(PYTHON)" -m mkdocs serve -a 127.0.0.1:8000
 
-docs-build docs-check:
+docs-build:
 	$(RUN_IN_REPO) NO_MKDOCS_2_WARNING=true "$(PYTHON)" -m mkdocs build --strict
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_docs_structure.py -q -n 0
+
+docs-check: docs-build
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_docs_structure.py tests/test_docs_render.py -q -n 0
 
 format:
 	$(RUN_IN_REPO) ruff format src tests

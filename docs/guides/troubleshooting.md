@@ -130,7 +130,7 @@ Fix:
 
 1. Remove or comment out `DUCKDB_PATH` in `.env` for local test runs, or
 2. Use the shared `duck` fixture / `isolate_duckdb_test_env()` pattern in new
-   storage tests (see [Development](development.md)).
+   storage tests (see [Development](../development/index.md)).
 
 ## Warehouse Writes Land in a Different Checkout
 

@@ -1,6 +1,6 @@
 # Community
 
-OddsFox uses standard GitHub project files for contribution, security, conduct,
+OddsFox Pipeline uses standard GitHub project files for contribution, security, conduct,
 and release history.
 
 ## Contributing
@@ -11,7 +11,7 @@ before opening a pull request. The short version:
 1. Branch from `main`.
 2. Keep changes focused.
 3. Add tests and docs for behavior changes.
-4. Run the quality gate in [Development](development.md).
+4. Run the quality gate in the [Development guide](index.md).
 5. Do not commit secrets or local warehouse artifacts.
 
 ## Issues

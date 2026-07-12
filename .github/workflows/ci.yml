@@ -82,7 +82,7 @@ jobs:
     needs: detect-changes
     if: ${{ always() && needs['detect-changes'].result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
@@ -98,6 +98,9 @@ jobs:
 
       - name: Install package and dev tools
         run: uv sync --extra dev
+
+      - name: Install docs browser
+        run: uv run playwright install --with-deps chromium
 
       - name: Docs
         run: uv run make docs-check

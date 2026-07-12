@@ -15,7 +15,7 @@ be reset with `rm oddsfox.duckdb*`.
 
 ## Project Scope
 
-OddsFox is code and operator tooling, not a hosted dataset. The shipped market
+OddsFox Pipeline is code and operator tooling, not a hosted dataset. The shipped market
 adapters cover Polymarket WC2026, Polymarket US midterms 2026, and Kalshi
 WC2026. The bundled `international_results` WC2026 CSV source is used only to
 validate real FIFA World Cup team scope.
@@ -29,17 +29,17 @@ in their own local DuckDB file or self-managed warehouse.
 data, builds dbt marts, and exports graph parquet for `oddsfox-graph`, which
 publishes artifacts for `oddsfox-live` and `oddsfox-dash`.
 
-Read the cross-repo [System Overview](docs/system-overview.md) and
-[Operator Runbook](docs/operator-runbook.md) for the end-to-end path from source
+Read the cross-repo [System Overview](docs/concepts/system-overview.md) and
+[hosted-stack guide](docs/guides/deploy-hosted-stack.md) for the end-to-end path from source
 APIs to the dashboard.
 
 ## Start Here
 
 | Reader | First step |
 | --- | --- |
-| Analysts querying the warehouse | Serve the docs with `uv run make docs-serve`, open `http://127.0.0.1:8000`, then start with the [Analyst Guide](docs/analyst-guide.md), [Query Cookbook](docs/query-cookbook.md), and [Data Dictionary](docs/data-dictionary.md). |
-| Operators running ingestion | Use the [Getting Started guide](docs/quickstart.md) and local Dagster setup below. |
-| Contributors changing code | Use the [Development guide](docs/development.md) and [CONTRIBUTING.md](CONTRIBUTING.md). |
+| Analysts querying the warehouse | Serve the docs with `uv run make docs-serve`, open `http://127.0.0.1:8000`, then start with [Query the warehouse](docs/guides/query-the-warehouse.md), [Query recipes](docs/guides/query-recipes.md), and the [Data dictionary](docs/reference/data-dictionary.md). |
+| Operators running ingestion | Use the [Quickstart](docs/getting-started/index.md) and local Dagster setup below. |
+| Contributors changing code | Use the [Development guide](docs/development/index.md) and [CONTRIBUTING.md](CONTRIBUTING.md). |
 
 ## Quickstart
 
@@ -72,7 +72,7 @@ uv run make dagster-dev
 Schedules are disabled by default. Keep them off until manual jobs and dbt
 builds are healthy.
 
-Read the full [Getting Started guide](docs/quickstart.md).
+Read the full [Quickstart](docs/getting-started/index.md).
 
 Analyst rules of thumb:
 
@@ -85,7 +85,7 @@ Analyst rules of thumb:
 
 ## Architecture
 
-OddsFox keeps the data stack local and inspectable:
+OddsFox Pipeline keeps the data stack local and inspectable:
 
 - Prediction-market APIs and the WC2026 results CSV feed raw DuckDB tables;
   v0.1.x ships Polymarket Gamma/CLOB ingestion, Kalshi public trade API
@@ -94,7 +94,7 @@ OddsFox keeps the data stack local and inspectable:
 - dbt models staging, intermediate, mart, and observability schemas.
 - Operator scripts inspect, compact, prune, and repair local warehouse state.
 
-See [Architecture](docs/architecture.md) and [Warehouse](docs/warehouse.md).
+See [Architecture](docs/concepts/architecture.md) and the [Warehouse reference](docs/reference/warehouse.md).
 
 ## Data Outputs
 
@@ -123,9 +123,9 @@ Dagster registers source-first jobs:
 `kalshi_wc2026_market_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
 `kalshi_wc2026_dbt_build`, and `kalshi_wc2026_full_pipeline`.
 
-See [Data Dictionary](docs/data-dictionary.md) for analyst-facing table
-semantics, [Data Contracts](docs/data-contracts.md) for formal guarantees, and
-[Naming](docs/naming.md) for schema and asset naming.
+See the [Data dictionary](docs/reference/data-dictionary.md) for analyst-facing table
+semantics, [Data contracts](docs/reference/data-contracts.md) for formal guarantees, and
+[Naming](docs/reference/naming.md) for schema and asset naming.
 
 ## Development
 
@@ -163,13 +163,15 @@ Install the pinned local scanner with:
 curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/install.sh | sh -s -- v2.5.0
 ```
 
-See [Development](docs/development.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+See [Development](docs/development/index.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation Website
 
 Vercel builds the MkDocs site from `main` using [`vercel.json`](vercel.json) and
 publishes it at [data.oddsfox.io](https://data.oddsfox.io/). Validate documentation
-changes locally with `uv run make docs-check` before pushing.
+changes locally with `uv run make docs-check` before pushing. During editing,
+leave `uv run make docs-serve` running; MkDocs rebuilds and refreshes the
+browser after each saved change without a restart.
 
 ## Community
 

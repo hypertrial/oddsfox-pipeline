@@ -1,6 +1,6 @@
 # Architecture
 
-OddsFox is intentionally local-first: every routine workflow writes to a local
+OddsFox Pipeline is intentionally local-first: every routine workflow writes to a local
 DuckDB warehouse and is coordinated by Dagster jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
 v0.1.x adapters ship WC2026 Polymarket knockout marts, Kalshi WC2026 stage and
@@ -10,12 +10,12 @@ fixture/results rows used to validate WC2026 real-team scope.
 US midterms 2026 is a parallel Polymarket namespace: targeted Gamma discovery
 for Balance of Power, Senate control, and House control event slugs, with raw/ops
 ledgers and a simple markets-plus-hourly-odds mart. There is no FIFA join or
-knockout classifier for that scope in v1.
+knockout classifier for that scope in v0.1.x.
 
 At the generic layer, source adapters follow one shape: external market and
 odds APIs feed dlt/Python ingestion, DuckDB stores raw and ops data, dbt
 publishes local marts, and Dagster orchestrates the steps. Operators own the
-resulting data in a local or self-managed warehouse; OddsFox does not host a
+resulting data in a local or self-managed warehouse; OddsFox Pipeline does not host a
 shared dataset.
 
 ## System Flow
@@ -49,7 +49,7 @@ publishes local analytics marts for WC2026 knockout odds, Kalshi stage and
 group-winner odds, team scope, and ingestion observability.
 
 The shipped Dagster/dbt graphs are fixed per scope (`wc2026`,
-`us_midterms_2026`); see [Configuration](configuration.md) for the seed-backed
+`us_midterms_2026`); see [Configuration](../reference/configuration.md) for the seed-backed
 helper boundary.
 
 ## Main Components
@@ -106,7 +106,7 @@ team coverage.
 Targeted Polymarket discovery lands in `polymarket_us_midterms_2026_raw` and
 `polymarket_us_midterms_2026_ops`. dbt builds a single public mart,
 `polymarket_us_midterms_2026_market_token_hourly_odds`, plus run observability.
-There is no `international_results` join or office-type classification in v1.
+There is no `international_results` join or office-type classification in v0.1.x.
 
 ### Kalshi WC2026
 

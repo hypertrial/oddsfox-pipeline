@@ -1,7 +1,7 @@
 # Analyst Guide
 
-Use this page when you want to query OddsFox data, not operate the pipeline.
-OddsFox ships code and local warehouse tooling, not a hosted dataset. Analysts
+Use this page when you want to query OddsFox Pipeline data, not operate it.
+OddsFox Pipeline ships code and local warehouse tooling, not a hosted dataset. Analysts
 query the DuckDB file produced by a local or self-managed run.
 
 ## Shortest Path
@@ -13,7 +13,8 @@ duckdb oddsfox.duckdb
 ```
 
 The default warehouse is `oddsfox.duckdb` in the repo root. If `.env` sets
-`DUCKDB_PATH`, query that file instead. See [Configuration](configuration.md)
+`DUCKDB_PATH`, query that file instead. See
+[Configuration](../reference/configuration.md)
 for path precedence.
 
 For a fresh local run:
@@ -31,7 +32,7 @@ uv run python scripts/run_scope.py kalshi:wc2026 --step full
 uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step full
 ```
 
-Use [Quickstart](quickstart.md) if you need the full operator path.
+Use [Quickstart](../getting-started/index.md) if you need the full operator path.
 
 ## Query Rules
 
@@ -107,5 +108,5 @@ Useful observability tables:
 | Kalshi WC2026 | `kalshi_wc2026_observability.kalshi_wc2026_sync_run_observability` | Kalshi ingestion telemetry. |
 | US midterms 2026 | `polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_sync_run_observability` | Midterms ingestion telemetry. |
 
-Next: use the [Query Cookbook](query-cookbook.md) for examples, then the
-[Data Dictionary](data-dictionary.md) for table-by-table semantics.
+Next: use [Query recipes](query-recipes.md) for examples, then the
+[Data dictionary](../reference/data-dictionary.md) for table-by-table semantics.

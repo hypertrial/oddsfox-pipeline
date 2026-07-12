@@ -1,19 +1,26 @@
-site_name: OddsFox Docs
-site_description: Public docs for the OddsFox prediction-market data pipeline.
+site_name: OddsFox Pipeline
+site_description: Public documentation for the OddsFox Pipeline prediction-market data pipeline.
 site_url: https://data.oddsfox.io/
+repo_url: https://data.oddsfox.io/github/
 repo_name: hypertrial/oddsfox-pipeline
-repo_url: https://github.com/hypertrial/oddsfox-pipeline
+strict: true
+
 theme:
   name: material
   language: en
   font: false
-  logo: assets/images/oddsfox-white.png
+  logo: assets/images/oddsfox-favicon.png
   favicon: assets/images/oddsfox-favicon.png
+  icon:
+    repo: fontawesome/brands/github
   features:
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
-    - navigation.expand
     - navigation.indexes
+    - navigation.path
+    - navigation.tracking
+    - navigation.footer
     - navigation.top
     - toc.follow
     - search.suggest
@@ -22,33 +29,65 @@ theme:
   palette:
     scheme: slate
     primary: custom
-    accent: cyan
+    accent: custom
+
 plugins:
   - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
 extra_css:
-  - assets/stylesheets/oddsfox-dark.css
+  - assets/stylesheets/extra.css
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.min.js
+  - assets/javascripts/mermaid.js
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/hypertrial/oddsfox-pipeline
+      name: OddsFox Pipeline on GitHub
+
 nav:
-  - OddsFox:
-      - Overview: index.md
-      - System Overview: system-overview.md
-      - Operator Runbook: operator-runbook.md
-      - Getting Started: quickstart.md
-      - Architecture: architecture.md
-      - Operations: operations.md
-      - Hosted Graph: hosted-graph-deployment.md
-      - Troubleshooting: troubleshooting.md
-  - Analysts:
-      - Analyst Guide: analyst-guide.md
-      - Query Cookbook: query-cookbook.md
-      - Data Dictionary: data-dictionary.md
+  - Home: index.md
+  - Get started:
+      - Quickstart: getting-started/index.md
+      - Choose a scope: getting-started/choose-a-scope.md
+  - Guides:
+      - Run a scope: guides/run-a-scope.md
+      - Query the warehouse: guides/query-the-warehouse.md
+      - Query recipes: guides/query-recipes.md
+      - Enable schedules: guides/enable-schedules.md
+      - Validate and recover: guides/validate-and-recover.md
+      - Deploy the hosted stack: guides/deploy-hosted-stack.md
+      - Troubleshooting: guides/troubleshooting.md
   - Reference:
-      - Configuration: configuration.md
-      - Naming: naming.md
-      - Warehouse: warehouse.md
-      - Data Contracts: data-contracts.md
-      - Scripts: scripts.md
+      - Configuration: reference/configuration.md
+      - Orchestration: reference/orchestration.md
+      - Warehouse: reference/warehouse.md
+      - Data contracts: reference/data-contracts.md
+      - Data dictionary: reference/data-dictionary.md
+      - Scripts: reference/scripts.md
+      - Naming: reference/naming.md
+  - Concepts:
+      - System overview: concepts/system-overview.md
+      - Architecture: concepts/architecture.md
   - Development:
-      - Development Guide: development.md
-      - Community: community.md
-      - Changelog: changelog.md
-strict: true
+      - Development guide: development/index.md
+      - Community: development/community.md
+      - Changelog: development/changelog.md

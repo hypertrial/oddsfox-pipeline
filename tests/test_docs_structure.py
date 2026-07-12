@@ -1,9 +1,32 @@
+import json
+import re
 from pathlib import Path
 
 import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+DOCS_DIR = REPO_ROOT / "docs"
+
+REDIRECTS = {
+    "/quickstart": "/getting-started/",
+    "/operator-runbook": "/guides/deploy-hosted-stack/",
+    "/hosted-graph-deployment": "/guides/deploy-hosted-stack/",
+    "/operations": "/reference/orchestration/",
+    "/troubleshooting": "/guides/troubleshooting/",
+    "/analyst-guide": "/guides/query-the-warehouse/",
+    "/query-cookbook": "/guides/query-recipes/",
+    "/configuration": "/reference/configuration/",
+    "/warehouse": "/reference/warehouse/",
+    "/data-contracts": "/reference/data-contracts/",
+    "/data-dictionary": "/reference/data-dictionary/",
+    "/scripts": "/reference/scripts/",
+    "/naming": "/reference/naming/",
+    "/system-overview": "/concepts/system-overview/",
+    "/architecture": "/concepts/architecture/",
+    "/community": "/development/community/",
+    "/changelog": "/development/changelog/",
+}
 
 
 def _nav_targets(items):
@@ -18,290 +41,236 @@ def _nav_targets(items):
                     yield from _nav_targets(value)
 
 
-def test_mkdocs_nav_targets_exist():
-    config = yaml.safe_load((REPO_ROOT / "mkdocs.yml").read_text())
-    docs_dir = REPO_ROOT / "docs"
-
-    for target in _nav_targets(config["nav"]):
-        assert (docs_dir / target).is_file(), target
+def _config():
+    text = (REPO_ROOT / "mkdocs.yml").read_text()
+    text = re.sub(r"!!python/name:([^\s]+)", r"\1", text)
+    return yaml.safe_load(text)
 
 
-def test_mkdocs_uses_material_theme_contract():
-    config = yaml.safe_load((REPO_ROOT / "mkdocs.yml").read_text())
+def test_navigation_contains_every_docs_page():
+    targets = set(_nav_targets(_config()["nav"]))
+    pages = {path.relative_to(DOCS_DIR).as_posix() for path in DOCS_DIR.rglob("*.md")}
+
+    assert targets == pages
+    for target in targets:
+        assert (DOCS_DIR / target).is_file(), target
+
+
+def test_material_theme_uses_native_navigation_and_dark_palette():
+    config = _config()
     features = set(config["theme"]["features"])
+    extension_names = {
+        item if isinstance(item, str) else next(iter(item))
+        for item in config["markdown_extensions"]
+    }
 
     assert config["theme"]["name"] == "material"
-    assert config["theme"]["logo"] == "assets/images/oddsfox-white.png"
-    assert config["theme"]["favicon"] == "assets/images/oddsfox-favicon.png"
+    assert config["site_name"] == "OddsFox Pipeline"
+    assert config["repo_url"] == "https://data.oddsfox.io/github/"
+    assert config["repo_name"] == "hypertrial/oddsfox-pipeline"
+    assert config["theme"]["logo"] == "assets/images/oddsfox-favicon.png"
     assert config["theme"]["font"] is False
-    assert config["extra_css"] == ["assets/stylesheets/oddsfox-dark.css"]
-    assert config["plugins"] == ["search"]
+    assert config["extra_css"] == ["assets/stylesheets/extra.css"]
+    assert config["extra_javascript"] == [
+        "https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.min.js",
+        "assets/javascripts/mermaid.js",
+    ]
+    assert "navigation.expand" not in features
+    assert "navigation.instant" not in features
     assert {
         "navigation.tabs",
+        "navigation.tabs.sticky",
         "navigation.sections",
-        "navigation.expand",
-        "navigation.indexes",
-        "navigation.top",
-        "toc.follow",
-        "search.suggest",
-        "search.highlight",
+        "navigation.path",
+        "navigation.tracking",
+        "navigation.footer",
         "content.code.copy",
     } <= features
+    assert {
+        "admonition",
+        "attr_list",
+        "md_in_html",
+        "pymdownx.details",
+        "pymdownx.highlight",
+        "pymdownx.superfences",
+        "pymdownx.tabbed",
+        "toc",
+    } == extension_names
+
+    assert config["theme"]["palette"] == {
+        "scheme": "slate",
+        "primary": "custom",
+        "accent": "custom",
+    }
 
 
-def test_readme_links_to_project_docs():
+def test_vercel_redirects_cover_every_moved_page():
+    config = json.loads((REPO_ROOT / "vercel.json").read_text())
+    redirects = config["redirects"]
+    github = next(item for item in redirects if item["source"] == "/github")
+    moved_pages = [item for item in redirects if item["source"] != "/github"]
+    actual = {item["source"]: item["destination"] for item in moved_pages}
+
+    assert config["trailingSlash"] is True
+    assert len({item["source"] for item in redirects}) == len(redirects)
+    assert github == {
+        "source": "/github",
+        "destination": "https://github.com/hypertrial/oddsfox-pipeline",
+        "permanent": False,
+    }
+    assert actual == REDIRECTS
+    assert all(item["permanent"] is True for item in moved_pages)
+    assert not (set(actual) & set(actual.values()))
+
+    nav_urls = {
+        f"/{Path(target).parent.as_posix()}/"
+        if Path(target).name == "index.md" and target != "index.md"
+        else f"/{Path(target).with_suffix('').as_posix()}/"
+        for target in _nav_targets(_config()["nav"])
+    }
+    assert set(actual.values()) <= nav_urls
+
+
+def test_every_page_starts_with_a_visible_h1():
+    for path in DOCS_DIR.rglob("*.md"):
+        text = path.read_text()
+        if text.startswith("---\n"):
+            text = text.split("---\n", 2)[2]
+        assert re.search(r"^# [^#]", text, re.MULTILINE), path.relative_to(DOCS_DIR)
+
+
+def test_homepage_uses_parsed_markdown_and_operator_actions():
+    homepage = (DOCS_DIR / "index.md").read_text()
+
+    assert "# OddsFox Pipeline" in homepage
+    assert 'class="of-hero" markdown' in homepage
+    assert "[Get started](getting-started/index.md)" in homepage
+    assert "[Query the warehouse](guides/query-the-warehouse.md)" in homepage
+    assert homepage.count('class="of-task-card"') == 3
+    assert "of-brand-lockup" not in homepage
+    assert "of-badges" not in homepage
+    assert "of-capability-grid" not in homepage
+
+
+def test_readme_links_to_canonical_docs_and_live_reload():
     readme = (REPO_ROOT / "README.md").read_text()
-
-    assert "(docs/index.md)" in readme
-    assert "(docs/analyst-guide.md)" in readme
-    assert "(docs/query-cookbook.md)" in readme
-    assert "(docs/data-dictionary.md)" in readme
-    assert "(docs/system-overview.md)" in readme
-    assert "(docs/operator-runbook.md)" in readme
-    assert "(docs/quickstart.md)" in readme
-    assert "(docs/architecture.md)" in readme
-    assert "(docs/data-contracts.md)" in readme
-    assert "(CONTRIBUTING.md)" in readme
-    assert "(SECURITY.md)" in readme
-    assert "(CHANGELOG.md)" in readme
-    assert "(LICENSE)" in readme
-
-
-def test_readme_covers_first_run_analyst_path():
-    readme = (REPO_ROOT / "README.md").read_text()
-
-    required_terms = [
+    required = [
         "uv run make docs-serve",
         "http://127.0.0.1:8000",
-        "(docs/analyst-guide.md)",
-        "(docs/query-cookbook.md)",
-        "(docs/data-dictionary.md)",
-        "`*_marts`",
-        "`*_observability`",
-        "is_actionable_live_market",
-        "current_price_status",
+        "(docs/getting-started/index.md)",
+        "(docs/guides/query-the-warehouse.md)",
+        "(docs/guides/query-recipes.md)",
+        "(docs/reference/data-dictionary.md)",
+        "(docs/reference/data-contracts.md)",
+        "(docs/concepts/system-overview.md)",
+        "(docs/development/index.md)",
     ]
 
-    for term in required_terms:
+    for term in required:
         assert term in readme
 
 
-def test_landing_docs_describe_shipped_kalshi_support():
-    texts = {
-        "README.md": (REPO_ROOT / "README.md").read_text(),
-        "docs/index.md": (REPO_ROOT / "docs" / "index.md").read_text(),
-        "CONTRIBUTING.md": (REPO_ROOT / "CONTRIBUTING.md").read_text(),
-    }
-
-    for text in texts.values():
-        assert "Kalshi WC2026" in text
-
-    combined = "\n".join(texts.values()).lower()
-    assert "future adapter contributions may cover kalshi" not in combined
-    assert (
-        "kalshi and traditional bookmaker adapters are welcome future" not in combined
-    )
-
-
-def test_operator_docs_describe_scoped_runner():
-    texts = {
-        "docs/quickstart.md": (REPO_ROOT / "docs" / "quickstart.md").read_text(),
-        "docs/operations.md": (REPO_ROOT / "docs" / "operations.md").read_text(),
-        "docs/scripts.md": (REPO_ROOT / "docs" / "scripts.md").read_text(),
-        "docs/development.md": (REPO_ROOT / "docs" / "development.md").read_text(),
-    }
-    combined = "\n".join(texts.values())
-
-    assert "scripts/run_scope.py" in combined
-    assert "polymarket:wc2026" in combined
-    assert "polymarket:us_midterms_2026" in combined
-    assert "kalshi:wc2026" in combined
-    assert "ScopeSpec" in combined
-
-
-def test_github_templates_exist():
-    required = [
-        ".github/ISSUE_TEMPLATE/bug_report.yml",
-        ".github/ISSUE_TEMPLATE/feature_request.yml",
-        ".github/ISSUE_TEMPLATE/documentation.yml",
-        ".github/PULL_REQUEST_TEMPLATE.md",
+def test_repository_docs_do_not_reference_moved_markdown_paths():
+    policy_docs = [
+        REPO_ROOT / "README.md",
+        REPO_ROOT / "AGENTS.md",
+        REPO_ROOT / "CONTRIBUTING.md",
+        REPO_ROOT / "CHANGELOG.md",
+        REPO_ROOT / "dbt/README.md",
+        REPO_ROOT / "tests/README.md",
+        *DOCS_DIR.rglob("*.md"),
     ]
+    legacy_paths = {f"docs{source}.md" for source in REDIRECTS}
 
-    for target in required:
-        assert (REPO_ROOT / target).is_file(), target
-
-
-def test_docs_make_targets_suppress_material_warning():
-    makefile = (REPO_ROOT / "Makefile").read_text()
-
-    assert "NO_MKDOCS_2_WARNING=true" in makefile
-
-
-def test_cross_repo_operator_docs_are_in_nav():
-    config = yaml.safe_load((REPO_ROOT / "mkdocs.yml").read_text())
-    targets = set(_nav_targets(config["nav"]))
-
-    assert "system-overview.md" in targets
-    assert "operator-runbook.md" in targets
+    for path in policy_docs:
+        text = path.read_text()
+        for legacy_path in legacy_paths:
+            assert legacy_path not in text, (
+                f"{path.relative_to(REPO_ROOT)}: {legacy_path}"
+            )
 
 
-def test_analyst_docs_are_in_nav_and_linked_from_homepage():
-    config = yaml.safe_load((REPO_ROOT / "mkdocs.yml").read_text())
-    targets = set(_nav_targets(config["nav"]))
-    homepage = (REPO_ROOT / "docs" / "index.md").read_text()
-
-    assert "analyst-guide.md" in targets
-    assert "query-cookbook.md" in targets
-    assert "data-dictionary.md" in targets
-    assert 'href="analyst-guide/">Analyst Guide</a>' in homepage
-    assert 'href="query-cookbook/">Query Cookbook</a>' in homepage
-    assert 'href="data-dictionary/">Data Dictionary</a>' in homepage
-
-
-def test_analyst_docs_cover_public_marts_and_trust_fields():
-    texts = {
-        "docs/analyst-guide.md": (REPO_ROOT / "docs" / "analyst-guide.md").read_text(),
-        "docs/query-cookbook.md": (
-            REPO_ROOT / "docs" / "query-cookbook.md"
-        ).read_text(),
-        "docs/data-dictionary.md": (
-            REPO_ROOT / "docs" / "data-dictionary.md"
-        ).read_text(),
-    }
-    combined = "\n".join(texts.values())
-
-    required_terms = [
+def test_shipped_scopes_and_public_marts_remain_documented():
+    combined = "\n".join(path.read_text() for path in DOCS_DIR.rglob("*.md"))
+    required = [
+        "polymarket:wc2026",
+        "polymarket:us_midterms_2026",
+        "kalshi:wc2026",
+        "scripts/run_scope.py",
         "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets",
-        ("polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds"),
-        ("polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds"),
-        ("international_results_wc2026_marts.international_results_wc2026_matches"),
-        ("international_results_wc2026_marts.international_results_wc2026_team_status"),
+        "polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds",
+        "polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds",
+        "international_results_wc2026_marts.international_results_wc2026_matches",
         "kalshi_wc2026_marts.kalshi_wc2026_stage_markets",
-        "kalshi_wc2026_marts.kalshi_wc2026_stage_market_hourly_odds",
-        "kalshi_wc2026_marts.kalshi_wc2026_group_winner_markets",
-        ("kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds"),
-        (
-            "polymarket_us_midterms_2026_marts."
-            "polymarket_us_midterms_2026_market_token_hourly_odds"
-        ),
+        "kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds",
+        "polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds",
         "is_actionable_live_market",
         "current_price_status",
         "price_represents",
     ]
 
-    for term in required_terms:
+    for term in required:
         assert term in combined
 
 
-def test_docs_brand_assets_exist():
+def test_brand_assets_and_compact_styles_exist():
     assets = [
-        "docs/assets/images/oddsfox-white.png",
-        "docs/assets/images/oddsfox-favicon.png",
-        "docs/assets/fonts/inter-latin-variable.woff2",
-        "docs/assets/fonts/jetbrains-mono-latin-variable.woff2",
-        "docs/assets/fonts/INTER-OFL.txt",
-        "docs/assets/fonts/JETBRAINS-MONO-OFL.txt",
+        "assets/images/oddsfox-white.png",
+        "assets/images/oddsfox-favicon.png",
+        "assets/fonts/inter-latin-variable.woff2",
+        "assets/fonts/jetbrains-mono-latin-variable.woff2",
+        "assets/stylesheets/extra.css",
+        "assets/javascripts/mermaid.js",
     ]
 
     for target in assets:
-        asset = REPO_ROOT / target
+        asset = DOCS_DIR / target
         assert asset.is_file(), target
         assert asset.stat().st_size > 0, target
 
-
-def test_docs_brand_styles_match_website_contract():
-    css = (
-        REPO_ROOT / "docs" / "assets" / "stylesheets" / "oddsfox-dark.css"
-    ).read_text()
-
-    for token in [
-        "#ff5722",
-        "#e64a19",
-        "#00e5ff",
-        "#0b1120",
-        "#151e32",
-        "#1e293b",
-        "#334155",
-        "#f1f5f9",
-        "#94a3b8",
-        "#7b8da8",
-    ]:
-        assert token in css
-
+    assert not (DOCS_DIR / "assets/stylesheets/oddsfox-dark.css").exists()
+    css = (DOCS_DIR / "assets/stylesheets/extra.css").read_text()
     assert css.count("@font-face") == 2
-    assert "inter-latin-variable.woff2" in css
-    assert "jetbrains-mono-latin-variable.woff2" in css
-    assert ".md-header__title" in css
-    assert ".of-path-grid" in css
-    assert ".of-capability-grid" in css
-    assert ".of-hero" not in css
+    assert ".of-hero" in css
+    assert ".of-task-grid" in css
+    assert ".md-search" not in css
+    assert ".md-footer" not in css
+    assert "::-webkit-scrollbar" not in css
+    assert '[data-md-color-scheme="default"]' not in css
 
 
-def test_homepage_uses_accessible_logo_and_three_task_paths():
-    homepage = (REPO_ROOT / "docs" / "index.md").read_text()
+def test_built_homepage_and_diagrams_are_semantic():
+    homepage = REPO_ROOT / "site/index.html"
+    architecture = REPO_ROOT / "site/concepts/architecture/index.html"
+    if not homepage.exists() or not architecture.exists():
+        pytest.skip("Run make docs-build before checking generated HTML.")
 
-    assert '<h1 id="oddsfox-pipeline-docs" class="of-sr-only">' in homepage
-    assert "OddsFox Pipeline Docs</h1>" in homepage
-    assert 'class="of-brand-lockup__logo"' in homepage
-    assert 'alt="OddsFox"' in homepage
-    assert homepage.count('class="of-path-card"') == 3
+    home_html = homepage.read_text()
+    architecture_html = architecture.read_text()
 
-    for title in [
-        "Run the pipeline",
-        "Query the data",
-        "Understand and contribute",
+    assert re.search(r'<h1[^>]+id="oddsfox-pipeline"[^>]*>OddsFox Pipeline', home_html)
+    assert 'class="md-source"' in home_html
+    assert 'href="https://data.oddsfox.io/github/"' in home_html
+    assert "hypertrial/oddsfox-pipeline" in home_html
+    assert 'href="getting-started/"' in home_html
+    assert 'href="guides/query-the-warehouse/"' in home_html
+    assert "[Choose a scope]" not in home_html
+    assert "assets/stylesheets/extra.css" in home_html
+    assert "mermaid@11.15.0/dist/mermaid.min.js" in home_html
+    assert architecture_html.count('class="mermaid"') == 2
+    assert 'class="language-mermaid"' not in architecture_html
+
+
+def test_docs_make_targets_suppress_material_warning():
+    makefile = (REPO_ROOT / "Makefile").read_text()
+    assert "NO_MKDOCS_2_WARNING=true" in makefile
+
+
+def test_github_templates_exist():
+    for target in [
+        ".github/ISSUE_TEMPLATE/bug_report.yml",
+        ".github/ISSUE_TEMPLATE/feature_request.yml",
+        ".github/ISSUE_TEMPLATE/documentation.yml",
+        ".github/PULL_REQUEST_TEMPLATE.md",
     ]:
-        assert f"<h3>{title}</h3>" in homepage
-
-    for href in [
-        "quickstart/",
-        "operator-runbook/",
-        "operations/",
-        "analyst-guide/",
-        "query-cookbook/",
-        "data-dictionary/",
-        "warehouse/",
-        "data-contracts/",
-        "system-overview/",
-        "architecture/",
-        "development/",
-    ]:
-        assert f'href="{href}"' in homepage
-
-    assert ".of-hero" not in homepage
-    assert 'class="of-hero' not in homepage
-
-
-def test_built_docs_use_material_homepage():
-    homepage = REPO_ROOT / "site" / "index.html"
-    if not homepage.exists():
-        pytest.skip("Run make docs-check before asserting generated HTML.")
-
-    html = homepage.read_text()
-    built_css = (
-        REPO_ROOT / "site" / "assets" / "stylesheets" / "oddsfox-dark.css"
-    ).read_text()
-
-    assert "md-header" in html
-    assert "md-sidebar" in html
-    assert "md-search" in html
-    assert "Open-source prediction-market data pipeline" in html
-    assert "oddsfox-dark.css" in html
-    assert "assets/images/oddsfox-white.png" in html
-    assert "assets/images/oddsfox-favicon.png" in html
-    assert "of-brand-lockup" in html
-    assert "of-path-grid" in html
-    assert html.count('class="of-path-card"') == 3
-    assert "of-capability-grid" in html
-    assert "../fonts/inter-latin-variable.woff2" in built_css
-    assert "../fonts/jetbrains-mono-latin-variable.woff2" in built_css
-    assert (
-        REPO_ROOT / "site" / "assets" / "fonts" / "inter-latin-variable.woff2"
-    ).is_file()
-    assert (
-        REPO_ROOT / "site" / "assets" / "fonts" / "jetbrains-mono-latin-variable.woff2"
-    ).is_file()
-    assert "of-hero" not in html
-    assert "Operator Manual" not in html
-    assert "navbar-dark" not in html
-    assert "bootstrap" not in html.lower()
+        assert (REPO_ROOT / target).is_file(), target

@@ -1,9 +1,9 @@
 # Development
 
 Use this page when changing code, dbt models, docs, or orchestration behavior.
-OddsFox is a prediction-market pipeline; v0.1.x development touches the WC2026 and
+OddsFox Pipeline is a prediction-market pipeline; v0.1.x development touches the WC2026 and
 US midterms 2026 Polymarket adapters, marts, and orchestration. For operator
-setup, start with [Quickstart](quickstart.md).
+setup, start with [Quickstart](../getting-started/index.md).
 
 ## Repo Layout
 
@@ -11,7 +11,7 @@ setup, start with [Quickstart](quickstart.md).
 | --- | --- |
 | `src/oddsfox_pipeline` | Python package for config, ingestion, storage, resources, and orchestration. |
 | `dbt` | DuckDB dbt project, profiles, macros, models, and data tests. |
-| `docs` | MkDocs site content and OddsFox dark CSS. |
+| `docs` | MkDocs content, self-hosted fonts, and the small OddsFox Pipeline theme extension. |
 | `scripts` | Operator utilities for warehouse inspection, compaction, pruning, repair, and WC2026 exports. |
 | `tests` | Unit, integration, dbt, Dagster, and repo policy tests. |
 
@@ -30,6 +30,17 @@ POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
+
+For documentation work, install Chromium once and leave the live-reload server
+running while you edit:
+
+```bash
+uv run playwright install chromium
+uv run make docs-serve
+```
+
+Open `http://127.0.0.1:8000`. MkDocs rebuilds and refreshes the page after each
+saved documentation, stylesheet, or configuration change; no restart is needed.
 
 ## Quality Gate
 
@@ -94,7 +105,7 @@ Costguard finding before switching a model to table or incremental.
 
 ## Adding A Scope
 
-OddsFox v0.1.x ships fixed scopes, not a runtime scope selector. Add a scope by
+OddsFox Pipeline v0.1.x ships fixed scopes, not a runtime scope selector. Add a scope by
 making the static surfaces explicit and letting the guard tests catch drift:
 
 1. Add the source discovery seed entry, for example in the Polymarket or Kalshi
@@ -105,16 +116,17 @@ making the static surfaces explicit and letting the guard tests catch drift:
    names source-first and scope-first.
 4. Add dbt source YAML, model folder tags, and a contract seed when the scope
    ships analytics.
-5. Update quickstart, operations, scripts, and this checklist when operator
-   behavior changes.
+5. Update the quickstart, scope guide, orchestration reference, scripts, and
+   this checklist when operator behavior changes.
 6. Run the registry, dbt-structure, orchestration, and docs tests before the
    broader quality gate.
 
 ## Local `.env` And Tests
 
 `DUCKDB_PATH` in `.env` overrides `DUCKDB_NAME` and can leak into unit tests
-when settings reload from disk. See [Configuration](configuration.md#local-development)
-and [Troubleshooting](troubleshooting.md#tests-writing-to-production-warehouse).
+when settings reload from disk. See
+[Configuration](../reference/configuration.md#local-development) and
+[Troubleshooting](../guides/troubleshooting.md#tests-writing-to-production-warehouse).
 
 - Use the shared `duck` fixture from `tests/unit/storage/duckdb_storage_test_support.py`
   for storage tests that need a disposable warehouse.

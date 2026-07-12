@@ -1,6 +1,6 @@
-# Contributing to OddsFox
+# Contributing to OddsFox Pipeline
 
-Thank you for your interest in contributing. OddsFox is an open-source,
+Thank you for your interest in contributing. OddsFox Pipeline is an open-source,
 local-first prediction-market data pipeline built with Dagster, dlt, dbt, and
 DuckDB. Version `0.1.x` ships WC2026 and US midterms 2026 Polymarket pipelines,
 a Kalshi WC2026 pipeline, plus a small FIFA fixture/results source for
@@ -13,6 +13,13 @@ uv sync --extra dev
 cp .env.example .env
 ```
 
+Documentation contributors should also install the browser used by the
+responsive docs smoke tests:
+
+```bash
+uv run playwright install chromium
+```
+
 The default warehouse is `oddsfox.duckdb` in the repo root. Keep schedules disabled in local dev and CI unless you intentionally run live ingestion:
 
 ```dotenv
@@ -21,7 +28,8 @@ POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
-See [docs/quickstart.md](docs/quickstart.md) and [docs/configuration.md](docs/configuration.md) for full operator setup.
+See the [Quickstart](docs/getting-started/index.md) and
+[Configuration reference](docs/reference/configuration.md) for full operator setup.
 
 ## Source adapter contributions
 
@@ -36,7 +44,7 @@ dbt models and tests, DuckDB storage, docs, and operator scripts. Adapter PRs
 should include tests, docs, config examples, and source-specific data ownership
 and rate-limit notes.
 
-Do not assume centralized OddsFox-hosted data. Operators must be able to run
+Do not assume centralized OddsFox Pipeline-hosted data. Operators must be able to run
 ingestion and store data in their own local or self-managed warehouse.
 
 ## AI-assisted development
@@ -82,14 +90,14 @@ Additional targets are available in the [Makefile](Makefile) (`unit-core`, `unit
 
 ## Versioning expectations
 
-OddsFox is v0.1.x — the project is too new to carry backward-compatibility
+OddsFox Pipeline is v0.1.x — the project is too new to carry backward-compatibility
 burden by default.
 
 - Breaking changes are acceptable when they simplify the pipeline.
 - Update tests and docs with behavior changes; do not add backward-compat shims
   unless the PR explicitly scopes compat work.
 - Document breaking changes in [CHANGELOG.md](CHANGELOG.md) and
-  [docs/data-contracts.md](docs/data-contracts.md) when public marts or operator
+  [Data contracts](docs/reference/data-contracts.md) when public marts or operator
   workflows change.
 - AI agents should follow the no-legacy policy in [AGENTS.md](AGENTS.md).
 
