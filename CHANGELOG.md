@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Static Vercel deployment for the MkDocs documentation site at
   `https://data.oddsfox.io/`.
 
+### Changed
+
+- Refreshed the MkDocs site with the OddsFox website palette, locally hosted
+  Inter and JetBrains Mono fonts, a fox favicon, responsive task navigation,
+  and a logo-led technical homepage.
+
 ## [0.1.5] - 2026-07-11
 
 ### Added

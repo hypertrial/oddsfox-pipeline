@@ -1,45 +1,79 @@
-<section class="of-hero">
-<img class="of-hero__logo" src="assets/images/oddsfox-white.png" alt="OddsFox logo">
-<div>
-<h1 class="of-hero__title">OddsFox</h1>
-<div class="of-hero__tagline">Open-source prediction-market data pipeline</div>
-<div class="of-hero__subtitle">Dagster orchestration, dlt ingestion, local or self-managed DuckDB storage, dbt marts, and operator-first repair paths.</div>
-</div>
+<div class="of-home">
+
+<section class="of-brand-lockup" aria-labelledby="oddsfox-pipeline-docs">
+<h1 id="oddsfox-pipeline-docs" class="of-sr-only">OddsFox Pipeline Docs</h1>
+<img class="of-brand-lockup__logo" src="assets/images/oddsfox-white.png" alt="OddsFox">
 </section>
 
-<div class="of-badges">
-<a class="of-badge of-badge--green" href="https://github.com/hypertrial/oddsfox-pipeline/actions/workflows/ci.yml">docs passing</a>
+<div class="of-badges" aria-label="Project metadata">
+<a class="of-badge of-badge--success" href="https://github.com/hypertrial/oddsfox-pipeline/actions/workflows/ci.yml">docs passing</a>
 <a class="of-badge" href="https://github.com/hypertrial/oddsfox-pipeline/blob/main/pyproject.toml">python 3.10+</a>
 <a class="of-badge" href="https://github.com/hypertrial/oddsfox-pipeline/blob/main/LICENSE">MIT</a>
-<a class="of-badge of-badge--orange" href="https://github.com/hypertrial/oddsfox-pipeline/blob/main/CHANGELOG.md">v0.1.5</a>
+<a class="of-badge of-badge--brand" href="https://github.com/hypertrial/oddsfox-pipeline/blob/main/CHANGELOG.md">v0.1.5</a>
 </div>
 
-OddsFox is an open-source, local-first data pipeline for prediction-market
-data. It uses Dagster for orchestration, dlt/CSV ingestion for raw landing,
-DuckDB for the local warehouse, Python for odds sync ledgers and retry logic,
-and dbt for analytics models.
+<section class="of-home__intro" aria-label="Product introduction">
+<p class="of-home__lead">Open-source prediction-market data pipeline, built for inspectable local and self-managed operation.</p>
+<p>OddsFox combines Dagster orchestration, dlt and CSV ingestion, DuckDB storage, Python sync ledgers and retry logic, and dbt analytics models.</p>
+<p class="of-home__scope">OddsFox ships code and operator tooling—not a hosted dataset. Operators ingest from source APIs and retain the resulting data in their own warehouse.</p>
+</section>
 
-OddsFox ships code and operator tooling, not a hosted dataset. Operators run
-ingestion against source APIs and keep the resulting data in their own local or
-self-managed warehouse.
+<h2 class="of-section-heading">Choose your path</h2>
 
-The current v0.1.x implementation ships two Polymarket scopes — FIFA World Cup
-2026 (`wc2026`) and US midterms 2026 (`us_midterms_2026`) — plus Kalshi WC2026
-stage and group-winner markets and a FIFA fixture/results source used to
-validate WC2026 real-team scope. See [Configuration](configuration.md).
+<div class="of-path-grid">
+<article class="of-path-card">
+<h3>Run the pipeline</h3>
+<p>Install OddsFox, configure a scope, validate the warehouse, and operate scheduled jobs safely.</p>
+<div class="of-path-card__links">
+<a href="quickstart/">Getting Started</a>
+<a href="operator-runbook/">Operator Runbook</a>
+<a href="operations/">Operations</a>
+</div>
+</article>
+<article class="of-path-card">
+<h3>Query the data</h3>
+<p>Find trusted public marts, understand analyst-facing fields, and start with useful DuckDB queries.</p>
+<div class="of-path-card__links">
+<a href="analyst-guide/">Analyst Guide</a>
+<a href="query-cookbook/">Query Cookbook</a>
+<a href="data-dictionary/">Data Dictionary</a>
+<a href="warehouse/">Warehouse</a>
+<a href="data-contracts/">Data Contracts</a>
+</div>
+</article>
+<article class="of-path-card">
+<h3>Understand and contribute</h3>
+<p>Learn how the OddsFox repositories fit together, inspect the architecture, and make safe changes.</p>
+<div class="of-path-card__links">
+<a href="system-overview/">System Overview</a>
+<a href="architecture/">Architecture</a>
+<a href="development/">Development Guide</a>
+</div>
+</article>
+</div>
 
-## Key features
+<h2 class="of-section-heading">What the pipeline provides</h2>
 
-- **Local-first:** run the pipeline and inspect the warehouse on one machine.
-- **Dagster-orchestrated:** assets, jobs, and schedules are explicit and testable.
-- **DuckDB-backed:** raw, ops, staging, intermediate, mart, and observability schemas live in one local file.
-- **dbt-tested marts:** coverage, WC2026 knockout odds time series, US midterms hourly odds, health, and observability models build with dbt data tests.
-- **Prediction-market focused:** token coverage, odds freshness, market health, and scoped marts are first-class outputs.
-- **Current Polymarket adapter:** v0.1.x ships WC2026 knockout marts, US midterms generic market odds, CLOB odds sync, and dbt marts cleaned by FIFA fixture/results data for WC2026 team scope.
-- **Current Kalshi adapter:** v0.1.x ships WC2026 stage and group-winner markets from the public Kalshi trade API.
-- **Safe by default:** schedules are disabled until manual jobs and dbt builds are healthy.
+<div class="of-capability-grid">
+<article class="of-capability-card">
+<h3>LOCAL-FIRST OPERATION</h3>
+<p>Run the full pipeline on one machine, inspect raw, ops, staging, intermediate, mart, and observability schemas in one DuckDB warehouse, and opt in to schedules only after manual jobs and dbt builds are healthy.</p>
+</article>
+<article class="of-capability-card">
+<h3>SUPPORTED MARKETS</h3>
+<p>v0.1.x covers Polymarket FIFA World Cup 2026 (<code>wc2026</code>) and US midterms 2026 (<code>us_midterms_2026</code>), plus Kalshi WC2026 stage and group-winner markets.</p>
+</article>
+<article class="of-capability-card">
+<h3>TESTED MARTS</h3>
+<p>dbt-tested public marts provide WC2026 knockout odds, US midterms hourly odds, Kalshi stage and group-winner odds, and FIFA fixture and results validation.</p>
+</article>
+<article class="of-capability-card">
+<h3>OBSERVABLE BY DESIGN</h3>
+<p>Explicit Dagster assets and jobs, ledgered token sync, market health, freshness, coverage, and operator-first repair paths keep failures inspectable.</p>
+</article>
+</div>
 
-## Example workflow
+<h2 class="of-section-heading of-quickstart">Quickstart</h2>
 
 ```bash
 uv sync --extra dev
@@ -48,31 +82,22 @@ uv run make dbt-parse
 uv run make dagster-dev
 ```
 
-## Philosophy
+Use [Configuration](configuration.md) to select a source and scope, then follow
+[Getting Started](quickstart.md) for the first validated run.
 
-OddsFox favors boring local operations over distributed infrastructure. The
-warehouse is inspectable, token sync is ledgered, schedules are opt-in, and
-repair scripts are part of the operator surface.
+<div class="of-compact-grid">
+<section class="of-compact-card">
+<h3>Philosophy</h3>
+<p>OddsFox favors boring local operations over distributed infrastructure. The warehouse is inspectable, schedules are opt-in, and repair scripts are part of the operator surface.</p>
+</section>
+<section class="of-compact-card">
+<h3>Community</h3>
+<p>Focused issues and pull requests are welcome. Read <a href="community/">Community</a> and the <a href="development/">Development Guide</a>.</p>
+</section>
+<section class="of-compact-card">
+<h3>License</h3>
+<p>OddsFox is available under the <a href="https://github.com/hypertrial/oddsfox-pipeline/blob/main/LICENSE">MIT License</a>.</p>
+</section>
+</div>
 
-## Start here
-
-| Goal | Page |
-| --- | --- |
-| See how the four OddsFox repos work together | [System Overview](system-overview.md) |
-| Run source refresh through the hosted dashboard | [Operator Runbook](operator-runbook.md) |
-| Run OddsFox locally | [Getting Started](quickstart.md) |
-| Query the warehouse as an analyst | [Analyst Guide](analyst-guide.md), [Query Cookbook](query-cookbook.md), and [Data Dictionary](data-dictionary.md) |
-| Understand the system | [Architecture](architecture.md) |
-| Operate Dagster jobs | [Operations](operations.md) |
-| Inspect data outputs | [Warehouse](warehouse.md) and [Data Contracts](data-contracts.md) |
-| Contribute safely | [Development Guide](development.md) |
-
-## Community
-
-We appreciate focused issues and pull requests. Start with
-[Community](community.md) and [Development Guide](development.md).
-
-## License
-
-OddsFox is licensed under the
-[MIT License](https://github.com/hypertrial/oddsfox-pipeline/blob/main/LICENSE).
+</div>

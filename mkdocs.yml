@@ -8,7 +8,7 @@ theme:
   language: en
   font: false
   logo: assets/images/oddsfox-white.png
-  favicon: assets/images/oddsfox-white.png
+  favicon: assets/images/oddsfox-favicon.png
   features:
     - navigation.tabs
     - navigation.sections

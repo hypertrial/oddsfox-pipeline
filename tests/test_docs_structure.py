@@ -32,7 +32,8 @@ def test_mkdocs_uses_material_theme_contract():
 
     assert config["theme"]["name"] == "material"
     assert config["theme"]["logo"] == "assets/images/oddsfox-white.png"
-    assert config["theme"]["favicon"] == "assets/images/oddsfox-white.png"
+    assert config["theme"]["favicon"] == "assets/images/oddsfox-favicon.png"
+    assert config["theme"]["font"] is False
     assert config["extra_css"] == ["assets/stylesheets/oddsfox-dark.css"]
     assert config["plugins"] == ["search"]
     assert {
@@ -152,9 +153,9 @@ def test_analyst_docs_are_in_nav_and_linked_from_homepage():
     assert "analyst-guide.md" in targets
     assert "query-cookbook.md" in targets
     assert "data-dictionary.md" in targets
-    assert "[Analyst Guide](analyst-guide.md)" in homepage
-    assert "[Query Cookbook](query-cookbook.md)" in homepage
-    assert "[Data Dictionary](data-dictionary.md)" in homepage
+    assert 'href="analyst-guide/">Analyst Guide</a>' in homepage
+    assert 'href="query-cookbook/">Query Cookbook</a>' in homepage
+    assert 'href="data-dictionary/">Data Dictionary</a>' in homepage
 
 
 def test_analyst_docs_cover_public_marts_and_trust_fields():
@@ -192,11 +193,83 @@ def test_analyst_docs_cover_public_marts_and_trust_fields():
         assert term in combined
 
 
-def test_docs_logo_asset_exists():
-    logo = REPO_ROOT / "docs" / "assets" / "images" / "oddsfox-white.png"
+def test_docs_brand_assets_exist():
+    assets = [
+        "docs/assets/images/oddsfox-white.png",
+        "docs/assets/images/oddsfox-favicon.png",
+        "docs/assets/fonts/inter-latin-variable.woff2",
+        "docs/assets/fonts/jetbrains-mono-latin-variable.woff2",
+        "docs/assets/fonts/INTER-OFL.txt",
+        "docs/assets/fonts/JETBRAINS-MONO-OFL.txt",
+    ]
 
-    assert logo.is_file()
-    assert logo.stat().st_size > 0
+    for target in assets:
+        asset = REPO_ROOT / target
+        assert asset.is_file(), target
+        assert asset.stat().st_size > 0, target
+
+
+def test_docs_brand_styles_match_website_contract():
+    css = (
+        REPO_ROOT / "docs" / "assets" / "stylesheets" / "oddsfox-dark.css"
+    ).read_text()
+
+    for token in [
+        "#ff5722",
+        "#e64a19",
+        "#00e5ff",
+        "#0b1120",
+        "#151e32",
+        "#1e293b",
+        "#334155",
+        "#f1f5f9",
+        "#94a3b8",
+        "#7b8da8",
+    ]:
+        assert token in css
+
+    assert css.count("@font-face") == 2
+    assert "inter-latin-variable.woff2" in css
+    assert "jetbrains-mono-latin-variable.woff2" in css
+    assert ".md-header__title" in css
+    assert ".of-path-grid" in css
+    assert ".of-capability-grid" in css
+    assert ".of-hero" not in css
+
+
+def test_homepage_uses_accessible_logo_and_three_task_paths():
+    homepage = (REPO_ROOT / "docs" / "index.md").read_text()
+
+    assert '<h1 id="oddsfox-pipeline-docs" class="of-sr-only">' in homepage
+    assert "OddsFox Pipeline Docs</h1>" in homepage
+    assert 'class="of-brand-lockup__logo"' in homepage
+    assert 'alt="OddsFox"' in homepage
+    assert homepage.count('class="of-path-card"') == 3
+
+    for title in [
+        "Run the pipeline",
+        "Query the data",
+        "Understand and contribute",
+    ]:
+        assert f"<h3>{title}</h3>" in homepage
+
+    for href in [
+        "quickstart/",
+        "operator-runbook/",
+        "operations/",
+        "analyst-guide/",
+        "query-cookbook/",
+        "data-dictionary/",
+        "warehouse/",
+        "data-contracts/",
+        "system-overview/",
+        "architecture/",
+        "development/",
+    ]:
+        assert f'href="{href}"' in homepage
+
+    assert ".of-hero" not in homepage
+    assert 'class="of-hero' not in homepage
 
 
 def test_built_docs_use_material_homepage():
@@ -205,6 +278,9 @@ def test_built_docs_use_material_homepage():
         pytest.skip("Run make docs-check before asserting generated HTML.")
 
     html = homepage.read_text()
+    built_css = (
+        REPO_ROOT / "site" / "assets" / "stylesheets" / "oddsfox-dark.css"
+    ).read_text()
 
     assert "md-header" in html
     assert "md-sidebar" in html
@@ -212,6 +288,20 @@ def test_built_docs_use_material_homepage():
     assert "Open-source prediction-market data pipeline" in html
     assert "oddsfox-dark.css" in html
     assert "assets/images/oddsfox-white.png" in html
+    assert "assets/images/oddsfox-favicon.png" in html
+    assert "of-brand-lockup" in html
+    assert "of-path-grid" in html
+    assert html.count('class="of-path-card"') == 3
+    assert "of-capability-grid" in html
+    assert "../fonts/inter-latin-variable.woff2" in built_css
+    assert "../fonts/jetbrains-mono-latin-variable.woff2" in built_css
+    assert (
+        REPO_ROOT / "site" / "assets" / "fonts" / "inter-latin-variable.woff2"
+    ).is_file()
+    assert (
+        REPO_ROOT / "site" / "assets" / "fonts" / "jetbrains-mono-latin-variable.woff2"
+    ).is_file()
+    assert "of-hero" not in html
     assert "Operator Manual" not in html
     assert "navbar-dark" not in html
     assert "bootstrap" not in html.lower()
