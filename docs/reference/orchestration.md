@@ -20,12 +20,13 @@ For procedures, use [Run a scope](../guides/run-a-scope.md),
 9. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
 10. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
 11. `international_results/wc2026/raw/match_results`
-12. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
-13. `kalshi/wc2026/raw/markets`
-14. `kalshi/wc2026/raw/markets_snapshot`
-15. `kalshi/wc2026/ops/market_scope_registry`
-16. `kalshi/wc2026/raw/market_candlesticks_hourly`
-17. dbt model assets under the matching
+12. `openfootball/wc2026/raw/knockout_fixtures`
+13. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
+14. `kalshi/wc2026/raw/markets`
+15. `kalshi/wc2026/raw/markets_snapshot`
+16. `kalshi/wc2026/ops/market_scope_registry`
+17. `kalshi/wc2026/raw/market_candlesticks_hourly`
+18. dbt model assets under the matching
     `{staging,intermediate,marts,observability}` namespaces.
 
 Flat Dagster op names preserve the same source-first order, for example
@@ -63,6 +64,16 @@ The full pipeline refreshes FIFA results, Kalshi markets and candlesticks, then
 builds `+tag:kalshi` including `international_results` parents while excluding
 unrelated Polymarket tests.
 
+### Cross-platform WC2026 knockout match odds
+
+- `wc2026_knockout_match_odds_full_pipeline`: refreshes the OpenFootball
+  fixture mirror, both provider registries, both hourly odds sources, permanent
+  provider facts, and the neutral mart/observability models in one job.
+
+The combined job selects `+tag:cross_domain`. Source-specific Polymarket and
+Kalshi dbt jobs exclude that tag, so they cannot publish a partially refreshed
+cross-provider comparison.
+
 ## Scope behavior
 
 ### Polymarket WC2026
@@ -89,8 +100,17 @@ unrelated Polymarket tests.
 - `raw/markets` discovers series, events, and markets and lands events and
   markets through dlt.
 - `raw/markets_snapshot` is local lineage and does not call Kalshi.
-- The registry admits fixed WC2026 stage and group-winner markets.
+- The registry admits fixed WC2026 stage, group-winner, and `KXWCADVANCE`
+  match-advance markets.
 - `raw/market_candlesticks_hourly` syncs hourly public-trade-API candlesticks.
+
+### Canonical knockout fixtures
+
+- `openfootball/wc2026/raw/knockout_fixtures` refreshes the dependency-free
+  OpenFootball mirror of the FIFA schedule and retains FIFA match numbers
+  73–104, including the third-place source row.
+- The parser fails closed on changed IDs or stage assignments. Neutral dbt
+  models exclude match 103 and map both vendors by unique normalized team pair.
 
 ## Schedules
 
@@ -99,8 +119,11 @@ unrelated Polymarket tests.
 | `polymarket_wc2026_hourly_odds_schedule` | `polymarket_wc2026_hourly_odds_ingest` | Stopped |
 | `polymarket_us_midterms_2026_hourly_odds_schedule` | `polymarket_us_midterms_2026_hourly_odds_ingest` | Stopped |
 | `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | Stopped |
+| `wc2026_knockout_match_odds_hourly_schedule` | `wc2026_knockout_match_odds_full_pipeline` | Stopped |
 
-All three use hourly fidelity (`fidelity=60`).
+All four run hourly. The combined schedule uses Polymarket CLOB
+`fidelity=60`, bypasses the progression-futures volume floor for exact match
+markets, and remains stopped unless its dedicated env flag is enabled.
 
 ## Landing and finalization
 
@@ -108,7 +131,8 @@ Canonical raw and ops table schemas are the operator and dbt boundary. dlt
 lands market, odds-history, registry, and pipeline-event batches; stage tables
 and `_dlt*` metadata are internal.
 
-International-results CSV storage and Kalshi candlesticks use custom SQL.
+International-results CSV storage, OpenFootball fixture storage, and Kalshi
+candlesticks use custom SQL.
 Scheduler ledger rows, skip state, and daily odds aggregates also remain custom
 SQL finalizers because they preserve monotonic cursors, first-seen timestamps,
 scheduler state, and aggregate rebuild semantics.

@@ -1,7 +1,8 @@
 # OddsFox Pipeline dbt Project
 
-This dbt project models WC2026 Polymarket data plus FIFA World Cup
-fixture/result data in DuckDB.
+This dbt project models Polymarket and Kalshi WC2026 data, FIFA-numbered
+knockout fixtures, FIFA World Cup fixture/results data, and US midterms odds in
+DuckDB.
 
 See the operator docs for warehouse details:
 
@@ -18,6 +19,10 @@ Modeled layers:
 - `international_results_wc2026_intermediate`
 - `international_results_wc2026_marts`
 - `international_results_wc2026_observability`
+- `openfootball_wc2026_staging`
+- `wc2026_intermediate`
+- `wc2026_marts`
+- `wc2026_observability`
 
 Run locally:
 
@@ -37,9 +42,14 @@ Public knockout marts:
 - `polymarket_wc2026_knockout_markets`
 - `international_results_wc2026_matches`
 - `international_results_wc2026_team_status`
+- `wc2026_knockout_match_hourly_odds`
 
 If a local DuckDB file still has deleted broad marts or older relation types,
 reset the local warehouse or drop the affected dbt schemas before rebuilding.
 
 `polymarket_wc2026_knockout_token_hourly_odds` is a public view over the private
 incremental `int_polymarket_wc2026_token_hourly_odds` hourly price fact.
+
+`wc2026_knockout_match_hourly_odds` uses permanent incremental platform facts
+and raw hourly closes for team advancement. It excludes FIFA match 103 and does
+not forward-fill or renormalize missing platform-side hours.

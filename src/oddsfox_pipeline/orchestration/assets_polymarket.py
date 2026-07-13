@@ -18,6 +18,9 @@ from oddsfox_pipeline.ingestion.polymarket.markets.sync import (
 from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_POLYMARKET, asset_key
 from oddsfox_pipeline.orchestration import polymarket_asset_helpers as asset_helpers
 from oddsfox_pipeline.orchestration import polymarket_ops as ops
+from oddsfox_pipeline.orchestration.assets_openfootball import (
+    OPENFOOTBALL_WC2026_RAW_KNOCKOUT_FIXTURES,
+)
 from oddsfox_pipeline.orchestration.config import (
     DbtBuildConfig,
     HourlyOddsSyncConfig,
@@ -74,7 +77,7 @@ class PolymarketWc2026DltTranslator(DagsterDltTranslator):
         if resource.source_name == "polymarket_wc2026" and resource.name == "markets":
             return spec.replace_attributes(
                 key=POLYMARKET_WC2026_RAW_MARKETS,
-                deps=[],
+                deps=[OPENFOOTBALL_WC2026_RAW_KNOCKOUT_FIXTURES],
             )
         return (
             spec  # pragma: no cover - current WC2026 dlt source exposes only markets.

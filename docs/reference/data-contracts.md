@@ -15,6 +15,68 @@ This page remains the formal contract summary.
 
 ## Public Marts
 
+Schema: `wc2026_marts`
+
+| Relation | Grain | Contract |
+| --- | --- | --- |
+| `wc2026_knockout_match_hourly_odds` | One row per `(fifa_match_id, odds_hour_epoch)` | Dense hourly raw closing prices for both teams to advance from each FIFA-numbered knockout match on Polymarket and Kalshi. Covers match numbers 73–102 and 104; match 103 is excluded. |
+
+`fifa_match_id` is the published numeric match number from the FIFA schedule,
+not the repository-generated hash in the international-results mart. The
+OpenFootball WC2026 file is the machine-readable mirror used for automation;
+FIFA remains the identity authority. Fixture matching uses the normalized,
+unordered pair of teams, then applies the fixture's official home/away order.
+Provider ordering is never authoritative.
+
+The four price columns are
+`polymarket_home_advance_price`, `polymarket_away_advance_price`,
+`kalshi_home_advance_price`, and `kalshi_away_advance_price`. They are raw
+hourly closes in `[0, 1]` for the team that advances, including extra time and
+penalties. For match 104, advancing means winning the World Cup. Prices are not
+vig-adjusted, averaged across providers, interpolated, forward-filled, or
+renormalized. `price_represents = 'team_advances'` and
+`price_statistic = 'hourly_close'` make those semantics explicit.
+
+Each match gets an hourly spine from its first through last observation on
+either provider. A null price means that exact provider/side had no observation
+in that exact hour. Use `polymarket_hour_complete`, `kalshi_hour_complete`, and
+`both_sources_complete` to select complete comparisons. Pair sums are raw
+diagnostics, not normalization factors. `is_pre_kickoff` distinguishes pregame
+hours from in-play and settlement hours.
+
+The platform facts retain old match hours across incremental runs and reprocess
+a short recent lookback for late arrivals. No automatic age deletion applies to
+these match facts. An intentional local warehouse reset still removes history.
+The progression-futures and stage-of-elimination marts below have different
+semantics and do not feed this relation.
+
+Core and provenance fields:
+
+| Field group | Columns |
+| --- | --- |
+| Time and identity | `odds_hour_utc`, `odds_hour_epoch`, `fifa_match_id`, `stage_key`, `stage_rank`, `kickoff_at_utc`, `home_team`, `away_team` |
+| Polymarket provenance | `polymarket_market_id`, `polymarket_home_clob_token_id`, `polymarket_away_clob_token_id`, home/away observation counts |
+| Kalshi provenance | `kalshi_event_ticker`, `kalshi_home_market_ticker`, `kalshi_away_market_ticker`, home/away hourly volumes |
+| Diagnostics | pair-price sums, per-provider completeness, `both_sources_complete`, `is_pre_kickoff` |
+
+Example: compare complete pregame hours without changing raw prices.
+
+```sql
+select
+    odds_hour_utc,
+    fifa_match_id,
+    stage_key,
+    home_team,
+    away_team,
+    polymarket_home_advance_price,
+    kalshi_home_advance_price,
+    polymarket_away_advance_price,
+    kalshi_away_advance_price
+from wc2026_marts.wc2026_knockout_match_hourly_odds
+where both_sources_complete and is_pre_kickoff
+order by fifa_match_id, odds_hour_epoch;
+```
+
 Schema: `polymarket_us_midterms_2026_marts`
 
 | Relation | Grain | Contract |
@@ -60,6 +122,11 @@ Schema: `kalshi_wc2026_marts`
 - Use `kalshi_wc2026_observability.kalshi_wc2026_sync_run_observability` for Kalshi run-level ingestion telemetry.
 - Use `kalshi_wc2026_observability.kalshi_wc2026_stage_coverage` to inspect classified market coverage and hourly completeness against the contract seed window.
 - Use `kalshi_wc2026_observability.kalshi_wc2026_data_quality` for Kalshi source-state anomalies, sparse coverage, and stale or missing live odds findings.
+- Use `wc2026_observability.wc2026_knockout_match_odds_coverage` for one row per
+  expected advancement match, including fixture readiness, both vendor mappings,
+  side completeness, first/last observed hours, and freshness warnings.
+- Use `wc2026_observability.wc2026_knockout_match_odds_data_quality` for hard
+  mapping, fixture, and price errors plus missing/stale vendor warnings.
 
 ## Current Scope Rules
 
@@ -79,6 +146,9 @@ Schema: `kalshi_wc2026_marts`
 - Public Kalshi WC2026 marts expose stage-of-elimination and group-winner markets
   from the fixed `wc2026` registry across the packaged Kalshi series tickers.
   Shared Kalshi thresholds live in `dbt/seeds/kalshi_wc2026_contract.csv`.
+- The neutral match mart admits exact `soccer_team_to_advance` Polymarket
+  markets and exact `KXWCADVANCE` Kalshi markets regardless of volume. The
+  source-specific $5,000 progression-futures filter remains unchanged.
 - Public WC2026 marts expose only knockout-related markets from the WC2026 registry
   at or above the WC2026 contract volume floor. The current floor is $5,000 USD,
   and markets crossing it on a later sync are admitted on the next dbt build.
@@ -135,6 +205,12 @@ Schema: `kalshi_wc2026_marts`
   and a scoped dbt build (`+tag:kalshi`, including `international_results` parents).
   `international_results_wc2026_match_results_ingest` refreshes only the FIFA
   World Cup fixture/result source and is included in the Polymarket WC2026 full pipeline.
+- Use `wc2026_knockout_match_odds_full_pipeline` for an atomic fixture,
+  Polymarket registry/odds, Kalshi registry/candlestick, permanent-fact, neutral
+  mart, and observability refresh. Source-specific dbt jobs exclude the neutral
+  `cross_domain` models so a one-sided refresh is not presented as atomic.
+- `wc2026_knockout_match_odds_hourly_schedule` targets that combined job and is
+  stopped unless `WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED=true`.
 - `polymarket_wc2026_knockout_token_hourly_odds` remains the public
   progression-side export for downstream knockout probability views.
 - `polymarket_wc2026_graph_token_hourly_odds` is the hosted graph input. It
@@ -168,6 +244,9 @@ Schema: `kalshi_wc2026_marts`
   `polymarket_us_midterms_2026_contract.csv`, and `scope_name` accepted values.
 - Kalshi WC2026 grain, OHLC order, progression-side selection, real-team scope,
   and data-quality checks from `kalshi_wc2026_contract.csv`.
+- Official knockout match-number/stage relationships, match 103 exclusion,
+  unique provider mappings, exact team-to-advance classification, permanent
+  incremental hours, dense null preservation, and four-price pivot behavior.
 
 Warn-level observability tests fail softly in `dbt build` output; treat warnings as operator signals on real warehouses, not hard CI blockers when the disposable CI fixture is healthy.
 
@@ -181,6 +260,10 @@ DuckDB schemas use flat `polymarket_wc2026_*` names.
 There are no compatibility views, env aliases, or migration shims in v0.1.x.
 Delete old local warehouse files (`rm oddsfox.duckdb*`) and rerun quickstart
 after upgrading from older layouts.
+
+The neutral `wc2026_*` dbt schemas and permanent platform match facts change
+the local warehouse layout. v0.1.x provides no compatibility aliases or schema
+migration; reset `oddsfox.duckdb*` before rebuilding an older warehouse.
 
 The knockout hourly time-series mart is a dbt view over a private incremental
 hourly fact. If an existing local DuckDB warehouse still has deleted broad

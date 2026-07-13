@@ -5,6 +5,11 @@ scope rules, and data-contract tests, see [Data Contracts](data-contracts.md).
 
 ## Core Semantics
 
+- `wc2026_marts.wc2026_knockout_match_hourly_odds` compares exact match-level
+  team-advance prices across Polymarket and Kalshi. Extra time and penalties
+  count; the final means winning the World Cup.
+- Match-mart prices are raw hourly closes. Null means no observation for that
+  side/provider/hour; do not forward-fill or renormalize.
 - Public Polymarket WC2026 knockout prices are normalized to team progression.
 - Winner and reach markets use the Yes token; elimination-framed markets may use
   the No token.
@@ -17,6 +22,20 @@ scope rules, and data-contract tests, see [Data Contracts](data-contracts.md).
   force probabilities across combinations to sum to 1.0.
 - Kalshi stage marts expose progression prices separately from raw Yes prices.
   Use `progression_*_price` for team-progression analysis.
+
+## Cross-platform WC2026 Mart
+
+### `wc2026_marts.wc2026_knockout_match_hourly_odds`
+
+| Field | Analyst Guidance |
+| --- | --- |
+| Intended use | Compare raw match-advance probabilities for the official home and away teams across both providers. |
+| Grain | One row per published `fifa_match_id`, `odds_hour_epoch`. |
+| Identifiers | FIFA match numbers 73–102 and 104; match 103 is excluded. Provider identifiers are retained separately. |
+| Time columns | `odds_hour_utc`, `odds_hour_epoch`, `kickoff_at_utc`; `is_pre_kickoff` distinguishes pregame hours. |
+| Price columns | Four nullable home/away advance closes, one pair per provider. |
+| Recommended filters | Use `both_sources_complete` for direct comparisons or provider-specific completeness flags for single-source analysis. |
+| Common mistakes | Treating prices as regulation moneylines, using provider home/away order, filling nulls, or normalizing pair sums. |
 
 ## Polymarket WC2026 Marts
 

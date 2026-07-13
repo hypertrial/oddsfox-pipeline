@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Static Vercel deployment for the MkDocs documentation site at
   `https://data.oddsfox.io/`.
+- `wc2026_marts.wc2026_knockout_match_hourly_odds`, keyed by published FIFA
+  match number, with dense nullable raw team-advance closes from Polymarket and
+  Kalshi for matches 73–102 and 104.
+- OpenFootball WC2026 knockout fixture ingestion, permanent incremental
+  platform match-hour facts, cross-provider coverage/data-quality relations,
+  `wc2026_knockout_match_odds_full_pipeline`, and the stopped-by-default
+  `wc2026_knockout_match_odds_hourly_schedule`.
 
 ### Changed
 
@@ -22,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refreshed the MkDocs site with the OddsFox website palette, locally hosted
   Inter and JetBrains Mono fonts, a fox favicon, responsive task navigation,
   and a logo-led technical homepage.
+- Breaking: added neutral `wc2026_intermediate`, `wc2026_marts`, and
+  `wc2026_observability` schemas plus source match facts. Existing local
+  warehouses must be reset; no compatibility aliases or migration are provided.
+- Kalshi WC2026 scope now includes `KXWCADVANCE`; Polymarket discovery includes
+  `fifwc-` exact match events. Exact `soccer_team_to_advance` match markets
+  bypass the progression-futures volume floor without changing existing marts.
 
 ## [0.1.5] - 2026-07-11
 

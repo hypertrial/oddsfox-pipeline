@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: int_kalshi_wc2026_match_advance_markets
+    description: Kalshi KXWCADVANCE binary markets mapped to official fixture home and away teams.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_ticker]
+    columns:
+      - name: market_ticker
+        description: Kalshi team-advance market ticker.
+        tests: [not_null, unique]
+      - name: fifa_match_id
+        description: Published FIFA match number.
+        tests: [not_null]
+      - name: team_side
+        description: Official fixture side.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [home, away]
+      - name: is_ambiguous_mapping
+        description: True when multiple source events map to one fixture.
+        tests: [not_null]
+
+  - name: int_kalshi_wc2026_match_hourly_odds
+    description: Permanent incremental hourly OHLC fact for mapped Kalshi advance markets.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_ticker, odds_hour_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [market_ticker, odds_hour_epoch]
+            price_columns: [open_price, high_price, low_price, close_price, avg_price]
+    columns:
+      - name: market_ticker
+        description: Kalshi team-advance market ticker.
+        tests: [not_null]
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the UTC hour.
+        tests: [not_null]
+
+unit_tests:
+  - name: test_kalshi_match_advance_requires_series_aliases_and_official_sides
+    model: int_kalshi_wc2026_match_advance_markets
+    given:
+      - input: ref('int_kalshi_wc2026_markets')
+        rows:
+          - {market_ticker: k-belgium, event_ticker: k-event, series_ticker: KXWCADVANCE, yes_sub_title: "Belgium advances", status: active, open_time: "2026-07-01 00:00:00", close_time: "2026-07-08 00:00:00", expiration_time: "2026-07-08 00:00:00", occurrence_datetime: "2026-07-07 19:00:00"}
+          - {market_ticker: k-usa, event_ticker: k-event, series_ticker: KXWCADVANCE, yes_sub_title: "USA advances", status: active, open_time: "2026-07-01 00:00:00", close_time: "2026-07-08 00:00:00", expiration_time: "2026-07-08 00:00:00", occurrence_datetime: "2026-07-07 19:00:00"}
+          - {market_ticker: ignored, event_ticker: k-event, series_ticker: KXOTHER, yes_sub_title: "United States advances", status: active}
+      - input: ref('international_results_wc2026_team_aliases')
+        rows:
+          - {market_team_name: USA, canonical_team_name: United States}
+      - input: ref('int_wc2026_knockout_fixtures')
+        rows:
+          - {fifa_match_id: 94, stage_key: round_of_16, stage_rank: 2, kickoff_at_utc: "2026-07-07 19:00:00", home_team: United States, away_team: Belgium, teams_resolved: true}
+    expect:
+      rows:
+        - {fifa_match_id: 94, market_ticker: k-belgium, canonical_team_name: Belgium, team_side: away, is_ambiguous_mapping: false}
+        - {fifa_match_id: 94, market_ticker: k-usa, canonical_team_name: United States, team_side: home, is_ambiguous_mapping: false}
+
+  - name: test_kalshi_match_advance_surfaces_ambiguous_fixture_mapping
+    model: int_kalshi_wc2026_match_advance_markets
+    given:
+      - input: ref('int_kalshi_wc2026_markets')
+        rows:
+          - {market_ticker: one-france, event_ticker: event-one, series_ticker: KXWCADVANCE, yes_sub_title: "France advances"}
+          - {market_ticker: one-spain, event_ticker: event-one, series_ticker: KXWCADVANCE, yes_sub_title: "Spain advances"}
+          - {market_ticker: two-france, event_ticker: event-two, series_ticker: KXWCADVANCE, yes_sub_title: "France advances"}
+          - {market_ticker: two-spain, event_ticker: event-two, series_ticker: KXWCADVANCE, yes_sub_title: "Spain advances"}
+      - input: ref('international_results_wc2026_team_aliases')
+        rows: []
+      - input: ref('int_wc2026_knockout_fixtures')
+        rows:
+          - {fifa_match_id: 101, stage_key: semifinal, stage_rank: 4, kickoff_at_utc: "2026-07-14 19:00:00", home_team: France, away_team: Spain, teams_resolved: true}
+    expect:
+      rows:
+        - {event_ticker: event-one, market_ticker: one-france, is_ambiguous_mapping: true}
+        - {event_ticker: event-one, market_ticker: one-spain, is_ambiguous_mapping: true}
+        - {event_ticker: event-two, market_ticker: two-france, is_ambiguous_mapping: true}
+        - {event_ticker: event-two, market_ticker: two-spain, is_ambiguous_mapping: true}

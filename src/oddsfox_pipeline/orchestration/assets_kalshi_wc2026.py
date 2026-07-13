@@ -16,6 +16,9 @@ from oddsfox_pipeline.ingestion.kalshi.markets.sync import collect_market_scope_
 from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_KALSHI, asset_key
 from oddsfox_pipeline.orchestration import kalshi_asset_helpers as asset_helpers
 from oddsfox_pipeline.orchestration import kalshi_ops as ops
+from oddsfox_pipeline.orchestration.assets_openfootball import (
+    OPENFOOTBALL_WC2026_RAW_KNOCKOUT_FIXTURES,
+)
 from oddsfox_pipeline.orchestration.config import (
     KalshiHourlyOddsSyncConfig,
     KalshiMarketScopeRegistryConfig,
@@ -60,12 +63,12 @@ class KalshiWc2026DltTranslator(DagsterDltTranslator):
         if resource.source_name == "kalshi_wc2026" and resource.name == "events":
             return spec.replace_attributes(
                 key=KALSHI_WC2026_RAW_EVENTS,
-                deps=[],
+                deps=[OPENFOOTBALL_WC2026_RAW_KNOCKOUT_FIXTURES],
             )
         if resource.source_name == "kalshi_wc2026" and resource.name == "markets":
             return spec.replace_attributes(
                 key=KALSHI_WC2026_RAW_MARKETS,
-                deps=[],
+                deps=[OPENFOOTBALL_WC2026_RAW_KNOCKOUT_FIXTURES],
             )
         return spec
 

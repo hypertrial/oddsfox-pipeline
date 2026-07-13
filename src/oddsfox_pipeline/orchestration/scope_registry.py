@@ -68,6 +68,7 @@ POLYMARKET_WC2026_SCOPE = ScopeSpec(
     dbt_job_name="polymarket_wc2026_dbt_build",
     full_job_name="polymarket_wc2026_full_pipeline",
     dbt_select="+tag:polymarket,tag:wc2026",
+    dbt_exclude="tag:cross_domain",
     source_seed="polymarket.market_scopes",
     includes_international_results=True,
 )

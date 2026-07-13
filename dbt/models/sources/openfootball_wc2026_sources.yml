@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: openfootball_wc2026_raw
+    description: OpenFootball machine-readable mirror of the official-numbered WC2026 knockout schedule.
+    schema: openfootball_wc2026_raw
+    tables:
+      - name: knockout_fixtures
+        description: All FIFA-numbered WC2026 knockout fixtures, including the third-place match.
+        meta:
+          dagster:
+            asset_key: [openfootball, wc2026, raw, knockout_fixtures]
+        columns:
+          - name: fifa_match_id
+            description: Published numeric FIFA match number.
+            tests: [not_null, unique]
+          - name: stage_key
+            description: Normalized knockout stage.
+            tests: [not_null]
+          - name: kickoff_at_utc
+            description: Scheduled kickoff normalized to UTC.
+            tests: [not_null]
+          - name: source_loaded_at
+            description: UTC time when the source mirror was loaded.

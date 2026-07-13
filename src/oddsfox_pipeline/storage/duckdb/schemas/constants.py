@@ -7,6 +7,7 @@ from oddsfox_pipeline.naming import (
     SCOPE_WC2026,
     SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_KALSHI,
+    SOURCE_OPENFOOTBALL,
     SOURCE_POLYMARKET,
     schema_name,
 )
@@ -24,6 +25,7 @@ KALSHI_WC2026_OPS_SCHEMA = schema_name(SOURCE_KALSHI, SCOPE_WC2026, "ops")
 INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA = schema_name(
     SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "raw"
 )
+OPENFOOTBALL_WC2026_RAW_SCHEMA = schema_name(SOURCE_OPENFOOTBALL, SCOPE_WC2026, "raw")
 
 _POLYMARKET_RAW_SCHEMAS: dict[str, str] = {
     SCOPE_WC2026: POLYMARKET_WC2026_RAW_SCHEMA,
@@ -119,15 +121,21 @@ def international_results_wc2026_raw_tbl(name: str) -> str:
     return polymarket_q(INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA, name)
 
 
+def openfootball_wc2026_raw_tbl(name: str) -> str:
+    return polymarket_q(OPENFOOTBALL_WC2026_RAW_SCHEMA, name)
+
+
 __all__ = [
     "INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA",
     "KALSHI_WC2026_OPS_SCHEMA",
     "KALSHI_WC2026_RAW_SCHEMA",
+    "OPENFOOTBALL_WC2026_RAW_SCHEMA",
     "POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA",
     "POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA",
     "POLYMARKET_WC2026_OPS_SCHEMA",
     "POLYMARKET_WC2026_RAW_SCHEMA",
     "international_results_wc2026_raw_tbl",
+    "openfootball_wc2026_raw_tbl",
     "kalshi_ops_schema",
     "kalshi_ops_tbl",
     "kalshi_q",

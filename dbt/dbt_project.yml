@@ -30,6 +30,11 @@ models:
           +materialized: table
         int_polymarket_wc2026_token_hourly_odds:
           +materialized: incremental
+        int_polymarket_wc2026_match_hourly_odds:
+          +materialized: incremental
+          +tags: ["cross_domain"]
+        int_polymarket_wc2026_match_advance_tokens:
+          +tags: ["cross_domain"]
         int_polymarket_wc2026_token_universe:
           +materialized: table
       marts:
@@ -98,6 +103,11 @@ models:
         +tags: ["intermediate", "wc2026", "kalshi"]
         int_kalshi_wc2026_market_hourly_odds:
           +materialized: incremental
+        int_kalshi_wc2026_match_hourly_odds:
+          +materialized: incremental
+          +tags: ["cross_domain"]
+        int_kalshi_wc2026_match_advance_markets:
+          +tags: ["cross_domain"]
       marts:
         +schema: kalshi_wc2026_marts
         +materialized: table
@@ -114,6 +124,24 @@ models:
         +schema: kalshi_wc2026_observability
         +materialized: table
         +tags: ["mart", "observability", "wc2026", "kalshi"]
+    openfootball_wc2026:
+      +tags: ["wc2026", "openfootball"]
+      staging:
+        +schema: openfootball_wc2026_staging
+        +tags: ["staging", "wc2026", "openfootball"]
+    wc2026:
+      +tags: ["wc2026", "cross_domain"]
+      intermediate:
+        +schema: wc2026_intermediate
+        +tags: ["intermediate", "wc2026", "cross_domain"]
+      marts:
+        +schema: wc2026_marts
+        +materialized: table
+        +tags: ["mart", "core", "wc2026", "cross_domain"]
+      observability:
+        +schema: wc2026_observability
+        +materialized: table
+        +tags: ["mart", "observability", "wc2026", "cross_domain"]
 seeds:
   oddsfox:
     international_results_wc2026_team_aliases:

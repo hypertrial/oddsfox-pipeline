@@ -15,6 +15,9 @@ from oddsfox_pipeline.orchestration import (
     assets_international_results as results_assets_mod,
 )
 from oddsfox_pipeline.orchestration import assets_kalshi_wc2026 as kalshi_assets_mod
+from oddsfox_pipeline.orchestration import (
+    assets_openfootball as openfootball_assets_mod,
+)
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 from oddsfox_pipeline.orchestration import (
     assets_polymarket_us_midterms_2026 as midterms_assets_mod,
@@ -22,7 +25,10 @@ from oddsfox_pipeline.orchestration import (
 from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.scope_registry import SCOPE_STEPS, iter_scope_specs
 
-_NON_SCOPE_JOB_NAMES = {"international_results_wc2026_match_results_ingest"}
+_NON_SCOPE_JOB_NAMES = {
+    "international_results_wc2026_match_results_ingest",
+    "wc2026_knockout_match_odds_full_pipeline",
+}
 
 
 def _expected_public_job_names() -> set[str]:
@@ -144,6 +150,11 @@ oddsfox:
     monkeypatch.setattr(
         results_assets_mod,
         "sync_wc2026_match_results",
+        lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
+    )
+    monkeypatch.setattr(
+        openfootball_assets_mod,
+        "sync_knockout_fixtures",
         lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
     )
     monkeypatch.setattr(

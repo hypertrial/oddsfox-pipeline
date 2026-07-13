@@ -7,6 +7,9 @@ from oddsfox_pipeline.orchestration.assets_kalshi_wc2026 import (
     kalshi_wc2026_raw_markets,
     kalshi_wc2026_raw_markets_snapshot,
 )
+from oddsfox_pipeline.orchestration.assets_openfootball import (
+    openfootball_wc2026_raw_knockout_fixtures,
+)
 from oddsfox_pipeline.orchestration.assets_polymarket import (
     oddsfox_dbt,
     polymarket_wc2026_ops_market_scope_registry,
@@ -38,6 +41,7 @@ __all__ = [
     "kalshi_wc2026_raw_market_candlesticks_hourly",
     "kalshi_wc2026_raw_markets",
     "kalshi_wc2026_raw_markets_snapshot",
+    "openfootball_wc2026_raw_knockout_fixtures",
     "polymarket_us_midterms_2026_ops_market_scope_registry",
     "polymarket_us_midterms_2026_raw_market_metadata_backfill",
     "polymarket_us_midterms_2026_raw_markets",

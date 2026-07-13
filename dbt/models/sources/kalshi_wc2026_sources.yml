@@ -42,6 +42,8 @@ sources:
           - name: series_ticker
             description: Parent Kalshi series ticker.
             tests: [not_null]
+          - name: occurrence_datetime
+            description: Scheduled market occurrence time from Kalshi, normalized to UTC.
           - name: scraped_at
             description: UTC timestamp when this market row was last written by ingestion.
       - name: market_candlesticks_hourly

@@ -10,6 +10,7 @@ from oddsfox_pipeline.orchestration.config import (
     MarketsSyncConfig,
     MetadataBackfillConfig,
     OddsSyncConfig,
+    wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 
 
@@ -76,3 +77,22 @@ def test_dbt_build_config_accepts_fixed_scope_selectors():
     assert cfg.full_refresh is True
     assert cfg.dbt_select == "+tag:polymarket,tag:wc2026"
     assert cfg.dbt_exclude == "tag:kalshi"
+
+
+def test_combined_match_odds_config_preserves_history_and_bypasses_volume_floor():
+    ops = wc2026_knockout_match_odds_full_pipeline_run_config()["ops"]
+
+    assert ops["polymarket_wc2026_raw_markets"]["config"]["keyset_volume_min"] == 0.0
+    assert (
+        ops["polymarket_wc2026_ops_market_scope_registry"]["config"][
+            "keyset_volume_min"
+        ]
+        == 0.0
+    )
+    assert (
+        ops["polymarket_wc2026_raw_token_odds_history_hourly"]["config"]["min_volume"]
+        is None
+    )
+    assert ops["oddsfox_dbt"]["config"]["full_refresh"] is False
+    assert ops["oddsfox_dbt"]["config"]["dbt_select"] == "+tag:cross_domain"
+    assert ops["oddsfox_dbt"]["config"]["dbt_exclude"] is None

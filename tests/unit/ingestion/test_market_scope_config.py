@@ -44,6 +44,7 @@ def test_load_market_scope_config_includes_default_wc2026_preset(monkeypatch):
     assert cfg.scope_name == "wc2026"
     assert "2026-fifa-world-cup-winner" in cfg.event_slugs
     assert cfg.event_slug_prefixes
+    assert "fifwc-" in cfg.event_slug_prefixes
     assert "2026-fifa-world-cup" in cfg.event_tags
     assert "fifa-world-cup" in cfg.event_tags
     assert "world-cup" in cfg.event_tags

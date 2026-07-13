@@ -14,6 +14,7 @@ from oddsfox_pipeline.orchestration.assets import (
     kalshi_wc2026_raw_markets,
     kalshi_wc2026_raw_markets_snapshot,
     oddsfox_dbt,
+    openfootball_wc2026_raw_knockout_fixtures,
     polymarket_us_midterms_2026_ops_market_scope_registry,
     polymarket_us_midterms_2026_raw_market_metadata_backfill,
     polymarket_us_midterms_2026_raw_markets,
@@ -39,16 +40,19 @@ from oddsfox_pipeline.orchestration.jobs import (
     polymarket_wc2026_full_pipeline,
     polymarket_wc2026_hourly_odds_ingest,
     polymarket_wc2026_market_registry_refresh,
+    wc2026_knockout_match_odds_full_pipeline,
 )
 from oddsfox_pipeline.orchestration.schedules import (
     kalshi_wc2026_hourly_odds_schedule,
     polymarket_us_midterms_2026_hourly_odds_schedule,
     polymarket_wc2026_hourly_odds_schedule,
+    wc2026_knockout_match_odds_hourly_schedule,
 )
 
 defs = Definitions(
     assets=[
         international_results_wc2026_raw_match_results,
+        openfootball_wc2026_raw_knockout_fixtures,
         kalshi_wc2026_raw_markets,
         kalshi_wc2026_raw_markets_snapshot,
         kalshi_wc2026_ops_market_scope_registry,
@@ -79,11 +83,13 @@ defs = Definitions(
         polymarket_us_midterms_2026_market_registry_refresh,
         polymarket_us_midterms_2026_dbt_build,
         polymarket_us_midterms_2026_full_pipeline,
+        wc2026_knockout_match_odds_full_pipeline,
     ],
     schedules=[
         kalshi_wc2026_hourly_odds_schedule,
         polymarket_wc2026_hourly_odds_schedule,
         polymarket_us_midterms_2026_hourly_odds_schedule,
+        wc2026_knockout_match_odds_hourly_schedule,
     ],
     resources={
         "dbt": DbtCliResource(

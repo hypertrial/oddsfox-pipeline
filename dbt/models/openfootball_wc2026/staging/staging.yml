@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: stg_openfootball_wc2026_knockout_fixtures
+    description: Canonicalized WC2026 knockout fixtures keyed by the published FIFA match number.
+    meta:
+      dagster:
+        asset_key: [openfootball, wc2026, staging, knockout_fixtures]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [fifa_match_id]
+    columns:
+      - name: fifa_match_id
+        description: Published numeric FIFA match number.
+        tests: [not_null, unique]
+      - name: stage_key
+        description: Normalized knockout stage.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [round_of_32, round_of_16, quarterfinal, semifinal, third_place, final]
+      - name: kickoff_at_utc
+        description: Scheduled kickoff normalized to UTC.
+        tests: [not_null]
+      - name: home_team
+        description: Canonical home team or unresolved bracket placeholder.
+        tests: [not_null]
+      - name: away_team
+        description: Canonical away team or unresolved bracket placeholder.
+        tests: [not_null]

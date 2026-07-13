@@ -26,6 +26,7 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
     for source_file in (
         "polymarket_wc2026_sources.yml",
         "international_results_wc2026_sources.yml",
+        "openfootball_wc2026_sources.yml",
     ):
         data = yaml.safe_load((sources_root / source_file).read_text())
         tables.update(
@@ -90,6 +91,12 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "raw",
         "match_results",
     ]
+    assert tables[("openfootball_wc2026_raw", "knockout_fixtures")] == [
+        "openfootball",
+        "wc2026",
+        "raw",
+        "knockout_fixtures",
+    ]
 
 
 def test_dbt_translator_does_not_override_model_dependencies():
@@ -142,6 +149,14 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
         ).parent_keys
     }
     assert "international_results/wc2026/raw/match_results" in stg_results_parents
+
+    stg_fixtures_parents = {
+        key.to_user_string()
+        for key in graph.get(
+            AssetKey(["openfootball", "wc2026", "staging", "knockout_fixtures"])
+        ).parent_keys
+    }
+    assert "openfootball/wc2026/raw/knockout_fixtures" in stg_fixtures_parents
 
     dangling_dbt_keys = sorted(
         key.to_user_string()

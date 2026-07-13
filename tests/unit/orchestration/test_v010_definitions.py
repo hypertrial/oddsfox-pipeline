@@ -2,16 +2,18 @@ import importlib
 from pathlib import Path
 
 import yaml
-from dagster import DefaultScheduleStatus, build_schedule_context
+from dagster import AssetKey, DefaultScheduleStatus, build_schedule_context
 
 from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.jobs import _merge_run_configs
 from oddsfox_pipeline.orchestration.schedules import (
     polymarket_wc2026_hourly_odds_schedule,
+    wc2026_knockout_match_odds_hourly_schedule,
 )
 
 
@@ -22,6 +24,7 @@ def _polymarket_sources_paths() -> list[Path]:
         sources_dir / "polymarket_us_midterms_2026_sources.yml",
         sources_dir / "international_results_wc2026_sources.yml",
         sources_dir / "kalshi_wc2026_sources.yml",
+        sources_dir / "openfootball_wc2026_sources.yml",
     ]
 
 
@@ -29,9 +32,18 @@ def _polymarket_sources_path() -> Path:
     return _polymarket_sources_paths()[0]
 
 
-def _reload_schedules_module(monkeypatch, *, hourly: bool = False):
+def _reload_schedules_module(
+    monkeypatch,
+    *,
+    hourly: bool = False,
+    combined_hourly: bool = False,
+):
     monkeypatch.setenv(
         "POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED", "true" if hourly else "false"
+    )
+    monkeypatch.setenv(
+        "WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED",
+        "true" if combined_hourly else "false",
     )
     from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
@@ -56,6 +68,7 @@ def test_definitions_expose_v010_jobs_only():
         "polymarket_wc2026_market_registry_refresh",
         "polymarket_wc2026_dbt_build",
         "polymarket_wc2026_full_pipeline",
+        "wc2026_knockout_match_odds_full_pipeline",
     }
 
     assert {
@@ -72,6 +85,12 @@ def test_definitions_expose_v010_asset_keys():
         ("international_results", "wc2026", "marts", "matches"),
         ("international_results", "wc2026", "marts", "team_status"),
         ("international_results", "wc2026", "observability", "data_quality"),
+        ("openfootball", "wc2026", "raw", "knockout_fixtures"),
+        ("openfootball", "wc2026", "staging", "knockout_fixtures"),
+        ("wc2026", "intermediate", "knockout_fixtures"),
+        ("wc2026", "marts", "knockout_match_hourly_odds"),
+        ("wc2026", "observability", "knockout_match_odds_coverage"),
+        ("wc2026", "observability", "knockout_match_odds_data_quality"),
         ("kalshi", "wc2026", "raw", "events"),
         ("kalshi", "wc2026", "raw", "markets"),
         ("kalshi", "wc2026", "raw", "markets_snapshot"),
@@ -82,6 +101,8 @@ def test_definitions_expose_v010_asset_keys():
         ("kalshi", "wc2026", "staging", "market_candlesticks_hourly"),
         ("kalshi", "wc2026", "intermediate", "markets"),
         ("kalshi", "wc2026", "intermediate", "market_hourly_odds"),
+        ("kalshi", "wc2026", "intermediate", "match_advance_markets"),
+        ("kalshi", "wc2026", "intermediate", "match_hourly_odds"),
         ("kalshi", "wc2026", "intermediate", "stage_classification"),
         ("kalshi", "wc2026", "intermediate", "group_winner_classification"),
         ("kalshi", "wc2026", "marts", "contract"),
@@ -126,6 +147,8 @@ def test_definitions_expose_v010_asset_keys():
         ("polymarket", "wc2026", "intermediate", "market_tokens"),
         ("polymarket", "wc2026", "intermediate", "knockout_market_classification"),
         ("polymarket", "wc2026", "intermediate", "token_universe"),
+        ("polymarket", "wc2026", "intermediate", "match_advance_tokens"),
+        ("polymarket", "wc2026", "intermediate", "match_hourly_odds"),
         ("polymarket", "wc2026", "marts", "knockout_market_tokens"),
         ("polymarket", "wc2026", "marts", "knockout_markets"),
         ("polymarket", "wc2026", "marts", "knockout_token_hourly_odds"),
@@ -140,8 +163,10 @@ def test_definitions_expose_v010_asset_keys():
             ("polymarket", "wc2026"),
             ("polymarket", "us_midterms_2026"),
             ("international_results", "wc2026"),
+            ("openfootball", "wc2026"),
             ("kalshi", "wc2026"),
         }
+        or key[0] == "wc2026"
         for key in asset_keys
     )
     assert not any("selected" in part for key in asset_keys for part in key)
@@ -222,6 +247,55 @@ def test_hourly_schedule_enabled_by_env(monkeypatch):
     )
 
 
+def test_combined_schedule_is_atomic_stopped_and_uses_unfiltered_prices():
+    assert wc2026_knockout_match_odds_hourly_schedule.default_status == (
+        DefaultScheduleStatus.STOPPED
+    )
+    assert (
+        wc2026_knockout_match_odds_hourly_schedule.job_name
+        == "wc2026_knockout_match_odds_full_pipeline"
+    )
+    run_config = (
+        wc2026_knockout_match_odds_hourly_schedule.evaluate_tick(
+            build_schedule_context()
+        )
+        .run_requests[0]
+        .run_config
+    )
+    assert run_config == wc2026_knockout_match_odds_full_pipeline_run_config()
+    assert (
+        run_config["ops"]["polymarket_wc2026_raw_markets"]["config"][
+            "keyset_volume_min"
+        ]
+        == 0.0
+    )
+    assert (
+        run_config["ops"]["polymarket_wc2026_ops_market_scope_registry"]["config"][
+            "keyset_volume_min"
+        ]
+        == 0.0
+    )
+    assert (
+        run_config["ops"]["polymarket_wc2026_raw_token_odds_history_hourly"]["config"][
+            "min_volume"
+        ]
+        is None
+    )
+    dbt_config = run_config["ops"]["oddsfox_dbt"]["config"]
+    assert dbt_config["full_refresh"] is False
+    assert dbt_config["dbt_select"] == "+tag:cross_domain"
+    assert dbt_config["dbt_exclude"] is None
+
+
+def test_combined_hourly_schedule_can_be_enabled(monkeypatch):
+    schedules_mod = _reload_schedules_module(monkeypatch, combined_hourly=True)
+
+    assert (
+        schedules_mod.wc2026_knockout_match_odds_hourly_schedule.default_status
+        == DefaultScheduleStatus.RUNNING
+    )
+
+
 def test_midterms_full_pipeline_excludes_wc2026_and_results_assets():
     job = defs.resolve_job_def("polymarket_us_midterms_2026_full_pipeline")
     selected = {tuple(key.path) for key in job.asset_layer.selected_asset_keys}
@@ -257,11 +331,67 @@ def test_scoped_dbt_jobs_select_only_their_expected_scope_assets():
     assert kalshi
     assert any(key[:2] == ("international_results", "wc2026") for key in kalshi)
     assert any(key[:2] == ("kalshi", "wc2026") for key in kalshi)
+    assert not any(key[:2] == ("wc2026", "marts") for key in kalshi)
+    assert not any(
+        key[:4] == ("kalshi", "wc2026", "intermediate", "match_hourly_odds")
+        for key in kalshi
+    )
+    assert not any(
+        key[:4] == ("kalshi", "wc2026", "intermediate", "match_advance_markets")
+        for key in kalshi
+    )
     assert not any(key[:2] == ("polymarket", "wc2026") for key in kalshi)
     assert not any(key[:2] == ("polymarket", "us_midterms_2026") for key in kalshi)
 
     assert wc2026
     assert any(key[:2] == ("international_results", "wc2026") for key in wc2026)
     assert any(key[:2] == ("polymarket", "wc2026") for key in wc2026)
+    assert not any(key[:2] == ("wc2026", "marts") for key in wc2026)
+    assert not any(
+        key[:4] == ("polymarket", "wc2026", "intermediate", "match_hourly_odds")
+        for key in wc2026
+    )
+    assert not any(
+        key[:4] == ("polymarket", "wc2026", "intermediate", "match_advance_tokens")
+        for key in wc2026
+    )
     assert not any(key[:2] == ("kalshi", "wc2026") for key in wc2026)
     assert not any(key[:2] == ("polymarket", "us_midterms_2026") for key in wc2026)
+
+
+def test_combined_job_selects_both_sources_fixture_and_cross_domain_models():
+    selected = {
+        tuple(key.path)
+        for key in defs.resolve_job_def(
+            "wc2026_knockout_match_odds_full_pipeline"
+        ).asset_layer.selected_asset_keys
+    }
+
+    assert ("openfootball", "wc2026", "raw", "knockout_fixtures") in selected
+    assert any(key[:2] == ("polymarket", "wc2026") for key in selected)
+    assert any(key[:2] == ("kalshi", "wc2026") for key in selected)
+    assert (
+        "polymarket",
+        "wc2026",
+        "intermediate",
+        "match_hourly_odds",
+    ) in selected
+    assert (
+        "kalshi",
+        "wc2026",
+        "intermediate",
+        "match_hourly_odds",
+    ) in selected
+    assert ("wc2026", "marts", "knockout_match_hourly_odds") in selected
+
+
+def test_combined_job_refreshes_fixture_before_both_vendor_registry_paths():
+    graph = defs.resolve_asset_graph()
+    fixture = AssetKey(["openfootball", "wc2026", "raw", "knockout_fixtures"])
+
+    for vendor_asset in (
+        AssetKey(["polymarket", "wc2026", "raw", "markets"]),
+        AssetKey(["kalshi", "wc2026", "raw", "events"]),
+        AssetKey(["kalshi", "wc2026", "raw", "markets"]),
+    ):
+        assert fixture in graph.get(vendor_asset).parent_keys

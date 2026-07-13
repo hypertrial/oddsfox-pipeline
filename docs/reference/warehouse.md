@@ -32,6 +32,12 @@ Schema: `international_results_wc2026_raw`
   `martj42/international_results`. Ingestion refreshes this table as a full
   replacement and stores scheduled fixtures with null scores.
 
+Schema: `openfootball_wc2026_raw`
+
+- `knockout_fixtures`: full-replacement FIFA-numbered knockout schedule mirror,
+  including match 103. Stores published match number, stage, kickoff, official
+  home/away assignment, venue, source line/hash, and load timestamp.
+
 Schema: `polymarket_us_midterms_2026_raw`
 
 - `markets`: dlt-owned Gamma market landing for targeted US midterms event slugs.
@@ -92,6 +98,10 @@ Schema: `polymarket_us_midterms_2026_ops`
 - `international_results_wc2026_intermediate`
 - `international_results_wc2026_marts`
 - `international_results_wc2026_observability`
+- `openfootball_wc2026_staging`
+- `wc2026_intermediate`
+- `wc2026_marts`
+- `wc2026_observability`
 - `polymarket_us_midterms_2026_staging`
 - `polymarket_us_midterms_2026_intermediate`
 - `polymarket_us_midterms_2026_marts`
@@ -115,6 +125,10 @@ Schema: `polymarket_wc2026_intermediate`
   for raw CLOB tokens in the WC2026 contract trailing window.
 - `int_polymarket_wc2026_knockout_market_classification`: shared real-team
   knockout market classifier used by public knockout marts and observability.
+- `int_polymarket_wc2026_match_advance_tokens`: exact team-to-advance outcomes
+  mapped to official FIFA fixture sides without the progression volume floor.
+- `int_polymarket_wc2026_match_hourly_odds`: permanent incremental match-token
+  hourly fact with a short late-arrival lookback and no age deletion.
 
 Schema: `polymarket_us_midterms_2026_intermediate`
 
@@ -135,8 +149,23 @@ Schema: `kalshi_wc2026_intermediate`
 - `int_kalshi_wc2026_stage_classification` and
   `int_kalshi_wc2026_group_winner_classification`: shared classifiers for public
   stage and group-winner marts.
+- `int_kalshi_wc2026_match_advance_markets`: exact `KXWCADVANCE` sides mapped to
+  official FIFA fixtures.
+- `int_kalshi_wc2026_match_hourly_odds`: permanent incremental match-market
+  hourly fact with no age deletion.
+
+Schema: `wc2026_intermediate`
+
+- `int_wc2026_knockout_fixtures`: the 31 advancement fixtures keyed by official
+  FIFA match number; excludes the third-place match.
 
 ## dbt Marts
+
+Schema: `wc2026_marts`
+
+- `wc2026_knockout_match_hourly_odds`: dense raw hourly team-advance closes for
+  official home/away teams across Polymarket and Kalshi. Nulls preserve exact
+  missing observations; the mart never fills or normalizes prices.
 
 Schema: `polymarket_wc2026_marts`
 
@@ -199,6 +228,13 @@ Schema: `international_results_wc2026_observability`
 
 - `international_results_wc2026_data_quality`: warning-level findings when a tied knockout match has no unique inferred advancer or when the fixture/result source load is stale under the WC2026 contract seed.
 
+Schema: `wc2026_observability`
+
+- `wc2026_knockout_match_odds_coverage`: fixture, provider mapping, side,
+  observed-hour, and freshness coverage per advancement match.
+- `wc2026_knockout_match_odds_data_quality`: mapping/fixture/price errors and
+  missing/stale provider warnings.
+
 ## dlt Landing And Canonical Tables
 
 Canonical raw and ops table names and schemas remain stable. dlt owns batch
@@ -209,6 +245,10 @@ metadata tables are internal implementation details.
 `international_results_wc2026_raw.match_results` is custom SQL storage, not dlt,
 because the source is a single CSV and a full WC2026 replacement is simpler than
 batch finalization.
+
+`openfootball_wc2026_raw.knockout_fixtures` is also custom SQL storage. Its
+parser validates the complete 73–104 match-number/stage contract before an
+atomic full replacement.
 
 `kalshi_wc2026_raw.events` and `kalshi_wc2026_raw.markets` are created by
 `kalshi_wc2026_raw_markets`. `kalshi_wc2026_raw.market_candlesticks_hourly` is

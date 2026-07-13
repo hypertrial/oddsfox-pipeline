@@ -27,6 +27,7 @@ def test_load_market_scope_config_wc2026_preset():
     assert cfg.scope_name == "wc2026"
     assert "KXMENWORLDCUP" in cfg.series_tickers
     assert "KXWCSTAGEOFELIM" in cfg.series_tickers
+    assert "KXWCADVANCE" in cfg.series_tickers
     assert cfg.excluded_market_suffixes["KXWCSTAGEOFELIM"] == ("FW",)
 
 

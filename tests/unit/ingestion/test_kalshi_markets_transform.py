@@ -37,6 +37,7 @@ def test_normalize_market_row_derives_series_ticker_from_event_ticker():
             "title": "USA to win",
             "last_price_dollars": "0.12",
             "volume": 1000,
+            "occurrence_datetime": "2026-07-14T19:00:00Z",
         },
         scraped_at=datetime(2026, 1, 1),
     )
@@ -45,6 +46,7 @@ def test_normalize_market_row_derives_series_ticker_from_event_ticker():
     assert row["series_ticker"] == "KXMENWORLDCUP"
     assert row["last_price_dollars"] == "0.12"
     assert row["volume"] == 1000
+    assert row["occurrence_datetime"] == datetime(2026, 7, 14, 19)
 
 
 def test_normalize_candlestick_rows_skips_missing_end_period_ts():

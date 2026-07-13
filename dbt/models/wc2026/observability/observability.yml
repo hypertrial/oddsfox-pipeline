@@ -1,0 +1,60 @@
+version: 2
+
+models:
+  - name: wc2026_knockout_match_odds_coverage
+    description: One coverage and freshness row for each expected advancement fixture.
+    meta:
+      dagster:
+        asset_key: [wc2026, observability, knockout_match_odds_coverage]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [fifa_match_id]
+    columns:
+      - name: fifa_match_id
+        description: Published numeric FIFA match number.
+        tests: [not_null, unique]
+      - name: fixture_ready
+        description: True once both bracket slots have resolved to real teams.
+        tests: [not_null]
+      - name: coverage_status
+        description: Current fixture mapping and freshness status.
+        tests: [not_null]
+
+  - name: wc2026_knockout_match_odds_data_quality
+    description: Actionable errors and warnings for the standardized knockout match mart.
+    meta:
+      dagster:
+        asset_key: [wc2026, observability, knockout_match_odds_data_quality]
+    columns:
+      - name: severity
+        description: Error or warning.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [error, warning]
+      - name: issue_type
+        description: Stable issue identifier.
+        tests: [not_null]
+
+unit_tests:
+  - name: test_wc2026_match_odds_data_quality_preserves_simultaneous_warnings
+    model: wc2026_knockout_match_odds_data_quality
+    given:
+      - input: ref('int_polymarket_wc2026_match_advance_tokens')
+        rows: []
+      - input: ref('int_kalshi_wc2026_match_advance_markets')
+        rows: []
+      - input: ref('wc2026_knockout_match_hourly_odds')
+        rows: []
+      - input: ref('int_wc2026_knockout_fixtures')
+        rows: []
+      - input: ref('wc2026_knockout_match_odds_coverage')
+        rows:
+          - {fifa_match_id: 101, warning_missing_vendor_mapping: true, warning_polymarket_stale: true, warning_kalshi_stale: true, coverage_status: stale}
+    expect:
+      rows:
+        - {fifa_match_id: 101, severity: warning, issue_type: missing_vendor_mapping_near_kickoff}
+        - {fifa_match_id: 101, severity: warning, issue_type: stale_polymarket_market}
+        - {fifa_match_id: 101, severity: warning, issue_type: stale_kalshi_market}

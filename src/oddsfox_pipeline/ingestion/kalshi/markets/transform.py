@@ -66,6 +66,7 @@ def normalize_market_row(
         "open_time": _parse_ts(market.get("open_time")),
         "close_time": _parse_ts(market.get("close_time")),
         "expiration_time": _parse_ts(market.get("expiration_time")),
+        "occurrence_datetime": _parse_ts(market.get("occurrence_datetime")),
         "volume": market.get("volume"),
         "open_interest": market.get("open_interest"),
         "last_price_dollars": market.get("last_price_dollars"),

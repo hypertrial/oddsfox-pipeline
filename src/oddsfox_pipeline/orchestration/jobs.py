@@ -6,6 +6,7 @@ from oddsfox_pipeline.naming import (
     SCOPE_WC2026,
     SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_KALSHI,
+    SOURCE_OPENFOOTBALL,
     SOURCE_POLYMARKET,
     asset_key,
 )
@@ -20,6 +21,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.scope_registry import (
     KALSHI_WC2026_SCOPE,
@@ -52,6 +54,11 @@ _INTERNATIONAL_RESULTS_WC2026_TAGS = {
     "source": SOURCE_INTERNATIONAL_RESULTS,
     "scope": SCOPE_WC2026,
 }
+_WC2026_CROSS_DOMAIN_TAGS = {
+    **_DUCKDB_WAREHOUSE_TAGS,
+    "source": "cross_domain",
+    "scope": SCOPE_WC2026,
+}
 
 
 def _merge_run_configs(*configs: dict) -> dict:
@@ -80,6 +87,10 @@ POLYMARKET_WC2026_DBT_SELECTION = build_dbt_asset_selection(
 
 INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "raw", "match_results"),
+)
+
+OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION = AssetSelection.assets(
+    asset_key(SOURCE_OPENFOOTBALL, SCOPE_WC2026, "raw", "knockout_fixtures"),
 )
 
 POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
@@ -221,6 +232,20 @@ KALSHI_WC2026_FULL_PIPELINE_SELECTION = (
     | KALSHI_WC2026_DBT_SELECTION
 )
 
+WC2026_KNOCKOUT_MATCH_ODDS_DBT_SELECTION = build_dbt_asset_selection(
+    [oddsfox_dbt],
+    dbt_select="+tag:cross_domain",
+)
+
+WC2026_KNOCKOUT_MATCH_ODDS_FULL_PIPELINE_SELECTION = (
+    OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION
+    | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
+    | POLYMARKET_WC2026_HOURLY_ODDS_SELECTION
+    | KALSHI_WC2026_MARKET_REGISTRY_SELECTION
+    | KALSHI_WC2026_HOURLY_ODDS_SELECTION
+    | WC2026_KNOCKOUT_MATCH_ODDS_DBT_SELECTION
+)
+
 kalshi_wc2026_market_registry_refresh = define_asset_job(
     KALSHI_WC2026_SCOPE.registry_job_name,
     selection=KALSHI_WC2026_MARKET_REGISTRY_SELECTION,
@@ -255,4 +280,12 @@ kalshi_wc2026_full_pipeline = define_asset_job(
         kalshi_wc2026_dbt_build_run_config(),
     ),
     tags=_KALSHI_WC2026_TAGS,
+)
+
+wc2026_knockout_match_odds_full_pipeline = define_asset_job(
+    "wc2026_knockout_match_odds_full_pipeline",
+    selection=WC2026_KNOCKOUT_MATCH_ODDS_FULL_PIPELINE_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=wc2026_knockout_match_odds_full_pipeline_run_config(),
+    tags=_WC2026_CROSS_DOMAIN_TAGS,
 )

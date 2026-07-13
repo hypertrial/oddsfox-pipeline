@@ -82,8 +82,9 @@ self-managed dashboard stack.
 ## Shipped data scopes
 
 Version `0.1.x` ships Polymarket FIFA World Cup 2026 and US midterms 2026
-pipelines, Kalshi WC2026 stage and group-winner markets, and FIFA fixture and
-results data for real-team validation.
+pipelines, Kalshi WC2026 stage, group-winner, and exact match-advance markets,
+a standardized cross-platform knockout match mart, and FIFA fixture/results
+data for identity and real-team validation.
 
 [Choose a scope](getting-started/choose-a-scope.md) or read the
 [architecture](concepts/architecture.md) before extending the pipeline.

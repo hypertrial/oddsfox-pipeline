@@ -35,6 +35,11 @@ _MARKET_COLUMNS = {
     "open_time": {"data_type": "timestamp", "timezone": False, "nullable": True},
     "close_time": {"data_type": "timestamp", "timezone": False, "nullable": True},
     "expiration_time": {"data_type": "timestamp", "timezone": False, "nullable": True},
+    "occurrence_datetime": {
+        "data_type": "timestamp",
+        "timezone": False,
+        "nullable": True,
+    },
     "volume": {"data_type": "bigint", "nullable": True},
     "open_interest": {"data_type": "bigint", "nullable": True},
     "last_price_dollars": {"data_type": "text", "nullable": True},

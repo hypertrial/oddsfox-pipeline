@@ -7,6 +7,7 @@ from types import ModuleType
 
 _SETTINGS_CHAIN: tuple[str, ...] = (
     "oddsfox_pipeline.config.settings_warehouse",
+    "oddsfox_pipeline.config.settings_kalshi",
     "oddsfox_pipeline.config.settings_polymarket",
     "oddsfox_pipeline.config.settings",
 )

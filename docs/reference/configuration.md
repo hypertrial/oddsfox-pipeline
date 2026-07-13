@@ -4,8 +4,9 @@ Use `.env.example` as the source of local overrides.
 For first-run steps, see [Quickstart](../getting-started/index.md).
 
 Most settings are adapter-specific. In v0.1.x, that means the shipped WC2026
-and US midterms 2026 Polymarket pipelines, the Kalshi WC2026 pipeline, plus the
-fixed FIFA results CSV used for WC2026 team validation.
+and US midterms 2026 Polymarket pipelines, the Kalshi WC2026 pipeline, the fixed
+FIFA results CSV used for team validation, and the OpenFootball mirror of FIFA
+knockout match numbers.
 
 ## Warehouse and dbt
 
@@ -42,7 +43,8 @@ Most operators should leave `DBT_PROFILES_DIR` unset and use the packaged `dbt/p
 
 Lower request rates when Polymarket APIs return transient failures or timeouts.
 The `international_results` CSV refresh uses the shared HTTP timeout settings
-and has no source-specific env override.
+and has no source-specific env override. The OpenFootball fixture refresh uses
+the same timeout settings and a fixed public source URL.
 
 ## Polymarket scopes
 
@@ -84,6 +86,12 @@ window, and freshness windows live in `dbt/seeds/polymarket_wc2026_contract.csv`
 and `dbt/seeds/polymarket_us_midterms_2026_contract.csv`.
 Python defaults are checked against those seeds in unit tests.
 
+The packaged WC2026 event prefixes include `fifwc-` so exact match events are
+discovered deterministically alongside tag discovery. The combined match job
+sets the Gamma keyset volume floor to zero and the odds volume filter to null for exact
+`soccer_team_to_advance` markets; source-specific progression jobs keep their
+normal $5,000 defaults.
+
 ## Kalshi WC2026
 
 - `KALSHI_REQUESTS_PER_SECOND`: Kalshi trade API request pace (default `5`).
@@ -98,6 +106,10 @@ source for the fixed `wc2026` Kalshi graph. Shared contract values such as the
 trailing hourly window and freshness windows live in
 `dbt/seeds/kalshi_wc2026_contract.csv`; Python defaults are checked against that
 seed in unit tests.
+
+The packaged Kalshi series include `KXWCADVANCE`. Only the two team-advance
+binary markets under a recognized event are eligible for the neutral match
+mart.
 
 ## Odds History Run Config
 
@@ -117,5 +129,11 @@ The old minutely-oriented names are not accepted in v0.1.x.
 - `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
 - `POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_us_midterms_2026_hourly_odds_ingest` schedule (`fidelity=60`).
 - `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `kalshi_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
+- `WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED`: enables the atomic
+  hourly `wc2026_knockout_match_odds_full_pipeline` schedule.
 
 All schedule flags default to `false`.
+
+The neutral `wc2026_*` schemas are a breaking local warehouse layout change.
+v0.1.x has no compatibility aliases or migration path; delete
+`oddsfox.duckdb*` and rerun quickstart when upgrading an older warehouse.

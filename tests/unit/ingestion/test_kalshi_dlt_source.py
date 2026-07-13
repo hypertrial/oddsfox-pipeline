@@ -34,6 +34,7 @@ def test_kalshi_resources_have_frozen_contract():
     assert markets.schema_contract == DLT_STRICT_SCHEMA_CONTRACT
     assert events.columns["event_ticker"]["data_type"] == "text"
     assert markets.columns["market_ticker"]["data_type"] == "text"
+    assert markets.columns["occurrence_datetime"]["data_type"] == "timestamp"
 
 
 def test_collect_raw_events_and_markets_delegates(monkeypatch):

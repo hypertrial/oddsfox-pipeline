@@ -13,6 +13,7 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
     KALSHI_WC2026_OPS_SCHEMA,
     KALSHI_WC2026_RAW_SCHEMA,
+    OPENFOOTBALL_WC2026_RAW_SCHEMA,
     POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA,
     POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
@@ -30,6 +31,9 @@ from oddsfox_pipeline.storage.duckdb.schemas.international_results import (
 from oddsfox_pipeline.storage.duckdb.schemas.kalshi import (
     bootstrap_all_kalshi_tables,
     ensure_all_kalshi_indexes,
+)
+from oddsfox_pipeline.storage.duckdb.schemas.openfootball import (
+    bootstrap_openfootball_tables,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     bootstrap_all_polymarket_tables,
@@ -167,6 +171,7 @@ def init_duck_db() -> None:
             KALSHI_WC2026_RAW_SCHEMA,
             KALSHI_WC2026_OPS_SCHEMA,
             INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
+            OPENFOOTBALL_WC2026_RAW_SCHEMA,
         )
         _SCHEMA_LOGGED = True
     try:
@@ -181,11 +186,13 @@ def init_duck_db() -> None:
         conn.execute(
             f'CREATE SCHEMA IF NOT EXISTS "{INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA}"'
         )
+        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{OPENFOOTBALL_WC2026_RAW_SCHEMA}"')
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{KALSHI_WC2026_RAW_SCHEMA}"')
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{KALSHI_WC2026_OPS_SCHEMA}"')
         bootstrap_all_polymarket_tables(conn)
         bootstrap_all_kalshi_tables(conn)
         bootstrap_international_results_tables(conn)
+        bootstrap_openfootball_tables(conn)
         ensure_all_polymarket_indexes(conn)
         ensure_all_kalshi_indexes(conn)
         _SCHEMA_INITIALIZED = True
@@ -232,6 +239,7 @@ __all__ = [
     "KALSHI_WC2026_OPS_SCHEMA",
     "KALSHI_WC2026_RAW_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA",
+    "OPENFOOTBALL_WC2026_RAW_SCHEMA",
     "_use_conn",
     "active_duckdb_path",
     "ensure_duck_db",

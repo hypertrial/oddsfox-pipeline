@@ -1,0 +1,4 @@
+fifa_match_id,odds_hour_utc,stage_key,home_team,away_team,polymarket_home_advance_price,polymarket_away_advance_price,kalshi_home_advance_price,kalshi_away_advance_price,polymarket_market_id,kalshi_event_ticker,polymarket_hour_complete,kalshi_hour_complete,both_sources_complete,is_pre_kickoff
+101,2026-07-14 16:00:00,semifinal,France,Spain,0.6,0.4,,,pm-match-101,KXWCADVANCE-101,true,false,false,true
+101,2026-07-14 17:00:00,semifinal,France,Spain,,,0.55,0.45,pm-match-101,KXWCADVANCE-101,false,true,false,true
+101,2026-07-14 18:00:00,semifinal,France,Spain,0.65,,,,pm-match-101,KXWCADVANCE-101,false,false,false,true

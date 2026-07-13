@@ -4,6 +4,27 @@ These examples use fully qualified DuckDB table names and assume the current
 working directory contains `oddsfox.duckdb`. If `.env` sets `DUCKDB_PATH`, open
 that file instead.
 
+## Compare WC2026 Knockout Match Advance Prices
+
+```sql
+select
+    odds_hour_utc,
+    fifa_match_id,
+    stage_key,
+    home_team,
+    away_team,
+    polymarket_home_advance_price,
+    kalshi_home_advance_price,
+    polymarket_away_advance_price,
+    kalshi_away_advance_price
+from wc2026_marts.wc2026_knockout_match_hourly_odds
+where both_sources_complete
+order by fifa_match_id, odds_hour_epoch;
+```
+
+These are raw team-advance closes, including extra time and penalties. Missing
+provider-side observations remain null and are not carried across hours.
+
 ## Current WC2026 Polymarket Prices
 
 Actionable live progression prices by team and stage:

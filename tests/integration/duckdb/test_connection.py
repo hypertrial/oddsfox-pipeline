@@ -36,7 +36,8 @@ def test_init_duck_db_creates_raw_and_ops_schemas(tmp_path, monkeypatch):
                     'polymarket_us_midterms_2026_ops',
                     'kalshi_wc2026_raw',
                     'kalshi_wc2026_ops',
-                    'international_results_wc2026_raw'
+                    'international_results_wc2026_raw',
+                    'openfootball_wc2026_raw'
                 )
                 """
             ).fetchall()
@@ -50,9 +51,11 @@ def test_init_duck_db_creates_raw_and_ops_schemas(tmp_path, monkeypatch):
         "kalshi_wc2026_raw",
         "kalshi_wc2026_ops",
         "international_results_wc2026_raw",
+        "openfootball_wc2026_raw",
     }
     assert {
         ("international_results_wc2026_raw", "match_results"),
+        ("openfootball_wc2026_raw", "knockout_fixtures"),
         ("polymarket_us_midterms_2026_raw", "market_tokens"),
         ("polymarket_us_midterms_2026_raw", "odds_history"),
         ("polymarket_us_midterms_2026_ops", "market_scope_registry"),

@@ -17,6 +17,7 @@ from oddsfox_pipeline.naming import (
 )
 
 DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026: Final = "international_results_wc2026"
+DBT_SOURCE_OPENFOOTBALL_WC2026: Final = "openfootball_wc2026"
 DBT_SOURCE_KALSHI_WC2026: Final = "kalshi_wc2026"
 DBT_SOURCE_POLYMARKET_WC2026: Final = "polymarket_wc2026"
 DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026: Final = "polymarket_us_midterms_2026"
@@ -41,6 +42,10 @@ INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA: Final = schema_name(
 INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA: Final = schema_name(
     SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "observability"
 )
+OPENFOOTBALL_WC2026_STAGING_SCHEMA: Final = "openfootball_wc2026_staging"
+WC2026_INTERMEDIATE_SCHEMA: Final = "wc2026_intermediate"
+WC2026_MARTS_SCHEMA: Final = "wc2026_marts"
+WC2026_OBSERVABILITY_SCHEMA: Final = "wc2026_observability"
 POLYMARKET_WC2026_STAGING_SCHEMA: Final = schema_name(
     SOURCE_POLYMARKET, SCOPE_WC2026, "staging"
 )
@@ -98,6 +103,10 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
     INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA,
     INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
     INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
+    OPENFOOTBALL_WC2026_STAGING_SCHEMA,
+    WC2026_INTERMEDIATE_SCHEMA,
+    WC2026_MARTS_SCHEMA,
+    WC2026_OBSERVABILITY_SCHEMA,
     POLYMARKET_WC2026_STAGING_SCHEMA,
     POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
     POLYMARKET_WC2026_MARTS_SCHEMA,
@@ -113,6 +122,20 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
 )
 
 DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
+    (
+        OPENFOOTBALL_WC2026_STAGING_SCHEMA,
+        "stg_openfootball_wc2026_knockout_fixtures",
+    ),
+    (WC2026_INTERMEDIATE_SCHEMA, "int_wc2026_knockout_fixtures"),
+    (WC2026_MARTS_SCHEMA, "wc2026_knockout_match_hourly_odds"),
+    (
+        WC2026_OBSERVABILITY_SCHEMA,
+        "wc2026_knockout_match_odds_coverage",
+    ),
+    (
+        WC2026_OBSERVABILITY_SCHEMA,
+        "wc2026_knockout_match_odds_data_quality",
+    ),
     (
         INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
         "stg_international_results_wc2026_match_results",
@@ -155,6 +178,14 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
         "int_polymarket_wc2026_knockout_market_classification",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_match_advance_tokens",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_match_hourly_odds",
     ),
     (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_market_tokens"),
     (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_markets"),
@@ -247,6 +278,14 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         KALSHI_WC2026_INTERMEDIATE_SCHEMA,
         "int_kalshi_wc2026_group_winner_classification",
+    ),
+    (
+        KALSHI_WC2026_INTERMEDIATE_SCHEMA,
+        "int_kalshi_wc2026_match_advance_markets",
+    ),
+    (
+        KALSHI_WC2026_INTERMEDIATE_SCHEMA,
+        "int_kalshi_wc2026_match_hourly_odds",
     ),
     (KALSHI_WC2026_MARTS_SCHEMA, "kalshi_wc2026_stage_markets"),
     (KALSHI_WC2026_MARTS_SCHEMA, "kalshi_wc2026_stage_market_hourly_odds"),
@@ -545,12 +584,14 @@ __all__ = [
     "DBT_MODELED_SCHEMAS",
     "DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026",
     "DBT_SOURCE_KALSHI_WC2026",
+    "DBT_SOURCE_OPENFOOTBALL_WC2026",
     "DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026",
     "DBT_SOURCE_POLYMARKET_WC2026",
     "INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA",
+    "OPENFOOTBALL_WC2026_STAGING_SCHEMA",
     "KALSHI_WC2026_INTERMEDIATE_SCHEMA",
     "KALSHI_WC2026_MARTS_SCHEMA",
     "KALSHI_WC2026_OBSERVABILITY_SCHEMA",
@@ -563,6 +604,9 @@ __all__ = [
     "POLYMARKET_WC2026_MARTS_SCHEMA",
     "POLYMARKET_WC2026_OBSERVABILITY_SCHEMA",
     "POLYMARKET_WC2026_STAGING_SCHEMA",
+    "WC2026_INTERMEDIATE_SCHEMA",
+    "WC2026_MARTS_SCHEMA",
+    "WC2026_OBSERVABILITY_SCHEMA",
     "dbt_model_asset_key",
     "dbt_model_asset_key_for_name",
     "qualified_relation",

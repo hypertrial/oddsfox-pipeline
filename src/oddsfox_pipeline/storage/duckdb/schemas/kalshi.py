@@ -201,6 +201,7 @@ def create_test_kalshi_raw_tables(
             open_time TIMESTAMP,
             close_time TIMESTAMP,
             expiration_time TIMESTAMP,
+            occurrence_datetime TIMESTAMP,
             volume BIGINT,
             open_interest BIGINT,
             last_price_dollars TEXT,

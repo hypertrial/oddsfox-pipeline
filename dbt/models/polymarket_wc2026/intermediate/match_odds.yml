@@ -1,0 +1,93 @@
+version: 2
+
+models:
+  - name: int_polymarket_wc2026_match_advance_tokens
+    description: Polymarket team-to-advance outcome tokens mapped to FIFA-numbered fixtures without a volume floor.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id]
+    columns:
+      - name: clob_token_id
+        description: Polymarket CLOB outcome token.
+        tests: [not_null, unique]
+      - name: fifa_match_id
+        description: Published FIFA match number.
+        tests: [not_null]
+      - name: team_side
+        description: Official fixture side, independent of provider outcome order.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [home, away]
+      - name: is_ambiguous_mapping
+        description: True when multiple source markets map to one fixture.
+        tests: [not_null]
+
+  - name: int_polymarket_wc2026_match_hourly_odds
+    description: Permanent incremental hourly OHLC fact for mapped Polymarket match-advance tokens.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_hour_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [clob_token_id, odds_hour_epoch]
+            price_columns: [open_price, high_price, low_price, close_price, avg_price]
+    columns:
+      - name: clob_token_id
+        description: Polymarket CLOB outcome token.
+        tests: [not_null]
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the UTC hour.
+        tests: [not_null]
+
+unit_tests:
+  - name: test_polymarket_match_advance_requires_exact_type_and_uses_official_sides
+    model: int_polymarket_wc2026_match_advance_tokens
+    given:
+      - input: source('polymarket_wc2026_ops', 'market_scope_registry')
+        rows:
+          - {scope_name: wc2026, market_id: advance-market}
+          - {scope_name: wc2026, market_id: moneyline-market}
+      - input: ref('int_polymarket_wc2026_token_universe')
+        rows:
+          - {market_id: advance-market, event_slug: fifwc-fra-esp, market_slug: advance, clob_token_id: spain-token, outcome_index: 0, outcome_label: Spain, sports_market_type: soccer_team_to_advance, game_start_time: "2026-07-14 19:00:00", is_active: true, is_closed: false, is_resolved: false}
+          - {market_id: advance-market, event_slug: fifwc-fra-esp, market_slug: advance, clob_token_id: france-token, outcome_index: 1, outcome_label: France, sports_market_type: soccer_team_to_advance, game_start_time: "2026-07-14 19:00:00", is_active: true, is_closed: false, is_resolved: false}
+          - {market_id: moneyline-market, event_slug: fifwc-fra-esp, market_slug: moneyline, clob_token_id: moneyline-france, outcome_index: 0, outcome_label: France, sports_market_type: moneyline, game_start_time: "2026-07-14 19:00:00", is_active: true, is_closed: false, is_resolved: false}
+          - {market_id: moneyline-market, event_slug: fifwc-fra-esp, market_slug: moneyline, clob_token_id: moneyline-spain, outcome_index: 1, outcome_label: Spain, sports_market_type: moneyline, game_start_time: "2026-07-14 19:00:00", is_active: true, is_closed: false, is_resolved: false}
+      - input: ref('international_results_wc2026_team_aliases')
+        rows: []
+      - input: ref('int_wc2026_knockout_fixtures')
+        rows:
+          - {fifa_match_id: 101, stage_key: semifinal, stage_rank: 4, kickoff_at_utc: "2026-07-14 19:00:00", home_team: France, away_team: Spain, teams_resolved: true}
+    expect:
+      rows:
+        - {fifa_match_id: 101, market_id: advance-market, clob_token_id: spain-token, team_side: away, is_ambiguous_mapping: false}
+        - {fifa_match_id: 101, market_id: advance-market, clob_token_id: france-token, team_side: home, is_ambiguous_mapping: false}
+
+  - name: test_polymarket_match_advance_surfaces_ambiguous_fixture_mapping
+    model: int_polymarket_wc2026_match_advance_tokens
+    given:
+      - input: source('polymarket_wc2026_ops', 'market_scope_registry')
+        rows:
+          - {scope_name: wc2026, market_id: market-one}
+          - {scope_name: wc2026, market_id: market-two}
+      - input: ref('int_polymarket_wc2026_token_universe')
+        rows:
+          - {market_id: market-one, event_slug: event-one, market_slug: one, clob_token_id: one-france, outcome_index: 0, outcome_label: France, sports_market_type: soccer_team_to_advance, is_active: true, is_closed: false, is_resolved: false}
+          - {market_id: market-one, event_slug: event-one, market_slug: one, clob_token_id: one-spain, outcome_index: 1, outcome_label: Spain, sports_market_type: soccer_team_to_advance, is_active: true, is_closed: false, is_resolved: false}
+          - {market_id: market-two, event_slug: event-two, market_slug: two, clob_token_id: two-france, outcome_index: 0, outcome_label: France, sports_market_type: soccer_team_to_advance, is_active: true, is_closed: false, is_resolved: false}
+          - {market_id: market-two, event_slug: event-two, market_slug: two, clob_token_id: two-spain, outcome_index: 1, outcome_label: Spain, sports_market_type: soccer_team_to_advance, is_active: true, is_closed: false, is_resolved: false}
+      - input: ref('international_results_wc2026_team_aliases')
+        rows: []
+      - input: ref('int_wc2026_knockout_fixtures')
+        rows:
+          - {fifa_match_id: 101, stage_key: semifinal, stage_rank: 4, kickoff_at_utc: "2026-07-14 19:00:00", home_team: France, away_team: Spain, teams_resolved: true}
+    expect:
+      rows:
+        - {market_id: market-one, is_ambiguous_mapping: true}
+        - {market_id: market-one, is_ambiguous_mapping: true}
+        - {market_id: market-two, is_ambiguous_mapping: true}
+        - {market_id: market-two, is_ambiguous_mapping: true}

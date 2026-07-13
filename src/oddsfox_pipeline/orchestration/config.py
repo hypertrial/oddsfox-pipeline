@@ -353,3 +353,52 @@ def kalshi_wc2026_dbt_build_run_config() -> dict:
         dbt_exclude=KALSHI_WC2026_SCOPE.dbt_exclude,
     )
     return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}
+
+
+def wc2026_knockout_match_odds_full_pipeline_run_config() -> dict:
+    """Atomic fixture, vendor, permanent-fact, and mart refresh config."""
+    polymarket_markets = MarketsSyncConfig(
+        discovery_mode="full_keyset",
+        force_full_discovery=True,
+        keyset_volume_min=0.0,
+        max_pages_without_progress=None,
+    )
+    polymarket_registry = MarketScopeRegistryConfig(
+        force_refresh=True,
+        keyset_volume_min=0.0,
+        max_pages_without_progress=None,
+    )
+    polymarket_odds = HourlyOddsSyncConfig(
+        window_hours=KALSHI_WC2026_HOURLY_WINDOW_HOURS,
+        history_backfill_days=KALSHI_WC2026_HOURLY_WINDOW_DAYS,
+        min_volume=None,
+    )
+    dbt = DbtBuildConfig(full_refresh=False, dbt_select="+tag:cross_domain")
+    return {
+        "ops": {
+            "polymarket_wc2026_raw_markets": {
+                "config": polymarket_markets.model_dump()
+            },
+            "polymarket_wc2026_ops_market_scope_registry": {
+                "config": polymarket_registry.model_dump()
+            },
+            "polymarket_wc2026_raw_market_metadata_backfill": {
+                "config": MetadataBackfillConfig().model_dump()
+            },
+            "polymarket_wc2026_raw_token_odds_history_hourly": {
+                "config": polymarket_odds.model_dump()
+            },
+            "kalshi_wc2026_raw_markets": {
+                "config": KalshiMarketsSyncConfig().model_dump()
+            },
+            "kalshi_wc2026_ops_market_scope_registry": {
+                "config": KalshiMarketScopeRegistryConfig(
+                    force_refresh=True
+                ).model_dump()
+            },
+            "kalshi_wc2026_raw_market_candlesticks_hourly": {
+                "config": KalshiHourlyOddsSyncConfig().model_dump()
+            },
+            "oddsfox_dbt": {"config": dbt.model_dump()},
+        }
+    }

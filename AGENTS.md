@@ -2,9 +2,9 @@
 
 OddsFox Pipeline is an open-source, local-first prediction-market data pipeline.
 Version `0.1.x` ships a WC2026 Polymarket pipeline for FIFA World Cup
-2026 markets and odds, a Kalshi WC2026 pipeline for stage and group-winner
-markets, plus a small FIFA fixture/results source for real-team
-scope validation.
+2026 markets and odds, a Kalshi WC2026 pipeline for stage, group-winner, and
+match-advance markets, a standardized cross-platform knockout match mart, plus
+FIFA fixture/results sources for official identity and real-team validation.
 Stack: **Dagster** (orchestration), **dlt** (market landing), **dbt** +
 **DuckDB** (warehouse/analytics), **uv** (deps), **Ruff** + **sqlfluff**
 (lint), **pytest** (tests).
@@ -22,6 +22,7 @@ Default warehouse: `oddsfox.duckdb` in the repo root. Keep schedules disabled in
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED=false
 ```
 
 ## AI agent guidance
@@ -134,6 +135,8 @@ dbt/
   models/polymarket_wc2026/{staging,intermediate,marts,observability}/
   models/polymarket_us_midterms_2026/{staging,intermediate,marts,observability}/
   models/kalshi_wc2026/{staging,intermediate,marts,observability}/
+  models/openfootball_wc2026/staging/
+  models/wc2026/{intermediate,marts,observability}/
   tests/           # Singular dbt data tests (assert_*)
 tests/
   unit/            # Mocked config, ingestion, storage, orchestration
@@ -183,15 +186,17 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 9. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
 10. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
 11. `international_results/wc2026/raw/match_results`
-12. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
-13. `kalshi/wc2026/raw/markets`
-14. `kalshi/wc2026/raw/markets_snapshot`
-15. `kalshi/wc2026/ops/market_scope_registry`
-16. `kalshi/wc2026/raw/market_candlesticks_hourly`
-17. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+12. `openfootball/wc2026/raw/knockout_fixtures`
+13. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
+14. `kalshi/wc2026/raw/markets`
+15. `kalshi/wc2026/raw/markets_snapshot`
+16. `kalshi/wc2026/ops/market_scope_registry`
+17. `kalshi/wc2026/raw/market_candlesticks_hourly`
+18. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
    `polymarket/us_midterms_2026/{staging,intermediate,marts,observability}/...`,
    `international_results/wc2026/{staging,intermediate,marts,observability}/...`,
-   and `kalshi/wc2026/{staging,intermediate,marts,observability}/...`
+   `kalshi/wc2026/{staging,intermediate,marts,observability}/...`,
+   `openfootball/wc2026/staging/...`, and `wc2026/{intermediate,marts,observability}/...`
 
 Key jobs: `international_results_wc2026_match_results_ingest`,
 `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
@@ -201,21 +206,26 @@ Key jobs: `international_results_wc2026_match_results_ingest`,
 `polymarket_us_midterms_2026_dbt_build`,
 `polymarket_us_midterms_2026_full_pipeline`,
 `kalshi_wc2026_market_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
-`kalshi_wc2026_dbt_build`, `kalshi_wc2026_full_pipeline`.
+`kalshi_wc2026_dbt_build`, `kalshi_wc2026_full_pipeline`,
+`wc2026_knockout_match_odds_full_pipeline`.
 
 Schedules target `polymarket_wc2026_hourly_odds_ingest`,
 `polymarket_us_midterms_2026_hourly_odds_ingest`, and
 `kalshi_wc2026_hourly_odds_ingest`; all are **stopped by default**.
+The combined `wc2026_knockout_match_odds_hourly_schedule` targets the atomic
+cross-platform full pipeline and is also stopped by default.
 Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 
 **Market scope:** v0.1.x ships fixed Dagster/dbt graphs for `wc2026` and
-`us_midterms_2026` on Polymarket plus `wc2026` on Kalshi. Polymarket scope
+`us_midterms_2026` on Polymarket plus `wc2026` on Kalshi. The neutral WC2026
+match mart is a fixed cross-domain graph over those sources. Polymarket scope
 helpers may load other slug-like seed entries for tests and future work, but
 Dagster asset configs do not accept a runtime scope selector. See
 [Configuration](docs/reference/configuration.md).
 
 **Kalshi env vars:** `KALSHI_REQUESTS_PER_SECOND`,
-`KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`. Kalshi uses the public trade API;
+`KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`,
+`WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED`. Kalshi uses the public trade API;
 no API credentials are required for local docs, dbt, or mocked tests.
 
 DuckDB is local-only runtime state. For read-only inspection prefer `scripts/profile_warehouse.py` over opening the warehouse read-write.

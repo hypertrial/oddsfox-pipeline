@@ -8,16 +8,19 @@ from oddsfox_pipeline.config.settings import (
     KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED,
     POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED,
     POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED,
+    WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED,
 )
 from oddsfox_pipeline.orchestration.config import (
     kalshi_wc2026_hourly_odds_run_config,
     polymarket_us_midterms_2026_hourly_odds_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.jobs import (
     kalshi_wc2026_hourly_odds_ingest,
     polymarket_us_midterms_2026_hourly_odds_ingest,
     polymarket_wc2026_hourly_odds_ingest,
+    wc2026_knockout_match_odds_full_pipeline,
 )
 
 polymarket_wc2026_hourly_odds_schedule = ScheduleDefinition(
@@ -68,8 +71,25 @@ kalshi_wc2026_hourly_odds_schedule = ScheduleDefinition(
     ),
 )
 
+wc2026_knockout_match_odds_hourly_schedule = ScheduleDefinition(
+    name="wc2026_knockout_match_odds_hourly_schedule",
+    job=wc2026_knockout_match_odds_full_pipeline,
+    cron_schedule="0 * * * *",
+    run_config=wc2026_knockout_match_odds_full_pipeline_run_config(),
+    default_status=(
+        DefaultScheduleStatus.RUNNING
+        if WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED
+        else DefaultScheduleStatus.STOPPED
+    ),
+    description=(
+        "Atomic hourly WC2026 knockout fixture and match-advance odds refresh. "
+        "Controlled by WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED."
+    ),
+)
+
 __all__ = [
     "kalshi_wc2026_hourly_odds_schedule",
     "polymarket_us_midterms_2026_hourly_odds_schedule",
     "polymarket_wc2026_hourly_odds_schedule",
+    "wc2026_knockout_match_odds_hourly_schedule",
 ]

@@ -13,6 +13,20 @@ import great_expectations as gx
 
 PUBLIC_RELATIONS: tuple[tuple[str, str, tuple[str, ...], tuple[str, ...], int], ...] = (
     (
+        "wc2026_marts",
+        "wc2026_knockout_match_hourly_odds",
+        ("fifa_match_id", "odds_hour_epoch"),
+        (
+            "fifa_match_id",
+            "odds_hour_epoch",
+            "polymarket_home_advance_price",
+            "polymarket_away_advance_price",
+            "kalshi_home_advance_price",
+            "kalshi_away_advance_price",
+        ),
+        0,
+    ),
+    (
         "international_results_wc2026_marts",
         "international_results_wc2026_team_status",
         ("team_name",),
@@ -162,6 +176,7 @@ def _check_data_quality_tables(conn: duckdb.DuckDBPyConnection) -> list[dict[str
         ),
         ("kalshi_wc2026_observability", "kalshi_wc2026_data_quality"),
         ("polymarket_wc2026_observability", "polymarket_wc2026_knockout_data_quality"),
+        ("wc2026_observability", "wc2026_knockout_match_odds_data_quality"),
     ):
         if not _relation_exists(conn, schema, table):
             checks.append(

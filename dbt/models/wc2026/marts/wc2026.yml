@@ -1,0 +1,141 @@
+version: 2
+
+models:
+  - name: wc2026_knockout_match_hourly_odds
+    description: >
+      Dense hourly raw closing prices for each team's probability of advancing
+      from a FIFA-numbered WC2026 knockout match on Polymarket and Kalshi.
+    meta:
+      dagster:
+        asset_key: [wc2026, marts, knockout_match_hourly_odds]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [fifa_match_id, odds_hour_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [fifa_match_id, odds_hour_epoch]
+            price_columns:
+              - polymarket_home_advance_price
+              - polymarket_away_advance_price
+              - kalshi_home_advance_price
+              - kalshi_away_advance_price
+    columns:
+      - name: odds_hour_utc
+        description: UTC hour boundary.
+        tests: [not_null]
+      - name: odds_hour_epoch
+        description: Unix epoch seconds for the UTC hour boundary.
+        tests: [not_null]
+      - name: fifa_match_id
+        description: Published numeric FIFA match number.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_wc2026_knockout_fixtures')
+                field: fifa_match_id
+      - name: stage_key
+        description: FIFA knockout stage.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [round_of_32, round_of_16, quarterfinal, semifinal, final]
+      - name: stage_rank
+        description: Stage order from one through five.
+        tests: [not_null]
+      - name: kickoff_at_utc
+        description: Scheduled kickoff in UTC.
+        tests: [not_null]
+      - name: home_team
+        description: Official fixture home team.
+        tests: [not_null]
+      - name: away_team
+        description: Official fixture away team.
+        tests: [not_null]
+      - name: price_represents
+        description: Constant team_advances, including extra time and penalties.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [team_advances]
+      - name: price_statistic
+        description: Constant hourly_close.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [hourly_close]
+      - name: polymarket_home_advance_price
+        description: Raw close of the Polymarket home-team outcome token in this hour.
+      - name: polymarket_away_advance_price
+        description: Raw close of the Polymarket away-team outcome token in this hour.
+      - name: kalshi_home_advance_price
+        description: Raw close of the Kalshi home-team Yes market in this hour.
+      - name: kalshi_away_advance_price
+        description: Raw close of the Kalshi away-team Yes market in this hour.
+      - name: polymarket_hour_complete
+        description: True when both Polymarket team prices exist in this exact hour.
+        tests: [not_null]
+      - name: kalshi_hour_complete
+        description: True when both Kalshi team prices exist in this exact hour.
+        tests: [not_null]
+      - name: both_sources_complete
+        description: True when all four prices exist in this exact hour.
+        tests: [not_null]
+      - name: is_pre_kickoff
+        description: True when the hour begins before official kickoff.
+        tests: [not_null]
+
+unit_tests:
+  - name: test_wc2026_match_odds_dense_spine_does_not_fill_prices
+    model: wc2026_knockout_match_hourly_odds
+    given:
+      - input: ref('int_wc2026_knockout_fixtures')
+        rows:
+          - {fifa_match_id: 101, stage_key: semifinal, stage_rank: 4, kickoff_at_utc: "2026-07-14 19:00:00", home_team: France, away_team: Spain, teams_resolved: true}
+      - input: ref('int_polymarket_wc2026_match_advance_tokens')
+        rows:
+          - {fifa_match_id: 101, market_id: pm-101, clob_token_id: pm-france, team_side: home, is_ambiguous_mapping: false}
+          - {fifa_match_id: 101, market_id: pm-101, clob_token_id: pm-spain, team_side: away, is_ambiguous_mapping: false}
+      - input: ref('int_polymarket_wc2026_match_hourly_odds')
+        rows:
+          - {clob_token_id: pm-france, odds_hour_utc: "2026-07-14 16:00:00", odds_hour_epoch: 1784044800, close_price: 0.60, observed_points: 2}
+          - {clob_token_id: pm-spain, odds_hour_utc: "2026-07-14 18:00:00", odds_hour_epoch: 1784052000, close_price: 0.45, observed_points: 1}
+      - input: ref('int_kalshi_wc2026_match_advance_markets')
+        rows:
+          - {fifa_match_id: 101, event_ticker: k-101, market_ticker: k-france, team_side: home, is_ambiguous_mapping: false}
+          - {fifa_match_id: 101, event_ticker: k-101, market_ticker: k-spain, team_side: away, is_ambiguous_mapping: false}
+      - input: ref('int_kalshi_wc2026_match_hourly_odds')
+        rows:
+          - {market_ticker: k-france, odds_hour_utc: "2026-07-14 17:00:00", odds_hour_epoch: 1784048400, close_price: 0.55, volume: 10}
+          - {market_ticker: k-spain, odds_hour_utc: "2026-07-14 17:00:00", odds_hour_epoch: 1784048400, close_price: 0.47, volume: 8}
+    expect:
+      rows:
+        - {fifa_match_id: 101, odds_hour_epoch: 1784044800, polymarket_home_advance_price: 0.60, polymarket_away_advance_price: null, kalshi_home_advance_price: null, kalshi_away_advance_price: null, both_sources_complete: false}
+        - {fifa_match_id: 101, odds_hour_epoch: 1784048400, polymarket_home_advance_price: null, polymarket_away_advance_price: null, kalshi_home_advance_price: 0.55, kalshi_away_advance_price: 0.47, both_sources_complete: false}
+        - {fifa_match_id: 101, odds_hour_epoch: 1784052000, polymarket_home_advance_price: null, polymarket_away_advance_price: 0.45, kalshi_home_advance_price: null, kalshi_away_advance_price: null, both_sources_complete: false}
+
+  - name: test_wc2026_final_advance_price_means_post_kickoff_champion
+    model: wc2026_knockout_match_hourly_odds
+    given:
+      - input: ref('int_wc2026_knockout_fixtures')
+        rows:
+          - {fifa_match_id: 104, stage_key: final, stage_rank: 5, kickoff_at_utc: "2026-07-19 19:00:00", home_team: England, away_team: Argentina, teams_resolved: true}
+      - input: ref('int_polymarket_wc2026_match_advance_tokens')
+        rows:
+          - {fifa_match_id: 104, market_id: pm-104, clob_token_id: pm-england, team_side: home, is_ambiguous_mapping: false}
+          - {fifa_match_id: 104, market_id: pm-104, clob_token_id: pm-argentina, team_side: away, is_ambiguous_mapping: false}
+      - input: ref('int_polymarket_wc2026_match_hourly_odds')
+        rows:
+          - {clob_token_id: pm-england, odds_hour_utc: "2026-07-19 20:00:00", odds_hour_epoch: 1784491200, close_price: 1.0, observed_points: 1}
+          - {clob_token_id: pm-argentina, odds_hour_utc: "2026-07-19 20:00:00", odds_hour_epoch: 1784491200, close_price: 0.0, observed_points: 1}
+      - input: ref('int_kalshi_wc2026_match_advance_markets')
+        rows: []
+      - input: ref('int_kalshi_wc2026_match_hourly_odds')
+        rows: []
+    expect:
+      rows:
+        - {fifa_match_id: 104, stage_key: final, price_represents: team_advances, polymarket_home_advance_price: 1.0, polymarket_away_advance_price: 0.0, is_pre_kickoff: false}

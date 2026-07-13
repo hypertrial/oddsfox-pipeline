@@ -9,8 +9,9 @@ prediction-market data.
 
 It uses Dagster to orchestrate dlt/CSV ingestion, DuckDB storage, Python sync
 ledgers, and dbt analytics models. Version `0.1.x` ships WC2026 Polymarket
-odds, US midterms 2026 Polymarket odds, Kalshi WC2026 odds, and FIFA
-fixture/results validation. Existing local warehouses from older layouts must
+odds, US midterms 2026 Polymarket odds, Kalshi WC2026 odds, a standardized
+cross-platform knockout match mart, and FIFA fixture/results validation.
+Existing local warehouses from older layouts must
 be reset with `rm oddsfox.duckdb*`.
 
 ## Project Scope
@@ -102,6 +103,8 @@ Main public analytics schemas:
 
 - `polymarket_wc2026_marts`: WC2026 Polymarket knockout market snapshots,
   progression-side hourly odds, token classification, and graph exports.
+- `wc2026_marts`: official FIFA-numbered knockout match hourly team-advance
+  prices across Polymarket and Kalshi, with exact missing hours preserved.
 - `international_results_wc2026_marts`: WC2026 fixtures, results, and canonical
   team status used to clean public odds marts.
 - `polymarket_us_midterms_2026_marts`: scoped US midterms 2026 Polymarket
@@ -122,6 +125,9 @@ Dagster registers source-first jobs:
 `polymarket_us_midterms_2026_full_pipeline`;
 `kalshi_wc2026_market_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
 `kalshi_wc2026_dbt_build`, and `kalshi_wc2026_full_pipeline`.
+The atomic cross-platform job is
+`wc2026_knockout_match_odds_full_pipeline`; its hourly schedule is stopped by
+default.
 
 See the [Data dictionary](docs/reference/data-dictionary.md) for analyst-facing table
 semantics, [Data contracts](docs/reference/data-contracts.md) for formal guarantees, and

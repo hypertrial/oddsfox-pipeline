@@ -17,6 +17,9 @@ def test_dbt_project_sources_are_wc2026_only():
         dbt_root / "models" / "sources" / "international_results_wc2026_sources.yml"
     ).exists()
     assert (
+        dbt_root / "models" / "sources" / "openfootball_wc2026_sources.yml"
+    ).exists()
+    assert (
         dbt_root / "models" / "polymarket_wc2026" / "staging" / "staging.yml"
     ).exists()
     assert (
@@ -66,9 +69,11 @@ def test_dbt_project_sources_are_wc2026_only():
     assert model_dirs == {
         "international_results_wc2026",
         "kalshi_wc2026",
+        "openfootball_wc2026",
         "polymarket_us_midterms_2026",
         "polymarket_wc2026",
         "sources",
+        "wc2026",
     }
 
 
@@ -132,6 +137,30 @@ def test_hourly_odds_materialization_shape():
     assert marts["polymarket_wc2026_graph_token_hourly_odds"]["+materialized"] == "view"
     assert "polymarket_wc2026_token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_daily_odds" not in marts
+
+
+def test_match_hourly_facts_are_incremental_cross_domain_models():
+    project = yaml.safe_load(
+        (Path(__file__).resolve().parents[2] / "dbt" / "dbt_project.yml").read_text()
+    )
+    models = project["models"]["oddsfox"]
+    polymarket = models["polymarket_wc2026"]["intermediate"]
+    kalshi = models["kalshi_wc2026"]["intermediate"]
+
+    assert polymarket["int_polymarket_wc2026_match_hourly_odds"] == {
+        "+materialized": "incremental",
+        "+tags": ["cross_domain"],
+    }
+    assert polymarket["int_polymarket_wc2026_match_advance_tokens"] == {
+        "+tags": ["cross_domain"]
+    }
+    assert kalshi["int_kalshi_wc2026_match_hourly_odds"] == {
+        "+materialized": "incremental",
+        "+tags": ["cross_domain"],
+    }
+    assert kalshi["int_kalshi_wc2026_match_advance_markets"] == {
+        "+tags": ["cross_domain"]
+    }
 
 
 def test_wc2026_contract_seed_is_configured_and_documented():

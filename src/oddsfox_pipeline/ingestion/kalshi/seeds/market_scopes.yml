@@ -8,6 +8,7 @@ scopes:
       - KXMENWORLDCUP
       - KXWCSTAGEOFELIM
       - KXWCGROUPWIN
+      - KXWCADVANCE
 
     excluded_market_suffixes:
       KXWCSTAGEOFELIM:

@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: int_wc2026_knockout_fixtures
+    description: The 31 advancement fixtures, excluding FIFA match 103.
+    meta:
+      dagster:
+        asset_key: [wc2026, intermediate, knockout_fixtures]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [fifa_match_id]
+    columns:
+      - name: fifa_match_id
+        description: Published numeric FIFA match number.
+        tests: [not_null, unique]
+      - name: stage_key
+        description: Advancement stage.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [round_of_32, round_of_16, quarterfinal, semifinal, final]
+      - name: teams_resolved
+        description: True after both bracket placeholders have resolved to teams.
+        tests: [not_null]
