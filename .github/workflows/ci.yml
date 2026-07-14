@@ -162,7 +162,7 @@ jobs:
         run: mv .coverage .coverage.unit
 
       - name: Upload coverage
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-unit
           path: .coverage.unit
@@ -199,7 +199,7 @@ jobs:
         run: mv .coverage .coverage.dagster-jobs
 
       - name: Upload coverage
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-dagster-jobs
           path: .coverage.dagster-jobs
@@ -236,7 +236,7 @@ jobs:
         run: mv .coverage .coverage.dagster-refresh
 
       - name: Upload coverage
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-dagster-refresh
           path: .coverage.dagster-refresh
@@ -273,7 +273,7 @@ jobs:
         run: mv .coverage .coverage.dbt-integration
 
       - name: Upload coverage
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-dbt-integration
           path: .coverage.dbt-integration
@@ -365,7 +365,7 @@ jobs:
 
       - name: Upload Costguard receipt
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: costguard-receipt
           path: dbt/costguard-receipt.json
