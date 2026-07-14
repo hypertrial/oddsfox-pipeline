@@ -400,7 +400,7 @@ jobs:
         run: uv sync --extra dev
 
       - name: Download coverage artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: coverage-*
           path: .coverage-artifacts
