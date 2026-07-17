@@ -7,17 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- Consolidated GitHub Actions into one offline runner capped at five minutes
-  total; it runs lint, fast tests, saved HTTP contracts, dbt parse, and a
-  strict documentation build. The exhaustive release gate remains local.
-
-### Removed
-
-- Removed GitHub-hosted live ingestion. `make live-smoke` remains the
-  operator-owned local readiness path.
-
 ## [0.1.6] - 2026-07-17
 
 ### Added
@@ -37,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Consolidated GitHub Actions into one offline runner capped at five minutes
+  total; it runs lint, fast tests, saved HTTP contracts, dbt parse, and a
+  strict documentation build. The exhaustive release gate remains local.
 - Reorganized the documentation into operator-first getting-started, guide,
   reference, concept, and development sections.
 - Replaced the oversized landing page with a compact responsive homepage, a
@@ -51,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Kalshi WC2026 scope now includes `KXWCADVANCE`; Polymarket discovery includes
   `fifwc-` exact match events. Exact `soccer_team_to_advance` match markets
   bypass the progression-futures volume floor without changing existing marts.
+
+### Removed
+
+- Removed GitHub-hosted live ingestion. `make live-smoke` remains the
+  operator-owned local readiness path.
 
 ### Fixed
 
