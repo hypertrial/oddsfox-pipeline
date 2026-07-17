@@ -1,0 +1,65 @@
+name: live-readiness
+
+'on':
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Offline source contracts or a disposable live WC2026 pipeline smoke.
+        required: true
+        default: source-contracts
+        type: choice
+        options:
+          - source-contracts
+          - live-smoke
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-readiness-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  live-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DUCKDB_NAME: .cache/live-readiness/oddsfox.duckdb
+      DUCKDB_PATH: .cache/live-readiness/oddsfox.duckdb
+      POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
+      POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
+      KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
+      WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - uses: astral-sh/setup-uv@v8.3.2
+      - run: uv sync --extra dev
+      - name: Run readiness check
+        shell: bash
+        run: |
+          mkdir -p .cache/live-readiness
+          set +e
+          if [ "${{ inputs.mode }}" = "live-smoke" ]; then
+            uv run make live-smoke > .cache/live-readiness/run.log 2>&1
+          else
+            uv run make contract-http > .cache/live-readiness/run.log 2>&1
+          fi
+          status=$?
+          echo "$status" > .cache/live-readiness/exit-status
+          cat .cache/live-readiness/run.log
+          exit 0
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-readiness-diagnostics
+          path: |
+            .cache/live-readiness/run.log
+            .cache/live-readiness/exit-status
+          if-no-files-found: error
+          retention-days: 7
+      - name: Fail on readiness failure
+        run: exit "$(cat .cache/live-readiness/exit-status)"

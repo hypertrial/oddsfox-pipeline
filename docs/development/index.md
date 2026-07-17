@@ -65,6 +65,9 @@ local Great Expectations report under `.cache/` after `dbt-build-ci` has already
 created the disposable warehouse. `data-quality` remains the safe local wrapper
 that rebuilds first. `contract-http` replays sanitized HTTP cassettes and is
 manual/nightly; default CI and `make test` exclude the `contract` marker.
+`live-smoke` is also opt-in: it runs the combined WC2026 public-source job.
+The manual `live-readiness` workflow supplies a disposable DuckDB path and
+uploads only its log and exit status.
 
 Dagster dbt assets enable dbt source tests as asset checks. Row-count and
 column metadata fetching is available through `DbtBuildConfig` but stays
@@ -158,6 +161,7 @@ when settings reload from disk. See
 | `uv run make gx-data-quality` | Great Expectations-style report against an existing disposable dbt build. |
 | `uv run make data-quality` | Safe local wrapper that rebuilds disposable dbt state before `gx-data-quality`. |
 | `uv run make contract-http` | Replay-only HTTP contract tests; manual/nightly, not default CI. |
+| `uv run make live-smoke` | Opt-in live WC2026 cross-platform pipeline. |
 | `uv run make costguard-scan` | Run the pinned dbt cost guardrail against an existing dbt build. |
 | `uv run make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard. |
 | `uv run make coverage` | Local one-shot 100% product-core branch coverage gate. |

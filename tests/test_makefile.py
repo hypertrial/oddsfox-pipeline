@@ -65,3 +65,5 @@ def test_ci_split_targets_remain_wired():
     assert "integration-dagster-cov: dagster-jobs-smoke-cov dagster-refresh-cov" in (
         makefile
     )
+    assert "live-smoke:" in makefile
+    assert "wc2026_knockout_match_odds_full_pipeline" in makefile
