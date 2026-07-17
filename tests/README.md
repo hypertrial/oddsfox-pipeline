@@ -33,22 +33,21 @@ make coverage
 make check-secrets
 ```
 
-CI mirrors the quality gate with coverage accumulation and parallel jobs:
-`make test-cov`, `make dagster-jobs-smoke-cov`, `make dagster-refresh-cov`,
-`make integration-dbt-cov`, `make dbt-unit`, `make golden-dbt`,
-`make dbt-source-freshness-ci`, `make gx-data-quality`, and
-`make coverage-report`. Local `make integration-dagster-cov` remains a wrapper
-around both split Dagster coverage targets, and local `make coverage` is still a
-one-shot equivalent. `make contract-http` is manual/nightly; the `contract`
-marker is excluded from `make test`, `make test-cov`, and default CI.
+The full local release gate accumulates coverage with `make test-cov`,
+`make dagster-jobs-smoke-cov`, `make dagster-refresh-cov`,
+`make integration-dbt-cov`, and `make coverage-report`, alongside the dbt,
+freshness, golden, and data-quality targets. `make integration-dagster-cov`
+wraps both split Dagster coverage targets, while `make coverage` is the
+one-shot equivalent. GitHub's single fast runner executes `make contract-http`;
+the `contract` marker remains excluded from `make test` and `make test-cov`.
 
 `make dagster-jobs-smoke` runs every registered public Dagster job headlessly
-with temp DuckDB state and mocked external APIs. CI splits that registered-job
-smoke from the deeper seeded Dagster refresh-path smoke so the jobs can run in
-parallel without enabling xdist on DuckDB/Dagster fixtures. Together with the
-other coverage jobs, they enforce 100% branch coverage for `src/oddsfox_pipeline`
-except the warehouse profiling operator helpers under `storage/duckdb/profile/`,
-which are covered by smoke tests instead.
+with temp DuckDB state and mocked external APIs. The local coverage gate splits
+that registered-job smoke from the deeper seeded Dagster refresh path without
+enabling xdist on DuckDB/Dagster fixtures. Together with the other coverage
+commands, they enforce 100% branch coverage for `src/oddsfox_pipeline` except
+the warehouse profiling operator helpers under `storage/duckdb/profile/`, which
+are covered by smoke tests instead.
 
 `make gx-data-quality` runs against an existing disposable
 `.cache/dbt_build.duckdb` database and writes Great Expectations report artifacts

@@ -248,7 +248,9 @@ Schema: `kalshi_wc2026_marts`
   unique provider mappings, exact team-to-advance classification, permanent
   incremental hours, dense null preservation, and four-price pivot behavior.
 
-Warn-level observability tests fail softly in `dbt build` output; treat warnings as operator signals on real warehouses, not hard CI blockers when the disposable CI fixture is healthy.
+Warn-level observability tests fail softly in `dbt build` output; treat warnings
+as operator signals on real warehouses, not hard release blockers when the
+disposable fixture is healthy.
 
 ## Breaking change: source-first namespace reset
 

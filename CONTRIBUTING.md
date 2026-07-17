@@ -53,7 +53,7 @@ If you use Cursor, [Ponytail](https://github.com/DietrichGebert/ponytail) loads 
 
 ## Quality gate
 
-Run these before opening a pull request (they mirror [`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+Run the full local gate before opening a release pull request:
 
 ```bash
 uv run make lint
@@ -72,16 +72,16 @@ uv run make costguard
 ```
 
 For local one-shot runs, `make test`, `make integration-dagster`,
-`make integration-dbt`, and `make coverage` still work without the CI
-coverage-accumulation split.
+`make integration-dbt`, and `make coverage` still work without the split
+coverage-accumulation commands.
 
-`dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
-running dbt build. `contract-http` runs replay-only HTTP contract tests from
-checked-in sanitized cassettes and is manual/nightly, not part of the default
-CI gate. `live-smoke` performs public network requests and is opt-in; the
-manual GitHub `live-readiness` workflow runs it against disposable state and
-uploads logs rather than its warehouse.
-Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
+GitHub Actions uses one runner for less than five cumulative minutes and runs
+lint, fast offline tests, replay-only HTTP contracts, dbt parse, and a strict
+documentation build. `dbt-build-ci` bootstraps a disposable DuckDB database
+under `.cache/` for the broader local gate. `live-smoke` performs public
+network requests and is local-only; it uses disposable smoke configuration and
+must never be added to GitHub Actions.
+Costguard is a dbt/release guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 
 ```bash
