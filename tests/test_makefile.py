@@ -67,3 +67,11 @@ def test_ci_split_targets_remain_wired():
     )
     assert "live-smoke:" in makefile
     assert "wc2026_knockout_match_odds_full_pipeline" in makefile
+    assert "-c config/live-smoke.yaml" in makefile
+
+    live_smoke_config = (REPO_ROOT / "config" / "live-smoke.yaml").read_text()
+    assert "polymarket_wc2026_raw_token_odds_history_hourly:" in live_smoke_config
+    assert "kalshi_wc2026_raw_market_candlesticks_hourly:" in live_smoke_config
+    assert live_smoke_config.count("window_hours: 24") == 2
+    assert live_smoke_config.count("history_backfill_days: 0") == 2
+    assert "min_volume: 5000.0" in live_smoke_config

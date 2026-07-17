@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Manual live-readiness workflow for offline source contracts and a disposable
-  live WC2026 cross-platform pipeline smoke.
+  live WC2026 cross-platform pipeline smoke. The smoke uses a bounded 24-hour
+  odds window and no historical backfill without changing production defaults.
 - Static Vercel deployment for the MkDocs documentation site at
   `https://data.oddsfox.io/`.
 - `wc2026_marts.wc2026_knockout_match_hourly_odds`, keyed by published FIFA
