@@ -53,7 +53,7 @@ semver stability; v0.1.x may break between releases.
 
 ## Quality gate (run before finishing work)
 
-Mirrors [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Use `uv run make …` from the repo root.
+This is the full local release gate. Use `uv run make …` from the repo root.
 
 ```bash
 uv run make lint
@@ -73,20 +73,20 @@ uv run make gx-data-quality
 uv run make costguard
 ```
 
-CI runs these checks as parallel jobs and uses a docs-only fast lane for
-changes limited to README/top-level docs, `docs/**`, `mkdocs.yml`, and project
-policy docs. For local one-shot runs, `make test`, `make integration-dagster`,
-`make integration-dbt`, `make data-quality`, and `make coverage` still work
-without the CI coverage-accumulation split.
+GitHub Actions intentionally uses one runner for less than five cumulative
+minutes. Its offline gate runs lint, fast tests, saved HTTP contracts, dbt
+parse, and a strict documentation build. The full 100%-coverage, Dagster, dbt,
+browser, data-quality, and Costguard gate above remains mandatory before a
+release. For local one-shot runs, `make test`, `make integration-dagster`,
+`make integration-dbt`, `make data-quality`, and `make coverage` still work.
 
 `dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
-running dbt build. CI then calls `gx-data-quality` against that existing
-disposable database so data-quality checks do not rebuild dbt. `contract-http`
-is replay-only and manual/nightly; it is not part of the default CI gate.
-`live-smoke` is opt-in and runs the public-source WC2026 cross-platform
-pipeline; the manual `live-readiness` workflow points it at a disposable
-warehouse and uploads logs only.
-Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
+running dbt build. `gx-data-quality` checks that existing disposable database
+so data-quality validation does not rebuild dbt. `contract-http` is replay-only
+and part of the fast GitHub gate, while the default `make test` still excludes
+the `contract` marker. `live-smoke` is local-only and runs the public-source
+WC2026 cross-platform pipeline against its smoke configuration.
+Costguard is a dbt/release guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 
 ```bash
@@ -102,22 +102,22 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make unit-ingest` | Ingestion unit tests |
 | `make unit-orchestration` | Orchestration/Dagster unit tests |
 | `make dagster-jobs-smoke` | Headless smoke for every registered public Dagster job with mocked externals |
-| `make dagster-jobs-smoke-cov` | CI coverage version of registered public Dagster job smoke |
-| `make dagster-refresh-cov` | CI coverage for deeper seeded Dagster refresh-path smoke tests |
-| `make test-cov` | CI unit tests with coverage accumulation (`-n auto`) |
+| `make dagster-jobs-smoke-cov` | Coverage version of registered public Dagster job smoke |
+| `make dagster-refresh-cov` | Coverage for deeper seeded Dagster refresh-path smoke tests |
+| `make test-cov` | Unit tests with coverage accumulation (`-n auto`) |
 | `make integration-dbt` | DuckDB + dbt integration smoke |
 | `make integration-dagster` | Dagster integration smoke |
-| `make integration-dbt-cov` | CI DuckDB + dbt integration with coverage append |
-| `make integration-dagster-cov` | Local wrapper for both split CI Dagster coverage targets |
+| `make integration-dbt-cov` | DuckDB + dbt integration with coverage append |
+| `make integration-dagster-cov` | Local wrapper for both split Dagster coverage targets |
 | `make dbt-unit` | dbt unit tests for high-risk SQL branches |
 | `make golden-dbt` | Exact-output dbt mart regression fixtures |
 | `make dbt-source-freshness-ci` | Seed fresh temp source rows and run dbt source freshness |
-| `make coverage-report` | CI coverage report gate (`--fail-under=100`) |
+| `make coverage-report` | Coverage report gate (`--fail-under=100`) |
 | `make check-secrets` | Repo policy check for tracked secret leakage |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
 | `make gx-data-quality` | Great Expectations data-quality report against an existing disposable dbt build |
 | `make data-quality` | Safe local wrapper that rebuilds disposable dbt state before `gx-data-quality` |
-| `make contract-http` | Replay-only HTTP contract tests; manual/nightly, excluded from default gates |
+| `make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate |
 | `make live-smoke` | Opt-in live WC2026 cross-platform pipeline against the configured warehouse |
 | `make costguard-scan` | Run the dbt cost guardrail against an existing dbt build |
 | `make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard |
@@ -251,6 +251,6 @@ DuckDB is local-only runtime state. For read-only inspection prefer `scripts/pro
 ## Further reading
 
 - [OddsFox Pipeline docs](docs/index.md) — overview, runbooks, warehouse, troubleshooting
-- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor workflow and CI parity
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor and release workflow
 - [Orchestration](docs/reference/orchestration.md) — assets, jobs, and schedules
 - [Configuration](docs/reference/configuration.md) — `.env` reference

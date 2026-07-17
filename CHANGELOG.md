@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Consolidated GitHub Actions into one offline runner capped at five minutes
+  total; it runs lint, fast tests, saved HTTP contracts, dbt parse, and a
+  strict documentation build. The exhaustive release gate remains local.
+
+### Removed
+
+- Removed GitHub-hosted live ingestion. `make live-smoke` remains the
+  operator-owned local readiness path.
+
 ## [0.1.6] - 2026-07-17
 
 ### Added

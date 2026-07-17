@@ -153,16 +153,16 @@ uv run make gx-data-quality
 uv run make costguard
 ```
 
-CI runs these checks as parallel jobs and uses a docs-only fast lane for
-README/top-level docs, `docs/**`, `mkdocs.yml`, and project policy docs. For
-local one-shot runs, `make test`, `make integration-dagster`,
-`make integration-dbt`, `make data-quality`, and `make coverage` still work
-without the CI coverage-accumulation split.
+The commands above are the full local release gate. GitHub Actions uses one
+runner for less than five cumulative minutes and runs lint, fast offline tests,
+saved HTTP contracts, dbt parse, and a strict docs build. For local one-shot
+runs, `make test`, `make integration-dagster`, `make integration-dbt`,
+`make data-quality`, and `make coverage` still work.
 
-`dbt-build-ci` uses a disposable DuckDB database under `.cache/` for CI parity.
-CI calls `gx-data-quality` against that existing build; local `data-quality`
+`dbt-build-ci` uses a disposable DuckDB database under `.cache/` for release
+parity. `gx-data-quality` checks that existing build; local `data-quality`
 remains the safe wrapper that rebuilds first.
-Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
+Costguard is a dbt/release guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 
 ```bash
