@@ -550,6 +550,33 @@ def test_stream_dbt_build_appends_dbt_select_before_exclude_flags():
     ]
 
 
+def test_stream_dbt_build_does_not_union_config_selectors_into_subset():
+    captured_args: list[list[str]] = []
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            captured_args.append(list(args))
+            invocation = MagicMock()
+            invocation.stream = lambda: iter(())
+            invocation.process = MagicMock(returncode=0)
+            return invocation
+
+    context = MagicMock(is_subset=True)
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=context,
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(
+                dbt_select="+tag:cross_domain",
+                dbt_exclude="tag:unrelated",
+            ),
+        )
+    )
+
+    assert captured_args == [["build"]]
+
+
 def test_stream_dbt_build_fetches_row_counts_and_column_metadata():
     from unittest.mock import MagicMock
 

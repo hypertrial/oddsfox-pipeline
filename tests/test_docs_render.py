@@ -46,8 +46,21 @@ def _has_horizontal_overflow(page):
     )
 
 
+def _new_page(chromium, viewport):
+    page = chromium.new_page(viewport=viewport)
+    page.route(
+        "https://api.github.com/**",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"stargazers_count":0,"forks_count":0,"tag_name":"v0.0.0"}',
+        ),
+    )
+    return page
+
+
 def test_homepage_desktop_geometry_and_actions(chromium, docs_url):
-    page = chromium.new_page(viewport={"width": 1440, "height": 900})
+    page = _new_page(chromium, {"width": 1440, "height": 900})
     errors = []
     page.on(
         "console",
@@ -112,7 +125,7 @@ def test_homepage_desktop_geometry_and_actions(chromium, docs_url):
 
 
 def test_homepage_mobile_geometry(chromium, docs_url):
-    page = chromium.new_page(viewport={"width": 390, "height": 844})
+    page = _new_page(chromium, {"width": 390, "height": 844})
     page.goto(docs_url, wait_until="networkidle")
 
     assert not _has_horizontal_overflow(page)
@@ -137,7 +150,7 @@ def test_homepage_mobile_geometry(chromium, docs_url):
     ],
 )
 def test_representative_pages_do_not_overflow(chromium, docs_url, path):
-    page = chromium.new_page(viewport={"width": 390, "height": 844})
+    page = _new_page(chromium, {"width": 390, "height": 844})
     page.goto(f"{docs_url}{path}", wait_until="networkidle")
     assert not _has_horizontal_overflow(page), path
     assert page.locator("h1").is_visible(), path
@@ -145,7 +158,7 @@ def test_representative_pages_do_not_overflow(chromium, docs_url, path):
 
 
 def test_architecture_diagrams_render(chromium, docs_url):
-    page = chromium.new_page(viewport={"width": 1440, "height": 900})
+    page = _new_page(chromium, {"width": 1440, "height": 900})
     errors = []
     page.on(
         "console",

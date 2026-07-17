@@ -62,10 +62,11 @@ def stream_dbt_build(
     build_args = ["build"]
     if config.full_refresh:
         build_args.append("--full-refresh")
-    if config.dbt_select:
-        build_args.extend(["--select", config.dbt_select])
-    if config.dbt_exclude:
-        build_args.extend(["--exclude", config.dbt_exclude])
+    if getattr(context, "is_subset", False) is not True:
+        if config.dbt_select:
+            build_args.extend(["--select", config.dbt_select])
+        if config.dbt_exclude:
+            build_args.extend(["--exclude", config.dbt_exclude])
     invocation = dbt.cli(build_args, context=context)
     sentinel = object()
     event_queue: Queue[Any] = Queue()
