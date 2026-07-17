@@ -65,9 +65,11 @@ local Great Expectations report under `.cache/` after `dbt-build-ci` has already
 created the disposable warehouse. `data-quality` remains the safe local wrapper
 that rebuilds first. `contract-http` replays sanitized HTTP cassettes and is
 manual/nightly; default CI and `make test` exclude the `contract` marker.
-`live-smoke` is also opt-in: it runs the combined WC2026 public-source job.
-The manual `live-readiness` workflow supplies a disposable DuckDB path and
-uploads only its log and exit status.
+`live-smoke` is also opt-in: it runs the combined WC2026 public-source job with
+a smoke-only 24-hour odds window, no historical backfill, and the normal
+Polymarket volume floor. Production job defaults are unchanged. The manual
+`live-readiness` workflow supplies a disposable DuckDB path and uploads only
+its log and exit status.
 
 Dagster dbt assets enable dbt source tests as asset checks. Row-count and
 column metadata fetching is available through `DbtBuildConfig` but stays

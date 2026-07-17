@@ -1,0 +1,10 @@
+ops:
+  polymarket_wc2026_raw_token_odds_history_hourly:
+    config:
+      history_backfill_days: 0
+      min_volume: 5000.0
+      window_hours: 24
+  kalshi_wc2026_raw_market_candlesticks_hourly:
+    config:
+      history_backfill_days: 0
+      window_hours: 24
