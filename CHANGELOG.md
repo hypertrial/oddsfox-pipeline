@@ -41,6 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `fifwc-` exact match events. Exact `soccer_team_to_advance` match markets
   bypass the progression-futures volume floor without changing existing marts.
 
+### Fixed
+
+- Combined WC2026 Dagster/dbt runs now preserve the exact Dagster model subset
+  and leave indirect tests to dbt's `buildable` policy, preventing unselected
+  model emissions and relationship tests against unbuilt staging relations.
+- Documentation browser policy tests fulfill GitHub metadata requests locally,
+  so rate limits cannot make otherwise offline render checks fail.
+
 ## [0.1.5] - 2026-07-11
 
 ### Added

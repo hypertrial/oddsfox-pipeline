@@ -385,6 +385,17 @@ def test_combined_job_selects_both_sources_fixture_and_cross_domain_models():
     assert ("wc2026", "marts", "knockout_match_hourly_odds") in selected
 
 
+def test_combined_job_leaves_indirect_dbt_checks_to_buildable_selection():
+    from oddsfox_pipeline.orchestration.jobs import (
+        WC2026_KNOCKOUT_MATCH_ODDS_DBT_SELECTION,
+    )
+
+    graph = defs.resolve_asset_graph()
+
+    assert WC2026_KNOCKOUT_MATCH_ODDS_DBT_SELECTION.resolve(graph)
+    assert not WC2026_KNOCKOUT_MATCH_ODDS_DBT_SELECTION.resolve_checks(graph)
+
+
 def test_combined_job_refreshes_fixture_before_both_vendor_registry_paths():
     graph = defs.resolve_asset_graph()
     fixture = AssetKey(["openfootball", "wc2026", "raw", "knockout_fixtures"])
