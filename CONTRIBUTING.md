@@ -78,7 +78,9 @@ coverage-accumulation split.
 `dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
 running dbt build. `contract-http` runs replay-only HTTP contract tests from
 checked-in sanitized cassettes and is manual/nightly, not part of the default
-CI gate.
+CI gate. `live-smoke` performs public network requests and is opt-in; the
+manual GitHub `live-readiness` workflow runs it against disposable state and
+uploads logs rather than its warehouse.
 Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 

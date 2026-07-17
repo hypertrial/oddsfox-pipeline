@@ -83,6 +83,9 @@ without the CI coverage-accumulation split.
 running dbt build. CI then calls `gx-data-quality` against that existing
 disposable database so data-quality checks do not rebuild dbt. `contract-http`
 is replay-only and manual/nightly; it is not part of the default CI gate.
+`live-smoke` is opt-in and runs the public-source WC2026 cross-platform
+pipeline; the manual `live-readiness` workflow points it at a disposable
+warehouse and uploads logs only.
 Costguard is a dbt/CI guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 
@@ -115,6 +118,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make gx-data-quality` | Great Expectations data-quality report against an existing disposable dbt build |
 | `make data-quality` | Safe local wrapper that rebuilds disposable dbt state before `gx-data-quality` |
 | `make contract-http` | Replay-only HTTP contract tests; manual/nightly, excluded from default gates |
+| `make live-smoke` | Opt-in live WC2026 cross-platform pipeline against the configured warehouse |
 | `make costguard-scan` | Run the dbt cost guardrail against an existing dbt build |
 | `make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard |
 | `make dagster-dev` | Local Dagster UI |

@@ -39,8 +39,22 @@ def test_ci_workflow_keeps_parallel_fast_lane_contract():
     assert "astral-sh/setup-uv@v5" not in workflow
     assert "actions/upload-artifact@v4" not in workflow
     assert "actions/download-artifact@v4" not in workflow
-    assert "actions/checkout@v6" in workflow
+    assert "actions/checkout@v7" in workflow
     assert "actions/setup-python@v6" in workflow
     assert "astral-sh/setup-uv@v8.3.2" in workflow
-    assert "actions/upload-artifact@v6" in workflow
-    assert "actions/download-artifact@v7" in workflow
+    assert "actions/upload-artifact@v7" in workflow
+    assert "actions/download-artifact@v8" in workflow
+
+
+def test_live_readiness_is_manual_disposable_and_diagnostics_only():
+    workflow = (REPO_ROOT / ".github" / "workflows" / "live-readiness.yml").read_text()
+
+    assert "workflow_dispatch:" in workflow
+    assert "pull_request:" not in workflow
+    assert "push:" not in workflow
+    assert "uv run make contract-http" in workflow
+    assert "uv run make live-smoke" in workflow
+    assert "DUCKDB_PATH: .cache/live-readiness/oddsfox.duckdb" in workflow
+    assert ".cache/live-readiness/run.log" in workflow
+    assert ".cache/live-readiness/exit-status" in workflow
+    assert "*.duckdb" not in workflow
