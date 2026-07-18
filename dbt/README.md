@@ -44,6 +44,18 @@ Public knockout marts:
 - `international_results_wc2026_team_status`
 - `wc2026_knockout_match_hourly_odds`
 
+The stable strategy surface is contract version `wc2026.v1` in
+`wc2026_marts.contract_metadata`. Its concise relation aliases include
+`fixtures`, `results`, `team_identities`, point-in-time player/team/club/travel
+features, venue/token identity, current and historical price/liquidity,
+international match history, and source provenance. Strategy readiness is
+published in
+`wc2026_observability.wc2026_strategy_input_readiness`.
+
+Private canonical sources are optional for public builds. The project creates
+schema-correct empty raw tables and publishes explicit availability/blocking
+rows; it does not ship private collectors, payloads, URLs, or fixtures.
+
 If a local DuckDB file still has deleted broad marts or older relation types,
 reset the local warehouse or drop the affected dbt schemas before rebuilding.
 

@@ -19,14 +19,15 @@ For procedures, use [Run a scope](../guides/run-a-scope.md),
 8. `polymarket/us_midterms_2026/ops/market_scope_registry`
 9. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
 10. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
-11. `international_results/wc2026/raw/match_results`
-12. `openfootball/wc2026/raw/knockout_fixtures`
-13. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
-14. `kalshi/wc2026/raw/markets`
-15. `kalshi/wc2026/raw/markets_snapshot`
-16. `kalshi/wc2026/ops/market_scope_registry`
-17. `kalshi/wc2026/raw/market_candlesticks_hourly`
-18. dbt model assets under the matching
+11. `international_results/historical/raw/snapshot`
+12. `international_results/wc2026/raw/match_results`
+13. `openfootball/wc2026/raw/knockout_fixtures`
+14. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
+15. `kalshi/wc2026/raw/markets`
+16. `kalshi/wc2026/raw/markets_snapshot`
+17. `kalshi/wc2026/ops/market_scope_registry`
+18. `kalshi/wc2026/raw/market_candlesticks_hourly`
+19. dbt model assets under the matching
     `{staging,intermediate,marts,observability}` namespaces.
 
 Flat Dagster op names preserve the same source-first order, for example
@@ -36,6 +37,8 @@ Flat Dagster op names preserve the same source-first order, for example
 
 ### Polymarket WC2026
 
+- `international_results_historical_ingest`: public 2006+ matches, shootouts,
+  and goalscorers for strategy model fitting.
 - `polymarket_wc2026_market_registry_refresh`: market discovery, registry
   refresh, and metadata backfill.
 - `polymarket_wc2026_hourly_odds_ingest`: trailing hourly token-odds refresh.
@@ -116,12 +119,14 @@ cross-provider comparison.
 
 | Schedule | Job | Default |
 | --- | --- | --- |
+| `international_results_daily_schedule` | `international_results_historical_ingest` | Stopped |
 | `polymarket_wc2026_hourly_odds_schedule` | `polymarket_wc2026_hourly_odds_ingest` | Stopped |
 | `polymarket_us_midterms_2026_hourly_odds_schedule` | `polymarket_us_midterms_2026_hourly_odds_ingest` | Stopped |
 | `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | Stopped |
 | `wc2026_knockout_match_odds_hourly_schedule` | `wc2026_knockout_match_odds_full_pipeline` | Stopped |
 
-All four run hourly. The combined schedule uses Polymarket CLOB
+The international-results schedule runs daily at 02:15 UTC; the other four run
+hourly. The combined schedule uses Polymarket CLOB
 `fidelity=60`, bypasses the progression-futures volume floor for exact match
 markets, and remains stopped unless its dedicated env flag is enabled.
 
@@ -131,8 +136,8 @@ Canonical raw and ops table schemas are the operator and dbt boundary. dlt
 lands market, odds-history, registry, and pipeline-event batches; stage tables
 and `_dlt*` metadata are internal.
 
-International-results CSV storage, OpenFootball fixture storage, and Kalshi
-candlesticks use custom SQL.
+International-results CSV storage, canonical snapshot loading, OpenFootball
+fixture storage, and Kalshi candlesticks use custom transactional SQL.
 Scheduler ledger rows, skip state, and daily odds aggregates also remain custom
 SQL finalizers because they preserve monotonic cursors, first-seen timestamps,
 scheduler state, and aggregate rebuild semantics.

@@ -55,6 +55,7 @@ def _reload_schedules_module(
 
 def test_definitions_expose_v010_jobs_only():
     expected = {
+        "international_results_historical_ingest",
         "international_results_wc2026_match_results_ingest",
         "kalshi_wc2026_dbt_build",
         "kalshi_wc2026_full_pipeline",
@@ -78,6 +79,7 @@ def test_definitions_expose_v010_jobs_only():
 
 def test_definitions_expose_v010_asset_keys():
     expected = {
+        ("international_results", "historical", "raw", "snapshot"),
         ("international_results", "wc2026", "raw", "match_results"),
         ("international_results", "wc2026", "staging", "match_results"),
         ("international_results", "wc2026", "staging", "team_aliases"),
@@ -91,6 +93,12 @@ def test_definitions_expose_v010_asset_keys():
         ("wc2026", "marts", "knockout_match_hourly_odds"),
         ("wc2026", "observability", "knockout_match_odds_coverage"),
         ("wc2026", "observability", "knockout_match_odds_data_quality"),
+        ("wc2026", "raw", "clubelo"),
+        ("wc2026", "raw", "eloratings"),
+        ("wc2026", "raw", "fifaindex"),
+        ("wc2026", "raw", "fotmob"),
+        ("wc2026", "raw", "wikipedia_squads"),
+        ("wc2026", "ops", "raw_snapshot_ledger"),
         ("kalshi", "wc2026", "raw", "events"),
         ("kalshi", "wc2026", "raw", "markets"),
         ("kalshi", "wc2026", "raw", "markets_snapshot"),
@@ -162,6 +170,7 @@ def test_definitions_expose_v010_asset_keys():
         in {
             ("polymarket", "wc2026"),
             ("polymarket", "us_midterms_2026"),
+            ("international_results", "historical"),
             ("international_results", "wc2026"),
             ("openfootball", "wc2026"),
             ("kalshi", "wc2026"),
@@ -170,8 +179,6 @@ def test_definitions_expose_v010_asset_keys():
         for key in asset_keys
     )
     assert not any("selected" in part for key in asset_keys for part in key)
-    excluded_source_slug = "fifa" + "index"
-    assert not any(excluded_source_slug in part for key in asset_keys for part in key)
 
 
 def _nested_keys(payload):

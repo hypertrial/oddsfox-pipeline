@@ -38,6 +38,44 @@ models:
         description: Stable issue identifier.
         tests: [not_null]
 
+  - name: wc2026_source_availability
+    description: >
+      One row per public or optional private source with availability, freshness,
+      and whether the source blocks v4 strategy execution.
+    columns:
+      - name: source
+        description: Stable source identifier.
+        tests: [not_null, unique]
+      - name: required_for_v4
+        description: Whether v4 must fail closed when the source is unavailable.
+        tests: [not_null]
+      - name: available
+        description: Whether validated source data is currently present.
+        tests: [not_null]
+      - name: availability_mode
+        description: Public collector, canonical snapshot, or committed seed.
+        tests: [not_null]
+
+  - name: wc2026_strategy_input_readiness
+    description: Fail-closed source, freshness, and point-in-time readiness by strategy.
+    columns:
+      - name: strategy_id
+        description: Versioned strategy identifier.
+        tests: [not_null, unique]
+      - name: ready
+        description: True only when every blocking gate passes.
+        tests: [not_null]
+      - name: required_contract_version
+        description: Clean-data contract required by the strategy.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [wc2026.v1]
+      - name: point_in_time_ok
+        description: Whether time-valid intervals are internally consistent.
+        tests: [not_null]
+
 unit_tests:
   - name: test_wc2026_match_odds_data_quality_preserves_simultaneous_warnings
     model: wc2026_knockout_match_odds_data_quality

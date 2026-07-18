@@ -38,3 +38,50 @@ sources:
           - name: source_loaded_at
             description: UTC timestamp when ingestion loaded the source CSV.
             tests: [not_null]
+      - name: historical_matches
+        description: Public 2006+ international match snapshot used for model fitting.
+        meta:
+          dagster:
+            asset_key: [international_results, historical, raw, snapshot]
+        columns:
+          - name: match_id
+            description: Deterministic match identifier.
+            tests: [not_null, unique]
+          - name: match_date
+            description: Match date from the source CSV.
+            tests: [not_null]
+          - name: source_loaded_at
+            description: UTC snapshot load time.
+            tests: [not_null]
+      - name: historical_shootouts
+        description: Public shootout metadata joined to historical match IDs.
+        meta:
+          dagster:
+            asset_key: [international_results, historical, raw, snapshot]
+        columns:
+          - name: match_id
+            description: Deterministic parent match identifier.
+            tests:
+              - not_null
+              - unique
+              - relationships:
+                  arguments:
+                    to: source('international_results_wc2026_raw', 'historical_matches')
+                    field: match_id
+      - name: historical_goalscorers
+        description: Public goalscorer events joined to historical match IDs.
+        meta:
+          dagster:
+            asset_key: [international_results, historical, raw, snapshot]
+        columns:
+          - name: goal_event_id
+            description: Deterministic goal-event identifier.
+            tests: [not_null, unique]
+          - name: match_id
+            description: Deterministic parent match identifier.
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('international_results_wc2026_raw', 'historical_matches')
+                    field: match_id

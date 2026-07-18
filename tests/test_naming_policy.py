@@ -29,6 +29,7 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
 ROOT = Path(__file__).resolve().parents[1]
 
 EXPECTED_JOB_NAMES = {
+    "international_results_historical_ingest",
     "international_results_wc2026_match_results_ingest",
     "kalshi_wc2026_dbt_build",
     "kalshi_wc2026_full_pipeline",
@@ -46,6 +47,7 @@ EXPECTED_JOB_NAMES = {
 }
 
 EXPECTED_OP_NAMES = {
+    "international_results_historical_raw_snapshot",
     "international_results_wc2026_raw_match_results",
     "openfootball_wc2026_raw_knockout_fixtures",
     "kalshi_wc2026_raw_markets",
@@ -66,6 +68,7 @@ EXPECTED_OP_NAMES = {
 }
 
 EXPECTED_ASSET_KEYS = {
+    ("international_results", "historical", "raw", "snapshot"),
     ("international_results", "wc2026", "raw", "match_results"),
     ("international_results", "wc2026", "staging", "match_results"),
     ("international_results", "wc2026", "staging", "team_aliases"),
@@ -185,18 +188,22 @@ def test_public_jobs_are_source_first_and_tagged():
         assert job.tags["source"] == expected_source
         if job.name.startswith("polymarket_us_midterms_2026_"):
             assert job.tags["scope"] == "us_midterms_2026"
+        elif job.name == "international_results_historical_ingest":
+            assert job.tags["scope"] == "historical"
         else:
             assert job.tags["scope"] == "wc2026"
 
 
 def test_public_schedule_is_source_first_and_targets_source_first_job():
     assert {schedule.name for schedule in defs.schedules} == {
+        "international_results_daily_schedule",
         "kalshi_wc2026_hourly_odds_schedule",
         "polymarket_us_midterms_2026_hourly_odds_schedule",
         "polymarket_wc2026_hourly_odds_schedule",
         "wc2026_knockout_match_odds_hourly_schedule",
     }
     assert {schedule.job_name for schedule in defs.schedules} == {
+        "international_results_historical_ingest",
         "kalshi_wc2026_hourly_odds_ingest",
         "polymarket_us_midterms_2026_hourly_odds_ingest",
         "polymarket_wc2026_hourly_odds_ingest",
@@ -206,6 +213,7 @@ def test_public_schedule_is_source_first_and_targets_source_first_job():
 
 def test_dagster_op_names_and_run_config_keys_are_source_first():
     actual_op_names = {
+        assets.international_results_historical_raw_snapshot.op.name,
         assets.international_results_wc2026_raw_match_results.op.name,
         assets.openfootball_wc2026_raw_knockout_fixtures.op.name,
         assets.kalshi_wc2026_raw_markets.op.name,
@@ -235,6 +243,7 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
 
     assert actual_op_names == EXPECTED_OP_NAMES
     assert run_config_ops == EXPECTED_OP_NAMES - {
+        "international_results_historical_raw_snapshot",
         "international_results_wc2026_raw_match_results",
         "openfootball_wc2026_raw_knockout_fixtures",
         "kalshi_wc2026_raw_markets_snapshot",
@@ -256,6 +265,7 @@ def test_registered_asset_keys_are_hierarchical_source_scope_layer():
         in {
             ("polymarket", "wc2026"),
             ("polymarket", "us_midterms_2026"),
+            ("international_results", "historical"),
             ("international_results", "wc2026"),
             ("openfootball", "wc2026"),
             ("kalshi", "wc2026"),
@@ -377,6 +387,7 @@ def test_storage_schema_constants_are_source_first():
         "international_results_wc2026_marts",
         "international_results_wc2026_observability",
         "openfootball_wc2026_staging",
+        "wc2026_staging",
         "wc2026_intermediate",
         "wc2026_marts",
         "wc2026_observability",
@@ -444,6 +455,7 @@ def test_dbt_source_metadata_uses_hierarchical_asset_keys():
         in {
             ("polymarket", "wc2026"),
             ("polymarket", "us_midterms_2026"),
+            ("international_results", "historical"),
             ("international_results", "wc2026"),
             ("openfootball", "wc2026"),
             ("kalshi", "wc2026"),

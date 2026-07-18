@@ -79,3 +79,54 @@ seeds:
       - name: canonical_team_name
         description: Canonical team name in the international_results WC2026 marts.
         tests: [not_null]
+
+  - name: wc2026_schedule_matches
+    description: Audited, committed 104-match FIFA World Cup 2026 schedule.
+    columns:
+      - name: match_id
+        description: Official FIFA match number.
+        tests: [not_null, unique]
+      - name: source
+        description: Public source provenance.
+        tests: [not_null]
+
+  - name: wc2026_third_place_options
+    description: Audited FIFA Annexe C third-place combinations.
+    columns:
+      - name: option_id
+        description: Stable option number.
+        tests: [not_null, unique]
+
+  - name: wc2026_base_camps_teams
+    description: Public team base-camp and training-site reference data.
+    columns:
+      - name: team_name_model
+        description: Strategy-facing team label.
+        tests: [not_null, unique]
+
+  - name: wc2026_venues
+    description: Public venue coordinates, timezones, and altitude.
+    columns:
+      - name: venue
+        description: Official schedule venue label.
+        tests: [not_null, unique]
+
+  - name: wc2026_team_canonical_aliases
+    description: Audited cross-source canonical team aliases.
+    columns:
+      - name: variant_match_key
+        description: Normalized source variant.
+        tests: [not_null, unique]
+      - name: canonical_match_key
+        description: Normalized canonical key.
+        tests: [not_null]
+
+  - name: wc2026_tournament_classification
+    description: Public tournament taxonomy for historical international results.
+    columns:
+      - name: tournament
+        description: Upstream tournament label.
+        tests: [not_null, unique]
+      - name: competition_family
+        description: Stable model-facing tournament family.
+        tests: [not_null]

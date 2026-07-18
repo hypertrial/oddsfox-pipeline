@@ -91,6 +91,12 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "raw",
         "match_results",
     ]
+    assert tables[("international_results_wc2026_raw", "historical_matches")] == [
+        "international_results",
+        "historical",
+        "raw",
+        "snapshot",
+    ]
     assert tables[("openfootball_wc2026_raw", "knockout_fixtures")] == [
         "openfootball",
         "wc2026",
