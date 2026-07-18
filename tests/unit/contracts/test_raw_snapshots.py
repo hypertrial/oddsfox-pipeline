@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import duckdb
@@ -47,7 +47,7 @@ def _snapshot(
         "source": source,
         "snapshot_id": snapshot_id,
         "collected_at": (
-            collected_at or datetime(2026, 7, 18, 17, tzinfo=UTC)
+            collected_at or datetime(2026, 7, 18, 17, tzinfo=timezone.utc)
         ).isoformat(),
         "collector_git_sha": "a" * 40,
         "collector_container_digest": "sha256:" + "b" * 64,
@@ -116,7 +116,7 @@ def test_rejects_partial_hash_and_unknown_contract(tmp_path: Path) -> None:
 def test_rejects_duplicate_id_and_timestamp_regression(tmp_path: Path) -> None:
     root = tmp_path / "raw"
     warehouse = tmp_path / "warehouse.duckdb"
-    first_time = datetime(2026, 7, 18, 17, tzinfo=UTC)
+    first_time = datetime(2026, 7, 18, 17, tzinfo=timezone.utc)
     first = _snapshot(root, collected_at=first_time)
     fingerprint = validate_snapshot(first).files[0].schema_fingerprint
     schemas = {"team_ratings": fingerprint}
@@ -144,7 +144,7 @@ def test_rejects_predecessor_and_schema_mismatch(tmp_path: Path) -> None:
     wrong_predecessor = _snapshot(
         root,
         snapshot_id="snapshot-2",
-        collected_at=datetime(2026, 7, 18, 18, tzinfo=UTC),
+        collected_at=datetime(2026, 7, 18, 18, tzinfo=timezone.utc),
         previous_snapshot_id="some-other-snapshot",
     )
     with pytest.raises(RawSnapshotError, match="predecessor"):
