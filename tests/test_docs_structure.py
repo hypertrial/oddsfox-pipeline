@@ -10,8 +10,8 @@ DOCS_DIR = REPO_ROOT / "docs"
 
 REDIRECTS = {
     "/quickstart": "/getting-started/",
-    "/operator-runbook": "/guides/deploy-hosted-stack/",
-    "/hosted-graph-deployment": "/guides/deploy-hosted-stack/",
+    "/operator-runbook": "/concepts/system-overview/",
+    "/hosted-graph-deployment": "/concepts/system-overview/",
     "/operations": "/reference/orchestration/",
     "/troubleshooting": "/guides/troubleshooting/",
     "/analyst-guide": "/guides/query-the-warehouse/",

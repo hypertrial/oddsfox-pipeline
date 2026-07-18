@@ -70,8 +70,8 @@ tested SQL and Python examples.
 
 ### Operate and deploy
 
-Run fixed scopes, validate freshness, recover failed jobs, or publish the
-self-managed dashboard stack.
+Run fixed scopes, validate freshness, recover failed jobs, or publish portable
+graph artifacts for offline analysis.
 
 [Open the operator guides](guides/run-a-scope.md)
 

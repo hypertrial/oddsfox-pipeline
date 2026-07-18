@@ -8,8 +8,8 @@ Run them through `uv run python` so they use the repo environment.
 - `run_scope.py`: run a fixed Dagster step for one or more shipped scopes, such as `polymarket:wc2026`, `polymarket:us_midterms_2026`, or `kalshi:wc2026`. Namespace aliases such as `polymarket_wc2026`, `polymarket_us_midterms_2026`, and `kalshi_wc2026` are accepted.
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
 - `export_polymarket_wc2026_knockout_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` to parquet for progression-only WC2026 knockout audits.
-- `export_polymarket_wc2026_graph_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds` to parquet for `oddsfox-graph`; this is the hosted graph input and includes both Yes/No tokens.
-- `build_hosted_artifacts.py`: run refresh, dbt, graph export, graph build, validation, and atomic publish into `$ODDSFOX_DATA_DIR/artifacts/releases/<UTC_BUILD_ID>` plus `$ODDSFOX_DATA_DIR/artifacts/current` on the host.
+- `export_polymarket_wc2026_graph_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds` to portable parquet for `oddsfox-graph`; it includes both Yes/No tokens.
+- `build_hosted_artifacts.py`: local artifact helper that runs refresh, dbt, graph export, graph build, validation, and atomic publication into `$ODDSFOX_DATA_DIR/artifacts/releases/<UTC_BUILD_ID>` plus `$ODDSFOX_DATA_DIR/artifacts/current`.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_wc2026_raw.odds_history` rows older than a retention window (default 365 days).
 - `repair_polymarket_wc2026_token_sync_ledger.py`: rebuild a corrupted token sync ledger.
