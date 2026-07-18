@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Mapping
 
@@ -16,6 +16,7 @@ import pyarrow.parquet as pq
 
 RAW_CONTRACT_VERSION = "oddsfox.raw.v1"
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]*$")
+_SNAPSHOT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _SENSITIVE_PROVENANCE_KEY = re.compile(
     r"(authorization|cookie|credential|password|private[_-]?key|secret|token)",
     re.IGNORECASE,
@@ -63,6 +64,8 @@ def _parse_timestamp(value: str) -> datetime:
         raise RawSnapshotError("collected_at must be an ISO-8601 timestamp") from exc
     if timestamp.tzinfo is None or timestamp.utcoffset() is None:
         raise RawSnapshotError("collected_at must include a timezone")
+    if timestamp.utcoffset() != timedelta(0):
+        raise RawSnapshotError("collected_at must be UTC")
     return timestamp
 
 
@@ -109,6 +112,23 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _read_manifest(manifest_path: Path) -> dict[str, object]:
+    try:
+        raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RawSnapshotError("manifest.json is not valid UTF-8 JSON") from exc
+    if not isinstance(raw_manifest, dict):
+        raise RawSnapshotError("manifest.json must contain an object")
+    return raw_manifest
+
+
+def _nonnegative_integer(entry: Mapping[str, object], name: str) -> int:
+    value = entry.get(name)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise RawSnapshotError("row_count and byte_size must be non-negative integers")
+    return value
+
+
 def validate_snapshot(
     snapshot_dir: Path,
     *,
@@ -121,19 +141,17 @@ def validate_snapshot(
     manifest_path = directory / "manifest.json"
     if not manifest_path.is_file():
         raise RawSnapshotError(f"snapshot is partial: missing {manifest_path}")
-    try:
-        raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise RawSnapshotError("manifest.json is not valid UTF-8 JSON") from exc
-    if not isinstance(raw_manifest, dict):
-        raise RawSnapshotError("manifest.json must contain an object")
-    manifest: dict[str, object] = raw_manifest
+    manifest = _read_manifest(manifest_path)
 
     contract_version = _require_text(manifest, "contract_version")
     if contract_version != RAW_CONTRACT_VERSION:
         raise RawSnapshotError(f"unknown raw contract version: {contract_version}")
     source = _safe_identifier("source", _require_text(manifest, "source"))
     snapshot_id = _require_text(manifest, "snapshot_id")
+    if not _SNAPSHOT_ID.fullmatch(snapshot_id):
+        raise RawSnapshotError(
+            f"snapshot_id must match {_SNAPSHOT_ID.pattern!r}: {snapshot_id!r}"
+        )
     if directory.name != snapshot_id:
         raise RawSnapshotError("snapshot_id must equal the snapshot directory name")
     if directory.parent.name != source:
@@ -150,6 +168,8 @@ def validate_snapshot(
     declared_previous = manifest.get("previous_snapshot_id")
     if declared_previous is not None and not isinstance(declared_previous, str):
         raise RawSnapshotError("previous_snapshot_id must be a string or null")
+    if isinstance(declared_previous, str) and not declared_previous.strip():
+        raise RawSnapshotError("previous_snapshot_id must be non-empty or null")
     if previous_snapshot_id is not None and declared_previous != previous_snapshot_id:
         raise RawSnapshotError(
             "previous_snapshot_id does not match the loaded predecessor"
@@ -191,24 +211,20 @@ def validate_snapshot(
 
         expected_hash = _require_text(entry, "sha256")
         expected_fingerprint = _require_text(entry, "schema_fingerprint")
-        try:
-            expected_rows = int(entry["row_count"])
-            expected_bytes = int(entry["byte_size"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise RawSnapshotError(
-                "row_count and byte_size must be non-negative integers"
-            ) from exc
-        if expected_rows < 0 or expected_bytes < 0:
-            raise RawSnapshotError("row_count and byte_size must be non-negative")
+        expected_rows = _nonnegative_integer(entry, "row_count")
+        expected_bytes = _nonnegative_integer(entry, "byte_size")
         actual_bytes = path.stat().st_size
         if actual_bytes != expected_bytes:
             raise RawSnapshotError(f"byte size mismatch for {relative}")
         actual_hash = _sha256(path)
         if actual_hash != expected_hash:
             raise RawSnapshotError(f"SHA-256 mismatch for {relative}")
-        parquet = pq.ParquetFile(path)
-        actual_rows = parquet.metadata.num_rows
-        actual_fingerprint = schema_fingerprint(parquet.schema_arrow)
+        try:
+            parquet = pq.ParquetFile(path)
+            actual_rows = parquet.metadata.num_rows
+            actual_fingerprint = schema_fingerprint(parquet.schema_arrow)
+        except (OSError, pa.ArrowInvalid) as exc:
+            raise RawSnapshotError(f"invalid Parquet payload: {relative}") from exc
         if actual_rows != expected_rows:
             raise RawSnapshotError(f"row count mismatch for {relative}")
         if actual_fingerprint != expected_fingerprint:
@@ -232,6 +248,13 @@ def validate_snapshot(
                 byte_size=actual_bytes,
             )
         )
+
+    if expected_schemas is not None:
+        missing_tables = sorted(set(expected_schemas) - seen_tables)
+        if missing_tables:
+            raise RawSnapshotError(
+                f"missing canonical tables for source {source}: {missing_tables}"
+            )
 
     return RawSnapshot(
         directory=directory,
@@ -280,9 +303,7 @@ def load_snapshot(
     manifest_path = directory / "manifest.json"
     if not manifest_path.is_file():
         raise RawSnapshotError(f"snapshot is partial: missing {manifest_path}")
-    preliminary = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if not isinstance(preliminary, dict):
-        raise RawSnapshotError("manifest.json must contain an object")
+    preliminary = _read_manifest(manifest_path)
     source = _safe_identifier("source", _require_text(preliminary, "source"))
     snapshot_id = _require_text(preliminary, "snapshot_id")
 

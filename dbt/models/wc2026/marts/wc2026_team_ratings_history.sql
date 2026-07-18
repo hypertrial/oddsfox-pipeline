@@ -10,3 +10,4 @@ select
     _snapshot_id as snapshot_id,
     _collected_at as collected_at
 from {{ source('wc2026_canonical_raw', 'eloratings__team_ratings') }}
+where _snapshot_id = {{ latest_wc2026_snapshot_id('eloratings') }}

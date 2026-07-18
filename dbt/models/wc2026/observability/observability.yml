@@ -50,7 +50,10 @@ models:
         description: Whether v4 must fail closed when the source is unavailable.
         tests: [not_null]
       - name: available
-        description: Whether validated source data is currently present.
+        description: Whether the latest validated source payload contains rows.
+        tests: [not_null]
+      - name: row_count
+        description: Rows present for the latest private snapshot or current public input.
         tests: [not_null]
       - name: availability_mode
         description: Public collector, canonical snapshot, or committed seed.

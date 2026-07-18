@@ -13,3 +13,4 @@ select
     _snapshot_id as snapshot_id,
     _collected_at as collected_at
 from {{ source('wc2026_canonical_raw', 'fotmob__events') }}
+where _snapshot_id = {{ latest_wc2026_snapshot_id('fotmob') }}

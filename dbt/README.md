@@ -54,7 +54,10 @@ published in
 
 Private canonical sources are optional for public builds. The project creates
 schema-correct empty raw tables and publishes explicit availability/blocking
-rows; it does not ship private collectors, payloads, URLs, or fixtures.
+rows; it does not ship private collectors, payloads, URLs, or fixtures. Raw
+snapshot rows and provenance remain append-only, while strategy-facing marts
+use only the latest ledger-declared complete snapshot for each private source.
+Readiness requires that latest payload to contain rows.
 
 If a local DuckDB file still has deleted broad marts or older relation types,
 reset the local warehouse or drop the affected dbt schemas before rebuilding.

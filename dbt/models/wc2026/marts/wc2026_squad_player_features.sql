@@ -1,5 +1,17 @@
 {{ config(alias='squad_player_features') }}
 
+with squad as (
+    select *
+    from {{ source('wc2026_canonical_raw', 'wikipedia_squads__players') }}
+    where _snapshot_id = {{ latest_wc2026_snapshot_id('wikipedia_squads') }}
+),
+
+player as (
+    select *
+    from {{ source('wc2026_canonical_raw', 'fifaindex__players') }}
+    where _snapshot_id = {{ latest_wc2026_snapshot_id('fifaindex') }}
+)
+
 select
     squad.source_player_key,
     squad.run_id,
@@ -40,8 +52,8 @@ select
     case when player.player_id is null then 0 else 1 end as candidate_count,
     player.player_id is not null as was_matched_to_fifaindex,
     greatest(squad._collected_at, player._collected_at) as collected_at
-from {{ source('wc2026_canonical_raw', 'wikipedia_squads__players') }} as squad
-left join {{ source('wc2026_canonical_raw', 'fifaindex__players') }} as player
+from squad
+left join player
     on
         player.game_slug = 'fc26'
         and {{ canonical_team_match_key('player.nationality') }}

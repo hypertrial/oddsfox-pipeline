@@ -26,6 +26,7 @@ from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.scope_registry import SCOPE_STEPS, iter_scope_specs
 
 _NON_SCOPE_JOB_NAMES = {
+    "international_results_historical_ingest",
     "international_results_wc2026_match_results_ingest",
     "wc2026_knockout_match_odds_full_pipeline",
 }
@@ -151,6 +152,15 @@ oddsfox:
         results_assets_mod,
         "sync_wc2026_match_results",
         lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
+    )
+    monkeypatch.setattr(
+        results_assets_mod,
+        "sync_historical_international_results",
+        lambda: {
+            "inserted_matches": 0,
+            "inserted_shootouts": 0,
+            "inserted_goalscorers": 0,
+        },
     )
     monkeypatch.setattr(
         openfootball_assets_mod,
