@@ -1,0 +1,38 @@
+version: 2
+
+sources:
+  - name: wc2026_canonical_raw
+    schema: wc2026_raw
+    description: >
+      Canonical raw snapshot tables. Private enrichments are created empty by
+      the public build and populated only from validated oddsfox.raw.v1 inputs.
+    tables:
+      - name: eloratings__team_ratings
+        meta:
+          dagster:
+            asset_key: [wc2026, raw, eloratings]
+      - name: clubelo__club_ratings
+        meta:
+          dagster:
+            asset_key: [wc2026, raw, clubelo]
+      - name: fifaindex__players
+        meta:
+          dagster:
+            asset_key: [wc2026, raw, fifaindex]
+      - name: wikipedia_squads__players
+        meta:
+          dagster:
+            asset_key: [wc2026, raw, wikipedia_squads]
+      - name: fotmob__events
+        meta:
+          dagster:
+            asset_key: [wc2026, raw, fotmob]
+
+  - name: wc2026_snapshot_ops
+    schema: wc2026_ops
+    description: Validated canonical snapshot load ledger.
+    tables:
+      - name: raw_snapshot_ledger
+        meta:
+          dagster:
+            asset_key: [wc2026, ops, raw_snapshot_ledger]

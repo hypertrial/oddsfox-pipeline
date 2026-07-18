@@ -1,4 +1,5 @@
 from oddsfox_pipeline.orchestration.assets_international_results import (
+    international_results_historical_raw_snapshot,
     international_results_wc2026_raw_match_results,
 )
 from oddsfox_pipeline.orchestration.assets_kalshi_wc2026 import (
@@ -36,6 +37,7 @@ __all__ = [
     "DBT_DAGSTER_GROUP_NAME",
     "DBT_PROJECT",
     "PolymarketDagsterDbtTranslator",
+    "international_results_historical_raw_snapshot",
     "international_results_wc2026_raw_match_results",
     "kalshi_wc2026_ops_market_scope_registry",
     "kalshi_wc2026_raw_market_candlesticks_hourly",

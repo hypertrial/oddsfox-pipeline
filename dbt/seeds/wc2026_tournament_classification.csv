@@ -1,0 +1,125 @@
+tournament,is_friendly,is_competitive,competition_family,confederation_scope,notes
+Friendly,true,false,friendly,global,Standard international friendly
+Friendly Tournament,true,false,friendly,global,Friendly mini-tournament or exhibition series
+FIFA World Cup,false,true,world_cup,global,Final tournament
+FIFA World Cup qualification,false,true,world_cup_qualification,global,Confederation qualification for the World Cup
+Confederations Cup,false,true,confederations_cup,global,Discontinued FIFA Confederations Cup
+UEFA Euro,false,true,continental_championship,uefa,Final tournament
+UEFA Euro qualification,false,true,continental_qualification,uefa,Qualification tournament
+UEFA Nations League,false,true,nations_league,uefa,UEFA Nations League
+AFC Asian Cup,false,true,continental_championship,afc,Final tournament
+AFC Asian Cup qualification,false,true,continental_qualification,afc,Qualification tournament
+African Cup of Nations,false,true,continental_championship,caf,Final tournament
+African Cup of Nations qualification,false,true,continental_qualification,caf,Qualification tournament
+Copa América,false,true,continental_championship,conmebol,Final tournament
+CONCACAF Nations League,false,true,nations_league,concacaf,CONCACAF Nations League
+CONCACAF Championship,false,true,continental_championship,concacaf,Historical Gold Cup naming
+CONCACAF Gold Cup,false,true,continental_championship,concacaf,Final tournament
+CONCACAF Gold Cup qualification,false,true,continental_qualification,concacaf,Qualification tournament
+Nehru Cup,false,true,regional_competition,afc,Competitive invitational tournament
+CFU Caribbean Cup,false,true,regional_competition,concacaf,Regional championship
+Caribbean Cup,false,true,regional_competition,concacaf,Regional championship
+CFU Caribbean Cup qualification,false,true,regional_qualification,concacaf,Qualification tournament
+AFF Championship,false,true,regional_competition,afc,ASEAN championship
+SAFF Cup,false,true,regional_competition,afc,South Asian championship
+EAFF Championship,false,true,regional_competition,afc,East Asian championship
+WAFF Championship,false,true,regional_competition,afc,West Asian championship
+Gulf Cup,false,true,regional_competition,afc,Gulf regional championship
+COSAFA Cup,false,true,regional_competition,caf,Southern Africa regional championship
+CECAFA Cup,false,true,regional_competition,caf,East and Central Africa championship
+UNCAF Cup,false,true,regional_competition,concacaf,Central America championship
+Kirin Cup,false,true,regional_competition,afc,Competitive invitational tournament
+King's Cup,false,true,regional_competition,afc,Competitive invitational tournament
+China Cup,false,true,regional_competition,afc,Competitive invitational tournament
+Arab Cup,false,true,regional_competition,global,Arab Cup finals
+AFC Challenge Cup,false,true,regional_competition,afc,Historical AFC competition
+AFC Solidarity Cup,false,true,regional_competition,afc,Competitive regional tournament
+African Nations Championship,false,true,regional_competition,caf,CHAN finals
+African Nations Championship qualification,false,true,regional_qualification,caf,CHAN qualification
+CONIFA World Football Cup,false,true,other_competition,global,Non-FIFA but competitive full-international style event
+CONIFA European Football Cup,false,true,other_competition,global,Competitive CONIFA tournament
+CONIFA Challenger Cup,false,true,other_competition,global,Competitive CONIFA tournament
+Intercontinental Cup,false,true,other_competition,global,Competitive inter-confederation tournament
+ABCS Tournament,false,true,regional_competition,concacaf,Caribbean invitational / regional tournament
+AFC Challenge Cup qualification,false,true,regional_qualification,afc,AFC Challenge Cup qualifying
+AFF Championship qualification,false,true,regional_qualification,afc,ASEAN championship qualifying
+ASEAN Championship,false,true,regional_competition,afc,ASEAN championship (AFF naming variant)
+ASEAN Championship qualification,false,true,regional_qualification,afc,ASEAN championship qualifying
+Al Ain International Cup,false,true,regional_competition,afc,Invitational tournament in UAE
+Amílcar Cabral Cup,false,true,regional_competition,caf,West Africa invitational cup
+Arab Cup qualification,false,true,continental_qualification,global,FIFA Arab Cup qualifying
+Atlantic Heritage Cup,false,true,regional_competition,concacaf,Regional invitational
+Baltic Cup,false,true,regional_competition,uefa,Baltic states senior competition
+Benedikt Fontana Cup,false,true,regional_competition,uefa,Austrian regional invitational
+CAFA Nations Cup,false,true,regional_competition,afc,Central Asian Football Association tournament
+CONCACAF Nations League qualification,false,true,continental_qualification,concacaf,CNL qualifying phase
+CONCACAF Series,false,true,regional_competition,concacaf,CONCACAF play-off / qualification series
+CONIFA Africa Football Cup,false,true,other_competition,global,CONIFA confederation tournament
+CONIFA Asia Cup,false,true,other_competition,global,CONIFA confederation tournament
+CONIFA South America Football Cup,false,true,other_competition,global,CONIFA confederation tournament
+CONIFA World Cup qualification,false,true,other_competition,global,CONIFA World Cup qualifying
+CONIFA World Football Cup qualification,false,true,other_competition,global,CONIFA tournament qualifying
+CONMEBOL–UEFA Cup of Champions,false,true,other_competition,global,Finalissima / UEFA–CONMEBOL cup
+COSAFA Cup qualification,false,true,regional_qualification,caf,COSAFA Cup qualifying
+Canadian Shield,false,true,regional_competition,concacaf,Canadian regional competition
+ConIFA Challenger Cup,false,true,other_competition,global,CONIFA naming variant in source data
+Copa América qualification,false,true,continental_qualification,conmebol,Copa América qualifying
+Copa Confraternidad,false,true,regional_competition,conmebol,South American invitational trophy
+Copa Paz del Chaco,false,true,regional_competition,conmebol,Bolivia–Paraguay regional cup
+Copa del Pacífico,false,true,regional_competition,conmebol,Pacific derby invitational
+Corsica Cup,false,true,regional_competition,uefa,Corsica invitational
+Coupe de l'Outre-Mer,false,true,regional_competition,uefa,French overseas territories cup
+Cyprus International Tournament,false,true,regional_competition,uefa,Cyprus-hosted invitational
+Diamond Jubilee International Football Tournament,false,true,regional_competition,afc,South Asia invitational hosted in the Maldives
+Dragon Cup,false,true,regional_competition,afc,Vietnam-hosted invitational
+EAFF Championship qualification,false,true,regional_qualification,afc,East Asian championship qualifying
+ELF Cup,false,true,other_competition,global,Alternative / invitational tournament
+East Asian Games,false,true,regional_competition,afc,Multisport games football
+FIFA Series,false,true,other_competition,global,Official FIFA international window series / friendlies cluster
+FIFI Wild Cup,false,true,other_competition,global,Non-standard invitational tournament
+Gold Cup,false,true,continental_championship,concacaf,CONCACAF Gold Cup shorthand in source
+Gold Cup qualification,false,true,continental_qualification,concacaf,CONCACAF Gold Cup qualifying shorthand
+Hungary Heritage Cup,false,true,regional_competition,uefa,Hungary invitational
+Indian Ocean Island Games,false,true,regional_competition,global,Indian Ocean multisport games football
+Inter Games,false,true,regional_competition,global,Regional multisport games football
+"International Tournament of Peoples, Cultures and Tribes",false,true,other_competition,global,Invitational tournament
+Island Games,false,true,regional_competition,global,Island multisport games football
+Jordan International Tournament,false,true,regional_competition,afc,Jordan-hosted invitational
+Kirin Challenge Cup,false,true,regional_competition,afc,Kirin Cup naming variant
+Lunar New Year Cup,false,true,regional_competition,afc,Hong Kong invitational
+MSG Prime Minister's Cup,false,true,regional_competition,ofc,Melanesian invitational
+Mahinda Rajapaksa Cup,false,true,regional_competition,afc,Sri Lanka invitational
+Malta International Tournament,false,true,regional_competition,uefa,Malta-hosted invitational
+Mapinduzi Cup,false,true,regional_competition,caf,Zanzibar invitational
+Marianas Cup,false,true,regional_competition,ofc,Northern Marianas invitational
+Mauritius Four Nations Cup,false,true,regional_competition,caf,Mauritius invitational
+Merdeka Tournament,false,true,regional_competition,afc,Malaysia Merdeka Cup
+"Morocco, Capital of African Football",false,true,regional_competition,caf,Morocco-hosted invitational
+Mukuru 4 Nations,false,true,regional_competition,caf,Southern Africa invitational
+Muratti Vase,false,true,regional_competition,uefa,Channel Islands senior match trophy
+Nations Cup,false,true,other_competition,global,Generic nations cup label in source data
+Navruz Cup,false,true,regional_competition,afc,Central Asia invitational
+Niamh Challenge Cup,false,true,other_competition,global,Minor invitational
+Nile Basin Tournament,false,true,regional_competition,caf,Nile basin invitational
+OSN Cup,false,true,regional_competition,afc,Gulf-area invitational cup
+Oceania Nations Cup,false,true,continental_championship,ofc,OFC Nations Cup
+Oceania Nations Cup qualification,false,true,continental_qualification,ofc,OFC Nations Cup qualifying
+Outrigger Challenge Cup,false,true,regional_competition,ofc,Pacific invitational
+Pacific Games,false,true,regional_competition,ofc,Pacific multisport games football
+Pacific Mini Games,false,true,regional_competition,ofc,Pacific mini multisport games football
+Palestine International Championship,false,true,regional_competition,afc,Palestine-hosted invitational
+Philippine Peace Cup,false,true,regional_competition,afc,Philippines invitational
+Soccer Ashes,false,true,regional_competition,ofc,Australia–New Zealand challenge
+South Asian Super Cup,false,true,regional_competition,afc,South Asia invitational
+South Pacific Games,false,true,regional_competition,ofc,South Pacific multisport games football
+Superclásico de las Américas,false,true,other_competition,conmebol,Argentina–Brazil showcase match
+Three Nations Cup,false,true,regional_competition,global,Tri-team invitational (context varies)
+Tri Nation Tournament,false,true,regional_competition,global,Tri-team invitational
+Tri-Nations Cup,false,true,regional_competition,afc,AFC tri-team invitational hosted in the Philippines
+Tri-Nations Series,false,true,regional_competition,global,Tri-team series
+Tynwald Hill Tournament,false,true,regional_competition,uefa,Isle of Man invitational
+Unity Cup,false,true,other_competition,global,Invitational tournament
+VFF Cup,false,true,regional_competition,afc,Vietnam Football Federation invitational
+Viva World Cup,false,true,other_competition,global,Non-FIFA invitational predecessor era
+Windward Islands Tournament,false,true,regional_competition,concacaf,Windward Islands football tournament
+World Unity Cup,false,true,other_competition,global,Invitational tournament

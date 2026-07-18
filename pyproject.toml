@@ -105,6 +105,7 @@ quote-style = "double"
 dialect = "duckdb"
 templater = "dbt"
 max_line_length = 130
+max_parse_depth = 1024
 
 [tool.sqlfluff.templater.dbt]
 project_dir = "dbt"

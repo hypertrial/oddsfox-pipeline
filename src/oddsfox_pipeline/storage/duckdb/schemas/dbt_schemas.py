@@ -21,6 +21,7 @@ DBT_SOURCE_OPENFOOTBALL_WC2026: Final = "openfootball_wc2026"
 DBT_SOURCE_KALSHI_WC2026: Final = "kalshi_wc2026"
 DBT_SOURCE_POLYMARKET_WC2026: Final = "polymarket_wc2026"
 DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026: Final = "polymarket_us_midterms_2026"
+DBT_SOURCE_WC2026: Final = "wc2026"
 
 _POLYMARKET_SOURCE_SCOPES: dict[str, str] = {
     DBT_SOURCE_POLYMARKET_WC2026: SCOPE_WC2026,
@@ -43,6 +44,7 @@ INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA: Final = schema_name(
     SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "observability"
 )
 OPENFOOTBALL_WC2026_STAGING_SCHEMA: Final = "openfootball_wc2026_staging"
+WC2026_STAGING_SCHEMA: Final = "wc2026_staging"
 WC2026_INTERMEDIATE_SCHEMA: Final = "wc2026_intermediate"
 WC2026_MARTS_SCHEMA: Final = "wc2026_marts"
 WC2026_OBSERVABILITY_SCHEMA: Final = "wc2026_observability"
@@ -104,6 +106,7 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
     INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
     INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
     OPENFOOTBALL_WC2026_STAGING_SCHEMA,
+    WC2026_STAGING_SCHEMA,
     WC2026_INTERMEDIATE_SCHEMA,
     WC2026_MARTS_SCHEMA,
     WC2026_OBSERVABILITY_SCHEMA,
@@ -128,6 +131,35 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (WC2026_INTERMEDIATE_SCHEMA, "int_wc2026_knockout_fixtures"),
     (WC2026_MARTS_SCHEMA, "wc2026_knockout_match_hourly_odds"),
+    (WC2026_STAGING_SCHEMA, "wc2026_schedule_matches"),
+    (WC2026_STAGING_SCHEMA, "wc2026_third_place_options"),
+    (WC2026_STAGING_SCHEMA, "wc2026_base_camps_teams"),
+    (WC2026_STAGING_SCHEMA, "wc2026_venues"),
+    (WC2026_STAGING_SCHEMA, "wc2026_team_canonical_aliases"),
+    (WC2026_STAGING_SCHEMA, "wc2026_tournament_classification"),
+    (WC2026_MARTS_SCHEMA, "wc2026_base_camp_venues"),
+    (WC2026_MARTS_SCHEMA, "wc2026_club_strength_current"),
+    (WC2026_MARTS_SCHEMA, "wc2026_club_strength_history"),
+    (WC2026_MARTS_SCHEMA, "wc2026_club_strength_snapshot"),
+    (WC2026_MARTS_SCHEMA, "wc2026_contract_metadata"),
+    (WC2026_MARTS_SCHEMA, "wc2026_event_state_timing"),
+    (WC2026_MARTS_SCHEMA, "wc2026_fixtures"),
+    (WC2026_MARTS_SCHEMA, "wc2026_international_matches"),
+    (WC2026_MARTS_SCHEMA, "wc2026_player_features"),
+    (WC2026_MARTS_SCHEMA, "wc2026_price_liquidity_current"),
+    (WC2026_MARTS_SCHEMA, "wc2026_price_liquidity_history"),
+    (WC2026_MARTS_SCHEMA, "wc2026_results"),
+    (WC2026_MARTS_SCHEMA, "wc2026_source_provenance"),
+    (WC2026_MARTS_SCHEMA, "wc2026_squad_player_features"),
+    (WC2026_MARTS_SCHEMA, "wc2026_team_identities"),
+    (WC2026_MARTS_SCHEMA, "wc2026_team_ratings_current"),
+    (WC2026_MARTS_SCHEMA, "wc2026_team_ratings_history"),
+    (WC2026_MARTS_SCHEMA, "wc2026_third_place_lookup"),
+    (WC2026_MARTS_SCHEMA, "wc2026_third_place_slot_assignments"),
+    (WC2026_MARTS_SCHEMA, "wc2026_travel_features"),
+    (WC2026_MARTS_SCHEMA, "wc2026_venue_markets"),
+    (WC2026_OBSERVABILITY_SCHEMA, "wc2026_source_availability"),
+    (WC2026_OBSERVABILITY_SCHEMA, "wc2026_strategy_input_readiness"),
     (
         WC2026_OBSERVABILITY_SCHEMA,
         "wc2026_knockout_match_odds_coverage",
@@ -353,6 +385,8 @@ def resolve_source_slug(
         return path_fqn[1]
     if len(path_fqn) >= 2 and path_fqn[1] == "international_results_wc2026":
         return DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026
+    if len(path_fqn) >= 2 and path_fqn[1] == "wc2026":
+        return DBT_SOURCE_WC2026
     name = str(props.get("name") or "")
     kalshi_slug = _kalshi_source_slug(name)
     if kalshi_slug is not None:
@@ -360,6 +394,8 @@ def resolve_source_slug(
     polymarket_slug = _polymarket_source_slug(name)
     if polymarket_slug is not None:
         return polymarket_slug
+    if name.startswith(("int_wc2026_", "wc2026_")):
+        return DBT_SOURCE_WC2026
     if "international_results" in tags or (
         len(path_fqn) >= 2 and path_fqn[1] == "international_results_wc2026"
     ):
@@ -518,6 +554,8 @@ def _international_results_wc2026_subject(model_name: str) -> str:
 
 
 def shorten_model_name(model_name: str, source_slug: str) -> str:
+    if source_slug == DBT_SOURCE_WC2026:
+        return _wc2026_subject(model_name)
     if source_slug == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
         return _international_results_wc2026_subject(model_name)
     if source_slug == DBT_SOURCE_KALSHI_WC2026:
@@ -529,6 +567,13 @@ def shorten_model_name(model_name: str, source_slug: str) -> str:
     return model_name
 
 
+def _wc2026_subject(model_name: str) -> str:
+    for prefix in ("int_wc2026_", "wc2026_"):
+        if model_name.startswith(prefix):
+            return model_name[len(prefix) :]
+    return model_name
+
+
 def dbt_model_asset_key_for_name(
     model_name: str,
     source_slug: str,
@@ -537,6 +582,19 @@ def dbt_model_asset_key_for_name(
     props: Mapping[str, object] | None = None,
     fqn: Sequence[str] | None = None,
 ) -> AssetKey:
+    if source_slug == DBT_SOURCE_WC2026:
+        path_fqn = list(fqn or (props or {}).get("fqn") or ())
+        resolved_layer = layer
+        if resolved_layer is None:
+            resolved_layer = next(
+                (
+                    segment
+                    for segment in path_fqn
+                    if segment in {"staging", "intermediate", "marts", "observability"}
+                ),
+                "marts",
+            )
+        return AssetKey(["wc2026", resolved_layer, _wc2026_subject(model_name)])
     if source_slug == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
         return asset_key(
             SOURCE_INTERNATIONAL_RESULTS,
@@ -587,6 +645,7 @@ __all__ = [
     "DBT_SOURCE_OPENFOOTBALL_WC2026",
     "DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026",
     "DBT_SOURCE_POLYMARKET_WC2026",
+    "DBT_SOURCE_WC2026",
     "INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA",
@@ -607,6 +666,7 @@ __all__ = [
     "WC2026_INTERMEDIATE_SCHEMA",
     "WC2026_MARTS_SCHEMA",
     "WC2026_OBSERVABILITY_SCHEMA",
+    "WC2026_STAGING_SCHEMA",
     "dbt_model_asset_key",
     "dbt_model_asset_key_for_name",
     "qualified_relation",

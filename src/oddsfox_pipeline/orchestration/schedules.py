@@ -17,10 +17,19 @@ from oddsfox_pipeline.orchestration.config import (
     wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.jobs import (
+    international_results_historical_ingest,
     kalshi_wc2026_hourly_odds_ingest,
     polymarket_us_midterms_2026_hourly_odds_ingest,
     polymarket_wc2026_hourly_odds_ingest,
     wc2026_knockout_match_odds_full_pipeline,
+)
+
+international_results_daily_schedule = ScheduleDefinition(
+    name="international_results_daily_schedule",
+    job=international_results_historical_ingest,
+    cron_schedule="15 2 * * *",
+    default_status=DefaultScheduleStatus.STOPPED,
+    description="Daily public 2006+ international results, shootout, and goals refresh.",
 )
 
 polymarket_wc2026_hourly_odds_schedule = ScheduleDefinition(
@@ -88,6 +97,7 @@ wc2026_knockout_match_odds_hourly_schedule = ScheduleDefinition(
 )
 
 __all__ = [
+    "international_results_daily_schedule",
     "kalshi_wc2026_hourly_odds_schedule",
     "polymarket_us_midterms_2026_hourly_odds_schedule",
     "polymarket_wc2026_hourly_odds_schedule",

@@ -7,32 +7,35 @@
 OddsFox Pipeline is an open-source, local-first batch data warehouse for
 prediction-market data.
 
-It uses Dagster to orchestrate dlt/CSV ingestion, DuckDB storage, Python sync
-ledgers, and dbt analytics models. Version `0.1.x` ships WC2026 Polymarket
-odds, US midterms 2026 Polymarket odds, Kalshi WC2026 odds, a standardized
-cross-platform knockout match mart, and FIFA fixture/results validation.
+It uses Dagster to orchestrate dlt/CSV ingestion, canonical Parquet snapshot
+loading, DuckDB storage, Python sync ledgers, and dbt analytics models. The
+public project ships Polymarket and Kalshi market data, GitHub-hosted football
+feeds, a standardized `wc2026.v1` clean-data contract, and data-quality
+telemetry. Optional private enrichments are accepted only through the canonical
+raw snapshot contract.
 Existing local warehouses from older layouts must
 be reset with `rm oddsfox.duckdb*`.
 
 ## Project Scope
 
 OddsFox Pipeline is code and operator tooling, not a hosted dataset. The shipped market
-adapters cover Polymarket WC2026, Polymarket US midterms 2026, and Kalshi
-WC2026. The bundled `international_results` WC2026 CSV source is used only to
-validate real FIFA World Cup team scope.
+adapters cover Polymarket WC2026, Polymarket US midterms 2026, Kalshi WC2026,
+OpenFootball, and the public 2006+ `international_results` files.
 
 Every operator runs ingestion against source APIs and stores the resulting data
 in their own local DuckDB file or self-managed warehouse.
 
 ## Part Of OddsFox
 
-`oddsfox-pipeline` is the warehouse and orchestration repo. It ingests source
-data, builds dbt marts, and exports graph parquet for offline use by
-`oddsfox-graph`.
+`oddsfox-pipeline` is the public warehouse component of the private `oddsfox`
+superproject. It ingests safe public sources, validates canonical snapshots
+produced by private collectors, builds dbt marts, and exports graph parquet for
+offline use by `oddsfox-graph`. `oddsfox-strategy` consumes `wc2026.v1`
+read-only; this repository never contains strategy or execution code.
 
 Read the cross-repo [System Overview](docs/concepts/system-overview.md) for the
-data flow and repository boundaries. The retired `oddsfox-live` dashboard
-backend is not part of the pipeline runtime.
+data flow and repository boundaries. Order execution belongs to
+`oddsfox-execution` and is not part of this runtime.
 
 ## Start Here
 
@@ -104,7 +107,9 @@ Main public analytics schemas:
 - `polymarket_wc2026_marts`: WC2026 Polymarket knockout market snapshots,
   progression-side hourly odds, token classification, and graph exports.
 - `wc2026_marts`: official FIFA-numbered knockout match hourly team-advance
-  prices across Polymarket and Kalshi, with exact missing hours preserved.
+  prices plus stable fixtures, results, identities, point-in-time features,
+  venue/token identity, price/liquidity history, travel features, provenance,
+  and `contract_metadata` for `wc2026.v1`.
 - `international_results_wc2026_marts`: WC2026 fixtures, results, and canonical
   team status used to clean public odds marts.
 - `polymarket_us_midterms_2026_marts`: scoped US midterms 2026 Polymarket
@@ -115,6 +120,7 @@ Main public analytics schemas:
   checks for analyst trust and operator debugging.
 
 Dagster registers source-first jobs:
+`international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`,
 `polymarket_wc2026_market_registry_refresh`,
 `polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, and

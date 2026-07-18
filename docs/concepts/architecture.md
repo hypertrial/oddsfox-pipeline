@@ -4,8 +4,8 @@ OddsFox Pipeline is intentionally local-first: every routine workflow writes to 
 DuckDB warehouse and is coordinated by Dagster jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
 v0.1.x adapters ship WC2026 Polymarket knockout marts, Kalshi WC2026 stage and
-group-winner marts, US midterms 2026 generic market odds, and FIFA World Cup
-fixture/results rows used to validate WC2026 real-team scope.
+group-winner marts, US midterms 2026 generic market odds, public historical
+international results, and the stable `wc2026.v1` strategy-input contract.
 
 US midterms 2026 is a parallel Polymarket namespace: targeted Gamma discovery
 for Balance of Power, Senate control, and House control event slugs, with raw/ops
@@ -27,11 +27,13 @@ flowchart LR
     gamma["Prediction-market metadata API<br/>Polymarket Gamma in v0.1.x"] --> dlt["dlt market landing"]
     clob["Prediction-market odds API<br/>Polymarket CLOB in v0.1.x"] --> odds["Python odds sync"]
     kalshi_api["Prediction-market metadata/odds API<br/>Kalshi trade API in v0.1.x"] --> kalshi_sync["Python candlestick sync"]
-    results["FIFA results CSV<br/>international_results"] --> result_sync["Python CSV sync"]
+    results["Public football CSV/TXT feeds"] --> result_sync["Python CSV sync"]
+    private["Private canonical Parquet snapshots"] --> validate["oddsfox.raw.v1 validation"]
     dlt --> raw["DuckDB raw schema"]
     odds --> raw
     kalshi_sync --> raw
     result_sync --> raw
+    validate --> raw
     raw --> ops["DuckDB ops ledgers"]
     raw --> dbt["dbt models"]
     ops --> dbt
@@ -58,7 +60,8 @@ helper boundary.
 | --- | --- |
 | Dagster | Defines assets, jobs, and disabled-by-default schedules. |
 | dlt | Lands market metadata and current raw/ops batches into DuckDB stage/canonical tables for the current adapter. |
-| Python CSV sync | Loads the WC2026 FIFA World Cup fixture/result slice used for team validation. |
+| Python CSV sync | Loads public WC2026 and 2006+ historical international-result feeds. |
+| Canonical snapshot loader | Validates hashes, schemas, provenance, ordering, and transactional exactly-once loads for optional private enrichments. |
 | Python odds sync | Fetches odds, writes token history, and maintains ledgers. |
 | DuckDB | Stores raw, ops, staging, intermediate, mart, and observability schemas. |
 | dbt | Builds analytics models and data-contract tests. |
@@ -124,6 +127,8 @@ required for local runs.
   midterms pipeline (`tag:us_midterms_2026` dbt selection only).
 - `international_results_wc2026_match_results_ingest` refreshes fixture/results
   and also runs inside the WC2026 full pipeline.
+- `international_results_historical_ingest` refreshes public 2006+ matches,
+  shootouts, and goalscorers; its daily schedule is stopped by default.
 - `polymarket_wc2026_hourly_odds_ingest` and
   `polymarket_us_midterms_2026_hourly_odds_ingest` are the hourly odds jobs
   (`fidelity=60`).

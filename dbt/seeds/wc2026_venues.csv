@@ -1,0 +1,18 @@
+venue,host_city,host_country,venue_lat,venue_lon,venue_timezone,venue_altitude_m
+Atlanta Stadium (Mercedes-Benz),Atlanta,USA,33.755,-84.401,America/New_York,320
+"BC Place, Vancouver",Vancouver,Canada,49.276,-123.111,America/Los_Angeles,10
+Boston Stadium (Gillette),Foxborough,USA,42.091,-71.264,America/New_York,90
+Dallas Stadium (AT&T),Arlington,USA,32.748,-97.093,America/Chicago,190
+"Guadalajara Stadium (Estadio Akron), Zapopan",Zapopan,Mexico,20.681,-103.462,America/Chicago,1560
+Houston Stadium (NRG),Houston,USA,29.685,-95.411,America/Chicago,15
+Kansas City Stadium (Arrowhead),Kansas City,USA,39.049,-94.484,America/Chicago,265
+Los Angeles Stadium (SoFi),Inglewood,USA,33.953,-118.339,America/Los_Angeles,38
+Mexico City Stadium (Estadio Azteca),Mexico City,Mexico,19.303,-99.151,America/Chicago,2200
+Miami Stadium (Hard Rock),Miami Gardens,USA,25.958,-80.239,America/New_York,2
+"Monterrey Stadium (Estadio BBVA), Guadalupe",Guadalupe,Mexico,25.669,-100.245,America/Chicago,500
+New York New Jersey Stadium (MetLife),East Rutherford,USA,40.813,-74.074,America/New_York,2
+"New York New Jersey Stadium (MetLife), East Rutherford, NJ",East Rutherford,USA,40.813,-74.074,America/New_York,2
+Philadelphia Stadium (Lincoln Financial),Philadelphia,USA,39.901,-75.168,America/New_York,8
+San Francisco Bay Area Stadium (Levi’s),Santa Clara,USA,37.403,-121.97,America/Los_Angeles,6
+Seattle Stadium (Lumen Field),Seattle,USA,47.595,-122.331,America/Los_Angeles,4
+Toronto Stadium (BMO Field),Toronto,Canada,43.633,-79.418,America/New_York,76

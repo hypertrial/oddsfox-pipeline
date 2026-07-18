@@ -12,6 +12,8 @@ seed-paths: ["seeds"]
 test-paths: ["tests"]
 target-path: target
 clean-targets: ["target", "dbt_packages"]
+on-run-start:
+  - "{{ ensure_wc2026_canonical_raw_tables() }}"
 models:
   oddsfox:
     +materialized: view
@@ -159,4 +161,28 @@ seeds:
     kalshi_wc2026_contract:
       +schema: kalshi_wc2026_staging
       +tags: ["staging", "wc2026", "kalshi"]
+      +quote_columns: false
+    wc2026_schedule_matches:
+      +schema: wc2026_staging
+      +tags: ["staging", "wc2026", "strategy_contract"]
+      +quote_columns: false
+    wc2026_third_place_options:
+      +schema: wc2026_staging
+      +tags: ["staging", "wc2026", "strategy_contract"]
+      +quote_columns: false
+    wc2026_base_camps_teams:
+      +schema: wc2026_staging
+      +tags: ["staging", "wc2026", "strategy_contract"]
+      +quote_columns: false
+    wc2026_venues:
+      +schema: wc2026_staging
+      +tags: ["staging", "wc2026", "strategy_contract"]
+      +quote_columns: false
+    wc2026_team_canonical_aliases:
+      +schema: wc2026_staging
+      +tags: ["staging", "wc2026", "strategy_contract"]
+      +quote_columns: false
+    wc2026_tournament_classification:
+      +schema: wc2026_staging
+      +tags: ["staging", "wc2026", "strategy_contract"]
       +quote_columns: false

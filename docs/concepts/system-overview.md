@@ -6,12 +6,12 @@ offline analysis. Trade execution is a separate concern owned by
 `oddsfox-execution`.
 
 ```text
-Polymarket and FIFA sources
-  -> oddsfox-pipeline: DuckDB warehouse and dbt marts
+Public sources and private canonical snapshots
+  -> oddsfox-pipeline: DuckDB warehouse and wc2026.v1 dbt marts
+  -> oddsfox-strategy: versioned signal batches
+  -> oddsfox parent: policy-capped explicit intent plans
+  -> oddsfox-execution: paper orders and trades
   -> oddsfox-graph: graph_snapshot.json and knockout_artifacts.json
-
-Strategy repositories
-  -> oddsfox-execution: risk-controlled Polymarket order execution
 ```
 
 ## Local-First Data
@@ -20,16 +20,17 @@ OddsFox Pipeline ships code and operator tooling, not a shared hosted dataset. E
 operator runs ingestion against source APIs and owns the resulting DuckDB file
 or self-managed warehouse.
 
-The former `oddsfox-live` JSON/SSE backend and `oddsfox-dash` deployment have
-been retired. Pipeline and graph outputs are not execution inputs unless a
-strategy repository explicitly consumes them and submits a validated intent to
+Pipeline and graph outputs are not execution inputs unless the private strategy
+and parent control plane convert them into an admitted explicit intent for
 `oddsfox-execution`.
 
 ## Repository Roles
 
 | Repository | Role | Input | Output |
 | --- | --- | --- | --- |
-| `oddsfox-pipeline` | Ingests Polymarket WC2026 and US midterms 2026 odds plus FIFA team/result data, then builds dbt marts. | Source APIs and CSV feeds. | DuckDB warehouse and graph export parquet. |
+| private `oddsfox` | Superproject, private collectors, orchestration, policy, dispatch, deployment, and monitoring. | Private/public source changes and signal batches. | Canonical raw snapshots and effective intent plans. |
+| `oddsfox-pipeline` | Ingests safe public sources and validated canonical snapshots, then builds stable dbt marts. | Source APIs, public CSV/TXT feeds, and `oddsfox.raw.v1`. | `wc2026.v1` DuckDB marts, telemetry, and graph export parquet. |
+| private `oddsfox-strategy` | Runs WC2026 discovery, models, arbitrage, and allocation. | Read-only `wc2026.v1` marts. | Immutable `oddsfox.signal.v1` batches. |
 | `oddsfox-graph` | Converts token-hour odds into graph-ready artifacts. | Pipeline graph export parquet. | `graph_snapshot.json`, `knockout_artifacts.json`, parquet artifacts, and reports. |
 | `oddsfox-execution` | Executes externally generated order intents under durable risk controls. | Authenticated strategy intents and current venue state. | Orders, trades, positions, audit events, and operator controls. |
 | `oddsfox-dash` | Archived historical WC2026 graph client. | Retired `/api/v0` contract. | No supported deployment. |
@@ -38,7 +39,9 @@ strategy repository explicitly consumes them and submits a validated intent to
 
 | Goal | Repo |
 | --- | --- |
-| Change ingestion, DuckDB schemas, dbt marts, Dagster jobs, or artifact refresh orchestration. | `oddsfox-pipeline` |
+| Change safe-source ingestion, canonical snapshot validation, DuckDB schemas, dbt marts, or graph export. | `oddsfox-pipeline` |
+| Change private collection, end-to-end orchestration, policy, dispatch, deployment, or monitoring. | private `oddsfox` |
+| Change models, discovery, allocation, or signal generation. | private `oddsfox-strategy` |
 | Change graph logic, artifact schemas, conditional probabilities, coherence, or build reports. | `oddsfox-graph` |
 | Change order admission, risk, signing, reconciliation, or execution controls. | `oddsfox-execution` |
 | Inspect the retired graph UI. | `oddsfox-dash` |

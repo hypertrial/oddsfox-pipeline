@@ -89,6 +89,194 @@ models:
         description: True when the hour begins before official kickoff.
         tests: [not_null]
 
+  - name: wc2026_contract_metadata
+    description: One-row metadata surface for the versioned `wc2026.v1` clean-data contract.
+    columns:
+      - name: contract_name
+        description: Stable contract family.
+        tests: [not_null, unique]
+      - name: contract_version
+        description: Required strategy-facing contract version.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [wc2026.v1]
+      - name: contract_fingerprint
+        description: Stable fingerprint of the contract's relation set.
+        tests: [not_null]
+
+  - name: wc2026_fixtures
+    description: Official 104-match WC2026 schedule with stable match IDs and bracket slots.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [match_id]
+    columns:
+      - name: match_id
+        description: Official tournament match number.
+        tests: [not_null, unique]
+      - name: stage
+        description: Tournament stage label.
+        tests: [not_null]
+      - name: source_provenance
+        description: Committed reference-data provenance.
+        tests: [not_null]
+
+  - name: wc2026_results
+    description: Completed WC2026 outcomes aligned to the official schedule.
+    columns:
+      - name: match_id
+        description: Official tournament match number.
+        tests: [not_null, unique]
+
+  - name: wc2026_team_identities
+    description: Canonical team IDs and normalized aliases for every scheduled team.
+    columns:
+      - name: team_name
+        description: Team label from the official schedule.
+        tests: [not_null, unique]
+      - name: team_match_key
+        description: Canonical cross-source team key.
+        tests: [not_null]
+      - name: canonical_team_id
+        description: Deterministic canonical team identifier.
+        tests: [not_null]
+
+  - name: wc2026_third_place_lookup
+    description: FIFA Annexe C qualifying-group combinations.
+    columns:
+      - name: option_id
+        description: Stable Annexe C option number.
+        tests: [not_null, unique]
+      - name: qualifying_group_set
+        description: Sorted eight-group lookup key.
+        tests: [not_null]
+
+  - name: wc2026_third_place_slot_assignments
+    description: Long-form Annexe C round-of-32 slot assignments.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [option_id, round_of_32_slot]
+
+  - name: wc2026_team_ratings_current
+    description: Latest point-in-time EloRatings row for each national team.
+    columns:
+      - name: team_code
+        description: Source national-team code.
+        tests: [not_null, unique]
+
+  - name: wc2026_team_ratings_history
+    description: Historical point-in-time EloRatings snapshots.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [snapshot_year, snapshot_scope, team_code]
+
+  - name: wc2026_club_strength_current
+    description: Latest ClubElo strength row per canonical club.
+    columns:
+      - name: club_key
+        description: Canonical club key.
+        tests: [not_null, unique]
+
+  - name: wc2026_club_strength_history
+    description: ClubElo validity intervals used for point-in-time model features.
+    columns:
+      - name: club_key
+        description: Canonical club key.
+        tests: [not_null]
+
+  - name: wc2026_club_strength_snapshot
+    description: Dated ClubElo snapshots used when interval history is incomplete.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [snapshot_date, club_key]
+
+  - name: wc2026_player_features
+    description: Point-in-time FIFAIndex player features enriched with official squad membership.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [game_slug, competition_key, player_id]
+
+  - name: wc2026_squad_player_features
+    description: Official WC2026 squad rows matched to FIFAIndex feature records.
+    columns:
+      - name: source_player_key
+        description: Stable player key from the canonical squad snapshot.
+        tests: [not_null, unique]
+
+  - name: wc2026_international_matches
+    description: Historical international results used for point-in-time model fitting.
+    columns:
+      - name: match_date
+        description: Match date.
+        tests: [not_null]
+      - name: home_team
+        description: Source home-team name.
+        tests: [not_null]
+      - name: away_team
+        description: Source away-team name.
+        tests: [not_null]
+
+  - name: wc2026_base_camp_venues
+    description: Public venue geography and timezone reference data.
+    columns:
+      - name: venue
+        description: Official schedule venue label.
+        tests: [not_null, unique]
+
+  - name: wc2026_travel_features
+    description: Team-match travel, rest, timezone, and altitude features.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [match_id, team_name_model]
+
+  - name: wc2026_venue_markets
+    description: Polymarket event, condition, outcome, and token identity surface.
+    columns:
+      - name: market_id
+        description: Venue market identifier.
+        tests: [not_null, unique]
+      - name: condition_id
+        description: Polymarket condition identifier.
+
+  - name: wc2026_price_liquidity_current
+    description: Latest price and liquidity state for every WC2026 outcome token.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [venue, market_id, token_id]
+    columns:
+      - name: token_id
+        description: Venue outcome-token identifier.
+        tests: [not_null]
+
+  - name: wc2026_price_liquidity_history
+    description: Daily historical WC2026 token prices with observation provenance.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_id, clob_token_id, odds_date_utc]
+
+  - name: wc2026_event_state_timing
+    description: Optional private live-match event state from canonical FotMob snapshots.
+    columns:
+      - name: snapshot_id
+        description: Canonical raw snapshot identifier.
+        tests: [not_null]
+
+  - name: wc2026_source_provenance
+    description: Loaded canonical snapshot provenance for all optional enrichments.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [source, snapshot_id]
+
 unit_tests:
   - name: test_wc2026_match_odds_dense_spine_does_not_fill_prices
     model: wc2026_knockout_match_hourly_odds

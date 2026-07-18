@@ -7,12 +7,17 @@ import pytest
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.config.settings import HTTP_REQUEST_TIMEOUT
+from oddsfox_pipeline.ingestion.international_results.historical import (
+    HistoricalResultsError,
+    parse_historical_csvs,
+)
 from oddsfox_pipeline.ingestion.international_results.match_results import (
     fetch_match_results_csv,
     parse_wc2026_match_results_csv,
     sync_wc2026_match_results,
 )
 from oddsfox_pipeline.storage.duckdb.international_results import (
+    replace_historical_international_results,
     replace_wc2026_match_results,
 )
 
@@ -146,4 +151,67 @@ def test_replace_wc2026_match_results_rolls_back_on_insert_error(
                 "select count(*) from international_results_wc2026_raw.match_results"
             ).fetchone()[0]
             == 1
+        )
+
+
+def test_historical_results_parse_and_persist_referential_snapshot(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    loaded_at = datetime(2026, 7, 18, tzinfo=timezone.utc)
+    parsed = parse_historical_csvs(
+        results_csv=(
+            CSV_HEADER
+            + "2005-01-01,Old,Match,1,0,Friendly,Paris,France,TRUE\n"
+            + "2022-12-18,Argentina,France,3,3,FIFA World Cup,Lusail,Qatar,TRUE\n"
+        ),
+        shootouts_csv=(
+            "date,home_team,away_team,winner,first_shooter\n"
+            "2022-12-18,Argentina,France,Argentina,France\n"
+            "2023-01-01,Missing,Match,Missing,Missing\n"
+        ),
+        goalscorers_csv=(
+            "date,home_team,away_team,team,scorer,minute,own_goal,penalty\n"
+            "2022-12-18,Argentina,France,Argentina,Lionel Messi,23,FALSE,TRUE\n"
+            "2023-01-01,Missing,Match,Missing,Nobody,1,FALSE,FALSE\n"
+        ),
+        loaded_at=loaded_at,
+    )
+    assert len(parsed["matches"]) == 1
+    assert len(parsed["shootouts"]) == 1
+    assert len(parsed["goalscorers"]) == 1
+    assert parsed["dropped_shootouts_without_match"] == 1
+    assert parsed["dropped_goalscorers_without_match"] == 1
+
+    db_path = tmp_path / "historical.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
+    connection.reset_duckdb_connection_state()
+    summary = replace_historical_international_results(
+        matches=parsed["matches"],
+        shootouts=parsed["shootouts"],
+        goalscorers=parsed["goalscorers"],
+    )
+    assert summary["inserted_matches"] == 1
+    with connection.get_connection() as conn:
+        assert conn.execute(
+            """
+            select m.home_team, s.shootout_winner, g.is_penalty_goal
+            from international_results_wc2026_raw.historical_matches as m
+            join international_results_wc2026_raw.historical_shootouts as s
+                using (match_id)
+            join international_results_wc2026_raw.historical_goalscorers as g
+                using (match_id)
+            """
+        ).fetchone() == ("Argentina", "Argentina", True)
+
+
+def test_historical_results_rejects_upstream_header_change() -> None:
+    with pytest.raises(HistoricalResultsError, match="schema changed"):
+        parse_historical_csvs(
+            results_csv="date,home_team\n",
+            shootouts_csv="date,home_team,away_team,winner,first_shooter\n",
+            goalscorers_csv=(
+                "date,home_team,away_team,team,scorer,minute,own_goal,penalty\n"
+            ),
         )

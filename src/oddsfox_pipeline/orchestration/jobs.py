@@ -88,6 +88,9 @@ POLYMARKET_WC2026_DBT_SELECTION = build_dbt_asset_selection(
 INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "raw", "match_results"),
 )
+INTERNATIONAL_RESULTS_HISTORICAL_SELECTION = AssetSelection.assets(
+    asset_key(SOURCE_INTERNATIONAL_RESULTS, "historical", "raw", "snapshot"),
+)
 
 OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_OPENFOOTBALL, SCOPE_WC2026, "raw", "knockout_fixtures"),
@@ -194,6 +197,17 @@ international_results_wc2026_match_results_ingest = define_asset_job(
     selection=INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     tags=_INTERNATIONAL_RESULTS_WC2026_TAGS,
+)
+
+international_results_historical_ingest = define_asset_job(
+    "international_results_historical_ingest",
+    selection=INTERNATIONAL_RESULTS_HISTORICAL_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    tags={
+        **_DUCKDB_WAREHOUSE_TAGS,
+        "source": SOURCE_INTERNATIONAL_RESULTS,
+        "scope": "historical",
+    },
 )
 
 polymarket_wc2026_full_pipeline = define_asset_job(

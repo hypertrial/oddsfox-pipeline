@@ -8,6 +8,7 @@ from oddsfox_pipeline.config.settings import (
     resolve_dbt_executable,
 )
 from oddsfox_pipeline.orchestration.assets import (
+    international_results_historical_raw_snapshot,
     international_results_wc2026_raw_match_results,
     kalshi_wc2026_ops_market_scope_registry,
     kalshi_wc2026_raw_market_candlesticks_hourly,
@@ -27,6 +28,7 @@ from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
 from oddsfox_pipeline.orchestration.jobs import (
+    international_results_historical_ingest,
     international_results_wc2026_match_results_ingest,
     kalshi_wc2026_dbt_build,
     kalshi_wc2026_full_pipeline,
@@ -43,6 +45,7 @@ from oddsfox_pipeline.orchestration.jobs import (
     wc2026_knockout_match_odds_full_pipeline,
 )
 from oddsfox_pipeline.orchestration.schedules import (
+    international_results_daily_schedule,
     kalshi_wc2026_hourly_odds_schedule,
     polymarket_us_midterms_2026_hourly_odds_schedule,
     polymarket_wc2026_hourly_odds_schedule,
@@ -51,6 +54,7 @@ from oddsfox_pipeline.orchestration.schedules import (
 
 defs = Definitions(
     assets=[
+        international_results_historical_raw_snapshot,
         international_results_wc2026_raw_match_results,
         openfootball_wc2026_raw_knockout_fixtures,
         kalshi_wc2026_raw_markets,
@@ -70,6 +74,7 @@ defs = Definitions(
         oddsfox_dbt,
     ],
     jobs=[
+        international_results_historical_ingest,
         international_results_wc2026_match_results_ingest,
         kalshi_wc2026_hourly_odds_ingest,
         kalshi_wc2026_market_registry_refresh,
@@ -86,6 +91,7 @@ defs = Definitions(
         wc2026_knockout_match_odds_full_pipeline,
     ],
     schedules=[
+        international_results_daily_schedule,
         kalshi_wc2026_hourly_odds_schedule,
         polymarket_wc2026_hourly_odds_schedule,
         polymarket_us_midterms_2026_hourly_odds_schedule,
