@@ -45,19 +45,28 @@ coalesce(
 )
 {%- endmacro %}
 
+{% macro latest_wc2026_snapshot_id(source_name) -%}
+(
+    select arg_max(snapshot_id, collected_at)
+    from {{ source('wc2026_snapshot_ops', 'raw_snapshot_ledger') }}
+    where source = '{{ source_name }}'
+)
+{%- endmacro %}
+
 {% macro ensure_wc2026_canonical_raw_tables() %}
   {% if execute %}
     {% do run_query("create schema if not exists wc2026_raw") %}
     {% do run_query("create schema if not exists wc2026_ops") %}
     {% do run_query(
       "create table if not exists wc2026_ops.raw_snapshot_ledger (
-        source varchar,
-        snapshot_id varchar,
-        collected_at timestamptz,
-        collector_git_sha varchar,
-        collector_container_digest varchar,
-        manifest_sha256 varchar,
-        loaded_at timestamptz default current_timestamp
+        source varchar not null,
+        snapshot_id varchar not null,
+        collected_at timestamptz not null,
+        collector_git_sha varchar not null,
+        collector_container_digest varchar not null,
+        manifest_sha256 varchar not null,
+        loaded_at timestamptz not null default current_timestamp,
+        primary key (source, snapshot_id)
       )"
     ) %}
     {% do run_query(

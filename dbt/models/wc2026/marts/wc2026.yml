@@ -168,7 +168,7 @@ models:
         tests: [not_null, unique]
 
   - name: wc2026_team_ratings_history
-    description: Historical point-in-time EloRatings snapshots.
+    description: Historical point-in-time EloRatings rows from the latest complete source snapshot.
     tests:
       - no_duplicate_grain:
           arguments:
@@ -182,28 +182,28 @@ models:
         tests: [not_null, unique]
 
   - name: wc2026_club_strength_history
-    description: ClubElo validity intervals used for point-in-time model features.
+    description: ClubElo validity intervals from the latest complete source snapshot.
     columns:
       - name: club_key
         description: Canonical club key.
         tests: [not_null]
 
   - name: wc2026_club_strength_snapshot
-    description: Dated ClubElo snapshots used when interval history is incomplete.
+    description: Dated ClubElo rows from the latest complete source snapshot.
     tests:
       - no_duplicate_grain:
           arguments:
             grain_columns: [snapshot_date, club_key]
 
   - name: wc2026_player_features
-    description: Point-in-time FIFAIndex player features enriched with official squad membership.
+    description: Latest complete FIFAIndex player features enriched with the latest complete squad snapshot.
     tests:
       - no_duplicate_grain:
           arguments:
             grain_columns: [game_slug, competition_key, player_id]
 
   - name: wc2026_squad_player_features
-    description: Official WC2026 squad rows matched to FIFAIndex feature records.
+    description: Latest complete official WC2026 squad snapshot matched to latest FIFAIndex features.
     columns:
       - name: source_player_key
         description: Stable player key from the canonical squad snapshot.
@@ -264,7 +264,7 @@ models:
             grain_columns: [market_id, clob_token_id, odds_date_utc]
 
   - name: wc2026_event_state_timing
-    description: Optional private live-match event state from canonical FotMob snapshots.
+    description: Optional private live-match event state from the latest complete FotMob snapshot.
     columns:
       - name: snapshot_id
         description: Canonical raw snapshot identifier.
@@ -327,3 +327,25 @@ unit_tests:
     expect:
       rows:
         - {fifa_match_id: 104, stage_key: final, price_represents: team_advances, polymarket_home_advance_price: 1.0, polymarket_away_advance_price: 0.0, is_pre_kickoff: false}
+
+  - name: test_wc2026_results_align_group_teams_and_knockout_location
+    model: wc2026_results
+    given:
+      - input: ref('wc2026_fixtures')
+        rows:
+          - {match_id: 1, match_date: '2026-06-11', venue: Mexico Stadium, home_team: Mexico, away_team: South Africa, is_knockout: false}
+          - {match_id: 101, match_date: '2026-07-14', venue: Dallas Stadium, home_team: null, away_team: null, is_knockout: true}
+      - input: ref('wc2026_base_camp_venues')
+        rows:
+          - {venue: Mexico Stadium, host_city: Mexico City}
+          - {venue: Dallas Stadium, host_city: Arlington}
+      - input: ref('international_results_wc2026_matches')
+        rows:
+          - {match_date: '2026-06-11', city: Mexico City, home_team: Mexico, away_team: South Africa, home_score: 2, away_score: 0, advancing_team: null, match_status: completed, source_url: public-results, source_loaded_at: '2026-06-12 00:00:00'}
+          - {match_date: '2026-07-14', city: Arlington, home_team: France, away_team: Spain, home_score: 1, away_score: 0, advancing_team: France, match_status: completed, source_url: public-results, source_loaded_at: '2026-07-15 00:00:00'}
+      - input: ref('wc2026_team_canonical_aliases')
+        rows: []
+    expect:
+      rows:
+        - {match_id: 1, home_score: 2, away_score: 0, winner_team: null, status: final}
+        - {match_id: 101, home_score: 1, away_score: 0, winner_team: France, status: final}

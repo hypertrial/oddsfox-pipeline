@@ -7,9 +7,15 @@ import pytest
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.config.settings import HTTP_REQUEST_TIMEOUT
+from oddsfox_pipeline.ingestion.international_results import historical
 from oddsfox_pipeline.ingestion.international_results.historical import (
+    GOALSCORERS_URL,
+    RESULTS_URL,
+    SHOOTOUTS_URL,
     HistoricalResultsError,
+    fetch_csv,
     parse_historical_csvs,
+    sync_historical_international_results,
 )
 from oddsfox_pipeline.ingestion.international_results.match_results import (
     fetch_match_results_csv,
@@ -163,15 +169,17 @@ def test_historical_results_parse_and_persist_referential_snapshot(
         results_csv=(
             CSV_HEADER
             + "2005-01-01,Old,Match,1,0,Friendly,Paris,France,TRUE\n"
-            + "2022-12-18,Argentina,France,3,3,FIFA World Cup,Lusail,Qatar,TRUE\n"
+            + "2022-12-18,Argentina,France,NA,NA,FIFA World Cup,Lusail,Qatar,TRUE\n"
         ),
         shootouts_csv=(
             "date,home_team,away_team,winner,first_shooter\n"
+            "2005-01-01,Old,Match,Old,Match\n"
             "2022-12-18,Argentina,France,Argentina,France\n"
             "2023-01-01,Missing,Match,Missing,Missing\n"
         ),
         goalscorers_csv=(
             "date,home_team,away_team,team,scorer,minute,own_goal,penalty\n"
+            "2005-01-01,Old,Match,Old,Someone,1,FALSE,FALSE\n"
             "2022-12-18,Argentina,France,Argentina,Lionel Messi,23,FALSE,TRUE\n"
             "2023-01-01,Missing,Match,Missing,Nobody,1,FALSE,FALSE\n"
         ),
@@ -180,6 +188,7 @@ def test_historical_results_parse_and_persist_referential_snapshot(
     assert len(parsed["matches"]) == 1
     assert len(parsed["shootouts"]) == 1
     assert len(parsed["goalscorers"]) == 1
+    assert parsed["matches"][0]["home_score"] is None
     assert parsed["dropped_shootouts_without_match"] == 1
     assert parsed["dropped_goalscorers_without_match"] == 1
 
@@ -215,3 +224,140 @@ def test_historical_results_rejects_upstream_header_change() -> None:
                 "date,home_team,away_team,team,scorer,minute,own_goal,penalty\n"
             ),
         )
+
+
+def test_historical_results_rejects_duplicate_match_ids() -> None:
+    duplicate = "2022-12-18,Argentina,France,3,3,FIFA World Cup,Lusail,Qatar,TRUE\n"
+    with pytest.raises(HistoricalResultsError, match="duplicate match ID"):
+        parse_historical_csvs(
+            results_csv=CSV_HEADER + duplicate + duplicate,
+            shootouts_csv="date,home_team,away_team,winner,first_shooter\n",
+            goalscorers_csv=(
+                "date,home_team,away_team,team,scorer,minute,own_goal,penalty\n"
+            ),
+        )
+
+
+def test_fetch_historical_csv_uses_validated_url(monkeypatch) -> None:
+    calls: list[tuple[str, object]] = []
+
+    class Response:
+        text = CSV_HEADER
+
+        def raise_for_status(self) -> None:
+            calls.append(("raise", 0))
+
+    def fake_get(url: str, *, timeout: object) -> Response:
+        calls.append((url, timeout))
+        return Response()
+
+    monkeypatch.setattr(historical.requests, "get", fake_get)
+
+    assert fetch_csv("https://example.com/results.csv") == CSV_HEADER
+    assert calls == [
+        ("https://example.com/results.csv", HTTP_REQUEST_TIMEOUT),
+        ("raise", 0),
+    ]
+
+
+def test_sync_historical_results_fetches_and_persists_default_sources(
+    monkeypatch,
+) -> None:
+    payloads = {
+        RESULTS_URL: (
+            CSV_HEADER
+            + "2022-12-18,Argentina,France,3,3,FIFA World Cup,Lusail,Qatar,TRUE\n"
+        ),
+        SHOOTOUTS_URL: (
+            "date,home_team,away_team,winner,first_shooter\n"
+            "2022-12-18,Argentina,France,Argentina,France\n"
+        ),
+        GOALSCORERS_URL: (
+            "date,home_team,away_team,team,scorer,minute,own_goal,penalty\n"
+            "2022-12-18,Argentina,France,Argentina,Lionel Messi,23,FALSE,TRUE\n"
+        ),
+    }
+    fetched: list[str] = []
+    persisted: dict[str, object] = {}
+
+    def fake_fetch(url: str) -> str:
+        fetched.append(url)
+        return payloads[url]
+
+    def fake_replace(**rows: object) -> dict[str, int]:
+        persisted.update(rows)
+        return {
+            "deleted_matches": 0,
+            "deleted_shootouts": 0,
+            "deleted_goalscorers": 0,
+            "inserted_matches": len(rows["matches"]),
+            "inserted_shootouts": len(rows["shootouts"]),
+            "inserted_goalscorers": len(rows["goalscorers"]),
+        }
+
+    monkeypatch.setattr(
+        historical,
+        "replace_historical_international_results",
+        fake_replace,
+    )
+
+    summary = sync_historical_international_results(fetch=fake_fetch)
+
+    assert fetched == [RESULTS_URL, SHOOTOUTS_URL, GOALSCORERS_URL]
+    assert len(persisted["matches"]) == 1
+    assert summary["inserted_matches"] == 1
+    assert summary["dropped_shootouts_without_match"] == 0
+    assert summary["dropped_goalscorers_without_match"] == 0
+
+
+def test_replace_historical_results_rolls_back_on_insert_error(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    db_path = tmp_path / "historical-rollback.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
+    connection.reset_duckdb_connection_state()
+    parsed = parse_historical_csvs(
+        results_csv=(
+            CSV_HEADER
+            + "2022-12-18,Argentina,France,3,3,FIFA World Cup,Lusail,Qatar,TRUE\n"
+        ),
+        shootouts_csv=(
+            "date,home_team,away_team,winner,first_shooter\n"
+            "2022-12-18,Argentina,France,Argentina,France\n"
+        ),
+        goalscorers_csv=(
+            "date,home_team,away_team,team,scorer,minute,own_goal,penalty\n"
+            "2022-12-18,Argentina,France,Argentina,Lionel Messi,23,FALSE,TRUE\n"
+        ),
+    )
+
+    with connection.get_connection() as conn:
+        replace_historical_international_results(
+            matches=parsed["matches"],
+            shootouts=parsed["shootouts"],
+            goalscorers=parsed["goalscorers"],
+            conn=conn,
+        )
+        invalid_match = dict(parsed["matches"][0])
+        invalid_match["match_id"] = "invalid-match"
+        invalid_match["match_date"] = "not-a-date"
+
+        with pytest.raises(duckdb.ConversionException):
+            replace_historical_international_results(
+                matches=[invalid_match],
+                shootouts=[],
+                goalscorers=[],
+                conn=conn,
+            )
+
+        assert conn.execute(
+            "select count(*) from international_results_wc2026_raw.historical_matches"
+        ).fetchone() == (1,)
+        assert conn.execute(
+            "select count(*) from international_results_wc2026_raw.historical_shootouts"
+        ).fetchone() == (1,)
+        assert conn.execute(
+            "select count(*) from international_results_wc2026_raw.historical_goalscorers"
+        ).fetchone() == (1,)

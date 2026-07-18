@@ -189,20 +189,22 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 8. `polymarket/us_midterms_2026/ops/market_scope_registry`
 9. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
 10. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
-11. `international_results/wc2026/raw/match_results`
-12. `openfootball/wc2026/raw/knockout_fixtures`
-13. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
-14. `kalshi/wc2026/raw/markets`
-15. `kalshi/wc2026/raw/markets_snapshot`
-16. `kalshi/wc2026/ops/market_scope_registry`
-17. `kalshi/wc2026/raw/market_candlesticks_hourly`
-18. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+11. `international_results/historical/raw/snapshot`
+12. `international_results/wc2026/raw/match_results`
+13. `openfootball/wc2026/raw/knockout_fixtures`
+14. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
+15. `kalshi/wc2026/raw/markets`
+16. `kalshi/wc2026/raw/markets_snapshot`
+17. `kalshi/wc2026/ops/market_scope_registry`
+18. `kalshi/wc2026/raw/market_candlesticks_hourly`
+19. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
    `polymarket/us_midterms_2026/{staging,intermediate,marts,observability}/...`,
    `international_results/wc2026/{staging,intermediate,marts,observability}/...`,
    `kalshi/wc2026/{staging,intermediate,marts,observability}/...`,
    `openfootball/wc2026/staging/...`, and `wc2026/{intermediate,marts,observability}/...`
 
-Key jobs: `international_results_wc2026_match_results_ingest`,
+Key jobs: `international_results_historical_ingest`,
+`international_results_wc2026_match_results_ingest`,
 `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
 `polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`,
 `polymarket_us_midterms_2026_market_registry_refresh`,
@@ -216,6 +218,7 @@ Key jobs: `international_results_wc2026_match_results_ingest`,
 Schedules target `polymarket_wc2026_hourly_odds_ingest`,
 `polymarket_us_midterms_2026_hourly_odds_ingest`, and
 `kalshi_wc2026_hourly_odds_ingest`; all are **stopped by default**.
+The daily `international_results_daily_schedule` is also stopped by default.
 The combined `wc2026_knockout_match_odds_hourly_schedule` targets the atomic
 cross-platform full pipeline and is also stopped by default.
 Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.

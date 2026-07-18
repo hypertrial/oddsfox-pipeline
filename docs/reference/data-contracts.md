@@ -36,6 +36,10 @@ unknown versions/tables, unregistered schemas, unsafe paths, duplicate IDs,
 predecessor mismatches, timestamp regressions, hash/size/row/schema mismatches,
 and credential-bearing provenance. A successful load appends the Parquet rows
 and `wc2026_ops.raw_snapshot_ledger` record in one DuckDB transaction.
+Raw rows remain append-only for auditability, but each private source publishes
+a complete replacement snapshot: strategy-facing marts use only the latest
+ledger-declared snapshot. Rows omitted from a newer complete snapshot therefore
+do not leak forward from an older load.
 
 Public tests use synthetic Parquet snapshots only. HTML, selectors, cached
 pages, discretionary URLs, and real scrape fixtures are not part of this
@@ -61,11 +65,18 @@ views.
 | `third_place_slot_assignments` | FIFA Annexe C knockout-slot mapping. |
 | `source_provenance` | Canonical snapshot provenance. |
 
+Completed group results align by date and canonical home/away team identity.
+Knockout schedule rows contain bracket slots until participants resolve, so
+completed knockout results use the schedule's unique `(match_date, host_city)`
+key and retain the source's actual teams when deriving the winner.
+
 Private FIFAIndex, Wikipedia squad, EloRatings, ClubElo, and FotMob inputs are
 optional for a public build. The on-run-start contract macro creates
 schema-correct empty raw tables when they are absent, so every public model
 still builds. Missing optional inputs are surfaced as warnings and blocking
-reasons rather than hidden.
+reasons rather than hidden. A ledger record alone is not availability: the
+latest snapshot must contain canonical rows, and the source-availability model
+publishes that latest payload's `row_count`.
 
 `wc2026_observability.wc2026_strategy_input_readiness` evaluates required-source
 availability, freshness, point-in-time interval integrity, and blocking reasons

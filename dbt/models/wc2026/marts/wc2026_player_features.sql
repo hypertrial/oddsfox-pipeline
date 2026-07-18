@@ -1,5 +1,17 @@
 {{ config(alias='player_features') }}
 
+with player as (
+    select *
+    from {{ source('wc2026_canonical_raw', 'fifaindex__players') }}
+    where _snapshot_id = {{ latest_wc2026_snapshot_id('fifaindex') }}
+),
+
+squad as (
+    select *
+    from {{ source('wc2026_canonical_raw', 'wikipedia_squads__players') }}
+    where _snapshot_id = {{ latest_wc2026_snapshot_id('wikipedia_squads') }}
+)
+
 select
     player.game_slug,
     player.competition_key,
@@ -41,8 +53,8 @@ select
         when squad.source_player_key is null then null
         else 'exact_name_and_team'
     end as official_wc2026_squad_match_quality
-from {{ source('wc2026_canonical_raw', 'fifaindex__players') }} as player
-left join {{ source('wc2026_canonical_raw', 'wikipedia_squads__players') }} as squad
+from player
+left join squad
     on
         {{ canonical_team_match_key('player.nationality') }}
         = {{ canonical_team_match_key('squad.official_wc2026_squad_team') }}

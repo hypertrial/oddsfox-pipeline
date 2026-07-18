@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Strategy-facing WC2026 marts now use only each private source's latest
+  ledger-declared complete snapshot. Repeated full snapshots no longer duplicate
+  model grains or retain rows removed by a newer complete snapshot, and an empty
+  latest payload now blocks readiness instead of inheriting older raw rows.
+- Completed knockout outcomes now align to FIFA match IDs by the schedule's
+  unique date and host city when bracket-slot fixtures do not yet contain team
+  names.
+
 ## [0.1.6] - 2026-07-17
 
 ### Added

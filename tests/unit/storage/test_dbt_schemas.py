@@ -58,6 +58,35 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         )
         == "custom_model"
     )
+    assert (
+        dbt_schemas.shorten_model_name(
+            "wc2026_results",
+            dbt_schemas.DBT_SOURCE_WC2026,
+        )
+        == "results"
+    )
+    assert (
+        dbt_schemas.shorten_model_name(
+            "custom_model",
+            dbt_schemas.DBT_SOURCE_WC2026,
+        )
+        == "custom_model"
+    )
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "wc2026_teams",
+        dbt_schemas.DBT_SOURCE_WC2026,
+        fqn=["oddsfox", "wc2026", "staging", "wc2026_teams"],
+    ) == AssetKey(["wc2026", "staging", "teams"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "wc2026_readiness",
+        dbt_schemas.DBT_SOURCE_WC2026,
+        layer="observability",
+    ) == AssetKey(["wc2026", "observability", "readiness"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "custom_model",
+        dbt_schemas.DBT_SOURCE_WC2026,
+        fqn=["oddsfox", "wc2026", "custom_model"],
+    ) == AssetKey(["wc2026", "marts", "custom_model"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
         "stg_international_results_wc2026_match_results",
         dbt_schemas.DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026,
