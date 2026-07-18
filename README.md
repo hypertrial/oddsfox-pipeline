@@ -27,12 +27,12 @@ in their own local DuckDB file or self-managed warehouse.
 ## Part Of OddsFox
 
 `oddsfox-pipeline` is the warehouse and orchestration repo. It ingests source
-data, builds dbt marts, and exports graph parquet for `oddsfox-graph`, which
-publishes artifacts for `oddsfox-live` and `oddsfox-dash`.
+data, builds dbt marts, and exports graph parquet for offline use by
+`oddsfox-graph`.
 
-Read the cross-repo [System Overview](docs/concepts/system-overview.md) and
-[hosted-stack guide](docs/guides/deploy-hosted-stack.md) for the end-to-end path from source
-APIs to the dashboard.
+Read the cross-repo [System Overview](docs/concepts/system-overview.md) for the
+data flow and repository boundaries. The retired `oddsfox-live` dashboard
+backend is not part of the pipeline runtime.
 
 ## Start Here
 

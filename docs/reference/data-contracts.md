@@ -213,7 +213,7 @@ Schema: `kalshi_wc2026_marts`
   stopped unless `WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED=true`.
 - `polymarket_wc2026_knockout_token_hourly_odds` remains the public
   progression-side export for downstream knockout probability views.
-- `polymarket_wc2026_graph_token_hourly_odds` is the hosted graph input. It
+- `polymarket_wc2026_graph_token_hourly_odds` is the portable graph input. It
   keeps both tokens per market and exposes `is_progression_token`,
   `opposite_clob_token_id`, `canonical_team_name`, `stage_key`, and
   `progression_outcome_label` so `oddsfox-graph` does not infer WC2026 semantics

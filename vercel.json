@@ -7,8 +7,8 @@
   "trailingSlash": true,
   "redirects": [
     { "source": "/quickstart", "destination": "/getting-started/", "permanent": true },
-    { "source": "/operator-runbook", "destination": "/guides/deploy-hosted-stack/", "permanent": true },
-    { "source": "/hosted-graph-deployment", "destination": "/guides/deploy-hosted-stack/", "permanent": true },
+    { "source": "/operator-runbook", "destination": "/concepts/system-overview/", "permanent": true },
+    { "source": "/hosted-graph-deployment", "destination": "/concepts/system-overview/", "permanent": true },
     { "source": "/operations", "destination": "/reference/orchestration/", "permanent": true },
     { "source": "/troubleshooting", "destination": "/guides/troubleshooting/", "permanent": true },
     { "source": "/analyst-guide", "destination": "/guides/query-the-warehouse/", "permanent": true },

@@ -1,22 +1,5 @@
 # Troubleshooting
 
-For cross-repo hosted graph symptoms, start with
-[Cross-Repo Runtime Symptoms](#cross-repo-runtime-symptoms). For local
-pipeline setup failures, use the sections below.
-
-## Cross-Repo Runtime Symptoms
-
-| Symptom | Check | Owning component |
-| --- | --- | --- |
-| Dashboard is empty or shows no network. | `curl -fsS http://127.0.0.1:8787/api/v0/graph/snapshot` and confirm `nodes` is non-empty. Then confirm `VITE_ODDSFOX_LIVE_URL` was set before building `dash`. | `oddsfox-live`, `oddsfox-dash` |
-| No graph artifact is loaded. | `ls -l "$ODDSFOX_DATA_DIR/artifacts/current"/graph_snapshot.json` and rerun the artifact builder if missing. | `oddsfox-graph`, `oddsfox-pipeline` |
-| Artifact is stale. | `ls -l "$ODDSFOX_DATA_DIR/artifacts/current"` and inspect `built_at` in `graph_snapshot.json` or `knockout_artifacts.json`. | `oddsfox-pipeline` |
-| Knockout API returns 404. | Confirm `knockout_artifacts.json` exists under `$ODDSFOX_DATA_DIR/artifacts/current` and that `live` was started with `-artifact-dir /artifacts`. | `oddsfox-live`, `oddsfox-graph` |
-| Live API health is unavailable. | `curl -fsS http://127.0.0.1:8787/api/v0/health` and `docker compose --env-file deploy/hosted-graph/.env -f deploy/hosted-graph/docker-compose.yml ps live`. | `oddsfox-live` |
-| Graph has zero nodes. | Inspect `$ODDSFOX_DATA_DIR/artifacts/current/build_manifest.json` and rerun the refresh without `--allow-empty-graph`. | `oddsfox-graph`, `oddsfox-pipeline` |
-| Refresh succeeds but dashboard does not change. | Check that `$ODDSFOX_DATA_DIR/artifacts/current` points at the latest release and wait one `-artifact-reload-interval` tick, default `60s`. | `oddsfox-pipeline`, `oddsfox-live` |
-| SSE disconnects or stops updating. | `curl -N http://127.0.0.1:8787/api/v0/stream` and check for `event: snapshot` followed by `: ping` heartbeats. | `oddsfox-live` |
-
 Use this page when a local run fails. Most fixes assume schedules are disabled
 and only one process is writing to the DuckDB warehouse. The runbooks cover both
 shipped Polymarket scopes (`wc2026` and `us_midterms_2026`).
