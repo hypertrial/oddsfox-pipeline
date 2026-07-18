@@ -33,6 +33,10 @@ produced by private collectors, builds dbt marts, and exports graph parquet for
 offline use by `oddsfox-graph`. `oddsfox-strategy` consumes `wc2026.v1`
 read-only; this repository never contains strategy or execution code.
 
+The signed public container is published as
+`ghcr.io/hypertrial/oddsfox-pipeline`. Release manifests include `linux/amd64`
+and `linux/arm64` images, SBOMs, provenance, and GitHub OIDC signatures.
+
 Read the cross-repo [System Overview](docs/concepts/system-overview.md) for the
 data flow and repository boundaries. Order execution belongs to
 `oddsfox-execution` and is not part of this runtime.

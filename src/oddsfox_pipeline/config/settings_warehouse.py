@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
 SRC_DIR = PACKAGE_DIR.parent
-BASE_DIR = SRC_DIR.parent
+BASE_DIR = Path(os.getenv("ODDSFOX_PIPELINE_ROOT", SRC_DIR.parent)).resolve()
 
 env_path = BASE_DIR / ".env"
 if env_path.exists():
