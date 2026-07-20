@@ -21,7 +21,7 @@ env:
   POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
   KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
   WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED: "false"
-  IMAGE: ghcr.io/hypertrial/oddsfox-pipeline
+  PUBLISH_IMAGE: ghcr.io/hypertrial/oddsfox-pipeline
 
 jobs:
   full-gate:
@@ -96,8 +96,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.IMAGE }}:${{ github.sha }}
-            ${{ env.IMAGE }}:main
+            ${{ env.PUBLISH_IMAGE }}:${{ github.sha }}
+            ${{ env.PUBLISH_IMAGE }}:main
           build-args: VCS_REF=${{ github.sha }}
           provenance: mode=max
           sbom: true
@@ -107,9 +107,10 @@ jobs:
       - name: Sign image by digest
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
+          IMAGE: ${{ env.PUBLISH_IMAGE }}
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
       - uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4
         with:
-          subject-name: ${{ env.IMAGE }}
+          subject-name: ${{ env.PUBLISH_IMAGE }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true

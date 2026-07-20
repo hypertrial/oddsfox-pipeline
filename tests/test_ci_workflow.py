@@ -33,6 +33,9 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
         "packages": "write",
     }
     assert "uv run make release-gate-core" in manual_text
+    assert "PUBLISH_IMAGE: ghcr.io/hypertrial/oddsfox-pipeline" in manual_text
+    assert "tags: oddsfox-pipeline:ci" in manual_text
+    assert "uv run make container-smoke-run" in manual_text
     assert "inputs.publish && github.ref == 'refs/heads/main'" in manual_text
     assert "linux/amd64,linux/arm64" in manual_text
     assert "provenance: mode=max" in manual_text
