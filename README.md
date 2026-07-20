@@ -146,28 +146,20 @@ semantics, [Data contracts](docs/reference/data-contracts.md) for formal guarant
 ## Development
 
 ```bash
-uv run make lint
-uv run make test-cov
-uv run make dagster-jobs-smoke-cov
-uv run make dagster-refresh-cov
-uv run make integration-dbt-cov
-uv run make dbt-unit
-uv run make golden-dbt
-uv run make dbt-source-freshness-ci
-uv run make coverage-report
-uv run make docs-check
-uv run make check-secrets
-uv run make dbt-parse
-uv run make dbt-build-ci
-uv run make gx-data-quality
-uv run make costguard
+uv run make ci-fast
+uv run make release-gate
 ```
 
-The commands above are the full local release gate. GitHub Actions uses one
-runner for less than five cumulative minutes and runs lint, fast offline tests,
-saved HTTP contracts, dbt parse, and a strict docs build. For local one-shot
-runs, `make test`, `make integration-dagster`, `make integration-dbt`,
-`make data-quality`, and `make coverage` still work.
+Run `ci-fast` before ordinary pushes; GitHub runs the same lint, fast offline
+tests, saved HTTP contracts, dbt parse, and strict docs build automatically.
+Run `release-gate` before releases and after dependency, Docker, Dagster, dbt,
+or data-quality changes. It reruns the fast checks, full coverage and
+integration surface, Costguard, and a non-root container smoke. The full gate
+is also available through the manual `Manual Full Validation` GitHub workflow.
+Set that workflow's `publish` input only on `main` to publish the signed
+AMD64/ARM64 image, SBOM, and provenance. For narrower local runs, `make test`,
+`make integration-dagster`, `make integration-dbt`, `make data-quality`, and
+`make coverage` still work.
 
 `dbt-build-ci` uses a disposable DuckDB database under `.cache/` for release
 parity. `gx-data-quality` checks that existing build; local `data-quality`
