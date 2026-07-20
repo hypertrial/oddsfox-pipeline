@@ -1,4 +1,4 @@
-.PHONY: dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt gx-data-quality data-quality contract-http live-smoke costguard costguard-scan docs-serve docs-build docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
+.PHONY: ci-fast release-gate release-gate-core container-smoke container-smoke-run dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt gx-data-quality data-quality contract-http live-smoke costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -16,6 +16,48 @@ DBT_FRESHNESS_ENV := DUCKDB_NAME="$(DBT_FRESHNESS_DUCKDB_PATH)" DUCKDB_PATH="$(D
 PYTEST_FAST_MARKERS := not integration and not performance and not slow and not repo_check and not contract
 PYTEST_COVERAGE_MARKERS := not performance and not slow and not repo_check and not contract
 COV_APPEND_ARGS := --cov=oddsfox_pipeline --cov-branch --cov-append
+IMAGE ?= oddsfox-pipeline:ci
+VCS_REF ?= $(shell git -C "$(REPO_ROOT)" rev-parse HEAD)
+
+ci-fast:
+	$(MAKE) lint
+	$(MAKE) test
+	$(MAKE) contract-http
+	$(MAKE) dbt-parse
+	$(MAKE) docs-build
+
+release-gate:
+	$(MAKE) release-gate-core
+	$(MAKE) container-smoke
+
+release-gate-core:
+	$(MAKE) ci-fast
+	$(MAKE) test-cov
+	$(MAKE) dagster-jobs-smoke-cov
+	$(MAKE) dagster-refresh-cov
+	$(MAKE) integration-dbt-cov
+	$(MAKE) dbt-unit
+	$(MAKE) golden-dbt
+	$(MAKE) dbt-source-freshness-ci
+	$(MAKE) coverage-report
+	$(MAKE) docs-test
+	$(MAKE) dbt-build-ci
+	$(MAKE) gx-data-quality
+	$(MAKE) costguard-scan
+
+container-smoke:
+	docker buildx build --load --tag "$(IMAGE)" --build-arg "VCS_REF=$(VCS_REF)" .
+	$(MAKE) container-smoke-run
+
+container-smoke-run:
+	docker run --rm \
+		--read-only \
+		--cap-drop ALL \
+		--security-opt no-new-privileges:true \
+		--tmpfs /tmp:rw,noexec,nosuid,size=64m,uid=10001,gid=10001 \
+		--tmpfs /runtime/warehouse:rw,noexec,nosuid,size=128m,uid=10001,gid=10001 \
+		"$(IMAGE)" \
+		python -c "from oddsfox_pipeline.config import settings; assert settings.DBT_PROJECT_DIR.is_dir(); print(settings.DBT_PROJECT_DIR)"
 
 duckdb-ui:
 	duckdb "$(REPO_ROOT)/$(DUCKDB_NAME)" -ui
@@ -84,8 +126,10 @@ docs-serve:
 docs-build:
 	$(RUN_IN_REPO) NO_MKDOCS_2_WARNING=true "$(PYTHON)" -m mkdocs build --strict
 
-docs-check: docs-build
+docs-test:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_docs_structure.py tests/test_docs_render.py -q -n 0
+
+docs-check: docs-build docs-test
 
 format:
 	$(RUN_IN_REPO) ruff format src tests

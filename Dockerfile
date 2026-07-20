@@ -1,12 +1,5 @@
 FROM python:3.13-slim-bookworm
 
-ARG VCS_REF=unknown
-LABEL org.opencontainers.image.title="OddsFox Pipeline" \
-      org.opencontainers.image.description="Public Dagster, dbt, and DuckDB analytics pipeline" \
-      org.opencontainers.image.source="https://github.com/hypertrial/oddsfox-pipeline" \
-      org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.licenses="MIT"
-
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -29,6 +22,13 @@ COPY workspace.yaml dagster_instance.yaml ./
 RUN python -m pip install --no-cache-dir . \
     && install -d -o oddsfox -g oddsfox \
       /runtime/raw /runtime/warehouse /runtime/dagster
+
+ARG VCS_REF=unknown
+LABEL org.opencontainers.image.title="OddsFox Pipeline" \
+      org.opencontainers.image.description="Public Dagster, dbt, and DuckDB analytics pipeline" \
+      org.opencontainers.image.source="https://github.com/hypertrial/oddsfox-pipeline" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.licenses="MIT"
 
 USER 10001:10001
 CMD ["dagster", "api", "grpc", "-h", "0.0.0.0", "-p", "4000", "-m", "oddsfox_pipeline.orchestration.definitions"]

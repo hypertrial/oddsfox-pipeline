@@ -53,37 +53,25 @@ semver stability; v0.1.x may break between releases.
 
 ## Quality gate (run before finishing work)
 
-This is the full local release gate. Use `uv run make …` from the repo root.
+Run the automatic code-safety gate before ordinary pushes:
 
 ```bash
-uv run make lint
-uv run make test-cov
-uv run make dagster-jobs-smoke-cov
-uv run make dagster-refresh-cov
-uv run make integration-dbt-cov
-uv run make dbt-unit
-uv run make golden-dbt
-uv run make dbt-source-freshness-ci
-uv run make coverage-report
-uv run make docs-check
-uv run make check-secrets
-uv run make dbt-parse
-uv run make dbt-build-ci
-uv run make gx-data-quality
-uv run make costguard
+uv run make ci-fast
 ```
 
-GitHub Actions intentionally uses one runner for less than five cumulative
-minutes. Its offline gate runs lint, fast tests, saved HTTP contracts, dbt
-parse, and a strict documentation build. The full 100%-coverage, Dagster, dbt,
-browser, data-quality, and Costguard gate above remains mandatory before a
-release. For local one-shot runs, `make test`, `make integration-dagster`,
-`make integration-dbt`, `make data-quality`, and `make coverage` still work.
+Run `uv run make release-gate` before releases and after dependency, Docker,
+Dagster, dbt, or data-quality changes. It reruns the fast checks, the full
+100%-coverage and integration surface, Costguard, and a non-root container
+smoke. GitHub runs only `ci-fast` automatically. The full gate and optional
+signed multi-arch publication are available through the manual `Manual Full
+Validation` workflow. For narrower local runs, `make test`, `make
+integration-dagster`, `make integration-dbt`, `make data-quality`, and `make
+coverage` still work.
 
 `dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
 running dbt build. `gx-data-quality` checks that existing disposable database
 so data-quality validation does not rebuild dbt. `contract-http` is replay-only
-and part of the fast GitHub gate, while the default `make test` still excludes
+and part of both gates, while the default `make test` still excludes
 the `contract` marker. `live-smoke` is local-only and runs the public-source
 WC2026 cross-platform pipeline against its smoke configuration.
 Costguard is a dbt/release guardrail, not an odds ingestion runtime dependency.

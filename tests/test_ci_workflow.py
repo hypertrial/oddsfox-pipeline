@@ -9,23 +9,40 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_ci_workflow_keeps_bounded_offline_gate_and_signed_image_release():
-    workflow_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
-    workflow = yaml.safe_load(workflow_path.read_text())
-    workflow_text = workflow_path.read_text()
+def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
+    workflow_dir = REPO_ROOT / ".github" / "workflows"
+    automatic_path = workflow_dir / "ci.yml"
+    manual_path = workflow_dir / "manual-full.yml"
+    automatic = yaml.safe_load(automatic_path.read_text())
+    manual = yaml.safe_load(manual_path.read_text())
+    automatic_text = automatic_path.read_text()
+    manual_text = manual_path.read_text()
 
-    assert set(workflow["jobs"]) == {"fast-gate", "container", "publish"}
-    assert workflow["jobs"]["fast-gate"]["timeout-minutes"] == 5
-    assert "uv run make lint test contract-http dbt-parse docs-build" in workflow_text
-    assert "live-smoke" not in workflow_text
-    assert "source-audit" not in workflow_text
-    assert "actions/checkout@v4" not in workflow_text
-    assert "ghcr.io/hypertrial/oddsfox-pipeline" in workflow_text
-    assert "linux/amd64,linux/arm64" in workflow_text
-    assert "provenance: mode=max" in workflow_text
-    assert "sbom: true" in workflow_text
-    assert "cosign sign --yes" in workflow_text
-    assert not (workflow_path.parent / "live-readiness.yml").exists()
-    assert sorted(path.name for path in workflow_path.parent.glob("*.yml")) == [
-        "ci.yml"
+    assert set(automatic["jobs"]) == {"fast-gate"}
+    assert automatic["jobs"]["fast-gate"]["timeout-minutes"] == 5
+    assert "uv run make ci-fast" in automatic_text
+    assert "docker/build-push-action" not in automatic_text
+    assert "push: true" not in automatic_text
+
+    assert set(manual["jobs"]) == {"full-gate", "publish"}
+    assert manual["permissions"] == {"contents": "read"}
+    assert manual["jobs"]["publish"]["permissions"] == {
+        "attestations": "write",
+        "contents": "read",
+        "id-token": "write",
+        "packages": "write",
+    }
+    assert "uv run make release-gate-core" in manual_text
+    assert "inputs.publish && github.ref == 'refs/heads/main'" in manual_text
+    assert "linux/amd64,linux/arm64" in manual_text
+    assert "provenance: mode=max" in manual_text
+    assert "sbom: true" in manual_text
+    assert "cosign sign --yes" in manual_text
+    assert "scope=pipeline-image" in manual_text
+    assert "live-smoke" not in automatic_text + manual_text
+    assert "source-audit" not in automatic_text + manual_text
+    assert not (workflow_dir / "live-readiness.yml").exists()
+    assert sorted(path.name for path in workflow_dir.glob("*.yml")) == [
+        "ci.yml",
+        "manual-full.yml",
     ]
