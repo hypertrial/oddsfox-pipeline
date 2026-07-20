@@ -41,6 +41,7 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
     assert "provenance: mode=max" in manual_text
     assert "sbom: true" in manual_text
     assert "cosign sign --yes" in manual_text
+    assert "create-storage-record: false" in manual_text
     assert "scope=pipeline-image" in manual_text
     assert "live-smoke" not in automatic_text + manual_text
     assert "source-audit" not in automatic_text + manual_text
