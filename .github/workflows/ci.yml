@@ -17,8 +17,6 @@ env:
   POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
   KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
   WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED: "false"
-  IMAGE: ghcr.io/hypertrial/oddsfox-pipeline
-
 jobs:
   fast-gate:
     runs-on: ubuntu-latest
