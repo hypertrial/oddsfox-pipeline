@@ -207,6 +207,9 @@ issues as (
         count(*) filter (where severity = 'warn') as warning_issue_count,
         count(*) filter (where severity = 'error') as error_issue_count,
         count(*) filter (
+            where severity = 'error' and issue_type = 'spine'
+        ) as elapsed_axis_issue_markets,
+        count(*) filter (
             where severity = 'warn' and issue_type = 'timing'
         ) as timing_warning_count
     from {{ ref('polymarket_wc2026_match_minute_odds_quality_issues') }}
@@ -332,6 +335,7 @@ select
             case when missing_timing > 0 then 'missing_timing' end,
             case when invalid_price_rows > 0 then 'invalid_price' end,
             case when invalid_ohlc_rows > 0 then 'invalid_ohlc' end,
+            case when elapsed_axis_issue_markets > 0 then 'elapsed_axis' end,
             case when relevant_source_markets > 0 and actual_minute_rows <> expected_minute_rows then 'minute_spine' end
         ),
         ''

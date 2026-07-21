@@ -72,7 +72,8 @@ def test_ci_split_targets_remain_wired():
     assert "polymarket_wc2026_match_minute_odds_backfill" in makefile
     assert 'cd "$(REPO_ROOT)/.cache"' in makefile
     assert '-d "$(REPO_ROOT)"' in makefile
-    assert "'published', 496, 496, 0, 0, 0, 496, 0, 0, None" in makefile
+    assert "latest_fetch_hash_issues, elapsed_axis_issue_markets" in makefile
+    assert "'published', 496, 496, 0, 0, 0, 496, 0, 0, 0, None" in makefile
 
     live_smoke_config = (REPO_ROOT / "config" / "live-smoke.yaml").read_text()
     assert "polymarket_wc2026_raw_token_odds_history_hourly:" in live_smoke_config

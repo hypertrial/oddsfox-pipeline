@@ -184,6 +184,10 @@ are first filtered to the exact timestamp interval. Yes and No open, high, low,
 close, average, point count, and first/last source times are raw probabilities
 in `[0, 1]`. Missing minute observations remain null; the mart does not
 forward-fill, normalize, convert to decimal odds, or calculate `1 - price`.
+`elapsed_window_minute` is the uncapped zero-based difference from the truncated
+Gamma start bucket. It remains contiguous through weather delays, halftime,
+extra time, and penalties, so it is a wall-clock analysis axis rather than the
+official football match clock. UTC timestamps remain authoritative.
 `minute_status` distinguishes complete rows from incomplete start, finish, both,
 or interior buckets. The inclusive final-whistle bucket can legitimately be null
 when Gamma emitted no observation in that partial minute; it is measured but is
@@ -196,7 +200,9 @@ gap or first/last boundary offset 120 seconds, scheduled-to-actual kickoff shift
 with one distinct in-game price and every incomplete interior minute are also
 warnings. These source anomalies remain publishable. Structural inventory,
 mapping, timing, provenance, fetch-audit, token-history, price/OHLC, or spine
-failures block publication.
+failures block publication. Spine validation requires each market's elapsed axis
+to start at zero, remain nonnegative and contiguous, match every UTC bucket
+offset, and end at the truncated Gamma finish offset.
 
 The supported publication path is
 `polymarket_wc2026_match_minute_odds_backfill`. It rejects empty or partial live

@@ -41,7 +41,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['pair_price', 'minute_completeness', 'cadence', 'timing', 'price', 'ohlc', 'fetch', 'history', 'provenance']
+                values: ['pair_price', 'minute_completeness', 'cadence', 'timing', 'spine', 'price', 'ohlc', 'fetch', 'history', 'provenance']
       - name: issue_detail
         tests: [not_null]
       - name: observed_at
@@ -87,6 +87,9 @@ models:
         description: Current nonblocking detailed quality findings.
       - name: error_issue_count
         description: Current structural detailed quality findings.
+      - name: elapsed_axis_issue_markets
+        description: Markets whose zero-based elapsed window axis violates structural invariants.
+        tests: [not_null]
 
   - name: polymarket_wc2026_knockout_stage_coverage
     description: >
@@ -360,11 +363,20 @@ unit_tests:
           - {fifa_match_id: 104, market_id: market-2, stage: final, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', game_started_at_utc: '2026-07-01 13:00:01', game_finished_at_utc: '2026-07-01 16:30:02', results_source_revision: bad, results_source_payload_sha256: bad}
       - input: ref('int_polymarket_wc2026_match_minute_odds_candidate')
         rows:
-          - {fifa_match_id: 1, market_id: market-boundary, odds_minute_epoch: 1, yes_no_close_deviation: 0.05, pair_price_anomaly: false, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-pair, odds_minute_epoch: 2, yes_no_close_deviation: 0.0501, pair_price_anomaly: true, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-gap, odds_minute_epoch: 3, pair_price_anomaly: false, minute_status: interior_incomplete}
-          - {fifa_match_id: 1, market_id: market-price, odds_minute_epoch: 4, pair_price_anomaly: false, minute_status: complete, yes_observed: true, yes_open_price: 1.1, yes_high_price: 1.1, yes_low_price: 1.1, yes_close_price: 1.1, yes_average_price: 1.1}
-          - {fifa_match_id: 1, market_id: market-ohlc, odds_minute_epoch: 5, pair_price_anomaly: false, minute_status: complete, yes_observed: true, yes_open_price: 0.5, yes_high_price: 0.4, yes_low_price: 0.6, yes_close_price: 0.5, yes_average_price: 0.5}
+          - {fifa_match_id: 1, market_id: market-boundary, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 1, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', yes_no_close_deviation: 0.05, pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-pair, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 2, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', yes_no_close_deviation: 0.0501, pair_price_anomaly: true, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-gap, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 3, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: interior_incomplete}
+          - {fifa_match_id: 1, market_id: market-price, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 4, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete, yes_observed: true, yes_open_price: 1.1, yes_high_price: 1.1, yes_low_price: 1.1, yes_close_price: 1.1, yes_average_price: 1.1}
+          - {fifa_match_id: 1, market_id: market-ohlc, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 5, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete, yes_observed: true, yes_open_price: 0.5, yes_high_price: 0.4, yes_low_price: 0.6, yes_close_price: 0.5, yes_average_price: 0.5}
+          - {fifa_match_id: 1, market_id: market-axis-null, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 6, elapsed_window_minute: null, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-negative, odds_minute_utc: '2026-07-01 11:59:00', odds_minute_epoch: 7, elapsed_window_minute: -1, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-gap, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 8, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-gap, odds_minute_utc: '2026-07-01 12:02:00', odds_minute_epoch: 9, elapsed_window_minute: 2, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-duplicate, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 10, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-duplicate, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 11, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-utc, odds_minute_utc: '2026-07-01 12:01:00', odds_minute_epoch: 12, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:01:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-final, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 13, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-final, odds_minute_utc: '2026-07-01 12:01:00', odds_minute_epoch: 14, elapsed_window_minute: 1, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
       - input: ref('polymarket_wc2026_match_minute_token_coverage')
         rows:
           - {fifa_match_id: 1, market_id: market-1, clob_token_id: token-warning, latest_fetch_run_id: run-1, latest_fetch_status: success, latest_fetch_raw_published: true, raw_observation_count: 2, max_observation_gap_seconds: 121, first_observation_offset_seconds: 121, last_observation_offset_seconds: 121, distinct_price_count: 1, cadence_gap_warning: true, first_boundary_offset_warning: true, last_boundary_offset_warning: true, constant_price_warning: true}
@@ -379,6 +391,12 @@ unit_tests:
         - {issue_key: 'constant_price:token-warning', severity: warn, issue_type: cadence}
         - {issue_key: 'kickoff_shift:104', severity: warn, issue_type: timing}
         - {issue_key: 'game_window:104', severity: warn, issue_type: timing}
+        - {issue_key: 'elapsed_axis:market-axis-null', severity: error, issue_type: spine}
+        - {issue_key: 'elapsed_axis:market-axis-negative', severity: error, issue_type: spine}
+        - {issue_key: 'elapsed_axis:market-axis-gap', severity: error, issue_type: spine}
+        - {issue_key: 'elapsed_axis:market-axis-duplicate', severity: error, issue_type: spine}
+        - {issue_key: 'elapsed_axis:market-axis-utc', severity: error, issue_type: spine}
+        - {issue_key: 'elapsed_axis:market-axis-final', severity: error, issue_type: spine}
         - {issue_key: 'invalid_price:market-price:4', severity: error, issue_type: price}
         - {issue_key: 'invalid_ohlc:market-ohlc:5', severity: error, issue_type: ohlc}
         - {issue_key: 'fetch_not_published:missing:token-missing', severity: error, issue_type: fetch}
@@ -408,6 +426,30 @@ unit_tests:
     expect:
       rows:
         - {warning_issue_count: 1, error_issue_count: 0, latest_fetch_run_status: missing, blocking_issue_keys: null}
+
+  - name: test_match_minute_elapsed_axis_errors_block_publication
+    model: polymarket_wc2026_match_minute_odds_data_quality
+    given:
+      - input: ref('stg_polymarket_wc2026_markets')
+        rows: []
+      - input: ref('int_polymarket_wc2026_match_market_universe')
+        rows: []
+      - input: ref('int_polymarket_wc2026_match_token_minute_odds')
+        rows: []
+      - input: ref('int_polymarket_wc2026_match_minute_odds_candidate')
+        rows: []
+      - input: ref('stg_polymarket_wc2026_match_minute_fetch_audit')
+        rows: []
+      - input: ref('polymarket_wc2026_match_minute_token_coverage')
+        rows: []
+      - input: ref('polymarket_wc2026_match_minute_odds_quality_issues')
+        rows:
+          - {severity: error, issue_type: spine}
+      - input: ref('international_results_wc2026_matches')
+        rows: []
+    expect:
+      rows:
+        - {warning_issue_count: 0, error_issue_count: 1, elapsed_axis_issue_markets: 1, latest_fetch_run_status: missing, blocking_issue_keys: elapsed_axis}
 
   - name: test_match_minute_data_quality_counts_tokens_across_both_sides
     model: polymarket_wc2026_match_minute_odds_data_quality

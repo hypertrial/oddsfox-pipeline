@@ -187,9 +187,11 @@ Schema: `polymarket_wc2026_marts`
   average, counts, and observation times remain null when a minute has no
   source point; no value is filled or derived as `1 - price`. Team identity and
   home/away orientation are reconciled to one pinned international-results
-  revision before publication. Timing deltas, boundary flags/status, raw close
-  sums/deviations, anomaly flags, source revision/hash/load time, and the matched
-  international-results ID are included without changing the grain.
+  revision before publication. The zero-based `elapsed_window_minute` is an
+  uncapped wall-clock offset from the Gamma start bucket, not football match
+  time. Timing deltas, boundary flags/status, raw close sums/deviations, anomaly
+  flags, source revision/hash/load time, and the matched international-results
+  ID are included without changing the grain.
 - `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for real WC2026 team knockout
   markets at or above the WC2026 contract volume floor, plus derived `market_status`, source live flag,
   active-team live flag, and explicit price semantics.
@@ -229,7 +231,7 @@ Schema: `polymarket_wc2026_observability`
 - `polymarket_wc2026_match_minute_odds_data_quality`: expected-versus-mapped
   games, results provenance, markets, tokens, timing, audit status, minute rows,
   boundary/interior completeness, pair deviations, cadence, warning/error
-  counts, and publication-blocking issue keys.
+  counts, elapsed-axis integrity, and publication-blocking issue keys.
 - `polymarket_wc2026_match_minute_token_coverage`: one row per mapped token with
   expected/observed buckets, raw and fetch counts, first/last offsets, maximum
   gap, distinct prices, ratio, and latest fetch provenance.

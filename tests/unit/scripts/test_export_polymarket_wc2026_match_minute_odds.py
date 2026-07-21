@@ -28,6 +28,7 @@ def test_export_and_summarize_match_minute_odds(tmp_path: Path) -> None:
                 timestamp '2026-06-11 19:00:00' + market_number * interval '1 minute'
                     as odds_minute_utc,
                 1781204400 + market_number * 60 as odds_minute_epoch,
+                0::bigint as elapsed_window_minute,
                 case
                     when market_number <= 216 then ((market_number - 1) // 3) + 1
                     else market_number - 144
@@ -63,8 +64,10 @@ def test_export_and_summarize_match_minute_odds(tmp_path: Path) -> None:
                 case when market_number = 1 then 0.1 else 0.0 end
                     as yes_no_close_deviation,
                 timestamp '2026-06-11 18:55:00' as scheduled_kickoff_at_utc,
-                timestamp '2026-06-11 19:00:00' as game_started_at_utc,
-                timestamp '2026-06-11 20:40:00' as game_finished_at_utc,
+                timestamp '2026-06-11 19:00:00'
+                    + market_number * interval '1 minute' as game_started_at_utc,
+                timestamp '2026-06-11 19:00:00'
+                    + market_number * interval '1 minute' as game_finished_at_utc,
                 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
                     as results_source_revision,
                 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -77,11 +80,27 @@ def test_export_and_summarize_match_minute_odds(tmp_path: Path) -> None:
         summary = export_polymarket_wc2026_match_minute_odds(conn, output)
         assert summary == summarize_parquet(conn, output)
 
+        previous_export = output.read_bytes()
+        conn.execute(
+            """
+            update polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds
+            set elapsed_window_minute = 1
+            where market_id = 'market-1'
+            """
+        )
+        with pytest.raises(ValueError, match="elapsed_axis_issue_markets"):
+            export_polymarket_wc2026_match_minute_odds(conn, output)
+        assert output.read_bytes() == previous_export
+
     assert summary["rows"] == 248
     assert summary["grain_rows"] == 248
     assert summary["fifa_matches"] == 104
     assert summary["markets"] == 248
     assert summary["tokens"] == 496
+    assert summary["min_elapsed_window_minute"] == 0
+    assert summary["max_elapsed_window_minute"] == 0
+    assert summary["games_over_120_elapsed_minutes"] == 0
+    assert summary["elapsed_axis_issue_markets"] == 0
     assert summary["group_moneyline_markets"] == 216
     assert summary["knockout_markets"] == 32
     assert summary["proposition_inventory"]["home_advances"] == 30
@@ -111,6 +130,7 @@ def test_invalid_export_preserves_previous_file(tmp_path: Path) -> None:
             select
                 timestamp '2026-06-11 19:00:00' as odds_minute_utc,
                 1::bigint as odds_minute_epoch,
+                0::bigint as elapsed_window_minute,
                 1 as fifa_match_id,
                 'market-1' as market_id,
                 'yes-1' as yes_clob_token_id,

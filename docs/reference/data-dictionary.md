@@ -51,7 +51,7 @@ scope rules, and data-contract tests, see [Data Contracts](data-contracts.md).
 | Null policy | Dense rows are retained; missing token minutes stay null and are never carried forward |
 | Semantics | Group Yes/No is literal; knockout Yes/No is official home/away team orientation |
 | Match identity | FIFA numeric ID from the schedule; team names and home/away orientation from the uniquely matched latest international-results row |
-| Timing diagnostics | Scheduled kickoff, actual start/finish, start delta, window length, boundary flags, and `minute_status` |
+| Timing diagnostics | Scheduled kickoff, actual start/finish, start delta, window length, boundary flags, `minute_status`, and uncapped zero-based `elapsed_window_minute` wall-clock offset |
 | Pair diagnostics | Nullable raw close sum/deviation and a strict `> 0.05` anomaly flag; prices are never normalized |
 | Provenance | Selected and primary timing events plus matched results ID, immutable revision, payload SHA-256, and load time |
 
@@ -60,7 +60,10 @@ inferring meaning from token order. For match 103 the proposition is the
 official home team winning third place; for match 104 it is winning the final.
 Expected partial terminal-minute nulls remain visible as
 `finish_boundary_incomplete`; use `interior_incomplete` to isolate gaps inside a
-game rather than treating every boundary null as equivalent.
+game rather than treating every boundary null as equivalent. Use
+`elapsed_window_minute` for within-game alignment, but do not interpret it as
+stoppage-adjusted football time: delays, halftime, extra time, and penalties all
+remain on the axis.
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_knockout_markets`
 

@@ -30,6 +30,7 @@ provider-side observations remain null and are not carried across hours.
 ```sql
 select
     odds_minute_utc,
+    elapsed_window_minute,
     fifa_match_id,
     home_team,
     away_team,
@@ -42,12 +43,14 @@ select
     results_source_revision
 from polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds
 where fifa_match_id = 104
-order by odds_minute_epoch, market_id;
+order by elapsed_window_minute, market_id;
 ```
 
 Rows span only Gamma's actual match window. A null price means the selected
 token had no source point in that minute; it is not filled from another minute
-or calculated from the other token.
+or calculated from the other token. `elapsed_window_minute` is a zero-based,
+uncapped wall-clock offset for aligning games; it includes delays, halftime,
+extra time, and penalties and is not the official match clock.
 
 Inspect current warning and structural issue details without changing the raw
 price policy:

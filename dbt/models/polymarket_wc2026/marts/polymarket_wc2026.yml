@@ -31,6 +31,9 @@ models:
       - name: odds_minute_epoch
         description: Epoch second of odds_minute_utc.
         tests: [not_null]
+      - name: elapsed_window_minute
+        description: Zero-based wall-clock minute bucket within Gamma's actual game window; not the football clock.
+        tests: [not_null]
       - name: fifa_match_id
         description: Official FIFA match number from 1 through 104.
         tests: [not_null]
