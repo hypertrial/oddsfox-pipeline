@@ -101,7 +101,18 @@ group_primary_events as (
     where knockout.primary_timing_event_id is null
 ),
 
-group_fixtures as (
+international_results_fixtures as (
+    select
+        match_id as international_results_match_id,
+        match_date,
+        home_team,
+        away_team,
+        {{ canonical_team_match_key('home_team') }} as home_team_key,
+        {{ canonical_team_match_key('away_team') }} as away_team_key
+    from {{ ref('international_results_wc2026_matches') }}
+),
+
+group_schedule_fixtures as (
     select
         match_id as fifa_match_id,
         stage,
@@ -115,6 +126,28 @@ group_fixtures as (
     where match_id between 1 and 72
 ),
 
+group_fixtures as (
+    select
+        f.fifa_match_id,
+        f.stage,
+        f.group_label,
+        f.kickoff_at_utc,
+        r.international_results_match_id,
+        coalesce(r.home_team, f.home_team) as home_team,
+        coalesce(r.away_team, f.away_team) as away_team,
+        coalesce(r.home_team_key, f.home_team_key) as home_team_key,
+        coalesce(r.away_team_key, f.away_team_key) as away_team_key,
+        count(r.international_results_match_id) over (
+            partition by f.fifa_match_id
+        ) as international_results_mapping_count
+    from group_schedule_fixtures as f
+    left join international_results_fixtures as r
+        on
+            least(f.home_team_key, f.away_team_key) = least(r.home_team_key, r.away_team_key)
+            and greatest(f.home_team_key, f.away_team_key) = greatest(r.home_team_key, r.away_team_key)
+            and abs(date_diff('day', r.match_date, cast(f.kickoff_at_utc as date))) <= 1
+),
+
 group_market_candidates as (
     select
         f.fifa_match_id,
@@ -122,6 +155,8 @@ group_market_candidates as (
         f.group_label,
         f.home_team,
         f.away_team,
+        f.international_results_match_id,
+        f.international_results_mapping_count,
         m.market_id,
         m.condition_id,
         m.question,
@@ -157,6 +192,8 @@ group_markets as (
         group_label,
         home_team,
         away_team,
+        international_results_match_id,
+        international_results_mapping_count,
         market_id,
         condition_id,
         selected_market_event_id,
@@ -194,7 +231,7 @@ group_markets as (
     from group_market_candidates
 ),
 
-knockout_fixtures as (
+knockout_schedule_fixtures as (
     select
         fifa_match_id,
         stage_key as stage, -- noqa: RF04
@@ -207,6 +244,27 @@ knockout_fixtures as (
     where fifa_match_id between 73 and 104
 ),
 
+knockout_fixtures as (
+    select
+        f.fifa_match_id,
+        f.stage,
+        f.kickoff_at_utc,
+        r.international_results_match_id,
+        coalesce(r.home_team, f.home_team) as home_team,
+        coalesce(r.away_team, f.away_team) as away_team,
+        coalesce(r.home_team_key, f.home_team_key) as home_team_key,
+        coalesce(r.away_team_key, f.away_team_key) as away_team_key,
+        count(r.international_results_match_id) over (
+            partition by f.fifa_match_id
+        ) as international_results_mapping_count
+    from knockout_schedule_fixtures as f
+    left join international_results_fixtures as r
+        on
+            least(f.home_team_key, f.away_team_key) = least(r.home_team_key, r.away_team_key)
+            and greatest(f.home_team_key, f.away_team_key) = greatest(r.home_team_key, r.away_team_key)
+            and abs(date_diff('day', r.match_date, cast(f.kickoff_at_utc as date))) <= 1
+),
+
 knockout_candidates as (
     select
         a.*,
@@ -216,6 +274,8 @@ knockout_candidates as (
         f.away_team,
         f.home_team_key,
         f.away_team_key,
+        f.international_results_match_id,
+        f.international_results_mapping_count,
         count(*) over (partition by a.market_id) as fixture_mapping_count
     from advance_primary as a
     inner join knockout_fixtures as f
@@ -234,6 +294,8 @@ knockout_markets as (
         cast(null as varchar) as group_label,
         home_team,
         away_team,
+        international_results_match_id,
+        international_results_mapping_count,
         market_id,
         condition_id,
         event_id as selected_market_event_id,

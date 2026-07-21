@@ -227,6 +227,13 @@ def test_match_minute_job_is_closed_untruncated_and_unscheduled():
     assert markets["max_pages_without_progress"] is None
     assert minute["requests_per_second"] > 0
     assert dbt["dbt_select"] == "+polymarket_wc2026_match_minute_odds"
+    selected = defs.resolve_job_def(
+        "polymarket_wc2026_match_minute_odds_backfill"
+    ).asset_layer.selected_asset_keys
+    assert (
+        AssetKey(["international_results", "wc2026", "raw", "match_results"])
+        in selected
+    )
     assert all(
         schedule.job_name != "polymarket_wc2026_match_minute_odds_backfill"
         for schedule in defs.schedules

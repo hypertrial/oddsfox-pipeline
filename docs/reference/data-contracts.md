@@ -171,6 +171,11 @@ official fixture: Yes is the home-team outcome token and No is the away-team
 outcome token. Match 103 means winning the third-place match. Match 104 means
 winning the final and becoming champion.
 
+FIFA match numbers and kickoff context come from the audited schedule and
+OpenFootball fixtures, while team names and home/away orientation are reconciled
+to the latest 104-row `international_results_wc2026_matches` snapshot. A missing,
+duplicate, or unmatched result row blocks publication.
+
 Minute spines include the minute containing Gamma `startTime` through the
 minute containing the primary match event's `finishedTimestamp`. Observations
 are first filtered to the exact timestamp interval. Yes and No open, high, low,
@@ -182,7 +187,8 @@ The supported publication path is
 `polymarket_wc2026_match_minute_odds_backfill`. It rejects empty or partial live
 inventories before fetching and the dbt publication gate preserves the prior
 public table unless all 104 games, 248 markets, 496 tokens, timing windows, and
-per-token in-game histories validate. The job has no schedule.
+per-token in-game histories validate. It also refreshes and validates the latest
+104 international-results rows before publication. The job has no schedule.
 
 Schema: `international_results_wc2026_marts`
 

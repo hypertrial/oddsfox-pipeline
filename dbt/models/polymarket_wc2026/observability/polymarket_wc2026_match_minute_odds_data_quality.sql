@@ -8,6 +8,11 @@ with source_inventory as (
         and sports_market_type in ('moneyline', 'soccer_team_to_advance')
 ),
 
+international_results_inventory as (
+    select count(*) as international_results_games
+    from {{ ref('international_results_wc2026_matches') }}
+),
+
 mapped as (
     select
         count(distinct fifa_match_id) as mapped_games,
@@ -27,6 +32,15 @@ mapped as (
         count(distinct fifa_match_id) filter (
             where fifa_match_id between 1 and 104
         ) as fifa_id_coverage,
+        count(distinct fifa_match_id) filter (
+            where
+            international_results_match_id is not null
+            and international_results_mapping_count = 1
+        ) as international_results_mapped_games,
+        count(distinct international_results_match_id) as international_results_mapped_source_games,
+        count(distinct fifa_match_id) filter (
+            where international_results_mapping_count <> 1
+        ) as international_results_mapping_issues,
         sum(
             date_diff(
                 'minute',
@@ -76,8 +90,10 @@ quality as (
         32 as expected_knockout_markets,
         496 as expected_tokens,
         s.relevant_source_markets,
+        r.international_results_games,
         o.tokens_with_prices
     from source_inventory as s
+    cross join international_results_inventory as r
     cross join mapped as m
     cross join mapped_tokens as t
     cross join observed_tokens as o
@@ -106,6 +122,26 @@ select
             end,
             case when relevant_source_markets > 0 and mapped_tokens <> expected_tokens then 'token_count' end,
             case when relevant_source_markets > 0 and tokens_with_prices <> expected_tokens then 'token_history' end,
+            case
+                when relevant_source_markets > 0 and international_results_games <> expected_games
+                    then 'international_results_game_count'
+            end,
+            case
+                when
+                    relevant_source_markets > 0
+                    and international_results_mapped_games <> expected_games
+                    then 'international_results_mart_coverage'
+            end,
+            case
+                when
+                    relevant_source_markets > 0
+                    and international_results_mapped_source_games <> expected_games
+                    then 'international_results_source_coverage'
+            end,
+            case
+                when international_results_mapping_issues > 0
+                    then 'international_results_mapping'
+            end,
             case when ambiguous_mappings > 0 then 'ambiguous_mapping' end,
             case when missing_timing > 0 then 'missing_timing' end,
             case when relevant_source_markets > 0 and actual_minute_rows <> expected_minute_rows then 'minute_spine' end
