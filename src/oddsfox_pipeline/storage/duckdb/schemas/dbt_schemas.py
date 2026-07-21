@@ -84,6 +84,7 @@ POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA: Final = schema_name(
 )
 DBT_FALLBACK_SCHEMA: Final = "dbt"
 POLYMARKET_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
+    "polymarket_wc2026_match_minute_odds_data_quality",
     "polymarket_wc2026_knockout_stage_coverage",
     "polymarket_wc2026_knockout_data_quality",
     "polymarket_wc2026_sync_run_observability",
@@ -193,6 +194,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         "international_results_wc2026_data_quality",
     ),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_markets"),
+    (
+        POLYMARKET_WC2026_STAGING_SCHEMA,
+        "stg_polymarket_wc2026_match_minute_odds_history",
+    ),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_market_tokens"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds_daily"),
@@ -219,6 +224,26 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
         "int_polymarket_wc2026_match_hourly_odds",
     ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_match_market_universe",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_match_token_minute_odds",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_match_minute_odds_candidate",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_match_minute_publication_gate",
+    ),
+    (
+        POLYMARKET_WC2026_MARTS_SCHEMA,
+        "polymarket_wc2026_match_minute_odds",
+    ),
     (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_market_tokens"),
     (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_markets"),
     (
@@ -229,6 +254,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
         "polymarket_wc2026_knockout_stage_coverage",
+    ),
+    (
+        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+        "polymarket_wc2026_match_minute_odds_data_quality",
     ),
     (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,

@@ -66,6 +66,35 @@ sources:
             tests: [not_null]
           - name: ingested_at
             description: UTC timestamp when this row was written by the pipeline (ingestion clock).
+      - name: match_minute_odds_history
+        description: Exact-window, one-minute CLOB observations for the 248 selected WC2026 match markets.
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, match_token_odds_history_minute]
+        loaded_at_field: ingested_at
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [clobTokenId, timestamp]
+                where: clobTokenId is not null and timestamp is not null
+        columns:
+          - name: market_id
+            description: Selected Polymarket market identifier.
+            tests: [not_null]
+          - name: clobTokenId
+            description: Selected outcome token identifier.
+            tests: [not_null]
+          - name: timestamp
+            description: Source observation epoch second.
+            tests: [not_null]
+          - name: fidelity_minutes
+            description: Requested CLOB fidelity, fixed to one minute.
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: [1]
+          - name: ingested_at
+            description: UTC timestamp when the bounded backfill was persisted.
       - name: token_odds_daily
         description: Raw daily token odds aggregates derived from canonical odds_history points.
         meta:

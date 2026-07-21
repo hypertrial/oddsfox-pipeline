@@ -78,9 +78,10 @@ coverage-accumulation commands.
 GitHub Actions uses one runner for less than five cumulative minutes and runs
 lint, fast offline tests, replay-only HTTP contracts, dbt parse, and a strict
 documentation build. `dbt-build-ci` bootstraps a disposable DuckDB database
-under `.cache/` for the broader local gate. `live-smoke` performs public
-network requests and is local-only; it uses disposable smoke configuration and
-must never be added to GitHub Actions.
+under `.cache/` for the broader local gate. `live-smoke` and
+`match-minute-live-smoke` perform public network requests and are local-only;
+both use disposable smoke configuration and must never be added to GitHub
+Actions.
 Costguard is a dbt/release guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 

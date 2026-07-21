@@ -89,11 +89,16 @@ def _collect_from_events(
             if market_id in seen_market_ids:
                 continue
             seen_market_ids.add(market_id)
-            if not market.get("events"):
-                market = {
-                    **market,
-                    "events": [{"slug": event_slug, "id": event.get("id")}],
-                }
+            market = {
+                **market,
+                "events": market.get("events")
+                or [{"slug": event_slug, "id": event.get("id")}],
+                "eventTitle": event.get("title"),
+                "eventStartTime": event.get("startTime"),
+                "eventFinishedTime": event.get("finishedTimestamp"),
+                "eventGameId": event.get("gameId"),
+                "eventEnded": event.get("ended"),
+            }
             markets.append(market)
 
     return MarketScopeEventsScanResult(

@@ -25,6 +25,29 @@ order by fifa_match_id, odds_hour_epoch;
 These are raw team-advance closes, including extra time and penalties. Missing
 provider-side observations remain null and are not carried across hours.
 
+## WC2026 In-Game Minute Moneylines And Advance Odds
+
+```sql
+select
+    odds_minute_utc,
+    fifa_match_id,
+    home_team,
+    away_team,
+    proposition_type,
+    yes_close_price,
+    no_close_price,
+    yes_observed_points,
+    no_observed_points,
+    minute_complete
+from polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds
+where fifa_match_id = 104
+order by odds_minute_epoch, market_id;
+```
+
+Rows span only Gamma's actual match window. A null price means the selected
+token had no source point in that minute; it is not filled from another minute
+or calculated from the other token.
+
 ## Current WC2026 Polymarket Prices
 
 Actionable live progression prices by team and stage:

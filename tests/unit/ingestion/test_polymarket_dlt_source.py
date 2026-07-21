@@ -32,6 +32,11 @@ def test_polymarket_markets_source_yields_prefetched_rows():
             "slug": "2026-fifa-world-cup-winner",
             "event_slug": "2026-fifa-world-cup-winner",
             "event_id": "99",
+            "event_title": None,
+            "event_start_time": None,
+            "event_finished_time": None,
+            "event_game_id": None,
+            "event_ended": None,
             "condition_id": "cond-1",
             "sports_market_type": "winner",
             "game_start_time": "2026-06-11 00:00:00",
@@ -57,6 +62,31 @@ def test_markets_resource_has_frozen_columns_and_types_contract():
     assert resource.columns["created_at"]["data_type"] == "timestamp"
     assert resource.columns["condition_id"]["data_type"] == "text"
     assert resource.columns["is_resolved"]["data_type"] == "bool"
+    assert resource.columns["event_finished_time"]["data_type"] == "timestamp"
+
+
+def test_parent_event_timing_survives_normalization():
+    [row] = normalize_market_payloads_for_dlt(
+        [
+            {
+                "id": "match-market",
+                "outcomes": ["Yes", "No"],
+                "clobTokenIds": ["yes", "no"],
+                "events": [{"id": "primary", "slug": "primary-event"}],
+                "eventTitle": "Spain vs. Argentina",
+                "eventStartTime": "2026-07-19T19:00:00Z",
+                "eventFinishedTime": "2026-07-19T22:02:35.136589Z",
+                "eventGameId": 90087010,
+                "eventEnded": True,
+            }
+        ]
+    )
+
+    assert row["event_title"] == "Spain vs. Argentina"
+    assert str(row["event_start_time"]) == "2026-07-19 19:00:00"
+    assert str(row["event_finished_time"]) == "2026-07-19 22:02:35.136589"
+    assert row["event_game_id"] == "90087010"
+    assert row["event_ended"] is True
 
 
 def test_normalize_market_payloads_for_dlt_matches_raw_market_contract():
@@ -102,6 +132,11 @@ def test_normalize_market_payloads_for_dlt_matches_raw_market_contract():
             "slug": "2026-fifa-world-cup-winner",
             "event_slug": "2026-fifa-world-cup-winner",
             "event_id": "99",
+            "event_title": None,
+            "event_start_time": None,
+            "event_finished_time": None,
+            "event_game_id": None,
+            "event_ended": None,
             "condition_id": "cond-1",
             "sports_market_type": "winner",
             "game_start_time": rows[0]["game_start_time"],

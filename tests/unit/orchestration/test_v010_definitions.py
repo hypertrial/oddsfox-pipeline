@@ -7,10 +7,14 @@ from dagster import AssetKey, DefaultScheduleStatus, build_schedule_context
 from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    polymarket_wc2026_match_minute_odds_run_config,
     wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
-from oddsfox_pipeline.orchestration.jobs import _merge_run_configs
+from oddsfox_pipeline.orchestration.jobs import (
+    POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION,
+    _merge_run_configs,
+)
 from oddsfox_pipeline.orchestration.schedules import (
     polymarket_wc2026_hourly_odds_schedule,
     wc2026_knockout_match_odds_hourly_schedule,
@@ -67,6 +71,7 @@ def test_definitions_expose_v010_jobs_only():
         "polymarket_us_midterms_2026_market_registry_refresh",
         "polymarket_wc2026_hourly_odds_ingest",
         "polymarket_wc2026_market_registry_refresh",
+        "polymarket_wc2026_match_minute_odds_backfill",
         "polymarket_wc2026_dbt_build",
         "polymarket_wc2026_full_pipeline",
         "wc2026_knockout_match_odds_full_pipeline",
@@ -205,6 +210,36 @@ def test_wc2026_jobs_do_not_expose_scope_config():
     assert legacy_key not in set(_nested_keys(hourly_config))
     assert legacy_key not in set(_nested_keys(full_config))
     assert "oddsfox_dbt" in full_config
+
+
+def test_match_minute_job_is_closed_untruncated_and_unscheduled():
+    config = polymarket_wc2026_match_minute_odds_run_config()["ops"]
+    markets = config["polymarket_wc2026_raw_markets"]["config"]
+    registry = config["polymarket_wc2026_ops_market_scope_registry"]["config"]
+    minute = config["polymarket_wc2026_raw_match_token_odds_history_minute"]["config"]
+    dbt = config["oddsfox_dbt"]["config"]
+
+    assert markets["keyset_closed"] is True
+    assert registry["keyset_closed"] is True
+    assert markets["keyset_volume_min"] == 0.0
+    assert registry["keyset_volume_min"] == 0.0
+    assert markets["max_event_pages"] is None
+    assert markets["max_pages_without_progress"] is None
+    assert minute["requests_per_second"] > 0
+    assert dbt["dbt_select"] == "+polymarket_wc2026_match_minute_odds"
+    assert all(
+        schedule.job_name != "polymarket_wc2026_match_minute_odds_backfill"
+        for schedule in defs.schedules
+    )
+
+
+def test_match_minute_dbt_selection_does_not_leak_sibling_model_checks():
+    graph = defs.resolve_asset_graph()
+    selected_assets = POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION.resolve(graph)
+    selected_checks = POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION.resolve_checks(graph)
+
+    assert selected_checks
+    assert {check.asset_key for check in selected_checks} <= selected_assets
 
 
 def test_polymarket_source_dagster_asset_keys_exist_in_definitions():

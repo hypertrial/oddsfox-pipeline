@@ -27,6 +27,7 @@ stream_dbt_build = _ops.stream_dbt_build
 sync_markets = _ops.sync_markets
 sync_odds = _ops.sync_odds
 sync_market_scope_registry = _ops.sync_market_scope_registry
+sync_match_minute_odds_history = _ops.sync_match_minute_odds_history
 
 __all__ = [
     "ProgressGuardrail",
@@ -48,4 +49,5 @@ __all__ = [
     "sync_markets",
     "sync_odds",
     "sync_market_scope_registry",
+    "sync_match_minute_odds_history",
 ]

@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: stg_polymarket_wc2026_match_minute_odds_history
+    description: Typed one-minute CLOB observations with exact source game windows.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_timestamp_epoch]
+    columns:
+      - name: market_id
+        tests: [not_null]
+      - name: clob_token_id
+        tests: [not_null]
+      - name: odds_timestamp_epoch
+        tests: [not_null]
+      - name: price
+        tests: [not_null]
+      - name: fidelity_minutes
+        tests:
+          - accepted_values:
+              arguments:
+                values: [1]

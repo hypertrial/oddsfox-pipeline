@@ -1,6 +1,55 @@
 version: 2
 
 models:
+  - name: polymarket_wc2026_match_minute_odds
+    description: >
+      Dense in-game WC2026 minute odds for 216 group moneyline and 32 knockout
+      advance/win markets. Missing source minutes remain null; prices are raw
+      Polymarket probabilities and are never normalized or forward-filled.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [odds_minute_epoch, market_id]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [odds_minute_epoch, market_id]
+            price_columns:
+              - yes_open_price
+              - yes_high_price
+              - yes_low_price
+              - yes_close_price
+              - yes_average_price
+              - no_open_price
+              - no_high_price
+              - no_low_price
+              - no_close_price
+              - no_average_price
+    columns:
+      - name: odds_minute_utc
+        description: Inclusive UTC minute bucket within Gamma's actual game window.
+        tests: [not_null]
+      - name: odds_minute_epoch
+        description: Epoch second of odds_minute_utc.
+        tests: [not_null]
+      - name: fifa_match_id
+        description: Official FIFA match number from 1 through 104.
+        tests: [not_null]
+      - name: market_id
+        description: Polymarket market identifier; one proposition per row series.
+        tests: [not_null]
+      - name: proposition_type
+        description: Stable home_win, draw, away_win, home_advances, third-place, or final meaning.
+        tests: [not_null]
+      - name: yes_clob_token_id
+        description: Literal Yes token for group markets or official-home outcome token for knockout markets.
+        tests: [not_null]
+      - name: no_clob_token_id
+        description: Literal No token for group markets or official-away outcome token for knockout markets.
+        tests: [not_null]
+      - name: minute_complete
+        description: True only when both selected tokens have at least one source point in the minute.
+        tests: [not_null]
+
   - name: polymarket_wc2026_knockout_market_tokens
     description: >
       WC2026 knockout progression-side token universe (scope=wc2026, at or

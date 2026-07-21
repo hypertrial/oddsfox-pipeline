@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`, a dense,
+  null-preserving in-game minute mart for all 104 FIFA World Cup 2026 matches,
+  with 248 selected markets, 496 literal source tokens, minute Yes/No OHLC, and
+  primary Gamma event timing.
+- Dedicated, unscheduled
+  `polymarket_wc2026_match_minute_odds_backfill` ingestion/publication job and
+  match-minute inventory/completeness observability.
+
 ### Fixed
 
 - Strategy-facing WC2026 marts now use only each private source's latest

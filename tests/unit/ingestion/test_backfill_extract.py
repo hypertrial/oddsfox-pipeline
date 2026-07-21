@@ -123,6 +123,111 @@ def test_iter_gamma_events_keyset_non_advancing_duplicate_data_is_eof():
     assert client.get.call_count == 2
 
 
+def test_iter_gamma_events_keyset_full_stuck_page_uses_offset_fallback():
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
+        iter_gamma_events_keyset,
+    )
+
+    first = [{"id": "1"}, {"id": "2"}]
+    client = MagicMock()
+    client.get.side_effect = [
+        {"events": first, "next_cursor": "stuck-cursor"},
+        {"events": first, "next_cursor": "stuck-cursor"},
+        first,
+        [{"id": "3"}, {"id": "4"}],
+        [{"id": "5"}],
+    ]
+    progress = MagicMock()
+
+    pages = list(
+        iter_gamma_events_keyset(
+            client,
+            max_pages=None,
+            fetch_limit=2,
+            progress_callback=progress,
+            progress_every_pages=2,
+        )
+    )
+
+    assert [[event["id"] for event in page] for page, _ in pages] == [
+        ["1", "2"],
+        ["3", "4"],
+        ["5"],
+    ]
+    assert pages[-1][1].truncated is False
+    assert client.get.call_args_list[2].args[0] == "/events"
+    assert client.get.call_args_list[2].kwargs["params"]["offset"] == 0
+    assert client.get.call_args_list[3].kwargs["params"]["offset"] == 2
+    assert client.get.call_args_list[4].kwargs["params"]["offset"] == 4
+    assert progress.call_args.args[1]["keyset_fallback"] is True
+
+
+def test_iter_gamma_events_keyset_offset_fallback_does_not_assume_same_order():
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
+        iter_gamma_events_keyset,
+    )
+
+    first = [{"id": "1"}, {"id": "2"}]
+    client = MagicMock()
+    client.get.side_effect = [
+        {"events": first, "next_cursor": "stuck-cursor"},
+        {"events": first, "next_cursor": "stuck-cursor"},
+        [{"id": "3"}, {"id": "1"}],
+        [{"id": "2"}, {"id": "4"}],
+        [{"id": "5"}],
+    ]
+
+    pages = list(iter_gamma_events_keyset(client, max_pages=None, fetch_limit=2))
+
+    assert [[event["id"] for event in page] for page, _ in pages] == [
+        ["1", "2"],
+        ["3"],
+        ["4"],
+        ["5"],
+    ]
+    assert pages[-1][1].truncated is False
+
+
+def test_iter_gamma_events_keyset_full_stuck_page_honors_page_cap():
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
+        iter_gamma_events_keyset,
+    )
+
+    first = [{"id": "1"}, {"id": "2"}]
+    client = MagicMock()
+    client.get.side_effect = [
+        {"events": first, "next_cursor": "stuck-cursor"},
+        {"events": first, "next_cursor": "stuck-cursor"},
+    ]
+
+    pages = list(iter_gamma_events_keyset(client, max_pages=2, fetch_limit=2))
+
+    assert pages[-1][0] == []
+    assert pages[-1][1].truncated is True
+    assert client.get.call_count == 2
+
+
+def test_iter_gamma_events_keyset_stalled_offset_fallback_is_truncated():
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
+        iter_gamma_events_keyset,
+    )
+
+    first = [{"id": "1"}, {"id": "2"}]
+    client = MagicMock()
+    client.get.side_effect = [
+        {"events": first, "next_cursor": "stuck-cursor"},
+        {"events": first, "next_cursor": "stuck-cursor"},
+        first,
+        first,
+    ]
+
+    pages = list(iter_gamma_events_keyset(client, max_pages=None, fetch_limit=2))
+
+    assert pages[-1][0] == []
+    assert pages[-1][1].truncated is True
+    assert client.get.call_count == 4
+
+
 def test_iter_gamma_events_keyset_closed_filter():
     from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
         iter_gamma_events_keyset,

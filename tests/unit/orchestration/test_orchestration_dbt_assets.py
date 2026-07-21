@@ -55,6 +55,12 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "raw",
         "token_odds_history_hourly",
     ]
+    assert tables[("polymarket_wc2026_raw", "match_minute_odds_history")] == [
+        "polymarket",
+        "wc2026",
+        "raw",
+        "match_token_odds_history_minute",
+    ]
     assert tables[("polymarket_wc2026_raw", "token_odds_daily")] == [
         "polymarket",
         "wc2026",
@@ -191,6 +197,43 @@ def test_dbt_assets_definition_streams_build_events(monkeypatch):
     ctx = MagicMock()
     events = list(fn(ctx, MockDbt(), orch_config.DbtBuildConfig()))
     assert events == ["event"]
+
+
+def test_match_minute_asset_materializes_sync_summary(monkeypatch):
+    from oddsfox_pipeline.orchestration.assets import (
+        polymarket_wc2026_raw_match_token_odds_history_minute,
+    )
+
+    connection = MagicMock()
+    connection.__enter__.return_value = "connection"
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.assets_polymarket.get_connection",
+        lambda: connection,
+    )
+    sync = MagicMock(return_value={"games": 104, "markets": 248, "tokens": 496})
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.polymarket_ops.sync_match_minute_odds_history",
+        sync,
+    )
+
+    context = MagicMock()
+    config = orch_config.MatchMinuteOddsSyncConfig()
+    result = polymarket_wc2026_raw_match_token_odds_history_minute.op.compute_fn.decorated_fn(
+        context, config
+    )
+
+    sync.assert_called_once_with(
+        "connection",
+        log=context.log,
+        workers=config.workers,
+        requests_per_second=config.requests_per_second,
+        transient_retries=config.transient_retries,
+        transient_backoff_seconds=config.transient_backoff_seconds,
+        progress_log_interval_seconds=config.progress_log_interval_seconds,
+        no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
+        no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
+    )
+    assert result.metadata["tokens"] == 496
 
 
 def test_dbt_assets_does_not_delete_orphan_market_tokens(monkeypatch):

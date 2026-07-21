@@ -14,20 +14,21 @@ For procedures, use [Run a scope](../guides/run-a-scope.md),
 3. `polymarket/wc2026/ops/market_scope_registry`
 4. `polymarket/wc2026/raw/market_metadata_backfill`
 5. `polymarket/wc2026/raw/token_odds_history_hourly`
-6. `polymarket/us_midterms_2026/raw/markets`
-7. `polymarket/us_midterms_2026/raw/markets_snapshot`
-8. `polymarket/us_midterms_2026/ops/market_scope_registry`
-9. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
-10. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
-11. `international_results/historical/raw/snapshot`
-12. `international_results/wc2026/raw/match_results`
-13. `openfootball/wc2026/raw/knockout_fixtures`
-14. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
-15. `kalshi/wc2026/raw/markets`
-16. `kalshi/wc2026/raw/markets_snapshot`
-17. `kalshi/wc2026/ops/market_scope_registry`
-18. `kalshi/wc2026/raw/market_candlesticks_hourly`
-19. dbt model assets under the matching
+6. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
+7. `polymarket/us_midterms_2026/raw/markets`
+8. `polymarket/us_midterms_2026/raw/markets_snapshot`
+9. `polymarket/us_midterms_2026/ops/market_scope_registry`
+10. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
+11. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
+12. `international_results/historical/raw/snapshot`
+13. `international_results/wc2026/raw/match_results`
+14. `openfootball/wc2026/raw/knockout_fixtures`
+15. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
+16. `kalshi/wc2026/raw/markets`
+17. `kalshi/wc2026/raw/markets_snapshot`
+18. `kalshi/wc2026/ops/market_scope_registry`
+19. `kalshi/wc2026/raw/market_candlesticks_hourly`
+20. dbt model assets under the matching
     `{staging,intermediate,marts,observability}` namespaces.
 
 Flat Dagster op names preserve the same source-first order, for example
@@ -42,6 +43,13 @@ Flat Dagster op names preserve the same source-first order, for example
 - `polymarket_wc2026_market_registry_refresh`: market discovery, registry
   refresh, and metadata backfill.
 - `polymarket_wc2026_hourly_odds_ingest`: trailing hourly token-odds refresh.
+- `polymarket_wc2026_match_minute_odds_backfill`: one-time or rerunnable
+  completed-match backfill for all 104 FIFA-numbered games and the dedicated
+  minute mart. It refreshes all 32 OpenFootball knockout fixtures, discovers
+  closed Gamma events without a volume floor, validates the 104/248/496
+  inventory, fetches exact game windows at CLOB `fidelity=1`, then runs dbt.
+  Run `uv run make match-minute-live-smoke` for the disposable live acceptance
+  check; it is intentionally absent from CI and all schedules.
 - `international_results_wc2026_match_results_ingest`: FIFA fixture/results
   refresh.
 - `polymarket_wc2026_dbt_build`: WC2026 and international-results dbt build.
@@ -87,6 +95,8 @@ cross-provider comparison.
 - `ops/market_scope_registry` writes only when discovery did not already
   refresh the registry.
 - Metadata backfill and hourly odds operate over the fixed WC2026 registry.
+- The match-minute asset writes a separate raw table and never reads or updates
+  the hourly token-sync ledger. Any missing token history aborts before dbt.
 - FIFA results supply the real-team validation inputs used by dbt.
 
 ### Polymarket US midterms 2026
@@ -124,6 +134,8 @@ cross-provider comparison.
 | `polymarket_us_midterms_2026_hourly_odds_schedule` | `polymarket_us_midterms_2026_hourly_odds_ingest` | Stopped |
 | `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | Stopped |
 | `wc2026_knockout_match_odds_hourly_schedule` | `wc2026_knockout_match_odds_full_pipeline` | Stopped |
+
+The match-minute backfill has no schedule or environment enable flag.
 
 The international-results schedule runs daily at 02:15 UTC; the other four run
 hourly. The combined schedule uses Polymarket CLOB

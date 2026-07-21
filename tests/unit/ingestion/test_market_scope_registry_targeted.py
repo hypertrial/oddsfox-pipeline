@@ -36,6 +36,11 @@ def test_refresh_registry_and_collect_single_events_pass(monkeypatch, tmp_path):
             {
                 "id": "ev1",
                 "slug": "2026-fifa-world-cup-winner-595",
+                "title": "Spain vs. Argentina",
+                "startTime": "2026-07-19T19:00:00Z",
+                "finishedTimestamp": "2026-07-19T22:02:35.136589Z",
+                "gameId": 90087010,
+                "ended": True,
                 "markets": [{"id": "m100"}, {"id": "m101"}],
             },
         ],
@@ -54,6 +59,10 @@ def test_refresh_registry_and_collect_single_events_pass(monkeypatch, tmp_path):
     assert len(markets) == 2
     assert collect_meta["markets_collected"] == 2
     assert markets[0].get("events")
+    assert markets[0]["eventTitle"] == "Spain vs. Argentina"
+    assert markets[0]["eventFinishedTime"] == "2026-07-19T22:02:35.136589Z"
+    assert markets[0]["eventGameId"] == 90087010
+    assert markets[0]["eventEnded"] is True
 
 
 def test_refresh_registry_with_seed_market_ids(monkeypatch, tmp_path):

@@ -161,6 +161,28 @@ Schema: `polymarket_wc2026_marts`
 | `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, result metadata, and price semantics. |
 | `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
 | `polymarket_wc2026_graph_token_hourly_odds` | One row per `(market_id, clob_token_id, odds_hour_epoch)` | Graph-build export with both Yes and No tokens per real-team knockout market plus dbt-clean stage/team/progression semantics. |
+| `polymarket_wc2026_match_minute_odds` | One row per `(odds_minute_utc, market_id)` | Dense in-game minute OHLC for 216 group moneyline markets and 32 knockout advance/win markets across FIFA match IDs 1–104. |
+
+The match-minute contract contains 248 markets and 496 source tokens. Group
+rows preserve each binary market's literal Yes and No tokens for `home_win`,
+`draw`, or `away_win`; a group No price is the proposition's logical
+complement, not necessarily an opponent win. Knockout rows are oriented to the
+official fixture: Yes is the home-team outcome token and No is the away-team
+outcome token. Match 103 means winning the third-place match. Match 104 means
+winning the final and becoming champion.
+
+Minute spines include the minute containing Gamma `startTime` through the
+minute containing the primary match event's `finishedTimestamp`. Observations
+are first filtered to the exact timestamp interval. Yes and No open, high, low,
+close, average, point count, and first/last source times are raw probabilities
+in `[0, 1]`. Missing minute observations remain null; the mart does not
+forward-fill, normalize, convert to decimal odds, or calculate `1 - price`.
+
+The supported publication path is
+`polymarket_wc2026_match_minute_odds_backfill`. It rejects empty or partial live
+inventories before fetching and the dbt publication gate preserves the prior
+public table unless all 104 games, 248 markets, 496 tokens, timing windows, and
+per-token in-game histories validate. The job has no schedule.
 
 Schema: `international_results_wc2026_marts`
 

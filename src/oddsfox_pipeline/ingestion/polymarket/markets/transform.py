@@ -97,6 +97,16 @@ def process_markets_dataframe(markets_list: List[Dict]) -> pl.DataFrame:
         "clobTokenIds",
         "slug",
         "events",
+        "eventTitle",
+        "event_title",
+        "eventStartTime",
+        "event_start_time",
+        "eventFinishedTime",
+        "event_finished_time",
+        "eventGameId",
+        "event_game_id",
+        "eventEnded",
+        "event_ended",
     ]
     trimmed_rows = [
         {key: market.get(key) for key in relevant_keys}
@@ -166,6 +176,15 @@ def process_markets_dataframe(markets_list: List[Dict]) -> pl.DataFrame:
                 return_dtype=pl.Utf8,
             )
             .alias("event_id"),
+            pl.coalesce([pl.col("eventTitle"), pl.col("event_title")])
+            .cast(pl.Utf8, strict=False)
+            .alias("event_title"),
+            pl.coalesce([pl.col("eventGameId"), pl.col("event_game_id")])
+            .cast(pl.Utf8, strict=False)
+            .alias("event_game_id"),
+            pl.coalesce([pl.col("eventEnded"), pl.col("event_ended")])
+            .cast(pl.Boolean, strict=False)
+            .alias("event_ended"),
             # Parse dates
             pl.col("createdAt")
             .cast(pl.Utf8, strict=False)
@@ -182,6 +201,16 @@ def process_markets_dataframe(markets_list: List[Dict]) -> pl.DataFrame:
             .fill_null("")
             .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%.fZ", strict=False)
             .alias("game_start_time"),
+            pl.coalesce([pl.col("eventStartTime"), pl.col("event_start_time")])
+            .cast(pl.Utf8, strict=False)
+            .fill_null("")
+            .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%.fZ", strict=False)
+            .alias("event_start_time"),
+            pl.coalesce([pl.col("eventFinishedTime"), pl.col("event_finished_time")])
+            .cast(pl.Utf8, strict=False)
+            .fill_null("")
+            .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%.fZ", strict=False)
+            .alias("event_finished_time"),
             # Ensure volumeNum is float
             pl.col("volumeNum").cast(pl.Float64).fill_null(0.0),
             # Ensure boolean columns are properly typed

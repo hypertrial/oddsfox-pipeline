@@ -50,6 +50,18 @@ ODDS_HISTORY_COLUMNS = {
     "row_order": {"data_type": "bigint"},
 }
 
+MATCH_MINUTE_ODDS_HISTORY_COLUMNS = {
+    "market_id": {"data_type": "text"},
+    "clobTokenId": {"data_type": "text"},
+    "timestamp": {"data_type": "bigint"},
+    "price": {"data_type": "double"},
+    "fidelity_minutes": {"data_type": "bigint"},
+    "window_start_at": {"data_type": "timestamp"},
+    "window_end_at": {"data_type": "timestamp"},
+    "ingested_at": {"data_type": "timestamp"},
+    "row_order": {"data_type": "bigint"},
+}
+
 PIPELINE_RUN_EVENT_COLUMNS = {
     "run_id": {"data_type": "text"},
     "task_name": {"data_type": "text"},
@@ -210,6 +222,37 @@ def merge_odds_history_stage(
     )
 
 
+def load_match_minute_odds_history_stage(
+    rows: Sequence[dict[str, Any]],
+    conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Deterministically upsert the bounded WC2026 match-minute observations."""
+    target = polymarket_raw_tbl(SCOPE_WC2026, "match_minute_odds_history")
+    stage = load_stage_rows(
+        schema=polymarket_raw_schema(SCOPE_WC2026),
+        stage_table="stage_match_minute_odds_history_v1",
+        rows=_with_row_order(rows),
+        columns=MATCH_MINUTE_ODDS_HISTORY_COLUMNS,
+    )
+    conn.execute(
+        f"""
+        INSERT OR REPLACE INTO {target}
+        (market_id, clobTokenId, timestamp, price, fidelity_minutes,
+         window_start_at, window_end_at, ingested_at)
+        SELECT market_id, clob_token_id, timestamp, price, fidelity_minutes,
+               window_start_at, window_end_at, ingested_at
+        FROM (
+            SELECT *, row_number() OVER (
+                PARTITION BY clob_token_id, timestamp
+                ORDER BY ingested_at DESC, row_order DESC
+            ) AS rn
+            FROM {stage}
+        )
+        WHERE rn = 1
+        """
+    )
+
+
 def append_pipeline_run_event_stage(
     row: dict[str, Any],
     conn: duckdb.DuckDBPyConnection,
@@ -290,11 +333,13 @@ __all__ = [
     "ODDS_HISTORY_COLUMNS",
     "PIPELINE_RUN_EVENT_COLUMNS",
     "MARKET_SCOPE_REGISTRY_COLUMNS",
+    "MATCH_MINUTE_ODDS_HISTORY_COLUMNS",
     "append_pipeline_run_event_stage",
     "load_market_tokens_stage",
     "load_odds_history_stage",
     "load_stage_rows",
     "load_market_scope_registry_stage",
+    "load_match_minute_odds_history_stage",
     "merge_odds_history_stage",
     "prepare_odds_history_stage",
     "reset_dlt_batch_pipelines",

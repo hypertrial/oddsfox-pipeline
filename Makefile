@@ -1,4 +1,4 @@
-.PHONY: ci-fast release-gate release-gate-core container-smoke container-smoke-run dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt gx-data-quality data-quality contract-http live-smoke costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
+.PHONY: ci-fast release-gate release-gate-core container-smoke container-smoke-run dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt gx-data-quality data-quality contract-http live-smoke match-minute-live-smoke costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -13,6 +13,8 @@ DBT_UNIT_DUCKDB_PATH := $(REPO_ROOT)/.cache/dbt_unit.duckdb
 DBT_UNIT_ENV := DUCKDB_NAME="$(DBT_UNIT_DUCKDB_PATH)" DUCKDB_PATH="$(DBT_UNIT_DUCKDB_PATH)"
 DBT_FRESHNESS_DUCKDB_PATH := $(REPO_ROOT)/.cache/dbt_source_freshness.duckdb
 DBT_FRESHNESS_ENV := DUCKDB_NAME="$(DBT_FRESHNESS_DUCKDB_PATH)" DUCKDB_PATH="$(DBT_FRESHNESS_DUCKDB_PATH)"
+MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH := $(REPO_ROOT)/.cache/match_minute_live_smoke.duckdb
+MATCH_MINUTE_LIVE_SMOKE_ENV := DUCKDB_NAME="$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)" DUCKDB_PATH="$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)"
 PYTEST_FAST_MARKERS := not integration and not performance and not slow and not repo_check and not contract
 PYTEST_COVERAGE_MARKERS := not performance and not slow and not repo_check and not contract
 COV_APPEND_ARGS := --cov=oddsfox_pipeline --cov-branch --cov-append
@@ -114,6 +116,12 @@ contract-http:
 
 live-smoke:
 	$(RUN_IN_REPO) "$(PYTHON)" -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j wc2026_knockout_match_odds_full_pipeline -c config/live-smoke.yaml
+
+match-minute-live-smoke:
+	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
+	$(RUN_IN_REPO) rm -f "$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)" "$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH).wal" "$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)-wal" "$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)-shm"
+	cd "$(REPO_ROOT)/.cache" && $(MATCH_MINUTE_LIVE_SMOKE_ENV) "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_match_minute_odds_backfill
+	$(RUN_IN_REPO) $(MATCH_MINUTE_LIVE_SMOKE_ENV) "$(PYTHON)" -c "import duckdb; conn = duckdb.connect('$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)', read_only=True); row = conn.execute('select mapped_games, mapped_markets, mapped_group_markets, mapped_knockout_markets, mapped_tokens, blocking_issue_keys from polymarket_wc2026_observability.polymarket_wc2026_match_minute_odds_data_quality').fetchone(); assert row == (104, 248, 216, 32, 496, None), row; print(row)"
 
 costguard-scan:
 	$(RUN_IN_REPO) cd dbt && "$(COSTGUARD)" scan

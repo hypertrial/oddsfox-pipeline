@@ -56,6 +56,26 @@ def _unseen_events(
     return unseen
 
 
+def _events_params(
+    *,
+    limit: int,
+    keyset_closed: bool | None,
+    keyset_tag_slug: str | None,
+    keyset_related_tags: bool,
+    keyset_volume_min: float | None,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {"limit": limit}
+    if keyset_closed is not None:
+        params["closed"] = keyset_closed
+    if keyset_tag_slug is not None:
+        params["tag_slug"] = keyset_tag_slug
+    if keyset_related_tags:
+        params["related_tags"] = "true"
+    if keyset_volume_min is not None:
+        params["volume_min"] = keyset_volume_min
+    return params
+
+
 def iter_gamma_events_keyset(
     client: Any,
     *,
@@ -77,15 +97,13 @@ def iter_gamma_events_keyset(
 
     while True:
         request_cursor = cursor
-        params: dict[str, Any] = {"limit": fetch_limit}
-        if keyset_closed is not None:
-            params["closed"] = keyset_closed
-        if keyset_tag_slug is not None:
-            params["tag_slug"] = keyset_tag_slug
-        if keyset_related_tags:
-            params["related_tags"] = "true"
-        if keyset_volume_min is not None:
-            params["volume_min"] = keyset_volume_min
+        params = _events_params(
+            limit=fetch_limit,
+            keyset_closed=keyset_closed,
+            keyset_tag_slug=keyset_tag_slug,
+            keyset_related_tags=keyset_related_tags,
+            keyset_volume_min=keyset_volume_min,
+        )
         if cursor:
             params["next_cursor"] = cursor
         payload = gamma_get(client, "/events/keyset", params=params)
@@ -119,6 +137,90 @@ def iter_gamma_events_keyset(
                     keyset_tag_slug,
                 )
                 yield new_events, EventsPageMeta(pages_done=pages_done, truncated=True)
+            elif len(events) >= min(
+                fetch_limit, GAMMA_EVENTS_KEYSET_EFFECTIVE_PAGE_SIZE
+            ):
+                offset_limit = min(fetch_limit, GAMMA_EVENTS_KEYSET_EFFECTIVE_PAGE_SIZE)
+                logger.warning(
+                    "Gamma /events/keyset repeated a full page; continuing with "
+                    "offset pagination (tag_slug=%s)",
+                    keyset_tag_slug,
+                )
+                # Restart from zero: /events and /events/keyset do not promise
+                # identical ordering, so advancing by the keyset row count can
+                # skip events. Already-seen IDs are filtered below.
+                offset = 0
+                previous_offset_signature: frozenset[str | None] | None = None
+                while True:
+                    if max_pages is not None and pages_done >= max_pages:
+                        yield (
+                            [],
+                            EventsPageMeta(
+                                pages_done=pages_done,
+                                truncated=True,
+                            ),
+                        )
+                        break
+                    offset_params = _events_params(
+                        limit=offset_limit,
+                        keyset_closed=keyset_closed,
+                        keyset_tag_slug=keyset_tag_slug,
+                        keyset_related_tags=keyset_related_tags,
+                        keyset_volume_min=keyset_volume_min,
+                    )
+                    offset_params["offset"] = offset
+                    offset_payload = gamma_get(
+                        client,
+                        "/events",
+                        params=offset_params,
+                    )
+                    offset_events = offset_payload or []
+                    pages_done += 1
+                    offset_unseen = _unseen_events(offset_events, seen_event_ids)
+                    hit_page_cap = max_pages is not None and pages_done >= max_pages
+                    full_offset_page = len(offset_events) >= offset_limit
+                    offset_signature = frozenset(
+                        _event_id(event) for event in offset_events
+                    )
+                    offset_stalled = (
+                        full_offset_page
+                        and previous_offset_signature is not None
+                        and offset_signature == previous_offset_signature
+                    )
+                    offset_truncated = offset_stalled or (
+                        hit_page_cap and full_offset_page
+                    )
+                    if progress_callback and (
+                        progress_every_pages <= 1
+                        or pages_done % progress_every_pages == 0
+                        or hit_page_cap
+                        or not full_offset_page
+                    ):
+                        progress_callback(
+                            progress_task,
+                            {
+                                "events_page": pages_done,
+                                "truncated": offset_truncated,
+                                "events_offset": offset,
+                                "keyset_fallback": True,
+                            },
+                        )
+                    # A zero-offset restart commonly repeats the keyset page.
+                    # Do not yield that empty page because callers use an empty
+                    # yielded page as EOF; continue until new rows or real EOF.
+                    if offset_unseen or offset_truncated or not full_offset_page:
+                        yield (
+                            offset_unseen,
+                            EventsPageMeta(
+                                pages_done=pages_done,
+                                truncated=offset_truncated,
+                            ),
+                        )
+                    _remember_event_ids(offset_events, seen_event_ids)
+                    if offset_truncated or not full_offset_page:
+                        break
+                    previous_offset_signature = offset_signature
+                    offset += len(offset_events)
             else:
                 logger.info(
                     "Gamma /events/keyset pagination complete (non-advancing "
