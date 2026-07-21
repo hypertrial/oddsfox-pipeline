@@ -75,6 +75,9 @@ models:
     columns:
       - name: odds_minute_epoch
         tests: [not_null]
+      - name: elapsed_window_minute
+        description: Zero-based wall-clock minute bucket within the inclusive Gamma game window.
+        tests: [not_null]
       - name: market_id
         tests: [not_null]
       - name: fifa_match_id
@@ -185,9 +188,9 @@ unit_tests:
           - {clob_token_id: no-1, odds_minute_utc: '2026-07-01 12:01:00', odds_minute_epoch: 1782907260, open_price: 0.6, high_price: 0.6, low_price: 0.6, close_price: 0.6, average_price: 0.6, observed_points: 1, first_observed_at: '2026-07-01 12:01:30', last_observed_at: '2026-07-01 12:01:30'}
     expect:
       rows:
-        - {odds_minute_epoch: 1782907200, yes_close_price: 0.4, no_close_price: null, yes_observed_points: 1, no_observed_points: 0, yes_observed: true, no_observed: false, minute_complete: false, is_game_start_minute: true, is_game_finish_minute: false, minute_status: start_boundary_incomplete, pair_price_anomaly: false}
-        - {odds_minute_epoch: 1782907260, yes_close_price: null, no_close_price: 0.6, yes_observed_points: 0, no_observed_points: 1, yes_observed: false, no_observed: true, minute_complete: false, is_game_start_minute: false, is_game_finish_minute: false, minute_status: interior_incomplete, pair_price_anomaly: false}
-        - {odds_minute_epoch: 1782907320, yes_close_price: null, no_close_price: null, yes_observed_points: 0, no_observed_points: 0, yes_observed: false, no_observed: false, minute_complete: false, is_game_start_minute: false, is_game_finish_minute: true, minute_status: finish_boundary_incomplete, pair_price_anomaly: false}
+        - {odds_minute_epoch: 1782907200, elapsed_window_minute: 0, yes_close_price: 0.4, no_close_price: null, yes_observed_points: 1, no_observed_points: 0, yes_observed: true, no_observed: false, minute_complete: false, is_game_start_minute: true, is_game_finish_minute: false, minute_status: start_boundary_incomplete, pair_price_anomaly: false}
+        - {odds_minute_epoch: 1782907260, elapsed_window_minute: 1, yes_close_price: null, no_close_price: 0.6, yes_observed_points: 0, no_observed_points: 1, yes_observed: false, no_observed: true, minute_complete: false, is_game_start_minute: false, is_game_finish_minute: false, minute_status: interior_incomplete, pair_price_anomaly: false}
+        - {odds_minute_epoch: 1782907320, elapsed_window_minute: 2, yes_close_price: null, no_close_price: null, yes_observed_points: 0, no_observed_points: 0, yes_observed: false, no_observed: false, minute_complete: false, is_game_start_minute: false, is_game_finish_minute: true, minute_status: finish_boundary_incomplete, pair_price_anomaly: false}
 
   - name: test_match_minute_candidate_flags_raw_close_pair_deviation
     model: int_polymarket_wc2026_match_minute_odds_candidate
@@ -201,4 +204,4 @@ unit_tests:
           - {clob_token_id: no-1, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 1782907200, open_price: 0.6425, high_price: 0.6425, low_price: 0.6425, close_price: 0.6425, average_price: 0.6425, observed_points: 1, first_observed_at: '2026-07-01 12:00:05', last_observed_at: '2026-07-01 12:00:05'}
     expect:
       rows:
-        - {odds_minute_epoch: 1782907200, minute_complete: true, is_game_start_minute: true, is_game_finish_minute: true, minute_status: complete, yes_no_close_sum: 1.2125, yes_no_close_deviation: 0.2124999999999999, pair_price_anomaly: true}
+        - {odds_minute_epoch: 1782907200, elapsed_window_minute: 0, minute_complete: true, is_game_start_minute: true, is_game_finish_minute: true, minute_status: complete, yes_no_close_sum: 1.2125, yes_no_close_deviation: 0.2124999999999999, pair_price_anomaly: true}

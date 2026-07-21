@@ -28,9 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transaction only after all 496 token fetches succeed; failed runs retain audit
   evidence and leave the previous raw snapshot and public mart unchanged.
 - The minute mart now exposes scheduled-versus-actual timing, boundary status,
-  raw Yes/No close-pair diagnostics, and pinned results provenance. Source-price,
-  cadence, timing, and incomplete interior-minute anomalies are nonblocking
-  warnings; structural contract failures still block atomic publication.
+  a zero-based uncapped `elapsed_window_minute` wall-clock axis, raw Yes/No
+  close-pair diagnostics, and pinned results provenance. Source-price, cadence,
+  timing, and incomplete interior-minute anomalies are nonblocking warnings;
+  structural contract failures still block atomic publication.
 - Match-minute Parquet export now validates a temporary artifact before atomic
   replacement and reports structural inventory, completeness, boundary, pair,
   provenance, size, and SHA-256 metrics. Existing local warehouses must be reset
@@ -42,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Match-minute team names and home/away orientation now follow the latest
   international-results snapshot. The dedicated backfill refreshes that source
   and blocks publication unless all 104 FIFA-numbered games reconcile uniquely.
+- Corrected FIFA match 31's scheduled kickoff to June 19 at 11:00 PM ET
+  (`2026-06-20 03:00 UTC`).
 - Strategy-facing WC2026 marts now use only each private source's latest
   ledger-declared complete snapshot. Repeated full snapshots no longer duplicate
   model grains or retain rows removed by a newer complete snapshot, and an empty

@@ -152,6 +152,81 @@ timing_warnings as (
         or (stage <> 'group_stage' and game_window_minutes > 210)
 ),
 
+elapsed_axis_by_market as (
+    select
+        fifa_match_id,
+        market_id,
+        count(*) as row_count,
+        count(distinct elapsed_window_minute) as distinct_minute_count,
+        min(elapsed_window_minute) as first_elapsed_minute,
+        max(elapsed_window_minute) as final_elapsed_minute,
+        max(
+            date_diff(
+                'minute',
+                date_trunc('minute', game_started_at_utc),
+                date_trunc('minute', game_finished_at_utc)
+            )
+        ) as expected_final_elapsed_minute,
+        count(*) filter (
+            where
+            elapsed_window_minute is null
+            or elapsed_window_minute < 0
+            or elapsed_window_minute <> date_diff(
+                'minute',
+                date_trunc('minute', game_started_at_utc),
+                odds_minute_utc
+            )
+        ) as invalid_row_count
+    from {{ ref('int_polymarket_wc2026_match_minute_odds_candidate') }}
+    group by fifa_match_id, market_id
+),
+
+elapsed_axis_validation as (
+    select
+        *,
+        greatest(
+            invalid_row_count,
+            abs(row_count - distinct_minute_count),
+            coalesce(abs(first_elapsed_minute), 1),
+            coalesce(
+                abs(
+                    final_elapsed_minute
+                    - first_elapsed_minute
+                    + 1
+                    - distinct_minute_count
+                ),
+                1
+            ),
+            coalesce(
+                abs(final_elapsed_minute - expected_final_elapsed_minute),
+                1
+            )
+        ) as invalid_axis_row_count
+    from elapsed_axis_by_market
+),
+
+elapsed_axis_errors as (
+    select
+        'elapsed_axis:' || market_id as issue_key,
+        'error' as severity,
+        'spine' as issue_type,
+        fifa_match_id,
+        market_id,
+        cast(null as varchar) as clob_token_id,
+        cast(null as bigint) as odds_minute_epoch,
+        cast(invalid_axis_row_count as double) as measured_value,
+        0.0 as threshold_value,
+        'Elapsed window minutes are invalid, non-contiguous, or inconsistent with UTC game-window buckets.'
+            as issue_detail
+    from elapsed_axis_validation
+    where
+        invalid_row_count > 0
+        or first_elapsed_minute <> 0
+        or final_elapsed_minute <> row_count - 1
+        or distinct_minute_count <> row_count
+        or final_elapsed_minute <> expected_final_elapsed_minute
+),
+
 candidate_errors as (
     select
         'invalid_price:' || market_id || ':' || odds_minute_epoch as issue_key,
@@ -299,6 +374,11 @@ select
     *,
     current_timestamp
 from timing_warnings
+union all
+select
+    *,
+    current_timestamp
+from elapsed_axis_errors
 union all
 select
     *,

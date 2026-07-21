@@ -72,6 +72,40 @@ def summarize_parquet(
             select yes_clob_token_id as clob_token_id from mart
             union
             select no_clob_token_id from mart
+        ),
+        elapsed_axis_by_market as (
+            select
+                market_id,
+                count(*) as row_count,
+                count(distinct elapsed_window_minute) as distinct_minute_count,
+                min(elapsed_window_minute) as first_elapsed_minute,
+                max(elapsed_window_minute) as final_elapsed_minute,
+                max(
+                    date_diff(
+                        'minute',
+                        date_trunc('minute', game_started_at_utc),
+                        date_trunc('minute', game_finished_at_utc)
+                    )
+                ) as expected_final_elapsed_minute,
+                count(*) filter (
+                    where
+                        elapsed_window_minute is null
+                        or elapsed_window_minute < 0
+                        or elapsed_window_minute <> date_diff(
+                            'minute',
+                            date_trunc('minute', game_started_at_utc),
+                            odds_minute_utc
+                        )
+                ) as invalid_row_count
+            from mart
+            group by market_id
+        ),
+        games as (
+            select
+                fifa_match_id,
+                max(elapsed_window_minute) as final_elapsed_minute
+            from mart
+            group by fifa_match_id
         )
         select
             count(*) as rows,
@@ -81,6 +115,21 @@ def summarize_parquet(
             max(fifa_match_id) as last_fifa_match_id,
             count(distinct market_id) as markets,
             (select count(clob_token_id) from tokens) as tokens,
+            min(elapsed_window_minute) as min_elapsed_window_minute,
+            max(elapsed_window_minute) as max_elapsed_window_minute,
+            (
+                select count(*) from games where final_elapsed_minute > 120
+            ) as games_over_120_elapsed_minutes,
+            (
+                select count(*)
+                from elapsed_axis_by_market
+                where
+                    invalid_row_count > 0
+                    or first_elapsed_minute <> 0
+                    or final_elapsed_minute <> row_count - 1
+                    or distinct_minute_count <> row_count
+                    or final_elapsed_minute <> expected_final_elapsed_minute
+            ) as elapsed_axis_issue_markets,
             count(*) filter (
                 where yes_clob_token_id is null or no_clob_token_id is null
             ) as missing_token_identity_rows,
@@ -146,6 +195,10 @@ def summarize_parquet(
         "last_fifa_match_id",
         "markets",
         "tokens",
+        "min_elapsed_window_minute",
+        "max_elapsed_window_minute",
+        "games_over_120_elapsed_minutes",
+        "elapsed_axis_issue_markets",
         "missing_token_identity_rows",
         "group_moneyline_markets",
         "knockout_markets",
@@ -205,6 +258,8 @@ def validate_summary(summary: dict[str, Any]) -> None:
         "last_fifa_match_id": 104,
         "markets": 248,
         "tokens": 496,
+        "min_elapsed_window_minute": 0,
+        "elapsed_axis_issue_markets": 0,
         "missing_token_identity_rows": 0,
         "group_moneyline_markets": 216,
         "knockout_markets": 32,

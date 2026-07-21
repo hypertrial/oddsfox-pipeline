@@ -4,7 +4,12 @@ with spine as (
     select
         u.*,
         minute_spine.odds_minute_utc,
-        cast(epoch(minute_spine.odds_minute_utc) as bigint) as odds_minute_epoch
+        cast(epoch(minute_spine.odds_minute_utc) as bigint) as odds_minute_epoch,
+        date_diff(
+            'minute',
+            date_trunc('minute', u.game_started_at_utc),
+            minute_spine.odds_minute_utc
+        ) as elapsed_window_minute
     from {{ ref('int_polymarket_wc2026_match_market_universe') }} as u
     -- costguard: allow cross-join, one bounded in-game minute range per market.
     cross join unnest(
@@ -20,6 +25,7 @@ joined as (
     select
         s.odds_minute_utc,
         s.odds_minute_epoch,
+        s.elapsed_window_minute,
         s.fifa_match_id,
         s.market_id,
         s.condition_id,
