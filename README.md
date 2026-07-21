@@ -108,7 +108,8 @@ See [Architecture](docs/concepts/architecture.md) and the [Warehouse reference](
 
 Main public analytics schemas:
 
-- `polymarket_wc2026_marts`: WC2026 Polymarket knockout market snapshots,
+- `polymarket_wc2026_marts`: WC2026 Polymarket in-game minute moneyline and
+  advance odds for all 104 matches, knockout market snapshots,
   progression-side hourly odds, token classification, and graph exports.
 - `wc2026_marts`: official FIFA-numbered knockout match hourly team-advance
   prices plus stable fixtures, results, identities, point-in-time features,
@@ -127,7 +128,9 @@ Dagster registers source-first jobs:
 `international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`,
 `polymarket_wc2026_market_registry_refresh`,
-`polymarket_wc2026_hourly_odds_ingest`, `polymarket_wc2026_dbt_build`, and
+`polymarket_wc2026_hourly_odds_ingest`,
+`polymarket_wc2026_match_minute_odds_backfill`,
+`polymarket_wc2026_dbt_build`, and
 `polymarket_wc2026_full_pipeline`;
 `polymarket_us_midterms_2026_market_registry_refresh`,
 `polymarket_us_midterms_2026_hourly_odds_ingest`,

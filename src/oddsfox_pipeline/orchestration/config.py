@@ -189,6 +189,13 @@ class HourlyOddsSyncConfig(OddsSyncConfig):
     ended_market_grace_days: int | None = Field(default=7, ge=0)
 
 
+class MatchMinuteOddsSyncConfig(GuardrailConfig):
+    workers: int = Field(default=20, ge=1, le=100)
+    requests_per_second: int = Field(default=20, ge=1)
+    transient_retries: int = Field(default=2, ge=0)
+    transient_backoff_seconds: float = Field(default=0.25, ge=0)
+
+
 class DbtBuildConfig(GuardrailConfig):
     progress_log_interval_events: int = Field(default=20, ge=1)
     no_progress_hard_timeout_seconds: int | None = Field(
@@ -298,6 +305,41 @@ def polymarket_wc2026_hourly_odds_run_config() -> dict:
             "polymarket_wc2026_raw_token_odds_history_hourly": {
                 "config": odds_cfg.model_dump()
             },
+        }
+    }
+
+
+def polymarket_wc2026_match_minute_odds_run_config() -> dict:
+    markets = MarketsSyncConfig(
+        discovery_mode="full_keyset",
+        force_full_discovery=True,
+        keyset_closed=True,
+        keyset_volume_min=0.0,
+        max_pages_without_progress=None,
+    )
+    registry = MarketScopeRegistryConfig(
+        force_refresh=True,
+        keyset_closed=True,
+        keyset_volume_min=0.0,
+        max_pages_without_progress=None,
+    )
+    dbt = DbtBuildConfig(
+        full_refresh=False,
+        dbt_select="+polymarket_wc2026_match_minute_odds",
+    )
+    return {
+        "ops": {
+            "polymarket_wc2026_raw_markets": {"config": markets.model_dump()},
+            "polymarket_wc2026_ops_market_scope_registry": {
+                "config": registry.model_dump()
+            },
+            "polymarket_wc2026_raw_market_metadata_backfill": {
+                "config": MetadataBackfillConfig().model_dump()
+            },
+            "polymarket_wc2026_raw_match_token_odds_history_minute": {
+                "config": MatchMinuteOddsSyncConfig().model_dump()
+            },
+            "oddsfox_dbt": {"config": dbt.model_dump()},
         }
     }
 

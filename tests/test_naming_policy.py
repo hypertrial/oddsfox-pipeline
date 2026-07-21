@@ -15,6 +15,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    polymarket_wc2026_match_minute_odds_run_config,
     wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
@@ -40,6 +41,7 @@ EXPECTED_JOB_NAMES = {
     "polymarket_us_midterms_2026_hourly_odds_ingest",
     "polymarket_us_midterms_2026_market_registry_refresh",
     "polymarket_wc2026_market_registry_refresh",
+    "polymarket_wc2026_match_minute_odds_backfill",
     "polymarket_wc2026_hourly_odds_ingest",
     "polymarket_wc2026_dbt_build",
     "polymarket_wc2026_full_pipeline",
@@ -64,6 +66,7 @@ EXPECTED_OP_NAMES = {
     "polymarket_wc2026_ops_market_scope_registry",
     "polymarket_wc2026_raw_market_metadata_backfill",
     "polymarket_wc2026_raw_token_odds_history_hourly",
+    "polymarket_wc2026_raw_match_token_odds_history_minute",
     "oddsfox_dbt",
 }
 
@@ -95,12 +98,20 @@ EXPECTED_ASSET_KEYS = {
     ("polymarket", "wc2026", "ops", "market_scope_registry"),
     ("polymarket", "wc2026", "raw", "market_metadata_backfill"),
     ("polymarket", "wc2026", "raw", "token_odds_history_hourly"),
+    ("polymarket", "wc2026", "raw", "match_token_odds_history_minute"),
     ("polymarket", "wc2026", "staging", "markets"),
+    ("polymarket", "wc2026", "staging", "match_minute_odds_history"),
     ("polymarket", "wc2026", "intermediate", "token_universe"),
     ("polymarket", "wc2026", "intermediate", "match_advance_tokens"),
     ("polymarket", "wc2026", "intermediate", "match_hourly_odds"),
+    ("polymarket", "wc2026", "intermediate", "match_market_universe"),
+    ("polymarket", "wc2026", "intermediate", "match_token_minute_odds"),
+    ("polymarket", "wc2026", "intermediate", "match_minute_odds_candidate"),
+    ("polymarket", "wc2026", "intermediate", "match_minute_publication_gate"),
     ("polymarket", "wc2026", "marts", "knockout_token_hourly_odds"),
+    ("polymarket", "wc2026", "marts", "match_minute_odds"),
     ("polymarket", "wc2026", "observability", "sync_run_observability"),
+    ("polymarket", "wc2026", "observability", "match_minute_odds_data_quality"),
     ("kalshi", "wc2026", "raw", "events"),
     ("kalshi", "wc2026", "raw", "markets"),
     ("kalshi", "wc2026", "raw", "markets_snapshot"),
@@ -230,11 +241,13 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         assets.polymarket_wc2026_ops_market_scope_registry.op.name,
         assets.polymarket_wc2026_raw_market_metadata_backfill.op.name,
         assets.polymarket_wc2026_raw_token_odds_history_hourly.op.name,
+        assets.polymarket_wc2026_raw_match_token_odds_history_minute.op.name,
         assets.oddsfox_dbt.op.name,
     }
     run_config_ops = (
         set(polymarket_wc2026_full_refresh_events_run_config()["ops"])
         | set(polymarket_wc2026_hourly_odds_run_config()["ops"])
+        | set(polymarket_wc2026_match_minute_odds_run_config()["ops"])
         | set(polymarket_wc2026_dbt_build_run_config()["ops"])
         | set(kalshi_wc2026_full_refresh_events_run_config()["ops"])
         | set(kalshi_wc2026_hourly_odds_run_config()["ops"])

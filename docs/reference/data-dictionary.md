@@ -39,6 +39,23 @@ scope rules, and data-contract tests, see [Data Contracts](data-contracts.md).
 
 ## Polymarket WC2026 Marts
 
+### `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`
+
+| Property | Value |
+| --- | --- |
+| Grain | One row per `(odds_minute_utc, market_id)` |
+| Coverage | FIFA match IDs 1–104; 216 group moneylines and 32 knockout advance/win markets |
+| Intended use | In-game event studies, backtests, and minute-level market analysis |
+| Timing | Primary Gamma event `startTime` through `finishedTimestamp`, boundary minutes inclusive |
+| Prices | Raw Yes/No minute OHLC, average, point counts, and first/last observation times |
+| Null policy | Dense rows are retained; missing token minutes stay null and are never carried forward |
+| Semantics | Group Yes/No is literal; knockout Yes/No is official home/away team orientation |
+| Provenance | Selected market event and separate primary timing event IDs/slugs |
+
+Use `proposition_type`, `yes_represents`, and `no_represents` instead of
+inferring meaning from token order. For match 103 the proposition is the
+official home team winning third place; for match 104 it is winning the final.
+
 ### `polymarket_wc2026_marts.polymarket_wc2026_knockout_markets`
 
 | Field | Analyst Guidance |

@@ -172,20 +172,21 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 3. `polymarket/wc2026/ops/market_scope_registry`
 4. `polymarket/wc2026/raw/market_metadata_backfill`
 5. `polymarket/wc2026/raw/token_odds_history_hourly`
-6. `polymarket/us_midterms_2026/raw/markets`
-7. `polymarket/us_midterms_2026/raw/markets_snapshot`
-8. `polymarket/us_midterms_2026/ops/market_scope_registry`
-9. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
-10. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
-11. `international_results/historical/raw/snapshot`
-12. `international_results/wc2026/raw/match_results`
-13. `openfootball/wc2026/raw/knockout_fixtures`
-14. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
-15. `kalshi/wc2026/raw/markets`
-16. `kalshi/wc2026/raw/markets_snapshot`
-17. `kalshi/wc2026/ops/market_scope_registry`
-18. `kalshi/wc2026/raw/market_candlesticks_hourly`
-19. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+6. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
+7. `polymarket/us_midterms_2026/raw/markets`
+8. `polymarket/us_midterms_2026/raw/markets_snapshot`
+9. `polymarket/us_midterms_2026/ops/market_scope_registry`
+10. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
+11. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
+12. `international_results/historical/raw/snapshot`
+13. `international_results/wc2026/raw/match_results`
+14. `openfootball/wc2026/raw/knockout_fixtures`
+15. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
+16. `kalshi/wc2026/raw/markets`
+17. `kalshi/wc2026/raw/markets_snapshot`
+18. `kalshi/wc2026/ops/market_scope_registry`
+19. `kalshi/wc2026/raw/market_candlesticks_hourly`
+20. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
    `polymarket/us_midterms_2026/{staging,intermediate,marts,observability}/...`,
    `international_results/wc2026/{staging,intermediate,marts,observability}/...`,
    `kalshi/wc2026/{staging,intermediate,marts,observability}/...`,
@@ -194,6 +195,7 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 Key jobs: `international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`,
 `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
+`polymarket_wc2026_match_minute_odds_backfill`,
 `polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`,
 `polymarket_us_midterms_2026_market_registry_refresh`,
 `polymarket_us_midterms_2026_hourly_odds_ingest`,

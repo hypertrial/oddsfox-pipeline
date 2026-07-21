@@ -23,6 +23,9 @@ from oddsfox_pipeline.ingestion.polymarket.markets import (
     sync_markets,
 )
 from oddsfox_pipeline.ingestion.polymarket.markets.fetch import build_client
+from oddsfox_pipeline.ingestion.polymarket.match_minute import (
+    sync_match_minute_odds_history,
+)
 from oddsfox_pipeline.ingestion.polymarket.odds import reconcile_odds_ledger, sync_odds
 from oddsfox_pipeline.orchestration.dbt_build import stream_dbt_build
 from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
@@ -84,4 +87,5 @@ __all__ = [
     "sync_markets",
     "sync_odds",
     "sync_market_scope_registry",
+    "sync_match_minute_odds_history",
 ]

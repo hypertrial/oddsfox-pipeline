@@ -51,6 +51,7 @@ def test_snapshot_raw_layer_counts_polymarket_tables(
     assert snapshot["markets_missing"] is False
     assert snapshot["polymarket_wc2026_raw.markets_rows"] == 1
     assert snapshot["polymarket_wc2026_raw.markets_missing"] is False
+    assert snapshot["polymarket_wc2026_raw.match_minute_odds_history_rows"] == 0
     assert "market_scope_registry_rows" in snapshot
     assert "market_tokens_distinct_tokens" not in snapshot
 

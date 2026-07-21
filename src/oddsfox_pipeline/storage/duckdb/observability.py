@@ -29,6 +29,7 @@ _RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
     (POLYMARKET_WC2026_RAW_SCHEMA, "markets"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "market_tokens"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "odds_history"),
+    (POLYMARKET_WC2026_RAW_SCHEMA, "match_minute_odds_history"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "token_odds_daily"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "market_scope_registry"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "token_sync_ledger"),

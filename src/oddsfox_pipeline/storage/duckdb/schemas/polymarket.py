@@ -116,6 +116,23 @@ def bootstrap_polymarket_tables(
         """
     )
     conn.execute(f"ALTER TABLE {oh} ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMP")
+    if scope_name == SCOPE_WC2026:
+        mmoh = polymarket_raw_tbl(scope_name, "match_minute_odds_history")
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {mmoh} (
+                market_id TEXT NOT NULL,
+                clobTokenId TEXT NOT NULL,
+                timestamp BIGINT NOT NULL,
+                price DOUBLE NOT NULL,
+                fidelity_minutes INTEGER NOT NULL CHECK (fidelity_minutes = 1),
+                window_start_at TIMESTAMP NOT NULL,
+                window_end_at TIMESTAMP NOT NULL,
+                ingested_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (clobTokenId, timestamp)
+            )
+            """
+        )
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {tod} (
@@ -245,6 +262,11 @@ def create_test_markets_table(
             slug TEXT,
             event_slug TEXT,
             event_id TEXT,
+            event_title TEXT,
+            event_start_time TIMESTAMP,
+            event_finished_time TIMESTAMP,
+            event_game_id TEXT,
+            event_ended BOOLEAN,
             condition_id TEXT,
             sports_market_type TEXT,
             game_start_time TIMESTAMP,

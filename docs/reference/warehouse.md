@@ -23,6 +23,9 @@ Schema: `polymarket_wc2026_raw`
   primary key `(clobTokenId, timestamp)` for idempotent upserts. Operators may
   prune rows older than 365 days with `make prune-odds-history` (manual; not automatic).
   Current batches land through dlt staging, then finalize with duplicate `(clobTokenId, timestamp)` last-write-wins semantics.
+- `match_minute_odds_history`: exact-window CLOB observations for the selected
+  match markets, keyed by `(clobTokenId, timestamp)` with fixed fidelity `1`.
+  This table is isolated from `odds_history` and its sync ledger.
 - `token_odds_daily`: daily token aggregates rebuilt by custom SQL finalizers from
   canonical `odds_history`.
 
@@ -169,6 +172,11 @@ Schema: `wc2026_marts`
 
 Schema: `polymarket_wc2026_marts`
 
+- `polymarket_wc2026_match_minute_odds`: dense, inclusive in-game UTC minute
+  rows at `(odds_minute_utc, market_id)` for all 104 matches. It contains 216
+  group moneyline markets and 32 knockout advance/win markets. Yes/No OHLC,
+  average, counts, and observation times remain null when a minute has no
+  source point; no value is filled or derived as `1 - price`.
 - `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for real WC2026 team knockout
   markets at or above the WC2026 contract volume floor, plus derived `market_status`, source live flag,
   active-team live flag, and explicit price semantics.
@@ -205,6 +213,9 @@ Schema: `kalshi_wc2026_marts`
 
 Schema: `polymarket_wc2026_observability`
 
+- `polymarket_wc2026_match_minute_odds_data_quality`: expected-versus-mapped
+  games, markets, tokens, timing, minute rows, observations, null minutes,
+  completeness, and publication-blocking issue keys.
 - `polymarket_wc2026_sync_run_observability`: run-level ingestion, market-discovery provenance, and odds-sync telemetry.
 - `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage vs public scoped tokens by stage,
   direction, and market status, including hourly completeness metrics.
@@ -253,6 +264,10 @@ atomic full replacement.
 `kalshi_wc2026_raw.events` and `kalshi_wc2026_raw.markets` are created by
 `kalshi_wc2026_raw_markets`. `kalshi_wc2026_raw.market_candlesticks_hourly` is
 custom SQL storage updated by the hourly candlestick sync asset.
+
+`polymarket_wc2026_raw.match_minute_odds_history` is custom dlt-staged storage
+with primary key `(clobTokenId, timestamp)`. Every row records its selected
+market, fixed fidelity `1`, exact Gamma timing window, and ingestion timestamp.
 
 `polymarket_wc2026_raw.markets` is created by `polymarket_wc2026_raw_markets`.
 That asset performs the single Gamma market discovery pass and persists token

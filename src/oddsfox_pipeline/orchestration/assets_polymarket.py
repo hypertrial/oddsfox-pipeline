@@ -26,6 +26,7 @@ from oddsfox_pipeline.orchestration.config import (
     HourlyOddsSyncConfig,
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
+    MatchMinuteOddsSyncConfig,
     MetadataBackfillConfig,
 )
 from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
@@ -67,6 +68,9 @@ POLYMARKET_WC2026_RAW_MARKET_METADATA_BACKFILL = asset_key(
 )
 POLYMARKET_WC2026_RAW_TOKEN_ODDS_HISTORY_HOURLY = asset_key(
     SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "token_odds_history_hourly"
+)
+POLYMARKET_WC2026_RAW_MATCH_TOKEN_ODDS_HISTORY_MINUTE = asset_key(
+    SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "match_token_odds_history_minute"
 )
 
 
@@ -227,6 +231,35 @@ def polymarket_wc2026_raw_token_odds_history_hourly(
     )
 
 
+@multi_asset(
+    name="polymarket_wc2026_raw_match_token_odds_history_minute",
+    specs=[
+        AssetSpec(
+            key=POLYMARKET_WC2026_RAW_MATCH_TOKEN_ODDS_HISTORY_MINUTE,
+            deps=[POLYMARKET_WC2026_RAW_MARKET_METADATA_BACKFILL],
+        )
+    ],
+    group_name="ingestion",
+)
+def polymarket_wc2026_raw_match_token_odds_history_minute(
+    context: AssetExecutionContext,
+    config: MatchMinuteOddsSyncConfig,
+) -> MaterializeResult:
+    with get_connection() as conn:
+        summary = ops.sync_match_minute_odds_history(
+            conn,
+            log=context.log,
+            workers=config.workers,
+            requests_per_second=config.requests_per_second,
+            transient_retries=config.transient_retries,
+            transient_backoff_seconds=config.transient_backoff_seconds,
+            progress_log_interval_seconds=config.progress_log_interval_seconds,
+            no_progress_soft_timeout_seconds=(config.no_progress_soft_timeout_seconds),
+            no_progress_hard_timeout_seconds=(config.no_progress_hard_timeout_seconds),
+        )
+    return MaterializeResult(metadata=summary)
+
+
 @dbt_assets(
     manifest=DBT_PROJECT.manifest_path,
     project=DBT_PROJECT,
@@ -266,11 +299,13 @@ __all__ = [
     "POLYMARKET_WC2026_RAW_MARKET_METADATA_BACKFILL",
     "POLYMARKET_WC2026_RAW_MARKETS",
     "POLYMARKET_WC2026_RAW_MARKETS_SNAPSHOT",
+    "POLYMARKET_WC2026_RAW_MATCH_TOKEN_ODDS_HISTORY_MINUTE",
     "POLYMARKET_WC2026_RAW_TOKEN_ODDS_HISTORY_HOURLY",
     "oddsfox_dbt",
     "polymarket_wc2026_raw_market_metadata_backfill",
     "polymarket_wc2026_raw_markets",
     "polymarket_wc2026_raw_markets_snapshot",
+    "polymarket_wc2026_raw_match_token_odds_history_minute",
     "polymarket_wc2026_raw_token_odds_history_hourly",
     "polymarket_wc2026_ops_market_scope_registry",
 ]

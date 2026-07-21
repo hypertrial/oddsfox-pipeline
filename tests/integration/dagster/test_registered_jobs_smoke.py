@@ -29,6 +29,7 @@ _NON_SCOPE_JOB_NAMES = {
     "international_results_historical_ingest",
     "international_results_wc2026_match_results_ingest",
     "wc2026_knockout_match_odds_full_pipeline",
+    "polymarket_wc2026_match_minute_odds_backfill",
 }
 
 
@@ -196,6 +197,16 @@ oddsfox:
         assets_mod.ops,
         "sync_odds",
         lambda **_kwargs: {"planning": {}, "planning_context": {}, "totals": {}},
+    )
+    monkeypatch.setattr(
+        assets_mod.ops,
+        "sync_match_minute_odds_history",
+        lambda *_args, **_kwargs: {
+            "games": 104,
+            "markets": 248,
+            "tokens": 496,
+            "rows": 496,
+        },
     )
 
     fake_dlt = MagicMock()

@@ -20,6 +20,7 @@ from oddsfox_pipeline.ingestion.polymarket.gamma_events import fetch_gamma_event
 from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
     process_markets_dataframe,
 )
+from oddsfox_pipeline.ingestion.polymarket.odds.fetch import fetch_token_history
 from oddsfox_pipeline.resources.http import APIClient
 
 pytestmark = pytest.mark.contract
@@ -53,6 +54,24 @@ def test_polymarket_gamma_market_and_event_payload_replay_contract():
     assert row["event_id"] == "evt-wc-winner"
     assert row["event_slug"] == "2026-fifa-world-cup-winner"
     assert row["clobTokenIds_str"] == '["pm-wc-arg-yes", "pm-wc-arg-no"]'
+
+
+def test_polymarket_clob_minute_history_replay_contract():
+    client = APIClient("https://clob.polymarket.com", retries=0)
+
+    with _replay_vcr().use_cassette("polymarket_clob_minute_history.yml"):
+        history = fetch_token_history(
+            client,
+            "pm-wc-match-home",
+            start_ts=1_782_907_200,
+            end_ts=1_782_907_320,
+            fidelity=1,
+        )
+
+    assert history == [
+        ("pm-wc-match-home", 1_782_907_230, 0.42),
+        ("pm-wc-match-home", 1_782_907_290, 0.57),
+    ]
 
 
 def test_kalshi_events_markets_and_candlesticks_replay_contract():

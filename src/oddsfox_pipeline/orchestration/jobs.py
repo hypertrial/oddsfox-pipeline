@@ -21,6 +21,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    polymarket_wc2026_match_minute_odds_run_config,
     wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.scope_registry import (
@@ -79,10 +80,32 @@ POLYMARKET_WC2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "token_odds_history_hourly"),
 )
 
+POLYMARKET_WC2026_MATCH_MINUTE_RAW_SELECTION = AssetSelection.assets(
+    asset_key(
+        SOURCE_POLYMARKET,
+        SCOPE_WC2026,
+        "raw",
+        "match_token_odds_history_minute",
+    ),
+)
+
 POLYMARKET_WC2026_DBT_SELECTION = build_dbt_asset_selection(
     [oddsfox_dbt],
     dbt_select=POLYMARKET_WC2026_SCOPE.dbt_select,
     dbt_exclude=POLYMARKET_WC2026_SCOPE.dbt_exclude,
+)
+
+_POLYMARKET_WC2026_MATCH_MINUTE_DBT_GRAPH = build_dbt_asset_selection(
+    [oddsfox_dbt],
+    dbt_select="+polymarket_wc2026_match_minute_odds",
+)
+# Re-attach checks only to selected assets. The dbt selector's indirect test
+# expansion can otherwise include relationship tests for sibling model branches.
+POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION = (
+    _POLYMARKET_WC2026_MATCH_MINUTE_DBT_GRAPH.without_checks().downstream(
+        depth=0,
+        include_self=True,
+    )
 )
 
 INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION = AssetSelection.assets(
@@ -94,6 +117,13 @@ INTERNATIONAL_RESULTS_HISTORICAL_SELECTION = AssetSelection.assets(
 
 OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_OPENFOOTBALL, SCOPE_WC2026, "raw", "knockout_fixtures"),
+)
+
+POLYMARKET_WC2026_MATCH_MINUTE_SELECTION = (
+    OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION
+    | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
+    | POLYMARKET_WC2026_MATCH_MINUTE_RAW_SELECTION
+    | POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION
 )
 
 POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
@@ -181,6 +211,14 @@ polymarket_wc2026_dbt_build = define_asset_job(
     selection=POLYMARKET_WC2026_DBT_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_dbt_build_run_config(),
+    tags=_POLYMARKET_WC2026_TAGS,
+)
+
+polymarket_wc2026_match_minute_odds_backfill = define_asset_job(
+    "polymarket_wc2026_match_minute_odds_backfill",
+    selection=POLYMARKET_WC2026_MATCH_MINUTE_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_wc2026_match_minute_odds_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
 )
 

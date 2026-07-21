@@ -69,6 +69,10 @@ fast GitHub gate; the default `make test` command excludes the `contract` marker
 a smoke-only 24-hour odds window, no historical backfill, and the normal
 Polymarket volume floor. Production job defaults are unchanged. Live ingestion
 is local-only and must not run in GitHub Actions.
+`match-minute-live-smoke` is the disposable, opt-in acceptance smoke for the
+completed-match minute backfill. It rebuilds `.cache/match_minute_live_smoke.duckdb`
+and fails unless the quality model reports exactly 104 games, 248 markets (216
+group and 32 knockout), 496 tokens, and no blocking issue.
 
 Dagster dbt assets enable dbt source tests as asset checks. Row-count and
 column metadata fetching is available through `DbtBuildConfig` but stays
@@ -163,6 +167,7 @@ when settings reload from disk. See
 | `uv run make data-quality` | Safe local wrapper that rebuilds disposable dbt state before `gx-data-quality`. |
 | `uv run make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate. |
 | `uv run make live-smoke` | Opt-in live WC2026 cross-platform pipeline. |
+| `uv run make match-minute-live-smoke` | Opt-in disposable live acceptance check for the 104-game Polymarket minute mart. |
 | `uv run make costguard-scan` | Run the pinned dbt cost guardrail against an existing dbt build. |
 | `uv run make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard. |
 | `uv run make coverage` | Local one-shot 100% product-core branch coverage gate. |

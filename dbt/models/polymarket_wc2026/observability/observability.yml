@@ -1,6 +1,16 @@
 version: 2
 
 models:
+  - name: polymarket_wc2026_match_minute_odds_data_quality
+    description: Publication inventory, mapping, timing, history, spine, and null-minute quality summary.
+    columns:
+      - name: expected_games
+        tests: [not_null]
+      - name: mapped_games
+        tests: [not_null]
+      - name: blocking_issue_keys
+        description: Comma-separated blocking invariant keys, null for an empty offline source or a valid complete inventory.
+
   - name: polymarket_wc2026_knockout_stage_coverage
     description: >
       WC2026 knockout source and public-token coverage by stage, direction, and derived market status.
@@ -241,3 +251,21 @@ models:
           from a live recount in dbt.
       - name: rows_per_processed_token
         description: Average fetched raw-row volume per processed token for the run.
+
+unit_tests:
+  - name: test_match_minute_data_quality_counts_tokens_across_both_sides
+    model: polymarket_wc2026_match_minute_odds_data_quality
+    given:
+      - input: ref('stg_polymarket_wc2026_markets')
+        rows:
+          - {market_id: market-1, is_closed: true, sports_market_type: moneyline}
+      - input: ref('int_polymarket_wc2026_match_market_universe')
+        rows:
+          - {fifa_match_id: 1, market_id: market-1, stage: group_stage, yes_clob_token_id: shared-token, no_clob_token_id: shared-token, fixture_mapping_count: 2, primary_mapping_count: 1, game_started_at_utc: null, game_finished_at_utc: null}
+      - input: ref('int_polymarket_wc2026_match_token_minute_odds')
+        rows: []
+      - input: ref('int_polymarket_wc2026_match_minute_odds_candidate')
+        rows: []
+    expect:
+      rows:
+        - {mapped_tokens: 1, ambiguous_mappings: 1, missing_timing: 1, blocking_issue_keys: 'game_count,fifa_id_coverage,market_count,group_market_count,knockout_market_count,token_count,token_history,ambiguous_mapping,missing_timing'}

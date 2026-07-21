@@ -17,6 +17,7 @@ from oddsfox_pipeline.orchestration.assets_polymarket import (
     polymarket_wc2026_raw_market_metadata_backfill,
     polymarket_wc2026_raw_markets,
     polymarket_wc2026_raw_markets_snapshot,
+    polymarket_wc2026_raw_match_token_odds_history_minute,
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
 from oddsfox_pipeline.orchestration.assets_polymarket_us_midterms_2026 import (
@@ -53,6 +54,7 @@ __all__ = [
     "polymarket_wc2026_raw_market_metadata_backfill",
     "polymarket_wc2026_raw_markets",
     "polymarket_wc2026_raw_markets_snapshot",
+    "polymarket_wc2026_raw_match_token_odds_history_minute",
     "polymarket_wc2026_raw_token_odds_history_hourly",
     "polymarket_wc2026_ops_market_scope_registry",
     "prepare_dbt_project",

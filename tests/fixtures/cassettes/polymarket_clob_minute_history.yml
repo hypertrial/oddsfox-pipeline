@@ -1,0 +1,16 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://clob.polymarket.com/prices-history?endTs=1782907320&fidelity=1&market=pm-wc-match-home&startTs=1782907200
+    response:
+      body:
+        string: '{"history":[{"t":1782907230,"p":0.42},{"t":1782907290,"p":0.57}]}'
+      headers:
+        Content-Type:
+          - application/json
+      status:
+        code: 200
+        message: OK
+version: 1
