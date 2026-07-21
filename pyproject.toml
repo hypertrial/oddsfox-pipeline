@@ -9,7 +9,7 @@ description = "Dagster-orchestrated dlt + dbt + DuckDB pipeline for prediction-m
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-  "dagster>=1.13.13",
+  "dagster>=1.13.14",
   "dagster-webserver>=1.8.0",
   "dagster-dbt>=0.24.0",
   "dagster-dlt>=0.24.0",
@@ -17,27 +17,27 @@ dependencies = [
   "dbt-duckdb>=1.8.0",
   "dlt[duckdb]>=1.0.0",
   "duckdb>=1.5.4",
-  "polars>=1.42.1",
+  "polars>=1.43.0",
   "pyarrow>=14.0.0",
   "PyYAML>=6.0",
   "python-dotenv>=1.0.0",
   "requests>=2.34.2",
-  "tqdm>=4.68.4",
+  "tqdm>=4.69.0",
 ]
 
 [project.optional-dependencies]
 dev = [
   "dagster-dg-cli>=1.13.0",
   "great_expectations>=1.19.0",
-  "hypothesis>=6.156.6",
+  "hypothesis>=6.158.1",
   "mkdocs>=1.6.0",
-  "mkdocs-material>=9.5.0",
+  "mkdocs-material>=9.7.7",
   "playwright>=1.55.0,<2",
   "pip-audit>=2.10.1",
   "pytest>=8.0.0",
   "pytest-cov>=5.0.0",
   "pytest-xdist>=3.5.0",
-  "ruff>=0.15.21",
+  "ruff>=0.15.22",
   "sqlfluff>=4.2.2",
   "sqlfluff-templater-dbt>=3.0.0",
   "vcrpy>=6.0.0",
