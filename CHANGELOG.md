@@ -16,9 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dedicated, unscheduled
   `polymarket_wc2026_match_minute_odds_backfill` ingestion/publication job and
   match-minute inventory/completeness observability.
+- A DuckDB-native script to export and summarize the match-minute mart as
+  Parquet.
 
 ### Fixed
 
+- Match-minute team names and home/away orientation now follow the latest
+  international-results snapshot. The dedicated backfill refreshes that source
+  and blocks publication unless all 104 FIFA-numbered games reconcile uniquely.
 - Strategy-facing WC2026 marts now use only each private source's latest
   ledger-declared complete snapshot. Repeated full snapshots no longer duplicate
   model grains or retain rows removed by a newer complete snapshot, and an empty

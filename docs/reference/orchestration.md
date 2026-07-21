@@ -45,9 +45,10 @@ Flat Dagster op names preserve the same source-first order, for example
 - `polymarket_wc2026_hourly_odds_ingest`: trailing hourly token-odds refresh.
 - `polymarket_wc2026_match_minute_odds_backfill`: one-time or rerunnable
   completed-match backfill for all 104 FIFA-numbered games and the dedicated
-  minute mart. It refreshes all 32 OpenFootball knockout fixtures, discovers
-  closed Gamma events without a volume floor, validates the 104/248/496
-  inventory, fetches exact game windows at CLOB `fidelity=1`, then runs dbt.
+  minute mart. It refreshes the latest 104 international-results rows and all 32
+  OpenFootball knockout fixtures, discovers closed Gamma events without a volume
+  floor, validates result alignment and the 104/248/496 inventory, fetches exact
+  game windows at CLOB `fidelity=1`, then runs dbt.
   Run `uv run make match-minute-live-smoke` for the disposable live acceptance
   check; it is intentionally absent from CI and all schedules.
 - `international_results_wc2026_match_results_ingest`: FIFA fixture/results

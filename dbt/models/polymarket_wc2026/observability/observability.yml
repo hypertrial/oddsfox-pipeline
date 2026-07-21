@@ -2,11 +2,23 @@ version: 2
 
 models:
   - name: polymarket_wc2026_match_minute_odds_data_quality
-    description: Publication inventory, mapping, timing, history, spine, and null-minute quality summary.
+    description: Publication inventory, international-results alignment, mapping, timing, history, spine, and null-minute quality summary.
     columns:
       - name: expected_games
         tests: [not_null]
       - name: mapped_games
+        tests: [not_null]
+      - name: international_results_games
+        description: Latest WC2026 fixture/result rows available from international_results.
+        tests: [not_null]
+      - name: international_results_mapped_games
+        description: FIFA-numbered mart games with one matching international_results row.
+        tests: [not_null]
+      - name: international_results_mapped_source_games
+        description: Distinct international_results rows matched into the mart universe.
+        tests: [not_null]
+      - name: international_results_mapping_issues
+        description: FIFA-numbered games without exactly one international_results match.
         tests: [not_null]
       - name: blocking_issue_keys
         description: Comma-separated blocking invariant keys, null for an empty offline source or a valid complete inventory.
@@ -266,6 +278,8 @@ unit_tests:
         rows: []
       - input: ref('int_polymarket_wc2026_match_minute_odds_candidate')
         rows: []
+      - input: ref('international_results_wc2026_matches')
+        rows: []
     expect:
       rows:
-        - {mapped_tokens: 1, ambiguous_mappings: 1, missing_timing: 1, blocking_issue_keys: 'game_count,fifa_id_coverage,market_count,group_market_count,knockout_market_count,token_count,token_history,ambiguous_mapping,missing_timing'}
+        - {mapped_tokens: 1, ambiguous_mappings: 1, missing_timing: 1, blocking_issue_keys: 'game_count,fifa_id_coverage,market_count,group_market_count,knockout_market_count,token_count,token_history,international_results_game_count,international_results_mart_coverage,international_results_source_coverage,ambiguous_mapping,missing_timing'}

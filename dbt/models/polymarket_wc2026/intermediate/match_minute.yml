@@ -12,6 +12,13 @@ models:
         tests: [not_null]
       - name: market_id
         tests: [not_null, unique]
+      - name: international_results_match_id
+        tests: [not_null]
+      - name: international_results_mapping_count
+        tests:
+          - accepted_values:
+              arguments:
+                values: [1]
       - name: yes_clob_token_id
         tests: [not_null, unique]
       - name: no_clob_token_id
@@ -109,6 +116,12 @@ unit_tests:
       - input: ref('wc2026_fixtures')
         rows:
           - {match_id: 1, stage: Group Stage, group_label: A, home_team: Mexico, away_team: South Africa, kickoff_at_et: '2026-06-11 15:00:00'}
+      - input: ref('international_results_wc2026_matches')
+        rows:
+          - {match_id: result-group, match_date: '2026-06-11', home_team: South Africa, away_team: Mexico}
+          - {match_id: result-round, match_date: '2026-07-14', home_team: Brazil, away_team: Portugal}
+          - {match_id: result-third, match_date: '2026-07-18', home_team: Spain, away_team: Argentina}
+          - {match_id: result-final, match_date: '2026-07-19', home_team: France, away_team: Germany}
       - input: ref('stg_openfootball_wc2026_knockout_fixtures')
         rows:
           - {fifa_match_id: 101, stage_key: semifinal, home_team: Brazil, away_team: Portugal, kickoff_at_utc: '2026-07-14 19:00:00'}
@@ -118,12 +131,12 @@ unit_tests:
         rows: []
     expect:
       rows:
-        - {fifa_match_id: 1, market_id: g-home, proposition_type: home_win, yes_clob_token_id: g-home-yes, no_clob_token_id: g-home-no}
-        - {fifa_match_id: 1, market_id: g-draw, proposition_type: draw, yes_clob_token_id: g-draw-yes, no_clob_token_id: g-draw-no}
-        - {fifa_match_id: 1, market_id: g-away, proposition_type: away_win, yes_clob_token_id: g-away-yes, no_clob_token_id: g-away-no}
-        - {fifa_match_id: 101, market_id: round-advance, proposition_type: home_advances, yes_clob_token_id: brazil-token, no_clob_token_id: portugal-token}
-        - {fifa_match_id: 103, market_id: third-advance, proposition_type: home_win_third_place, yes_clob_token_id: spain-token, no_clob_token_id: argentina-token}
-        - {fifa_match_id: 104, market_id: final-advance, proposition_type: home_wins_final, yes_clob_token_id: france-token, no_clob_token_id: germany-token}
+        - {fifa_match_id: 1, market_id: g-home, home_team: South Africa, away_team: Mexico, proposition_type: away_win, yes_clob_token_id: g-home-yes, no_clob_token_id: g-home-no}
+        - {fifa_match_id: 1, market_id: g-draw, home_team: South Africa, away_team: Mexico, proposition_type: draw, yes_clob_token_id: g-draw-yes, no_clob_token_id: g-draw-no}
+        - {fifa_match_id: 1, market_id: g-away, home_team: South Africa, away_team: Mexico, proposition_type: home_win, yes_clob_token_id: g-away-yes, no_clob_token_id: g-away-no}
+        - {fifa_match_id: 101, market_id: round-advance, home_team: Brazil, away_team: Portugal, proposition_type: home_advances, yes_clob_token_id: brazil-token, no_clob_token_id: portugal-token}
+        - {fifa_match_id: 103, market_id: third-advance, home_team: Spain, away_team: Argentina, proposition_type: home_win_third_place, yes_clob_token_id: spain-token, no_clob_token_id: argentina-token}
+        - {fifa_match_id: 104, market_id: final-advance, home_team: France, away_team: Germany, proposition_type: home_wins_final, yes_clob_token_id: france-token, no_clob_token_id: germany-token}
 
   - name: test_match_token_minute_ohlc_filters_exact_window_and_orders_jitter
     model: int_polymarket_wc2026_match_token_minute_odds

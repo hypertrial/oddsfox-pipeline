@@ -50,6 +50,7 @@ scope rules, and data-contract tests, see [Data Contracts](data-contracts.md).
 | Prices | Raw Yes/No minute OHLC, average, point counts, and first/last observation times |
 | Null policy | Dense rows are retained; missing token minutes stay null and are never carried forward |
 | Semantics | Group Yes/No is literal; knockout Yes/No is official home/away team orientation |
+| Match identity | FIFA numeric ID from the schedule; team names and home/away orientation from the uniquely matched latest international-results row |
 | Provenance | Selected market event and separate primary timing event IDs/slugs |
 
 Use `proposition_type`, `yes_represents`, and `no_represents` instead of
