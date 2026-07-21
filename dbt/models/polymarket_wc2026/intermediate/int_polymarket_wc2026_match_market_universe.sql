@@ -107,6 +107,9 @@ international_results_fixtures as (
         match_date,
         home_team,
         away_team,
+        source_revision as results_source_revision,
+        source_payload_sha256 as results_source_payload_sha256,
+        source_loaded_at as results_source_loaded_at,
         {{ canonical_team_match_key('home_team') }} as home_team_key,
         {{ canonical_team_match_key('away_team') }} as away_team_key
     from {{ ref('international_results_wc2026_matches') }}
@@ -119,7 +122,8 @@ group_schedule_fixtures as (
         group_label,
         home_team,
         away_team,
-        timezone('America/New_York', kickoff_at_et) as kickoff_at_utc,
+        timezone('America/New_York', kickoff_at_et) at time zone 'UTC'
+            as kickoff_at_utc,
         {{ canonical_team_match_key('home_team') }} as home_team_key,
         {{ canonical_team_match_key('away_team') }} as away_team_key
     from {{ ref('wc2026_fixtures') }}
@@ -133,6 +137,9 @@ group_fixtures as (
         f.group_label,
         f.kickoff_at_utc,
         r.international_results_match_id,
+        r.results_source_revision,
+        r.results_source_payload_sha256,
+        r.results_source_loaded_at,
         coalesce(r.home_team, f.home_team) as home_team,
         coalesce(r.away_team, f.away_team) as away_team,
         coalesce(r.home_team_key, f.home_team_key) as home_team_key,
@@ -157,6 +164,10 @@ group_market_candidates as (
         f.away_team,
         f.international_results_match_id,
         f.international_results_mapping_count,
+        f.kickoff_at_utc as scheduled_kickoff_at_utc,
+        f.results_source_revision,
+        f.results_source_payload_sha256,
+        f.results_source_loaded_at,
         m.market_id,
         m.condition_id,
         m.question,
@@ -194,6 +205,10 @@ group_markets as (
         away_team,
         international_results_match_id,
         international_results_mapping_count,
+        scheduled_kickoff_at_utc,
+        results_source_revision,
+        results_source_payload_sha256,
+        results_source_loaded_at,
         market_id,
         condition_id,
         selected_market_event_id,
@@ -250,6 +265,9 @@ knockout_fixtures as (
         f.stage,
         f.kickoff_at_utc,
         r.international_results_match_id,
+        r.results_source_revision,
+        r.results_source_payload_sha256,
+        r.results_source_loaded_at,
         coalesce(r.home_team, f.home_team) as home_team,
         coalesce(r.away_team, f.away_team) as away_team,
         coalesce(r.home_team_key, f.home_team_key) as home_team_key,
@@ -276,6 +294,10 @@ knockout_candidates as (
         f.away_team_key,
         f.international_results_match_id,
         f.international_results_mapping_count,
+        f.kickoff_at_utc as scheduled_kickoff_at_utc,
+        f.results_source_revision,
+        f.results_source_payload_sha256,
+        f.results_source_loaded_at,
         count(*) over (partition by a.market_id) as fixture_mapping_count
     from advance_primary as a
     inner join knockout_fixtures as f
@@ -296,6 +318,10 @@ knockout_markets as (
         away_team,
         international_results_match_id,
         international_results_mapping_count,
+        scheduled_kickoff_at_utc,
+        results_source_revision,
+        results_source_payload_sha256,
+        results_source_loaded_at,
         market_id,
         condition_id,
         event_id as selected_market_event_id,

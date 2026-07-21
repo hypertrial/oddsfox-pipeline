@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -12,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import local
 from typing import Any, Callable, Iterable
+from uuid import uuid4
 
 import duckdb
 
@@ -23,6 +25,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.fetch import build_client
 from oddsfox_pipeline.resources.http import RateLimiter
 from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
+    load_match_minute_fetch_audit,
     load_match_minute_odds_history_stage,
 )
 
@@ -42,6 +45,33 @@ class MatchMinuteTokenPlan:
     token_id: str
     started_at: datetime
     finished_at: datetime
+
+
+@dataclass(frozen=True)
+class MatchMinuteFetchResult:
+    plan: MatchMinuteTokenPlan
+    fetch_status: str
+    history: tuple[tuple[str, int, float], ...]
+    request_start_epoch: int
+    request_end_epoch: int
+    source_row_count: int
+    in_game_history_sha256: str | None
+    fetch_started_at: datetime
+    fetch_finished_at: datetime
+    error_type: str | None = None
+    error_message: str | None = None
+
+
+class MatchMinuteSyncError(RuntimeError):
+    """Match-minute failure carrying metrics suitable for run observability."""
+
+    def __init__(self, message: str, summary: dict[str, Any]):
+        super().__init__(message)
+        self.summary = summary
+
+
+def _sanitize_error_message(exc: Exception) -> str:
+    return " ".join(str(exc).split())[:500]
 
 
 def _json_list(value: Any) -> list[str]:
@@ -213,35 +243,86 @@ def _fetch_plan(
     *,
     transient_retries: int,
     transient_backoff_seconds: float,
-) -> list[tuple[str, int, float]]:
+) -> MatchMinuteFetchResult:
+    fetch_started_at = datetime.now(timezone.utc)
+    source_row_count = 0
     exact_start = plan.started_at.timestamp()
     exact_end = plan.finished_at.timestamp()
     padded_start = (math.floor(exact_start) // 60) * 60
     padded_end = math.ceil(math.ceil(exact_end) / 60) * 60
-    rows = fetch_window_fn(
-        client,
-        plan.token_id,
-        padded_start,
-        padded_end,
-        1,
-        300,
-        transient_retries,
-        transient_backoff_seconds,
-    )
-    if rows is None:
-        raise RuntimeError(f"Transient CLOB failure for token {plan.token_id}")
-    filtered = [
-        (str(token), int(timestamp), float(price))
-        for token, timestamp, price in rows
-        if exact_start <= int(timestamp) <= exact_end
-    ]
-    if not filtered:
-        raise RuntimeError(f"Empty in-game CLOB history for token {plan.token_id}")
-    if any(token != plan.token_id for token, _, _ in filtered):
-        raise ValueError(f"CLOB returned a mismatched token for {plan.token_id}")
-    if any(not 0.0 <= price <= 1.0 for _, _, price in filtered):
-        raise ValueError(f"CLOB returned an invalid probability for {plan.token_id}")
-    return filtered
+    try:
+        rows = fetch_window_fn(
+            client,
+            plan.token_id,
+            padded_start,
+            padded_end,
+            1,
+            300,
+            transient_retries,
+            transient_backoff_seconds,
+        )
+        if rows is None:
+            raise RuntimeError(f"Transient CLOB failure for token {plan.token_id}")
+        raw_rows = list(rows)
+        source_row_count = len(raw_rows)
+        normalized = sorted(
+            (
+                (str(token), int(timestamp), float(price))
+                for token, timestamp, price in raw_rows
+            ),
+            key=lambda row: (row[1], row[0], row[2]),
+        )
+        filtered = tuple(
+            row for row in normalized if exact_start <= row[1] <= exact_end
+        )
+        if not filtered:
+            return MatchMinuteFetchResult(
+                plan=plan,
+                fetch_status="empty",
+                history=(),
+                request_start_epoch=padded_start,
+                request_end_epoch=padded_end,
+                source_row_count=source_row_count,
+                in_game_history_sha256=None,
+                fetch_started_at=fetch_started_at,
+                fetch_finished_at=datetime.now(timezone.utc),
+                error_type="EmptyHistory",
+                error_message=(f"Empty in-game CLOB history for token {plan.token_id}"),
+            )
+        if any(token != plan.token_id for token, _, _ in filtered):
+            raise ValueError(f"CLOB returned a mismatched token for {plan.token_id}")
+        if any(not 0.0 <= price <= 1.0 for _, _, price in filtered):
+            raise ValueError(
+                f"CLOB returned an invalid probability for {plan.token_id}"
+            )
+        history_sha256 = hashlib.sha256(
+            json.dumps(filtered, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return MatchMinuteFetchResult(
+            plan=plan,
+            fetch_status="success",
+            history=filtered,
+            request_start_epoch=padded_start,
+            request_end_epoch=padded_end,
+            source_row_count=source_row_count,
+            in_game_history_sha256=history_sha256,
+            fetch_started_at=fetch_started_at,
+            fetch_finished_at=datetime.now(timezone.utc),
+        )
+    except Exception as exc:
+        return MatchMinuteFetchResult(
+            plan=plan,
+            fetch_status="error",
+            history=(),
+            request_start_epoch=padded_start,
+            request_end_epoch=padded_end,
+            source_row_count=source_row_count,
+            in_game_history_sha256=None,
+            fetch_started_at=fetch_started_at,
+            fetch_finished_at=datetime.now(timezone.utc),
+            error_type=exc.__class__.__name__,
+            error_message=_sanitize_error_message(exc),
+        )
 
 
 def sync_match_minute_odds_history(
@@ -258,9 +339,11 @@ def sync_match_minute_odds_history(
     client_factory: Callable[[], Any] | None = None,
     fetch_window_fn: Callable[..., Any] = fetch_window_with_auto_split,
     persist_fn: Callable[..., Any] = load_match_minute_odds_history_stage,
-) -> dict[str, int]:
+    audit_persist_fn: Callable[..., Any] = load_match_minute_fetch_audit,
+) -> dict[str, Any]:
     """Refetch all bounded windows, then publish only after every token succeeds."""
     plans = select_match_minute_token_plans(conn)
+    fetch_run_id = str(uuid4())
     limiter = RateLimiter(requests_per_second)
     worker_state = local()
 
@@ -292,44 +375,110 @@ def sync_match_minute_odds_history(
         no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,
         work_log_interval=25,
     )
-    fetched: list[tuple[MatchMinuteTokenPlan, list[tuple[str, int, float]]]] = []
+    fetched: list[MatchMinuteFetchResult] = []
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         futures = {pool.submit(fetch, plan): plan for plan in plans}
-        try:
-            for future in as_completed(futures):
-                plan = futures[future]
-                fetched.append((plan, future.result()))
-                guardrail.record_progress(
-                    phase="fetch_token",
-                    diagnostics={"token_id": plan.token_id},
+        for future in as_completed(futures):
+            plan = futures[future]
+            try:
+                result = future.result()
+            except Exception as exc:  # pragma: no cover - defensive worker boundary
+                now = datetime.now(timezone.utc)
+                result = MatchMinuteFetchResult(
+                    plan=plan,
+                    fetch_status="error",
+                    history=(),
+                    request_start_epoch=int(plan.started_at.timestamp()),
+                    request_end_epoch=int(plan.finished_at.timestamp()),
+                    source_row_count=0,
+                    in_game_history_sha256=None,
+                    fetch_started_at=now,
+                    fetch_finished_at=now,
+                    error_type=exc.__class__.__name__,
+                    error_message=_sanitize_error_message(exc),
                 )
-        except Exception:
-            for future in futures:
-                future.cancel()
-            raise
+            fetched.append(result)
+            guardrail.record_progress(
+                phase="fetch_token",
+                diagnostics={
+                    "token_id": plan.token_id,
+                    "status": result.fetch_status,
+                },
+            )
+
+    fetched.sort(key=lambda result: result.plan.token_id)
+    audit_rows = [
+        {
+            "fetch_run_id": fetch_run_id,
+            "market_id": result.plan.market_id,
+            "clobTokenId": result.plan.token_id,
+            "fetch_status": result.fetch_status,
+            "raw_published": False,
+            "fidelity_minutes": 1,
+            "exact_window_start_at": result.plan.started_at,
+            "exact_window_end_at": result.plan.finished_at,
+            "request_start_epoch": result.request_start_epoch,
+            "request_end_epoch": result.request_end_epoch,
+            "source_row_count": result.source_row_count,
+            "in_game_row_count": len(result.history),
+            "in_game_history_sha256": result.in_game_history_sha256,
+            "source_endpoint": f"{CLOB_API_URL.rstrip('/')}/prices-history",
+            "fetch_started_at": result.fetch_started_at,
+            "fetch_finished_at": result.fetch_finished_at,
+            "error_type": result.error_type,
+            "error_message": result.error_message,
+        }
+        for result in fetched
+    ]
+
+    status_counts = {
+        status: sum(result.fetch_status == status for result in fetched)
+        for status in ("success", "empty", "error", "cancelled")
+    }
+    summary: dict[str, Any] = {
+        "status": "fetched",
+        "fetch_run_id": fetch_run_id,
+        "games": EXPECTED_GAMES,
+        "markets": EXPECTED_MARKETS,
+        "tokens": len(fetched),
+        **{f"{status}_tokens": count for status, count in status_counts.items()},
+        "rows": sum(len(result.history) for result in fetched),
+    }
+    try:
+        audit_persist_fn(audit_rows, conn)
+    except Exception as exc:
+        summary.update(status="audit_error", error_type=exc.__class__.__name__)
+        raise MatchMinuteSyncError(str(exc), summary) from exc
+
+    failures = [result for result in fetched if result.fetch_status != "success"]
+    if failures:
+        first = failures[0]
+        summary["status"] = "fetch_failed"
+        raise MatchMinuteSyncError(first.error_message or "CLOB fetch failed", summary)
 
     ingested_at = datetime.now(timezone.utc)
     rows = [
         {
-            "market_id": plan.market_id,
+            "market_id": result.plan.market_id,
             "clobTokenId": token_id,
             "timestamp": timestamp,
             "price": price,
             "fidelity_minutes": 1,
-            "window_start_at": plan.started_at,
-            "window_end_at": plan.finished_at,
+            "window_start_at": result.plan.started_at,
+            "window_end_at": result.plan.finished_at,
             "ingested_at": ingested_at,
         }
-        for plan, history in fetched
-        for token_id, timestamp, price in history
+        for result in fetched
+        for token_id, timestamp, price in result.history
     ]
-    persist_fn(rows, conn)
-    return {
-        "games": EXPECTED_GAMES,
-        "markets": EXPECTED_MARKETS,
-        "tokens": len(fetched),
-        "rows": len(rows),
-    }
+    try:
+        persist_fn(rows, conn, fetch_run_id=fetch_run_id)
+    except Exception as exc:
+        summary.update(status="publish_error", error_type=exc.__class__.__name__)
+        raise MatchMinuteSyncError(str(exc), summary) from exc
+    summary["status"] = "published"
+    summary["raw_published_tokens"] = len(fetched)
+    return summary
 
 
 __all__ = [
@@ -337,6 +486,8 @@ __all__ = [
     "EXPECTED_GROUP_MARKETS",
     "EXPECTED_MARKETS",
     "EXPECTED_TOKENS",
+    "MatchMinuteFetchResult",
+    "MatchMinuteSyncError",
     "MatchMinuteTokenPlan",
     "select_match_minute_token_plans",
     "sync_match_minute_odds_history",

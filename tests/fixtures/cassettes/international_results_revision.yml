@@ -1,0 +1,32 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.github.com/repos/martj42/international_results/commits?path=results.csv&per_page=1&sha=master
+    response:
+      body:
+        string: '[{"sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]'
+      headers:
+        Content-Type:
+          - application/json
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://raw.githubusercontent.com/martj42/international_results/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/results.csv
+    response:
+      body:
+        string: |
+          date,home_team,away_team,home_score,away_score,tournament,city,country,neutral
+          2026-06-11,Mexico,South Africa,2,0,FIFA World Cup,Mexico City,Mexico,FALSE
+      headers:
+        Content-Type:
+          - text/plain
+      status:
+        code: 200
+        message: OK
+version: 1

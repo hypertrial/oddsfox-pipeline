@@ -50,6 +50,35 @@ stale_source as (
         source_freshness.latest_source_loaded_at is null
         or source_freshness.latest_source_loaded_at < cast(current_timestamp as timestamp)
         - (contract.results_freshness_hours * interval '1 hour')
+),
+
+invalid_source_provenance as (
+    select
+        'error' as severity,
+        'source' as entity_type,
+        cast(null as varchar) as match_id,
+        cast(null as varchar) as team_name,
+        cast(null as varchar) as stage_key,
+        'WC2026 results must share one valid immutable revision and payload SHA-256.'
+            as issue_detail,
+        'international_results_source_provenance_invalid' as issue_key,
+        current_timestamp as observed_at
+    from {{ ref('international_results_wc2026_matches') }}
+    having
+        count(*) > 0
+        and (
+            count(distinct source_revision) <> 1
+            or count(distinct source_payload_sha256) <> 1
+            or count(*) filter (
+                where
+                not regexp_full_match(
+                    coalesce(source_revision, ''), '[0-9a-f]{40}'
+                )
+                or not regexp_full_match(
+                    coalesce(source_payload_sha256, ''), '[0-9a-f]{64}'
+                )
+            ) > 0
+        )
 )
 
 select *
@@ -57,3 +86,6 @@ from tied_knockout_advancer_unknown
 union all
 select *
 from stale_source
+union all
+select *
+from invalid_source_provenance

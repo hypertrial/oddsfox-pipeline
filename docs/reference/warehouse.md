@@ -25,15 +25,19 @@ Schema: `polymarket_wc2026_raw`
   Current batches land through dlt staging, then finalize with duplicate `(clobTokenId, timestamp)` last-write-wins semantics.
 - `match_minute_odds_history`: exact-window CLOB observations for the selected
   match markets, keyed by `(clobTokenId, timestamp)` with fixed fidelity `1`.
-  This table is isolated from `odds_history` and its sync ledger.
+  A successful dedicated run replaces this complete snapshot atomically, so
+  upstream-deleted observations disappear. Failed fetch or storage runs leave
+  the prior snapshot unchanged. This table is isolated from `odds_history` and
+  its sync ledger.
 - `token_odds_daily`: daily token aggregates rebuilt by custom SQL finalizers from
   canonical `odds_history`.
 
 Schema: `international_results_wc2026_raw`
 
 - `match_results`: WC2026-only FIFA World Cup fixture/result rows from
-  `martj42/international_results`. Ingestion refreshes this table as a full
-  replacement and stores scheduled fixtures with null scores.
+  `martj42/international_results`. Ingestion resolves the latest commit affecting
+  `results.csv`, downloads that immutable revision, and stores its revision,
+  exact-byte SHA-256, immutable URL, and load time on every full-replacement row.
 
 Schema: `openfootball_wc2026_raw`
 
@@ -72,6 +76,11 @@ Schema: `polymarket_wc2026_ops`
   `pipeline_run_event_append_failed` and `pipeline_run_event_append_error`.
 - `scrape_metadata`: small key/value metadata used by backfill progress helpers.
 - `market_metadata_unresolved`: retry ledger for unresolved metadata fields.
+- `match_minute_odds_fetch_audit`: append-only one-row-per-`(fetch_run_id,
+  clobTokenId)` evidence for every dedicated minute fetch. It retains request
+  windows, status, row counts, deterministic history SHA-256, sanitized errors,
+  and whether the complete run was atomically published. Rows are retained
+  indefinitely; the unscheduled job adds 496 per run.
 
 Schema: `kalshi_wc2026_ops`
 
@@ -177,8 +186,10 @@ Schema: `polymarket_wc2026_marts`
   group moneyline markets and 32 knockout advance/win markets. Yes/No OHLC,
   average, counts, and observation times remain null when a minute has no
   source point; no value is filled or derived as `1 - price`. Team identity and
-  home/away orientation are reconciled to the latest international-results
-  snapshot before publication.
+  home/away orientation are reconciled to one pinned international-results
+  revision before publication. Timing deltas, boundary flags/status, raw close
+  sums/deviations, anomaly flags, source revision/hash/load time, and the matched
+  international-results ID are included without changing the grain.
 - `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for real WC2026 team knockout
   markets at or above the WC2026 contract volume floor, plus derived `market_status`, source live flag,
   active-team live flag, and explicit price semantics.
@@ -216,8 +227,14 @@ Schema: `kalshi_wc2026_marts`
 Schema: `polymarket_wc2026_observability`
 
 - `polymarket_wc2026_match_minute_odds_data_quality`: expected-versus-mapped
-  games, international-results alignment, markets, tokens, timing, minute rows,
-  observations, null minutes, completeness, and publication-blocking issue keys.
+  games, results provenance, markets, tokens, timing, audit status, minute rows,
+  boundary/interior completeness, pair deviations, cadence, warning/error
+  counts, and publication-blocking issue keys.
+- `polymarket_wc2026_match_minute_token_coverage`: one row per mapped token with
+  expected/observed buckets, raw and fetch counts, first/last offsets, maximum
+  gap, distinct prices, ratio, and latest fetch provenance.
+- `polymarket_wc2026_match_minute_odds_quality_issues`: stable current warning or
+  error keys with entity IDs, measured values, thresholds, and explanations.
 - `polymarket_wc2026_sync_run_observability`: run-level ingestion, market-discovery provenance, and odds-sync telemetry.
 - `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage vs public scoped tokens by stage,
   direction, and market status, including hourly completeness metrics.
@@ -239,7 +256,9 @@ Schema: `kalshi_wc2026_observability`
 
 Schema: `international_results_wc2026_observability`
 
-- `international_results_wc2026_data_quality`: warning-level findings when a tied knockout match has no unique inferred advancer or when the fixture/result source load is stale under the WC2026 contract seed.
+- `international_results_wc2026_data_quality`: warning findings for unresolved
+  tied-knockout advancers or stale source loads, plus an error when a populated
+  snapshot does not share one valid immutable revision and payload SHA-256.
 
 Schema: `wc2026_observability`
 
@@ -270,6 +289,9 @@ custom SQL storage updated by the hourly candlestick sync asset.
 `polymarket_wc2026_raw.match_minute_odds_history` is custom dlt-staged storage
 with primary key `(clobTokenId, timestamp)`. Every row records its selected
 market, fixed fidelity `1`, exact Gamma timing window, and ingestion timestamp.
+The stage is loaded before a transaction replaces the canonical table and marks
+all matching fetch-audit rows published; either both changes commit or neither
+does.
 
 `polymarket_wc2026_raw.markets` is created by `polymarket_wc2026_raw_markets`.
 That asset performs the single Gamma market discovery pass and persists token
@@ -286,6 +308,6 @@ DROP TABLE IF EXISTS polymarket_wc2026_raw.markets;
 
 Then materialize `polymarket_wc2026_raw_markets`.
 
-If an existing local DuckDB file has deleted broad public marts or old dbt
-relation types, reset the local warehouse (`rm oddsfox.duckdb*`) or drop the
-affected dbt schemas before rebuilding.
+This release changes strict raw schemas for results provenance and the minute
+fetch audit. Reset an existing local warehouse (`rm oddsfox.duckdb*`) before
+rerunning the pipeline; no compatibility or migration path is provided.

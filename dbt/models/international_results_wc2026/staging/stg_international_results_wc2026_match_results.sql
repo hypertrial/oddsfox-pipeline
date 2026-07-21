@@ -13,6 +13,8 @@ select
     source_url,
     source_row_number,
     source_row_hash,
+    source_revision,
+    source_payload_sha256,
     source_loaded_at,
     case
         when match_date between date '2026-06-11' and date '2026-06-27' then 'group_stage'

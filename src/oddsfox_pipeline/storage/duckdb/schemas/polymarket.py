@@ -86,6 +86,7 @@ def bootstrap_polymarket_tables(
     pre = polymarket_ops_tbl(scope_name, "pipeline_run_events")
     srm = polymarket_ops_tbl(scope_name, "sync_run_metrics")
     scope_reg = polymarket_ops_tbl(scope_name, "market_scope_registry")
+    match_minute_audit = polymarket_ops_tbl(scope_name, "match_minute_odds_fetch_audit")
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {sm} (
@@ -130,6 +131,43 @@ def bootstrap_polymarket_tables(
                 window_end_at TIMESTAMP NOT NULL,
                 ingested_at TIMESTAMP NOT NULL,
                 PRIMARY KEY (clobTokenId, timestamp)
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {match_minute_audit} (
+                fetch_run_id TEXT NOT NULL,
+                market_id TEXT NOT NULL,
+                clobTokenId TEXT NOT NULL,
+                fetch_status TEXT NOT NULL CHECK (
+                    fetch_status IN ('success', 'empty', 'error', 'cancelled')
+                ),
+                raw_published BOOLEAN NOT NULL DEFAULT FALSE,
+                fidelity_minutes INTEGER NOT NULL CHECK (fidelity_minutes = 1),
+                exact_window_start_at TIMESTAMP NOT NULL,
+                exact_window_end_at TIMESTAMP NOT NULL,
+                request_start_epoch BIGINT NOT NULL,
+                request_end_epoch BIGINT NOT NULL,
+                source_row_count INTEGER NOT NULL CHECK (source_row_count >= 0),
+                in_game_row_count INTEGER NOT NULL CHECK (
+                    in_game_row_count >= 0 AND in_game_row_count <= source_row_count
+                ),
+                in_game_history_sha256 TEXT CHECK (
+                    in_game_history_sha256 IS NULL
+                    OR regexp_full_match(in_game_history_sha256, '[0-9a-f]{{64}}')
+                ),
+                source_endpoint TEXT NOT NULL,
+                fetch_started_at TIMESTAMP NOT NULL,
+                fetch_finished_at TIMESTAMP NOT NULL,
+                error_type TEXT,
+                error_message TEXT CHECK (
+                    error_message IS NULL OR length(error_message) <= 500
+                ),
+                CHECK (exact_window_start_at <= exact_window_end_at),
+                CHECK (request_start_epoch <= request_end_epoch),
+                CHECK (fetch_started_at <= fetch_finished_at),
+                PRIMARY KEY (fetch_run_id, clobTokenId)
             )
             """
         )

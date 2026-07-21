@@ -18,8 +18,10 @@ from oddsfox_pipeline.ingestion.international_results.historical import (
     sync_historical_international_results,
 )
 from oddsfox_pipeline.ingestion.international_results.match_results import (
+    build_match_results_url,
     fetch_match_results_csv,
     parse_wc2026_match_results_csv,
+    resolve_latest_results_revision,
     sync_wc2026_match_results,
 )
 from oddsfox_pipeline.storage.duckdb.international_results import (
@@ -30,6 +32,7 @@ from oddsfox_pipeline.storage.duckdb.international_results import (
 CSV_HEADER = (
     "date,home_team,away_team,home_score,away_score,tournament,city,country,neutral\n"
 )
+SOURCE_REVISION = "a" * 40
 
 
 def test_parse_wc2026_match_results_filters_scores_and_stable_ids() -> None:
@@ -42,7 +45,9 @@ def test_parse_wc2026_match_results_filters_scores_and_stable_ids() -> None:
         ]
     )
 
-    rows = parse_wc2026_match_results_csv(text, loaded_at=loaded_at)
+    rows = parse_wc2026_match_results_csv(
+        text, source_revision=SOURCE_REVISION, loaded_at=loaded_at
+    )
 
     assert len(rows) == 2
     assert rows[0]["home_team"] == "Mexico"
@@ -55,21 +60,68 @@ def test_parse_wc2026_match_results_filters_scores_and_stable_ids() -> None:
         "2026-07-04,Canada,Morocco,NA,NA",
         "2026-07-04,Canada,Morocco,1,0",
     )
-    updated_rows = parse_wc2026_match_results_csv(updated, loaded_at=loaded_at)
+    updated_rows = parse_wc2026_match_results_csv(
+        updated, source_revision=SOURCE_REVISION, loaded_at=loaded_at
+    )
     assert rows[1]["match_id"] == updated_rows[1]["match_id"]
     assert rows[1]["source_row_hash"] != updated_rows[1]["source_row_hash"]
+    assert rows[0]["source_revision"] == SOURCE_REVISION
+    assert len(str(rows[0]["source_payload_sha256"])) == 64
 
 
 def test_parse_wc2026_match_results_rejects_schema_changes() -> None:
     with pytest.raises(ValueError, match="CSV schema changed"):
-        parse_wc2026_match_results_csv("date,home_team\n2026-06-11,Mexico\n")
+        parse_wc2026_match_results_csv(
+            "date,home_team\n2026-06-11,Mexico\n",
+            source_revision=SOURCE_REVISION,
+        )
+
+
+def test_resolve_latest_results_revision_validates_github_payload(monkeypatch) -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self):
+            return [{"sha": SOURCE_REVISION.upper()}]
+
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.international_results.match_results.requests.get",
+        lambda _url, *, timeout: Response(),
+    )
+
+    assert resolve_latest_results_revision() == SOURCE_REVISION
+    assert SOURCE_REVISION in build_match_results_url(SOURCE_REVISION)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [[], [1], [{}], [{"sha": "bad"}], {"sha": SOURCE_REVISION}],
+)
+def test_resolve_latest_results_revision_rejects_malformed_payload(
+    monkeypatch, payload
+) -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self):
+            return payload
+
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.international_results.match_results.requests.get",
+        lambda _url, *, timeout: Response(),
+    )
+
+    with pytest.raises(ValueError):
+        resolve_latest_results_revision()
 
 
 def test_fetch_match_results_csv_uses_validated_url(monkeypatch) -> None:
     calls: list[tuple[str, object]] = []
 
     class Response:
-        text = CSV_HEADER
+        content = CSV_HEADER.encode("utf-8")
 
         def raise_for_status(self) -> None:
             calls.append(("raise", 0))
@@ -83,7 +135,9 @@ def test_fetch_match_results_csv_uses_validated_url(monkeypatch) -> None:
         fake_get,
     )
 
-    assert fetch_match_results_csv("https://example.com/results.csv") == CSV_HEADER
+    assert fetch_match_results_csv(
+        "https://example.com/results.csv"
+    ) == CSV_HEADER.encode("utf-8")
     assert calls == [
         ("https://example.com/results.csv", HTTP_REQUEST_TIMEOUT),
         ("raise", 0),
@@ -106,12 +160,18 @@ def test_sync_wc2026_match_results_replaces_raw_rows(monkeypatch, tmp_path) -> N
         + "2026-06-11,Mexico,South Africa,2,0,FIFA World Cup,Mexico City,Mexico,FALSE\n"
     )
 
-    summary = sync_wc2026_match_results(fetch_csv=lambda _url: first)
+    summary = sync_wc2026_match_results(
+        resolve_revision=lambda: SOURCE_REVISION,
+        fetch_csv=lambda _url: first.encode("utf-8"),
+    )
     assert summary["rows"] == 2
     assert summary["completed_rows"] == 1
     assert summary["scheduled_rows"] == 1
 
-    summary = sync_wc2026_match_results(fetch_csv=lambda _url: second)
+    summary = sync_wc2026_match_results(
+        resolve_revision=lambda: SOURCE_REVISION,
+        fetch_csv=lambda _url: second,
+    )
     assert summary["rows"] == 1
 
     with connection.get_connection() as conn:
@@ -132,6 +192,49 @@ def test_sync_wc2026_match_results_replaces_raw_rows(monkeypatch, tmp_path) -> N
         )
 
 
+def test_sync_wc2026_match_results_revision_failure_preserves_raw_rows(
+    monkeypatch, tmp_path
+) -> None:
+    db_path = tmp_path / "results-fail-closed.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
+    connection.reset_duckdb_connection_state()
+    csv_text = (
+        CSV_HEADER
+        + "2026-06-11,Mexico,South Africa,2,0,FIFA World Cup,Mexico City,Mexico,FALSE\n"
+    )
+    sync_wc2026_match_results(
+        resolve_revision=lambda: SOURCE_REVISION,
+        fetch_csv=lambda _url: csv_text,
+    )
+
+    with pytest.raises(RuntimeError, match="revision unavailable"):
+        sync_wc2026_match_results(
+            resolve_revision=lambda: (_ for _ in ()).throw(
+                RuntimeError("revision unavailable")
+            ),
+            fetch_csv=lambda _url: pytest.fail("unpinned fetch must not run"),
+        )
+
+    with connection.get_connection() as conn:
+        assert conn.execute(
+            "select source_revision from international_results_wc2026_raw.match_results"
+        ).fetchall() == [(SOURCE_REVISION,)]
+
+    with pytest.raises(RuntimeError, match="download unavailable"):
+        sync_wc2026_match_results(
+            resolve_revision=lambda: SOURCE_REVISION,
+            fetch_csv=lambda _url: (_ for _ in ()).throw(
+                RuntimeError("download unavailable")
+            ),
+        )
+
+    with connection.get_connection() as conn:
+        assert conn.execute(
+            "select source_revision from international_results_wc2026_raw.match_results"
+        ).fetchall() == [(SOURCE_REVISION,)]
+
+
 def test_replace_wc2026_match_results_rolls_back_on_insert_error(
     monkeypatch,
     tmp_path,
@@ -143,7 +246,8 @@ def test_replace_wc2026_match_results_rolls_back_on_insert_error(
 
     row = parse_wc2026_match_results_csv(
         CSV_HEADER
-        + "2026-06-11,Mexico,South Africa,2,0,FIFA World Cup,Mexico City,Mexico,FALSE\n"
+        + "2026-06-11,Mexico,South Africa,2,0,FIFA World Cup,Mexico City,Mexico,FALSE\n",
+        source_revision=SOURCE_REVISION,
     )[0]
 
     with connection.get_connection() as conn:

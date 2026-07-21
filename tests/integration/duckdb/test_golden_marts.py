@@ -90,6 +90,8 @@ def _seed_international_results(conn: duckdb.DuckDBPyConnection) -> None:
             source_url,
             source_row_number,
             source_row_hash,
+            source_revision,
+            source_payload_sha256,
             source_loaded_at
         )
         values (
@@ -104,9 +106,11 @@ def _seed_international_results(conn: duckdb.DuckDBPyConnection) -> None:
             'Mexico',
             true,
             'scheduled',
-            'https://example.com/results.csv',
+            'https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/results.csv',
             1,
             'golden-hash',
+            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
             timestamp '2099-01-01 00:00:00'
         )
         """

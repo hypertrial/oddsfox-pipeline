@@ -48,7 +48,10 @@ Flat Dagster op names preserve the same source-first order, for example
   minute mart. It refreshes the latest 104 international-results rows and all 32
   OpenFootball knockout fixtures, discovers closed Gamma events without a volume
   floor, validates result alignment and the 104/248/496 inventory, fetches exact
-  game windows at CLOB `fidelity=1`, then runs dbt.
+  game windows at CLOB `fidelity=1`, then runs dbt. The results refresh first
+  resolves and downloads an immutable Git revision. Minute fetches append 496
+  audit rows; only an all-success run atomically replaces raw history and marks
+  those audits published.
   Run `uv run make match-minute-live-smoke` for the disposable live acceptance
   check; it is intentionally absent from CI and all schedules.
 - `international_results_wc2026_match_results_ingest`: FIFA fixture/results
@@ -97,7 +100,9 @@ cross-provider comparison.
   refresh the registry.
 - Metadata backfill and hourly odds operate over the fixed WC2026 registry.
 - The match-minute asset writes a separate raw table and never reads or updates
-  the hourly token-sync ledger. Any missing token history aborts before dbt.
+  the hourly token-sync ledger. Any missing token history aborts before dbt. A
+  failed run keeps its append-only audit evidence while leaving the previous raw
+  snapshot and public table intact.
 - FIFA results supply the real-team validation inputs used by dbt.
 
 ### Polymarket US midterms 2026

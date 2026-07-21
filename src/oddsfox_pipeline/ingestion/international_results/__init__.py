@@ -5,13 +5,15 @@ from oddsfox_pipeline.ingestion.international_results.historical import (
     sync_historical_international_results,
 )
 from oddsfox_pipeline.ingestion.international_results.match_results import (
-    INTERNATIONAL_RESULTS_CSV_URL,
+    INTERNATIONAL_RESULTS_COMMITS_URL,
+    INTERNATIONAL_RESULTS_RAW_URL_TEMPLATE,
     parse_wc2026_match_results_csv,
     sync_wc2026_match_results,
 )
 
 __all__ = [
-    "INTERNATIONAL_RESULTS_CSV_URL",
+    "INTERNATIONAL_RESULTS_COMMITS_URL",
+    "INTERNATIONAL_RESULTS_RAW_URL_TEMPLATE",
     "parse_historical_csvs",
     "parse_wc2026_match_results_csv",
     "sync_historical_international_results",

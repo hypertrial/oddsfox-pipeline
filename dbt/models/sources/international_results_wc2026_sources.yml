@@ -38,6 +38,12 @@ sources:
           - name: source_loaded_at
             description: UTC timestamp when ingestion loaded the source CSV.
             tests: [not_null]
+          - name: source_revision
+            description: Immutable Git commit SHA used to fetch results.csv.
+            tests: [not_null]
+          - name: source_payload_sha256
+            description: SHA-256 of the complete downloaded results.csv payload.
+            tests: [not_null]
       - name: historical_matches
         description: Public 2006+ international match snapshot used for model fitting.
         meta:

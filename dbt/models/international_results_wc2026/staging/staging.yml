@@ -43,3 +43,7 @@ models:
           - accepted_values:
               arguments:
                 values: ['FIFA World Cup']
+      - name: source_revision
+        tests: [not_null]
+      - name: source_payload_sha256
+        tests: [not_null]

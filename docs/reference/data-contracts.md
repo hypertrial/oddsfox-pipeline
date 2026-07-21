@@ -173,8 +173,10 @@ winning the final and becoming champion.
 
 FIFA match numbers and kickoff context come from the audited schedule and
 OpenFootball fixtures, while team names and home/away orientation are reconciled
-to the latest 104-row `international_results_wc2026_matches` snapshot. A missing,
-duplicate, or unmatched result row blocks publication.
+to one 104-row `international_results_wc2026_matches` snapshot fetched from the
+latest immutable Git revision affecting `results.csv`. Every public row carries
+the matched results ID, revision, exact-payload SHA-256, and load time. Missing,
+mixed, malformed, duplicate, or unmatched provenance blocks publication.
 
 Minute spines include the minute containing Gamma `startTime` through the
 minute containing the primary match event's `finishedTimestamp`. Observations
@@ -182,19 +184,35 @@ are first filtered to the exact timestamp interval. Yes and No open, high, low,
 close, average, point count, and first/last source times are raw probabilities
 in `[0, 1]`. Missing minute observations remain null; the mart does not
 forward-fill, normalize, convert to decimal odds, or calculate `1 - price`.
+`minute_status` distinguishes complete rows from incomplete start, finish, both,
+or interior buckets. The inclusive final-whistle bucket can legitimately be null
+when Gamma emitted no observation in that partial minute; it is measured but is
+not itself a quality-warning row.
+
+Close-pair, cadence, and timing diagnostics never alter prices. Warnings use
+fixed strict-greater-than thresholds: close-pair deviation `0.05`, observation
+gap or first/last boundary offset 120 seconds, scheduled-to-actual kickoff shift
+60 minutes, group window 150 minutes, and knockout window 210 minutes. A token
+with one distinct in-game price and every incomplete interior minute are also
+warnings. These source anomalies remain publishable. Structural inventory,
+mapping, timing, provenance, fetch-audit, token-history, price/OHLC, or spine
+failures block publication.
 
 The supported publication path is
 `polymarket_wc2026_match_minute_odds_backfill`. It rejects empty or partial live
 inventories before fetching and the dbt publication gate preserves the prior
 public table unless all 104 games, 248 markets, 496 tokens, timing windows, and
 per-token in-game histories validate. It also refreshes and validates the latest
-104 international-results rows before publication. The job has no schedule.
+104 international-results rows before publication. Each attempted fetch run
+keeps 496 append-only token audit rows; a successful run publishes one exact raw
+snapshot, while failed runs preserve the prior raw and public tables. The job has
+no schedule.
 
 Schema: `international_results_wc2026_marts`
 
 | Relation | Grain | Contract |
 | --- | --- | --- |
-| `international_results_wc2026_matches` | One row per `match_id` | Clean WC2026 FIFA World Cup fixture/result rows from `martj42/international_results`, including stage, status, score, and inferred knockout advancer metadata. |
+| `international_results_wc2026_matches` | One row per `match_id` | Clean WC2026 FIFA World Cup fixture/result rows from `martj42/international_results`, including stage, status, score, inferred knockout advancer metadata, and immutable source revision/hash provenance. |
 | `international_results_wc2026_team_status` | One row per `team_name` | Canonical 48-team WC2026 roster and current tournament status derived from fixture/result rows. |
 
 Schema: `kalshi_wc2026_marts`

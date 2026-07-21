@@ -13,7 +13,6 @@ from oddsfox_pipeline.ingestion.international_results.historical import (
     sync_historical_international_results,
 )
 from oddsfox_pipeline.ingestion.international_results.match_results import (
-    INTERNATIONAL_RESULTS_CSV_URL,
     sync_wc2026_match_results,
 )
 from oddsfox_pipeline.naming import (
@@ -47,7 +46,11 @@ def international_results_wc2026_raw_match_results(
     context.log.info("international_results WC2026 sync summary: %s", summary)
     return MaterializeResult(
         metadata={
-            "source": MetadataValue.url(INTERNATIONAL_RESULTS_CSV_URL),
+            "source": MetadataValue.url(str(summary["source_url"])),
+            "source_revision": MetadataValue.text(str(summary["source_revision"])),
+            "source_payload_sha256": MetadataValue.text(
+                str(summary["source_payload_sha256"])
+            ),
             "rows": MetadataValue.int(int(summary["rows"])),
             "completed_rows": MetadataValue.int(int(summary["completed_rows"])),
             "scheduled_rows": MetadataValue.int(int(summary["scheduled_rows"])),
