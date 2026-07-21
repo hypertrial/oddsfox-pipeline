@@ -274,7 +274,7 @@ def test_fetch_plan_pads_request_but_filters_exact_window():
             ("token", int(plan.finished_at.timestamp()) + 1, 0.4),
         ]
 
-    rows = match_minute._fetch_plan(  # noqa: SLF001
+    result = match_minute._fetch_plan(  # noqa: SLF001
         plan,
         object(),
         fetch,
@@ -282,7 +282,8 @@ def test_fetch_plan_pads_request_but_filters_exact_window():
         transient_backoff_seconds=0.25,
     )
 
-    assert rows == [
+    assert result.fetch_status == "success"
+    assert list(result.history) == [
         ("token", int(plan.started_at.timestamp()), 0.2),
         ("token", int(plan.finished_at.timestamp()), 0.3),
     ]
@@ -296,39 +297,83 @@ def test_fetch_plan_rejects_empty_in_game_history():
         started_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
         finished_at=datetime(2026, 7, 1, 0, 1, tzinfo=timezone.utc),
     )
-    with pytest.raises(RuntimeError, match="Empty in-game"):
-        match_minute._fetch_plan(  # noqa: SLF001
-            plan,
-            object(),
-            lambda *_: [],
-            transient_retries=0,
-            transient_backoff_seconds=0,
-        )
+    result = match_minute._fetch_plan(  # noqa: SLF001
+        plan,
+        object(),
+        lambda *_: [],
+        transient_retries=0,
+        transient_backoff_seconds=0,
+    )
+    assert result.fetch_status == "empty"
+    assert result.error_message and "Empty in-game" in result.error_message
+
+
+def test_fetch_plan_history_hash_is_order_independent_and_errors_are_sanitized():
+    plan = match_minute.MatchMinuteTokenPlan(
+        market_id="market",
+        token_id="token",
+        started_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 7, 1, 0, 1, tzinfo=timezone.utc),
+    )
+    rows = [
+        ("token", int(plan.started_at.timestamp()), 0.4),
+        ("token", int(plan.started_at.timestamp()) + 30, 0.5),
+    ]
+
+    first = match_minute._fetch_plan(  # noqa: SLF001
+        plan,
+        object(),
+        lambda *_: rows,
+        transient_retries=0,
+        transient_backoff_seconds=0,
+    )
+    second = match_minute._fetch_plan(  # noqa: SLF001
+        plan,
+        object(),
+        lambda *_: list(reversed(rows)),
+        transient_retries=0,
+        transient_backoff_seconds=0,
+    )
+    failed = match_minute._fetch_plan(  # noqa: SLF001
+        plan,
+        object(),
+        lambda *_: (_ for _ in ()).throw(RuntimeError("bad\n  history")),
+        transient_retries=0,
+        transient_backoff_seconds=0,
+    )
+
+    assert first.history == second.history
+    assert first.in_game_history_sha256 == second.in_game_history_sha256
+    assert failed.error_message == "bad history"
 
 
 @pytest.mark.parametrize(
-    ("history", "message"),
+    ("history", "message", "source_row_count"),
     [
-        (None, "Transient CLOB failure"),
-        ([("other", 1_783_036_800, 0.5)], "mismatched token"),
-        ([("token", 1_783_036_800, 1.1)], "invalid probability"),
+        (None, "Transient CLOB failure", 0),
+        ([("other", 1_783_036_800, 0.5)], "mismatched token", 1),
+        ([("token", 1_783_036_800, 1.1)], "invalid probability", 1),
     ],
 )
-def test_fetch_plan_rejects_failed_or_invalid_history(history, message):
+def test_fetch_plan_rejects_failed_or_invalid_history(
+    history, message, source_row_count
+):
     plan = match_minute.MatchMinuteTokenPlan(
         market_id="market",
         token_id="token",
         started_at=datetime(2026, 7, 3, tzinfo=timezone.utc),
         finished_at=datetime(2026, 7, 3, 0, 1, tzinfo=timezone.utc),
     )
-    with pytest.raises((RuntimeError, ValueError), match=message):
-        match_minute._fetch_plan(  # noqa: SLF001
-            plan,
-            object(),
-            lambda *_: history,
-            transient_retries=0,
-            transient_backoff_seconds=0,
-        )
+    result = match_minute._fetch_plan(  # noqa: SLF001
+        plan,
+        object(),
+        lambda *_: history,
+        transient_retries=0,
+        transient_backoff_seconds=0,
+    )
+    assert result.fetch_status == "error"
+    assert result.error_message and message in result.error_message
+    assert result.source_row_count == source_row_count
 
 
 def test_sync_is_atomic_and_does_not_use_hourly_ledger(monkeypatch):
@@ -351,6 +396,7 @@ def test_sync_is_atomic_and_does_not_use_hourly_ledger(monkeypatch):
         match_minute, "select_match_minute_token_plans", lambda _: [plan]
     )
     persisted = []
+    audited = []
 
     summary = match_minute.sync_match_minute_odds_history(
         conn,
@@ -358,11 +404,14 @@ def test_sync_is_atomic_and_does_not_use_hourly_ledger(monkeypatch):
         requests_per_second=1000,
         client_factory=object,
         fetch_window_fn=lambda *_: [("token", int(plan.started_at.timestamp()), 0.5)],
-        persist_fn=lambda rows, _: persisted.extend(rows),
+        persist_fn=lambda rows, _, **_kwargs: persisted.extend(rows),
+        audit_persist_fn=lambda rows, _: audited.extend(rows),
     )
 
     assert summary["tokens"] == 1
     assert len(persisted) == 1
+    assert len(audited) == 1
+    assert audited[0]["raw_published"] is False
     assert conn.execute(
         "select * from polymarket_wc2026_ops.token_sync_ledger"
     ).fetchall() == [("hourly", 7)]
@@ -393,6 +442,7 @@ def test_sync_reuses_default_worker_client(monkeypatch):
 
     monkeypatch.setattr(match_minute, "build_client", build_client)
     persisted = []
+    audited = []
     match_minute.sync_match_minute_odds_history(
         conn,
         workers=1,
@@ -400,15 +450,17 @@ def test_sync_reuses_default_worker_client(monkeypatch):
         fetch_window_fn=lambda _client, token, *_args: [
             (token, int(start.timestamp()), 0.5)
         ],
-        persist_fn=lambda rows, _: persisted.extend(rows),
+        persist_fn=lambda rows, _, **_kwargs: persisted.extend(rows),
+        audit_persist_fn=lambda rows, _: audited.extend(rows),
     )
 
     assert len(clients) == 1
     assert len(persisted) == 2
+    assert len(audited) == 2
     conn.close()
 
 
-def test_sync_cancels_and_never_persists_after_fetch_failure(monkeypatch):
+def test_sync_audits_all_tokens_and_never_publishes_after_fetch_failure(monkeypatch):
     conn = duckdb.connect(":memory:")
     start = datetime(2026, 7, 1, tzinfo=timezone.utc)
     plans = [
@@ -424,7 +476,8 @@ def test_sync_cancels_and_never_persists_after_fetch_failure(monkeypatch):
         match_minute, "select_match_minute_token_plans", lambda _: plans
     )
 
-    with pytest.raises(RuntimeError, match="Transient CLOB failure"):
+    audited = []
+    with pytest.raises(match_minute.MatchMinuteSyncError, match="Transient CLOB"):
         match_minute.sync_match_minute_odds_history(
             conn,
             workers=0,
@@ -432,5 +485,55 @@ def test_sync_cancels_and_never_persists_after_fetch_failure(monkeypatch):
             client_factory=object,
             fetch_window_fn=lambda *_: None,
             persist_fn=lambda *_: pytest.fail("failed fetch must not persist"),
+            audit_persist_fn=lambda rows, _: audited.extend(rows),
         )
+    assert len(audited) == 2
+    assert {row["fetch_status"] for row in audited} == {"error"}
+    assert not any(row["raw_published"] for row in audited)
+    conn.close()
+
+
+@pytest.mark.parametrize(
+    ("failing_layer", "expected_status"),
+    [("audit", "audit_error"), ("publish", "publish_error")],
+)
+def test_sync_reports_audit_and_publication_storage_failures(
+    monkeypatch, failing_layer, expected_status
+):
+    conn = duckdb.connect(":memory:")
+    start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    plan = match_minute.MatchMinuteTokenPlan(
+        market_id="market",
+        token_id="token",
+        started_at=start,
+        finished_at=start + timedelta(minutes=1),
+    )
+    monkeypatch.setattr(
+        match_minute, "select_match_minute_token_plans", lambda _: [plan]
+    )
+
+    def fail(message):
+        raise RuntimeError(message)
+
+    with pytest.raises(match_minute.MatchMinuteSyncError) as raised:
+        match_minute.sync_match_minute_odds_history(
+            conn,
+            workers=1,
+            requests_per_second=1000,
+            client_factory=object,
+            fetch_window_fn=lambda *_: [("token", int(start.timestamp()), 0.5)],
+            audit_persist_fn=(
+                (lambda *_: fail("audit write failed"))
+                if failing_layer == "audit"
+                else (lambda *_: None)
+            ),
+            persist_fn=(
+                (lambda *_args, **_kwargs: fail("raw publish failed"))
+                if failing_layer == "publish"
+                else (lambda *_args, **_kwargs: None)
+            ),
+        )
+
+    assert raised.value.summary["status"] == expected_status
+    assert raised.value.summary["error_type"] == "RuntimeError"
     conn.close()

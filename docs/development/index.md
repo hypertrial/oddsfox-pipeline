@@ -72,7 +72,9 @@ is local-only and must not run in GitHub Actions.
 `match-minute-live-smoke` is the disposable, opt-in acceptance smoke for the
 completed-match minute backfill. It rebuilds `.cache/match_minute_live_smoke.duckdb`
 and fails unless the quality model reports exactly 104 games, 248 markets (216
-group and 32 knockout), 496 tokens, and no blocking issue.
+group and 32 knockout), 496 tokens, one valid results revision/hash, 496
+successful published fetch audits, zero structural issue rows, and no blocking
+issue. Warning counts are intentionally not pinned.
 
 Dagster dbt assets enable dbt source tests as asset checks. Row-count and
 column metadata fetching is available through `DbtBuildConfig` but stays

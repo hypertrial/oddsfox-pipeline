@@ -67,6 +67,15 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     create_all_scope_test_markets_tables,
 )
 
+_EMPTY_RESULTS_SUMMARY = {
+    "rows": 0,
+    "completed_rows": 0,
+    "scheduled_rows": 0,
+    "source_url": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/results.csv",
+    "source_revision": "a" * 40,
+    "source_payload_sha256": "b" * 64,
+}
+
 
 @pytest.fixture
 def reset_connection_globals():
@@ -279,7 +288,7 @@ oddsfox:
     )
     monkeypatch.setattr(
         "oddsfox_pipeline.orchestration.assets_international_results.sync_wc2026_match_results",
-        lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
+        lambda: dict(_EMPTY_RESULTS_SUMMARY),
     )
 
     _seed_dlt_owned_markets(market_page)
@@ -547,7 +556,7 @@ def _patch_midterms_refresh_externals(
     )
     monkeypatch.setattr(
         "oddsfox_pipeline.orchestration.assets_international_results.sync_wc2026_match_results",
-        lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
+        lambda: dict(_EMPTY_RESULTS_SUMMARY),
     )
     return market_page
 
@@ -1016,7 +1025,7 @@ def _patch_kalshi_refresh_externals(monkeypatch) -> dict[str, list[dict]]:
     )
     monkeypatch.setattr(
         "oddsfox_pipeline.orchestration.assets_international_results.sync_wc2026_match_results",
-        lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
+        lambda: dict(_EMPTY_RESULTS_SUMMARY),
     )
     return {"events": events, "markets": markets}
 

@@ -17,6 +17,8 @@ with base as (
         source_url,
         source_row_number,
         source_row_hash,
+        source_revision,
+        source_payload_sha256,
         source_loaded_at
     from {{ ref('stg_international_results_wc2026_match_results') }}
 ),
@@ -88,6 +90,8 @@ select
     b.source_url,
     b.source_row_number,
     b.source_row_hash,
+    b.source_revision,
+    b.source_payload_sha256,
     b.source_loaded_at,
     b.home_score = b.away_score and b.match_status = 'completed' as is_tied,
     case

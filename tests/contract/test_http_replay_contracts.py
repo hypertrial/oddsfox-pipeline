@@ -6,6 +6,12 @@ from pathlib import Path
 import pytest
 import vcr
 
+from oddsfox_pipeline.ingestion.international_results.match_results import (
+    build_match_results_url,
+    fetch_match_results_csv,
+    parse_wc2026_match_results_csv,
+    resolve_latest_results_revision,
+)
 from oddsfox_pipeline.ingestion.kalshi.client import (
     fetch_events_for_series,
     fetch_market_candlesticks,
@@ -72,6 +78,21 @@ def test_polymarket_clob_minute_history_replay_contract():
         ("pm-wc-match-home", 1_782_907_230, 0.42),
         ("pm-wc-match-home", 1_782_907_290, 0.57),
     ]
+
+
+def test_international_results_immutable_revision_replay_contract():
+    with _replay_vcr().use_cassette("international_results_revision.yml"):
+        revision = resolve_latest_results_revision()
+        csv_text = fetch_match_results_csv(build_match_results_url(revision))
+
+    rows = parse_wc2026_match_results_csv(
+        csv_text,
+        source_revision=revision,
+    )
+    assert revision == "a" * 40
+    assert rows[0]["home_team"] == "Mexico"
+    assert rows[0]["source_revision"] == revision
+    assert len(str(rows[0]["source_payload_sha256"])) == 64
 
 
 def test_kalshi_events_markets_and_candlesticks_replay_contract():

@@ -51,11 +51,16 @@ scope rules, and data-contract tests, see [Data Contracts](data-contracts.md).
 | Null policy | Dense rows are retained; missing token minutes stay null and are never carried forward |
 | Semantics | Group Yes/No is literal; knockout Yes/No is official home/away team orientation |
 | Match identity | FIFA numeric ID from the schedule; team names and home/away orientation from the uniquely matched latest international-results row |
-| Provenance | Selected market event and separate primary timing event IDs/slugs |
+| Timing diagnostics | Scheduled kickoff, actual start/finish, start delta, window length, boundary flags, and `minute_status` |
+| Pair diagnostics | Nullable raw close sum/deviation and a strict `> 0.05` anomaly flag; prices are never normalized |
+| Provenance | Selected and primary timing events plus matched results ID, immutable revision, payload SHA-256, and load time |
 
 Use `proposition_type`, `yes_represents`, and `no_represents` instead of
 inferring meaning from token order. For match 103 the proposition is the
 official home team winning third place; for match 104 it is winning the final.
+Expected partial terminal-minute nulls remain visible as
+`finish_boundary_incomplete`; use `interior_incomplete` to isolate gaps inside a
+game rather than treating every boundary null as equivalent.
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_knockout_markets`
 
@@ -119,10 +124,11 @@ official home team winning third place; for match 104 it is winning the final.
 | Grain | One row per `match_id`. |
 | Identifiers | `match_id`, `home_team`, `away_team`, `stage_key`. |
 | Time columns | `match_date`, `source_loaded_at`. |
+| Provenance | `source_url`, `source_revision`, and `source_payload_sha256` identify the exact immutable CSV payload. |
 | Price columns | None. |
 | Recommended filters | Use `match_status = 'completed'` for results; include scheduled rows for future fixtures. |
 | Common joins | Join team names to `international_results_wc2026_team_status.team_name`. |
-| Common mistakes | Treating tied knockout matches as unresolved without checking `advancing_team` and `advancer_inference_status`. |
+| Common mistakes | Treating tied knockout matches as unresolved without checking `advancing_team` and `advancer_inference_status`, or ignoring mixed source revisions when combining snapshots. |
 
 ### `international_results_wc2026_marts.international_results_wc2026_team_status`
 

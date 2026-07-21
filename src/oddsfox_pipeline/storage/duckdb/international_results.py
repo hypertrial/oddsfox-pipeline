@@ -29,6 +29,8 @@ _MATCH_RESULT_COLUMNS = (
     "source_url",
     "source_row_number",
     "source_row_hash",
+    "source_revision",
+    "source_payload_sha256",
     "source_loaded_at",
 )
 _HISTORICAL_MATCH_COLUMNS = (

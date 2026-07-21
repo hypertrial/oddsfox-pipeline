@@ -18,6 +18,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   match-minute inventory/completeness observability.
 - A DuckDB-native script to export and summarize the match-minute mart as
   Parquet.
+- Immutable `international_results` revision and payload provenance, append-only
+  per-token minute-fetch audits, token-cadence coverage, and detailed current
+  match-minute quality issues.
+
+### Changed
+
+- Match-minute CLOB publication now replaces the complete raw snapshot in one
+  transaction only after all 496 token fetches succeed; failed runs retain audit
+  evidence and leave the previous raw snapshot and public mart unchanged.
+- The minute mart now exposes scheduled-versus-actual timing, boundary status,
+  raw Yes/No close-pair diagnostics, and pinned results provenance. Source-price,
+  cadence, timing, and incomplete interior-minute anomalies are nonblocking
+  warnings; structural contract failures still block atomic publication.
+- Match-minute Parquet export now validates a temporary artifact before atomic
+  replacement and reports structural inventory, completeness, boundary, pair,
+  provenance, size, and SHA-256 metrics. Existing local warehouses must be reset
+  for the new results-provenance and fetch-audit schemas; no migration shim is
+  provided.
 
 ### Fixed
 

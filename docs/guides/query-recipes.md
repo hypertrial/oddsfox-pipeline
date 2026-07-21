@@ -36,9 +36,10 @@ select
     proposition_type,
     yes_close_price,
     no_close_price,
-    yes_observed_points,
-    no_observed_points,
-    minute_complete
+    minute_status,
+    yes_no_close_deviation,
+    pair_price_anomaly,
+    results_source_revision
 from polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds
 where fifa_match_id = 104
 order by odds_minute_epoch, market_id;
@@ -47,6 +48,23 @@ order by odds_minute_epoch, market_id;
 Rows span only Gamma's actual match window. A null price means the selected
 token had no source point in that minute; it is not filled from another minute
 or calculated from the other token.
+
+Inspect current warning and structural issue details without changing the raw
+price policy:
+
+```sql
+select
+    severity,
+    issue_type,
+    fifa_match_id,
+    market_id,
+    clob_token_id,
+    measured_value,
+    threshold_value,
+    issue_detail
+from polymarket_wc2026_observability.polymarket_wc2026_match_minute_odds_quality_issues
+order by severity, issue_type, fifa_match_id, market_id;
+```
 
 ## Current WC2026 Polymarket Prices
 

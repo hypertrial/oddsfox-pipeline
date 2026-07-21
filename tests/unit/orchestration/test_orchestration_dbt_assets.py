@@ -61,6 +61,12 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "raw",
         "match_token_odds_history_minute",
     ]
+    assert tables[("polymarket_wc2026_ops", "match_minute_odds_fetch_audit")] == [
+        "polymarket",
+        "wc2026",
+        "raw",
+        "match_token_odds_history_minute",
+    ]
     assert tables[("polymarket_wc2026_raw", "token_odds_daily")] == [
         "polymarket",
         "wc2026",
@@ -215,6 +221,11 @@ def test_match_minute_asset_materializes_sync_summary(monkeypatch):
         "oddsfox_pipeline.orchestration.polymarket_ops.sync_match_minute_odds_history",
         sync,
     )
+    save_metrics = MagicMock()
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.assets_polymarket.save_sync_run_metrics",
+        save_metrics,
+    )
 
     context = MagicMock()
     config = orch_config.MatchMinuteOddsSyncConfig()
@@ -233,7 +244,45 @@ def test_match_minute_asset_materializes_sync_summary(monkeypatch):
         no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
         no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
     )
+    save_metrics.assert_called_once_with(
+        "match_minute_odds",
+        {"games": 104, "markets": 248, "tokens": 496},
+        scope_name="wc2026",
+    )
     assert result.metadata["tokens"] == 496
+
+
+def test_match_minute_asset_records_failure_summary(monkeypatch):
+    from oddsfox_pipeline.orchestration.assets import (
+        polymarket_wc2026_raw_match_token_odds_history_minute,
+    )
+
+    connection = MagicMock()
+    connection.__enter__.return_value = "connection"
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.assets_polymarket.get_connection",
+        lambda: connection,
+    )
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.polymarket_ops.sync_match_minute_odds_history",
+        MagicMock(side_effect=RuntimeError("preflight failed")),
+    )
+    save_metrics = MagicMock()
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.assets_polymarket.save_sync_run_metrics",
+        save_metrics,
+    )
+
+    with pytest.raises(RuntimeError, match="preflight failed"):
+        polymarket_wc2026_raw_match_token_odds_history_minute.op.compute_fn.decorated_fn(
+            MagicMock(), orch_config.MatchMinuteOddsSyncConfig()
+        )
+
+    save_metrics.assert_called_once_with(
+        "match_minute_odds",
+        {"status": "preflight_error", "error_type": "RuntimeError"},
+        scope_name="wc2026",
+    )
 
 
 def test_dbt_assets_does_not_delete_orphan_market_tokens(monkeypatch):

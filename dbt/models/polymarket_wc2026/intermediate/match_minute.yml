@@ -81,6 +81,23 @@ models:
         tests: [not_null]
       - name: minute_complete
         tests: [not_null]
+      - name: minute_status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - complete
+                  - start_boundary_incomplete
+                  - finish_boundary_incomplete
+                  - start_and_finish_boundary_incomplete
+                  - interior_incomplete
+      - name: pair_price_anomaly
+        tests: [not_null]
+      - name: is_game_start_minute
+        tests: [not_null]
+      - name: is_game_finish_minute
+        tests: [not_null]
 
   - name: int_polymarket_wc2026_match_minute_publication_gate
     description: One-row fail-closed quality gate evaluated by the public table query.
@@ -168,6 +185,20 @@ unit_tests:
           - {clob_token_id: no-1, odds_minute_utc: '2026-07-01 12:01:00', odds_minute_epoch: 1782907260, open_price: 0.6, high_price: 0.6, low_price: 0.6, close_price: 0.6, average_price: 0.6, observed_points: 1, first_observed_at: '2026-07-01 12:01:30', last_observed_at: '2026-07-01 12:01:30'}
     expect:
       rows:
-        - {odds_minute_epoch: 1782907200, yes_close_price: 0.4, no_close_price: null, yes_observed_points: 1, no_observed_points: 0, yes_observed: true, no_observed: false, minute_complete: false}
-        - {odds_minute_epoch: 1782907260, yes_close_price: null, no_close_price: 0.6, yes_observed_points: 0, no_observed_points: 1, yes_observed: false, no_observed: true, minute_complete: false}
-        - {odds_minute_epoch: 1782907320, yes_close_price: null, no_close_price: null, yes_observed_points: 0, no_observed_points: 0, yes_observed: false, no_observed: false, minute_complete: false}
+        - {odds_minute_epoch: 1782907200, yes_close_price: 0.4, no_close_price: null, yes_observed_points: 1, no_observed_points: 0, yes_observed: true, no_observed: false, minute_complete: false, is_game_start_minute: true, is_game_finish_minute: false, minute_status: start_boundary_incomplete, pair_price_anomaly: false}
+        - {odds_minute_epoch: 1782907260, yes_close_price: null, no_close_price: 0.6, yes_observed_points: 0, no_observed_points: 1, yes_observed: false, no_observed: true, minute_complete: false, is_game_start_minute: false, is_game_finish_minute: false, minute_status: interior_incomplete, pair_price_anomaly: false}
+        - {odds_minute_epoch: 1782907320, yes_close_price: null, no_close_price: null, yes_observed_points: 0, no_observed_points: 0, yes_observed: false, no_observed: false, minute_complete: false, is_game_start_minute: false, is_game_finish_minute: true, minute_status: finish_boundary_incomplete, pair_price_anomaly: false}
+
+  - name: test_match_minute_candidate_flags_raw_close_pair_deviation
+    model: int_polymarket_wc2026_match_minute_odds_candidate
+    given:
+      - input: ref('int_polymarket_wc2026_match_market_universe')
+        rows:
+          - {fifa_match_id: 1, market_id: market-1, condition_id: condition-1, selected_market_event_id: event-1, selected_market_event_slug: event-1, primary_timing_event_id: event-1, primary_timing_event_slug: event-1, stage: group_stage, home_team: Japan, away_team: Sweden, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', game_started_at_utc: '2026-07-01 12:00:05', game_finished_at_utc: '2026-07-01 12:00:55', sports_market_type: moneyline, proposition_type: home_win, question: Japan win?, yes_represents: Japan wins, no_represents: Japan does not win, yes_team_name: Japan, yes_clob_token_id: yes-1, no_clob_token_id: no-1}
+      - input: ref('int_polymarket_wc2026_match_token_minute_odds')
+        rows:
+          - {clob_token_id: yes-1, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 1782907200, open_price: 0.57, high_price: 0.57, low_price: 0.57, close_price: 0.57, average_price: 0.57, observed_points: 1, first_observed_at: '2026-07-01 12:00:05', last_observed_at: '2026-07-01 12:00:05'}
+          - {clob_token_id: no-1, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 1782907200, open_price: 0.6425, high_price: 0.6425, low_price: 0.6425, close_price: 0.6425, average_price: 0.6425, observed_points: 1, first_observed_at: '2026-07-01 12:00:05', last_observed_at: '2026-07-01 12:00:05'}
+    expect:
+      rows:
+        - {odds_minute_epoch: 1782907200, minute_complete: true, is_game_start_minute: true, is_game_finish_minute: true, minute_status: complete, yes_no_close_sum: 1.2125, yes_no_close_deviation: 0.2124999999999999, pair_price_anomaly: true}

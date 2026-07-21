@@ -182,6 +182,28 @@ sources:
             description: How the row was discovered (events_api or seed).
           - name: refreshed_at
             description: UTC timestamp when this registry row was last upserted.
+      - name: match_minute_odds_fetch_audit
+        description: Append-only per-token audit for dedicated WC2026 minute backfills.
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, match_token_odds_history_minute]
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [fetch_run_id, clobTokenId]
+        columns:
+          - name: fetch_run_id
+            tests: [not_null]
+          - name: clobTokenId
+            tests: [not_null]
+          - name: fetch_status
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['success', 'empty', 'error', 'cancelled']
+          - name: raw_published
+            tests: [not_null]
       - name: pipeline_run_events
         description: Append-only operational audit log for ingestion and repair run metrics.
         meta:

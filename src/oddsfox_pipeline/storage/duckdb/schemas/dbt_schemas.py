@@ -198,6 +198,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         POLYMARKET_WC2026_STAGING_SCHEMA,
         "stg_polymarket_wc2026_match_minute_odds_history",
     ),
+    (
+        POLYMARKET_WC2026_STAGING_SCHEMA,
+        "stg_polymarket_wc2026_match_minute_fetch_audit",
+    ),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_market_tokens"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds_daily"),
@@ -258,6 +262,14 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
         "polymarket_wc2026_match_minute_odds_data_quality",
+    ),
+    (
+        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+        "polymarket_wc2026_match_minute_token_coverage",
+    ),
+    (
+        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+        "polymarket_wc2026_match_minute_odds_quality_issues",
     ),
     (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,

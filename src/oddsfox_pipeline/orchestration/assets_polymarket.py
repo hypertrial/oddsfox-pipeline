@@ -245,18 +245,38 @@ def polymarket_wc2026_raw_match_token_odds_history_minute(
     context: AssetExecutionContext,
     config: MatchMinuteOddsSyncConfig,
 ) -> MaterializeResult:
-    with get_connection() as conn:
-        summary = ops.sync_match_minute_odds_history(
-            conn,
-            log=context.log,
-            workers=config.workers,
-            requests_per_second=config.requests_per_second,
-            transient_retries=config.transient_retries,
-            transient_backoff_seconds=config.transient_backoff_seconds,
-            progress_log_interval_seconds=config.progress_log_interval_seconds,
-            no_progress_soft_timeout_seconds=(config.no_progress_soft_timeout_seconds),
-            no_progress_hard_timeout_seconds=(config.no_progress_hard_timeout_seconds),
+    try:
+        with get_connection() as conn:
+            summary = ops.sync_match_minute_odds_history(
+                conn,
+                log=context.log,
+                workers=config.workers,
+                requests_per_second=config.requests_per_second,
+                transient_retries=config.transient_retries,
+                transient_backoff_seconds=config.transient_backoff_seconds,
+                progress_log_interval_seconds=config.progress_log_interval_seconds,
+                no_progress_soft_timeout_seconds=(
+                    config.no_progress_soft_timeout_seconds
+                ),
+                no_progress_hard_timeout_seconds=(
+                    config.no_progress_hard_timeout_seconds
+                ),
+            )
+    except Exception as exc:
+        failure = dict(getattr(exc, "summary", {}))
+        failure.setdefault("status", "preflight_error")
+        failure.setdefault("error_type", exc.__class__.__name__)
+        save_sync_run_metrics(
+            "match_minute_odds",
+            failure,
+            scope_name=POLYMARKET_WC2026_SCOPE_NAME,
         )
+        raise
+    save_sync_run_metrics(
+        "match_minute_odds",
+        summary,
+        scope_name=POLYMARKET_WC2026_SCOPE_NAME,
+    )
     return MaterializeResult(metadata=summary)
 
 

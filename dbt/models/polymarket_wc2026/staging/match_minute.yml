@@ -1,6 +1,26 @@
 version: 2
 
 models:
+  - name: stg_polymarket_wc2026_match_minute_fetch_audit
+    description: Typed append-only per-run and per-token match-minute fetch audit.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [fetch_run_id, clob_token_id]
+    columns:
+      - name: fetch_run_id
+        tests: [not_null]
+      - name: clob_token_id
+        tests: [not_null]
+      - name: fetch_status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['success', 'empty', 'error', 'cancelled']
+      - name: raw_published
+        tests: [not_null]
+
   - name: stg_polymarket_wc2026_match_minute_odds_history
     description: Typed one-minute CLOB observations with exact source game windows.
     tests:

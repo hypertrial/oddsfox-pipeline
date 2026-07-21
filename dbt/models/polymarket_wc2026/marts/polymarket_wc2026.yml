@@ -34,6 +34,9 @@ models:
       - name: fifa_match_id
         description: Official FIFA match number from 1 through 104.
         tests: [not_null]
+      - name: international_results_match_id
+        description: Immutable-source match identifier reconciled to the FIFA match number.
+        tests: [not_null]
       - name: market_id
         description: Polymarket market identifier; one proposition per row series.
         tests: [not_null]
@@ -48,6 +51,43 @@ models:
         tests: [not_null]
       - name: minute_complete
         description: True only when both selected tokens have at least one source point in the minute.
+        tests: [not_null]
+      - name: minute_status
+        description: Complete, boundary-incomplete, or interior-incomplete minute classification.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - complete
+                  - start_boundary_incomplete
+                  - finish_boundary_incomplete
+                  - start_and_finish_boundary_incomplete
+                  - interior_incomplete
+      - name: pair_price_anomaly
+        description: True when complete raw Yes/No minute closes deviate from one by more than 0.05.
+        tests: [not_null]
+      - name: scheduled_kickoff_at_utc
+        description: Published fixture kickoff used only for timing diagnostics.
+        tests: [not_null]
+      - name: game_start_delta_minutes
+        description: Signed minutes from scheduled kickoff to Gamma's actual start.
+        tests: [not_null]
+      - name: game_window_minutes
+        description: Exact elapsed minutes from Gamma's actual start through finish.
+        tests: [not_null]
+      - name: yes_no_close_sum
+        description: Raw Yes plus No close when both tokens were observed; otherwise null.
+      - name: yes_no_close_deviation
+        description: Absolute difference between the raw close sum and one when both closes exist.
+      - name: results_source_revision
+        description: Immutable international_results Git revision used for match identity.
+        tests: [not_null]
+      - name: results_source_payload_sha256
+        description: SHA-256 of the complete international_results CSV payload.
+        tests: [not_null]
+      - name: results_source_loaded_at
+        description: UTC time when the pinned international_results payload was loaded.
         tests: [not_null]
 
   - name: polymarket_wc2026_knockout_market_tokens

@@ -68,6 +68,8 @@ def _seed_international_results(conn, now: datetime) -> None:
             country,
             neutral,
             match_status,
+            source_revision,
+            source_payload_sha256,
             source_url,
             source_row_number,
             source_row_hash,
@@ -85,7 +87,10 @@ def _seed_international_results(conn, now: datetime) -> None:
             'Mexico',
             true,
             'scheduled',
-            'https://example.com/results.csv',
+            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+            'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            'https://raw.githubusercontent.com/martj42/international_results/'
+                || 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/results.csv',
             1,
             'freshness-hash',
             ?

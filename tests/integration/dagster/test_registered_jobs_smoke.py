@@ -31,6 +31,14 @@ _NON_SCOPE_JOB_NAMES = {
     "wc2026_knockout_match_odds_full_pipeline",
     "polymarket_wc2026_match_minute_odds_backfill",
 }
+_EMPTY_RESULTS_SUMMARY = {
+    "rows": 0,
+    "completed_rows": 0,
+    "scheduled_rows": 0,
+    "source_url": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/results.csv",
+    "source_revision": "a" * 40,
+    "source_payload_sha256": "b" * 64,
+}
 
 
 def _expected_public_job_names() -> set[str]:
@@ -152,7 +160,7 @@ oddsfox:
     monkeypatch.setattr(
         results_assets_mod,
         "sync_wc2026_match_results",
-        lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
+        lambda: dict(_EMPTY_RESULTS_SUMMARY),
     )
     monkeypatch.setattr(
         results_assets_mod,
@@ -166,7 +174,7 @@ oddsfox:
     monkeypatch.setattr(
         openfootball_assets_mod,
         "sync_knockout_fixtures",
-        lambda: {"rows": 0, "completed_rows": 0, "scheduled_rows": 0},
+        lambda: dict(_EMPTY_RESULTS_SUMMARY),
     )
     monkeypatch.setattr(
         assets_mod.ops,

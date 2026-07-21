@@ -47,6 +47,12 @@ models:
                   - inferred_from_later_fixture
                   - missing_later_fixture
                   - ambiguous_later_fixture
+      - name: source_revision
+        description: Immutable Git commit SHA containing the downloaded results.csv.
+        tests: [not_null]
+      - name: source_payload_sha256
+        description: SHA-256 of the exact downloaded CSV bytes.
+        tests: [not_null]
 
   - name: international_results_wc2026_team_status
     description: One row per WC2026 team derived from FIFA World Cup fixtures/results.

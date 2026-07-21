@@ -28,6 +28,13 @@ def bootstrap_international_results_tables(conn: duckdb.DuckDBPyConnection) -> N
             source_url TEXT NOT NULL,
             source_row_number INTEGER NOT NULL,
             source_row_hash TEXT NOT NULL,
+            source_revision TEXT NOT NULL CHECK (
+                regexp_full_match(source_revision, '[0-9a-f]{{40}}')
+                AND position(source_revision IN source_url) > 0
+            ),
+            source_payload_sha256 TEXT NOT NULL CHECK (
+                regexp_full_match(source_payload_sha256, '[0-9a-f]{{64}}')
+            ),
             source_loaded_at TIMESTAMP NOT NULL
         )
         """
