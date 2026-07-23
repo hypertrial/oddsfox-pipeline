@@ -1,0 +1,492 @@
+version: 2
+
+models:
+  - name: stg_polymarket_wc2026_polygon_settlement_markets
+    description: Typed independent WC2026 Polygon proposition manifest with public contract aliases.
+    config:
+      tags: [polygon_settlement]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [proposition_id]
+    columns:
+      - name: proposition_id
+        tests: [not_null, unique]
+      - name: fifa_match_id
+        tests: [not_null]
+      - name: condition_id
+        tests: [not_null, unique]
+      - name: yes_token_id
+        tests: [not_null, unique]
+      - name: no_token_id
+        tests: [not_null, unique]
+      - name: analysis_window_start_at_utc
+        tests: [not_null]
+      - name: analysis_window_end_at_utc
+        tests: [not_null]
+      - name: manifest_sha256
+        tests: [not_null]
+
+  - name: stg_polymarket_wc2026_polygon_settlement_fills
+    description: Sanitized normalized V2 settlement legs with exact volumes and chain-order locators.
+    config:
+      tags: [polygon_settlement]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [chain_id, exchange_address, transaction_hash, passive_log_index, normalized_leg_ordinal]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [transaction_hash, passive_log_index, normalized_leg_ordinal]
+            price_columns: [price]
+    columns:
+      - name: scan_id
+        tests: [not_null]
+      - name: proposition_id
+        tests: [not_null]
+      - name: token_id
+        tests: [not_null]
+      - name: block_timestamp
+        tests: [not_null]
+      - name: outcome_side
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['yes', 'no']
+      - name: order_side
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [BUY, SELL]
+      - name: is_derived
+        tests: [not_null]
+
+  - name: stg_polymarket_wc2026_polygon_settlement_scan_runs
+    description: Typed deterministic scan audit, including finalized head and atomic publication state.
+    config:
+      tags: [polygon_settlement]
+    columns:
+      - name: scan_id
+        tests: [not_null, unique]
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [running, failed, published]
+      - name: raw_published
+        tests: [not_null]
+      - name: verification_status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [not_requested, matched, mismatched, error]
+
+  - name: stg_polymarket_wc2026_polygon_settlement_scan_chunks
+    description: Typed adaptive leaf-range audit used to prove complete target-range coverage.
+    config:
+      tags: [polygon_settlement]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [scan_id, exchange_address, from_block, to_block]
+    columns:
+      - name: scan_id
+        tests: [not_null]
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [success, failed]
+      - name: exchange_address
+        tests: [not_null]
+      - name: duration_ms
+        tests: [not_null]
+      - name: http_request_count
+        tests: [not_null]
+      - name: log_rpc_call_count
+        tests: [not_null]
+      - name: receipt_rpc_call_count
+        tests: [not_null]
+      - name: header_rpc_call_count
+        tests: [not_null]
+      - name: discovery_count
+        tests: [not_null]
+      - name: eligible_discovery_count
+        tests: [not_null]
+      - name: filtered_discovery_count
+        tests: [not_null]
+      - name: receipt_transaction_count
+        tests: [not_null]
+      - name: receipt_log_count
+        tests: [not_null]
+      - name: retry_count
+        tests: [not_null]
+      - name: adaptive_split_count
+        tests: [not_null]
+
+  - name: int_polymarket_wc2026_polygon_settlement_market_universe
+    description: The unfiltered 248-proposition manifest plus its scheduled half-open window length.
+    config:
+      tags: [polygon_settlement]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [proposition_id]
+    columns:
+      - name: proposition_id
+        tests: [not_null, unique]
+      - name: window_minutes
+        tests: [not_null]
+
+  - name: int_polymarket_wc2026_polygon_settlement_token_minute_odds
+    description: Chain-ordered OHLC, VWAP, fill count, and volume at oriented token-minute grain.
+    config:
+      tags: [polygon_settlement]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [token_id, settlement_minute_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [token_id, settlement_minute_epoch]
+            price_columns: [open_price, high_price, low_price, close_price, vwap]
+    columns:
+      - name: proposition_id
+        tests: [not_null]
+      - name: token_id
+        tests: [not_null]
+      - name: outcome_side
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['yes', 'no']
+      - name: settlement_minute_epoch
+        tests: [not_null]
+      - name: normalized_fill_count
+        tests: [not_null]
+      - name: derived_fill_count
+        tests: [not_null]
+      - name: share_volume
+        tests: [not_null]
+      - name: gross_collateral_volume
+        tests: [not_null]
+
+  - name: int_polymarket_wc2026_polygon_settlement_minute_odds_candidate
+    description: Dense, null-preserving 150/210-minute candidate validated before publication.
+    config:
+      tags: [polygon_settlement]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [proposition_id, settlement_minute_epoch]
+      - price_columns_in_unit_interval:
+          arguments:
+            identifier_columns: [proposition_id, settlement_minute_epoch]
+            price_columns:
+              - yes_open_price
+              - yes_high_price
+              - yes_low_price
+              - yes_close_price
+              - yes_vwap
+              - no_open_price
+              - no_high_price
+              - no_low_price
+              - no_close_price
+              - no_vwap
+    columns:
+      - name: proposition_id
+        tests: [not_null]
+      - name: settlement_minute_utc
+        tests: [not_null]
+      - name: settlement_minute_epoch
+        tests: [not_null]
+      - name: elapsed_window_minute
+        tests: [not_null]
+      - name: minute_complete
+        tests: [not_null]
+      - name: minute_status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [both_observed, yes_only, no_only, no_fills]
+
+  - name: polymarket_wc2026_polygon_settlement_token_coverage
+    description: Fill and minute coverage at one row per oriented manifest token.
+    config:
+      tags: [polygon_settlement]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [token_id]
+    columns:
+      - name: token_id
+        tests: [not_null, unique]
+      - name: token_side
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['yes', 'no']
+      - name: minute_coverage_ratio
+        tests: [not_null]
+      - name: has_any_fill
+        tests: [not_null]
+
+  - name: polymarket_wc2026_polygon_settlement_quality_issues
+    description: Detailed blocking structural errors and nonblocking settlement-coverage warnings.
+    config:
+      tags: [polygon_settlement]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [issue_key]
+    columns:
+      - name: issue_key
+        tests: [not_null, unique]
+      - name: severity
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [warn, error]
+      - name: issue_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [token_coverage, minute_coverage, derived_fills, pair_price, verification, spine, price, ohlc]
+      - name: issue_detail
+        tests: [not_null]
+      - name: observed_at
+        tests: [not_null]
+
+  - name: polymarket_wc2026_polygon_settlement_data_quality
+    description: One-row fail-closed manifest, scan, raw-fill, spine, and aggregate reconciliation summary.
+    config:
+      tags: [polygon_settlement]
+    columns:
+      - name: expected_games
+        tests: [not_null]
+      - name: expected_propositions
+        tests: [not_null]
+      - name: expected_tokens
+        tests: [not_null]
+      - name: expected_minute_rows
+        tests: [not_null]
+      - name: invalid_normalization_pair_grains
+        description: MINT/MERGE passive-event grains missing an exact, conserving base/derived pair.
+        tests: [not_null]
+      - name: target_exchange_count
+        description: Distinct fixed V2 exchanges represented by the published target ranges; must equal two.
+        tests: [not_null]
+      - name: blocking_issue_keys
+        description: Comma-separated hard invariant keys; null only for a complete publishable snapshot.
+      - name: publication_ready
+        tests: [not_null]
+
+  - name: int_polymarket_wc2026_polygon_settlement_publication_gate
+    description: One-row fail-closed gate that raises before an invalid public mart can materialize.
+    config:
+      tags: [polygon_settlement]
+    columns:
+      - name: publication_ready
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true]
+
+  - name: polymarket_wc2026_polygon_settlement_minute_odds
+    description: Published dense WC2026 Polygon settlement-time odds at proposition-minute grain.
+    config:
+      tags: [polygon_settlement]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [proposition_id, settlement_minute_epoch]
+    columns:
+      - name: fifa_match_id
+        tests: [not_null]
+      - name: stage
+        tests: [not_null]
+      - name: group_name
+        description: OpenFootball group label; null for knockout matches.
+      - name: home_team
+        tests: [not_null]
+      - name: away_team
+        tests: [not_null]
+      - name: proposition_id
+        tests: [not_null]
+      - name: proposition_type
+        tests: [not_null]
+      - name: yes_represents
+        tests: [not_null]
+      - name: no_represents
+        tests: [not_null]
+      - name: scheduled_kickoff_at_utc
+        tests: [not_null]
+      - name: analysis_window_start_at_utc
+        tests: [not_null]
+      - name: analysis_window_end_at_utc
+        tests: [not_null]
+      - name: settlement_minute_utc
+        tests: [not_null]
+      - name: elapsed_window_minute
+        tests: [not_null]
+      - name: yes_open
+        description: First normalized Yes leg in chain order for the settlement minute.
+      - name: yes_high
+        description: Highest normalized Yes price in the settlement minute.
+      - name: yes_low
+        description: Lowest normalized Yes price in the settlement minute.
+      - name: yes_close
+        description: Last normalized Yes leg in chain order for the settlement minute.
+      - name: yes_vwap
+        description: Yes gross collateral divided by Yes shares in the minute.
+      - name: yes_normalized_fill_count
+        tests: [not_null]
+      - name: yes_derived_fill_count
+        tests: [not_null]
+      - name: yes_share_volume
+        tests: [not_null]
+      - name: yes_gross_collateral_volume
+        tests: [not_null]
+      - name: yes_first_settlement_at_utc
+        description: Earliest block timestamp contributing to the Yes minute.
+      - name: yes_last_settlement_at_utc
+        description: Latest block timestamp contributing to the Yes minute.
+      - name: yes_observed
+        tests: [not_null]
+      - name: no_open
+        description: First normalized No leg in chain order for the settlement minute.
+      - name: no_high
+        description: Highest normalized No price in the settlement minute.
+      - name: no_low
+        description: Lowest normalized No price in the settlement minute.
+      - name: no_close
+        description: Last normalized No leg in chain order for the settlement minute.
+      - name: no_vwap
+        description: No gross collateral divided by No shares in the minute.
+      - name: no_normalized_fill_count
+        tests: [not_null]
+      - name: no_derived_fill_count
+        tests: [not_null]
+      - name: no_share_volume
+        tests: [not_null]
+      - name: no_gross_collateral_volume
+        tests: [not_null]
+      - name: no_first_settlement_at_utc
+        description: Earliest block timestamp contributing to the No minute.
+      - name: no_last_settlement_at_utc
+        description: Latest block timestamp contributing to the No minute.
+      - name: no_observed
+        tests: [not_null]
+      - name: minute_complete
+        tests: [not_null]
+      - name: minute_status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [both_observed, yes_only, no_only, no_fills]
+
+unit_tests:
+  - name: test_polygon_settlement_token_minute_uses_chain_order_and_vwap
+    model: int_polymarket_wc2026_polygon_settlement_token_minute_odds
+    given:
+      - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_runs')
+        rows:
+          - {scan_id: scan-a, status: published, raw_published: true, published_at: '2026-08-01 00:00:00'}
+      - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+        rows:
+          - {proposition_id: p1, condition_id: '0x01', yes_token_id: '1', no_token_id: '2', analysis_window_start_at_utc: '2026-06-11 12:00:00', analysis_window_end_at_utc: '2026-06-11 12:02:00'}
+          - {proposition_id: p2, condition_id: '0x02', yes_token_id: '3', no_token_id: '4', analysis_window_start_at_utc: '2026-06-11 12:00:00', analysis_window_end_at_utc: '2026-06-11 12:02:00'}
+      - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+        rows:
+          - {scan_id: scan-a, proposition_id: p1, condition_id: '0x01', token_id: '1', outcome_side: 'yes', block_timestamp: '2026-06-11 12:00:20', block_number: 10, transaction_index: 2, passive_log_index: 1, normalized_leg_ordinal: 0, price: 0.4, share_volume: 10, gross_collateral_volume: 4, is_derived: false}
+          - {scan_id: scan-a, proposition_id: p1, condition_id: '0x01', token_id: '1', outcome_side: 'yes', block_timestamp: '2026-06-11 12:00:10', block_number: 10, transaction_index: 1, passive_log_index: 3, normalized_leg_ordinal: 0, price: 0.6, share_volume: 10, gross_collateral_volume: 6, is_derived: true}
+          - {scan_id: scan-a, proposition_id: p1, condition_id: '0x01', token_id: '1', outcome_side: 'yes', block_timestamp: '2026-06-11 12:00:10', block_number: 10, transaction_index: 1, passive_log_index: 2, normalized_leg_ordinal: 0, price: 0.2, share_volume: 10, gross_collateral_volume: 2, is_derived: false}
+          - {scan_id: scan-a, proposition_id: p1, condition_id: '0x01', token_id: '1', outcome_side: 'yes', block_timestamp: '2026-06-11 12:02:00', block_number: 11, transaction_index: 0, passive_log_index: 1, normalized_leg_ordinal: 0, price: 0.9, share_volume: 10, gross_collateral_volume: 9, is_derived: false}
+          - {scan_id: old-scan, proposition_id: p1, condition_id: '0x01', token_id: '1', outcome_side: 'yes', block_timestamp: '2026-06-11 12:00:05', block_number: 9, transaction_index: 0, passive_log_index: 1, normalized_leg_ordinal: 0, price: 0.1, share_volume: 10, gross_collateral_volume: 1, is_derived: false}
+          - {scan_id: scan-a, proposition_id: p1, condition_id: '0x01', token_id: '2', outcome_side: 'no', block_timestamp: '2026-06-11 12:01:05', block_number: 12, transaction_index: 0, passive_log_index: 1, normalized_leg_ordinal: 0, price: 0.07, share_volume: 100, gross_collateral_volume: 7, is_derived: false}
+          - {scan_id: scan-a, proposition_id: p2, condition_id: '0x02', token_id: '3', outcome_side: 'yes', block_timestamp: '2026-06-11 12:01:10', block_number: 12, transaction_index: 0, passive_log_index: 2, normalized_leg_ordinal: 0, price: '0.333333333333333333', share_volume: 3, gross_collateral_volume: 1, is_derived: false}
+    expect:
+      rows:
+        - {proposition_id: p1, token_id: '1', outcome_side: 'yes', settlement_minute_utc: '2026-06-11 12:00:00', open_price: 0.2, high_price: 0.6, low_price: 0.2, close_price: 0.4, vwap: 0.4, normalized_fill_count: 3, derived_fill_count: 1, share_volume: 30, gross_collateral_volume: 12}
+        - {proposition_id: p1, token_id: '2', outcome_side: 'no', settlement_minute_utc: '2026-06-11 12:01:00', open_price: 0.07, high_price: 0.07, low_price: 0.07, close_price: 0.07, vwap: '0.070000000000000000', normalized_fill_count: 1, derived_fill_count: 0, share_volume: 100, gross_collateral_volume: 7}
+        - {proposition_id: p2, token_id: '3', outcome_side: 'yes', settlement_minute_utc: '2026-06-11 12:01:00', open_price: '0.333333333333333333', high_price: '0.333333333333333333', low_price: '0.333333333333333333', close_price: '0.333333333333333333', vwap: '0.333333333333333333', normalized_fill_count: 1, derived_fill_count: 0, share_volume: 3, gross_collateral_volume: 1}
+
+  - name: test_polygon_settlement_candidate_keeps_dense_half_open_minutes
+    model: int_polymarket_wc2026_polygon_settlement_minute_odds_candidate
+    given:
+      - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+        rows:
+          - {proposition_id: p1, fifa_match_id: 1, stage: group_stage, group_name: A, home_team: Alpha, away_team: Beta, proposition_type: home_win, yes_represents: Alpha wins, no_represents: Alpha does not win, scheduled_kickoff_at_utc: '2026-06-11 12:00:00', analysis_window_start_at_utc: '2026-06-11 12:00:00', analysis_window_end_at_utc: '2026-06-11 12:04:00', window_minutes: 4, condition_id: c1, yes_token_id: '1', no_token_id: '2', market_structure: standard, exchange_address: e1, manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, manifest_version: 1.0.0}
+      - input: ref('int_polymarket_wc2026_polygon_settlement_token_minute_odds')
+        rows:
+          - {proposition_id: p1, token_id: '1', settlement_minute_utc: '2026-06-11 12:00:00', open_price: 0.4, high_price: 0.4, low_price: 0.4, close_price: 0.4, vwap: 0.4, normalized_fill_count: 1, derived_fill_count: 0, share_volume: 10, gross_collateral_volume: 4, first_settlement_at_utc: '2026-06-11 12:00:10', last_settlement_at_utc: '2026-06-11 12:00:10'}
+          - {proposition_id: p1, token_id: '2', settlement_minute_utc: '2026-06-11 12:00:00', open_price: 0.6, high_price: 0.6, low_price: 0.6, close_price: 0.6, vwap: 0.6, normalized_fill_count: 1, derived_fill_count: 0, share_volume: 10, gross_collateral_volume: 6, first_settlement_at_utc: '2026-06-11 12:00:20', last_settlement_at_utc: '2026-06-11 12:00:20'}
+          - {proposition_id: p1, token_id: '1', settlement_minute_utc: '2026-06-11 12:01:00', open_price: 0.5, high_price: 0.5, low_price: 0.5, close_price: 0.5, vwap: 0.5, normalized_fill_count: 1, derived_fill_count: 0, share_volume: 10, gross_collateral_volume: 5, first_settlement_at_utc: '2026-06-11 12:01:10', last_settlement_at_utc: '2026-06-11 12:01:10'}
+          - {proposition_id: p1, token_id: '2', settlement_minute_utc: '2026-06-11 12:02:00', open_price: 0.7, high_price: 0.7, low_price: 0.7, close_price: 0.7, vwap: 0.7, normalized_fill_count: 1, derived_fill_count: 0, share_volume: 10, gross_collateral_volume: 7, first_settlement_at_utc: '2026-06-11 12:02:10', last_settlement_at_utc: '2026-06-11 12:02:10'}
+    expect:
+      rows:
+        - {proposition_id: p1, settlement_minute_utc: '2026-06-11 12:00:00', elapsed_window_minute: 0, yes_observed: true, no_observed: true, minute_complete: true, minute_status: both_observed, yes_normalized_fill_count: 1, no_normalized_fill_count: 1}
+        - {proposition_id: p1, settlement_minute_utc: '2026-06-11 12:01:00', elapsed_window_minute: 1, yes_observed: true, no_observed: false, minute_complete: false, minute_status: yes_only, yes_normalized_fill_count: 1, no_normalized_fill_count: 0}
+        - {proposition_id: p1, settlement_minute_utc: '2026-06-11 12:02:00', elapsed_window_minute: 2, yes_observed: false, no_observed: true, minute_complete: false, minute_status: no_only, yes_normalized_fill_count: 0, no_normalized_fill_count: 1}
+        - {proposition_id: p1, settlement_minute_utc: '2026-06-11 12:03:00', elapsed_window_minute: 3, yes_observed: false, no_observed: false, minute_complete: false, minute_status: no_fills, yes_normalized_fill_count: 0, no_normalized_fill_count: 0}
+
+  - name: test_polygon_settlement_empty_inputs_fail_closed
+    model: polymarket_wc2026_polygon_settlement_data_quality
+    given:
+      - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+        rows: []
+      - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_runs')
+        rows: []
+      - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks')
+        rows: []
+      - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+        rows: []
+      - input: ref('int_polymarket_wc2026_polygon_settlement_minute_odds_candidate')
+        rows: []
+      - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+        rows: []
+    expect:
+      rows:
+        - {seed_rows: 0, published_scan_count: 0, raw_fill_rows: 0, actual_minute_rows: 0, publication_ready: false, blocking_issue_keys: 'seed_inventory,seed_stage_distribution,seed_unique_ids,seed_evidence,scan_missing,scan_integrity,scan_chunks,raw_empty,minute_inventory'}
+
+  - name: test_polygon_settlement_coverage_warnings_are_nonblocking_categories
+    model: polymarket_wc2026_polygon_settlement_quality_issues
+    given:
+      - input: ref('stg_polymarket_wc2026_polygon_settlement_markets')
+        rows:
+          - {reviewed_at_utc: '2026-08-01 00:00:00'}
+      - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_runs')
+        rows:
+          - {scan_id: scan-a, status: published, raw_published: true, verification_status: not_requested, published_at: '2026-08-01 00:00:00', finished_at: '2026-08-01 00:00:00'}
+      - input: ref('polymarket_wc2026_polygon_settlement_token_coverage')
+        rows:
+          - {proposition_id: p1, fifa_match_id: 1, token_side: 'yes', token_id: '1', expected_minute_buckets: 150, observed_minute_buckets: 0, normalized_fill_count: 0, derived_fill_count: 0, minute_coverage_ratio: 0, has_any_fill: false}
+          - {proposition_id: p1, fifa_match_id: 1, token_side: 'no', token_id: '2', expected_minute_buckets: 150, observed_minute_buckets: 1, normalized_fill_count: 2, derived_fill_count: 1, minute_coverage_ratio: 0.0066666667, has_any_fill: true}
+          - {proposition_id: p2, fifa_match_id: 2, token_side: 'yes', token_id: '3', expected_minute_buckets: 150, observed_minute_buckets: 0, normalized_fill_count: 0, derived_fill_count: 0, minute_coverage_ratio: 0, has_any_fill: false}
+          - {proposition_id: p2, fifa_match_id: 2, token_side: 'no', token_id: '4', expected_minute_buckets: 150, observed_minute_buckets: 0, normalized_fill_count: 0, derived_fill_count: 0, minute_coverage_ratio: 0, has_any_fill: false}
+      - input: ref('int_polymarket_wc2026_polygon_settlement_minute_odds_candidate')
+        rows:
+          - {proposition_id: p3, fifa_match_id: 3, settlement_minute_epoch: 123, settlement_minute_utc: '2026-06-11 12:00:00', minute_complete: true, yes_close_price: 0.6, no_close_price: 0.6}
+    expect:
+      rows:
+        - {issue_key: 'token_no_fills:p1:yes', severity: warn, issue_type: token_coverage}
+        - {issue_key: 'sparse_minutes:p1:no', severity: warn, issue_type: minute_coverage}
+        - {issue_key: 'derived_fills:p1:no', severity: warn, issue_type: derived_fills}
+        - {issue_key: 'proposition_no_fills:p2', severity: warn, issue_type: token_coverage}
+        - {issue_key: 'token_no_fills:p2:yes', severity: warn, issue_type: token_coverage}
+        - {issue_key: 'token_no_fills:p2:no', severity: warn, issue_type: token_coverage}
+        - {issue_key: 'pair_price_deviation:p3:123', severity: warn, issue_type: pair_price}
+        - {issue_key: 'elapsed_axis:p3', severity: error, issue_type: spine}
+        - {issue_key: 'secondary_verification:scan-a', severity: warn, issue_type: verification}

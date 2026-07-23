@@ -154,6 +154,23 @@ seeds:
       +schema: polymarket_wc2026_staging
       +tags: ["staging", "wc2026", "polymarket"]
       +quote_columns: false
+    polymarket_wc2026_polygon_settlement_markets:
+      +schema: polymarket_wc2026_staging
+      +tags: ["staging", "wc2026", "polymarket", "polygon_settlement"]
+      +quote_columns: false
+      +column_types:
+        proposition_id: varchar
+        condition_id: varchar
+        yes_token_id: varchar
+        no_token_id: varchar
+        exchange_address: varchar
+        openfootball_revision: varchar
+        openfootball_line_hash: varchar
+        condition_init_tx_hash: varchar
+        question_init_tx_hash: varchar
+        ancillary_data_sha256: varchar
+        token_verification_block_hash: varchar
+        manifest_sha256: varchar
     polymarket_us_midterms_2026_contract:
       +schema: polymarket_us_midterms_2026_staging
       +tags: ["staging", "us_midterms_2026", "polymarket"]

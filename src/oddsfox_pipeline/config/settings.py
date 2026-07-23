@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+# Import warehouse first: it loads the repository .env before source modules read it.
+# isort: off
+import oddsfox_pipeline.config.settings_warehouse as _settings_warehouse
 import oddsfox_pipeline.config.settings_kalshi as _settings_kalshi
 import oddsfox_pipeline.config.settings_polymarket as _settings_polymarket
-import oddsfox_pipeline.config.settings_warehouse as _settings_warehouse
 from oddsfox_pipeline.config._env import (  # noqa: F401
     _env_bool,
     _env_date,
@@ -14,9 +16,10 @@ from oddsfox_pipeline.config._env import (  # noqa: F401
     _optional_env_int,
     _optional_env_str,
 )
+from oddsfox_pipeline.config.settings_warehouse import *  # noqa: F403
 from oddsfox_pipeline.config.settings_kalshi import *  # noqa: F403
 from oddsfox_pipeline.config.settings_polymarket import *  # noqa: F403
-from oddsfox_pipeline.config.settings_warehouse import *  # noqa: F403
+# isort: on
 
 __all__ = list(
     dict.fromkeys(

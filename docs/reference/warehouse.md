@@ -29,6 +29,14 @@ Schema: `polymarket_wc2026_raw`
   upstream-deleted observations disappear. Failed fetch or storage runs leave
   the prior snapshot unchanged. This table is isolated from `odds_history` and
   its sync ledger.
+- `polygon_settlement_fills`: the current canonical, sanitized Polygon V2
+  settlement snapshot. Grain is `(chain_id, exchange_address,
+  transaction_hash, passive_log_index, normalized_leg_ordinal)`. Rows retain
+  deterministic chain ordering, proposition/token orientation, exact source
+  integer amounts, decimal price/volume, normalization kind, and audit hashes.
+  They intentionally omit wallets, order hashes, signatures, raw topics/data,
+  calldata, oracle prose, and RPC URLs. A successful scan atomically replaces
+  the complete snapshot; a failed scan leaves the prior publication unchanged.
 - `token_odds_daily`: daily token aggregates rebuilt by custom SQL finalizers from
   canonical `odds_history`.
 
@@ -81,6 +89,19 @@ Schema: `polymarket_wc2026_ops`
   windows, status, row counts, deterministic history SHA-256, sanitized errors,
   and whether the complete run was atomically published. Rows are retained
   indefinitely; the unscheduled job adds 496 per run.
+- `polygon_settlement_scan_runs`: one row per deterministic scan identity,
+  including manifest/normalizer versions, finalized head, sanitized provider
+  label/origin, exact target ranges, publication status, and advisory secondary
+  verification state.
+- `polygon_settlement_scan_chunks`: resumable leaf-range evidence keyed by scan,
+  exchange, and inclusive block range. Successful chunks record boundary and
+  scoped-event hashes plus duration, HTTP/log/receipt/header call counts,
+  discovery filtering, receipt/log counts, retries, and adaptive splits. Counts
+  are non-identifying and internally reconciled; RPC errors are failures, never
+  empty results.
+- `polygon_settlement_fill_stage`: unpublished normalized legs for an in-flight
+  scan. It is cleared only through the transactional recovery/publication path
+  and is not an analyst surface.
 
 Schema: `kalshi_wc2026_ops`
 
@@ -181,6 +202,14 @@ Schema: `wc2026_marts`
 
 Schema: `polymarket_wc2026_marts`
 
+- `polymarket_wc2026_polygon_settlement_minute_odds`: exactly 39,120 dense rows
+  at `(proposition_id, settlement_minute_utc)`: 216 group propositions × 150
+  scheduled minutes and 32 knockout propositions × 210. Each oriented Yes/No
+  side exposes OHLC, share-weighted VWAP, normalized/derived economic-leg
+  counts, share/collateral volume, first/last finalized block timestamp, and an
+  observed flag. Empty minutes retain null prices/timestamps and zero
+  counts/volumes. The mart never forward-fills, interpolates, infers a
+  complement, normalizes pair sums, or adds match results.
 - `polymarket_wc2026_match_minute_odds`: dense, inclusive in-game UTC minute
   rows at `(odds_minute_utc, market_id)` for all 104 matches. It contains 216
   group moneyline markets and 32 knockout advance/win markets. Yes/No OHLC,
@@ -228,6 +257,17 @@ Schema: `kalshi_wc2026_marts`
 
 Schema: `polymarket_wc2026_observability`
 
+- `polymarket_wc2026_polygon_settlement_data_quality`: one-row publication gate
+  for the complete seed, current matching published scan, gap-free finalized
+  ranges, nonempty fills, valid normalization/price/volume/OHLC, exact 150/210
+  axes, and 39,120-row inventory.
+- `polymarket_wc2026_polygon_settlement_token_coverage`: one row for each of the
+  496 oriented tokens with expected/observed minutes, fill/derived counts,
+  volumes, timestamps, and coverage ratio.
+- `polymarket_wc2026_polygon_settlement_quality_issues`: current hard errors and
+  advisory warnings. No-fill/sparse sides, derived-fill prevalence, pair-price
+  deviations, and secondary-provider status are warnings and never modify
+  prices.
 - `polymarket_wc2026_match_minute_odds_data_quality`: expected-versus-mapped
   games, results provenance, markets, tokens, timing, audit status, minute rows,
   boundary/interior completeness, pair deviations, cadence, warning/error
@@ -295,6 +335,22 @@ The stage is loaded before a transaction replaces the canonical table and marks
 all matching fetch-audit rows published; either both changes commit or neither
 does.
 
+The Polygon settlement tables are custom transactional SQL, not dlt. Completed
+chunks and their scoped hashes are durable resume points. Publication first
+proves the finalized target ranges have no gaps or overlaps, then replaces
+`polygon_settlement_fills` and marks its scan published in one transaction.
+The committed market seed is the only runtime fixture/semantic dependency; this
+path does not read the Gamma/CLOB raw tables, international-results tables, or
+the runtime OpenFootball table.
+
+The v4 live-smoke warehouse is
+`.cache/polygon_settlement/benchmarks/v4/live_smoke.duckdb`. Atomic redacted
+progress snapshots are stored under `.cache/polygon_settlement/status/`; they
+contain aggregate rates and counts only, never endpoints, transactions,
+wallets, token IDs, or payloads. A compatible published scan validates its
+local provenance, exchange-specific coverage, and canonical fill count before
+returning offline.
+
 `polymarket_wc2026_raw.markets` is created by `polymarket_wc2026_raw_markets`.
 That asset performs the single Gamma market discovery pass and persists token
 mappings from the same payload after dlt market landing succeeds. The
@@ -310,6 +366,7 @@ DROP TABLE IF EXISTS polymarket_wc2026_raw.markets;
 
 Then materialize `polymarket_wc2026_raw_markets`.
 
-This release changes strict raw schemas for results provenance and the minute
-fetch audit. Reset an existing local warehouse (`rm oddsfox.duckdb*`) before
-rerunning the pipeline; no compatibility or migration path is provided.
+This release changes strict raw/ops schemas for results provenance, minute
+fetch audit, and Polygon settlement storage. Reset an existing local warehouse
+(`rm oddsfox.duckdb*`) before rerunning the pipeline; no compatibility or
+migration path is provided.

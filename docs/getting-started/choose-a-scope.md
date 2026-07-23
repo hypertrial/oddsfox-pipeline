@@ -10,6 +10,11 @@ scope selectors.
 | `polymarket:us_midterms_2026` | Polymarket Gamma/CLOB | Balance of Power, Senate control, and House control hourly odds | Optional for public flows |
 | `kalshi:wc2026` | Kalshi public trade API plus FIFA results | Stage-of-elimination and group-winner snapshots and hourly odds | None |
 
+The manual WC2026 Polygon settlement-history flow is not a fourth
+`run_scope.py` scope. It is an isolated historical backfill using the committed
+static manifest and a configured Polygon JSON-RPC, with its own unscheduled job
+and dbt tag. See [Run a scope](../guides/run-a-scope.md#run-the-isolated-polygon-settlement-history).
+
 ## Run a full scope
 
 === "Polymarket WC2026"

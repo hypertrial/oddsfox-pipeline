@@ -84,6 +84,78 @@ Then rerun the quickstart.
   ingestion run continued but the append-only telemetry event failed to land;
   inspect `pipeline_run_event_append_error` and rerun after fixing storage.
 
+## Polygon Settlement RPC Failures
+
+The manual Polygon flow requires both `POLYGON_RPC_URL` and
+`POLYGON_RPC_PROVIDER_LABEL`. The primary endpoint must report chain ID 137 and
+support the `finalized` block tag. Seed authoring additionally requires archive
+history for event-block verification.
+
+- A finality or chain preflight failure is terminal; use a compatible Polygon
+  endpoint rather than changing the fixed chain/finality contract.
+- Provider range-limit errors trigger adaptive chunk splitting. Other RPC
+  errors are never interpreted as an empty log range.
+- Runtime discovery requests only `OrdersMatched`, then expands seeded active
+  tokens through bounded JSON-RPC receipt and header batches. Exact authored
+  token/exchange/block bounds filter discoveries before receipts. Batch
+  responses may arrive out of order but missing, duplicate, malformed, null,
+  or errored items fail closed; only recognized provider size limits split.
+- Re-run `polymarket_wc2026_polygon_settlement_backfill` after a transient
+  failure. Successful leaf chunks for the same deterministic scan are reused;
+  the prior published fill snapshot remains intact until a complete scan commits.
+- Inspect `polymarket_wc2026_ops.polygon_settlement_scan_runs` and
+  `polymarket_wc2026_ops.polygon_settlement_scan_chunks`. These tables contain
+  only sanitized provider origins/labels and errors; do not paste full endpoint
+  URLs into logs or issue reports.
+
+`make polygon-settlement-live-smoke` preserves its disposable checkpoint unless
+`POLYGON_SETTLEMENT_LIVE_SMOKE_RESET=true` is supplied. Its runtime files are
+under `.cache/polygon_settlement/` on the same volume as the repository. If the
+repository is not on the intended SSD, move the checkout before running; the
+target intentionally does not hardcode a host-specific mount path.
+
+During a run, inspect the atomic JSON in `.cache/polygon_settlement/status/` for
+exchange/range progress, safe aggregate RPC/receipt/fill counts, and rates. The
+file deliberately omits endpoint, transaction, wallet, token, and payload data.
+A completed compatible v4 rerun is expected to return offline with no RPC
+credentials. Use `POLYGON_SETTLEMENT_LIVE_SMOKE_RESET=true` only to request a
+new scan intentionally.
+
+If a provider times out on the default initial 8,000-block log request, resume
+the same scan with a smaller starting leaf instead of resetting it:
+
+```bash
+POLYGON_SETTLEMENT_LIVE_SMOKE_INITIAL_BLOCK_CHUNK_SIZE=2000 \
+  uv run make polygon-settlement-live-smoke
+```
+
+Successful leaves remain reusable. A transport timeout still fails closed; it
+is not treated as an empty result or silently converted into a range split.
+
+If optional secondary verification is absent, mismatched, or unavailable, the
+release records a warning. It does not invalidate a primary finalized scan.
+
+## Polygon dbt Graph Is Missing
+
+`make dbt-build` intentionally excludes `tag:polygon_settlement`, so ordinary
+credential-free builds cannot publish from empty Polygon raw tables. Use:
+
+```bash
+uv run make dbt-polygon-settlement-ci
+```
+
+for replay-only fixture validation, or run the unscheduled Polygon backfill
+against a disposable/selected warehouse. The backfill's fail-closed gate
+requires the current seed-matched published scan, complete chunk coverage,
+nonempty fills, and exactly 39,120 mart rows.
+
+## Polygon Release Already Exists
+
+`make polygon-settlement-release` refuses to overwrite an existing dataset
+version. Choose a new SemVer only for an intentional dataset release; do not
+delete or replace an immutable version merely to rerun the command. There is no
+`latest` alias or Kaggle upload step.
+
 ## Large Warehouse File
 
 DuckDB files do not always shrink after rebuilds or deletes. Stop writers, then:

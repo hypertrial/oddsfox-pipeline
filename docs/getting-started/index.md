@@ -58,6 +58,12 @@ PY
 uv run make dbt-build
 ```
 
+The ordinary build intentionally excludes the manual
+`tag:polygon_settlement` graph, so no Polygon RPC configuration is needed for
+quickstart. Validate that graph offline with
+`uv run make dbt-polygon-settlement-ci`; run its live backfill only when you
+explicitly want the historical settlement dataset.
+
 ## Run the first pipeline
 
 Run the fixed WC2026 pipeline from discovery through dbt:

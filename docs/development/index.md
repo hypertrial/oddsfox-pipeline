@@ -75,6 +75,12 @@ and fails unless the quality model reports exactly 104 games, 248 markets (216
 group and 32 knockout), 496 tokens, one valid results revision/hash, 496
 successful published fetch audits, zero structural issue rows, and no blocking
 issue. Warning counts are intentionally not pinned.
+`dbt-polygon-settlement-ci` is the network-free gate for the isolated Polygon
+graph: it creates complete synthetic seed/scan/chunk/fill fixtures, runs only
+`tag:polygon_settlement`, and asserts the exact 39,120-row mart. The ordinary
+`dbt-build` excludes that tag. `polygon-settlement-live-smoke` is separately
+opt-in and requires a finalized-capable Polygon RPC; neither Polygon job has a
+schedule.
 
 Dagster dbt assets enable dbt source tests as asset checks. Row-count and
 column metadata fetching is available through `DbtBuildConfig` but stays
@@ -165,11 +171,14 @@ when settings reload from disk. See
 | `uv run make coverage-report` | Coverage report gate (`--fail-under=100`). |
 | `uv run make check-secrets` | Repo policy check for tracked secret leakage. |
 | `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
+| `uv run make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement graph against replay fixtures. |
 | `uv run make gx-data-quality` | Great Expectations-style report against an existing disposable dbt build. |
 | `uv run make data-quality` | Safe local wrapper that rebuilds disposable dbt state before `gx-data-quality`. |
 | `uv run make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate. |
 | `uv run make live-smoke` | Opt-in live WC2026 cross-platform pipeline. |
 | `uv run make match-minute-live-smoke` | Opt-in disposable live acceptance check for the 104-game Polymarket minute mart. |
+| `uv run make polygon-settlement-live-smoke` | Opt-in finalized Polygon backfill against a disposable warehouse. |
+| `uv run make polygon-settlement-seed-validate` | Validate the reviewed 248-proposition static manifest. |
 | `uv run make costguard-scan` | Run the pinned dbt cost guardrail against an existing dbt build. |
 | `uv run make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard. |
 | `uv run make coverage` | Local one-shot 100% product-core branch coverage gate. |

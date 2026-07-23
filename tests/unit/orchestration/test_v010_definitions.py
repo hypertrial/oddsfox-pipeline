@@ -8,11 +8,13 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
+    polymarket_wc2026_polygon_settlement_backfill_run_config,
     wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.jobs import (
     POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION,
+    POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_SELECTION,
     _merge_run_configs,
 )
 from oddsfox_pipeline.orchestration.schedules import (
@@ -72,6 +74,8 @@ def test_definitions_expose_v010_jobs_only():
         "polymarket_wc2026_hourly_odds_ingest",
         "polymarket_wc2026_market_registry_refresh",
         "polymarket_wc2026_match_minute_odds_backfill",
+        "polymarket_wc2026_polygon_settlement_backfill",
+        "polymarket_wc2026_polygon_settlement_release",
         "polymarket_wc2026_dbt_build",
         "polymarket_wc2026_full_pipeline",
         "wc2026_knockout_match_odds_full_pipeline",
@@ -149,6 +153,8 @@ def test_definitions_expose_v010_asset_keys():
         ("polymarket", "wc2026", "ops", "market_scope_registry"),
         ("polymarket", "wc2026", "raw", "market_metadata_backfill"),
         ("polymarket", "wc2026", "raw", "token_odds_history_hourly"),
+        ("polymarket", "wc2026", "raw", "polygon_settlement_fills"),
+        ("polymarket", "wc2026", "release", "polygon_settlement_odds_bundle"),
         ("polymarket", "wc2026", "staging", "markets"),
         ("polymarket", "wc2026", "staging", "market_tokens"),
         ("polymarket", "wc2026", "staging", "odds"),
@@ -249,6 +255,51 @@ def test_match_minute_dbt_selection_does_not_leak_sibling_model_checks():
     assert {check.asset_key for check in selected_checks} <= selected_assets
 
 
+def test_polygon_settlement_jobs_are_isolated_and_unscheduled():
+    config = polymarket_wc2026_polygon_settlement_backfill_run_config()["ops"]
+    assert set(config) == {
+        "polymarket_wc2026_raw_polygon_settlement_fills",
+        "oddsfox_dbt",
+    }
+    assert config["oddsfox_dbt"]["config"]["dbt_select"] == (
+        "+polymarket_wc2026_polygon_settlement_minute_odds"
+    )
+
+    backfill = defs.resolve_job_def("polymarket_wc2026_polygon_settlement_backfill")
+    selected = backfill.asset_layer.selected_asset_keys
+    assert (
+        AssetKey(["polymarket", "wc2026", "raw", "polygon_settlement_fills"])
+        in selected
+    )
+    assert (
+        AssetKey(["polymarket", "wc2026", "marts", "polygon_settlement_minute_odds"])
+        in selected
+    )
+    assert AssetKey(["polymarket", "wc2026", "raw", "markets"]) not in selected
+
+    release = defs.resolve_job_def("polymarket_wc2026_polygon_settlement_release")
+    assert release.asset_layer.selected_asset_keys == {
+        AssetKey(["polymarket", "wc2026", "release", "polygon_settlement_odds_bundle"])
+    }
+    assert all(
+        "polygon_settlement" not in schedule.job_name for schedule in defs.schedules
+    )
+
+    graph = defs.resolve_asset_graph()
+    dbt_assets = POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_SELECTION.resolve(graph)
+    dbt_checks = POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_SELECTION.resolve_checks(
+        graph
+    )
+    assert dbt_checks
+    assert {check.asset_key for check in dbt_checks} <= dbt_assets
+
+    ordinary = defs.resolve_job_def("polymarket_wc2026_dbt_build")
+    assert all(
+        "polygon_settlement" not in key.path[-1]
+        for key in ordinary.asset_layer.selected_asset_keys
+    )
+
+
 def test_polymarket_source_dagster_asset_keys_exist_in_definitions():
     source_paths = _polymarket_sources_paths()
     yaml_asset_keys = set()
@@ -333,7 +384,7 @@ def test_combined_schedule_is_atomic_stopped_and_uses_unfiltered_prices():
     dbt_config = run_config["ops"]["oddsfox_dbt"]["config"]
     assert dbt_config["full_refresh"] is False
     assert dbt_config["dbt_select"] == "+tag:cross_domain"
-    assert dbt_config["dbt_exclude"] is None
+    assert dbt_config["dbt_exclude"] == "tag:polygon_settlement"
 
 
 def test_combined_hourly_schedule_can_be_enabled(monkeypatch):

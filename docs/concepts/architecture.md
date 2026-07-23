@@ -18,6 +18,12 @@ publishes local marts, and Dagster orchestrates the steps. Operators own the
 resulting data in a local or self-managed warehouse; OddsFox Pipeline does not host a
 shared dataset.
 
+The WC2026 Polygon settlement flow is deliberately source-specific rather than
+part of that generic API shape. A reviewed static manifest supplies fixture,
+proposition, and token semantics; finalized Polygon V2 logs supply historical
+economic settlement legs. It has no runtime Gamma/CLOB, Polymarket UI,
+international-results, or OpenFootball dependency.
+
 ## System Flow
 
 Current WC2026 implementation:
@@ -28,27 +34,33 @@ flowchart LR
     clob["Prediction-market odds API<br/>Polymarket CLOB in v0.1.x"] --> odds["Python odds sync"]
     kalshi_api["Prediction-market metadata/odds API<br/>Kalshi trade API in v0.1.x"] --> kalshi_sync["Python candlestick sync"]
     results["Public football CSV/TXT feeds"] --> result_sync["Python CSV sync"]
+    seed["Reviewed Polygon WC2026 seed"] --> polygon_sync["Finalized Polygon V2 log sync"]
+    polygon_rpc["Polygon JSON-RPC"] --> polygon_sync
     private["Private canonical Parquet snapshots"] --> validate["oddsfox.raw.v1 validation"]
     dlt --> raw["DuckDB raw schema"]
     odds --> raw
     kalshi_sync --> raw
     result_sync --> raw
+    polygon_sync --> raw
     validate --> raw
     raw --> ops["DuckDB ops ledgers"]
     raw --> dbt["dbt models"]
     ops --> dbt
     dbt --> marts["WC2026 knockout odds marts"]
+    marts --> bundle["Immutable sanitized CSV bundle"]
     dagster["Dagster jobs and schedules"] --> dlt
     dagster --> odds
     dagster --> kalshi_sync
     dagster --> result_sync
+    dagster --> polygon_sync
     dagster --> dbt
 ```
 
 Text fallback: prediction-market metadata/odds APIs and the FIFA results CSV
 feed DuckDB raw and ops schemas. Dagster runs the ingest and dbt steps. dbt
 publishes local analytics marts for WC2026 knockout odds, Kalshi stage and
-group-winner odds, team scope, and ingestion observability.
+group-winner odds, Polygon settlement history, team scope, and ingestion
+observability. The CSV bundle is local-only; no orchestration asset uploads it.
 
 The shipped Dagster/dbt graphs are fixed per scope (`wc2026`,
 `us_midterms_2026`); see [Configuration](../reference/configuration.md) for the seed-backed
@@ -63,6 +75,7 @@ helper boundary.
 | Python CSV sync | Loads public WC2026 and 2006+ historical international-result feeds. |
 | Canonical snapshot loader | Validates hashes, schemas, provenance, ordering, and transactional exactly-once loads for optional private enrichments. |
 | Python odds sync | Fetches odds, writes token history, and maintains ledgers. |
+| Polygon settlement sync | Scans finalized V2 logs in resumable block chunks, normalizes exact economic legs, and atomically publishes a sanitized snapshot. |
 | DuckDB | Stores raw, ops, staging, intermediate, mart, and observability schemas. |
 | dbt | Builds analytics models and data-contract tests. |
 
@@ -120,6 +133,28 @@ builds stage and group-winner market marts plus hourly odds, coverage, and data
 quality observability. Kalshi uses the public trade API; no credentials are
 required for local runs.
 
+### Polygon settlement WC2026
+
+The developer authoring tool derives a 248-proposition manifest from pinned CC0
+OpenFootball fixtures and audited Polygon event chains, then writes candidate
+evidence only below ignored `artifacts/`. The runtime backfill validates the
+committed seed, resolves fixed scheduled windows once, merges them by authored
+V2 exchange, and transactionally publishes normalized legs after gap-free
+exchange-specific coverage. The collector first scans the pinned V2 `OrdersMatched`
+event, whose active token is guaranteed by the audited exchange implementation
+to identify every same-condition segment, then batch-fetches only the matching
+transaction receipts and finalized block headers. Complete receipt segments are
+validated and normalized in memory; unrelated exchange-wide `OrderFilled`
+payload is never landed. Complete leaves run concurrently with thread-local RPC
+clients and one shared limiter; only the main thread writes Arrow batches and
+checkpoint evidence to DuckDB. dbt produces the dense 39,120-row
+proposition-minute mart.
+
+The release step reads that valid mart and emits a sanitized immutable SemVer
+bundle. It exposes aggregates and authored semantics but omits participant and
+transaction-level identifiers. De-identification reduces direct exposure; it
+does not prevent reverse-linking sparse aggregates to the public chain.
+
 ## Operating Model
 
 - `polymarket_wc2026_full_pipeline` is the one-click full manual WC2026 pipeline.
@@ -137,6 +172,9 @@ required for local runs.
   inside the combined job config).
 - `kalshi_wc2026_hourly_odds_ingest` refreshes hourly Kalshi candlesticks for
   admitted registry markets.
+- `polymarket_wc2026_polygon_settlement_backfill` and
+  `polymarket_wc2026_polygon_settlement_release` are isolated manual jobs with
+  no schedules. The release never uploads to Kaggle.
 - Schedules are stopped by default and should stay off until manual runs pass.
 - DuckDB allows one read-write writer, so scripts provide read-only inspection
   and repair paths for local operators.

@@ -69,7 +69,10 @@ integration-dagster`, `make integration-dbt`, `make data-quality`, and `make
 coverage` still work.
 
 `dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
-running dbt build. `gx-data-quality` checks that existing disposable database
+running the ordinary dbt graph, which excludes `tag:polygon_settlement`.
+`dbt-polygon-settlement-ci` separately builds that graph against complete
+synthetic replay fixtures and asserts the 39,120-row mart contract.
+`gx-data-quality` checks the ordinary disposable database
 so data-quality validation does not rebuild dbt. `contract-http` is replay-only
 and part of both gates, while the default `make test` still excludes
 the `contract` marker. `live-smoke` is local-only and runs the public-source
@@ -103,10 +106,16 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make coverage-report` | Coverage report gate (`--fail-under=100`) |
 | `make check-secrets` | Repo policy check for tracked secret leakage |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
+| `make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement graph against replay fixtures |
 | `make gx-data-quality` | Great Expectations data-quality report against an existing disposable dbt build |
 | `make data-quality` | Safe local wrapper that rebuilds disposable dbt state before `gx-data-quality` |
 | `make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate |
 | `make live-smoke` | Opt-in live WC2026 cross-platform pipeline against the configured warehouse |
+| `make polygon-settlement-live-smoke` | Opt-in finalized Polygon settlement backfill against a disposable warehouse |
+| `make polygon-settlement-benchmark` | Exact optional v3/v4 fill+mart comparison; requires two completed warehouses |
+| `make polygon-settlement-seed-candidate` | Author an evidence-backed candidate below ignored `artifacts/`; never promotes the dbt seed |
+| `make polygon-settlement-seed-validate` | Validate the complete committed 248-proposition Polygon seed |
+| `make polygon-settlement-release` | Build an immutable local CSV bundle; never uploads to Kaggle |
 | `make costguard-scan` | Run the dbt cost guardrail against an existing dbt build |
 | `make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard |
 | `make dagster-dev` | Local Dagster UI |
@@ -173,29 +182,33 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 4. `polymarket/wc2026/raw/market_metadata_backfill`
 5. `polymarket/wc2026/raw/token_odds_history_hourly`
 6. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
-7. `polymarket/us_midterms_2026/raw/markets`
-8. `polymarket/us_midterms_2026/raw/markets_snapshot`
-9. `polymarket/us_midterms_2026/ops/market_scope_registry`
-10. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
-11. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
-12. `international_results/historical/raw/snapshot`
-13. `international_results/wc2026/raw/match_results`
-14. `openfootball/wc2026/raw/knockout_fixtures`
-15. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
-16. `kalshi/wc2026/raw/markets`
-17. `kalshi/wc2026/raw/markets_snapshot`
-18. `kalshi/wc2026/ops/market_scope_registry`
-19. `kalshi/wc2026/raw/market_candlesticks_hourly`
-20. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+7. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
+8. `polymarket/us_midterms_2026/raw/markets`
+9. `polymarket/us_midterms_2026/raw/markets_snapshot`
+10. `polymarket/us_midterms_2026/ops/market_scope_registry`
+11. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
+12. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
+13. `international_results/historical/raw/snapshot`
+14. `international_results/wc2026/raw/match_results`
+15. `openfootball/wc2026/raw/knockout_fixtures`
+16. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
+17. `kalshi/wc2026/raw/markets`
+18. `kalshi/wc2026/raw/markets_snapshot`
+19. `kalshi/wc2026/ops/market_scope_registry`
+20. `kalshi/wc2026/raw/market_candlesticks_hourly`
+21. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
    `polymarket/us_midterms_2026/{staging,intermediate,marts,observability}/...`,
    `international_results/wc2026/{staging,intermediate,marts,observability}/...`,
    `kalshi/wc2026/{staging,intermediate,marts,observability}/...`,
    `openfootball/wc2026/staging/...`, and `wc2026/{intermediate,marts,observability}/...`
+22. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable local release only)
 
 Key jobs: `international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`,
 `polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
 `polymarket_wc2026_match_minute_odds_backfill`,
+`polymarket_wc2026_polygon_settlement_backfill`,
+`polymarket_wc2026_polygon_settlement_release`,
 `polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`,
 `polymarket_us_midterms_2026_market_registry_refresh`,
 `polymarket_us_midterms_2026_hourly_odds_ingest`,
@@ -211,6 +224,8 @@ Schedules target `polymarket_wc2026_hourly_odds_ingest`,
 The daily `international_results_daily_schedule` is also stopped by default.
 The combined `wc2026_knockout_match_odds_hourly_schedule` targets the atomic
 cross-platform full pipeline and is also stopped by default.
+The Polygon settlement backfill and release jobs are unscheduled and have no
+schedule-enable environment flags.
 Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 
 **Market scope:** v0.1.x ships fixed Dagster/dbt graphs for `wc2026` and
@@ -226,6 +241,13 @@ Dagster asset configs do not accept a runtime scope selector. See
 no API credentials are required for local docs, dbt, or mocked tests.
 
 DuckDB is local-only runtime state. For read-only inspection prefer `scripts/profile_warehouse.py` over opening the warehouse read-write.
+
+**Polygon settlement isolation:** this historical flow uses the committed
+`polymarket_wc2026_polygon_settlement_markets.csv` seed and finalized Polygon V2
+logs. It must not call Gamma, CLOB, the Polymarket UI, international-results, or
+OpenFootball at runtime. Never log or persist RPC URLs, wallet addresses, order
+hashes, signatures, raw topics/data, calldata, or oracle prose. The optional
+second RPC is advisory only. No job uploads a release to Kaggle.
 
 ## Do not
 

@@ -111,3 +111,29 @@ class APIClient:
         response = self.session.get(url, params=params, headers=headers, **kwargs)
         response.raise_for_status()
         return response.json()
+
+    def _post_response(self, endpoint: str, **kwargs):
+        self._wait_for_rate_limit()
+        url = (
+            f"{self.base_url}{endpoint}"
+            if self.base_url and not endpoint.startswith("http")
+            else endpoint
+        )
+        headers = kwargs.pop("headers", {})
+        if "timeout" not in kwargs and self.request_timeout is not None:
+            kwargs["timeout"] = self.request_timeout
+        response = self.session.post(url, headers=headers, **kwargs)
+        response.raise_for_status()
+        return response
+
+    def post(self, endpoint: str, **kwargs):
+        """POST JSON (or other requests-compatible content) with shared controls."""
+        response = self._post_response(endpoint, **kwargs)
+        return response.json()
+
+    def post_with_metrics(self, endpoint: str, **kwargs):
+        """POST JSON and expose urllib3's completed HTTP retry history."""
+        response = self._post_response(endpoint, **kwargs)
+        retry_state = getattr(getattr(response, "raw", None), "retries", None)
+        retry_count = len(getattr(retry_state, "history", ()))
+        return response.json(), retry_count + 1, retry_count

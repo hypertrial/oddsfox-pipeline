@@ -162,6 +162,7 @@ Schema: `polymarket_wc2026_marts`
 | `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
 | `polymarket_wc2026_graph_token_hourly_odds` | One row per `(market_id, clob_token_id, odds_hour_epoch)` | Graph-build export with both Yes and No tokens per real-team knockout market plus dbt-clean stage/team/progression semantics. |
 | `polymarket_wc2026_match_minute_odds` | One row per `(odds_minute_utc, market_id)` | Dense in-game minute OHLC for 216 group moneyline markets and 32 knockout advance/win markets across FIFA match IDs 1–104. |
+| `polymarket_wc2026_polygon_settlement_minute_odds` | One row per `(proposition_id, settlement_minute_utc)` | Finalized Polygon V2 settlement-time OHLC/VWAP over fixed half-open scheduled windows; exactly 39,120 dense rows. |
 
 The match-minute contract contains 248 markets and 496 source tokens. Group
 rows preserve each binary market's literal Yes and No tokens for `home_win`,
@@ -213,6 +214,110 @@ per-token in-game histories validate. It also refreshes and validates the latest
 keeps 496 append-only token audit rows; a successful run publishes one exact raw
 snapshot, while failed runs preserve the prior raw and public tables. The job has
 no schedule.
+
+### Polygon settlement minute odds
+
+`polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds` is a
+parallel historical contract at one row per `(proposition_id,
+settlement_minute_utc)`. It does not replace or alias the Gamma/CLOB match-minute
+mart.
+
+The inventory is fixed and dense:
+
+- 216 group propositions × the half-open scheduled window
+  `[kickoff, kickoff + 150 minutes)` = 32,400 rows;
+- 32 knockout propositions × `[kickoff, kickoff + 210 minutes)` = 6,720 rows;
+- 248 propositions, 496 oriented tokens, 104 FIFA match IDs, and exactly 39,120
+  mart rows.
+
+Runtime identity and semantics come exclusively from the committed,
+independently authored Polygon market seed. Group propositions are `home_win`,
+`draw`, and `away_win`; matches 73–102 are `home_advances`, match 103 is
+`home_win_third_place`, and match 104 is `home_wins_final`. The seed pins the
+CC0 OpenFootball revision, source lines/hashes, on-chain question/condition
+locators, ancillary-data hash, verified token orientation, exchange, manifest
+version, and review time. The backfill does not call Gamma, CLOB, the
+Polymarket UI, OpenFootball, international-results, or FotMob.
+
+The independent fixture vocabulary is not a CLOB-mart join key. For the current
+manifests, all 248 conditions and oriented Yes/No token pairs reconcile across
+the two flows, but FIFA matches 51, 53, and 59 use the opposite home/away display
+order and aliases such as `USA`/`United States` and
+`Bosnia & Herzegovina`/`Bosnia and Herzegovina` also differ. Cross-flow analysis
+must join on `condition_id` and the oriented token IDs, then use
+`yes_represents`/`no_represents` for meaning. Do not join on raw team strings or
+`(fifa_match_id, proposition_type)`, because `home_win` and `away_win` can swap
+when independently sourced fixture orientation differs.
+
+Correcting the committed market seed requires all four release-governance
+steps: regenerate and review the supporting evidence, refresh the relevant
+automated tests, add a repository `CHANGELOG.md` entry, and publish the corrected
+dataset under a new SemVer. An existing dataset version is never amended in
+place.
+
+For each Yes and No side the mart exposes chain-ordered open/high/low/close,
+VWAP (`sum(gross_collateral) / sum(shares)`), normalized and derived economic-leg
+counts, share and gross-collateral volume, first/last settlement timestamp, and
+an observed flag. `minute_status` is `both_observed`, `yes_only`, `no_only`, or
+`no_fills`. Empty minutes retain null prices and timestamps with zero counts and
+volumes. Prices are never forward-filled, interpolated, pair-normalized, or
+inferred as complements.
+
+These times are finalized Polygon event-block timestamps. They are not order
+matching times, quotes, order-book snapshots, or CLOB price history. A
+normalized economic leg is not necessarily one unique user trade. Complementary
+MINT/MERGE legs are included, explicitly flagged, and counted separately. Fees
+are neither subtracted nor published. For mixed MINT/MERGE settlement, V2 emits
+the active order's requested maker-asset fill before refunding any unused active
+collateral (BUY) or shares (SELL). The normalizer reconciles the received asset
+exactly, requires passive legs to consume no more than the active maker asset,
+and excludes that non-trade refund surplus from fill rows and public outputs.
+
+Publication fails closed for seed/inventory errors, a missing or stale published
+scan, target ranges that do not represent both fixed V2 exchanges,
+incomplete/overlapping finalized coverage, an empty canonical scan, invalid or
+duplicate normalized fills, invalid price/volume/OHLC, a broken 150/210-minute
+axis, or any row count other than 39,120. Whole propositions or token sides
+without fills, sparse minutes, derived-fill prevalence, Yes/No pair deviations,
+missing/disagreeing secondary RPC verification, and advisory rights review are
+warnings only.
+
+### Immutable CSV release and privacy
+
+`polymarket_wc2026_polygon_settlement_release` reads an already valid mart and
+writes a new SemVer directory below
+`artifacts/kaggle/polymarket_wc2026_polygon_settlement_odds/releases/`. Existing
+versions are never overwritten and there is no mutable `latest` alias, Kaggle
+account metadata, upload credential, or upload action.
+
+Each release contains
+`wc2026_polygon_settlement_minute_odds.csv`,
+`wc2026_polygon_settlement_markets.csv`, `schema.json`, `README.md`,
+`SOURCES.csv`, `PROVENANCE.json`, `QUALITY_REPORT.json`, `LICENSE.txt`,
+`NOTICE.md`, `CHANGELOG.md`, and `CHECKSUMS.sha256`. It intentionally omits
+`dataset-metadata.json`.
+
+The main `wc2026_polygon_settlement_minute_odds.csv` repeats only dataset version
+and stable proposition identity for provenance. It omits condition/token and
+exchange identifiers (available in the market sidecar), as well as wallets,
+transaction/log/block IDs, provider fields, raw amounts, order hashes,
+signatures, raw event payloads, Gamma/CLOB fields, source question prose, and
+pair diagnostics. This is de-identified data, not anonymous data: a sparse
+aggregate over a public ledger can be reverse-linked to source transactions by
+time, amount, and price.
+
+The bundle's CC BY 4.0 notice applies only to the publisher's protectable
+selection, arrangement, schema, annotations, transformations, and
+documentation. It disclaims ownership of underlying blockchain facts and
+third-party marks and reproduces the exact pinned OpenFootball `LICENSE.md`
+CC0 notice (SHA-256
+`36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673`) in
+`NOTICE.md`. `PROVENANCE.json`, `SOURCES.csv`, and `NOTICE.md` record the
+sanitized primary RPC terms URL and optional snapshot hash/time, or explicitly
+state `not_reviewed`/`unavailable`. The bundle also includes
+no-affiliation/trademark and supplied Polymarket-terms caveats. Rights review
+is advisory and does not make the technical generator a legal clearance
+process.
 
 Schema: `international_results_wc2026_marts`
 

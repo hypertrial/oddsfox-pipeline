@@ -1,0 +1,30 @@
+{{ config(tags=['polygon_settlement']) }}
+
+select  -- noqa: ST06
+    cast(scan_id as varchar) as scan_id,
+    lower(cast(exchange_address as varchar)) as exchange_address,
+    cast(from_block as bigint) as from_block,
+    cast(to_block as bigint) as to_block,
+    lower(cast(from_block_hash as varchar)) as from_block_hash,
+    lower(cast(to_block_hash as varchar)) as to_block_hash,
+    lower(cast(status as varchar)) as status,
+    cast(event_count as bigint) as event_count,
+    cast(scoped_event_count as bigint) as scoped_event_count,
+    cast(normalized_fill_count as bigint) as normalized_fill_count,
+    lower(cast(scoped_event_sha256 as varchar)) as scoped_event_sha256,
+    cast(duration_ms as bigint) as duration_ms,
+    cast(http_request_count as bigint) as http_request_count,
+    cast(log_rpc_call_count as bigint) as log_rpc_call_count,
+    cast(receipt_rpc_call_count as bigint) as receipt_rpc_call_count,
+    cast(header_rpc_call_count as bigint) as header_rpc_call_count,
+    cast(discovery_count as bigint) as discovery_count,
+    cast(eligible_discovery_count as bigint) as eligible_discovery_count,
+    cast(filtered_discovery_count as bigint) as filtered_discovery_count,
+    cast(receipt_transaction_count as bigint) as receipt_transaction_count,
+    cast(receipt_log_count as bigint) as receipt_log_count,
+    cast(retry_count as bigint) as retry_count,
+    cast(adaptive_split_count as bigint) as adaptive_split_count,
+    cast(completed_at as timestamp) as completed_at,
+    cast(error_type as varchar) as error_type,
+    cast(error_message as varchar) as error_message
+from {{ source('polymarket_wc2026_ops', 'polygon_settlement_scan_chunks') }}

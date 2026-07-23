@@ -90,6 +90,41 @@ def active_duckdb_path() -> Path:
     return _ACTIVE_DUCKDB_PATH or _sync_active_duckdb_path()
 
 
+def assert_disposable_duckdb_path(expected_path: str | Path) -> Path:
+    """Fail unless the active warehouse is the named repo-local disposable DB."""
+    raw_expected = str(expected_path).strip()
+    if not raw_expected:
+        raise ValueError("expected disposable DuckDB path must not be blank")
+
+    base_dir = Path(_settings.BASE_DIR).resolve()
+    cache_dir = (base_dir / ".cache").resolve()
+    expected = Path(raw_expected).expanduser()
+    if not expected.is_absolute():
+        expected = base_dir / expected
+    expected = expected.resolve()
+
+    try:
+        relative_path = expected.relative_to(cache_dir)
+    except ValueError as exc:
+        raise RuntimeError(
+            "refusing non-disposable DuckDB path; expected path must be under "
+            f"{cache_dir}"
+        ) from exc
+    if relative_path == Path(".") or expected.suffix != ".duckdb":
+        raise RuntimeError(
+            "refusing non-disposable DuckDB path; expected path must name a "
+            f".duckdb file under {cache_dir}"
+        )
+
+    active = _sync_active_duckdb_path().resolve()
+    if active != expected:
+        raise RuntimeError(
+            "refusing DuckDB path mismatch: active warehouse is "
+            f"{active}, expected disposable warehouse is {expected}"
+        )
+    return expected
+
+
 def _connect_duckdb(
     path: Optional[Path] = None, *, read_only: bool = False
 ) -> duckdb.DuckDBPyConnection:
@@ -99,7 +134,7 @@ def _connect_duckdb(
 
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        return duckdb.connect(str(path), read_only=read_only)
+        return _open_duckdb(path, read_only=read_only)
     except duckdb.IOException as exc:
         if os.getenv("PYTEST_CURRENT_TEST") and is_duckdb_lock_io_error(exc):
             worker = os.getenv("PYTEST_XDIST_WORKER", "gw0")
@@ -117,7 +152,7 @@ def _connect_duckdb(
                 )
                 _ACTIVE_DUCKDB_PATH = alt_path
                 try:
-                    return duckdb.connect(str(_ACTIVE_DUCKDB_PATH))
+                    return _open_duckdb(_ACTIVE_DUCKDB_PATH)
                 except duckdb.IOException as retry_exc:
                     if not is_duckdb_lock_io_error(retry_exc):
                         raise
@@ -129,6 +164,19 @@ def is_duckdb_lock_io_error(exc: BaseException) -> bool:
         return False
     msg = str(exc).lower()
     return "conflicting lock" in msg or "could not set lock" in msg
+
+
+def _open_duckdb(path: Path, *, read_only: bool = False) -> duckdb.DuckDBPyConnection:
+    extension_directory = os.getenv("DUCKDB_EXTENSION_DIRECTORY", "").strip()
+    if not extension_directory:
+        return duckdb.connect(str(path), read_only=read_only)
+    resolved_extension_directory = Path(extension_directory).expanduser().resolve()
+    resolved_extension_directory.mkdir(parents=True, exist_ok=True)
+    return duckdb.connect(
+        str(path),
+        read_only=read_only,
+        config={"extension_directory": str(resolved_extension_directory)},
+    )
 
 
 def open_duckdb_connection(
@@ -148,7 +196,7 @@ def open_writable_duckdb_connection(
     path.parent.mkdir(parents=True, exist_ok=True)
     for attempt in range(attempts):  # pragma: no branch
         try:
-            return duckdb.connect(str(path))
+            return _open_duckdb(path)
         except duckdb.IOException as exc:
             if not is_duckdb_lock_io_error(exc) or attempt == attempts - 1:
                 raise

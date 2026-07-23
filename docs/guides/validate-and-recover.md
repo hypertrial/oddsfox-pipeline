@@ -19,9 +19,13 @@ uv run make dbt-unit
 uv run make golden-dbt
 uv run make dbt-source-freshness-ci
 uv run make data-quality
+uv run make dbt-polygon-settlement-ci
 ```
 
-These checks use disposable DuckDB state. `contract-http` is replay-only and
+These checks use disposable DuckDB state. The Polygon target synthesizes a
+complete published scan/fill/chunk fixture, builds only
+`tag:polygon_settlement`, and asserts the exact 39,120-row dense mart without
+network access. `contract-http` is replay-only and
 manual or nightly; it is not part of the default deterministic gate.
 
 ## Inspect a warehouse safely
@@ -42,6 +46,12 @@ For current analysis, inspect the matching `*_data_quality` and
 - Re-run `kalshi_wc2026_hourly_odds_ingest` for Kalshi candlestick gaps.
 - Re-run `international_results_wc2026_match_results_ingest` after fixture or
   score updates.
+- Re-run `polymarket_wc2026_polygon_settlement_backfill` after a transient RPC
+  or chunk failure. It resumes compatible successful gaps and preserves the
+  previous canonical snapshot until atomic publication. Adjacent successful
+  leaves are coalesced for gap planning, boundary headers are batch-revalidated,
+  and only uncovered exchange-specific ranges are scheduled. A valid published
+  v4 scan short-circuits locally without RPC credentials.
 - Run the matching `*_dbt_build` after repairing raw or ops tables.
 - Use `make prune-odds-history` to prune WC2026 raw odds; preview the script with
   `--dry-run` before changing retention.

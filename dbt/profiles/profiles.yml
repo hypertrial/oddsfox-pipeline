@@ -11,3 +11,5 @@ oddsfox:
       path: "{{ env_var('DUCKDB_PATH', 'oddsfox.duckdb') }}"
       schema: dbt
       threads: 4
+      settings:
+        extension_directory: "{{ env_var('DUCKDB_EXTENSION_DIRECTORY', '.cache/duckdb/extensions') }}"

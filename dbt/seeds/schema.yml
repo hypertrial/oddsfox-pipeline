@@ -26,6 +26,56 @@ seeds:
         description: Warning threshold for raw Round-of-32 market coverage above the knockout volume floor.
         tests: [not_null]
 
+  - name: polymarket_wc2026_polygon_settlement_markets
+    description: >
+      Independently authored WC2026 proposition manifest for Polygon settlement
+      analytics. Its semantic evidence and CC0 fixture provenance do not depend
+      on Gamma, CLOB, or Polymarket UI metadata.
+    config:
+      tags: [polygon_settlement]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [proposition_id]
+    columns:
+      - name: proposition_id
+        tests: [not_null, unique]
+      - name: fifa_match_id
+        tests: [not_null]
+      - name: stage
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [group_stage, round_of_32, round_of_16, quarterfinal, semifinal, third_place, final]
+      - name: proposition_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [home_win, draw, away_win, home_advances, home_win_third_place, home_wins_final]
+      - name: condition_id
+        tests: [not_null, unique]
+      - name: yes_token_id
+        tests: [not_null, unique]
+      - name: no_token_id
+        tests: [not_null, unique]
+      - name: market_structure
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [standard, neg_risk]
+      - name: exchange_address
+        tests: [not_null]
+      - name: manifest_sha256
+        description: Canonical logical-content hash repeated on every reviewed manifest row.
+        tests: [not_null]
+      - name: manifest_version
+        tests: [not_null]
+      - name: reviewed_at_utc
+        tests: [not_null]
+
   - name: polymarket_us_midterms_2026_contract
     description: Internal US midterms 2026 contract constants shared by dbt models/tests.
     columns:

@@ -22,6 +22,10 @@ from oddsfox_pipeline.orchestration.scope_registry import (
     POLYMARKET_US_MIDTERMS_2026_SCOPE,
     POLYMARKET_WC2026_SCOPE,
 )
+from oddsfox_pipeline.publishing.polygon_settlement import (
+    DEFAULT_POLYGON_SETTLEMENT_RELEASE_ROOT,
+    PolygonSettlementBundleSpec,
+)
 
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_PAGES = 20_000
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_NO_PROGRESS_PAGES = 25
@@ -196,6 +200,48 @@ class MatchMinuteOddsSyncConfig(GuardrailConfig):
     transient_backoff_seconds: float = Field(default=0.25, ge=0)
 
 
+class PolygonSettlementSyncConfig(GuardrailConfig):
+    requests_per_second: float = Field(default=5.0, gt=0)
+    workers: int = Field(default=5, ge=1)
+    initial_block_chunk_size: int = Field(default=8_000, ge=250, le=20_000)
+    initial_receipt_batch_size: int = Field(default=20, ge=5, le=50)
+    transient_retries: int = Field(default=4, ge=0)
+    transient_backoff_seconds: float = Field(default=0.5, ge=0)
+    expected_duckdb_path: str | None = None
+
+
+class PolygonSettlementReleaseConfig(Config):
+    dataset_version: str
+    publisher_name: str
+    attribution_url: str | None = None
+    rights_review_status: Literal["not_reviewed", "reviewed", "cleared"] = (
+        "not_reviewed"
+    )
+    rpc_provider_terms_url: str | None = None
+    rpc_provider_terms_snapshot_sha256: str | None = None
+    rpc_provider_terms_snapshot_at_utc: str | None = None
+    output_root: str = str(DEFAULT_POLYGON_SETTLEMENT_RELEASE_ROOT)
+
+    @model_validator(mode="after")
+    def _validate_release(self) -> "PolygonSettlementReleaseConfig":
+        PolygonSettlementBundleSpec(
+            dataset_version=self.dataset_version,
+            publisher_name=self.publisher_name,
+            attribution_url=self.attribution_url,
+            rights_review_status=self.rights_review_status,
+            rpc_provider_terms_url=self.rpc_provider_terms_url,
+            rpc_provider_terms_snapshot_sha256=(
+                self.rpc_provider_terms_snapshot_sha256
+            ),
+            rpc_provider_terms_snapshot_at_utc=(
+                self.rpc_provider_terms_snapshot_at_utc
+            ),
+        )
+        if not self.output_root.strip():
+            raise ValueError("output_root must not be blank")
+        return self
+
+
 class DbtBuildConfig(GuardrailConfig):
     progress_log_interval_events: int = Field(default=20, ge=1)
     no_progress_hard_timeout_seconds: int | None = Field(
@@ -204,8 +250,9 @@ class DbtBuildConfig(GuardrailConfig):
     )
     full_refresh: bool = False
     dbt_select: str | None = None
-    dbt_exclude: str | None = None
+    dbt_exclude: str | None = "tag:polygon_settlement"
     fetch_dbt_metadata: bool = False
+    expected_duckdb_path: str | None = None
 
 
 def polymarket_us_midterms_2026_full_refresh_events_run_config() -> dict:
@@ -340,6 +387,68 @@ def polymarket_wc2026_match_minute_odds_run_config() -> dict:
                 "config": MatchMinuteOddsSyncConfig().model_dump()
             },
             "oddsfox_dbt": {"config": dbt.model_dump()},
+        }
+    }
+
+
+def polymarket_wc2026_polygon_settlement_backfill_run_config(
+    *,
+    expected_duckdb_path: str | None = None,
+    requests_per_second: float = 5.0,
+    workers: int = 5,
+    initial_block_chunk_size: int = 8_000,
+    initial_receipt_batch_size: int = 20,
+) -> dict:
+    dbt = DbtBuildConfig(
+        full_refresh=False,
+        dbt_select="+polymarket_wc2026_polygon_settlement_minute_odds",
+        dbt_exclude=None,
+        expected_duckdb_path=expected_duckdb_path,
+    )
+    return {
+        "ops": {
+            "polymarket_wc2026_raw_polygon_settlement_fills": {
+                "config": PolygonSettlementSyncConfig(
+                    expected_duckdb_path=expected_duckdb_path,
+                    requests_per_second=requests_per_second,
+                    workers=workers,
+                    initial_block_chunk_size=initial_block_chunk_size,
+                    initial_receipt_batch_size=initial_receipt_batch_size,
+                ).model_dump()
+            },
+            "oddsfox_dbt": {"config": dbt.model_dump()},
+        }
+    }
+
+
+def polymarket_wc2026_polygon_settlement_release_run_config(
+    *,
+    dataset_version: str,
+    publisher_name: str,
+    attribution_url: str | None = None,
+    rights_review_status: Literal["not_reviewed", "reviewed", "cleared"] = (
+        "not_reviewed"
+    ),
+    rpc_provider_terms_url: str | None = None,
+    rpc_provider_terms_snapshot_sha256: str | None = None,
+    rpc_provider_terms_snapshot_at_utc: str | None = None,
+    output_root: str = str(DEFAULT_POLYGON_SETTLEMENT_RELEASE_ROOT),
+) -> dict:
+    release = PolygonSettlementReleaseConfig(
+        dataset_version=dataset_version,
+        publisher_name=publisher_name,
+        attribution_url=attribution_url,
+        rights_review_status=rights_review_status,
+        rpc_provider_terms_url=rpc_provider_terms_url,
+        rpc_provider_terms_snapshot_sha256=rpc_provider_terms_snapshot_sha256,
+        rpc_provider_terms_snapshot_at_utc=rpc_provider_terms_snapshot_at_utc,
+        output_root=output_root,
+    )
+    return {
+        "ops": {
+            "polymarket_wc2026_release_polygon_settlement_odds_bundle": {
+                "config": release.model_dump()
+            }
         }
     }
 

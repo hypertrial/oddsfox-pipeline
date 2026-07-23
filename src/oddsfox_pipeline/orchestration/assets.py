@@ -11,6 +11,10 @@ from oddsfox_pipeline.orchestration.assets_kalshi_wc2026 import (
 from oddsfox_pipeline.orchestration.assets_openfootball import (
     openfootball_wc2026_raw_knockout_fixtures,
 )
+from oddsfox_pipeline.orchestration.assets_polygon_settlement import (
+    polymarket_wc2026_raw_polygon_settlement_fills,
+    polymarket_wc2026_release_polygon_settlement_odds_bundle,
+)
 from oddsfox_pipeline.orchestration.assets_polymarket import (
     oddsfox_dbt,
     polymarket_wc2026_ops_market_scope_registry,
@@ -55,7 +59,9 @@ __all__ = [
     "polymarket_wc2026_raw_markets",
     "polymarket_wc2026_raw_markets_snapshot",
     "polymarket_wc2026_raw_match_token_odds_history_minute",
+    "polymarket_wc2026_raw_polygon_settlement_fills",
     "polymarket_wc2026_raw_token_odds_history_hourly",
+    "polymarket_wc2026_release_polygon_settlement_odds_bundle",
     "polymarket_wc2026_ops_market_scope_registry",
     "prepare_dbt_project",
 ]

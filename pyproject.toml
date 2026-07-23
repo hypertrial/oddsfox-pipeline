@@ -25,6 +25,9 @@ dependencies = [
   "tqdm>=4.68.4",
 ]
 
+[tool.uv]
+cache-dir = ".cache/uv"
+
 [project.optional-dependencies]
 dev = [
   "dagster-dg-cli>=1.13.0",
@@ -106,6 +109,7 @@ dialect = "duckdb"
 templater = "dbt"
 max_line_length = 130
 max_parse_depth = 1024
+large_file_skip_byte_limit = 0
 
 [tool.sqlfluff.templater.dbt]
 project_dir = "dbt"

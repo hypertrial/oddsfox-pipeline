@@ -76,6 +76,7 @@ running Dagster/dbt writer.
 | Goal | Start Here | Notes |
 | --- | --- | --- |
 | Current WC2026 Polymarket progression prices | `polymarket_wc2026_marts.polymarket_wc2026_knockout_markets` | Filter to `is_actionable_live_market` for current live use. |
+| WC2026 finalized Polygon settlement minutes | `polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds` | Fixed 150/210-minute scheduled windows; empty sides remain null, and fill counts are normalized economic legs. |
 | WC2026 Polymarket progression hourly series | `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` | One row per `clob_token_id`, `odds_hour_epoch`. Prices are normalized to progression. |
 | WC2026 graph or both-token analysis | `polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds` | Keeps Yes and No tokens with `is_progression_token`. |
 | WC2026 fixtures and results | `international_results_wc2026_marts.international_results_wc2026_matches` | One row per match, with knockout advancer inference. |
@@ -104,6 +105,8 @@ Useful observability tables:
 | --- | --- | --- |
 | Polymarket WC2026 | `polymarket_wc2026_observability.polymarket_wc2026_knockout_data_quality` | Source anomalies, sparse coverage, stale or missing live odds. |
 | Polymarket WC2026 | `polymarket_wc2026_observability.polymarket_wc2026_sync_run_observability` | Ingestion run telemetry and request counts. |
+| Polygon settlement WC2026 | `polymarket_wc2026_observability.polymarket_wc2026_polygon_settlement_data_quality` | Published scan/seed match, finalized chunk coverage, exact dense inventory, and hard publication state. |
+| Polygon settlement WC2026 | `polymarket_wc2026_observability.polymarket_wc2026_polygon_settlement_quality_issues` | Sparse/no-fill, derived-leg, pair-deviation, secondary-RPC, and structural findings. |
 | Kalshi WC2026 | `kalshi_wc2026_observability.kalshi_wc2026_data_quality` | Stage/group-winner stale or missing live odds and coverage findings. |
 | Kalshi WC2026 | `kalshi_wc2026_observability.kalshi_wc2026_sync_run_observability` | Kalshi ingestion telemetry. |
 | US midterms 2026 | `polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_sync_run_observability` | Midterms ingestion telemetry. |

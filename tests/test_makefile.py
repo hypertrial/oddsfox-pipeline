@@ -81,3 +81,35 @@ def test_ci_split_targets_remain_wired():
     assert live_smoke_config.count("window_hours: 24") == 2
     assert live_smoke_config.count("history_backfill_days: 0") == 2
     assert "min_volume: 5000.0" in live_smoke_config
+
+
+def test_polygon_settlement_live_smoke_is_fail_closed_to_disposable_database():
+    proc = subprocess.run(
+        ["make", "-n", "polygon-settlement-live-smoke"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    recipe = proc.stdout
+    runtime = REPO_ROOT / ".cache" / "polygon_settlement"
+    expected = runtime / "benchmarks" / "v4" / "live_smoke.duckdb"
+
+    assert f'cd "{runtime}" &&' in recipe
+    assert f'DUCKDB_NAME="{expected}"' in recipe
+    assert f'DUCKDB_PATH="{expected}"' in recipe
+    assert f'TMPDIR="{runtime}/tmp"' in recipe
+    assert f'XDG_CACHE_HOME="{runtime}/xdg"' in recipe
+    assert f'UV_CACHE_DIR="{REPO_ROOT}/.cache/uv"' in recipe
+    assert f'DUCKDB_EXTENSION_DIRECTORY="{runtime}/duckdb-extensions"' in recipe
+    assert f'DAGSTER_HOME="{runtime}/dagster"' in recipe
+    assert f'DBT_TARGET_PATH="{runtime}/dbt-target"' in recipe
+    assert f'DBT_LOG_PATH="{runtime}/dbt-logs"' in recipe
+    assert 'test "false" = "true"' in recipe
+    assert "execute_in_process" in recipe
+    assert "assert_disposable_duckdb_path(expected)" in recipe
+    assert "config = run_config(expected_duckdb_path=expected" in recipe
+    assert 'POLYGON_SETTLEMENT_LIVE_SMOKE_REQUESTS_PER_SECOND="5"' in recipe
+    assert 'POLYGON_SETTLEMENT_LIVE_SMOKE_WORKERS="5"' in recipe
+    assert 'POLYGON_SETTLEMENT_LIVE_SMOKE_INITIAL_BLOCK_CHUNK_SIZE="8000"' in recipe
+    assert 'POLYGON_SETTLEMENT_LIVE_SMOKE_INITIAL_RECEIPT_BATCH_SIZE="20"' in recipe

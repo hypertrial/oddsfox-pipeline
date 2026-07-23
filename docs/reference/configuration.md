@@ -45,6 +45,51 @@ The `international_results` CSV refresh uses the shared HTTP timeout settings
 and has no source-specific env override. The OpenFootball fixture refresh uses
 the same timeout settings and a fixed public source URL.
 
+## WC2026 Polygon settlement history
+
+The independent Polygon flow has no schedule and does not reuse Gamma/CLOB
+configuration.
+
+- `POLYGON_RPC_URL` (required for live backfill and seed authoring): Polygon
+  JSON-RPC endpoint. It must support chain ID 137 and the `finalized` block tag.
+  Seed authoring additionally needs archive-capable historical event-block
+  calls.
+- `POLYGON_RPC_PROVIDER_LABEL` (required with the primary URL): non-secret
+  provider/plan label stored in provenance.
+- `POLYGON_VERIFY_RPC_URL` (optional): independent Polygon endpoint used only
+  during release verification.
+- `POLYGON_VERIFY_RPC_PROVIDER_LABEL` (required when the verification URL is
+  set): non-secret second-provider label.
+
+Full endpoint values can contain credentials. They are validated before use but
+are never logged or persisted; only the label and sanitized HTTPS origin enter
+the local audit tables. The default Dagster run config uses five requests per
+second, five complete-leaf workers, 8,000-block initial chunks, 20-receipt
+initial batches, and four transient retries. Typed one-off run config may
+override those four tuning values. Log chunks adapt within 250–20,000 blocks
+and receipt batches within 5–50 transactions. Polygon chain ID 137, finalized
+head semantics, contract addresses, event layouts, window lengths, and the
+`polygon-v2-settlement-v4` normalizer are code-fixed invariants. There are no
+tuning env vars for this flow.
+
+All Polygon live-smoke runtime state is rooted below the repository's
+`.cache/polygon_settlement/`: the v4 warehouse under `benchmarks/v4/`, Dagster
+state, dbt target/logs, temp/XDG/Python caches, DuckDB extensions, and redacted
+checkpoint status. Place the repository on the intended SSD before running.
+
+Missing, disagreeing, or failed secondary verification is reported as an
+advisory warning and does not block a technically valid bundle. An invalid or
+non-finalized primary scan fails closed.
+
+The release config accepts optional `rpc_provider_terms_url`,
+`rpc_provider_terms_snapshot_sha256`, and
+`rpc_provider_terms_snapshot_at_utc` fields. The URL must be public HTTPS
+without credentials, query, or fragment; snapshot hash and UTC capture time
+must be supplied together. Release provenance derives one evidence state:
+`unavailable` when no URL was supplied, `not_reviewed` for a URL without an
+immutable snapshot, or `snapshotted` when all three fields are present. This
+records source evidence and does not claim legal review.
+
 ## Polymarket scopes
 
 | Preset | Focus |
@@ -132,6 +177,11 @@ The old minutely-oriented names are not accepted in v0.1.x.
   hourly `wc2026_knockout_match_odds_full_pipeline` schedule.
 
 All schedule flags default to `false`.
+
+`polymarket_wc2026_polygon_settlement_backfill` and
+`polymarket_wc2026_polygon_settlement_release` are manual-only jobs. They have
+no schedule or enable flag, and the release job writes only a local immutable
+bundle—it never uploads to Kaggle.
 
 The neutral `wc2026_*` schemas are a breaking local warehouse layout change.
 v0.1.x has no compatibility aliases or migration path; delete
