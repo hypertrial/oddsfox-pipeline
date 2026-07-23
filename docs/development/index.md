@@ -53,9 +53,9 @@ deterministic temp resources, mocked external APIs, and no `dagster-dev`
 server. `integration-dagster` includes that check plus deeper seeded Dagster
 smokes. `coverage` enforces 100% branch coverage for product-core package code;
 warehouse profiling helpers are smoke-tested instead. GitHub Actions uses one
-runner for less than five cumulative minutes and runs a compact offline gate:
-lint, fast tests, saved HTTP contracts, dbt parse, and a strict docs build.
-Run the complete gate locally before a release.
+runner with an eight-minute safety timeout and runs a compact offline gate: lint,
+fast tests, saved HTTP contracts, dbt parse, and a strict docs build. Run the
+complete gate locally before a release.
 
 The deterministic trust checks are separate from live ingestion. `dbt-unit`
 exercises high-risk SQL branches with dbt unit tests, `golden-dbt` compares
