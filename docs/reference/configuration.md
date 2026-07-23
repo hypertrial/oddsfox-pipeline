@@ -78,17 +78,15 @@ state, dbt target/logs, temp/XDG/Python caches, DuckDB extensions, and redacted
 checkpoint status. Place the repository on the intended SSD before running.
 
 Missing, disagreeing, or failed secondary verification is reported as an
-advisory warning and does not block a technically valid bundle. An invalid or
-non-finalized primary scan fails closed.
+advisory warning and does not block a technically valid audit release. An
+invalid or non-finalized primary scan fails closed.
 
-The release config accepts optional `rpc_provider_terms_url`,
-`rpc_provider_terms_snapshot_sha256`, and
-`rpc_provider_terms_snapshot_at_utc` fields. The URL must be public HTTPS
-without credentials, query, or fragment; snapshot hash and UTC capture time
-must be supplied together. Release provenance derives one evidence state:
-`unavailable` when no URL was supplied, `not_reviewed` for a URL without an
-immutable snapshot, or `snapshotted` when all three fields are present. This
-records source evidence and does not claim legal review.
+`POLYGON_DATASET_VERSION` selects the immutable audit/export version for the
+manual Make targets. `POLYGON_AUDIT_OUTPUT_ROOT` defaults to
+`artifacts/polygon_settlement/audit`; the sanitized exporter defaults to
+`artifacts/polygon_settlement/exports`. These paths contain local artifacts and
+are ignored by Git. The software accepts no publisher, dataset-licence,
+legal-review, provider-terms, distribution, or upload configuration.
 
 ## Polymarket scopes
 
@@ -181,7 +179,8 @@ All schedule flags default to `false`.
 `polymarket_wc2026_polygon_settlement_backfill` and
 `polymarket_wc2026_polygon_settlement_release` are manual-only jobs. They have
 no schedule or enable flag, and the release job writes only a local immutable
-bundle—it never uploads to Kaggle.
+internal audit bundle. The sanitized exporter is standalone and unscheduled;
+neither path uploads or distributes data.
 
 The neutral `wc2026_*` schemas are a breaking local warehouse layout change.
 v0.1.x has no compatibility aliases or migration path; delete

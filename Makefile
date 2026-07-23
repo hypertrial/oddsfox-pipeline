@@ -1,4 +1,4 @@
-.PHONY: ci-fast release-gate release-gate-core container-smoke container-smoke-run dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt gx-data-quality data-quality contract-http live-smoke match-minute-live-smoke polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
+.PHONY: ci-fast release-gate release-gate-core container-smoke container-smoke-run dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt gx-data-quality data-quality contract-http live-smoke match-minute-live-smoke polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-secrets compact-warehouse prune-odds-history
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -39,13 +39,8 @@ POLYGON_SEED_MANIFEST_VERSION ?=
 POLYGON_SEED_REVIEWED_AT ?=
 POLYGON_SEED_OUTPUT_DIR ?= artifacts/polygon_settlement_seed_candidates/$(POLYGON_SEED_MANIFEST_VERSION)
 POLYGON_DATASET_VERSION ?=
-POLYGON_PUBLISHER_NAME ?=
-POLYGON_ATTRIBUTION_URL ?=
-POLYGON_RIGHTS_REVIEW_STATUS ?= not_reviewed
-POLYGON_RPC_PROVIDER_TERMS_URL ?=
-POLYGON_RPC_PROVIDER_TERMS_SNAPSHOT_SHA256 ?=
-POLYGON_RPC_PROVIDER_TERMS_SNAPSHOT_AT_UTC ?=
-POLYGON_RELEASE_OUTPUT_ROOT ?= artifacts/kaggle/polymarket_wc2026_polygon_settlement_odds
+POLYGON_AUDIT_OUTPUT_ROOT ?= artifacts/polygon_settlement/audit
+POLYGON_EXPORT_OUTPUT_ROOT ?= artifacts/polygon_settlement/exports
 PYTEST_FAST_MARKERS := not integration and not performance and not slow and not repo_check and not contract
 PYTEST_COVERAGE_MARKERS := not performance and not slow and not repo_check and not contract
 COV_APPEND_ARGS := --cov=oddsfox_pipeline --cov-branch --cov-append
@@ -176,12 +171,15 @@ polygon-settlement-seed-candidate: polygon-runtime-dirs
 	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" scripts/generate_polymarket_wc2026_polygon_settlement_seed.py --manifest-version "$(POLYGON_SEED_MANIFEST_VERSION)" --reviewed-at "$(POLYGON_SEED_REVIEWED_AT)" --output-dir "$(POLYGON_SEED_OUTPUT_DIR)"
 
 polygon-settlement-seed-validate: polygon-runtime-dirs
-	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" -c "from oddsfox_pipeline.ingestion.polymarket.polygon_seed import load_polygon_market_seed; manifest = load_polygon_market_seed(); print(f'{len(manifest.markets)} propositions, version {manifest.version}, sha256 {manifest.sha256}')"
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" -c "from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import load_polygon_resolution_attestation; from oddsfox_pipeline.ingestion.polymarket.polygon_seed import load_polygon_market_seed; manifest = load_polygon_market_seed(); attestation = load_polygon_resolution_attestation(manifest=manifest); print(f'{len(manifest.markets)} propositions, {attestation.resolved_condition_count} resolved, version {manifest.version}, sha256 {manifest.sha256}')"
 
 polygon-settlement-release: polygon-runtime-dirs
 	@test -n "$(POLYGON_DATASET_VERSION)" || (echo "POLYGON_DATASET_VERSION is required" >&2; exit 2)
-	@test -n "$(POLYGON_PUBLISHER_NAME)" || (echo "POLYGON_PUBLISHER_NAME is required" >&2; exit 2)
-	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" scripts/build_polymarket_wc2026_polygon_settlement_release.py --dataset-version "$(POLYGON_DATASET_VERSION)" --publisher-name "$(POLYGON_PUBLISHER_NAME)" --rights-review-status "$(POLYGON_RIGHTS_REVIEW_STATUS)" --output-root "$(POLYGON_RELEASE_OUTPUT_ROOT)" $(if $(POLYGON_ATTRIBUTION_URL),--attribution-url "$(POLYGON_ATTRIBUTION_URL)",) $(if $(POLYGON_RPC_PROVIDER_TERMS_URL),--rpc-provider-terms-url "$(POLYGON_RPC_PROVIDER_TERMS_URL)",) $(if $(POLYGON_RPC_PROVIDER_TERMS_SNAPSHOT_SHA256),--rpc-provider-terms-snapshot-sha256 "$(POLYGON_RPC_PROVIDER_TERMS_SNAPSHOT_SHA256)",) $(if $(POLYGON_RPC_PROVIDER_TERMS_SNAPSHOT_AT_UTC),--rpc-provider-terms-snapshot-at-utc "$(POLYGON_RPC_PROVIDER_TERMS_SNAPSHOT_AT_UTC)",)
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" scripts/build_polymarket_wc2026_polygon_settlement_release.py --dataset-version "$(POLYGON_DATASET_VERSION)" --output-root "$(POLYGON_AUDIT_OUTPUT_ROOT)"
+
+polygon-settlement-export:
+	@test -n "$(POLYGON_DATASET_VERSION)" || (echo "POLYGON_DATASET_VERSION is required" >&2; exit 2)
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_polymarket_wc2026_polygon_settlement_minute_odds.py --audit-release "$(POLYGON_AUDIT_OUTPUT_ROOT)/releases/$(POLYGON_DATASET_VERSION)" --output-root "$(POLYGON_EXPORT_OUTPUT_ROOT)"
 
 costguard-scan:
 	$(RUN_IN_REPO) cd dbt && "$(COSTGUARD)" scan

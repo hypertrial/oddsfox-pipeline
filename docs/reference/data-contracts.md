@@ -85,6 +85,10 @@ unless the required contract version and readiness row both pass.
 
 ## Public Marts
 
+“Public” here means a supported warehouse query contract. It does not mean that
+every relation is sanitized or intended for external distribution; the Polygon
+settlement mart has a separate allowlisted exporter.
+
 Schema: `wc2026_marts`
 
 | Relation | Grain | Contract |
@@ -239,6 +243,15 @@ locators, ancillary-data hash, verified token orientation, exchange, manifest
 version, and review time. The backfill does not call Gamma, CLOB, the
 Polymarket UI, OpenFootball, international-results, or FotMob.
 
+The reviewed
+`config/polygon-settlement-resolution-attestation.yml` binds manifest SHA-256
+`4cad46ebe278b0e3beb2f6b9aa4046223285f0a9b976d5390b98c4096de3bdac`
+to 248 resolved conditions verified at `2026-07-22T11:02:27Z`, with authoring
+evidence SHA-256
+`b7152ba41a882e81cd8677ebd1cea622ebd7087ae7d76ca3c225d75c6aea24ee`.
+Audit release and sanitized-export validation read only this committed
+attestation; the authoring tool writes new evidence as an ignored candidate.
+
 The independent fixture vocabulary is not a CLOB-mart join key. For the current
 manifests, all 248 conditions and oriented Yes/No token pairs reconcile across
 the two flows, but FIFA matches 51, 53, and 59 use the opposite home/away display
@@ -273,51 +286,86 @@ collateral (BUY) or shares (SELL). The normalizer reconciles the received asset
 exactly, requires passive legs to consume no more than the active maker asset,
 and excludes that non-trade refund surplus from fill rows and public outputs.
 
-Publication fails closed for seed/inventory errors, a missing or stale published
-scan, target ranges that do not represent both fixed V2 exchanges,
+Mart materialization fails closed for seed/inventory errors, a missing or stale
+published scan, target ranges that do not represent both fixed V2 exchanges,
 incomplete/overlapping finalized coverage, an empty canonical scan, invalid or
 duplicate normalized fills, invalid price/volume/OHLC, a broken 150/210-minute
 axis, or any row count other than 39,120. Whole propositions or token sides
 without fills, sparse minutes, derived-fill prevalence, Yes/No pair deviations,
-missing/disagreeing secondary RPC verification, and advisory rights review are
-warnings only.
+and missing/disagreeing secondary RPC verification are technical warnings only.
 
-### Immutable CSV release and privacy
+The mart is an internal audit surface, not a sanitized export. In addition to
+the fields described above it contains these eight audit-only columns:
+`settlement_minute_epoch`, `condition_id`, `yes_token_id`, `no_token_id`,
+`market_structure`, `exchange_address`, `manifest_sha256`, and
+`manifest_version`. Never publish a direct mart export.
+
+### Internal audit release and sanitized technical export
 
 `polymarket_wc2026_polygon_settlement_release` reads an already valid mart and
-writes a new SemVer directory below
-`artifacts/kaggle/polymarket_wc2026_polygon_settlement_odds/releases/`. Existing
-versions are never overwritten and there is no mutable `latest` alias, Kaggle
-account metadata, upload credential, or upload action.
+writes a new immutable SemVer audit directory below
+`artifacts/polygon_settlement/audit/releases/`. Existing versions are never
+overwritten and there is no mutable `latest` alias. The audit release contains:
 
-Each release contains
-`wc2026_polygon_settlement_minute_odds.csv`,
-`wc2026_polygon_settlement_markets.csv`, `schema.json`, `README.md`,
-`SOURCES.csv`, `PROVENANCE.json`, `QUALITY_REPORT.json`, `LICENSE.txt`,
-`NOTICE.md`, `CHANGELOG.md`, and `CHECKSUMS.sha256`. It intentionally omits
-`dataset-metadata.json`.
+- `wc2026_polygon_settlement_minute_odds.csv`
+- `wc2026_polygon_settlement_markets.csv`
+- `schema.json`
+- `README.md`
+- `SOURCES.csv`
+- `PROVENANCE.json`
+- `QUALITY_REPORT.json`
+- `CHANGELOG.md`
+- `DO_NOT_PUBLISH.md`
+- `CHECKSUMS.sha256`
 
-The main `wc2026_polygon_settlement_minute_odds.csv` repeats only dataset version
-and stable proposition identity for provenance. It omits condition/token and
-exchange identifiers (available in the market sidecar), as well as wallets,
-transaction/log/block IDs, provider fields, raw amounts, order hashes,
-signatures, raw event payloads, Gamma/CLOB fields, source question prose, and
-pair diagnostics. This is de-identified data, not anonymous data: a sparse
-aggregate over a public ledger can be reverse-linked to source transactions by
-time, amount, and price.
+The market sidecar, full provenance, and issue-level quality report deliberately
+retain identifiers and locators needed for internal verification. The audit
+directory is not sanitized and must not be distributed as a dataset.
 
-The bundle's CC BY 4.0 notice applies only to the publisher's protectable
-selection, arrangement, schema, annotations, transformations, and
-documentation. It disclaims ownership of underlying blockchain facts and
-third-party marks and reproduces the exact pinned OpenFootball `LICENSE.md`
-CC0 notice (SHA-256
-`36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673`) in
-`NOTICE.md`. `PROVENANCE.json`, `SOURCES.csv`, and `NOTICE.md` record the
-sanitized primary RPC terms URL and optional snapshot hash/time, or explicitly
-state `not_reviewed`/`unavailable`. The bundle also includes
-no-affiliation/trademark and supplied Polymarket-terms caveats. Rights review
-is advisory and does not make the technical generator a legal clearance
-process.
+The standalone
+`export_polymarket_wc2026_polygon_settlement_minute_odds.py` command consumes
+only a checksum-valid immutable audit directory. It never queries the warehouse
+or calls a network service. It copies the primary CSV byte-for-byte, validates the
+literal 41-column allowlist and 39,120-row contract, scans for forbidden
+identifiers and unsafe text, and writes a new immutable directory below
+`artifacts/polygon_settlement/exports/releases/`.
+
+The sanitized technical export is titled **WC2026 Polygon Settlement Minute
+Aggregates** and contains exactly:
+
+- `wc2026_polygon_settlement_minute_odds.csv`
+- `schema.json`
+- `README.md`
+- `SOURCES.csv`
+- `MANIFEST.json`
+- `QUALITY_SUMMARY.json`
+- `QUALITY_SUMMARY.md`
+- `CHANGELOG.md`
+- `CHECKSUMS.sha256`
+
+`schema.json` covers only the exported CSV and fixes column order, nullability,
+units, RFC3339 UTC timestamps, `DECIMAL(38,18)` probability fields,
+`DECIMAL(38,6)` volume fields, integers, booleans, enums, and the
+proposition-minute grain. The analyzer disables DuckDB type inference so exact
+decimal thresholds, including pair deviation `0.05`, are not changed by binary
+floating-point rounding.
+
+Its manifest and quality reports contain only redacted aggregate inventory,
+lineage, verification, coverage, derived-fill, exact-decimal pair-deviation, and
+single-leg/linkability metrics. The quality reports contain no proposition IDs,
+per-row timestamps, token IDs, exchange/provider addresses,
+transaction/log/block locators, or issue-level warning rows.
+
+The exported CSV repeats only dataset version and stable proposition semantics.
+It omits the eight audit-only mart fields plus wallets, transaction/log/block
+IDs, provider fields, raw amounts, order hashes, signatures, raw event payloads,
+Gamma/CLOB fields, source question prose, and pair diagnostics. This is
+de-identified data, not anonymous data: a sparse aggregate over a public ledger
+can still be reverse-linked to source transactions by time, amount, and price.
+
+The software creates no publisher identity, dataset licence, legal/rights
+review, provider-terms evidence, distribution metadata, or upload action. An
+external publisher process owns those decisions.
 
 Schema: `international_results_wc2026_marts`
 

@@ -20,8 +20,8 @@ from oddsfox_pipeline.orchestration.config import (
     PolygonSettlementSyncConfig,
 )
 from oddsfox_pipeline.publishing.polygon_settlement import (
-    PolygonSettlementBundleSpec,
-    build_polygon_settlement_release,
+    PolygonSettlementAuditSpec,
+    build_polygon_settlement_audit_release,
     current_generator_commit,
 )
 from oddsfox_pipeline.storage.duckdb.connection import (
@@ -149,22 +149,10 @@ def polymarket_wc2026_release_polygon_settlement_odds_bundle(
                 exc.__class__.__name__,
             )
         provenance = load_polygon_settlement_release_provenance(conn)
-        summary = build_polygon_settlement_release(
+        summary = build_polygon_settlement_audit_release(
             conn,
             Path(config.output_root).expanduser(),
-            PolygonSettlementBundleSpec(
-                dataset_version=config.dataset_version,
-                publisher_name=config.publisher_name,
-                attribution_url=config.attribution_url,
-                rights_review_status=config.rights_review_status,
-                rpc_provider_terms_url=config.rpc_provider_terms_url,
-                rpc_provider_terms_snapshot_sha256=(
-                    config.rpc_provider_terms_snapshot_sha256
-                ),
-                rpc_provider_terms_snapshot_at_utc=(
-                    config.rpc_provider_terms_snapshot_at_utc
-                ),
-            ),
+            PolygonSettlementAuditSpec(dataset_version=config.dataset_version),
             provenance=provenance,
             generator_commit=current_generator_commit(),
         )

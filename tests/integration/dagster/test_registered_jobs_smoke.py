@@ -244,7 +244,7 @@ oddsfox:
     )
     monkeypatch.setattr(
         polygon_assets_mod,
-        "build_polygon_settlement_release",
+        "build_polygon_settlement_audit_release",
         lambda *_args, **_kwargs: {
             "rows": 39_120,
             "markets": 248,
@@ -285,7 +285,6 @@ def test_registered_dagster_job_executes(job_name, patched_dagster_runtime):
                 "polymarket_wc2026_release_polygon_settlement_odds_bundle": {
                     "config": {
                         "dataset_version": "0.0.0-smoke",
-                        "publisher_name": "Dagster smoke test",
                         "output_root": "mocked",
                     }
                 }

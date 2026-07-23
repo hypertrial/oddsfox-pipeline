@@ -25,11 +25,14 @@ OpenFootball, and the public 2006+ `international_results` files.
 The separate WC2026 Polygon settlement flow is an unscheduled historical
 collector. It reads Polygon V2 settlement logs using a committed, independently
 authored market manifest and does not call Gamma, CLOB, the Polymarket website,
-or a runtime football-results source. It can build a local, immutable CSV bundle
-titled **WC2026 Polygon Settlement Odds**; this repository does not upload it to
-Kaggle. Its v4 collector plans group and knockout ranges by their authored V2
-exchange, rejects discoveries outside exact token windows before receipt fetch,
-and expands only matching finalized receipts in five bounded workers. Published
+or a runtime football-results source. Its release job builds a local, immutable
+internal audit bundle. A separate offline exporter copies the sanitized CSV
+byte-for-byte and produces the technical **WC2026 Polygon Settlement Minute
+Aggregates** dossier for an external publisher process. Neither path uploads
+data or supplies publisher, dataset-licensing, or legal-review metadata. The v4
+collector plans group and knockout ranges by their authored V2 exchange,
+rejects discoveries outside exact token windows before receipt fetch, and
+expands only matching finalized receipts in five bounded workers. Published
 reruns short-circuit offline; live-smoke checkpoints, status, and tool caches
 remain below the SSD-backed repository `.cache/` and resume by default.
 
@@ -164,15 +167,14 @@ quotes, order-book snapshots, order-match timestamps, or CLOB price history.
 Empty minutes remain null. Normalized economic-leg counts can differ from unique
 user trades, and derived MINT/MERGE counterparts are separately counted.
 
-The main odds CSV omits wallets and transaction, log, block, provider, order,
-and raw-payload identifiers. The market sidecar intentionally retains condition
-and token IDs, exchange addresses, semantic initialization transaction/log
-locators, and token-verification block locators so the authored mapping remains
-auditable. This is de-identification, not anonymity: sparse public blockchain
-aggregates can still be reverse-linked. The bundle applies CC BY 4.0 only to the
-publisher's protectable selection, arrangement, annotations, transformations,
-schema, and documentation; it does not claim ownership of underlying blockchain
-facts or third-party marks.
+The dbt mart and internal audit bundle retain condition/token IDs, exchange
+addresses, and chain locators needed for verification; a direct mart export is
+not sanitized. The standalone technical exporter copies only an allowlisted CSV
+that omits wallets and transaction, log, block, provider, order, raw-payload,
+condition, token, and exchange identifiers. This is de-identification, not
+anonymity: sparse public blockchain aggregates can still be reverse-linked.
+Dataset licensing, publisher identity, legal review, and distribution remain
+outside this MIT-licensed software repository.
 
 See the [Data dictionary](docs/reference/data-dictionary.md) for analyst-facing table
 semantics, [Data contracts](docs/reference/data-contracts.md) for formal guarantees, and

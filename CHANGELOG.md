@@ -10,12 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Independent WC2026 Polygon V2 settlement-log flow with a reviewed 248-row
-  on-chain market manifest, resumable finalized-block backfill, sanitized fill
-  snapshot, isolated Dagster/dbt graph, and dense 39,120-row
+  on-chain market manifest, resumable finalized-block backfill, wallet- and
+  order-payload-redacted fill snapshot, isolated Dagster/dbt graph, and dense
+  39,120-row
   `polymarket_wc2026_polygon_settlement_minute_odds` mart.
-- Immutable local **WC2026 Polygon Settlement Odds** CSV bundle generator with
-  explicit SemVer releases, CC BY 4.0 notices, source/provenance/quality
-  metadata, checksums, and no Kaggle credentials or upload automation.
+- Immutable internal Polygon settlement audit releases with complete
+  source/provenance/quality evidence and checksums, plus a standalone offline
+  exporter for the sanitized **WC2026 Polygon Settlement Minute Aggregates**
+  CSV and redacted technical quality dossier.
 - Developer-only Polygon seed authoring and validation commands, replay-backed
   Polygon dbt validation, and an opt-in live Polygon smoke target.
 - `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`, a dense,
@@ -33,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Polygon settlement audit releases now live below
+  `artifacts/polygon_settlement/audit/`; sanitized technical exports live below
+  `artifacts/polygon_settlement/exports/`. The exporter verifies the immutable
+  audit bundle and copies the primary CSV byte-for-byte without querying the
+  warehouse
+  or calling a network service.
 - Polygon settlement collection now uses the `polygon-v2-settlement-v4`
   pipeline: ranges are planned per authored exchange, exact token/block bounds
   reject irrelevant discoveries before receipt fetch, and complete leaves run
@@ -76,6 +84,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Completed knockout outcomes now align to FIFA match IDs by the schedule's
   unique date and host city when bracket-slot fixtures do not yet contain team
   names.
+
+### Removed
+
+- Removed publisher identity, dataset licensing, legal/rights review, provider
+  terms evidence, and upload-oriented metadata from the Polygon settlement
+  software workflow. Those concerns belong to any external publisher process.
 
 ## [0.1.6] - 2026-07-17
 

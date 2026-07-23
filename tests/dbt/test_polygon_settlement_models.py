@@ -94,6 +94,36 @@ def test_polygon_settlement_contract_is_dense_half_open_and_fail_closed():
     assert "candidate.no_close_price as no_close" in mart
 
 
+def test_polygon_settlement_mart_documents_audit_only_export_omissions():
+    docs = yaml.safe_load((MODEL_ROOT / "polygon_settlement.yml").read_text())
+    mart = next(
+        model
+        for model in docs["models"]
+        if model["name"] == "polymarket_wc2026_polygon_settlement_minute_odds"
+    )
+    columns = {column["name"]: column for column in mart["columns"]}
+    audit_only = {
+        "settlement_minute_epoch",
+        "condition_id",
+        "yes_token_id",
+        "no_token_id",
+        "market_structure",
+        "exchange_address",
+        "manifest_sha256",
+        "manifest_version",
+    }
+
+    assert len(columns) == 48
+    assert audit_only <= columns.keys()
+    assert all(
+        str(column.get("description", "")).strip() for column in columns.values()
+    )
+    assert all(
+        "omitted from the sanitized export" in columns[name]["description"]
+        for name in audit_only
+    )
+
+
 def test_polygon_settlement_seed_and_sources_are_tagged():
     project = yaml.safe_load((DBT_ROOT / "dbt_project.yml").read_text())
     seed_config = project["seeds"]["oddsfox"][

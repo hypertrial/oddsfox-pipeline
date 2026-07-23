@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build an immutable local WC2026 Polygon settlement Kaggle bundle."""
+"""Build an immutable internal WC2026 Polygon settlement audit bundle."""
 
 from __future__ import annotations
 
@@ -22,9 +22,9 @@ from oddsfox_pipeline.ingestion.polymarket.polygon_settlement import (  # noqa: 
     verify_polygon_settlement_scan,
 )
 from oddsfox_pipeline.publishing.polygon_settlement import (  # noqa: E402
-    DEFAULT_POLYGON_SETTLEMENT_RELEASE_ROOT,
-    PolygonSettlementBundleSpec,
-    build_polygon_settlement_release,
+    DEFAULT_POLYGON_SETTLEMENT_AUDIT_ROOT,
+    PolygonSettlementAuditSpec,
+    build_polygon_settlement_audit_release,
     current_generator_commit,
 )
 from oddsfox_pipeline.storage.duckdb.connection import (  # noqa: E402
@@ -39,20 +39,10 @@ from oddsfox_pipeline.storage.duckdb.polygon_settlement import (  # noqa: E402
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-version", required=True)
-    parser.add_argument("--publisher-name", required=True)
-    parser.add_argument("--attribution-url")
-    parser.add_argument(
-        "--rights-review-status",
-        choices=("not_reviewed", "reviewed", "cleared"),
-        default="not_reviewed",
-    )
-    parser.add_argument("--rpc-provider-terms-url")
-    parser.add_argument("--rpc-provider-terms-snapshot-sha256")
-    parser.add_argument("--rpc-provider-terms-snapshot-at-utc")
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=DEFAULT_POLYGON_SETTLEMENT_RELEASE_ROOT,
+        default=DEFAULT_POLYGON_SETTLEMENT_AUDIT_ROOT,
     )
     parser.add_argument("--duckdb-path", type=Path, default=settings.DUCKDB_PATH)
     args = parser.parse_args(argv)
@@ -84,22 +74,10 @@ def main(argv: list[str] | None = None) -> int:
                     f"({exc.__class__.__name__}); continuing advisory release.\n"
                 )
         provenance = load_polygon_settlement_release_provenance(conn)
-        summary = build_polygon_settlement_release(
+        summary = build_polygon_settlement_audit_release(
             conn,
             args.output_root,
-            PolygonSettlementBundleSpec(
-                dataset_version=args.dataset_version,
-                publisher_name=args.publisher_name,
-                attribution_url=args.attribution_url,
-                rights_review_status=args.rights_review_status,
-                rpc_provider_terms_url=args.rpc_provider_terms_url,
-                rpc_provider_terms_snapshot_sha256=(
-                    args.rpc_provider_terms_snapshot_sha256
-                ),
-                rpc_provider_terms_snapshot_at_utc=(
-                    args.rpc_provider_terms_snapshot_at_utc
-                ),
-            ),
+            PolygonSettlementAuditSpec(dataset_version=args.dataset_version),
             provenance=provenance,
             generator_commit=current_generator_commit(REPO_ROOT),
         )
@@ -115,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         conn.close()
 
-    print(f"Built {summary['rows']:,} rows under {summary['release_dir']}")
+    print(f"Built {summary['rows']:,} audit rows under {summary['release_dir']}")
     return 0
 
 

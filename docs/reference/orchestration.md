@@ -31,7 +31,7 @@ For procedures, use [Run a scope](../guides/run-a-scope.md),
 20. `kalshi/wc2026/raw/market_candlesticks_hourly`
 21. dbt model assets under the matching
     `{staging,intermediate,marts,observability}` namespaces.
-22. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (local release only)
+22. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
 
 Flat Dagster op names preserve the same source-first order, for example
 `polymarket_wc2026_raw_token_odds_history_hourly`.
@@ -61,15 +61,18 @@ Flat Dagster op names preserve the same source-first order, for example
   authored exchange for each range through the finalized head. Five bounded
   workers execute complete discovery/receipt/header/normalization leaves while
   DuckDB commits remain on the main thread. The job resumes successful chunks,
-  atomically replaces the sanitized snapshot only after exchange-specific
-  gap-free coverage, and builds only the dedicated `polygon_settlement` dbt
-  ancestors. A valid published v4 scan returns offline before credentials or
-  RPC construction. It makes no Gamma, CLOB, international-results, or runtime
-  OpenFootball request.
+  atomically replaces the wallet- and order-payload-redacted snapshot only after
+  exchange-specific gap-free coverage, and builds only the dedicated
+  `polygon_settlement` dbt ancestors. A valid published v4 scan returns offline
+  before credentials or RPC construction. It makes no Gamma, CLOB,
+  international-results, or runtime OpenFootball request.
 - `polymarket_wc2026_polygon_settlement_release`: requires an already valid
   39,120-row mart, optionally compares scoped hashes through a second RPC, and
-  writes one immutable local CSV bundle. It never refreshes the primary scan or
-  uploads to Kaggle.
+  writes one immutable internal audit bundle below
+  `artifacts/polygon_settlement/audit/releases/`. It never refreshes the primary
+  scan. The standalone sanitized exporter is not a Dagster asset or job; it
+  reads a completed audit bundle offline and writes below
+  `artifacts/polygon_settlement/exports/releases/`.
 - `international_results_wc2026_match_results_ingest`: FIFA fixture/results
   refresh.
 - `polymarket_wc2026_dbt_build`: WC2026 and international-results dbt build.
@@ -164,8 +167,9 @@ cross-provider comparison.
 | `wc2026_knockout_match_odds_hourly_schedule` | `wc2026_knockout_match_odds_full_pipeline` | Stopped |
 
 The match-minute backfill has no schedule or environment enable flag.
-The Polygon settlement backfill and release jobs likewise have no schedule or
-environment enable flag.
+The Polygon settlement backfill and audit-release jobs likewise have no schedule
+or environment enable flag. The sanitized exporter is standalone and
+unscheduled. None of these paths uploads or distributes data.
 
 The international-results schedule runs daily at 02:15 UTC; the other four run
 hourly. The combined schedule uses Polymarket CLOB

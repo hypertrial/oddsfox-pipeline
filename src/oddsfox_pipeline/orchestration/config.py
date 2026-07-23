@@ -23,8 +23,8 @@ from oddsfox_pipeline.orchestration.scope_registry import (
     POLYMARKET_WC2026_SCOPE,
 )
 from oddsfox_pipeline.publishing.polygon_settlement import (
-    DEFAULT_POLYGON_SETTLEMENT_RELEASE_ROOT,
-    PolygonSettlementBundleSpec,
+    DEFAULT_POLYGON_SETTLEMENT_AUDIT_ROOT,
+    PolygonSettlementAuditSpec,
 )
 
 DEFAULT_EVENT_SLUG_FALLBACK_MAX_PAGES = 20_000
@@ -212,31 +212,11 @@ class PolygonSettlementSyncConfig(GuardrailConfig):
 
 class PolygonSettlementReleaseConfig(Config):
     dataset_version: str
-    publisher_name: str
-    attribution_url: str | None = None
-    rights_review_status: Literal["not_reviewed", "reviewed", "cleared"] = (
-        "not_reviewed"
-    )
-    rpc_provider_terms_url: str | None = None
-    rpc_provider_terms_snapshot_sha256: str | None = None
-    rpc_provider_terms_snapshot_at_utc: str | None = None
-    output_root: str = str(DEFAULT_POLYGON_SETTLEMENT_RELEASE_ROOT)
+    output_root: str = str(DEFAULT_POLYGON_SETTLEMENT_AUDIT_ROOT)
 
     @model_validator(mode="after")
     def _validate_release(self) -> "PolygonSettlementReleaseConfig":
-        PolygonSettlementBundleSpec(
-            dataset_version=self.dataset_version,
-            publisher_name=self.publisher_name,
-            attribution_url=self.attribution_url,
-            rights_review_status=self.rights_review_status,
-            rpc_provider_terms_url=self.rpc_provider_terms_url,
-            rpc_provider_terms_snapshot_sha256=(
-                self.rpc_provider_terms_snapshot_sha256
-            ),
-            rpc_provider_terms_snapshot_at_utc=(
-                self.rpc_provider_terms_snapshot_at_utc
-            ),
-        )
+        PolygonSettlementAuditSpec(dataset_version=self.dataset_version)
         if not self.output_root.strip():
             raise ValueError("output_root must not be blank")
         return self
@@ -424,24 +404,10 @@ def polymarket_wc2026_polygon_settlement_backfill_run_config(
 def polymarket_wc2026_polygon_settlement_release_run_config(
     *,
     dataset_version: str,
-    publisher_name: str,
-    attribution_url: str | None = None,
-    rights_review_status: Literal["not_reviewed", "reviewed", "cleared"] = (
-        "not_reviewed"
-    ),
-    rpc_provider_terms_url: str | None = None,
-    rpc_provider_terms_snapshot_sha256: str | None = None,
-    rpc_provider_terms_snapshot_at_utc: str | None = None,
-    output_root: str = str(DEFAULT_POLYGON_SETTLEMENT_RELEASE_ROOT),
+    output_root: str = str(DEFAULT_POLYGON_SETTLEMENT_AUDIT_ROOT),
 ) -> dict:
     release = PolygonSettlementReleaseConfig(
         dataset_version=dataset_version,
-        publisher_name=publisher_name,
-        attribution_url=attribution_url,
-        rights_review_status=rights_review_status,
-        rpc_provider_terms_url=rpc_provider_terms_url,
-        rpc_provider_terms_snapshot_sha256=rpc_provider_terms_snapshot_sha256,
-        rpc_provider_terms_snapshot_at_utc=rpc_provider_terms_snapshot_at_utc,
         output_root=output_root,
     )
     return {

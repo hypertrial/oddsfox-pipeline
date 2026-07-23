@@ -14,13 +14,20 @@ Run them through `uv run python` so they use the repo environment.
   authoring tool. It downloads the hash-pinned CC0 OpenFootball fixture files
   and pinned official FIFA schedule PDF, derives condition/question/token
   evidence from Polygon without Gamma/CLOB/UI inputs, verifies resolution and
-  token orientation, and writes a candidate CSV plus `EVIDENCE.json` below
-  ignored `artifacts/`. It refuses existing output directories and never
-  updates the reviewed dbt seed.
+  token orientation, and writes a candidate CSV, `EVIDENCE.json`, and
+  `resolution_attestation.yml` below ignored `artifacts/`. It refuses existing
+  output directories and never updates the reviewed dbt seed or committed
+  attestation.
 - `build_polymarket_wc2026_polygon_settlement_release.py`: validate an already
-  published Polygon mart and build a new immutable SemVer CSV bundle with
-  schema, provenance, sources, quality, license/notices, changelog, and SHA-256
-  checksums. It refuses version collisions and never uploads to Kaggle.
+  materialized Polygon mart and build a complete immutable internal SemVer audit
+  bundle with schema, provenance, sources, issue-level quality evidence,
+  changelog, a `DO_NOT_PUBLISH.md` marker, and SHA-256 checksums. It refuses
+  version collisions.
+- `export_polymarket_wc2026_polygon_settlement_minute_odds.py`: verify an
+  immutable audit release and create the sanitized **WC2026 Polygon Settlement
+  Minute Aggregates** technical dossier entirely offline. It copies the
+  allowlisted CSV byte-for-byte, emits only redacted aggregate metadata, and
+  refuses version collisions or unexpected input/output files.
 - `benchmark_polymarket_wc2026_polygon_settlement.py`: optional exact comparator
   for two completed v3/v4 benchmark warehouses. It hard-fails on economic-fill
   or full-mart differences, non-39,120 marts, failed v4 publication gates, or
@@ -38,7 +45,7 @@ Makefile shortcuts (stop Dagster and other writers first):
 ```bash
 make prune-odds-history          # default 365-day retention; add --dry-run via script directly
 make compact-warehouse           # reclaim dead space after rebuilds or pruning
-make polygon-settlement-seed-validate
+make polygon-settlement-seed-validate # committed seed + resolution attestation
 make dbt-polygon-settlement-ci    # replay-only; no RPC credentials
 make polygon-settlement-benchmark # requires completed v3 and v4 warehouses
 ```
@@ -54,9 +61,10 @@ POLYGON_SEED_OUTPUT_DIR=artifacts/polygon_settlement_seed_candidates/1.0.0 \
 uv run make polygon-settlement-seed-candidate
 ```
 
-If the committed seed needs a correction, regenerate and review its evidence,
-refresh the relevant automated tests, add the correction to the repository
-`CHANGELOG.md`, and use a new dataset SemVer for the next immutable release.
+If the committed seed or resolution attestation needs a correction, regenerate
+and review its evidence, refresh the relevant automated tests, add the
+correction to the repository `CHANGELOG.md`, and use a new dataset SemVer for
+the next immutable audit/export.
 
 Run the unscheduled historical flow only after configuring
 `POLYGON_RPC_URL` and `POLYGON_RPC_PROVIDER_LABEL`:
@@ -90,36 +98,40 @@ the outer `uv run` cache on the SSD-backed repository volume.
 v3 baseline, but it deliberately fails for the preserved partial v3 run. A v4
 live run does not claim a measured v3 speed ratio without that baseline.
 
-Build a local release from a populated, valid warehouse. An attribution URL is
-optional; rights review defaults to `not_reviewed` and is advisory:
+Build an internal audit release from a populated, valid warehouse:
 
 ```bash
 POLYGON_DATASET_VERSION=1.0.0 \
-POLYGON_PUBLISHER_NAME="Example Publisher" \
-POLYGON_ATTRIBUTION_URL=https://example.org/datasets/wc2026 \
-POLYGON_RPC_PROVIDER_TERMS_URL=https://provider.example/legal/terms \
 uv run make polygon-settlement-release
 ```
 
-The release lands below
-`artifacts/kaggle/polymarket_wc2026_polygon_settlement_odds/releases/<version>/`.
-There is no `latest` alias, `dataset-metadata.json`, Kaggle identity, or upload
-automation.
+The audit lands below
+`artifacts/polygon_settlement/audit/releases/<version>/`. It contains the market
+sidecar, full provenance, and issue-level quality evidence and is marked
+`DO_NOT_PUBLISH.md`.
 
-For a terms snapshot, call the release script directly with the sanitized
-public terms page plus the hash and UTC capture time of the reviewed bytes:
+Create the separate sanitized technical export without opening the warehouse or
+making network requests:
 
 ```bash
-uv run python scripts/build_polymarket_wc2026_polygon_settlement_release.py \
-  --dataset-version 1.0.0 \
-  --publisher-name "Example Publisher" \
-  --rpc-provider-terms-url https://provider.example/legal/terms \
-  --rpc-provider-terms-snapshot-sha256 <lowercase-sha256> \
-  --rpc-provider-terms-snapshot-at-utc 2026-07-22T12:00:00Z
+POLYGON_DATASET_VERSION=1.0.0 \
+uv run make polygon-settlement-export
 ```
 
-A URL without snapshot metadata is recorded as `not_reviewed`; omitting all
-three values is recorded as `unavailable`. Neither state blocks generation.
+The equivalent direct command is:
+
+```bash
+uv run python \
+  scripts/export_polymarket_wc2026_polygon_settlement_minute_odds.py \
+  --audit-release artifacts/polygon_settlement/audit/releases/1.0.0 \
+  --output-root artifacts/polygon_settlement/exports
+```
+
+It writes
+`artifacts/polygon_settlement/exports/releases/<version>/`, verifies that the
+CSV SHA-256 is identical to the audit copy, and includes no market sidecar,
+full provenance, exact warning rows, publisher identity, dataset licence, legal
+review, distribution metadata, credentials, or upload action.
 
 Run scripts through the project environment:
 
@@ -130,7 +142,7 @@ uv run python scripts/run_scope.py polymarket:wc2026 kalshi:wc2026 --step dbt
 uv run python scripts/profile_warehouse.py --snapshot-copy
 uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py
 uv run python scripts/export_polymarket_wc2026_match_minute_odds.py
-export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-/Volumes/Mac SSD/hypertrial_trilemma/hypertrial/OddsFox/.runtime}"
+export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-.runtime}"
 mkdir -p "$ODDSFOX_DATA_DIR/exports"
 uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py --snapshot-copy --output "$ODDSFOX_DATA_DIR/exports/wc2026_knockout_hourly.parquet"
 uv run python scripts/export_polymarket_wc2026_graph_hourly_odds.py --snapshot-copy --output "$ODDSFOX_DATA_DIR/exports/wc2026_graph_hourly.parquet"
@@ -141,7 +153,7 @@ uv run python scripts/export_polymarket_wc2026_graph_hourly_odds.py --snapshot-c
 Hosted artifact publish:
 
 ```bash
-export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-/Volumes/Mac SSD/hypertrial_trilemma/hypertrial/OddsFox/.runtime}"
+export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-.runtime}"
 mkdir -p "$ODDSFOX_DATA_DIR"/{warehouse,artifacts,exports,dagster-home,dlt,logs}
 export DUCKDB_PATH="$ODDSFOX_DATA_DIR/warehouse/oddsfox.duckdb"
 export DAGSTER_HOME="$ODDSFOX_DATA_DIR/dagster-home"
@@ -154,7 +166,7 @@ uv run python scripts/build_hosted_artifacts.py \
 For a local fixture run without network or dbt:
 
 ```bash
-export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-/Volumes/Mac SSD/hypertrial_trilemma/hypertrial/OddsFox/.runtime}"
+export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-.runtime}"
 uv run python scripts/build_hosted_artifacts.py \
   --artifact-dir "$ODDSFOX_DATA_DIR/artifacts" \
   --graph-repo ../oddsfox-graph \

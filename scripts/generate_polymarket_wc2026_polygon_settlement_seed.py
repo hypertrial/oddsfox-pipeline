@@ -28,6 +28,9 @@ from _bootstrap import ensure_src_on_path
 
 REPO_ROOT = ensure_src_on_path()
 
+from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (  # noqa: E402
+    write_polygon_resolution_attestation,
+)
 from oddsfox_pipeline.ingestion.polymarket.polygon_rpc import (  # noqa: E402
     PolygonRPC,
     PolygonRPCError,
@@ -2084,9 +2087,19 @@ def author_seed(
             report,
             private_addresses=(question.creator for question in questions.values()),
         )
+        evidence_text = json.dumps(report, indent=2, sort_keys=True, default=str) + "\n"
         (output_dir / "EVIDENCE.json").write_text(
-            json.dumps(report, indent=2, sort_keys=True, default=str) + "\n",
+            evidence_text,
             encoding="utf-8",
+        )
+        write_polygon_resolution_attestation(
+            output_dir / "resolution_attestation.yml",
+            manifest_version=manifest_version,
+            manifest_sha256=rows[0]["manifest_sha256"],
+            chain_evidence=chain_evidence,
+            authoring_evidence_sha256=hashlib.sha256(
+                evidence_text.encode("utf-8")
+            ).hexdigest(),
         )
         return candidate
     except Exception:

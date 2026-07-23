@@ -29,8 +29,9 @@ Schema: `polymarket_wc2026_raw`
   upstream-deleted observations disappear. Failed fetch or storage runs leave
   the prior snapshot unchanged. This table is isolated from `odds_history` and
   its sync ledger.
-- `polygon_settlement_fills`: the current canonical, sanitized Polygon V2
-  settlement snapshot. Grain is `(chain_id, exchange_address,
+- `polygon_settlement_fills`: the current canonical, wallet- and
+  order-payload-redacted Polygon V2 settlement snapshot. Grain is
+  `(chain_id, exchange_address,
   transaction_hash, passive_log_index, normalized_leg_ordinal)`. Rows retain
   deterministic chain ordering, proposition/token orientation, exact source
   integer amounts, decimal price/volume, normalization kind, and audit hashes.
@@ -209,7 +210,10 @@ Schema: `polymarket_wc2026_marts`
   counts, share/collateral volume, first/last finalized block timestamp, and an
   observed flag. Empty minutes retain null prices/timestamps and zero
   counts/volumes. The mart never forward-fills, interpolates, infers a
-  complement, normalizes pair sums, or adds match results.
+  complement, normalizes pair sums, or adds match results. It retains
+  `settlement_minute_epoch`, condition/token IDs, market structure, exchange
+  address, and manifest hash/version for internal auditing; a direct mart
+  export is not sanitized.
 - `polymarket_wc2026_match_minute_odds`: dense, inclusive in-game UTC minute
   rows at `(odds_minute_utc, market_id)` for all 104 matches. It contains 216
   group moneyline markets and 32 knockout advance/win markets. Yes/No OHLC,
@@ -254,6 +258,16 @@ Schema: `kalshi_wc2026_marts`
 - `kalshi_wc2026_group_winner_markets`: latest group-winner market snapshots.
 - `kalshi_wc2026_group_winner_market_hourly_odds`: trailing contract-window
   hourly odds for group-winner markets.
+
+## Polygon Settlement Artifacts
+
+The Dagster release asset writes a complete internal audit bundle below
+`artifacts/polygon_settlement/audit/releases/<version>/`. A standalone,
+network-free exporter verifies that bundle and writes the allowlisted
+**WC2026 Polygon Settlement Minute Aggregates** CSV and redacted technical
+dossier below `artifacts/polygon_settlement/exports/releases/<version>/`.
+Neither artifact is a warehouse relation, and the repository performs no
+publisher, dataset-licensing, legal-review, distribution, or upload step.
 
 Schema: `polymarket_wc2026_observability`
 

@@ -28,7 +28,7 @@ models:
         tests: [not_null]
 
   - name: stg_polymarket_wc2026_polygon_settlement_fills
-    description: Sanitized normalized V2 settlement legs with exact volumes and chain-order locators.
+    description: Wallet- and order-payload-redacted normalized V2 settlement legs with exact volumes and chain-order locators.
     config:
       tags: [polygon_settlement]
     tests:
@@ -292,7 +292,7 @@ models:
         tests: [not_null]
 
   - name: int_polymarket_wc2026_polygon_settlement_publication_gate
-    description: One-row fail-closed gate that raises before an invalid public mart can materialize.
+    description: One-row fail-closed technical gate that raises before an invalid mart can materialize.
     config:
       tags: [polygon_settlement]
     columns:
@@ -304,7 +304,7 @@ models:
                 values: [true]
 
   - name: polymarket_wc2026_polygon_settlement_minute_odds
-    description: Published dense WC2026 Polygon settlement-time odds at proposition-minute grain.
+    description: Dense internal WC2026 Polygon settlement-time mart at proposition-minute grain. It includes audit-only chain identifiers and is not the sanitized export artifact.
     config:
       tags: [polygon_settlement]
     tests:
@@ -313,32 +313,69 @@ models:
             grain_columns: [proposition_id, settlement_minute_epoch]
     columns:
       - name: fifa_match_id
+        description: FIFA World Cup 2026 match number, from 1 through 104.
         tests: [not_null]
       - name: stage
+        description: Tournament stage for the referenced FIFA match.
         tests: [not_null]
       - name: group_name
         description: OpenFootball group label; null for knockout matches.
       - name: home_team
+        description: Canonical scheduled home-side label.
         tests: [not_null]
       - name: away_team
+        description: Canonical scheduled away-side label.
         tests: [not_null]
       - name: proposition_id
+        description: Stable de-identified proposition key used in the export grain.
         tests: [not_null]
       - name: proposition_type
+        description: Semantic proposition type relative to the scheduled home and away sides.
         tests: [not_null]
       - name: yes_represents
+        description: Human-readable meaning of a Yes outcome for the proposition.
         tests: [not_null]
       - name: no_represents
+        description: Human-readable meaning of a No outcome for the proposition.
         tests: [not_null]
       - name: scheduled_kickoff_at_utc
+        description: Scheduled match kickoff as an RFC3339 UTC timestamp.
         tests: [not_null]
       - name: analysis_window_start_at_utc
+        description: Inclusive start of the fixed settlement-time analysis window.
         tests: [not_null]
       - name: analysis_window_end_at_utc
+        description: Exclusive end of the fixed settlement-time analysis window.
         tests: [not_null]
       - name: settlement_minute_utc
+        description: UTC minute bucket for Polygon settlement timestamps.
+        tests: [not_null]
+      - name: settlement_minute_epoch
+        description: Audit-only Unix epoch for the settlement minute; omitted from the sanitized export.
         tests: [not_null]
       - name: elapsed_window_minute
+        description: Zero-based minute offset from the analysis-window start.
+        tests: [not_null]
+      - name: condition_id
+        description: Audit-only Polygon condition identifier; omitted from the sanitized export.
+        tests: [not_null]
+      - name: yes_token_id
+        description: Audit-only oriented Yes token identifier; omitted from the sanitized export.
+        tests: [not_null]
+      - name: no_token_id
+        description: Audit-only oriented No token identifier; omitted from the sanitized export.
+        tests: [not_null]
+      - name: market_structure
+        description: Audit-only standard or neg-risk market structure; omitted from the sanitized export.
+        tests: [not_null]
+      - name: exchange_address
+        description: Audit-only V2 exchange address; omitted from the sanitized export.
+        tests: [not_null]
+      - name: manifest_sha256
+        description: Audit-only committed market-manifest digest; omitted from the sanitized export.
+        tests: [not_null]
+      - name: manifest_version
+        description: Audit-only committed market-manifest version; omitted from the sanitized export.
         tests: [not_null]
       - name: yes_open
         description: First normalized Yes leg in chain order for the settlement minute.
@@ -351,18 +388,23 @@ models:
       - name: yes_vwap
         description: Yes gross collateral divided by Yes shares in the minute.
       - name: yes_normalized_fill_count
+        description: Count of normalized economic legs on the Yes side in the minute.
         tests: [not_null]
       - name: yes_derived_fill_count
+        description: Count of Yes normalized legs derived from MINT or MERGE events.
         tests: [not_null]
       - name: yes_share_volume
+        description: Exact Yes share volume settled in the minute.
         tests: [not_null]
       - name: yes_gross_collateral_volume
+        description: Exact gross collateral volume attributed to Yes legs in the minute.
         tests: [not_null]
       - name: yes_first_settlement_at_utc
         description: Earliest block timestamp contributing to the Yes minute.
       - name: yes_last_settlement_at_utc
         description: Latest block timestamp contributing to the Yes minute.
       - name: yes_observed
+        description: True when at least one normalized Yes leg is present in the minute.
         tests: [not_null]
       - name: no_open
         description: First normalized No leg in chain order for the settlement minute.
@@ -375,22 +417,29 @@ models:
       - name: no_vwap
         description: No gross collateral divided by No shares in the minute.
       - name: no_normalized_fill_count
+        description: Count of normalized economic legs on the No side in the minute.
         tests: [not_null]
       - name: no_derived_fill_count
+        description: Count of No normalized legs derived from MINT or MERGE events.
         tests: [not_null]
       - name: no_share_volume
+        description: Exact No share volume settled in the minute.
         tests: [not_null]
       - name: no_gross_collateral_volume
+        description: Exact gross collateral volume attributed to No legs in the minute.
         tests: [not_null]
       - name: no_first_settlement_at_utc
         description: Earliest block timestamp contributing to the No minute.
       - name: no_last_settlement_at_utc
         description: Latest block timestamp contributing to the No minute.
       - name: no_observed
+        description: True when at least one normalized No leg is present in the minute.
         tests: [not_null]
       - name: minute_complete
+        description: True when both Yes and No sides were observed in the minute.
         tests: [not_null]
       - name: minute_status
+        description: Aggregate observation state for the Yes and No sides in the minute.
         tests:
           - not_null
           - accepted_values:

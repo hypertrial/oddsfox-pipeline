@@ -149,12 +149,13 @@ against a disposable/selected warehouse. The backfill's fail-closed gate
 requires the current seed-matched published scan, complete chunk coverage,
 nonempty fills, and exactly 39,120 mart rows.
 
-## Polygon Release Already Exists
+## Polygon Audit Or Export Already Exists
 
-`make polygon-settlement-release` refuses to overwrite an existing dataset
-version. Choose a new SemVer only for an intentional dataset release; do not
-delete or replace an immutable version merely to rerun the command. There is no
-`latest` alias or Kaggle upload step.
+`make polygon-settlement-release` refuses to overwrite an existing internal
+audit version, and `make polygon-settlement-export` refuses to overwrite its
+sanitized technical export. Choose a new SemVer only for an intentional new
+snapshot; do not delete or replace an immutable version merely to rerun either
+command. There is no mutable `latest` alias or upload step.
 
 ## Large Warehouse File
 

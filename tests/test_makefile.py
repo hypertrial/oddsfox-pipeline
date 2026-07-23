@@ -113,3 +113,26 @@ def test_polygon_settlement_live_smoke_is_fail_closed_to_disposable_database():
     assert 'POLYGON_SETTLEMENT_LIVE_SMOKE_WORKERS="5"' in recipe
     assert 'POLYGON_SETTLEMENT_LIVE_SMOKE_INITIAL_BLOCK_CHUNK_SIZE="8000"' in recipe
     assert 'POLYGON_SETTLEMENT_LIVE_SMOKE_INITIAL_RECEIPT_BATCH_SIZE="20"' in recipe
+
+
+def test_polygon_settlement_export_is_offline_and_reads_the_audit_release():
+    proc = subprocess.run(
+        [
+            "make",
+            "-n",
+            "POLYGON_DATASET_VERSION=1.2.3",
+            "polygon-settlement-export",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    recipe = proc.stdout
+    assert "export_polymarket_wc2026_polygon_settlement_minute_odds.py" in recipe
+    assert (
+        '--audit-release "artifacts/polygon_settlement/audit/releases/1.2.3"' in recipe
+    )
+    assert '--output-root "artifacts/polygon_settlement/exports"' in recipe
+    assert "polygon-runtime-dirs" not in recipe

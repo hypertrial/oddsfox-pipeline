@@ -114,8 +114,9 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make polygon-settlement-live-smoke` | Opt-in finalized Polygon settlement backfill against a disposable warehouse |
 | `make polygon-settlement-benchmark` | Exact optional v3/v4 fill+mart comparison; requires two completed warehouses |
 | `make polygon-settlement-seed-candidate` | Author an evidence-backed candidate below ignored `artifacts/`; never promotes the dbt seed |
-| `make polygon-settlement-seed-validate` | Validate the complete committed 248-proposition Polygon seed |
-| `make polygon-settlement-release` | Build an immutable local CSV bundle; never uploads to Kaggle |
+| `make polygon-settlement-seed-validate` | Validate the committed 248-proposition seed and resolution attestation |
+| `make polygon-settlement-release` | Build an immutable internal Polygon settlement audit bundle |
+| `make polygon-settlement-export` | Build an offline sanitized technical export from an audit bundle |
 | `make costguard-scan` | Run the dbt cost guardrail against an existing dbt build |
 | `make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard |
 | `make dagster-dev` | Local Dagster UI |
@@ -201,7 +202,7 @@ Asset key order (routine pipeline; flat op names use the same subject order):
    `international_results/wc2026/{staging,intermediate,marts,observability}/...`,
    `kalshi/wc2026/{staging,intermediate,marts,observability}/...`,
    `openfootball/wc2026/staging/...`, and `wc2026/{intermediate,marts,observability}/...`
-22. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable local release only)
+22. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
 
 Key jobs: `international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`,
@@ -224,8 +225,9 @@ Schedules target `polymarket_wc2026_hourly_odds_ingest`,
 The daily `international_results_daily_schedule` is also stopped by default.
 The combined `wc2026_knockout_match_odds_hourly_schedule` targets the atomic
 cross-platform full pipeline and is also stopped by default.
-The Polygon settlement backfill and release jobs are unscheduled and have no
-schedule-enable environment flags.
+The Polygon settlement backfill and audit-release jobs are unscheduled and have
+no schedule-enable environment flags. The sanitized exporter is standalone and
+unscheduled.
 Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 
 **Market scope:** v0.1.x ships fixed Dagster/dbt graphs for `wc2026` and
@@ -247,7 +249,12 @@ DuckDB is local-only runtime state. For read-only inspection prefer `scripts/pro
 logs. It must not call Gamma, CLOB, the Polymarket UI, international-results, or
 OpenFootball at runtime. Never log or persist RPC URLs, wallet addresses, order
 hashes, signatures, raw topics/data, calldata, or oracle prose. The optional
-second RPC is advisory only. No job uploads a release to Kaggle.
+second RPC is advisory only. The release asset writes an internal audit bundle
+below `artifacts/polygon_settlement/audit/`; the standalone exporter reads that
+bundle offline and writes only the allowlisted technical dossier below
+`artifacts/polygon_settlement/exports/`. Neither path uploads data or handles
+publisher identity, dataset licensing, legal review, provider terms, or
+distribution.
 
 ## Do not
 

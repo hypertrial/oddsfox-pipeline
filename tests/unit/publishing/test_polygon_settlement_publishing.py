@@ -1,4 +1,4 @@
-"""Tests for immutable WC2026 Polygon settlement release bundles."""
+"""Tests for immutable WC2026 Polygon settlement audit bundles."""
 
 from __future__ import annotations
 
@@ -19,11 +19,11 @@ from tests.unit.ingestion.test_polygon_seed import complete_seed_rows
 from oddsfox_pipeline.ingestion.polymarket.polygon_seed import SEED_COLUMNS
 from oddsfox_pipeline.publishing import polygon_settlement as publishing
 from oddsfox_pipeline.publishing.polygon_settlement import (
-    BUNDLE_FILES,
+    AUDIT_BUNDLE_FILES,
     MAIN_CSV_NAME,
     MARKETS_CSV_NAME,
-    PolygonSettlementBundleSpec,
-    build_polygon_settlement_release,
+    PolygonSettlementAuditSpec,
+    build_polygon_settlement_audit_release,
     current_generator_commit,
     validate_dataset_version,
 )
@@ -203,6 +203,24 @@ def release_connection(monkeypatch) -> duckdb.DuckDBPyConnection:
             )
         ),
     )
+    monkeypatch.setattr(
+        publishing,
+        "load_polygon_resolution_attestation",
+        MagicMock(
+            return_value=SimpleNamespace(
+                as_mapping=lambda: {
+                    "schema_version": 1,
+                    "manifest_version": "1.0.0",
+                    "manifest_sha256": "a" * 64,
+                    "resolved_condition_count": 248,
+                    "verified_at_utc": "2026-07-22T11:02:27Z",
+                    "authoring_evidence_sha256": "b" * 64,
+                    "finalized_head_block_number": 123456,
+                    "finalized_head_block_hash": "0x" + "c" * 64,
+                }
+            )
+        ),
+    )
     yield conn
     conn.close()
 
@@ -269,6 +287,19 @@ def test_release_preflight_reloads_seed_and_rejects_file_or_sidecar_mutation(
         "seed_version": manifest.version,
     }
     monkeypatch.setattr(publishing, "DEFAULT_POLYGON_MARKET_SEED_PATH", seed_path)
+    attestation = MagicMock()
+    attestation.as_mapping.return_value = {"resolved_condition_count": 248}
+    load_attestation = MagicMock(return_value=attestation)
+    monkeypatch.setattr(
+        publishing,
+        "load_polygon_resolution_attestation",
+        load_attestation,
+    )
+
+    assert publishing._validate_committed_seed(warehouse_rows, provenance) == {
+        "resolved_condition_count": 248
+    }
+    assert load_attestation.call_args.kwargs["manifest"].sha256 == manifest.sha256
 
     changed_file_rows = [dict(row) for row in rows]
     changed_file_rows[0]["yes_represents"] = "mutated without a refreshed hash"
@@ -291,7 +322,7 @@ def test_release_preflight_reloads_seed_and_rejects_file_or_sidecar_mutation(
         )
 
 
-def test_builds_complete_immutable_sanitized_bundle(
+def test_builds_complete_immutable_internal_audit_bundle(
     release_connection: duckdb.DuckDBPyConnection,
     provenance: dict,
     tmp_path: Path,
@@ -299,16 +330,8 @@ def test_builds_complete_immutable_sanitized_bundle(
     provenance["rpc_url"] = "https://rpc.example/secret"
     provenance["generator_commit"] = "0" * 40
     provenance["block_ranges"][0]["provider_response"] = "not public"
-    spec = PolygonSettlementBundleSpec(
-        dataset_version="1.0.0",
-        publisher_name="Example Publisher",
-        attribution_url="https://example.com/data",
-        rights_review_status="not_reviewed",
-        rpc_provider_terms_url="https://rpc.example/legal/terms",
-        rpc_provider_terms_snapshot_sha256="d" * 64,
-        rpc_provider_terms_snapshot_at_utc="2026-07-22T00:00:00Z",
-    )
-    summary = build_polygon_settlement_release(
+    spec = PolygonSettlementAuditSpec(dataset_version="1.0.0")
+    summary = build_polygon_settlement_audit_release(
         release_connection,
         tmp_path,
         spec,
@@ -319,7 +342,7 @@ def test_builds_complete_immutable_sanitized_bundle(
     release = tmp_path / "releases" / "1.0.0"
     assert summary["rows"] == 39_120
     assert summary["markets"] == 248
-    assert {path.name for path in release.iterdir()} == set(BUNDLE_FILES)
+    assert {path.name for path in release.iterdir()} == set(AUDIT_BUNDLE_FILES)
     assert not (release / "dataset-metadata.json").exists()
 
     with (release / MAIN_CSV_NAME).open(newline="", encoding="utf-8") as handle:
@@ -338,14 +361,14 @@ def test_builds_complete_immutable_sanitized_bundle(
 
     readme = (release / "README.md").read_text(encoding="utf-8")
     assert "settlement times, not order-match times" in readme
-    assert "de-identified, not anonymous" in readme
-    assert "primary CSV omits transaction, log, and block locators" in readme
     assert "initialization transaction/log locators" in readme
     assert "token-verification block locators" in readme
-    assert "CC BY 4.0" in (release / "LICENSE.txt").read_text(encoding="utf-8")
-    assert "does not call Polymarket Gamma or CLOB APIs" in (
-        release / "NOTICE.md"
-    ).read_text(encoding="utf-8")
+    assert "internal audit bundle" in readme
+    assert not (release / "LICENSE.txt").exists()
+    assert not (release / "NOTICE.md").exists()
+    do_not_publish = (release / "DO_NOT_PUBLISH.md").read_text(encoding="utf-8")
+    assert "Do not publish this directory" in do_not_publish
+    assert "standalone Polygon settlement exporter" in do_not_publish
 
     provenance_json = json.loads(
         (release / "PROVENANCE.json").read_text(encoding="utf-8")
@@ -364,12 +387,20 @@ def test_builds_complete_immutable_sanitized_bundle(
         "sha256": publishing.OPENFOOTBALL_LICENSE_SHA256,
         "uri": publishing.OPENFOOTBALL_LICENSE_URI,
     }
-    assert provenance_json["rpc_provider_terms"] == {
-        "snapshot_at_utc": "2026-07-22T00:00:00Z",
-        "snapshot_sha256": "d" * 64,
-        "status": "snapshotted",
-        "terms_url": "https://rpc.example/legal/terms",
+    assert provenance_json["resolution_attestation"] == {
+        "schema_version": 1,
+        "manifest_version": "1.0.0",
+        "manifest_sha256": "a" * 64,
+        "resolved_condition_count": 248,
+        "verified_at_utc": "2026-07-22T11:02:27Z",
+        "authoring_evidence_sha256": "b" * 64,
+        "finalized_head_block_number": 123456,
+        "finalized_head_block_hash": "0x" + "c" * 64,
     }
+    assert "publisher_name" not in provenance_json
+    assert "attribution_url" not in provenance_json
+    assert "rights_review_status" not in provenance_json
+    assert "rpc_provider_terms" not in provenance_json
     assert "rpc_url" not in provenance_json
     assert "provider_response" not in provenance_json["block_ranges"][0]
     assert set(provenance_json["output_sha256"]) == {
@@ -385,30 +416,20 @@ def test_builds_complete_immutable_sanitized_bundle(
 
     sources = (release / "SOURCES.csv").read_text(encoding="utf-8")
     assert publishing.FIFA_SCHEDULE_SHA256 in sources
-    assert "CC0 1.0 Universal public-domain dedication" in sources
     assert "https://rpc.example" in sources
-    assert "provider terms evidence status: snapshotted" in sources
-    assert "d" * 64 in sources
-    notice = (release / "NOTICE.md").read_text(encoding="utf-8")
-    assert publishing.OPENFOOTBALL_CC0_NOTICE in notice
-    assert publishing.OPENFOOTBALL_LICENSE_SHA256 in notice
-    assert "provider-terms evidence status is `snapshotted`" in notice
-    assert "expressive layout are not redistributed" in notice
-    assert (
-        hashlib.sha256((publishing.OPENFOOTBALL_CC0_NOTICE + "\n").encode()).hexdigest()
-        == publishing.OPENFOOTBALL_LICENSE_SHA256
-    )
+    assert "license_or_terms" not in sources.splitlines()[0]
+    assert "provider terms" not in sources.lower()
 
     checksum_lines = (
         (release / "CHECKSUMS.sha256").read_text(encoding="utf-8").splitlines()
     )
-    assert len(checksum_lines) == len(BUNDLE_FILES) - 1
+    assert len(checksum_lines) == len(AUDIT_BUNDLE_FILES) - 1
     for line in checksum_lines:
         expected, filename = line.split("  ", maxsplit=1)
         assert hashlib.sha256((release / filename).read_bytes()).hexdigest() == expected
 
     copy_root = tmp_path / "copy"
-    build_polygon_settlement_release(
+    build_polygon_settlement_audit_release(
         release_connection,
         copy_root,
         spec,
@@ -416,8 +437,8 @@ def test_builds_complete_immutable_sanitized_bundle(
         generator_commit="f" * 40,
     )
     copy_release = copy_root / "releases" / "1.0.0"
-    assert {name: (release / name).read_bytes() for name in BUNDLE_FILES} == {
-        name: (copy_release / name).read_bytes() for name in BUNDLE_FILES
+    assert {name: (release / name).read_bytes() for name in AUDIT_BUNDLE_FILES} == {
+        name: (copy_release / name).read_bytes() for name in AUDIT_BUNDLE_FILES
     }
 
 
@@ -451,10 +472,10 @@ def test_release_reconciles_current_verification_status_and_warning(
             else "https://verify.example"
         )
 
-    build_polygon_settlement_release(
+    build_polygon_settlement_audit_release(
         release_connection,
         tmp_path,
-        PolygonSettlementBundleSpec("1.0.0", "Publisher"),
+        PolygonSettlementAuditSpec("1.0.0"),
         provenance=provenance,
         generator_commit="f" * 40,
     )
@@ -472,7 +493,7 @@ def test_release_reconciles_current_verification_status_and_warning(
     ]
 
     assert provenance_json["verification_status"] == verification_status
-    assert provenance_json["rpc_provider_terms"]["status"] == "unavailable"
+    assert "rpc_provider_terms" not in provenance_json
     assert quality_json["verification_status"] == verification_status
     if verification_status == "matched":
         assert verification_issues == []
@@ -530,20 +551,44 @@ def test_release_refuses_overwrite_and_preserves_existing_bundle(
     provenance: dict,
     tmp_path: Path,
 ) -> None:
-    spec = PolygonSettlementBundleSpec("1.0.0", "Publisher")
+    spec = PolygonSettlementAuditSpec("1.0.0")
     kwargs = {
         "provenance": provenance,
         "generator_commit": "f" * 40,
     }
-    build_polygon_settlement_release(release_connection, tmp_path, spec, **kwargs)
+    build_polygon_settlement_audit_release(release_connection, tmp_path, spec, **kwargs)
     original = (tmp_path / "releases" / "1.0.0" / "CHECKSUMS.sha256").read_bytes()
 
     with pytest.raises(FileExistsError, match="release already exists"):
-        build_polygon_settlement_release(release_connection, tmp_path, spec, **kwargs)
+        build_polygon_settlement_audit_release(
+            release_connection, tmp_path, spec, **kwargs
+        )
 
     assert (
         tmp_path / "releases" / "1.0.0" / "CHECKSUMS.sha256"
     ).read_bytes() == original
+
+
+def test_release_refuses_dangling_version_symlink(
+    release_connection: duckdb.DuckDBPyConnection,
+    provenance: dict,
+    tmp_path: Path,
+) -> None:
+    releases = tmp_path / "releases"
+    releases.mkdir()
+    version_link = releases / "1.0.0"
+    version_link.symlink_to(tmp_path / "missing-release", target_is_directory=True)
+
+    with pytest.raises(FileExistsError, match="release already exists"):
+        build_polygon_settlement_audit_release(
+            release_connection,
+            tmp_path,
+            PolygonSettlementAuditSpec("1.0.0"),
+            provenance=provenance,
+            generator_commit="f" * 40,
+        )
+
+    assert version_link.is_symlink()
 
 
 def test_failed_quality_gate_leaves_no_partial_release(
@@ -558,10 +603,10 @@ def test_failed_quality_gate_leaves_no_partial_release(
         """
     )
     with pytest.raises(ValueError, match="not publication-ready"):
-        build_polygon_settlement_release(
+        build_polygon_settlement_audit_release(
             release_connection,
             tmp_path,
-            PolygonSettlementBundleSpec("1.0.1", "Publisher"),
+            PolygonSettlementAuditSpec("1.0.1"),
             provenance=provenance,
             generator_commit="f" * 40,
         )
@@ -577,91 +622,23 @@ def test_rejects_non_semver_versions(version: str) -> None:
         validate_dataset_version(version)
 
 
-def test_validates_publisher_rights_url_and_provenance(
+def test_validates_audit_spec_and_provenance(
     release_connection: duckdb.DuckDBPyConnection,
     provenance: dict,
     tmp_path: Path,
 ) -> None:
-    with pytest.raises(ValueError, match="publisher_name"):
-        PolygonSettlementBundleSpec("1.0.0", " ")
-    with pytest.raises(ValueError, match="rights_review_status"):
-        PolygonSettlementBundleSpec("1.0.0", "Publisher", rights_review_status="yes")
-    with pytest.raises(ValueError, match="attribution_url"):
-        PolygonSettlementBundleSpec("1.0.0", "Publisher", attribution_url="relative")
+    with pytest.raises(ValueError, match="SemVer"):
+        PolygonSettlementAuditSpec("latest")
 
     provenance["rpc_provider_origin"] = "https://rpc.example/secret/key"
     with pytest.raises(ValueError, match="sanitized origin"):
-        build_polygon_settlement_release(
+        build_polygon_settlement_audit_release(
             release_connection,
             tmp_path,
-            PolygonSettlementBundleSpec("1.0.0", "Publisher"),
+            PolygonSettlementAuditSpec("1.0.0"),
             provenance=provenance,
             generator_commit="f" * 40,
         )
-
-
-def test_rpc_provider_terms_metadata_states_and_validation(tmp_path: Path) -> None:
-    unavailable = PolygonSettlementBundleSpec("1.0.0", "Publisher")
-    assert publishing._rpc_provider_terms_metadata(unavailable) == {
-        "status": "unavailable",
-        "terms_url": None,
-        "snapshot_sha256": None,
-        "snapshot_at_utc": None,
-    }
-
-    not_reviewed = PolygonSettlementBundleSpec(
-        "1.0.0",
-        "Publisher",
-        rpc_provider_terms_url="https://provider.example/terms",
-    )
-    assert publishing._rpc_provider_terms_metadata(not_reviewed)["status"] == (
-        "not_reviewed"
-    )
-    assert "`unavailable`" in publishing._rpc_provider_terms_notice(unavailable)
-    assert "`not_reviewed`" in publishing._rpc_provider_terms_notice(not_reviewed)
-    sources_path = tmp_path / "SOURCES.csv"
-    publishing._write_sources(
-        sources_path,
-        [
-            {
-                "openfootball_revision": "a" * 40,
-                "openfootball_path": "2026--usa/cup.txt",
-            }
-        ],
-        {
-            "finalized_head_block_number": 1,
-            "rpc_provider_label": "provider",
-            "rpc_provider_origin": "https://provider.example",
-        },
-        not_reviewed,
-    )
-    assert "terms URL supplied; no immutable snapshot" in sources_path.read_text()
-
-    invalid_specs = (
-        {"rpc_provider_terms_url": "http://provider.example/terms"},
-        {"rpc_provider_terms_url": "https://user@provider.example/terms"},
-        {"rpc_provider_terms_url": "https://provider.example/terms?key=secret"},
-        {"rpc_provider_terms_url": "https://provider.example/bad terms"},
-        {"rpc_provider_terms_url": "https://provider.example:bad/terms"},
-        {"rpc_provider_terms_snapshot_sha256": "a" * 64},
-        {
-            "rpc_provider_terms_snapshot_sha256": "a" * 64,
-            "rpc_provider_terms_snapshot_at_utc": "2026-07-22T00:00:00Z",
-        },
-        {
-            "rpc_provider_terms_url": "https://provider.example/terms",
-            "rpc_provider_terms_snapshot_sha256": "bad",
-            "rpc_provider_terms_snapshot_at_utc": "2026-07-22T00:00:00Z",
-        },
-        {
-            "rpc_provider_terms_url": "https://provider.example/terms",
-            "rpc_provider_terms_snapshot_sha256": "a" * 64,
-            "rpc_provider_terms_snapshot_at_utc": "2026-07-22",
-        },
-    )
-    for values in invalid_specs:
-        with pytest.raises(ValueError):
-            PolygonSettlementBundleSpec("1.0.0", "Publisher", **values)
 
 
 def test_generator_commit_requires_a_clean_repo(monkeypatch, tmp_path: Path) -> None:
@@ -867,7 +844,7 @@ def test_release_row_validation_rejects_corrupt_public_mart_values(
     changed = list(mart)
     changed[0] = {**mart[0], **changes}
 
-    with pytest.raises(ValueError, match="invalid public mart values"):
+    with pytest.raises(ValueError, match="invalid audit mart values"):
         publishing._validate_rows(changed, markets, quality, provenance)
 
 
@@ -993,6 +970,8 @@ def test_provenance_validation_rejects_incomplete_or_unsafe_values(
 def test_release_format_helpers_cover_public_types_and_formula_safety(
     tmp_path: Path,
 ) -> None:
+    with pytest.raises(ValueError, match="control characters"):
+        publishing._validate_plain_label("provider\nlabel", "provider", maximum=100)
     publishing._validate_provider_origin(
         "https://[2001:4860:4860::8888]", "rpc_provider_origin"
     )
@@ -1025,15 +1004,13 @@ def test_release_format_helpers_cover_public_types_and_formula_safety(
     assert publishing._column_schema("yes_observed")["type"] == "boolean"
     assert publishing._column_schema("home_team")["type"] == "string"
 
-    with pytest.raises(ValueError, match="control characters"):
-        PolygonSettlementBundleSpec("1.0.0", "Publisher\nInjected")
-    with pytest.raises(ValueError, match="attribution_url"):
-        PolygonSettlementBundleSpec(
-            "1.0.0", "Publisher", attribution_url="https://user@example.com"
-        )
-
-    with pytest.raises(RuntimeError, match="release files differ"):
-        publishing._validate_bundle_files(tmp_path)
+    with pytest.raises(RuntimeError, match="audit release files differ"):
+        publishing._validate_audit_bundle_files(tmp_path)
+    linked_file = tmp_path / "linked-file"
+    linked_file.write_text("linked", encoding="utf-8")
+    (tmp_path / "linked-entry").symlink_to(linked_file)
+    with pytest.raises(RuntimeError, match="audit release files differ"):
+        publishing._validate_audit_bundle_files(tmp_path)
 
 
 def test_build_rejects_invalid_generator_sha_before_writing(
@@ -1042,10 +1019,10 @@ def test_build_rejects_invalid_generator_sha_before_writing(
     tmp_path: Path,
 ) -> None:
     with pytest.raises(ValueError, match="generator_commit"):
-        build_polygon_settlement_release(
+        build_polygon_settlement_audit_release(
             release_connection,
             tmp_path,
-            PolygonSettlementBundleSpec("1.0.0", "Publisher"),
+            PolygonSettlementAuditSpec("1.0.0"),
             provenance=provenance,
             generator_commit="bad",
         )

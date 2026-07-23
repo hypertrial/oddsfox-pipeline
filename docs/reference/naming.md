@@ -30,6 +30,16 @@ more sources and scopes are added:
 - `kalshi/wc2026/raw/market_candlesticks_hourly`
 - `kalshi/wc2026/marts/stage_markets`
 
+The registered
+`polymarket/wc2026/release/polygon_settlement_odds_bundle` key is retained for
+the internal audit release. Its historical `bundle` suffix does not imply a
+sanitized or distributable artifact. Filesystem outputs use explicit roles:
+
+- `artifacts/polygon_settlement/audit/releases/<version>/`
+- `artifacts/polygon_settlement/exports/releases/<version>/`
+
+The standalone export is not a Dagster asset or schedule.
+
 DuckDB and dbt schemas use `<source>_<scope>_<layer>`:
 
 - `polymarket_wc2026_raw`

@@ -129,30 +129,20 @@ def test_polygon_settlement_configs_are_fixed_and_release_inputs_are_explicit():
 
     release = polymarket_wc2026_polygon_settlement_release_run_config(
         dataset_version="1.2.3",
-        publisher_name="Publisher",
-        rpc_provider_terms_url="https://provider.example/terms",
-        rpc_provider_terms_snapshot_sha256="a" * 64,
-        rpc_provider_terms_snapshot_at_utc="2026-07-22T00:00:00Z",
         output_root="/tmp/polygon-release-test",
     )["ops"]["polymarket_wc2026_release_polygon_settlement_odds_bundle"]["config"]
     assert release["dataset_version"] == "1.2.3"
-    assert release["rights_review_status"] == "not_reviewed"
-    assert release["rpc_provider_terms_url"] == "https://provider.example/terms"
-    assert release["rpc_provider_terms_snapshot_sha256"] == "a" * 64
+    assert set(release) == {"dataset_version", "output_root"}
+    assert PolygonSettlementReleaseConfig(dataset_version="1.0.0").output_root.endswith(
+        "artifacts/polygon_settlement/audit"
+    )
 
     with pytest.raises(ValueError, match="SemVer"):
-        PolygonSettlementReleaseConfig(
-            dataset_version="latest", publisher_name="Publisher"
-        )
+        PolygonSettlementReleaseConfig(dataset_version="latest")
     with pytest.raises(ValueError, match="output_root"):
         PolygonSettlementReleaseConfig(
-            dataset_version="1.0.0", publisher_name="Publisher", output_root=" "
-        )
-    with pytest.raises(ValueError, match="snapshot"):
-        PolygonSettlementReleaseConfig(
             dataset_version="1.0.0",
-            publisher_name="Publisher",
-            rpc_provider_terms_snapshot_sha256="a" * 64,
+            output_root=" ",
         )
 
 

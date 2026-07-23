@@ -186,16 +186,11 @@ def test_polygon_settlement_release_builds_with_advisory_configuration_error(
         "load_polygon_settlement_release_provenance",
         lambda _conn: provenance,
     )
-    monkeypatch.setattr(assets_mod, "build_polygon_settlement_release", build)
+    monkeypatch.setattr(assets_mod, "build_polygon_settlement_audit_release", build)
     monkeypatch.setattr(assets_mod, "current_generator_commit", lambda: "f" * 40)
 
     config = PolygonSettlementReleaseConfig(
         dataset_version="1.0.0",
-        publisher_name="Publisher",
-        attribution_url="https://example.com/data",
-        rpc_provider_terms_url="https://provider.example/terms",
-        rpc_provider_terms_snapshot_sha256="a" * 64,
-        rpc_provider_terms_snapshot_at_utc="2026-07-22T00:00:00Z",
         output_root=str(tmp_path),
     )
     result = assets_mod.polymarket_wc2026_release_polygon_settlement_odds_bundle.op.compute_fn.decorated_fn(
@@ -205,9 +200,6 @@ def test_polygon_settlement_release_builds_with_advisory_configuration_error(
     args, kwargs = build.call_args
     assert args[:2] == ("connection", tmp_path)
     assert args[2].dataset_version == "1.0.0"
-    assert args[2].publisher_name == "Publisher"
-    assert args[2].rpc_provider_terms_url == "https://provider.example/terms"
-    assert args[2].rpc_provider_terms_snapshot_sha256 == "a" * 64
     assert kwargs == {
         "provenance": provenance,
         "generator_commit": "f" * 40,
@@ -257,14 +249,13 @@ def test_polygon_settlement_release_keeps_verification_advisory(monkeypatch, tmp
         "set_polygon_verification_status",
         set_verification,
     )
-    monkeypatch.setattr(assets_mod, "build_polygon_settlement_release", build)
+    monkeypatch.setattr(assets_mod, "build_polygon_settlement_audit_release", build)
     monkeypatch.setattr(assets_mod, "current_generator_commit", lambda: "f" * 40)
 
     result = assets_mod.polymarket_wc2026_release_polygon_settlement_odds_bundle.op.compute_fn.decorated_fn(
         context,
         PolygonSettlementReleaseConfig(
             dataset_version="1.0.0",
-            publisher_name="Publisher",
             output_root=str(tmp_path),
         ),
     )

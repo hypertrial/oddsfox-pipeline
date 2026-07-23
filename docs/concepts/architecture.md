@@ -46,8 +46,11 @@ flowchart LR
     raw --> ops["DuckDB ops ledgers"]
     raw --> dbt["dbt models"]
     ops --> dbt
-    dbt --> marts["WC2026 knockout odds marts"]
-    marts --> bundle["Immutable sanitized CSV bundle"]
+    dbt --> marts["WC2026 analytics marts"]
+    dbt --> polygon_mart["Polygon settlement mart"]
+    polygon_mart --> audit["Immutable internal audit bundle"]
+    audit --> export["Sanitized technical export"]
+    export -.-> publisher["External publisher process"]
     dagster["Dagster jobs and schedules"] --> dlt
     dagster --> odds
     dagster --> kalshi_sync
@@ -60,7 +63,9 @@ Text fallback: prediction-market metadata/odds APIs and the FIFA results CSV
 feed DuckDB raw and ops schemas. Dagster runs the ingest and dbt steps. dbt
 publishes local analytics marts for WC2026 knockout odds, Kalshi stage and
 group-winner odds, Polygon settlement history, team scope, and ingestion
-observability. The CSV bundle is local-only; no orchestration asset uploads it.
+observability. The Polygon release asset writes only an internal audit bundle;
+the sanitized exporter is a separate offline script. Neither path publishes or
+uploads data.
 
 The shipped Dagster/dbt graphs are fixed per scope (`wc2026`,
 `us_midterms_2026`); see [Configuration](../reference/configuration.md) for the seed-backed
@@ -75,7 +80,9 @@ helper boundary.
 | Python CSV sync | Loads public WC2026 and 2006+ historical international-result feeds. |
 | Canonical snapshot loader | Validates hashes, schemas, provenance, ordering, and transactional exactly-once loads for optional private enrichments. |
 | Python odds sync | Fetches odds, writes token history, and maintains ledgers. |
-| Polygon settlement sync | Scans finalized V2 logs in resumable block chunks, normalizes exact economic legs, and atomically publishes a sanitized snapshot. |
+| Polygon settlement sync | Scans finalized V2 logs in resumable block chunks, normalizes exact economic legs, and atomically publishes a wallet- and order-payload-redacted snapshot. |
+| Polygon audit release | Writes the complete immutable local evidence bundle used for verification; it is not a sanitized publication artifact. |
+| Polygon sanitized exporter | Verifies an immutable audit release, copies the allowlisted CSV byte-for-byte, and writes a redacted technical quality dossier without opening the warehouse or making network requests. |
 | DuckDB | Stores raw, ops, staging, intermediate, mart, and observability schemas. |
 | dbt | Builds analytics models and data-contract tests. |
 
@@ -150,10 +157,16 @@ clients and one shared limiter; only the main thread writes Arrow batches and
 checkpoint evidence to DuckDB. dbt produces the dense 39,120-row
 proposition-minute mart.
 
-The release step reads that valid mart and emits a sanitized immutable SemVer
-bundle. It exposes aggregates and authored semantics but omits participant and
-transaction-level identifiers. De-identification reduces direct exposure; it
-does not prevent reverse-linking sparse aggregates to the public chain.
+The release job reads that valid mart and emits a complete immutable internal
+audit bundle below `artifacts/polygon_settlement/audit/releases/`. That bundle
+retains market identifiers and chain locators and must not be treated as a
+sanitized artifact. The standalone exporter verifies an audit release and
+writes **WC2026 Polygon Settlement Minute Aggregates** below
+`artifacts/polygon_settlement/exports/releases/`. It copies the allowlisted main
+CSV byte-for-byte and emits only redacted aggregate technical metadata.
+De-identification reduces direct exposure; it does not prevent reverse-linking
+sparse aggregates to the public chain. Publisher identity, dataset licensing,
+legal review, and distribution are outside this repository.
 
 ## Operating Model
 
@@ -174,7 +187,8 @@ does not prevent reverse-linking sparse aggregates to the public chain.
   admitted registry markets.
 - `polymarket_wc2026_polygon_settlement_backfill` and
   `polymarket_wc2026_polygon_settlement_release` are isolated manual jobs with
-  no schedules. The release never uploads to Kaggle.
+  no schedules. The release writes only the internal audit bundle. The
+  sanitized exporter is standalone and unscheduled; neither path uploads data.
 - Schedules are stopped by default and should stay off until manual runs pass.
 - DuckDB allows one read-write writer, so scripts provide read-only inspection
   and repair paths for local operators.

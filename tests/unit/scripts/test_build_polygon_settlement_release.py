@@ -20,8 +20,6 @@ def _arguments(tmp_path: Path) -> list[str]:
     return [
         "--dataset-version",
         "1.2.3",
-        "--publisher-name",
-        "Publisher",
         "--duckdb-path",
         str(tmp_path / "warehouse.duckdb"),
         "--output-root",
@@ -34,7 +32,7 @@ def _stub_bundle(monkeypatch, release, tmp_path: Path) -> MagicMock:
     monkeypatch.setattr(release, "open_duckdb_connection", MagicMock(return_value=conn))
     monkeypatch.setattr(
         release,
-        "build_polygon_settlement_release",
+        "build_polygon_settlement_audit_release",
         MagicMock(return_value={"rows": 39_120, "release_dir": tmp_path / "1.2.3"}),
     )
     monkeypatch.setattr(release, "current_generator_commit", lambda _root: "a" * 40)

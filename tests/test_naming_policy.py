@@ -263,7 +263,6 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         | set(
             polymarket_wc2026_polygon_settlement_release_run_config(
                 dataset_version="1.0.0",
-                publisher_name="test",
             )["ops"]
         )
         | set(polymarket_wc2026_dbt_build_run_config()["ops"])
