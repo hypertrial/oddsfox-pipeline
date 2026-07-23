@@ -22,6 +22,17 @@ OddsFox Pipeline is code and operator tooling, not a hosted dataset. The shipped
 adapters cover Polymarket WC2026, Polymarket US midterms 2026, Kalshi WC2026,
 OpenFootball, and the public 2006+ `international_results` files.
 
+The separate WC2026 Polygon settlement flow is an unscheduled historical
+collector. It reads Polygon V2 settlement logs using a committed, independently
+authored market manifest and does not call Gamma, CLOB, the Polymarket website,
+or a runtime football-results source. It can build a local, immutable CSV bundle
+titled **WC2026 Polygon Settlement Odds**; this repository does not upload it to
+Kaggle. Its v4 collector plans group and knockout ranges by their authored V2
+exchange, rejects discoveries outside exact token windows before receipt fetch,
+and expands only matching finalized receipts in five bounded workers. Published
+reruns short-circuit offline; live-smoke checkpoints, status, and tool caches
+remain below the SSD-backed repository `.cache/` and resume by default.
+
 Every operator runs ingestion against source APIs and stores the resulting data
 in their own local DuckDB file or self-managed warehouse.
 
@@ -97,7 +108,8 @@ OddsFox Pipeline keeps the data stack local and inspectable:
 
 - Prediction-market APIs and the WC2026 results CSV feed raw DuckDB tables;
   v0.1.x ships Polymarket Gamma/CLOB ingestion, Kalshi public trade API
-  ingestion, and team-scope validation.
+  ingestion, an isolated finalized Polygon settlement-log backfill, and
+  team-scope validation.
 - Dagster coordinates market discovery, registry refresh, odds sync, and dbt.
 - dbt models staging, intermediate, mart, and observability schemas.
 - Operator scripts inspect, compact, prune, and repair local warehouse state.
@@ -110,7 +122,8 @@ Main public analytics schemas:
 
 - `polymarket_wc2026_marts`: WC2026 Polymarket in-game minute moneyline and
   advance odds for all 104 matches, knockout market snapshots,
-  progression-side hourly odds, token classification, and graph exports.
+  progression-side hourly odds, token classification, graph exports, and the
+  independent `polymarket_wc2026_polygon_settlement_minute_odds` mart.
 - `wc2026_marts`: official FIFA-numbered knockout match hourly team-advance
   prices plus stable fixtures, results, identities, point-in-time features,
   venue/token identity, price/liquidity history, travel features, provenance,
@@ -130,6 +143,8 @@ Dagster registers source-first jobs:
 `polymarket_wc2026_market_registry_refresh`,
 `polymarket_wc2026_hourly_odds_ingest`,
 `polymarket_wc2026_match_minute_odds_backfill`,
+`polymarket_wc2026_polygon_settlement_backfill`,
+`polymarket_wc2026_polygon_settlement_release`,
 `polymarket_wc2026_dbt_build`, and
 `polymarket_wc2026_full_pipeline`;
 `polymarket_us_midterms_2026_market_registry_refresh`,
@@ -141,6 +156,23 @@ Dagster registers source-first jobs:
 The atomic cross-platform job is
 `wc2026_knockout_match_odds_full_pipeline`; its hourly schedule is stopped by
 default.
+
+The Polygon mart contains exactly 39,120 proposition-minute rows over fixed
+half-open scheduled windows: 150 minutes for group matches and 210 minutes for
+knockout matches. Prices are finalized block-time settlement aggregates, not
+quotes, order-book snapshots, order-match timestamps, or CLOB price history.
+Empty minutes remain null. Normalized economic-leg counts can differ from unique
+user trades, and derived MINT/MERGE counterparts are separately counted.
+
+The main odds CSV omits wallets and transaction, log, block, provider, order,
+and raw-payload identifiers. The market sidecar intentionally retains condition
+and token IDs, exchange addresses, semantic initialization transaction/log
+locators, and token-verification block locators so the authored mapping remains
+auditable. This is de-identification, not anonymity: sparse public blockchain
+aggregates can still be reverse-linked. The bundle applies CC BY 4.0 only to the
+publisher's protectable selection, arrangement, annotations, transformations,
+schema, and documentation; it does not claim ownership of underlying blockchain
+facts or third-party marks.
 
 See the [Data dictionary](docs/reference/data-dictionary.md) for analyst-facing table
 semantics, [Data contracts](docs/reference/data-contracts.md) for formal guarantees, and
@@ -163,6 +195,11 @@ Set that workflow's `publish` input only on `main` to publish the signed
 AMD64/ARM64 image, SBOM, and provenance. For narrower local runs, `make test`,
 `make integration-dagster`, `make integration-dbt`, `make data-quality`, and
 `make coverage` still work.
+
+The ordinary `dbt-build` remains credential-free and excludes the isolated
+`polygon_settlement` graph. `release-gate` additionally runs
+`dbt-polygon-settlement-ci` against replay-only synthetic fixtures. Live Polygon
+validation is explicitly opt-in through `make polygon-settlement-live-smoke`.
 
 `dbt-build-ci` uses a disposable DuckDB database under `.cache/` for release
 parity. `gx-data-quality` checks that existing build; local `data-quality`

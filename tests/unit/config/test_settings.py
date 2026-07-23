@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -104,6 +107,33 @@ def test_load_dotenv_called_only_when_dotenv_exists(monkeypatch, isolated_env):
 
     reload_all_settings_modules()
     assert mock_load.called
+
+
+def test_settings_barrel_loads_repo_dotenv_before_source_settings(tmp_path):
+    (tmp_path / ".env").write_text(
+        "POLYGON_RPC_URL=https://synthetic.invalid/key\n"
+        "POLYGON_RPC_PROVIDER_LABEL=synthetic-provider\n",
+        encoding="utf-8",
+    )
+    environment = os.environ.copy()
+    environment["ODDSFOX_PIPELINE_ROOT"] = str(tmp_path)
+    environment.pop("POLYGON_RPC_URL", None)
+    environment.pop("POLYGON_RPC_PROVIDER_LABEL", None)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from oddsfox_pipeline.config.settings import "
+            "POLYGON_RPC_PROVIDER_LABEL, POLYGON_RPC_URL; "
+            "print(POLYGON_RPC_URL, POLYGON_RPC_PROVIDER_LABEL)",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        env=environment,
+    )
+    assert result.stdout.strip() == ("https://synthetic.invalid/key synthetic-provider")
 
 
 def test_optional_env_str_strips_and_ignores_blank(monkeypatch, isolated_env):

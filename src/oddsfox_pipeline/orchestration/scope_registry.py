@@ -70,7 +70,7 @@ POLYMARKET_WC2026_SCOPE = ScopeSpec(
     dbt_select="+tag:polymarket,tag:wc2026",
     dbt_exclude=(
         "tag:cross_domain wc2026_fixtures wc2026_schedule_matches "
-        "wc2026_team_canonical_aliases"
+        "wc2026_team_canonical_aliases tag:polygon_settlement"
     ),
     source_seed="polymarket.market_scopes",
     includes_international_results=True,

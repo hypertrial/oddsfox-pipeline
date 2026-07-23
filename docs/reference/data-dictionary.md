@@ -22,6 +22,9 @@ scope rules, and data-contract tests, see [Data Contracts](data-contracts.md).
   force probabilities across combinations to sum to 1.0.
 - Kalshi stage marts expose progression prices separately from raw Yes prices.
   Use `progression_*_price` for team-progression analysis.
+- Polygon settlement prices use finalized event-block time and normalized
+  economic legs. They are not quotes, order-book snapshots, unique-user trade
+  counts, order-match timestamps, or CLOB observations.
 
 ## Cross-platform WC2026 Mart
 
@@ -38,6 +41,30 @@ scope rules, and data-contract tests, see [Data Contracts](data-contracts.md).
 | Common mistakes | Treating prices as regulation moneylines, using provider home/away order, filling nulls, or normalizing pair sums. |
 
 ## Polymarket WC2026 Marts
+
+### `polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds`
+
+| Property | Value |
+| --- | --- |
+| Grain | One row per `(proposition_id, settlement_minute_utc)` |
+| Coverage | FIFA match IDs 1–104; 216 group propositions × 150 minutes plus 32 knockout propositions × 210 minutes = 39,120 rows |
+| Intended use | Historical settlement-flow studies over fixed scheduled match windows |
+| Timing | Finalized Polygon event-block timestamp bucket inside `[kickoff, window_end)` |
+| Prices | Oriented Yes/No OHLC and share-weighted VWAP, ordered by block, transaction, passive log, and normalized-leg ordinal |
+| Activity | Per side: normalized/derived economic-leg counts, share/collateral volume, first/last settlement timestamp, and observed flag |
+| Null policy | Dense empty minutes keep null price/timestamps and zero counts/volumes; no forward-fill, interpolation, pair normalization, or inferred complement |
+| Status | `both_observed`, `yes_only`, `no_only`, or `no_fills`; `minute_complete` means both oriented sides were observed |
+| Semantics | Use authored `proposition_type`, `yes_represents`, and `no_represents`; no match results are included |
+| Identity | Stable proposition and FIFA fixture fields; on-chain evidence identifiers remain in the seed/market sidecar, not the release's main CSV |
+| Common joins | Compare with the Gamma/CLOB mart on `condition_id` plus oriented Yes/No token IDs, then read authored Yes/No semantics |
+| Common mistakes | Joining flows on raw team strings or `(fifa_match_id, proposition_type)`; independent aliases and home/away order can differ |
+
+`elapsed_window_minute` is zero-based and bounded to `0..149` for group
+propositions or `0..209` for knockout propositions. It is a scheduled analysis
+axis, not official football match time. A normalized fill count measures
+economic legs; MINT/MERGE can add an explicitly derived counterpart, so it
+should not be interpreted as unique users or transactions. Empty propositions
+and sparse token sides are retained and reported as warnings.
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`
 

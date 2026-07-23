@@ -10,6 +10,10 @@ from oddsfox_pipeline.naming import (
     SOURCE_POLYMARKET,
     asset_key,
 )
+from oddsfox_pipeline.orchestration.assets_polygon_settlement import (
+    POLYMARKET_WC2026_RAW_POLYGON_SETTLEMENT_FILLS,
+    POLYMARKET_WC2026_RELEASE_POLYGON_SETTLEMENT_ODDS_BUNDLE,
+)
 from oddsfox_pipeline.orchestration.assets_polymarket import oddsfox_dbt
 from oddsfox_pipeline.orchestration.config import (
     kalshi_wc2026_dbt_build_run_config,
@@ -22,6 +26,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
+    polymarket_wc2026_polygon_settlement_backfill_run_config,
     wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.scope_registry import (
@@ -89,6 +94,14 @@ POLYMARKET_WC2026_MATCH_MINUTE_RAW_SELECTION = AssetSelection.assets(
     ),
 )
 
+POLYMARKET_WC2026_POLYGON_SETTLEMENT_RAW_SELECTION = AssetSelection.assets(
+    POLYMARKET_WC2026_RAW_POLYGON_SETTLEMENT_FILLS
+)
+
+POLYMARKET_WC2026_POLYGON_SETTLEMENT_RELEASE_SELECTION = AssetSelection.assets(
+    POLYMARKET_WC2026_RELEASE_POLYGON_SETTLEMENT_ODDS_BUNDLE
+)
+
 POLYMARKET_WC2026_DBT_SELECTION = build_dbt_asset_selection(
     [oddsfox_dbt],
     dbt_select=POLYMARKET_WC2026_SCOPE.dbt_select,
@@ -106,6 +119,22 @@ POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION = (
         depth=0,
         include_self=True,
     )
+)
+
+_POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_GRAPH = build_dbt_asset_selection(
+    [oddsfox_dbt],
+    dbt_select="+polymarket_wc2026_polygon_settlement_minute_odds",
+)
+POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_SELECTION = (
+    _POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_GRAPH.without_checks().downstream(
+        depth=0,
+        include_self=True,
+    )
+)
+
+POLYMARKET_WC2026_POLYGON_SETTLEMENT_BACKFILL_SELECTION = (
+    POLYMARKET_WC2026_POLYGON_SETTLEMENT_RAW_SELECTION
+    | POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_SELECTION
 )
 
 INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION = AssetSelection.assets(
@@ -220,6 +249,21 @@ polymarket_wc2026_match_minute_odds_backfill = define_asset_job(
     selection=POLYMARKET_WC2026_MATCH_MINUTE_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_match_minute_odds_run_config(),
+    tags=_POLYMARKET_WC2026_TAGS,
+)
+
+polymarket_wc2026_polygon_settlement_backfill = define_asset_job(
+    "polymarket_wc2026_polygon_settlement_backfill",
+    selection=POLYMARKET_WC2026_POLYGON_SETTLEMENT_BACKFILL_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_wc2026_polygon_settlement_backfill_run_config(),
+    tags=_POLYMARKET_WC2026_TAGS,
+)
+
+polymarket_wc2026_polygon_settlement_release = define_asset_job(
+    "polymarket_wc2026_polygon_settlement_release",
+    selection=POLYMARKET_WC2026_POLYGON_SETTLEMENT_RELEASE_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
     tags=_POLYMARKET_WC2026_TAGS,
 )
 

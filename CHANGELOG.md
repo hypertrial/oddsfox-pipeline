@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Independent WC2026 Polygon V2 settlement-log flow with a reviewed 248-row
+  on-chain market manifest, resumable finalized-block backfill, sanitized fill
+  snapshot, isolated Dagster/dbt graph, and dense 39,120-row
+  `polymarket_wc2026_polygon_settlement_minute_odds` mart.
+- Immutable local **WC2026 Polygon Settlement Odds** CSV bundle generator with
+  explicit SemVer releases, CC BY 4.0 notices, source/provenance/quality
+  metadata, checksums, and no Kaggle credentials or upload automation.
+- Developer-only Polygon seed authoring and validation commands, replay-backed
+  Polygon dbt validation, and an opt-in live Polygon smoke target.
 - `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`, a dense,
   null-preserving in-game minute mart for all 104 FIFA World Cup 2026 matches,
   with 248 selected markets, 496 literal source tokens, minute Yes/No OHLC, and
@@ -24,6 +33,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Polygon settlement collection now uses the `polygon-v2-settlement-v4`
+  pipeline: ranges are planned per authored exchange, exact token/block bounds
+  reject irrelevant discoveries before receipt fetch, and complete leaves run
+  concurrently through receipt/header validation and normalization. Adaptive
+  250–20,000-block and 5–50-receipt work records safe per-chunk RPC metrics,
+  writes atomic redacted status, and inserts fills through explicit Arrow
+  batches. Published compatible reruns short-circuit before credentials or RPC
+  construction; all live-smoke state remains below the SSD-backed `.cache`.
+- Ordinary Polymarket/dbt jobs and `make dbt-build` exclude the isolated
+  `polygon_settlement` graph; the full release gate validates it independently
+  with synthetic replay fixtures. The new backfill and release jobs have no
+  schedules and do not modify the existing Gamma/CLOB flow.
 - Match-minute CLOB publication now replaces the complete raw snapshot in one
   transaction only after all 496 token fetches succeed; failed runs retain audit
   evidence and leave the previous raw snapshot and public mart unchanged.
@@ -40,6 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Polygon V2 normalization now accounts for the exchange's post-settlement
+  refund of unused active maker assets in mixed MINT/MERGE matches while still
+  requiring exact passive-leg and received-asset conservation.
 - Match-minute team names and home/away orientation now follow the latest
   international-results snapshot. The dedicated backfill refreshes that source
   and blocks publication unless all 104 FIFA-numbered games reconcile uniquely.

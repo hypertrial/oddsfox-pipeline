@@ -17,6 +17,8 @@ more sources and scopes are added:
 
 - `polymarket/wc2026/raw/markets`
 - `polymarket/wc2026/ops/market_scope_registry`
+- `polymarket/wc2026/raw/polygon_settlement_fills`
+- `polymarket/wc2026/release/polygon_settlement_odds_bundle`
 - `polymarket/wc2026/marts/knockout_token_hourly_odds`
 - `polymarket/us_midterms_2026/raw/markets`
 - `polymarket/us_midterms_2026/ops/market_scope_registry`

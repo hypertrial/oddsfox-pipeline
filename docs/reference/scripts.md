@@ -10,6 +10,23 @@ Run them through `uv run python` so they use the repo environment.
 - `export_polymarket_wc2026_knockout_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` to parquet for progression-only WC2026 knockout audits.
 - `export_polymarket_wc2026_graph_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds` to portable parquet for `oddsfox-graph`; it includes both Yes/No tokens.
 - `export_polymarket_wc2026_match_minute_odds.py`: write the 104-game match-minute mart to a temporary Parquet, validate its grain, 104/248/496 inventory, proposition mix, timing, elapsed-axis invariants, and immutable results provenance, then atomically replace the prior artifact. It prints completeness, boundary nulls, pair warnings, elapsed range and over-120-minute games, revision/hash, file size, and SHA-256; quality warnings do not fail export.
+- `generate_polymarket_wc2026_polygon_settlement_seed.py`: developer-only
+  authoring tool. It downloads the hash-pinned CC0 OpenFootball fixture files
+  and pinned official FIFA schedule PDF, derives condition/question/token
+  evidence from Polygon without Gamma/CLOB/UI inputs, verifies resolution and
+  token orientation, and writes a candidate CSV plus `EVIDENCE.json` below
+  ignored `artifacts/`. It refuses existing output directories and never
+  updates the reviewed dbt seed.
+- `build_polymarket_wc2026_polygon_settlement_release.py`: validate an already
+  published Polygon mart and build a new immutable SemVer CSV bundle with
+  schema, provenance, sources, quality, license/notices, changelog, and SHA-256
+  checksums. It refuses version collisions and never uploads to Kaggle.
+- `benchmark_polymarket_wc2026_polygon_settlement.py`: optional exact comparator
+  for two completed v3/v4 benchmark warehouses. It hard-fails on economic-fill
+  or full-mart differences, non-39,120 marts, failed v4 publication gates, or
+  incomplete scans, then writes only aggregate durations/counts, database
+  hashes, v4 RPC metrics, and the advisory speed ratio. It refuses a partial or
+  missing baseline.
 - `build_hosted_artifacts.py`: local artifact helper that runs refresh, dbt, graph export, graph build, validation, and atomic publication into `$ODDSFOX_DATA_DIR/artifacts/releases/<UTC_BUILD_ID>` plus `$ODDSFOX_DATA_DIR/artifacts/current`.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_wc2026_raw.odds_history` rows older than a retention window (default 365 days).
@@ -21,7 +38,88 @@ Makefile shortcuts (stop Dagster and other writers first):
 ```bash
 make prune-odds-history          # default 365-day retention; add --dry-run via script directly
 make compact-warehouse           # reclaim dead space after rebuilds or pruning
+make polygon-settlement-seed-validate
+make dbt-polygon-settlement-ci    # replay-only; no RPC credentials
+make polygon-settlement-benchmark # requires completed v3 and v4 warehouses
 ```
+
+Author a seed candidate with an archive-capable primary RPC. Review the
+candidate and evidence before separately promoting it to `dbt/seeds/`; the Make
+target never performs that promotion:
+
+```bash
+POLYGON_SEED_MANIFEST_VERSION=1.0.0 \
+POLYGON_SEED_REVIEWED_AT=2026-07-22T12:00:00Z \
+POLYGON_SEED_OUTPUT_DIR=artifacts/polygon_settlement_seed_candidates/1.0.0 \
+uv run make polygon-settlement-seed-candidate
+```
+
+If the committed seed needs a correction, regenerate and review its evidence,
+refresh the relevant automated tests, add the correction to the repository
+`CHANGELOG.md`, and use a new dataset SemVer for the next immutable release.
+
+Run the unscheduled historical flow only after configuring
+`POLYGON_RPC_URL` and `POLYGON_RPC_PROVIDER_LABEL`:
+
+```bash
+uv run make polygon-settlement-live-smoke
+```
+
+The target keeps its resumable v4 warehouse under
+`.cache/polygon_settlement/benchmarks/v4/` by default. Set
+`POLYGON_SETTLEMENT_LIVE_SMOKE_RESET=true` only when an intentional clean scan
+is required. Its DuckDB/WAL/spill, Dagster state, dbt target/logs, Python temp
+files, XDG cache, and child-process uv cache are rooted below
+`.cache/polygon_settlement/` (including DuckDB extensions; the project uv cache
+is `.cache/uv`). Providers with a lower `eth_getLogs` range ceiling can start
+with smaller leaves without discarding the checkpoint, for example:
+
+```bash
+POLYGON_SETTLEMENT_LIVE_SMOKE_INITIAL_BLOCK_CHUNK_SIZE=2000 \
+  uv run make polygon-settlement-live-smoke
+```
+
+The equivalent live-only overrides for request rate, workers, and initial
+receipt batch size use the same `POLYGON_SETTLEMENT_LIVE_SMOKE_` prefix. Core
+defaults remain 5 requests/second, 5 workers, 8,000 blocks, and 20 receipts.
+Because uv
+starts before Make, run from the repository root so `pyproject.toml` also keeps
+the outer `uv run` cache on the SSD-backed repository volume.
+
+`make polygon-settlement-benchmark` remains available for a future completed
+v3 baseline, but it deliberately fails for the preserved partial v3 run. A v4
+live run does not claim a measured v3 speed ratio without that baseline.
+
+Build a local release from a populated, valid warehouse. An attribution URL is
+optional; rights review defaults to `not_reviewed` and is advisory:
+
+```bash
+POLYGON_DATASET_VERSION=1.0.0 \
+POLYGON_PUBLISHER_NAME="Example Publisher" \
+POLYGON_ATTRIBUTION_URL=https://example.org/datasets/wc2026 \
+POLYGON_RPC_PROVIDER_TERMS_URL=https://provider.example/legal/terms \
+uv run make polygon-settlement-release
+```
+
+The release lands below
+`artifacts/kaggle/polymarket_wc2026_polygon_settlement_odds/releases/<version>/`.
+There is no `latest` alias, `dataset-metadata.json`, Kaggle identity, or upload
+automation.
+
+For a terms snapshot, call the release script directly with the sanitized
+public terms page plus the hash and UTC capture time of the reviewed bytes:
+
+```bash
+uv run python scripts/build_polymarket_wc2026_polygon_settlement_release.py \
+  --dataset-version 1.0.0 \
+  --publisher-name "Example Publisher" \
+  --rpc-provider-terms-url https://provider.example/legal/terms \
+  --rpc-provider-terms-snapshot-sha256 <lowercase-sha256> \
+  --rpc-provider-terms-snapshot-at-utc 2026-07-22T12:00:00Z
+```
+
+A URL without snapshot metadata is recorded as `not_reviewed`; omitting all
+three values is recorded as `unavailable`. Neither state blocks generation.
 
 Run scripts through the project environment:
 
@@ -67,3 +165,6 @@ uv run python scripts/build_hosted_artifacts.py \
 ```
 
 Scripts that call Polymarket APIs need network access and should use conservative request-rate settings.
+The Polygon seed authoring/backfill paths call only the configured JSON-RPC and
+the authoring tool's pinned OpenFootball and FIFA evidence URLs; they do not
+call Gamma or CLOB.

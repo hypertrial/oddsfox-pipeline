@@ -26,7 +26,9 @@ from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_raw_markets,
     polymarket_wc2026_raw_markets_snapshot,
     polymarket_wc2026_raw_match_token_odds_history_minute,
+    polymarket_wc2026_raw_polygon_settlement_fills,
     polymarket_wc2026_raw_token_odds_history_hourly,
+    polymarket_wc2026_release_polygon_settlement_odds_bundle,
 )
 from oddsfox_pipeline.orchestration.jobs import (
     international_results_historical_ingest,
@@ -44,6 +46,8 @@ from oddsfox_pipeline.orchestration.jobs import (
     polymarket_wc2026_hourly_odds_ingest,
     polymarket_wc2026_market_registry_refresh,
     polymarket_wc2026_match_minute_odds_backfill,
+    polymarket_wc2026_polygon_settlement_backfill,
+    polymarket_wc2026_polygon_settlement_release,
     wc2026_knockout_match_odds_full_pipeline,
 )
 from oddsfox_pipeline.orchestration.schedules import (
@@ -66,9 +70,11 @@ defs = Definitions(
         polymarket_wc2026_raw_markets,
         polymarket_wc2026_raw_markets_snapshot,
         polymarket_wc2026_raw_match_token_odds_history_minute,
+        polymarket_wc2026_raw_polygon_settlement_fills,
         polymarket_wc2026_ops_market_scope_registry,
         polymarket_wc2026_raw_market_metadata_backfill,
         polymarket_wc2026_raw_token_odds_history_hourly,
+        polymarket_wc2026_release_polygon_settlement_odds_bundle,
         polymarket_us_midterms_2026_raw_markets,
         polymarket_us_midterms_2026_raw_markets_snapshot,
         polymarket_us_midterms_2026_ops_market_scope_registry,
@@ -86,6 +92,8 @@ defs = Definitions(
         polymarket_wc2026_hourly_odds_ingest,
         polymarket_wc2026_market_registry_refresh,
         polymarket_wc2026_match_minute_odds_backfill,
+        polymarket_wc2026_polygon_settlement_backfill,
+        polymarket_wc2026_polygon_settlement_release,
         polymarket_wc2026_dbt_build,
         polymarket_wc2026_full_pipeline,
         polymarket_us_midterms_2026_hourly_odds_ingest,

@@ -2,7 +2,9 @@
 
 OddsFox Pipeline is a local-first prediction-market data system. Operators run
 source ingestion into their own warehouse and may publish graph artifacts for
-offline analysis. Trade execution is a separate concern owned by
+offline analysis. The repository can also create an immutable, sanitized
+WC2026 Polygon settlement CSV bundle locally; it does not host or upload that
+bundle. Trade execution is a separate concern owned by
 `oddsfox-execution`.
 
 ```text
@@ -29,7 +31,7 @@ and parent control plane convert them into an admitted explicit intent for
 | Repository | Role | Input | Output |
 | --- | --- | --- | --- |
 | private `oddsfox` | Superproject, private collectors, orchestration, policy, dispatch, deployment, and monitoring. | Private/public source changes and signal batches. | Canonical raw snapshots and effective intent plans. |
-| `oddsfox-pipeline` | Ingests safe public sources and validated canonical snapshots, then builds stable dbt marts. | Source APIs, public CSV/TXT feeds, and `oddsfox.raw.v1`. | `wc2026.v1` DuckDB marts, telemetry, and graph export parquet. |
+| `oddsfox-pipeline` | Ingests safe public sources and validated canonical snapshots, then builds stable dbt marts. | Source APIs, finalized Polygon logs, public CSV/TXT feeds, and `oddsfox.raw.v1`. | `wc2026.v1` DuckDB marts, telemetry, graph export parquet, and optional local Polygon settlement CSV bundles. |
 | private `oddsfox-strategy` | Runs WC2026 discovery, models, arbitrage, and allocation. | Read-only `wc2026.v1` marts. | Immutable `oddsfox.signal.v1` batches. |
 | `oddsfox-graph` | Converts token-hour odds into graph-ready artifacts. | Pipeline graph export parquet. | `graph_snapshot.json`, `knockout_artifacts.json`, parquet artifacts, and reports. |
 | `oddsfox-execution` | Executes externally generated order intents under durable risk controls. | Authenticated strategy intents and current venue state. | Orders, trades, positions, audit events, and operator controls. |

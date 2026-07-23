@@ -10,6 +10,10 @@ from oddsfox_pipeline.orchestration.config import (
     MarketsSyncConfig,
     MetadataBackfillConfig,
     OddsSyncConfig,
+    PolygonSettlementReleaseConfig,
+    PolygonSettlementSyncConfig,
+    polymarket_wc2026_polygon_settlement_backfill_run_config,
+    polymarket_wc2026_polygon_settlement_release_run_config,
     wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 
@@ -77,6 +81,79 @@ def test_dbt_build_config_accepts_fixed_scope_selectors():
     assert cfg.full_refresh is True
     assert cfg.dbt_select == "+tag:polymarket,tag:wc2026"
     assert cfg.dbt_exclude == "tag:kalshi"
+    assert cfg.expected_duckdb_path is None
+
+
+def test_polygon_settlement_configs_are_fixed_and_release_inputs_are_explicit():
+    sync = PolygonSettlementSyncConfig()
+    assert sync.requests_per_second == 5.0
+    assert sync.workers == 5
+    assert sync.initial_block_chunk_size == 8_000
+    assert sync.initial_receipt_batch_size == 20
+    assert sync.transient_retries == 4
+    assert sync.transient_backoff_seconds == 0.5
+    assert sync.expected_duckdb_path is None
+
+    backfill = polymarket_wc2026_polygon_settlement_backfill_run_config()["ops"]
+    assert set(backfill) == {
+        "polymarket_wc2026_raw_polygon_settlement_fills",
+        "oddsfox_dbt",
+    }
+    assert backfill["oddsfox_dbt"]["config"]["dbt_select"] == (
+        "+polymarket_wc2026_polygon_settlement_minute_odds"
+    )
+
+    guarded_backfill = polymarket_wc2026_polygon_settlement_backfill_run_config(
+        expected_duckdb_path=".cache/polygon-smoke.duckdb"
+    )["ops"]
+    assert (
+        guarded_backfill["polymarket_wc2026_raw_polygon_settlement_fills"]["config"][
+            "expected_duckdb_path"
+        ]
+        == ".cache/polygon-smoke.duckdb"
+    )
+    assert guarded_backfill["oddsfox_dbt"]["config"]["expected_duckdb_path"] == (
+        ".cache/polygon-smoke.duckdb"
+    )
+
+    tuned_backfill = polymarket_wc2026_polygon_settlement_backfill_run_config(
+        requests_per_second=4.0,
+        workers=3,
+        initial_block_chunk_size=2_000,
+        initial_receipt_batch_size=10,
+    )["ops"]["polymarket_wc2026_raw_polygon_settlement_fills"]["config"]
+    assert tuned_backfill["requests_per_second"] == 4.0
+    assert tuned_backfill["workers"] == 3
+    assert tuned_backfill["initial_block_chunk_size"] == 2_000
+    assert tuned_backfill["initial_receipt_batch_size"] == 10
+
+    release = polymarket_wc2026_polygon_settlement_release_run_config(
+        dataset_version="1.2.3",
+        publisher_name="Publisher",
+        rpc_provider_terms_url="https://provider.example/terms",
+        rpc_provider_terms_snapshot_sha256="a" * 64,
+        rpc_provider_terms_snapshot_at_utc="2026-07-22T00:00:00Z",
+        output_root="/tmp/polygon-release-test",
+    )["ops"]["polymarket_wc2026_release_polygon_settlement_odds_bundle"]["config"]
+    assert release["dataset_version"] == "1.2.3"
+    assert release["rights_review_status"] == "not_reviewed"
+    assert release["rpc_provider_terms_url"] == "https://provider.example/terms"
+    assert release["rpc_provider_terms_snapshot_sha256"] == "a" * 64
+
+    with pytest.raises(ValueError, match="SemVer"):
+        PolygonSettlementReleaseConfig(
+            dataset_version="latest", publisher_name="Publisher"
+        )
+    with pytest.raises(ValueError, match="output_root"):
+        PolygonSettlementReleaseConfig(
+            dataset_version="1.0.0", publisher_name="Publisher", output_root=" "
+        )
+    with pytest.raises(ValueError, match="snapshot"):
+        PolygonSettlementReleaseConfig(
+            dataset_version="1.0.0",
+            publisher_name="Publisher",
+            rpc_provider_terms_snapshot_sha256="a" * 64,
+        )
 
 
 def test_combined_match_odds_config_preserves_history_and_bypasses_volume_floor():
@@ -95,4 +172,4 @@ def test_combined_match_odds_config_preserves_history_and_bypasses_volume_floor(
     )
     assert ops["oddsfox_dbt"]["config"]["full_refresh"] is False
     assert ops["oddsfox_dbt"]["config"]["dbt_select"] == "+tag:cross_domain"
-    assert ops["oddsfox_dbt"]["config"]["dbt_exclude"] is None
+    assert ops["oddsfox_dbt"]["config"]["dbt_exclude"] == "tag:polygon_settlement"

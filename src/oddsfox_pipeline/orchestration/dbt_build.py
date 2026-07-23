@@ -16,6 +16,7 @@ from oddsfox_pipeline.resources.progress_guardrails import (
 )
 from oddsfox_pipeline.storage.duckdb.connection import (
     active_duckdb_path,
+    assert_disposable_duckdb_path,
     ensure_duck_db,
 )
 
@@ -56,17 +57,24 @@ def stream_dbt_build(
         force_log=True,
     )
 
+    if config.expected_duckdb_path is not None:
+        assert_disposable_duckdb_path(config.expected_duckdb_path)
     ensure_duck_db()
     os.environ["DUCKDB_PATH"] = str(active_duckdb_path())
 
     build_args = ["build"]
     if config.full_refresh:
         build_args.append("--full-refresh")
-    if getattr(context, "is_subset", False) is not True:
+    is_subset = getattr(context, "is_subset", False) is True
+    if not is_subset:
         if config.dbt_select:
             build_args.extend(["--select", config.dbt_select])
         if config.dbt_exclude:
             build_args.extend(["--exclude", config.dbt_exclude])
+    elif config.dbt_select is None and config.dbt_exclude == "tag:polygon_settlement":
+        # Dagster owns subset selection, but the dedicated Polygon graph must
+        # remain opt-in even when the whole dbt multi-asset is materialized.
+        build_args.extend(["--exclude", config.dbt_exclude])
     invocation = dbt.cli(build_args, context=context)
     sentinel = object()
     event_queue: Queue[Any] = Queue()

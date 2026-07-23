@@ -71,6 +71,45 @@ def test_active_duckdb_path_uses_duckdb_path_when_name_unset(monkeypatch, tmp_pa
     assert p.resolve() == settings.DUCKDB_PATH.resolve()
 
 
+def test_assert_disposable_duckdb_path_accepts_exact_repo_cache_path(
+    monkeypatch, tmp_path
+):
+    expected = tmp_path / ".cache" / "polygon-smoke.duckdb"
+    monkeypatch.setattr(connection._settings, "BASE_DIR", tmp_path)
+    monkeypatch.setenv("DUCKDB_PATH", str(expected))
+
+    assert (
+        connection.assert_disposable_duckdb_path(".cache/polygon-smoke.duckdb")
+        == expected.resolve()
+    )
+
+
+@pytest.mark.parametrize(
+    "expected",
+    ["", "oddsfox.duckdb", ".cache", ".cache/not-a-database.txt"],
+)
+def test_assert_disposable_duckdb_path_rejects_unsafe_expected_path(
+    monkeypatch, tmp_path, expected
+):
+    monkeypatch.setattr(connection._settings, "BASE_DIR", tmp_path)
+    monkeypatch.setenv("DUCKDB_PATH", str(tmp_path / ".cache" / "polygon-smoke.duckdb"))
+
+    with pytest.raises((RuntimeError, ValueError), match="disposable DuckDB path"):
+        connection.assert_disposable_duckdb_path(expected)
+
+
+def test_assert_disposable_duckdb_path_rejects_active_root_database(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(connection._settings, "BASE_DIR", tmp_path)
+    monkeypatch.setenv("DUCKDB_PATH", str(tmp_path / "oddsfox.duckdb"))
+
+    with pytest.raises(RuntimeError, match="path mismatch"):
+        connection.assert_disposable_duckdb_path(
+            tmp_path / ".cache" / "polygon-smoke.duckdb"
+        )
+
+
 def test_connect_ioerror_without_pytest_env_reraises(
     monkeypatch, tmp_path, isolated_env
 ):
@@ -590,3 +629,18 @@ def test_connect_explicit_path_skips_global_active(monkeypatch, tmp_path, isolat
         assert c.execute("select 1").fetchone()[0] == 1
     finally:
         c.close()
+
+
+def test_connect_uses_configured_extension_directory(
+    monkeypatch, tmp_path, isolated_env
+):
+    extension_directory = tmp_path / "duckdb-extensions"
+    monkeypatch.setenv("DUCKDB_EXTENSION_DIRECTORY", str(extension_directory))
+
+    with connection._connect_duckdb(tmp_path / "configured.duckdb") as conn:
+        configured = conn.execute(
+            "select current_setting('extension_directory')"
+        ).fetchone()[0]
+
+    assert configured == str(extension_directory.resolve())
+    assert extension_directory.is_dir()

@@ -18,6 +18,9 @@ from oddsfox_pipeline.orchestration import assets_kalshi_wc2026 as kalshi_assets
 from oddsfox_pipeline.orchestration import (
     assets_openfootball as openfootball_assets_mod,
 )
+from oddsfox_pipeline.orchestration import (
+    assets_polygon_settlement as polygon_assets_mod,
+)
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 from oddsfox_pipeline.orchestration import (
     assets_polymarket_us_midterms_2026 as midterms_assets_mod,
@@ -30,6 +33,8 @@ _NON_SCOPE_JOB_NAMES = {
     "international_results_wc2026_match_results_ingest",
     "wc2026_knockout_match_odds_full_pipeline",
     "polymarket_wc2026_match_minute_odds_backfill",
+    "polymarket_wc2026_polygon_settlement_backfill",
+    "polymarket_wc2026_polygon_settlement_release",
 }
 _EMPTY_RESULTS_SUMMARY = {
     "rows": 0,
@@ -216,6 +221,45 @@ oddsfox:
             "rows": 496,
         },
     )
+    monkeypatch.setattr(polygon_assets_mod, "get_connection", mock_connection)
+    monkeypatch.setattr(
+        polygon_assets_mod,
+        "_sync_polygon_settlement_fills",
+        lambda *_args, **_kwargs: {
+            "scan_id": "a" * 64,
+            "status": "published",
+            "published": True,
+            "fill_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        polygon_assets_mod,
+        "_verify_polygon_settlement_scan",
+        lambda _conn: None,
+    )
+    monkeypatch.setattr(
+        polygon_assets_mod,
+        "load_polygon_settlement_release_provenance",
+        lambda _conn: {"scan_id": "a" * 64},
+    )
+    monkeypatch.setattr(
+        polygon_assets_mod,
+        "build_polygon_settlement_release",
+        lambda *_args, **_kwargs: {
+            "rows": 39_120,
+            "markets": 248,
+            "matches": 104,
+            "tokens": 496,
+            "dataset_version": "0.0.0-smoke",
+            "release_dir": "mocked",
+            "files": [],
+        },
+    )
+    monkeypatch.setattr(
+        polygon_assets_mod,
+        "current_generator_commit",
+        lambda: "a" * 40,
+    )
 
     fake_dlt = MagicMock()
     fake_dlt.run.return_value = iter([])
@@ -234,8 +278,22 @@ def test_registered_dagster_jobs_match_shipped_scope_inventory():
 
 @pytest.mark.parametrize("job_name", _registered_job_names())
 def test_registered_dagster_job_executes(job_name, patched_dagster_runtime):
+    run_config = None
+    if job_name == "polymarket_wc2026_polygon_settlement_release":
+        run_config = {
+            "ops": {
+                "polymarket_wc2026_release_polygon_settlement_odds_bundle": {
+                    "config": {
+                        "dataset_version": "0.0.0-smoke",
+                        "publisher_name": "Dagster smoke test",
+                        "output_root": "mocked",
+                    }
+                }
+            }
+        }
     result = defs.resolve_job_def(job_name).execute_in_process(
         resources=patched_dagster_runtime,
+        run_config=run_config,
     )
 
     assert result.success is True

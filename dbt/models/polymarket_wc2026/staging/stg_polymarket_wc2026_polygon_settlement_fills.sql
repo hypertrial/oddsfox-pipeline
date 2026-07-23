@@ -1,0 +1,35 @@
+{{ config(tags=['polygon_settlement']) }}
+
+select  -- noqa: ST06
+    cast(scan_id as varchar) as scan_id,
+    cast(chain_id as integer) as chain_id,
+    lower(cast(exchange_address as varchar)) as exchange_address,
+    cast(chunk_from_block as bigint) as chunk_from_block,
+    cast(chunk_to_block as bigint) as chunk_to_block,
+    cast(block_number as bigint) as block_number,
+    lower(cast(block_hash as varchar)) as block_hash,
+    cast(block_timestamp as timestamp) as block_timestamp,
+    lower(cast(transaction_hash as varchar)) as transaction_hash,
+    cast(transaction_index as bigint) as transaction_index,
+    cast(passive_log_index as bigint) as passive_log_index,
+    cast(active_log_index as bigint) as active_log_index,
+    cast(matched_log_index as bigint) as matched_log_index,
+    cast(normalized_leg_ordinal as integer) as normalized_leg_ordinal,
+    cast(proposition_id as varchar) as proposition_id,
+    lower(cast(condition_id as varchar)) as condition_id,
+    cast(token_id as varchar) as token_id,
+    lower(cast(outcome_side as varchar)) as outcome_side,
+    upper(cast(order_side as varchar)) as order_side,
+    cast(source_token_id as varchar) as source_token_id,
+    cast(source_maker_amount as varchar) as source_maker_amount,
+    cast(source_taker_amount as varchar) as source_taker_amount,
+    cast(share_volume as decimal(38, 6)) as share_volume,
+    cast(gross_collateral_volume as decimal(38, 6))
+        as gross_collateral_volume,
+    cast(price as decimal(38, 18)) as price,
+    lower(cast(normalization_kind as varchar)) as normalization_kind,
+    cast(is_derived as boolean) as is_derived,
+    lower(cast(segment_sha256 as varchar)) as segment_sha256,
+    cast(decoder_version as varchar) as decoder_version,
+    cast(ingested_at as timestamp) as ingested_at
+from {{ source('polymarket_wc2026_raw', 'polygon_settlement_fills') }}

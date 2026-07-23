@@ -130,6 +130,36 @@ def test_api_client_get_explicit_timeout_overrides_default():
     assert session.get.call_args.kwargs["timeout"] == (1.0, 3.0)
 
 
+def test_api_client_post_explicit_timeout_overrides_default():
+    session = MagicMock()
+    session.post.return_value.json.return_value = {"ok": True}
+    session.post.return_value.raise_for_status = MagicMock()
+    client = APIClient(
+        base_url="https://api.example.com",
+        request_timeout=(2.0, 7.0),
+    )
+    client.session = session
+
+    assert client.post("/rpc", json={"id": 1}, timeout=(1.0, 3.0)) == {"ok": True}
+    assert session.post.call_args.kwargs["timeout"] == (1.0, 3.0)
+
+
+def test_api_client_post_with_metrics_reports_completed_retry_history():
+    session = MagicMock()
+    response = session.post.return_value
+    response.json.return_value = {"ok": True}
+    response.raise_for_status = MagicMock()
+    response.raw.retries.history = (object(), object())
+    client = APIClient(base_url="https://api.example.com")
+    client.session = session
+
+    assert client.post_with_metrics("/rpc", json={"id": 1}) == (
+        {"ok": True},
+        3,
+        2,
+    )
+
+
 def test_api_client_rate_limiter_wait():
     rl = RateLimiter(10000.0)
     client = APIClient(base_url="https://x.com", rate_limiter=rl)

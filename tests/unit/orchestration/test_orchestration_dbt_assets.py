@@ -582,7 +582,9 @@ def test_stream_dbt_build_appends_full_refresh_flag():
             config=orch_config.DbtBuildConfig(full_refresh=True),
         )
     )
-    assert captured_args == [["build", "--full-refresh"]]
+    assert captured_args == [
+        ["build", "--full-refresh", "--exclude", "tag:polygon_settlement"]
+    ]
 
 
 def test_stream_dbt_build_appends_dbt_exclude_flag():
@@ -608,6 +610,29 @@ def test_stream_dbt_build_appends_dbt_exclude_flag():
         )
     )
     assert captured_args == [["build", "--exclude", "tag:cross_domain"]]
+
+
+def test_stream_dbt_build_omits_empty_exclude_for_full_build():
+    captured_args: list[list[str]] = []
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            captured_args.append(list(args))
+            invocation = MagicMock()
+            invocation.stream = lambda: iter(())
+            invocation.process = MagicMock(returncode=0)
+            return invocation
+
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=MagicMock(is_subset=False),
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(dbt_exclude=None),
+        )
+    )
+
+    assert captured_args == [["build"]]
 
 
 def test_stream_dbt_build_appends_dbt_select_before_exclude_flags():
@@ -673,6 +698,30 @@ def test_stream_dbt_build_does_not_union_config_selectors_into_subset():
     )
 
     assert captured_args == [["build"]]
+
+
+def test_stream_dbt_build_keeps_polygon_graph_opt_in_for_subset():
+    captured_args: list[list[str]] = []
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            captured_args.append(list(args))
+            invocation = MagicMock()
+            invocation.stream = lambda: iter(())
+            invocation.process = MagicMock(returncode=0)
+            return invocation
+
+    context = MagicMock(is_subset=True)
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=context,
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(),
+        )
+    )
+
+    assert captured_args == [["build", "--exclude", "tag:polygon_settlement"]]
 
 
 def test_stream_dbt_build_fetches_row_counts_and_column_metadata():
@@ -805,6 +854,35 @@ def test_stream_dbt_build_syncs_duckdb_path_env(monkeypatch, tmp_path):
         )
     )
     assert os.environ["DUCKDB_PATH"] == str(db_path)
+
+
+def test_stream_dbt_build_checks_disposable_path_before_initializing(monkeypatch):
+    calls: list[tuple[str, object]] = []
+
+    def reject(path):
+        calls.append(("guard", path))
+        raise RuntimeError("unsafe warehouse")
+
+    monkeypatch.setattr(dbt_build_mod, "assert_disposable_duckdb_path", reject)
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "ensure_duck_db",
+        lambda: calls.append(("ensure", None)),
+    )
+
+    with pytest.raises(RuntimeError, match="unsafe warehouse"):
+        list(
+            dbt_build_mod.stream_dbt_build(
+                asset_name="oddsfox_dbt",
+                context=MagicMock(),
+                dbt=MagicMock(),
+                config=orch_config.DbtBuildConfig(
+                    expected_duckdb_path=".cache/polygon-smoke.duckdb"
+                ),
+            )
+        )
+
+    assert calls == [("guard", ".cache/polygon-smoke.duckdb")]
 
 
 def test_stream_dbt_build_merges_heartbeat_diagnostics(monkeypatch):

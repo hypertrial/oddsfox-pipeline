@@ -53,35 +53,32 @@ If you use Cursor, [Ponytail](https://github.com/DietrichGebert/ponytail) loads 
 
 ## Quality gate
 
-Run the full local gate before opening a release pull request:
+Run the fast offline gate before an ordinary push:
 
 ```bash
-uv run make lint
-uv run make test-cov
-uv run make integration-dagster-cov
-uv run make integration-dbt-cov
-uv run make dbt-unit
-uv run make golden-dbt
-uv run make dbt-source-freshness-ci
-uv run make coverage-report
-uv run make docs-check
-uv run make dbt-parse
-uv run make dbt-build-ci
-uv run make data-quality
-uv run make costguard
+uv run make ci-fast
 ```
 
-For local one-shot runs, `make test`, `make integration-dagster`,
-`make integration-dbt`, and `make coverage` still work without the split
-coverage-accumulation commands.
+Run the full local gate before releases and after dependency, Docker, Dagster,
+dbt, or data-quality changes:
+
+```bash
+uv run make release-gate
+```
+
+The full gate includes 100% branch coverage, the isolated replay-backed Polygon
+settlement graph and exact 39,120-row contract, Costguard, and a non-root
+container smoke that requires Docker. For narrower local runs, `make test`,
+`make integration-dagster`, `make integration-dbt`, and `make coverage` remain
+available.
 
 GitHub Actions uses one runner for less than five cumulative minutes and runs
 lint, fast offline tests, replay-only HTTP contracts, dbt parse, and a strict
 documentation build. `dbt-build-ci` bootstraps a disposable DuckDB database
-under `.cache/` for the broader local gate. `live-smoke` and
-`match-minute-live-smoke` perform public network requests and are local-only;
-both use disposable smoke configuration and must never be added to GitHub
-Actions.
+under `.cache/` for the broader local gate. `live-smoke`,
+`match-minute-live-smoke`, and `polygon-settlement-live-smoke` perform public
+network requests and are local-only; they use disposable smoke configuration
+and must never be added to GitHub Actions.
 Costguard is a dbt/release guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 
