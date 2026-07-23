@@ -45,6 +45,8 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen --extra dev
       - name: Install Chromium for rendered documentation checks
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/runtime/ms-playwright
         run: uv run playwright install --with-deps chromium
       - name: Install pinned Costguard
         run: |
