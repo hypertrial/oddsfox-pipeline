@@ -51,14 +51,24 @@ create DNS-forwarding sockets below `/tmp`. Keep the VM, Docker client state,
 socket, and transient files on the SSD and use explicit DNS resolvers:
 
 ```bash
-export COLIMA_HOME="$ODDSFOX_RUNTIME_ROOT/colima"
+export ODDSFOX_PERSISTENT_RUNTIME_ROOT="/Volumes/Your SSD/oddsfox-runtime"
+export COLIMA_HOME="$ODDSFOX_PERSISTENT_RUNTIME_ROOT/colima"
 export DOCKER_CONFIG="$ODDSFOX_RUNTIME_ROOT/docker"
 export DOCKER_HOST="unix://$COLIMA_HOME/default/docker.sock"
 
 mkdir -p "$COLIMA_HOME" "$DOCKER_CONFIG"
+printf '{"cliPluginsExtraDirs":["%s/lib/docker/cli-plugins"]}\n' \
+  "$(brew --prefix)" > "$DOCKER_CONFIG/config.json"
 colima start --dns 1.1.1.1 --dns 8.8.8.8
+docker buildx version
 ```
 
+Set `ODDSFOX_PERSISTENT_RUNTIME_ROOT` to a real directory on the SSD, outside
+the checkout. Do not put `COLIMA_HOME` below `.cache/`:
+`make clean-local-artifacts` intentionally removes that transient tree.
+The `cliPluginsExtraDirs` entry keeps a Homebrew-installed Buildx visible after
+moving `DOCKER_CONFIG`; adjust that directory when Docker plugins are installed
+elsewhere.
 Use the same exported environment for `uv run make release-gate`. The
 `colima status` command must report the socket below `COLIMA_HOME`, and no
 `lima-psl-*` directory should appear below `/tmp`.

@@ -146,12 +146,15 @@ def _tracked_files() -> set[str]:
 
 
 def _indexed_text(relative_path: str) -> str:
+    return _indexed_bytes(relative_path).decode()
+
+
+def _indexed_bytes(relative_path: str) -> bytes:
     completed = subprocess.run(
         ["git", "show", f":{relative_path}"],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
-        text=True,
     )
     return completed.stdout
 
@@ -256,13 +259,19 @@ def test_current_project_docs_do_not_frame_external_publication() -> None:
 
 
 def test_project_identity_is_not_assigned_to_an_external_organization() -> None:
-    forbidden_name = "Tri" + "lemma"
+    forbidden_name = ("Tri" + "lemma").casefold().encode()
     violations = []
     for relative_path in _tracked_files():
         path = REPO_ROOT / relative_path
-        if not path.is_file() or b"\0" in path.read_bytes()[:8192]:
+        if not path.is_file():
             continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        if forbidden_name.casefold() in text.casefold():
+        content = (
+            _indexed_bytes(relative_path)
+            if relative_path in HEADER_ONLY_SEEDS
+            else path.read_bytes()
+        )
+        if b"\0" in content[:8192]:
+            continue
+        if forbidden_name in content.lower():
             violations.append(relative_path)
     assert not violations
