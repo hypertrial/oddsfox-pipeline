@@ -3,9 +3,10 @@
 OddsFox Pipeline is intentionally local-first: every routine workflow writes to a local
 DuckDB warehouse and is coordinated by Dagster jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
-v0.1.x adapters ship WC2026 Polymarket knockout marts, Kalshi WC2026 stage and
-group-winner marts, US midterms 2026 generic market odds, public historical
-international results, and the stable `wc2026.v1` strategy-input contract.
+v0.1.x adapters support WC2026 Polymarket knockout marts, Kalshi WC2026 stage
+and group-winner marts, US midterms 2026 generic market odds, historical
+international-results ingestion, and the stable `wc2026.v1` strategy-input
+contract.
 
 US midterms 2026 is a parallel Polymarket namespace: targeted Gamma discovery
 for Balance of Power, Senate control, and House control event slugs, with raw/ops
@@ -14,12 +15,12 @@ knockout classifier for that scope in v0.1.x.
 
 At the generic layer, source adapters follow one shape: external market and
 odds APIs feed dlt/Python ingestion, DuckDB stores raw and ops data, dbt
-publishes local marts, and Dagster orchestrates the steps. Operators own the
-resulting data in a local or self-managed warehouse; OddsFox Pipeline does not host a
-shared dataset.
+publishes local marts, and Dagster orchestrates the steps. Operators supply and
+control the data in a local or self-managed warehouse; OddsFox Pipeline does not
+host datasets.
 
 The WC2026 Polygon settlement flow is deliberately source-specific rather than
-part of that generic API shape. A reviewed static manifest supplies fixture,
+part of that generic API shape. A complete operator-local manifest supplies fixture,
 proposition, and token semantics; finalized Polygon V2 logs supply historical
 economic settlement legs. It has no runtime Gamma/CLOB, Polymarket UI,
 international-results, or OpenFootball dependency.
@@ -34,7 +35,7 @@ flowchart LR
     clob["Prediction-market odds API<br/>Polymarket CLOB in v0.1.x"] --> odds["Python odds sync"]
     kalshi_api["Prediction-market metadata/odds API<br/>Kalshi trade API in v0.1.x"] --> kalshi_sync["Python candlestick sync"]
     results["Public football CSV/TXT feeds"] --> result_sync["Python CSV sync"]
-    seed["Reviewed Polygon WC2026 seed"] --> polygon_sync["Finalized Polygon V2 log sync"]
+    seed["Operator-local Polygon WC2026 manifest"] --> polygon_sync["Finalized Polygon V2 log sync"]
     polygon_rpc["Polygon JSON-RPC"] --> polygon_sync
     private["Private canonical Parquet snapshots"] --> validate["oddsfox.raw.v1 validation"]
     dlt --> raw["DuckDB raw schema"]
@@ -49,8 +50,7 @@ flowchart LR
     dbt --> marts["WC2026 analytics marts"]
     dbt --> polygon_mart["Polygon settlement mart"]
     polygon_mart --> audit["Immutable internal audit bundle"]
-    audit --> export["Sanitized technical export"]
-    export -.-> publisher["External publisher process"]
+    audit --> export["Allowlisted operator-local export"]
     dagster["Dagster jobs and schedules"] --> dlt
     dagster --> odds
     dagster --> kalshi_sync
@@ -64,8 +64,8 @@ feed DuckDB raw and ops schemas. Dagster runs the ingest and dbt steps. dbt
 publishes local analytics marts for WC2026 knockout odds, Kalshi stage and
 group-winner odds, Polygon settlement history, team scope, and ingestion
 observability. The Polygon release asset writes only an internal audit bundle;
-the sanitized exporter is a separate offline script. Neither path publishes or
-uploads data.
+the allowlisted exporter is a separate offline script. Neither path uploads
+data.
 
 The shipped Dagster/dbt graphs are fixed per scope (`wc2026`,
 `us_midterms_2026`); see [Configuration](../reference/configuration.md) for the seed-backed
@@ -81,8 +81,8 @@ helper boundary.
 | Canonical snapshot loader | Validates hashes, schemas, provenance, ordering, and transactional exactly-once loads for optional private enrichments. |
 | Python odds sync | Fetches odds, writes token history, and maintains ledgers. |
 | Polygon settlement sync | Scans finalized V2 logs in resumable block chunks, normalizes exact economic legs, and atomically publishes a wallet- and order-payload-redacted snapshot. |
-| Polygon audit release | Writes the complete immutable local evidence bundle used for verification; it is not a sanitized publication artifact. |
-| Polygon sanitized exporter | Verifies an immutable audit release, copies the allowlisted CSV byte-for-byte, and writes a redacted technical quality dossier without opening the warehouse or making network requests. |
+| Polygon audit release | Writes the complete immutable local evidence bundle used for verification; it contains internal identifiers and locators. |
+| Polygon technical exporter | Verifies an immutable audit release, copies the allowlisted CSV byte-for-byte, and writes a redacted operator-local quality dossier without opening the warehouse or making network requests. |
 | DuckDB | Stores raw, ops, staging, intermediate, mart, and observability schemas. |
 | dbt | Builds analytics models and data-contract tests. |
 
@@ -142,10 +142,10 @@ required for local runs.
 
 ### Polygon settlement WC2026
 
-The developer authoring tool derives a 248-proposition manifest from pinned CC0
+The developer authoring tool derives a 248-proposition candidate manifest from pinned CC0
 OpenFootball fixtures and audited Polygon event chains, then writes candidate
 evidence only below ignored `artifacts/`. The runtime backfill validates the
-committed seed, resolves fixed scheduled windows once, merges them by authored
+complete local seed, resolves fixed scheduled windows once, merges them by authored
 V2 exchange, and transactionally publishes normalized legs after gap-free
 exchange-specific coverage. The collector first scans the pinned V2 `OrdersMatched`
 event, whose active token is guaranteed by the audited exchange implementation
@@ -159,14 +159,14 @@ proposition-minute mart.
 
 The release job reads that valid mart and emits a complete immutable internal
 audit bundle below `artifacts/polygon_settlement/audit/releases/`. That bundle
-retains market identifiers and chain locators and must not be treated as a
-sanitized artifact. The standalone exporter verifies an audit release and
-writes **WC2026 Polygon Settlement Minute Aggregates** below
+retains market identifiers and chain locators and is internal-only. The
+standalone exporter verifies an audit release and writes the operator-local
+**WC2026 Polygon Settlement Minute Aggregates** dossier below
 `artifacts/polygon_settlement/exports/releases/`. It copies the allowlisted main
 CSV byte-for-byte and emits only redacted aggregate technical metadata.
 De-identification reduces direct exposure; it does not prevent reverse-linking
-sparse aggregates to the public chain. Publisher identity, dataset licensing,
-legal review, and distribution are outside this repository.
+sparse aggregates to the public chain. The repository does not upload the
+result or determine rights in operator inputs or outputs.
 
 ## Operating Model
 
@@ -188,7 +188,7 @@ legal review, and distribution are outside this repository.
 - `polymarket_wc2026_polygon_settlement_backfill` and
   `polymarket_wc2026_polygon_settlement_release` are isolated manual jobs with
   no schedules. The release writes only the internal audit bundle. The
-  sanitized exporter is standalone and unscheduled; neither path uploads data.
+  technical exporter is standalone and unscheduled; neither path uploads data.
 - Schedules are stopped by default and should stay off until manual runs pass.
 - DuckDB allows one read-write writer, so scripts provide read-only inspection
   and repair paths for local operators.

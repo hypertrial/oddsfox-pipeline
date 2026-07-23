@@ -7,17 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-07-23
+
 ### Added
 
-- Independent WC2026 Polygon V2 settlement-log flow with a reviewed 248-row
-  on-chain market manifest, resumable finalized-block backfill, wallet- and
+- Independent WC2026 Polygon V2 settlement-log flow with an operator-supplied
+  248-row on-chain market manifest, resumable finalized-block backfill, wallet- and
   order-payload-redacted fill snapshot, isolated Dagster/dbt graph, and dense
   39,120-row
   `polymarket_wc2026_polygon_settlement_minute_odds` mart.
 - Immutable internal Polygon settlement audit releases with complete
   source/provenance/quality evidence and checksums, plus a standalone offline
-  exporter for the sanitized **WC2026 Polygon Settlement Minute Aggregates**
-  CSV and redacted technical quality dossier.
+  exporter for the allowlisted **WC2026 Polygon Settlement Minute Aggregates**
+  CSV and operator-local technical quality dossier.
 - Developer-only Polygon seed authoring and validation commands, replay-backed
   Polygon dbt validation, and an opt-in live Polygon smoke target.
 - `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`, a dense,
@@ -32,11 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Immutable `international_results` revision and payload provenance, append-only
   per-token minute-fetch audits, token-cadence coverage, and detailed current
   match-minute quality issues.
+- `THIRD_PARTY_NOTICES.md`, PEP 639 MIT package metadata, distribution-policy
+  checks, and explicit synthetic-fixture provenance.
+- An SSD-rooted runtime contract plus `local-marts-rebuild`, which full-refreshes
+  and verifies both WC2026 minute marts from operator-local raw warehouses.
 
 ### Changed
 
 - Polygon settlement audit releases now live below
-  `artifacts/polygon_settlement/audit/`; sanitized technical exports live below
+  `artifacts/polygon_settlement/audit/`; allowlisted technical exports live below
   `artifacts/polygon_settlement/exports/`. The exporter verifies the immutable
   audit bundle and copies the primary CSV byte-for-byte without querying the
   warehouse
@@ -66,6 +72,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   provenance, size, and SHA-256 metrics. Existing local warehouses must be reset
   for the new results-provenance and fetch-audit schemas; no migration shim is
   provided.
+- Make child processes now place temporary files, uv/XDG/browser caches, Python
+  bytecode, and dbt output below `.cache/runtime` by default. Polygon and local
+  mart rebuild targets also use SSD-local DuckDB extension directories. Local
+  overlays are permitted in the working tree while distribution checks continue
+  to validate the committed header shells.
 
 ### Fixed
 
@@ -87,9 +98,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- Removed publisher identity, dataset licensing, legal/rights review, provider
-  terms evidence, and upload-oriented metadata from the Polygon settlement
-  software workflow. Those concerns belong to any external publisher process.
+- Removed populated external/reference seeds and the reviewed Polygon
+  resolution attestation from repository distributions. Existing seed paths
+  are retained as header-only schema shells, and the attestation is
+  operator-local.
+- Removed external-publication framing from current project documentation. No
+  repository command uploads local audit or export artifacts.
 
 ## [0.1.6] - 2026-07-17
 
@@ -405,7 +419,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: lint, tests, docs build, dbt parse, and dbt build.
 - Schedules disabled by default; opt-in via `.env` for live ingestion.
 
-[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.3...v0.1.4

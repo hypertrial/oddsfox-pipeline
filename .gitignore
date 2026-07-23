@@ -232,3 +232,7 @@ downloaded_files/
 # analysis/*; nothing here is versioned — override output dirs if you need a tracked path)
 artifacts/*
 !artifacts/README.example.md
+
+# Reviewed Polygon resolution evidence is operator-local and is never
+# distributed by the repository.
+/config/polygon-settlement-resolution-attestation.yml

@@ -19,6 +19,24 @@ knockout match numbers.
 
 Most operators should leave `DBT_PROFILES_DIR` unset and use the packaged `dbt/profiles`.
 
+## Operator-supplied seed data
+
+Six external/reference seed paths under `dbt/seeds/` are distributed as
+header-only schema shells. Populate them locally only with data you are entitled
+to use, or mount populated files over those paths in a container. Do not commit
+local rows. Restore the shells with `git restore dbt/seeds` after local work.
+
+The Polygon candidate generator writes below ignored `artifacts/`; after review,
+operators may copy its manifest to the existing seed path and supply the
+matching ignored
+`config/polygon-settlement-resolution-attestation.yml`. The repository includes
+only a placeholder attestation example. See `dbt/seeds/README.md` for the
+repository seed policy.
+
+dbt parse and the ordinary graph remain valid with empty shells. Models that
+depend on these inputs are empty, and Polygon readiness fails closed until the
+complete local manifest and attestation are present.
+
 ## Local development
 
 - `DUCKDB_PATH` takes precedence over `DUCKDB_NAME`. If `.env` points
@@ -44,6 +62,19 @@ Lower request rates when Polymarket APIs return transient failures or timeouts.
 The `international_results` CSV refresh uses the shared HTTP timeout settings
 and has no source-specific env override. The OpenFootball fixture refresh uses
 the same timeout settings and a fixed public source URL.
+
+## Local storage root
+
+Make targets default all child-process temporary files and caches to
+`.cache/runtime/` below the checkout. `ODDSFOX_RUNTIME_ROOT` overrides that
+location. `ODDSFOX_STORAGE_ROOT` defaults to the repository and defines the
+allowed warehouse boundary for `make local-marts-rebuild`.
+
+When the checkout is on an SSD, export the parent-process `TMPDIR`,
+`UV_CACHE_DIR`, `UV_PYTHON_INSTALL_DIR`, `XDG_CACHE_HOME`, and
+`PYTHONPYCACHEPREFIX` and `PLAYWRIGHT_BROWSERS_PATH` before the first `uv`
+command. The complete setup and both mart workflows are in
+[Recreate the WC2026 minute marts locally](../guides/recreate-local-marts.md).
 
 ## WC2026 Polygon settlement history
 
@@ -83,10 +114,10 @@ invalid or non-finalized primary scan fails closed.
 
 `POLYGON_DATASET_VERSION` selects the immutable audit/export version for the
 manual Make targets. `POLYGON_AUDIT_OUTPUT_ROOT` defaults to
-`artifacts/polygon_settlement/audit`; the sanitized exporter defaults to
-`artifacts/polygon_settlement/exports`. These paths contain local artifacts and
-are ignored by Git. The software accepts no publisher, dataset-licence,
-legal-review, provider-terms, distribution, or upload configuration.
+`artifacts/polygon_settlement/audit`; the technical exporter defaults to
+`artifacts/polygon_settlement/exports`. These paths contain operator-local
+artifacts and are ignored by Git. The software accepts no upload
+configuration.
 
 ## Polymarket scopes
 
@@ -179,8 +210,8 @@ All schedule flags default to `false`.
 `polymarket_wc2026_polygon_settlement_backfill` and
 `polymarket_wc2026_polygon_settlement_release` are manual-only jobs. They have
 no schedule or enable flag, and the release job writes only a local immutable
-internal audit bundle. The sanitized exporter is standalone and unscheduled;
-neither path uploads or distributes data.
+internal audit bundle. The technical exporter is standalone and unscheduled;
+neither path uploads data.
 
 The neutral `wc2026_*` schemas are a breaking local warehouse layout change.
 v0.1.x has no compatibility aliases or migration path; delete

@@ -68,7 +68,7 @@ and sparse token sides are retained and reported as warnings.
 
 #### Data sources and lineage
 
-The mart has two externally sourced inputs: a reviewed static market manifest
+The mart has two operator-supplied inputs: a reviewed static market manifest
 for fixture/proposition/token meaning and finalized Polygon execution data for
 settlement activity. Authoring-only evidence is embedded in the committed
 manifest; it is not fetched again during a backfill.
@@ -89,7 +89,7 @@ manifest; it is not fetched again during a backfill.
 The internal transformation lineage is:
 
 ```text
-committed manifest
+local manifest
   → stg_polymarket_wc2026_polygon_settlement_markets
   → int_polymarket_wc2026_polygon_settlement_market_universe
 

@@ -193,6 +193,8 @@ def test_shipped_scopes_and_public_marts_remain_documented():
         "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets",
         "polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds",
         "polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds",
+        "polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds",
+        "polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds",
         "international_results_wc2026_marts.international_results_wc2026_matches",
         "wc2026_marts.wc2026_knockout_match_hourly_odds",
         "kalshi_wc2026_marts.kalshi_wc2026_stage_markets",

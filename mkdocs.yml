@@ -72,6 +72,7 @@ nav:
       - Run a scope: guides/run-a-scope.md
       - Query the warehouse: guides/query-the-warehouse.md
       - Query recipes: guides/query-recipes.md
+      - Recreate local marts: guides/recreate-local-marts.md
       - Enable schedules: guides/enable-schedules.md
       - Validate and recover: guides/validate-and-recover.md
       - Troubleshooting: guides/troubleshooting.md

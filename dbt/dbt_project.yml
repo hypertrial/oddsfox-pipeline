@@ -1,5 +1,5 @@
 name: oddsfox
-version: 0.1.5
+version: 0.1.7
 config-version: 2
 profile: oddsfox
 # Avoid running relationship tests whose parent models are not in the selected subgraph
@@ -160,17 +160,36 @@ seeds:
       +quote_columns: false
       +column_types:
         proposition_id: varchar
+        fifa_match_id: varchar
+        stage: varchar
+        group_label: varchar
+        home_team: varchar
+        away_team: varchar
+        kickoff_at_utc: varchar
+        window_start_at_utc: varchar
+        window_end_at_utc: varchar
+        proposition_type: varchar
+        yes_represents: varchar
+        no_represents: varchar
         condition_id: varchar
         yes_token_id: varchar
         no_token_id: varchar
         exchange_address: varchar
+        market_structure: varchar
         openfootball_revision: varchar
+        openfootball_path: varchar
+        openfootball_source_lines: varchar
         openfootball_line_hash: varchar
         condition_init_tx_hash: varchar
+        condition_init_log_index: varchar
         question_init_tx_hash: varchar
+        question_init_log_index: varchar
         ancillary_data_sha256: varchar
+        token_verification_block_number: varchar
         token_verification_block_hash: varchar
         manifest_sha256: varchar
+        manifest_version: varchar
+        reviewed_at_utc: varchar
     polymarket_us_midterms_2026_contract:
       +schema: polymarket_us_midterms_2026_staging
       +tags: ["staging", "us_midterms_2026", "polymarket"]
@@ -183,18 +202,66 @@ seeds:
       +schema: wc2026_staging
       +tags: ["staging", "wc2026", "strategy_contract"]
       +quote_columns: false
+      +column_types:
+        match_id: varchar
+        stage: varchar
+        group_label: varchar
+        matchday: varchar
+        match_date: varchar
+        kickoff_time_et: varchar
+        venue: varchar
+        home_slot: varchar
+        away_slot: varchar
+        home_team: varchar
+        away_team: varchar
+        status: varchar
+        source: varchar
     wc2026_third_place_options:
       +schema: wc2026_staging
       +tags: ["staging", "wc2026", "strategy_contract"]
       +quote_columns: false
+      +column_types:
+        option_id: varchar
+        slot_1a_group: varchar
+        slot_1b_group: varchar
+        slot_1d_group: varchar
+        slot_1e_group: varchar
+        slot_1g_group: varchar
+        slot_1i_group: varchar
+        slot_1k_group: varchar
+        slot_1l_group: varchar
     wc2026_base_camps_teams:
       +schema: wc2026_staging
       +tags: ["staging", "wc2026", "strategy_contract"]
       +quote_columns: false
+      +column_types:
+        team_name_fifa: varchar
+        team_name_model: varchar
+        base_camp_market: varchar
+        base_camp_country: varchar
+        training_site_name: varchar
+        training_site_lat: varchar
+        training_site_lon: varchar
+        training_site_timezone: varchar
+        training_site_altitude_m: varchar
+        geocode_quality: varchar
+        geocode_source: varchar
+        manual_review_status: varchar
+        source_url: varchar
+        source_updated_at: varchar
+        notes: varchar
     wc2026_venues:
       +schema: wc2026_staging
       +tags: ["staging", "wc2026", "strategy_contract"]
       +quote_columns: false
+      +column_types:
+        venue: varchar
+        host_city: varchar
+        host_country: varchar
+        venue_lat: varchar
+        venue_lon: varchar
+        venue_timezone: varchar
+        venue_altitude_m: varchar
     wc2026_team_canonical_aliases:
       +schema: wc2026_staging
       +tags: ["staging", "wc2026", "strategy_contract"]
@@ -203,3 +270,10 @@ seeds:
       +schema: wc2026_staging
       +tags: ["staging", "wc2026", "strategy_contract"]
       +quote_columns: false
+      +column_types:
+        tournament: varchar
+        is_friendly: boolean
+        is_competitive: boolean
+        competition_family: varchar
+        confederation_scope: varchar
+        notes: varchar

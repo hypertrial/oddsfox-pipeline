@@ -106,8 +106,15 @@ burden by default.
 1. Branch from `main`.
 2. Keep changes focused; match existing style (Ruff, sqlfluff for dbt SQL).
 3. Add or update tests for behavior changes.
-4. Do not commit secrets, `.env`, DuckDB files, parquet/CSV exports, or other local artifacts (see [`.gitignore`](.gitignore)).
+4. Do not commit secrets, `.env`, operator seed rows, reviewed attestations,
+   DuckDB files, parquet/CSV exports, source documents, or other local artifacts
+   (see [`.gitignore`](.gitignore)).
 5. Ensure the quality gate passes locally.
+
+For every proposed data-like file, complete the pull-request provenance
+checklist. State whether it is executable project configuration, a header-only
+schema shell, a synthetic test fixture, or third-party material. Third-party
+material must retain its original licence and a file-specific notice.
 
 ## Reporting issues
 

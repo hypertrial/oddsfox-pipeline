@@ -1,12 +1,14 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "oddsfox-pipeline"
-version = "0.1.6"
+version = "0.1.7"
 description = "Dagster-orchestrated dlt + dbt + DuckDB pipeline for prediction-market data."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.10"
 dependencies = [
   "dagster>=1.13.13",

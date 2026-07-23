@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 import yaml
+from tests.support.distribution_fixtures import write_synthetic_distribution_inputs
 
 from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (
     load_polygon_resolution_attestation,
@@ -27,9 +28,15 @@ def _valid_payload() -> dict[str, object]:
     }
 
 
-def test_committed_resolution_attestation_matches_committed_manifest() -> None:
-    manifest = load_polygon_market_seed()
-    attestation = load_polygon_resolution_attestation(manifest=manifest)
+def test_synthetic_resolution_attestation_matches_synthetic_manifest(
+    tmp_path,
+) -> None:
+    seed_path, attestation_path = write_synthetic_distribution_inputs(tmp_path / "dbt")
+    manifest = load_polygon_market_seed(seed_path)
+    attestation = load_polygon_resolution_attestation(
+        attestation_path,
+        manifest=manifest,
+    )
 
     assert attestation.resolved_condition_count == 248
     assert attestation.manifest_sha256 == manifest.sha256
@@ -38,10 +45,8 @@ def test_committed_resolution_attestation_matches_committed_manifest() -> None:
         "manifest_version": "1.0.0",
         "manifest_sha256": manifest.sha256,
         "resolved_condition_count": 248,
-        "verified_at_utc": "2026-07-22T11:02:27Z",
-        "authoring_evidence_sha256": (
-            "b7152ba41a882e81cd8677ebd1cea622ebd7087ae7d76ca3c225d75c6aea24ee"
-        ),
+        "verified_at_utc": "2026-08-01T00:00:00Z",
+        "authoring_evidence_sha256": "b" * 64,
     }
 
 
@@ -146,11 +151,15 @@ def test_resolution_attestation_rejects_invalid_types_and_version(
 
 
 def test_resolution_attestation_rejects_manifest_mismatch(tmp_path) -> None:
+    seed_path, _ = write_synthetic_distribution_inputs(tmp_path / "dbt")
     path = tmp_path / "resolution_attestation.yml"
     path.write_text(yaml.safe_dump(_valid_payload()), encoding="utf-8")
 
     with pytest.raises(ValueError, match="does not match"):
-        load_polygon_resolution_attestation(path, manifest=load_polygon_market_seed())
+        load_polygon_resolution_attestation(
+            path,
+            manifest=load_polygon_market_seed(seed_path),
+        )
 
 
 @pytest.mark.parametrize(

@@ -153,7 +153,7 @@ nonempty fills, and exactly 39,120 mart rows.
 
 `make polygon-settlement-release` refuses to overwrite an existing internal
 audit version, and `make polygon-settlement-export` refuses to overwrite its
-sanitized technical export. Choose a new SemVer only for an intentional new
+allowlisted technical export. Choose a new SemVer only for an intentional new
 snapshot; do not delete or replace an immutable version merely to rerun either
 command. There is no mutable `latest` alias or upload step.
 

@@ -213,7 +213,7 @@ Schema: `polymarket_wc2026_marts`
   complement, normalizes pair sums, or adds match results. It retains
   `settlement_minute_epoch`, condition/token IDs, market structure, exchange
   address, and manifest hash/version for internal auditing; a direct mart
-  export is not sanitized.
+  export is not the allowlisted technical artifact.
 - `polymarket_wc2026_match_minute_odds`: dense, inclusive in-game UTC minute
   rows at `(odds_minute_utc, market_id)` for all 104 matches. It contains 216
   group moneyline markets and 32 knockout advance/win markets. Yes/No OHLC,
@@ -266,8 +266,8 @@ The Dagster release asset writes a complete internal audit bundle below
 network-free exporter verifies that bundle and writes the allowlisted
 **WC2026 Polygon Settlement Minute Aggregates** CSV and redacted technical
 dossier below `artifacts/polygon_settlement/exports/releases/<version>/`.
-Neither artifact is a warehouse relation, and the repository performs no
-publisher, dataset-licensing, legal-review, distribution, or upload step.
+Neither artifact is a warehouse relation. Both remain operator-local, and the
+repository performs no upload step.
 
 Schema: `polymarket_wc2026_observability`
 

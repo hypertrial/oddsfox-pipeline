@@ -11,6 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from tests.support.distribution_fixtures import write_synthetic_distribution_inputs
 
 from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (
     load_polygon_resolution_attestation,
@@ -104,6 +105,26 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _reviewed_resolution(root: Path):
+    dbt_root = root / "synthetic-inputs" / "dbt"
+    attestation_path = (
+        dbt_root.parent / "config/polygon-settlement-resolution-attestation.yml"
+    )
+    if not attestation_path.exists():
+        _, attestation_path = write_synthetic_distribution_inputs(dbt_root)
+    return load_polygon_resolution_attestation(attestation_path)
+
+
+@pytest.fixture(autouse=True)
+def _use_synthetic_reviewed_resolution(monkeypatch, tmp_path: Path) -> None:
+    resolution = _reviewed_resolution(tmp_path)
+    monkeypatch.setattr(
+        export,
+        "load_polygon_resolution_attestation",
+        lambda: resolution,
+    )
+
+
 def _write_csv(path: Path, rows: list[dict[str, str]]) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(
@@ -124,7 +145,7 @@ def _write_audit(
     csv_path = release / export.MAIN_CSV_NAME
     _write_csv(csv_path, rows or _rows())
     original = csv_path.read_bytes()
-    resolution = load_polygon_resolution_attestation()
+    resolution = _reviewed_resolution(root.parent)
     provenance = {
         "dataset_version": "1.2.3",
         "generator_commit": "a" * 40,
@@ -227,7 +248,7 @@ def test_export_is_byte_identical_redacted_and_aggregate_only(
     assert "proposition_id" not in quality_text
     assert "settlement_minute_utc" not in quality_text
 
-    resolution = load_polygon_resolution_attestation()
+    resolution = _reviewed_resolution(tmp_path)
     manifest = json.loads((release / "MANIFEST.json").read_text())
     assert manifest["resolution_attestation"] == resolution.public_summary()
     assert "finalized_head_block_number" not in json.dumps(manifest)
@@ -870,7 +891,7 @@ def test_audit_provenance_rejects_each_contract_break(
     audit, _ = _write_audit(tmp_path / message.replace(" ", "-"))
     provenance = json.loads((audit / "PROVENANCE.json").read_text())
     provenance.update(mutation)
-    reviewed = load_polygon_resolution_attestation().as_mapping()
+    reviewed = _reviewed_resolution(tmp_path).as_mapping()
 
     with pytest.raises(ValueError, match=message):
         export._validate_audit_provenance(

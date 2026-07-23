@@ -28,9 +28,9 @@ seeds:
 
   - name: polymarket_wc2026_polygon_settlement_markets
     description: >
-      Independently authored WC2026 proposition manifest for Polygon settlement
-      analytics. Its semantic evidence and CC0 fixture provenance do not depend
-      on Gamma, CLOB, or Polymarket UI metadata.
+      Header-only schema shell for an operator-supplied WC2026 proposition
+      manifest used by Polygon settlement analytics. Runtime manifests do not
+      depend on Gamma, CLOB, or Polymarket UI metadata.
     config:
       tags: [polygon_settlement]
     tests:
@@ -131,7 +131,7 @@ seeds:
         tests: [not_null]
 
   - name: wc2026_schedule_matches
-    description: Audited, committed 104-match FIFA World Cup 2026 schedule.
+    description: Header-only schema shell for an operator-supplied 104-match schedule.
     columns:
       - name: match_id
         description: Official FIFA match number.
@@ -141,21 +141,21 @@ seeds:
         tests: [not_null]
 
   - name: wc2026_third_place_options
-    description: Audited FIFA Annexe C third-place combinations.
+    description: Header-only schema shell for operator-supplied third-place combinations.
     columns:
       - name: option_id
         description: Stable option number.
         tests: [not_null, unique]
 
   - name: wc2026_base_camps_teams
-    description: Public team base-camp and training-site reference data.
+    description: Header-only schema shell for operator-supplied base-camp reference data.
     columns:
       - name: team_name_model
         description: Strategy-facing team label.
         tests: [not_null, unique]
 
   - name: wc2026_venues
-    description: Public venue coordinates, timezones, and altitude.
+    description: Header-only schema shell for operator-supplied venue reference data.
     columns:
       - name: venue
         description: Official schedule venue label.
@@ -172,7 +172,7 @@ seeds:
         tests: [not_null]
 
   - name: wc2026_tournament_classification
-    description: Public tournament taxonomy for historical international results.
+    description: Header-only schema shell for operator-supplied tournament taxonomy.
     columns:
       - name: tournament
         description: Upstream tournament label.

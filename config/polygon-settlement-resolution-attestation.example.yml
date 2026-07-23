@@ -1,0 +1,8 @@
+schema_version: 1
+manifest_version: REPLACE_WITH_LOCAL_MANIFEST_VERSION
+manifest_sha256: REPLACE_WITH_LOCAL_MANIFEST_SHA256
+resolved_condition_count: 0
+verified_at_utc: "YYYY-MM-DDTHH:MM:SSZ"
+authoring_evidence_sha256: REPLACE_WITH_LOCAL_EVIDENCE_SHA256
+finalized_head_block_number: 0
+finalized_head_block_hash: REPLACE_WITH_LOCAL_FINALIZED_BLOCK_HASH

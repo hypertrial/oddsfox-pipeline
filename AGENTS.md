@@ -1,6 +1,8 @@
 # AGENTS.md
 
-OddsFox Pipeline is an open-source, local-first prediction-market data pipeline.
+OddsFox Pipeline is MIT-licensed, local-first prediction-market pipeline
+software. The canonical repository and its release artifacts contain no
+production datasets; operators supply and control their own data.
 Version `0.1.x` ships a WC2026 Polymarket pipeline for FIFA World Cup
 2026 markets and odds, a Kalshi WC2026 pipeline for stage, group-winner, and
 match-advance markets, a standardized cross-platform knockout match mart, plus
@@ -105,18 +107,21 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make dbt-source-freshness-ci` | Seed fresh temp source rows and run dbt source freshness |
 | `make coverage-report` | Coverage report gate (`--fail-under=100`) |
 | `make check-secrets` | Repo policy check for tracked secret leakage |
+| `make runtime-dirs` | Create SSD-local temp, cache, dbt, Python, DuckDB-extension, and browser directories below `.cache/runtime` |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
 | `make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement graph against replay fixtures |
 | `make gx-data-quality` | Great Expectations data-quality report against an existing disposable dbt build |
 | `make data-quality` | Safe local wrapper that rebuilds disposable dbt state before `gx-data-quality` |
 | `make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate |
 | `make live-smoke` | Opt-in live WC2026 cross-platform pipeline against the configured warehouse |
+| `make match-minute-inputs-validate` | Validate the operator-local 104-match schedule overlay |
+| `make local-marts-rebuild` | Full-refresh and verify both WC2026 minute marts from completed operator-local raw warehouses |
 | `make polygon-settlement-live-smoke` | Opt-in finalized Polygon settlement backfill against a disposable warehouse |
 | `make polygon-settlement-benchmark` | Exact optional v3/v4 fill+mart comparison; requires two completed warehouses |
 | `make polygon-settlement-seed-candidate` | Author an evidence-backed candidate below ignored `artifacts/`; never promotes the dbt seed |
-| `make polygon-settlement-seed-validate` | Validate the committed 248-proposition seed and resolution attestation |
+| `make polygon-settlement-seed-validate` | Validate an operator-local 248-proposition seed and resolution attestation |
 | `make polygon-settlement-release` | Build an immutable internal Polygon settlement audit bundle |
-| `make polygon-settlement-export` | Build an offline sanitized technical export from an audit bundle |
+| `make polygon-settlement-export` | Build an offline allowlisted technical export from an audit bundle |
 | `make costguard-scan` | Run the dbt cost guardrail against an existing dbt build |
 | `make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard |
 | `make dagster-dev` | Local Dagster UI |
@@ -226,7 +231,7 @@ The daily `international_results_daily_schedule` is also stopped by default.
 The combined `wc2026_knockout_match_odds_hourly_schedule` targets the atomic
 cross-platform full pipeline and is also stopped by default.
 The Polygon settlement backfill and audit-release jobs are unscheduled and have
-no schedule-enable environment flags. The sanitized exporter is standalone and
+no schedule-enable environment flags. The technical exporter is standalone and
 unscheduled.
 Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 
@@ -244,21 +249,30 @@ no API credentials are required for local docs, dbt, or mocked tests.
 
 DuckDB is local-only runtime state. For read-only inspection prefer `scripts/profile_warehouse.py` over opening the warehouse read-write.
 
-**Polygon settlement isolation:** this historical flow uses the committed
+**Polygon settlement isolation:** this historical flow uses an operator-local
 `polymarket_wc2026_polygon_settlement_markets.csv` seed and finalized Polygon V2
-logs. It must not call Gamma, CLOB, the Polymarket UI, international-results, or
-OpenFootball at runtime. Never log or persist RPC URLs, wallet addresses, order
-hashes, signatures, raw topics/data, calldata, or oracle prose. The optional
-second RPC is advisory only. The release asset writes an internal audit bundle
-below `artifacts/polygon_settlement/audit/`; the standalone exporter reads that
-bundle offline and writes only the allowlisted technical dossier below
-`artifacts/polygon_settlement/exports/`. Neither path uploads data or handles
-publisher identity, dataset licensing, legal review, provider terms, or
-distribution.
+logs. The tracked seed is a header-only schema shell. The flow must not call
+Gamma, CLOB, the Polymarket UI, international-results, or OpenFootball at
+runtime. Never log or persist RPC URLs, wallet addresses, order hashes,
+signatures, raw topics/data, calldata, or oracle prose. The optional second RPC
+is advisory only. The release asset writes an internal audit bundle below
+`artifacts/polygon_settlement/audit/`; the standalone exporter reads that
+bundle offline and writes only the allowlisted operator-local technical dossier
+below `artifacts/polygon_settlement/exports/`. Neither path uploads data.
+
+**Distribution policy:** keep production data, generated exports, reviewed
+resolution attestations, databases, Parquet, and source documents untracked.
+Header-only external seed shells must remain empty in commits. Retained
+contract constants and aliases are executable project configuration; test
+fixtures must be synthetic and documented in `tests/fixtures/README.md`.
+Third-party material keeps its original licence and must not be described as
+MIT-licensed project data. See `THIRD_PARTY_NOTICES.md`.
 
 ## Do not
 
-- Commit `.env`, secrets, `*.duckdb` / WAL/SHM files, parquet/CSV exports, or other local artifacts (see [`.gitignore`](.gitignore)).
+- Commit `.env`, secrets, operator seed rows, reviewed attestations, `*.duckdb`
+  / WAL/SHM files, parquet/CSV exports, source documents, or other local
+  artifacts (see [`.gitignore`](.gitignore)).
 - Invent commands outside the Makefile; if a check is missing, add a Makefile target rather than documenting one-off scripts as the gate.
 - Add runtime scope such as soccer context, simulations, allocation, or web integration without explicit product direction; v0.1.x ships the WC2026 Polymarket ingest and warehouse implementation only.
 - Add legacy, compat, deprecated, or migration shims unless the task explicitly requests backward compatibility.

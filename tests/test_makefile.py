@@ -74,6 +74,10 @@ def test_ci_split_targets_remain_wired():
     assert '-d "$(REPO_ROOT)"' in makefile
     assert "latest_fetch_hash_issues, elapsed_axis_issue_markets" in makefile
     assert "'published', 496, 496, 0, 0, 0, 496, 0, 0, 0, None" in makefile
+    assert "match-minute-inputs-validate:" in makefile
+    assert "local-marts-rebuild:" in makefile
+    assert "+polymarket_wc2026_match_minute_odds" in makefile
+    assert "+polymarket_wc2026_polygon_settlement_minute_odds" in makefile
 
     live_smoke_config = (REPO_ROOT / "config" / "live-smoke.yaml").read_text()
     assert "polymarket_wc2026_raw_token_odds_history_hourly:" in live_smoke_config
@@ -136,3 +140,26 @@ def test_polygon_settlement_export_is_offline_and_reads_the_audit_release():
     )
     assert '--output-root "artifacts/polygon_settlement/exports"' in recipe
     assert "polygon-runtime-dirs" not in recipe
+
+
+def test_runtime_and_temporary_storage_default_below_the_checkout():
+    makefile = (REPO_ROOT / "Makefile").read_text()
+
+    assert "ODDSFOX_STORAGE_ROOT ?= $(REPO_ROOT)" in makefile
+    assert "ODDSFOX_RUNTIME_ROOT ?= $(REPO_ROOT)/.cache/runtime" in makefile
+    assert "export TMPDIR := $(ODDSFOX_RUNTIME_TMP)" in makefile
+    assert "export TMP := $(ODDSFOX_RUNTIME_TMP)" in makefile
+    assert "export TEMP := $(ODDSFOX_RUNTIME_TMP)" in makefile
+    assert "export XDG_CACHE_HOME := $(ODDSFOX_RUNTIME_XDG)" in makefile
+    assert "export UV_CACHE_DIR := $(ODDSFOX_RUNTIME_UV)" in makefile
+    assert "export UV_PYTHON_INSTALL_DIR := $(ODDSFOX_RUNTIME_UV_PYTHON)" in makefile
+    assert (
+        "export PLAYWRIGHT_BROWSERS_PATH := $(ODDSFOX_RUNTIME_PLAYWRIGHT)" in makefile
+    )
+    assert "export DUCKDB_EXTENSION_DIRECTORY" not in makefile
+    assert (
+        'DUCKDB_EXTENSION_DIRECTORY="$(ODDSFOX_RUNTIME_DUCKDB_EXTENSIONS)"' in makefile
+    )
+    assert "warehouse paths must remain below SSD-backed ODDSFOX_STORAGE_ROOT" in (
+        makefile
+    )

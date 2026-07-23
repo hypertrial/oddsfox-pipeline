@@ -4,32 +4,38 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-00d7f7)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-00d7f7)](LICENSE)
 
-OddsFox Pipeline is an open-source, local-first batch data warehouse for
-prediction-market data.
+OddsFox Pipeline is MIT-licensed, local-first batch data-pipeline software for
+prediction-market analytics. The canonical repository, source archives, Python
+packages, documentation, and newly published images contain no production
+datasets. Operators supply and control their own source data.
 
 It uses Dagster to orchestrate dlt/CSV ingestion, canonical Parquet snapshot
 loading, DuckDB storage, Python sync ledgers, and dbt analytics models. The
-public project ships Polymarket and Kalshi market data, GitHub-hosted football
-feeds, a standardized `wc2026.v1` clean-data contract, and data-quality
-telemetry. Optional private enrichments are accepted only through the canonical
-raw snapshot contract.
+software supports Polymarket and Kalshi adapters, football-source ingestion, a
+standardized `wc2026.v1` analytics contract, and data-quality telemetry.
+Optional inputs are accepted only through the canonical raw snapshot contract.
 Existing local warehouses from older layouts must
 be reset with `rm oddsfox.duckdb*`.
 
+Hypertrial is a project name, not a legal entity. MIT applies to
+Hypertrial-authored software and associated documentation; operator data,
+third-party fonts and dependencies, and OddsFox visual marks are outside that
+grant. See [Third-Party Notices](THIRD_PARTY_NOTICES.md).
+
 ## Project Scope
 
-OddsFox Pipeline is code and operator tooling, not a hosted dataset. The shipped market
-adapters cover Polymarket WC2026, Polymarket US midterms 2026, Kalshi WC2026,
-OpenFootball, and the public 2006+ `international_results` files.
+OddsFox Pipeline is software and operator tooling, not a hosted dataset. The
+market adapters cover Polymarket WC2026, Polymarket US midterms 2026, Kalshi
+WC2026, OpenFootball, and `international_results` inputs.
 
 The separate WC2026 Polygon settlement flow is an unscheduled historical
-collector. It reads Polygon V2 settlement logs using a committed, independently
-authored market manifest and does not call Gamma, CLOB, the Polymarket website,
-or a runtime football-results source. Its release job builds a local, immutable
-internal audit bundle. A separate offline exporter copies the sanitized CSV
-byte-for-byte and produces the technical **WC2026 Polygon Settlement Minute
-Aggregates** dossier for an external publisher process. Neither path uploads
-data or supplies publisher, dataset-licensing, or legal-review metadata. The v4
+collector. It reads Polygon V2 settlement logs using a complete operator-local
+market manifest and does not call Gamma, CLOB, the Polymarket website, or a
+runtime football-results source. Its release job builds a local, immutable
+internal audit bundle. A separate offline exporter copies the allowlisted CSV
+byte-for-byte and produces an operator-local technical **WC2026 Polygon
+Settlement Minute Aggregates** dossier. Neither path uploads data or determines
+rights to use or distribute operator inputs or outputs. The v4
 collector plans group and knockout ranges by their authored V2 exchange,
 rejects discoveries outside exact token windows before receipt fetch, and
 expands only matching finalized receipts in five bounded workers. Published
@@ -41,13 +47,13 @@ in their own local DuckDB file or self-managed warehouse.
 
 ## Part Of OddsFox
 
-`oddsfox-pipeline` is the public warehouse component of the private `oddsfox`
+`oddsfox-pipeline` is the open-source warehouse component of the private `oddsfox`
 superproject. It ingests safe public sources, validates canonical snapshots
 produced by private collectors, builds dbt marts, and exports graph parquet for
 offline use by `oddsfox-graph`. `oddsfox-strategy` consumes `wc2026.v1`
 read-only; this repository never contains strategy or execution code.
 
-The signed public container is published as
+The signed software container is published as
 `ghcr.io/hypertrial/oddsfox-pipeline`. Release manifests include `linux/amd64`
 and `linux/arm64` images, SBOMs, provenance, and GitHub OIDC signatures.
 
@@ -60,7 +66,7 @@ data flow and repository boundaries. Order execution belongs to
 | Reader | First step |
 | --- | --- |
 | Analysts querying the warehouse | Serve the docs with `uv run make docs-serve`, open `http://127.0.0.1:8000`, then start with [Query the warehouse](docs/guides/query-the-warehouse.md), [Query recipes](docs/guides/query-recipes.md), and the [Data dictionary](docs/reference/data-dictionary.md). |
-| Operators running ingestion | Use the [Quickstart](docs/getting-started/index.md) and local Dagster setup below. |
+| Operators running ingestion | Use the [Quickstart](docs/getting-started/index.md), then [recreate the WC2026 minute marts locally](docs/guides/recreate-local-marts.md). |
 | Contributors changing code | Use the [Development guide](docs/development/index.md) and [CONTRIBUTING.md](CONTRIBUTING.md). |
 
 ## Quickstart
@@ -81,6 +87,13 @@ duckdb oddsfox.duckdb
 
 The default warehouse is `oddsfox.duckdb` in the repo root. If `.env` sets
 `DUCKDB_PATH`, open that file instead.
+
+For a checkout on an SSD, keep temporary files and caches there too. Export
+`ODDSFOX_RUNTIME_ROOT="$PWD/.cache/runtime"` and the `TMPDIR`, `UV_CACHE_DIR`,
+and related paths shown in the
+[local mart recreation guide](docs/guides/recreate-local-marts.md) before the
+first `uv` command. The Makefile keeps child-process runtime state below that
+root.
 
 Run the local pipeline:
 
@@ -119,9 +132,9 @@ OddsFox Pipeline keeps the data stack local and inspectable:
 
 See [Architecture](docs/concepts/architecture.md) and the [Warehouse reference](docs/reference/warehouse.md).
 
-## Data Outputs
+## Local Data Outputs
 
-Main public analytics schemas:
+Supported local analytics schemas:
 
 - `polymarket_wc2026_marts`: WC2026 Polymarket in-game minute moneyline and
   advance odds for all 104 matches, knockout market snapshots,
@@ -167,14 +180,22 @@ quotes, order-book snapshots, order-match timestamps, or CLOB price history.
 Empty minutes remain null. Normalized economic-leg counts can differ from unique
 user trades, and derived MINT/MERGE counterparts are separately counted.
 
+Both
+`polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds` and
+`polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds`
+remain locally reproducible. Operators provide the schedule, reviewed Polygon
+manifest and attestation at the existing paths, then use the live jobs or
+`make local-marts-rebuild` for completed raw warehouses. See
+[Recreate the WC2026 minute marts locally](docs/guides/recreate-local-marts.md).
+
 The dbt mart and internal audit bundle retain condition/token IDs, exchange
 addresses, and chain locators needed for verification; a direct mart export is
-not sanitized. The standalone technical exporter copies only an allowlisted CSV
-that omits wallets and transaction, log, block, provider, order, raw-payload,
-condition, token, and exchange identifiers. This is de-identification, not
-anonymity: sparse public blockchain aggregates can still be reverse-linked.
-Dataset licensing, publisher identity, legal review, and distribution remain
-outside this MIT-licensed software repository.
+not the operator-local technical export. The standalone exporter copies only an
+allowlisted CSV that omits wallets and transaction, log, block, provider,
+order, raw-payload, condition, token, and exchange identifiers. This is
+de-identification, not anonymity: sparse public blockchain aggregates can
+still be reverse-linked. Operators remain responsible for their inputs and
+outputs.
 
 See the [Data dictionary](docs/reference/data-dictionary.md) for analyst-facing table
 semantics, [Data contracts](docs/reference/data-contracts.md) for formal guarantees, and
@@ -221,7 +242,8 @@ Vercel builds the MkDocs site from `main` using [`vercel.json`](vercel.json) and
 publishes it at [data.oddsfox.io](https://data.oddsfox.io/). Validate documentation
 changes locally with `uv run make docs-check` before pushing. During editing,
 leave `uv run make docs-serve` running; MkDocs rebuilds and refreshes the
-browser after each saved change without a restart.
+browser after each saved change without a restart. The site is software
+documentation and does not host datasets.
 
 ## Community
 
@@ -231,6 +253,7 @@ browser after each saved change without a restart.
 - [Changelog](CHANGELOG.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [License](LICENSE)
+- [Third-Party Notices](THIRD_PARTY_NOTICES.md)
 
 The v0.1.x repo intentionally excludes simulations, allocation tooling,
 website integration, and generated historical docs.

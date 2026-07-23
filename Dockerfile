@@ -14,7 +14,7 @@ RUN apt-get update \
     && useradd --system --uid 10001 --gid oddsfox --home /opt/oddsfox-pipeline oddsfox
 
 WORKDIR /opt/oddsfox-pipeline
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md LICENSE THIRD_PARTY_NOTICES.md ./
 COPY src ./src
 COPY dbt ./dbt
 COPY config ./config
@@ -25,7 +25,7 @@ RUN python -m pip install --no-cache-dir . \
 
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="OddsFox Pipeline" \
-      org.opencontainers.image.description="Public Dagster, dbt, and DuckDB analytics pipeline" \
+      org.opencontainers.image.description="MIT-licensed local-first analytics pipeline software; no production datasets" \
       org.opencontainers.image.source="https://github.com/hypertrial/oddsfox-pipeline" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.licenses="MIT"

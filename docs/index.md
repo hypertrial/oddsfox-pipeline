@@ -12,11 +12,11 @@ hide:
 
 # OddsFox Pipeline
 
-Build inspectable prediction-market datasets with Dagster, dlt, DuckDB, dbt,
-and Python.
+Build inspectable local prediction-market warehouses with Dagster, dlt,
+DuckDB, dbt, and Python.
 
-OddsFox Pipeline ships the pipeline and operator tooling. You run ingestion
-and retain the resulting warehouse on infrastructure you control.
+MIT-licensed pipeline software, not a production dataset. Supply your own
+inputs; outputs stay on infrastructure you control.
 
 [Get started](getting-started/index.md){ .md-button .md-button--primary }
 [Query the warehouse](guides/query-the-warehouse.md){ .md-button }
@@ -79,14 +79,16 @@ graph artifacts for offline analysis.
 
 </div>
 
-## Shipped data scopes
+## Supported local scopes
 
-Version `0.1.x` ships Polymarket FIFA World Cup 2026 and US midterms 2026
+Version `0.1.x` supports Polymarket FIFA World Cup 2026 and US midterms 2026
 pipelines, Kalshi WC2026 stage, group-winner, and exact match-advance markets,
 a standardized cross-platform knockout match mart, an isolated finalized
-Polygon WC2026 settlement-history mart with internal-audit and sanitized
-technical-export paths, and FIFA fixture/results data for identity and
+Polygon WC2026 settlement-history mart with internal-audit and operator-local
+technical-export paths, and FIFA fixture/results ingestion for identity and
 real-team validation.
+
+This site is software documentation and does not host datasets.
 
 [Choose a scope](getting-started/choose-a-scope.md) or read the
 [architecture](concepts/architecture.md) before extending the pipeline.

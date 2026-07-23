@@ -234,39 +234,30 @@ The inventory is fixed and dense:
 - 248 propositions, 496 oriented tokens, 104 FIFA match IDs, and exactly 39,120
   mart rows.
 
-Runtime identity and semantics come exclusively from the committed,
-independently authored Polygon market seed. Group propositions are `home_win`,
-`draw`, and `away_win`; matches 73–102 are `home_advances`, match 103 is
-`home_win_third_place`, and match 104 is `home_wins_final`. The seed pins the
-CC0 OpenFootball revision, source lines/hashes, on-chain question/condition
-locators, ancillary-data hash, verified token orientation, exchange, manifest
-version, and review time. The backfill does not call Gamma, CLOB, the
-Polymarket UI, OpenFootball, international-results, or FotMob.
+Runtime identity and semantics come exclusively from a complete operator-local
+Polygon market seed. Group propositions are `home_win`, `draw`, and `away_win`;
+matches 73–102 are `home_advances`, match 103 is `home_win_third_place`, and
+match 104 is `home_wins_final`. The seed pins the source revision and hashes,
+on-chain question/condition locators, ancillary-data hash, verified token
+orientation, exchange, manifest version, and review time. The backfill does not
+call Gamma, CLOB, the Polymarket UI, OpenFootball, international-results, or
+FotMob.
 
-The reviewed
-`config/polygon-settlement-resolution-attestation.yml` binds manifest SHA-256
-`4cad46ebe278b0e3beb2f6b9aa4046223285f0a9b976d5390b98c4096de3bdac`
-to 248 resolved conditions verified at `2026-07-22T11:02:27Z`, with authoring
-evidence SHA-256
-`b7152ba41a882e81cd8677ebd1cea622ebd7087ae7d76ca3c225d75c6aea24ee`.
-Audit release and sanitized-export validation read only this committed
-attestation; the authoring tool writes new evidence as an ignored candidate.
+The matching resolution attestation is also operator-local. The authoring tool
+writes candidate evidence below ignored `artifacts/`; operators review it and
+supply the final attestation at
+`config/polygon-settlement-resolution-attestation.yml`. The repository tracks
+only a placeholder example.
 
-The independent fixture vocabulary is not a CLOB-mart join key. For the current
-manifests, all 248 conditions and oriented Yes/No token pairs reconcile across
-the two flows, but FIFA matches 51, 53, and 59 use the opposite home/away display
-order and aliases such as `USA`/`United States` and
-`Bosnia & Herzegovina`/`Bosnia and Herzegovina` also differ. Cross-flow analysis
-must join on `condition_id` and the oriented token IDs, then use
+The independent fixture vocabulary is not a CLOB-mart join key. Cross-flow
+analysis must join on `condition_id` and the oriented token IDs, then use
 `yes_represents`/`no_represents` for meaning. Do not join on raw team strings or
-`(fifa_match_id, proposition_type)`, because `home_win` and `away_win` can swap
-when independently sourced fixture orientation differs.
+`(fifa_match_id, proposition_type)`, because independently sourced fixture
+orientation and aliases can differ.
 
-Correcting the committed market seed requires all four release-governance
-steps: regenerate and review the supporting evidence, refresh the relevant
-automated tests, add a repository `CHANGELOG.md` entry, and publish the corrected
-dataset under a new SemVer. An existing dataset version is never amended in
-place.
+Correcting a local market seed requires regenerating and reviewing its
+supporting evidence before building a new immutable local audit/export SemVer.
+An existing local artifact version is never amended in place.
 
 For each Yes and No side the mart exposes chain-ordered open/high/low/close,
 VWAP (`sum(gross_collateral) / sum(shares)`), normalized and derived economic-leg
@@ -294,13 +285,13 @@ axis, or any row count other than 39,120. Whole propositions or token sides
 without fills, sparse minutes, derived-fill prevalence, Yes/No pair deviations,
 and missing/disagreeing secondary RPC verification are technical warnings only.
 
-The mart is an internal audit surface, not a sanitized export. In addition to
+The mart is an internal audit surface, not the allowlisted technical export. In addition to
 the fields described above it contains these eight audit-only columns:
 `settlement_minute_epoch`, `condition_id`, `yes_token_id`, `no_token_id`,
 `market_structure`, `exchange_address`, `manifest_sha256`, and
-`manifest_version`. Never publish a direct mart export.
+`manifest_version`. A direct mart export bypasses the technical allowlist.
 
-### Internal audit release and sanitized technical export
+### Internal audit release and operator-local technical export
 
 `polymarket_wc2026_polygon_settlement_release` reads an already valid mart and
 writes a new immutable SemVer audit directory below
@@ -320,7 +311,7 @@ overwritten and there is no mutable `latest` alias. The audit release contains:
 
 The market sidecar, full provenance, and issue-level quality report deliberately
 retain identifiers and locators needed for internal verification. The audit
-directory is not sanitized and must not be distributed as a dataset.
+directory is internal and is excluded from repository distributions.
 
 The standalone
 `export_polymarket_wc2026_polygon_settlement_minute_odds.py` command consumes
@@ -330,7 +321,7 @@ literal 41-column allowlist and 39,120-row contract, scans for forbidden
 identifiers and unsafe text, and writes a new immutable directory below
 `artifacts/polygon_settlement/exports/releases/`.
 
-The sanitized technical export is titled **WC2026 Polygon Settlement Minute
+The operator-local technical export is titled **WC2026 Polygon Settlement Minute
 Aggregates** and contains exactly:
 
 - `wc2026_polygon_settlement_minute_odds.csv`
@@ -363,9 +354,8 @@ Gamma/CLOB fields, source question prose, and pair diagnostics. This is
 de-identified data, not anonymous data: a sparse aggregate over a public ledger
 can still be reverse-linked to source transactions by time, amount, and price.
 
-The software creates no publisher identity, dataset licence, legal/rights
-review, provider-terms evidence, distribution metadata, or upload action. An
-external publisher process owns those decisions.
+The software creates no upload operation or remote destination. Operators
+control the local artifact and remain responsible for their inputs and outputs.
 
 Schema: `international_results_wc2026_marts`
 

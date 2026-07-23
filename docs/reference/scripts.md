@@ -24,8 +24,8 @@ Run them through `uv run python` so they use the repo environment.
   changelog, a `DO_NOT_PUBLISH.md` marker, and SHA-256 checksums. It refuses
   version collisions.
 - `export_polymarket_wc2026_polygon_settlement_minute_odds.py`: verify an
-  immutable audit release and create the sanitized **WC2026 Polygon Settlement
-  Minute Aggregates** technical dossier entirely offline. It copies the
+  immutable audit release and create the allowlisted **WC2026 Polygon Settlement
+  Minute Aggregates** operator-local technical dossier entirely offline. It copies the
   allowlisted CSV byte-for-byte, emits only redacted aggregate metadata, and
   refuses version collisions or unexpected input/output files.
 - `benchmark_polymarket_wc2026_polygon_settlement.py`: optional exact comparator
@@ -45,10 +45,25 @@ Makefile shortcuts (stop Dagster and other writers first):
 ```bash
 make prune-odds-history          # default 365-day retention; add --dry-run via script directly
 make compact-warehouse           # reclaim dead space after rebuilds or pruning
-make polygon-settlement-seed-validate # committed seed + resolution attestation
+make runtime-dirs                # create SSD-local temp and cache directories
+make match-minute-inputs-validate # require a complete local 104-match schedule
+make polygon-settlement-seed-validate # operator-local seed + resolution attestation
 make dbt-polygon-settlement-ci    # replay-only; no RPC credentials
 make polygon-settlement-benchmark # requires completed v3 and v4 warehouses
 ```
+
+To full-refresh and verify both real minute marts from completed local raw
+warehouses, use:
+
+```bash
+uv run make local-marts-rebuild \
+  MATCH_MINUTE_REBUILD_DUCKDB_PATH="$PWD/.cache/operator-marts/match.duckdb" \
+  POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH="$PWD/.cache/operator-marts/polygon.duckdb"
+```
+
+The command requires the operator-local schedule, Polygon manifest, and
+attestation at their existing paths, and requires both warehouses below
+`ODDSFOX_STORAGE_ROOT`.
 
 Author a seed candidate with an archive-capable primary RPC. Review the
 candidate and evidence before separately promoting it to `dbt/seeds/`; the Make
@@ -61,10 +76,9 @@ POLYGON_SEED_OUTPUT_DIR=artifacts/polygon_settlement_seed_candidates/1.0.0 \
 uv run make polygon-settlement-seed-candidate
 ```
 
-If the committed seed or resolution attestation needs a correction, regenerate
-and review its evidence, refresh the relevant automated tests, add the
-correction to the repository `CHANGELOG.md`, and use a new dataset SemVer for
-the next immutable audit/export.
+If a local seed or resolution attestation needs a correction, regenerate and
+review its evidence and use a new SemVer for the next immutable local
+audit/export.
 
 Run the unscheduled historical flow only after configuring
 `POLYGON_RPC_URL` and `POLYGON_RPC_PROVIDER_LABEL`:
@@ -110,7 +124,7 @@ The audit lands below
 sidecar, full provenance, and issue-level quality evidence and is marked
 `DO_NOT_PUBLISH.md`.
 
-Create the separate sanitized technical export without opening the warehouse or
+Create the separate allowlisted technical export without opening the warehouse or
 making network requests:
 
 ```bash
@@ -130,8 +144,8 @@ uv run python \
 It writes
 `artifacts/polygon_settlement/exports/releases/<version>/`, verifies that the
 CSV SHA-256 is identical to the audit copy, and includes no market sidecar,
-full provenance, exact warning rows, publisher identity, dataset licence, legal
-review, distribution metadata, credentials, or upload action.
+full provenance, exact warning rows, credentials, upload configuration, or
+upload action. The output remains under operator control.
 
 Run scripts through the project environment:
 
@@ -150,7 +164,7 @@ uv run python scripts/export_polymarket_wc2026_graph_hourly_odds.py --snapshot-c
 # writes "$ODDSFOX_DATA_DIR/exports/wc2026_graph_hourly.parquet"
 ```
 
-Hosted artifact publish:
+Local hosted-artifact build:
 
 ```bash
 export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-.runtime}"

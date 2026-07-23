@@ -70,7 +70,7 @@ Flat Dagster op names preserve the same source-first order, for example
   39,120-row mart, optionally compares scoped hashes through a second RPC, and
   writes one immutable internal audit bundle below
   `artifacts/polygon_settlement/audit/releases/`. It never refreshes the primary
-  scan. The standalone sanitized exporter is not a Dagster asset or job; it
+  scan. The standalone technical exporter is not a Dagster asset or job; it
   reads a completed audit bundle offline and writes below
   `artifacts/polygon_settlement/exports/releases/`.
 - `international_results_wc2026_match_results_ingest`: FIFA fixture/results
@@ -168,7 +168,7 @@ cross-provider comparison.
 
 The match-minute backfill has no schedule or environment enable flag.
 The Polygon settlement backfill and audit-release jobs likewise have no schedule
-or environment enable flag. The sanitized exporter is standalone and
+or environment enable flag. The technical exporter is standalone and
 unscheduled. None of these paths uploads or distributes data.
 
 The international-results schedule runs daily at 02:15 UTC; the other four run

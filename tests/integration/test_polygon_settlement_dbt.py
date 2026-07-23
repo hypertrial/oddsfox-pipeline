@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import timedelta
@@ -13,10 +14,13 @@ from pathlib import Path
 import duckdb
 import pytest
 from tests.integration.conftest import write_dbt_profile
+from tests.support.distribution_fixtures import write_synthetic_distribution_inputs
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
+from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (
+    load_polygon_resolution_attestation,
+)
 from oddsfox_pipeline.ingestion.polymarket.polygon_seed import (
-    DEFAULT_POLYGON_MARKET_SEED_PATH,
     load_polygon_market_seed,
 )
 from oddsfox_pipeline.publishing.polygon_settlement import (
@@ -75,6 +79,7 @@ TO_BLOCK_HASH = "0x" + "2" * 64
 def _run_dbt(
     args: list[str],
     *,
+    project_dir: Path,
     profiles_dir: Path,
     env: dict[str, str],
 ) -> None:
@@ -84,7 +89,7 @@ def _run_dbt(
         "dbt.cli.main",
         *args,
         "--project-dir",
-        str(DBT_ROOT),
+        str(project_dir),
         "--profiles-dir",
         str(profiles_dir),
     ]
@@ -537,7 +542,23 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
     monkeypatch,
     dbt_profiles_dir: Path,
 ) -> None:
-    committed_manifest = load_polygon_market_seed(DEFAULT_POLYGON_MARKET_SEED_PATH)
+    dbt_root = tmp_path / "dbt"
+    shutil.copytree(DBT_ROOT, dbt_root)
+    seed_path, attestation_path = write_synthetic_distribution_inputs(dbt_root)
+    monkeypatch.setattr(
+        "oddsfox_pipeline.publishing.polygon_settlement."
+        "DEFAULT_POLYGON_MARKET_SEED_PATH",
+        seed_path,
+    )
+    monkeypatch.setattr(
+        "oddsfox_pipeline.publishing.polygon_settlement."
+        "load_polygon_resolution_attestation",
+        lambda *, manifest: load_polygon_resolution_attestation(
+            attestation_path,
+            manifest=manifest,
+        ),
+    )
+    committed_manifest = load_polygon_market_seed(seed_path)
     db_path = tmp_path / "polygon_settlement.duckdb"
     monkeypatch.setenv("DUCKDB_PATH", str(db_path))
     monkeypatch.setenv("DUCKDB_NAME", str(db_path))
@@ -555,12 +576,14 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
             "--select",
             "polymarket_wc2026_polygon_settlement_markets",
         ],
+        project_dir=dbt_root,
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
     _seed_published_fixture(db_path)
     _run_dbt(
         ["build", "--full-refresh", "--select", "tag:polygon_settlement"],
+        project_dir=dbt_root,
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
@@ -700,6 +723,7 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
             "polymarket_wc2026_polygon_settlement_quality_issues",
             "polymarket_wc2026_polygon_settlement_data_quality",
         ],
+        project_dir=dbt_root,
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
@@ -726,6 +750,7 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
             "polymarket_wc2026_polygon_settlement_quality_issues",
             "polymarket_wc2026_polygon_settlement_data_quality",
         ],
+        project_dir=dbt_root,
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
@@ -748,6 +773,7 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
             "--select",
             "polymarket_wc2026_polygon_settlement_data_quality",
         ],
+        project_dir=dbt_root,
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
@@ -818,6 +844,7 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
                 "--select",
                 "polymarket_wc2026_polygon_settlement_data_quality",
             ],
+            project_dir=dbt_root,
             profiles_dir=dbt_profiles_dir,
             env=env,
         )
@@ -853,6 +880,7 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
             "--select",
             "polymarket_wc2026_polygon_settlement_data_quality",
         ],
+        project_dir=dbt_root,
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
@@ -1015,6 +1043,7 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
                 "--select",
                 "polymarket_wc2026_polygon_settlement_data_quality",
             ],
+            project_dir=dbt_root,
             profiles_dir=dbt_profiles_dir,
             env=env,
         )
@@ -1051,6 +1080,7 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
             "--select",
             "polymarket_wc2026_polygon_settlement_data_quality",
         ],
+        project_dir=dbt_root,
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
@@ -1071,6 +1101,7 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
             "--select",
             "stg_polymarket_wc2026_polygon_settlement_fills",
         ],
+        project_dir=dbt_root,
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
@@ -1114,6 +1145,7 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
             "--select",
             "polymarket_wc2026_polygon_settlement_data_quality",
         ],
+        project_dir=dbt_root,
         profiles_dir=dbt_profiles_dir,
         env=env,
     )

@@ -82,6 +82,14 @@ graph: it creates complete synthetic seed/scan/chunk/fill fixtures, runs only
 opt-in and requires a finalized-capable Polygon RPC; neither Polygon job has a
 schedule.
 
+All Make child processes use `.cache/runtime/` for temporary files, uv/XDG and
+browser caches, Python bytecode, and dbt output. Polygon and local mart rebuild
+targets also use SSD-local DuckDB extension directories. Put the checkout on
+the intended SSD and export the same parent-process paths before the first
+`uv` command. The
+[local mart recreation guide](../guides/recreate-local-marts.md) documents the
+complete setup and the offline full-refresh proof for both minute marts.
+
 Dagster dbt assets enable dbt source tests as asset checks. Row-count and
 column metadata fetching is available through `DbtBuildConfig` but stays
 opt-in because DuckDB in-process integration tests share local database
@@ -170,6 +178,7 @@ when settings reload from disk. See
 | `uv run make dbt-source-freshness-ci` | Seed temp source rows and run dbt source freshness. |
 | `uv run make coverage-report` | Coverage report gate (`--fail-under=100`). |
 | `uv run make check-secrets` | Repo policy check for tracked secret leakage. |
+| `uv run make runtime-dirs` | Create SSD-local runtime, temporary, and cache directories. |
 | `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
 | `uv run make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement graph against replay fixtures. |
 | `uv run make gx-data-quality` | Great Expectations-style report against an existing disposable dbt build. |
@@ -177,8 +186,9 @@ when settings reload from disk. See
 | `uv run make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate. |
 | `uv run make live-smoke` | Opt-in live WC2026 cross-platform pipeline. |
 | `uv run make match-minute-live-smoke` | Opt-in disposable live acceptance check for the 104-game Polymarket minute mart. |
+| `uv run make local-marts-rebuild` | Full-refresh and verify both WC2026 minute marts from completed local raw warehouses. |
 | `uv run make polygon-settlement-live-smoke` | Opt-in finalized Polygon backfill against a disposable warehouse. |
-| `uv run make polygon-settlement-seed-validate` | Validate the reviewed 248-proposition static manifest. |
+| `uv run make polygon-settlement-seed-validate` | Validate an operator-local reviewed 248-proposition static manifest. |
 | `uv run make costguard-scan` | Run the pinned dbt cost guardrail against an existing dbt build. |
 | `uv run make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard. |
 | `uv run make coverage` | Local one-shot 100% product-core branch coverage gate. |

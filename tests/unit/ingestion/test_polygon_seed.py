@@ -2,106 +2,21 @@ from __future__ import annotations
 
 import csv
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 import pytest
+from tests.support.distribution_fixtures import (
+    complete_polygon_seed_rows as complete_seed_rows,
+)
 
 from oddsfox_pipeline.ingestion.polymarket.polygon_seed import (
     NEG_RISK_V2_EXCHANGE,
-    OPENFOOTBALL_REVISION,
     SEED_COLUMNS,
     STANDARD_V2_EXCHANGE,
     load_polygon_market_seed,
     parse_polygon_market,
-    polygon_manifest_content_sha256,
     validate_polygon_market_manifest,
 )
-
-
-def _stage(match_id: int) -> str:
-    if match_id <= 72:
-        return "group_stage"
-    if match_id <= 88:
-        return "round_of_32"
-    if match_id <= 96:
-        return "round_of_16"
-    if match_id <= 100:
-        return "quarterfinal"
-    if match_id <= 102:
-        return "semifinal"
-    return "third_place" if match_id == 103 else "final"
-
-
-def complete_seed_rows() -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
-    index = 0
-    for match_id in range(1, 105):
-        types = (
-            ("home_win", "draw", "away_win")
-            if match_id <= 72
-            else (
-                "home_win_third_place"
-                if match_id == 103
-                else "home_wins_final"
-                if match_id == 104
-                else "home_advances",
-            )
-        )
-        kickoff = datetime(2026, 6, 1, tzinfo=timezone.utc) + timedelta(
-            hours=match_id * 6
-        )
-        for proposition_type in types:
-            index += 1
-            duration = 150 if match_id <= 72 else 210
-            structure = "neg_risk" if match_id <= 72 else "standard"
-            rows.append(
-                {
-                    "proposition_id": f"m{match_id:03d}-{proposition_type}",
-                    "fifa_match_id": str(match_id),
-                    "stage": _stage(match_id),
-                    "group_label": chr(65 + ((match_id - 1) % 12))
-                    if match_id <= 72
-                    else "",
-                    "home_team": f"Home {match_id}",
-                    "away_team": f"Away {match_id}",
-                    "kickoff_at_utc": kickoff.isoformat().replace("+00:00", "Z"),
-                    "window_start_at_utc": kickoff.isoformat().replace("+00:00", "Z"),
-                    "window_end_at_utc": (kickoff + timedelta(minutes=duration))
-                    .isoformat()
-                    .replace("+00:00", "Z"),
-                    "proposition_type": proposition_type,
-                    "yes_represents": f"yes-{match_id}-{proposition_type}",
-                    "no_represents": f"no-{match_id}-{proposition_type}",
-                    "condition_id": f"0x{index:064x}",
-                    "yes_token_id": str(index * 2 + 1000),
-                    "no_token_id": str(index * 2 + 1001),
-                    "market_structure": structure,
-                    "exchange_address": STANDARD_V2_EXCHANGE
-                    if structure == "standard"
-                    else NEG_RISK_V2_EXCHANGE,
-                    "openfootball_revision": OPENFOOTBALL_REVISION,
-                    "openfootball_path": "2026--usa/cup.txt"
-                    if match_id <= 72
-                    else "2026--usa/cup_finals.txt",
-                    "openfootball_source_lines": f"{match_id}-{match_id + 1}",
-                    "openfootball_line_hash": f"{match_id:064x}",
-                    "condition_init_tx_hash": f"0x{index + 1000:064x}",
-                    "condition_init_log_index": str(index),
-                    "question_init_tx_hash": f"0x{index + 2000:064x}",
-                    "question_init_log_index": str(index + 1),
-                    "ancillary_data_sha256": f"{index + 3000:064x}",
-                    "token_verification_block_number": str(80_000_000 + index),
-                    "token_verification_block_hash": f"0x{index + 4000:064x}",
-                    "manifest_sha256": "0" * 64,
-                    "manifest_version": "1.0.0",
-                    "reviewed_at_utc": "2026-08-01T00:00:00Z",
-                }
-            )
-    parsed = [parse_polygon_market(row) for row in rows]
-    manifest_hash = polygon_manifest_content_sha256(parsed)
-    for row in rows:
-        row["manifest_sha256"] = manifest_hash
-    return rows
 
 
 def test_load_polygon_seed_validates_complete_logical_hash(tmp_path) -> None:

@@ -1,22 +1,20 @@
 ## Summary
 
--
+Describe the change and its user-visible effect.
 
-## Test plan
+## Validation
 
--
+- [ ] I ran the relevant repository checks.
+- [ ] I updated affected documentation.
 
-## Docs impact
+## Data and licence provenance
 
--
-
-## Data or warehouse impact
-
--
-
-## Checklist
-
-- [ ] Tests or checks above passed locally.
-- [ ] Docs were updated for user-visible behavior changes.
-- [ ] No secrets, `.env` files, DuckDB files, dbt targets, `site/`, or data exports are committed.
-- [ ] Public jobs, schedules, marts, or configs are called out if changed.
+- [ ] This change adds no production data, generated export, database,
+      reviewed attestation, or source document.
+- [ ] Every added data-like file is classified as executable project
+      configuration, a header-only schema shell, a synthetic test fixture, or
+      third-party material.
+- [ ] Synthetic fixtures are documented and contain no captured production
+      rows.
+- [ ] Third-party material retains its original licence and a file-specific
+      notice; it is not represented as MIT-licensed project material.
