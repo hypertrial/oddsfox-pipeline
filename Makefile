@@ -225,7 +225,7 @@ local-marts-rebuild: runtime-dirs match-minute-inputs-validate polygon-settlemen
 	$(RUN_IN_REPO) DUCKDB_EXTENSION_DIRECTORY="$(ODDSFOX_RUNTIME_DUCKDB_EXTENSIONS)" "$(PYTHON)" -c "import duckdb; match = duckdb.connect('$(MATCH_MINUTE_REBUILD_DUCKDB_PATH)', read_only=True); row = match.execute('select count(*), count(distinct fifa_match_id), count(distinct market_id), count(*) - count(distinct (odds_minute_epoch, market_id)) from polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds').fetchone(); quality = match.execute('select error_issue_count, blocking_issue_keys from polymarket_wc2026_observability.polymarket_wc2026_match_minute_odds_data_quality').fetchone(); assert row[0] > 0 and row[1:] == (104, 248, 0), row; assert quality == (0, None), quality; polygon = duckdb.connect('$(POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH)', read_only=True); polygon_row = polygon.execute('select count(*), count(distinct fifa_match_id), count(distinct proposition_id), count(*) - count(distinct (proposition_id, settlement_minute_epoch)) from polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds').fetchone(); publication_ready = polygon.execute('select publication_ready from polymarket_wc2026_observability.polymarket_wc2026_polygon_settlement_data_quality').fetchone()[0]; assert polygon_row == (39120, 104, 248, 0), polygon_row; assert publication_ready is True, publication_ready; print({'match_minute': row, 'polygon_settlement': polygon_row})"
 
 costguard-scan:
-	$(RUN_IN_REPO) cd dbt && "$(COSTGUARD)" scan
+	$(RUN_IN_REPO) cd dbt && "$(COSTGUARD)" scan --manifest "$(ODDSFOX_RUNTIME_DBT_TARGET)/manifest.json"
 
 costguard: dbt-build-ci costguard-scan
 

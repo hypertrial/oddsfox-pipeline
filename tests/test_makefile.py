@@ -170,6 +170,10 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
 
     assert "dbt.cli.main parse" not in _target_recipe(makefile, "format")
     assert "sqlfluff fix" in _target_recipe(makefile, "format")
+    assert (
+        'scan --manifest "$(ODDSFOX_RUNTIME_DBT_TARGET)/manifest.json"'
+        in _target_recipe(makefile, "costguard-scan")
+    )
 
 
 def test_polygon_settlement_live_smoke_is_fail_closed_to_disposable_database():
