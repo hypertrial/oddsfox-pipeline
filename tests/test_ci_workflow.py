@@ -19,7 +19,7 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
     manual_text = manual_path.read_text()
 
     assert set(automatic["jobs"]) == {"fast-gate"}
-    assert automatic["jobs"]["fast-gate"]["timeout-minutes"] == 5
+    assert automatic["jobs"]["fast-gate"]["timeout-minutes"] == 8
     assert "uv run make ci-fast" in automatic_text
     assert "docker/build-push-action" not in automatic_text
     assert "push: true" not in automatic_text

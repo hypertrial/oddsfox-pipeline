@@ -72,8 +72,8 @@ container smoke that requires Docker. For narrower local runs, `make test`,
 `make integration-dagster`, `make integration-dbt`, and `make coverage` remain
 available.
 
-GitHub Actions uses one runner for less than five cumulative minutes and runs
-lint, fast offline tests, replay-only HTTP contracts, dbt parse, and a strict
+GitHub Actions uses one runner with an eight-minute safety timeout and runs lint,
+fast offline tests, replay-only HTTP contracts, dbt parse, and a strict
 documentation build. `dbt-build-ci` bootstraps a disposable DuckDB database
 under `.cache/` for the broader local gate. `live-smoke`,
 `match-minute-live-smoke`, and `polygon-settlement-live-smoke` perform public
