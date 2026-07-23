@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Split automatic validation into parallel static/docs, fast-test/contract, and
+  dbt-lint workers behind the stable `fast-gate` check. Fast unit tests now use
+  xdist while DuckDB, Dagster, dbt integration, replay contract, and browser
+  suites remain serial.
+- Split manual full validation into parallel coverage, dbt/data-quality, and
+  static/docs/container workers behind `full-gate`, and removed the duplicate
+  ordinary test pass before coverage.
+- Made SQLFluff dbt compilation fail closed and removed redundant automatic dbt
+  parsing after mutation checks proved malformed project/schema YAML, undefined
+  macros, missing refs, and invalid SQL all fail lint.
+
 ## [0.1.7] - 2026-07-23
 
 ### Added

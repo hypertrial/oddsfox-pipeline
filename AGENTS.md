@@ -62,11 +62,15 @@ uv run make ci-fast
 ```
 
 Run `uv run make release-gate` before releases and after dependency, Docker,
-Dagster, dbt, or data-quality changes. It reruns the fast checks, the full
-100%-coverage and integration surface, Costguard, and a non-root container
-smoke. GitHub runs only `ci-fast` automatically. The full gate and optional
-signed multi-arch publication are available through the manual `Manual Full
-Validation` workflow. For narrower local runs, `make test`, `make
+Dagster, dbt, or data-quality changes. It runs the lint, contract, docs,
+100%-coverage and integration surfaces, Costguard, and a non-root container
+smoke without repeating the ordinary test pass before coverage. Local gates run
+their Make targets sequentially. GitHub parallelizes the equivalent automatic
+surface across `static-docs`, `tests`, and `dbt` workers, then reports the
+stable `fast-gate` aggregate. The manual `Manual Full Validation` workflow
+parallelizes coverage, dbt/data quality, and static/docs/container validation
+behind the stable `full-gate` aggregate; optional signed multi-arch publication
+still depends on that aggregate. For narrower local runs, `make test`, `make
 integration-dagster`, `make integration-dbt`, `make data-quality`, and `make
 coverage` still work.
 
@@ -90,7 +94,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 
 | Target | Purpose |
 |--------|---------|
-| `make format` | Ruff format + dbt parse + sqlfluff fix |
+| `make format` | Ruff format + fail-closed sqlfluff fix |
 | `make unit-core` | Config, resources, storage unit tests |
 | `make unit-ingest` | Ingestion unit tests |
 | `make unit-orchestration` | Orchestration/Dagster unit tests |

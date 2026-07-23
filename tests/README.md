@@ -33,13 +33,18 @@ make coverage
 make check-secrets
 ```
 
+The ordinary `make test` suite uses xdist and excludes `tests/integration`,
+`tests/dbt`, and `tests/contract`; those paths retain dedicated serial targets.
 The full local release gate accumulates coverage with `make test-cov`,
 `make dagster-jobs-smoke-cov`, `make dagster-refresh-cov`,
 `make integration-dbt-cov`, and `make coverage-report`, alongside the dbt,
 freshness, golden, and data-quality targets. `make integration-dagster-cov`
 wraps both split Dagster coverage targets, while `make coverage` is the
-one-shot equivalent. GitHub's single fast runner executes `make contract-http`;
-the `contract` marker remains excluded from `make test` and `make test-cov`.
+one-shot equivalent. Local gates invoke these commands sequentially. GitHub's
+automatic `tests` worker runs the parallel fast suite and serial
+`make contract-http` while independent static/docs and dbt-lint workers run in
+parallel; the `contract` marker remains excluded from `make test` and
+`make test-cov`.
 
 `make dagster-jobs-smoke` runs every registered public Dagster job headlessly
 with temp DuckDB state and mocked external APIs. The local coverage gate splits

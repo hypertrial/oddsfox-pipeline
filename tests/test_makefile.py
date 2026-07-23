@@ -9,6 +9,25 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+def _target_recipe(makefile: str, target: str) -> str:
+    match = re.search(
+        rf"^{re.escape(target)}(?:\s*:[^\n]*)?\n(?P<recipe>(?:\t[^\n]*\n)+)",
+        makefile,
+        re.MULTILINE,
+    )
+    assert match, target
+    return match.group("recipe")
+
+
+def _recursive_make_targets(recipe: str) -> list[str]:
+    prefix = "$(MAKE) "
+    return [
+        line.strip().removeprefix(prefix).split()[0]
+        for line in recipe.splitlines()
+        if line.strip().startswith(prefix)
+    ]
+
+
 def _dagster_dev_shell_script() -> str:
     proc = subprocess.run(
         ["make", "-n", "dagster-dev"],
@@ -85,6 +104,72 @@ def test_ci_split_targets_remain_wired():
     assert live_smoke_config.count("window_hours: 24") == 2
     assert live_smoke_config.count("history_backfill_days: 0") == 2
     assert "min_volume: 5000.0" in live_smoke_config
+
+
+def test_fast_and_coverage_tests_parallelize_only_the_safe_collection():
+    makefile = (REPO_ROOT / "Makefile").read_text()
+    fast = _target_recipe(makefile, "test")
+    coverage = _target_recipe(makefile, "test-cov")
+
+    for recipe in (fast, coverage):
+        assert "-n auto" in recipe
+        assert "--ignore=tests/integration" in recipe
+        assert "--ignore=tests/dbt" in recipe
+        assert "--ignore=tests/contract" in recipe
+
+    for target in (
+        "package-smoke",
+        "dbt-polygon-settlement-ci",
+        "golden-dbt",
+        "contract-http",
+        "docs-test",
+        "dagster-jobs-smoke",
+        "dagster-jobs-smoke-cov",
+        "dagster-refresh-cov",
+        "integration-dbt",
+        "integration-dbt-cov",
+        "integration-dagster",
+    ):
+        assert "-n 0" in _target_recipe(makefile, target), target
+
+
+def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
+    makefile = (REPO_ROOT / "Makefile").read_text()
+
+    assert _recursive_make_targets(_target_recipe(makefile, "lint")) == [
+        "python-lint",
+        "dbt-lint",
+        "check-secrets",
+        "check-distribution",
+    ]
+    assert _recursive_make_targets(_target_recipe(makefile, "ci-fast")) == [
+        "lint",
+        "test",
+        "contract-http",
+        "docs-build",
+    ]
+    assert _recursive_make_targets(_target_recipe(makefile, "release-gate-core")) == [
+        "lint",
+        "package-smoke",
+        "test-cov",
+        "dagster-jobs-smoke-cov",
+        "dagster-refresh-cov",
+        "integration-dbt-cov",
+        "dbt-unit",
+        "golden-dbt",
+        "dbt-source-freshness-ci",
+        "coverage-report",
+        "contract-http",
+        "docs-build",
+        "docs-test",
+        "dbt-polygon-settlement-ci",
+        "dbt-build-ci",
+        "gx-data-quality",
+        "costguard-scan",
+    ]
+
+    assert "dbt.cli.main parse" not in _target_recipe(makefile, "format")
+    assert "sqlfluff fix" in _target_recipe(makefile, "format")
 
 
 def test_polygon_settlement_live_smoke_is_fail_closed_to_disposable_database():

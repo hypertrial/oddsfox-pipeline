@@ -52,10 +52,14 @@ and [CONTRIBUTING.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/C
 deterministic temp resources, mocked external APIs, and no `dagster-dev`
 server. `integration-dagster` includes that check plus deeper seeded Dagster
 smokes. `coverage` enforces 100% branch coverage for product-core package code;
-warehouse profiling helpers are smoke-tested instead. GitHub Actions uses one
-runner with an eight-minute safety timeout and runs a compact offline gate: lint,
-fast tests, saved HTTP contracts, dbt parse, and a strict docs build. Run the
-complete gate locally before a release.
+warehouse profiling helpers are smoke-tested instead. Local gates run their
+Make targets sequentially. GitHub Actions parallelizes the equivalent compact
+offline gate across eight-minute `static-docs`, `tests`, and `dbt` workers,
+then reports the stable `fast-gate` aggregate. Fast tests use xdist; replay
+contracts and DuckDB, Dagster, dbt integration, and browser suites remain
+serial. The manual workflow parallelizes coverage, dbt/data quality, and
+static/docs/container groups behind `full-gate`. Run the complete gate locally
+before a release.
 
 The deterministic trust checks are separate from live ingestion. `dbt-unit`
 exercises high-risk SQL branches with dbt unit tests, `golden-dbt` compares
