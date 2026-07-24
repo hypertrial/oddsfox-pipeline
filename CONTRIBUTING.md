@@ -72,13 +72,18 @@ container smoke that requires Docker. For narrower local runs, `make test`,
 `make integration-dagster`, `make integration-dbt`, and `make coverage` remain
 available.
 
-GitHub Actions uses one runner with an eight-minute safety timeout and runs lint,
-fast offline tests, replay-only HTTP contracts, dbt parse, and a strict
-documentation build. `dbt-build-ci` bootstraps a disposable DuckDB database
-under `.cache/` for the broader local gate. `live-smoke`,
-`match-minute-live-smoke`, and `polygon-settlement-live-smoke` perform public
-network requests and are local-only; they use disposable smoke configuration
-and must never be added to GitHub Actions.
+Local gates run their Make targets sequentially. GitHub Actions runs the
+equivalent automatic content in parallel eight-minute `static-docs`, `tests`,
+and `dbt` workers, followed by the stable `fast-gate` aggregate. The workers
+cover Python and fail-closed dbt lint, repository policies, parallel fast
+tests, serial replay-only HTTP contracts, and a strict documentation build.
+The manual full workflow similarly parallelizes coverage, dbt/data quality,
+and static/docs/container validation behind `full-gate`. `dbt-build-ci`
+bootstraps a disposable DuckDB database under `.cache/` for the broader local
+gate. `live-smoke`, `match-minute-live-smoke`, and
+`polygon-settlement-live-smoke` perform public network requests and are
+local-only; they use disposable smoke configuration and must never be added to
+GitHub Actions.
 Costguard is a dbt/release guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 

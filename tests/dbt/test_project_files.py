@@ -7,6 +7,15 @@ from scripts.seed_dbt_source_freshness import FRESHNESS_SOURCE_TABLES
 from oddsfox_pipeline.orchestration.scope_registry import SHIPPED_SCOPE_SPECS
 
 
+def test_sqlfluff_dbt_templating_fails_closed():
+    pyproject = (Path(__file__).resolve().parents[2] / "pyproject.toml").read_text()
+    dbt_config = pyproject.split("[tool.sqlfluff.templater.dbt]", 1)[1].split("\n[", 1)[
+        0
+    ]
+
+    assert "dbt_skip_compilation_error = false" in dbt_config
+
+
 def test_dbt_project_sources_are_wc2026_only():
     dbt_root = Path(__file__).resolve().parents[2] / "dbt"
 

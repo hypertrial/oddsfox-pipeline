@@ -118,3 +118,4 @@ project_dir = "dbt"
 profiles_dir = "dbt/profiles"
 profile = "oddsfox"
 target = "dev"
+dbt_skip_compilation_error = false

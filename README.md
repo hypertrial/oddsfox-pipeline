@@ -208,12 +208,16 @@ uv run make ci-fast
 uv run make release-gate
 ```
 
-Run `ci-fast` before ordinary pushes; GitHub runs the same lint, fast offline
-tests, saved HTTP contracts, dbt parse, and strict docs build automatically.
+Run `ci-fast` before ordinary pushes. Local gates execute their Make targets
+sequentially; GitHub parallelizes the equivalent Python/static/docs, fast
+test/contract, and fail-closed dbt-lint work behind the stable `fast-gate`
+aggregate.
 Run `release-gate` before releases and after dependency, Docker, Dagster, dbt,
-or data-quality changes. It reruns the fast checks, full coverage and
-integration surface, Costguard, and a non-root container smoke. The full gate
-is also available through the manual `Manual Full Validation` GitHub workflow.
+or data-quality changes. It runs the equivalent lint, contract, docs, full
+coverage and integration surfaces, Costguard, and a non-root container smoke
+without repeating the ordinary tests before coverage. The manual `Manual Full
+Validation` GitHub workflow runs coverage, dbt/data quality, and
+static/docs/container groups in parallel behind `full-gate`.
 Set that workflow's `publish` input only on `main` to publish the signed
 AMD64/ARM64 image, SBOM, and provenance. For narrower local runs, `make test`,
 `make integration-dagster`, `make integration-dbt`, `make data-quality`, and

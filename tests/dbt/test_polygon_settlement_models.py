@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -160,14 +161,20 @@ def test_polygon_settlement_graph_has_an_isolated_release_gate():
 
     ordinary_build = makefile.split("dbt-build dbt-test:", 1)[1].split("\n\n", 1)[0]
     ordinary_unit = makefile.split("dbt-unit:", 1)[1].split("\n\n", 1)[0]
-    release_gate = makefile.split("release-gate-core:", 1)[1].split("\n\n", 1)[0]
     dedicated_build = makefile.split("dbt-polygon-settlement-ci:", 1)[1].split(
         "\n\n", 1
     )[0]
+    release_gate = subprocess.run(
+        ["make", "-n", "release-gate-core"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
 
     assert "--exclude tag:polygon_settlement" in ordinary_build
     assert ordinary_unit.count("--exclude tag:polygon_settlement") == 3
-    assert "$(MAKE) dbt-polygon-settlement-ci" in release_gate
+    assert "tests/integration/test_polygon_settlement_dbt.py" in release_gate
     assert "tests/integration/test_polygon_settlement_dbt.py" in dedicated_build
     assert '["build", "--full-refresh", "--select", "tag:polygon_settlement"]' in (
         integration

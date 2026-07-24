@@ -1,4 +1,4 @@
-.PHONY: ci-fast release-gate release-gate-core container-smoke container-smoke-run package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt gx-data-quality data-quality contract-http live-smoke match-minute-live-smoke polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-distribution check-secrets compact-warehouse prune-odds-history
+.PHONY: ci-fast release-gate release-gate-core container-smoke container-smoke-run package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-lint dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt gx-data-quality data-quality contract-http live-smoke match-minute-live-smoke polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint python-lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-distribution check-secrets compact-warehouse prune-odds-history
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -78,7 +78,6 @@ ci-fast:
 	$(MAKE) lint
 	$(MAKE) test
 	$(MAKE) contract-http
-	$(MAKE) dbt-parse
 	$(MAKE) docs-build
 
 release-gate:
@@ -86,7 +85,7 @@ release-gate:
 	$(MAKE) container-smoke
 
 release-gate-core:
-	$(MAKE) ci-fast
+	$(MAKE) lint
 	$(MAKE) package-smoke
 	$(MAKE) test-cov
 	$(MAKE) dagster-jobs-smoke-cov
@@ -96,6 +95,8 @@ release-gate-core:
 	$(MAKE) golden-dbt
 	$(MAKE) dbt-source-freshness-ci
 	$(MAKE) coverage-report
+	$(MAKE) contract-http
+	$(MAKE) docs-build
 	$(MAKE) docs-test
 	$(MAKE) dbt-polygon-settlement-ci
 	$(MAKE) dbt-build-ci
@@ -224,7 +225,7 @@ local-marts-rebuild: runtime-dirs match-minute-inputs-validate polygon-settlemen
 	$(RUN_IN_REPO) DUCKDB_EXTENSION_DIRECTORY="$(ODDSFOX_RUNTIME_DUCKDB_EXTENSIONS)" "$(PYTHON)" -c "import duckdb; match = duckdb.connect('$(MATCH_MINUTE_REBUILD_DUCKDB_PATH)', read_only=True); row = match.execute('select count(*), count(distinct fifa_match_id), count(distinct market_id), count(*) - count(distinct (odds_minute_epoch, market_id)) from polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds').fetchone(); quality = match.execute('select error_issue_count, blocking_issue_keys from polymarket_wc2026_observability.polymarket_wc2026_match_minute_odds_data_quality').fetchone(); assert row[0] > 0 and row[1:] == (104, 248, 0), row; assert quality == (0, None), quality; polygon = duckdb.connect('$(POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH)', read_only=True); polygon_row = polygon.execute('select count(*), count(distinct fifa_match_id), count(distinct proposition_id), count(*) - count(distinct (proposition_id, settlement_minute_epoch)) from polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds').fetchone(); publication_ready = polygon.execute('select publication_ready from polymarket_wc2026_observability.polymarket_wc2026_polygon_settlement_data_quality').fetchone()[0]; assert polygon_row == (39120, 104, 248, 0), polygon_row; assert publication_ready is True, publication_ready; print({'match_minute': row, 'polygon_settlement': polygon_row})"
 
 costguard-scan:
-	$(RUN_IN_REPO) cd dbt && "$(COSTGUARD)" scan
+	$(RUN_IN_REPO) cd dbt && "$(COSTGUARD)" scan --manifest "$(ODDSFOX_RUNTIME_DBT_TARGET)/manifest.json"
 
 costguard: dbt-build-ci costguard-scan
 
@@ -242,16 +243,21 @@ docs-check: docs-build docs-test
 format:
 	$(RUN_IN_REPO) ruff format src tests
 	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
-	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m dbt.cli.main parse --project-dir dbt --profiles-dir dbt/profiles
 	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m sqlfluff fix dbt/models dbt/tests
 
 lint:
-	$(RUN_IN_REPO) ruff format --check src tests
-	$(RUN_IN_REPO) ruff check src tests
-	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
-	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m sqlfluff lint dbt/models dbt/tests -p 0
+	$(MAKE) python-lint
+	$(MAKE) dbt-lint
 	$(MAKE) check-secrets
 	$(MAKE) check-distribution
+
+python-lint:
+	$(RUN_IN_REPO) ruff format --check src tests
+	$(RUN_IN_REPO) ruff check src tests
+
+dbt-lint:
+	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
+	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m sqlfluff lint dbt/models dbt/tests -p 0
 
 check-secrets:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_secrets_not_committed.py -q -n 0
@@ -260,13 +266,13 @@ check-distribution:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_distribution_policy.py -q -n 0
 
 test:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -m "$(PYTEST_FAST_MARKERS)"
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests --ignore=tests/integration --ignore=tests/dbt --ignore=tests/contract -q -n auto -m "$(PYTEST_FAST_MARKERS)"
 
 coverage-erase:
 	$(RUN_IN_REPO) "$(PYTHON)" -m coverage erase
 
 test-cov: coverage-erase
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests --ignore=tests/integration -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(COV_APPEND_ARGS)
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests --ignore=tests/integration --ignore=tests/dbt --ignore=tests/contract -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(COV_APPEND_ARGS)
 	# ponytail: tests/conftest.py auto-marks tests/integration/* as integration;
 	# run ingestion integration serially here so CI coverage matches make coverage.
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/ingestion -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS)
