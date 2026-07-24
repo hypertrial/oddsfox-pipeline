@@ -99,6 +99,9 @@ until the manual jobs are healthy.
 The first run should create `oddsfox.duckdb`, complete
 `polymarket_wc2026_full_pipeline`, and build relations under
 `polymarket_wc2026_marts` and `international_results_wc2026_marts`.
+Those local checks verify technical shape; they are not Hypertrial
+certification of data rights or fitness for trading. See
+[Operator responsibilities](../concepts/operator-responsibilities.md).
 
 Next, return to the [Operators](../audiences/operators.md) hub,
 [choose another shipped scope](choose-a-scope.md),

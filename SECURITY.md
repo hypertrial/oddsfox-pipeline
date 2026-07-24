@@ -25,7 +25,23 @@ We will acknowledge receipt and work with you on a timeline for investigation an
 
 ## Scope notes
 
-OddsFox is a **local-first** prediction-market data pipeline. The current
-implementation reads public Polymarket/Gamma and CLOB APIs and stores data in a
-local DuckDB warehouse. Optional CLOB credentials in `.env` are user-supplied
-and must never be committed to the repository.
+OddsFox Pipeline is a **local-first** prediction-market data pipeline. Local
+operation does not remove operator responsibility for secrets and sensitive
+artifacts.
+
+Secret classes that must never be committed or pasted into public issues:
+
+- Polymarket CLOB credentials and related `.env` values
+- Polygon JSON-RPC URLs, API tokens, and provider credentials
+- Wallet addresses, order hashes, signatures, and raw topics/data/calldata
+- Reviewed attestation contents and complete operator seed rows
+
+Optional Polygon internal audit bundles and allowlisted technical exports are
+operator-local. Treat them as sensitive even when fields are redacted;
+de-identification is not anonymity. See
+[Operator responsibilities](docs/concepts/operator-responsibilities.md) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+The current implementation may read public Polymarket/Gamma and CLOB APIs,
+Kalshi public trade APIs, FIFA/results feeds, and optional finalized Polygon
+logs, then store results in an operator-controlled DuckDB warehouse.

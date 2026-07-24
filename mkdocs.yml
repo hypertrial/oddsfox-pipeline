@@ -63,6 +63,13 @@ extra:
       link: https://github.com/hypertrial/oddsfox-pipeline
       name: OddsFox Pipeline on GitHub
 
+copyright: >
+  Hypertrial-owned MIT software, not a hosted dataset.
+  <a href="/concepts/scope-and-non-goals/">Scope</a> ·
+  <a href="/concepts/operator-responsibilities/">Operator responsibilities</a> ·
+  <a href="https://github.com/hypertrial/oddsfox-pipeline/blob/main/THIRD_PARTY_NOTICES.md">Third-Party Notices</a>.
+  Marks belong to their owners.
+
 nav:
   - Home: index.md
   - Audiences:
@@ -95,6 +102,7 @@ nav:
       - System overview: concepts/system-overview.md
       - Architecture: concepts/architecture.md
       - Scope and non-goals: concepts/scope-and-non-goals.md
+      - Operator responsibilities: concepts/operator-responsibilities.md
       - FAQ: concepts/faq.md
       - Glossary: concepts/glossary.md
       - Design decisions: concepts/decisions.md

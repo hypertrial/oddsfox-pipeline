@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documented audience hubs (analysts, operators, contributors, integrators),
   FAQ, glossary, scope and non-goals, design decisions, integration guidance,
   day-two operations, and the signed Docker image as an advanced path.
+- Added an operator-responsibilities page covering data-rights checklist,
+  non-advice and non-venue disclaimers, export redistribution matrix, privacy
+  caveats, and non-authoritative third-party terms pointers.
+- Expanded `SECURITY.md` scope notes for RPC secrets, wallet material, and
+  operator-local Polygon audit artifacts.
 
 ### Changed
 
@@ -20,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Development guide, and Polygon settlement framed as optional/advanced.
 - Reordered the analyst data dictionary so common WC2026 marts lead and the
   Polygon settlement mart follows.
+- Clarified that local success checks are technical verification, not
+  Hypertrial certification of data rights or trading fitness, and added a docs
+  site copyright footer linking Scope, operator responsibilities, and
+  Third-Party Notices.
+- Strengthened contribution IP hygiene in `CONTRIBUTING.md` and the
+  Contributors hub.
 
 ### Fixed
 

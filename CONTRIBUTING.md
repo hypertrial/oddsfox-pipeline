@@ -49,6 +49,19 @@ and rate-limit notes.
 Do not assume centralized OddsFox Pipeline-hosted data. Operators must be able to run
 ingestion and store data in their own local or self-managed warehouse.
 
+## Data and IP hygiene
+
+Do not contribute production datasets, scraped dumps, populated seed overlays,
+reviewed attestations, source documents, or non-synthetic “real” warehouse rows.
+Tracked seed shells must remain header-only. Synthetic fixtures belong under
+`tests/fixtures/` with documentation in `tests/fixtures/README.md`.
+
+Complete the provenance checklist in
+[.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) for every
+proposed data-like file. See
+[Operator responsibilities](docs/concepts/operator-responsibilities.md) and
+[Third-Party Notices](THIRD_PARTY_NOTICES.md).
+
 ## Contribution licensing
 
 Unless explicitly stated otherwise, any contribution intentionally submitted
@@ -64,6 +77,8 @@ services, documents, dependencies, fonts, and marks.
 ## AI-assisted development
 
 If you use Cursor, [Ponytail](https://github.com/DietrichGebert/ponytail) loads from [`.cursor/rules/ponytail.mdc`](.cursor/rules/ponytail.mdc). Repo-specific guardrails (layout, quality gate, orchestration limits) live in [AGENTS.md](AGENTS.md).
+AI-assisted contributions still require that you have the rights needed to
+submit the material and that it meets the data and IP hygiene rules above.
 
 ## Quality gate
 

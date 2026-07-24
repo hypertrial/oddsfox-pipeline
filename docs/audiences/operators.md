@@ -25,16 +25,19 @@ Schedules stay disabled until manual jobs and dbt builds are healthy.
 | Polygon settlement (advanced) | Finalized-capable Polygon JSON-RPC | Reviewed 248-row manifest + resolution attestation (tracked seed is a header-only shell) |
 
 Never commit `.env`, operator seed rows, reviewed attestations, DuckDB files, or
-exports. See [Scope and non-goals](../concepts/scope-and-non-goals.md) and
+exports. See [Operator responsibilities](../concepts/operator-responsibilities.md),
+[Scope and non-goals](../concepts/scope-and-non-goals.md), and
 [dbt/seeds/README.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/dbt/seeds/README.md).
 
 ## Confirm Success
 
 After a first Polymarket WC2026 full run you should have `oddsfox.duckdb` with
 relations under `polymarket_wc2026_marts` and
-`international_results_wc2026_marts`. Query with
-[Query the warehouse](../guides/query-the-warehouse.md) or hand off to an
-[analyst](analysts.md).
+`international_results_wc2026_marts`. Those local checks verify technical shape;
+they are not Hypertrial certification of data rights or fitness for trading.
+See [Operator responsibilities](../concepts/operator-responsibilities.md).
+Query with [Query the warehouse](../guides/query-the-warehouse.md) or hand off
+to an [analyst](analysts.md).
 
 ## Advanced
 

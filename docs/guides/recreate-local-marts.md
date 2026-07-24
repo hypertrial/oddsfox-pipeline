@@ -16,6 +16,9 @@ Three operator-local inputs must be supplied:
 
 Do not commit these inputs, generated warehouses, or authoring evidence.
 Operators must obtain and use each source under terms that apply to them.
+Successful local rebuilds and exact row-count checks verify technical shape;
+they are not Hypertrial certification of data rights or fitness for trading.
+See [Operator responsibilities](../concepts/operator-responsibilities.md).
 
 !!! important "A clean clone is necessary, but not sufficient"
 

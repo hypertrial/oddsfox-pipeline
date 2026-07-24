@@ -144,9 +144,23 @@ def test_homepage_uses_parsed_markdown_and_operator_actions():
     assert "audiences/operators.md" in homepage
     assert "audiences/contributors.md" in homepage
     assert "audiences/integrators.md" in homepage
+    assert "concepts/operator-responsibilities.md" in homepage
     assert "of-brand-lockup" not in homepage
     assert "of-badges" not in homepage
     assert "of-capability-grid" not in homepage
+
+
+def test_operator_responsibilities_and_docs_copyright_are_wired():
+    config = _config()
+    copyright_text = str(config.get("copyright") or "").strip()
+    operators = (DOCS_DIR / "audiences/operators.md").read_text()
+
+    assert copyright_text
+    assert 'href="/concepts/scope-and-non-goals/"' in copyright_text
+    assert 'href="/concepts/operator-responsibilities/"' in copyright_text
+    assert "THIRD_PARTY_NOTICES" in copyright_text
+    assert "concepts/operator-responsibilities.md" in operators
+    assert (DOCS_DIR / "concepts/operator-responsibilities.md").is_file()
 
 
 def test_readme_links_to_canonical_docs_and_live_reload():

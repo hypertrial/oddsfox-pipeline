@@ -109,6 +109,7 @@ running; MkDocs rebuilds after each saved change.
 
 - [Docs](docs/index.md)
 - [FAQ](docs/concepts/faq.md)
+- [Operator responsibilities](docs/concepts/operator-responsibilities.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
 - [Changelog](CHANGELOG.md)

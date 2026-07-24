@@ -16,7 +16,8 @@ Build inspectable local prediction-market warehouses with Dagster, dlt,
 DuckDB, dbt, and Python.
 
 Hypertrial-owned MIT software. No hosted service or bundled production data.
-[Licence scope](concepts/scope-and-non-goals.md).
+[Licence scope](concepts/scope-and-non-goals.md) ·
+[Operator responsibilities](concepts/operator-responsibilities.md).
 
 [Get started](getting-started/index.md){ .md-button .md-button--primary }
 [Query the warehouse](guides/query-the-warehouse.md){ .md-button }

@@ -9,6 +9,11 @@ Describe the change and its user-visible effect.
 
 ## Data and licence provenance
 
+See
+[Operator responsibilities](https://github.com/hypertrial/oddsfox-pipeline/blob/main/docs/concepts/operator-responsibilities.md)
+and
+[THIRD_PARTY_NOTICES.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/THIRD_PARTY_NOTICES.md).
+
 - [ ] This change adds no production data, generated export, database,
       reviewed attestation, or source document.
 - [ ] Every added data-like file is classified as executable project

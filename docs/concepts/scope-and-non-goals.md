@@ -4,6 +4,8 @@ OddsFox Pipeline is MIT-licensed, local-first prediction-market pipeline
 software. This page is the short human summary. The authoritative licence and
 third-party boundary is
 [THIRD_PARTY_NOTICES.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/THIRD_PARTY_NOTICES.md).
+For the operator checklist, see
+[Operator responsibilities](operator-responsibilities.md).
 
 ## What This Repository Ships
 
@@ -24,6 +26,8 @@ third-party boundary is
   data service operated by Hypertrial.
 - No trade execution, strategy, or order admission runtime (those live in other
   repositories; see [System overview](system-overview.md)).
+- No investment, betting, or trading advice.
+- No prediction-market venue, brokerage, oracle, custody, or KYC/AML service.
 
 ## Operator Ownership
 
@@ -43,8 +47,14 @@ The optional Polygon technical export omits wallets and many chain locators.
 Sparse public blockchain aggregates can still be reverse-linked. Treat exports
 as de-identified operator artifacts, not anonymous public datasets.
 
+The internal audit bundle retains verification locators and must stay
+operator-local. The allowlisted technical export is a narrower dossier and still
+is not an anonymous public dataset. See
+[Operator responsibilities](operator-responsibilities.md).
+
 ## Related Pages
 
+- [Operator responsibilities](operator-responsibilities.md)
 - [FAQ](faq.md)
 - [Design decisions](decisions.md)
 - [Integration](integration.md)

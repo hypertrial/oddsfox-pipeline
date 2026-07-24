@@ -14,6 +14,31 @@
 No. This project ships software and documentation. Operators run ingestion and
 own the resulting warehouse. See [Scope and non-goals](scope-and-non-goals.md).
 
+## Do I get rights in the data with the software?
+
+No. MIT covers the software and docs. It does not grant rights in operator or
+third-party data. See
+[Operator responsibilities](operator-responsibilities.md) and
+[THIRD_PARTY_NOTICES.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/THIRD_PARTY_NOTICES.md).
+
+## Is this trading or betting advice?
+
+No. Marts and examples are analytics tooling, not investment, betting, or
+trading advice. OddsFox Pipeline is not a venue, broker, or execution service.
+
+## May I redistribute my DuckDB file or Polygon export?
+
+Only if you independently have the rights to do so. Populated warehouses,
+exports, and Polygon dossiers are operator-controlled and are not licensed by
+this repository. Polygon technical exports are de-identified, not anonymous.
+See [Operator responsibilities](operator-responsibilities.md).
+
+## Are “validated” runs or exact row counts a Hypertrial certification?
+
+No. Local dbt, CI, and row-count checks verify technical shape against project
+contracts. They are not warranties of completeness, authorization, or fitness
+for trading.
+
 ## Where is the documentation site?
 
 [data.oddsfox.io](https://data.oddsfox.io/). Validate docs changes locally with

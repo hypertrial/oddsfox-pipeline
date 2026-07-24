@@ -43,8 +43,18 @@ See [Development](../development/index.md) for:
 - Add a fixed scope
 - Targeted Make commands
 
-Also read [CONTRIBUTING.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CONTRIBUTING.md),
-[tests/README.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/tests/README.md),
+## Data And IP Hygiene
+
+- Do not contribute production data, scraped dumps, populated seeds,
+  attestations, or non-synthetic warehouse rows.
+- Keep tracked seed shells header-only; use synthetic fixtures under
+  `tests/fixtures/`.
+- AI-assisted PRs still require you have rights to submit the material.
+- Complete the provenance checklist in the pull-request template.
+- Read [Operator responsibilities](../concepts/operator-responsibilities.md)
+  and [CONTRIBUTING.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CONTRIBUTING.md).
+
+Also read [tests/README.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/tests/README.md)
 and [dbt/README.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/dbt/README.md).
 
 ## Design Decisions
