@@ -20,7 +20,9 @@ Operators may populate these paths locally with data they are entitled to use,
 or mount populated files over the paths in a container. The Polygon candidate
 generator writes below ignored `artifacts/`; review its output before copying a
 manifest to the seed path and supplying the matching local resolution
-attestation.
+attestation. The source and authoring steps for the two WC2026 minute marts are
+documented in
+[`Recreate the WC2026 minute marts locally`](../../docs/guides/recreate-local-marts.md).
 
 Local overlays make a checkout dirty and must never be committed. Restore the
 tracked shells with `git restore dbt/seeds` after local work. The ordinary dbt

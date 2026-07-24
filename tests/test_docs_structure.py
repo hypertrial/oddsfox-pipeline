@@ -209,6 +209,29 @@ def test_shipped_scopes_and_public_marts_remain_documented():
         assert term in combined
 
 
+def test_local_mart_recreation_guide_keeps_complete_operator_runbook():
+    guide = (DOCS_DIR / "guides/recreate-local-marts.md").read_text()
+    required = [
+        "A clean clone is necessary, but not sufficient",
+        "dbt/seeds/wc2026_schedule_matches.csv",
+        "dbt/seeds/polymarket_wc2026_polygon_settlement_markets.csv",
+        "config/polygon-settlement-resolution-attestation.yml",
+        "uv run make match-minute-inputs-validate",
+        "uv run make match-minute-live-smoke",
+        "uv run make polygon-settlement-seed-candidate",
+        "uv run make polygon-settlement-seed-validate",
+        "uv run make polygon-settlement-live-smoke",
+        "uv run make local-marts-rebuild",
+        ".cache/match_minute_live_smoke.duckdb",
+        ".cache/polygon_settlement/benchmarks/v4/live_smoke.duckdb",
+        "30,936 rows",
+        "39,120 rows",
+    ]
+
+    for term in required:
+        assert term in guide
+
+
 def test_brand_assets_and_compact_styles_exist():
     assets = [
         "assets/images/oddsfox-white.png",
