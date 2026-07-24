@@ -58,4 +58,5 @@ sync runs, and data-quality findings used before trusting prices.
 
 - [Data dictionary](../reference/data-dictionary.md)
 - [Data contracts](../reference/data-contracts.md)
+- [Strategy contracts](../reference/strategy-contracts.md)
 - [Naming](../reference/naming.md)

@@ -74,7 +74,9 @@ When the checkout is on an SSD, export the parent-process `TMPDIR`,
 `UV_CACHE_DIR`, `UV_PYTHON_INSTALL_DIR`, `XDG_CACHE_HOME`, and
 `PYTHONPYCACHEPREFIX` and `PLAYWRIGHT_BROWSERS_PATH` before the first `uv`
 command. The complete setup and both mart workflows are in
-[Recreate the WC2026 minute marts locally](../guides/recreate-local-marts.md).
+[Recreate local marts](../guides/recreate-local-marts.md)
+([match-minute](../guides/recreate-match-minute-mart.md),
+[Polygon settlement](../guides/recreate-polygon-settlement-mart.md)).
 
 ## WC2026 Polygon settlement history
 

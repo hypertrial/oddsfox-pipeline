@@ -8,9 +8,10 @@ not cover private strategy internals or order execution.
 | Consume | Notes |
 | --- | --- |
 | Public `*_marts` relations | Primary analytics contract; start with [Data contracts](../reference/data-contracts.md) and the [Data dictionary](../reference/data-dictionary.md). |
-| `wc2026.v1` surfaces under `wc2026_marts` | Cross-platform knockout match contract and related WC2026 analytics metadata. |
+| Cross-platform knockout match mart | `wc2026_marts.wc2026_knockout_match_hourly_odds` and related public WC2026 analytics metadata. |
 | Graph export parquet | Offline input for `oddsfox-graph`; produce with `scripts/export_polymarket_wc2026_graph_hourly_odds.py` (see [Scripts](../reference/scripts.md)). |
 | `*_observability` | Optional trust and freshness checks before analysis. |
+| Strategy / raw.v1 consumers only | Private canonical snapshots and the strategy clean-data set; see [Strategy contracts](../reference/strategy-contracts.md). |
 
 ## Do Not Treat As APIs
 

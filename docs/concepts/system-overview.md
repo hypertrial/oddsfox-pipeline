@@ -33,6 +33,11 @@ Polygon/dbt settlement mart
 
 It does not feed `wc2026.v1`, signals, intents, or execution.
 
+Public mart grains live in
+[Data contracts](../reference/data-contracts.md). Private snapshot and strategy
+clean-data relations live in
+[Strategy contracts](../reference/strategy-contracts.md).
+
 ## Local-First Data
 
 OddsFox Pipeline ships software and operator tooling, not production datasets.

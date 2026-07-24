@@ -46,8 +46,10 @@ backward-compatibility layer unless the task explicitly requests one.
 - **Warehouse reset over migration:** operators with pre-layout DuckDB files
   should delete the warehouse (`rm oddsfox.duckdb*`) and rerun quickstart.
 - **Public contracts:** [Data contracts](docs/reference/data-contracts.md) marts
-  and Dagster asset keys are the current API. Breaking changes belong in
-  [CHANGELOG.md](CHANGELOG.md), not hidden compat layers.
+  and Dagster asset keys are the current API. Private `oddsfox.raw.v1` /
+  strategy clean-data relations live in
+  [Strategy contracts](docs/reference/strategy-contracts.md). Breaking changes
+  belong in [CHANGELOG.md](CHANGELOG.md), not hidden compat layers.
 - **Ponytail alignment:** deletion over addition applies here — prefer removing
   dead paths over preserving them.
 

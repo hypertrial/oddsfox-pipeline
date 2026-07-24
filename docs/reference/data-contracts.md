@@ -1,87 +1,22 @@
 # Data Contracts
 
-This page summarizes the public analytics surface that downstream notebooks,
-scripts, and operators should rely on. OddsFox Pipeline is a prediction-market pipeline;
-the current public marts are WC2026 Polymarket knockout odds outputs, Kalshi WC2026
-stage and group-winner odds, US midterms 2026 generic market odds, plus WC2026
-FIFA World Cup fixtures/results used to validate WC2026 team scope. Model-level
-column docs and tests live in the dbt project.
+This page is the formal **public** analytics contract: grains, scope rules, and
+guarantees for warehouse marts that notebooks, scripts, and open-source
+integrators should rely on. OddsFox Pipeline is a prediction-market pipeline;
+the current public marts are WC2026 Polymarket knockout odds outputs, Kalshi
+WC2026 stage and group-winner odds, US midterms 2026 generic market odds, the
+cross-platform knockout match mart, plus WC2026 FIFA fixtures/results used to
+validate WC2026 team scope. Model-level column docs and tests live in the dbt
+project.
 
-For practical analyst workflows, use
-[Query the warehouse](../guides/query-the-warehouse.md),
-[Query recipes](../guides/query-recipes.md), and
-[Data dictionary](data-dictionary.md).
-This page remains the formal contract summary.
+!!! note "Reference ladder"
 
-## Canonical raw snapshots
-
-Private collectors do not write implementation-specific tables into this
-warehouse. They publish one immutable directory per source and snapshot:
-
-```text
-.runtime/raw/<source>/<snapshot_id>/
-  manifest.json
-  <table>.parquet
-```
-
-The `oddsfox.raw.v1` manifest records the source and snapshot ID, UTC collection
-time, collector Git SHA and container digest, credential-free upstream
-revision/request provenance, predecessor snapshot, and each file's SHA-256,
-Arrow schema fingerprint, row count, and byte size. Both `status` and
-`completeness` must be `complete`.
-
-Collectors publish payloads into a temporary directory and publish
-`manifest.json` last. The pipeline refuses missing manifests or payloads,
-unknown versions/tables, unregistered schemas, unsafe paths, duplicate IDs,
-predecessor mismatches, timestamp regressions, hash/size/row/schema mismatches,
-and credential-bearing provenance. A successful load appends the Parquet rows
-and `wc2026_ops.raw_snapshot_ledger` record in one DuckDB transaction.
-Raw rows remain append-only for auditability, but each private source publishes
-a complete replacement snapshot: strategy-facing marts use only the latest
-ledger-declared snapshot. Rows omitted from a newer complete snapshot therefore
-do not leak forward from an older load.
-
-Public tests use synthetic Parquet snapshots only. HTML, selectors, cached
-pages, discretionary URLs, and real scrape fixtures are not part of this
-repository.
-
-## Strategy clean-data contract
-
-`wc2026_marts.contract_metadata` publishes contract version `wc2026.v1` and a
-fingerprint of the stable relation set. There are no legacy compatibility
-views.
-
-| Relation | Purpose |
-| --- | --- |
-| `fixtures`, `results`, `team_identities` | Official schedule, completed outcomes, and canonical team identity. |
-| `team_ratings_current`, `team_ratings_history` | Current and point-in-time national-team ratings. |
-| `player_features`, `squad_player_features` | FIFAIndex features and official-squad matches. |
-| `club_strength_current`, `club_strength_history`, `club_strength_snapshot` | Current and point-in-time club strength. |
-| `base_camp_venues`, `travel_features` | Venue, base-camp, rest, distance, timezone, and altitude features. |
-| `venue_markets` | Venue event/market identity, Polymarket `condition_id`, outcomes, and token IDs. |
-| `price_liquidity_current`, `price_liquidity_history` | Current and historical token price/liquidity data. |
-| `event_state_timing` | Optional point-in-time match event state. |
-| `international_matches` | Public 2006+ scorelines, tournament taxonomy, shootouts, and goal-event counts. |
-| `third_place_slot_assignments` | FIFA Annexe C knockout-slot mapping. |
-| `source_provenance` | Canonical snapshot provenance. |
-
-Completed group results align by date and canonical home/away team identity.
-Knockout schedule rows contain bracket slots until participants resolve, so
-completed knockout results use the schedule's unique `(match_date, host_city)`
-key and retain the source's actual teams when deriving the winner.
-
-Private FIFAIndex, Wikipedia squad, EloRatings, ClubElo, and FotMob inputs are
-optional for a public build. The on-run-start contract macro creates
-schema-correct empty raw tables when they are absent, so every public model
-still builds. Missing optional inputs are surfaced as warnings and blocking
-reasons rather than hidden. A ledger record alone is not availability: the
-latest snapshot must contain canonical rows, and the source-availability model
-publishes that latest payload's `row_count`.
-
-`wc2026_observability.wc2026_strategy_input_readiness` evaluates required-source
-availability, freshness, point-in-time interval integrity, and blocking reasons
-per strategy. Strategy consumers must open DuckDB read-only and fail closed
-unless the required contract version and readiness row both pass.
+    Chooser → dictionary → public contracts → warehouse reference; do not treat
+    staging/raw as APIs. Start with
+    [Query the warehouse](../guides/query-the-warehouse.md), then the
+    [Data dictionary](data-dictionary.md). For private `oddsfox.raw.v1` snapshots
+    and the strategy clean-data relation set, see
+    [Strategy contracts](strategy-contracts.md).
 
 ## Public Marts
 
@@ -290,6 +225,87 @@ the fields described above it contains these eight audit-only columns:
 `settlement_minute_epoch`, `condition_id`, `yes_token_id`, `no_token_id`,
 `market_structure`, `exchange_address`, `manifest_sha256`, and
 `manifest_version`. A direct mart export bypasses the technical allowlist.
+
+#### Complete column contract
+
+Types below are the materialized DuckDB types. “Required” describes the
+publication contract rather than a physical DuckDB `NOT NULL` constraint.
+Prices are USDC.e collateral per outcome share and are validated in `[0, 1]`.
+All timestamps are UTC without a stored timezone suffix.
+
+Identity, schedule, and provenance:
+
+| Column | Type | Contract |
+| --- | --- | --- |
+| `proposition_id` | `VARCHAR` | Required stable authored identifier; one of 248 propositions. |
+| `fifa_match_id` | `INTEGER` | Required FIFA schedule identifier in `1..104`. |
+| `stage` | `VARCHAR` | Required: `group_stage`, `round_of_32`, `round_of_16`, `quarterfinal`, `semifinal`, `third_place`, or `final`. |
+| `group_name` | `VARCHAR` | OpenFootball group label for group-stage matches; null for knockout matches. |
+| `home_team` | `VARCHAR` | Required independently sourced fixture home/display team; not a cross-flow join key. |
+| `away_team` | `VARCHAR` | Required independently sourced fixture away/display team; not a cross-flow join key. |
+| `proposition_type` | `VARCHAR` | Required: `home_win`, `draw`, `away_win`, `home_advances`, `home_win_third_place`, or `home_wins_final`. |
+| `yes_represents` | `VARCHAR` | Required authored meaning of the oriented Yes token. |
+| `no_represents` | `VARCHAR` | Required authored meaning of the oriented No token. |
+| `scheduled_kickoff_at_utc` | `TIMESTAMP` | Required minute-aligned scheduled kickoff from the pinned fixture source. |
+| `analysis_window_start_at_utc` | `TIMESTAMP` | Required inclusive window start; equal to scheduled kickoff. |
+| `analysis_window_end_at_utc` | `TIMESTAMP` | Required exclusive window end; start plus 150 minutes for group propositions or 210 minutes for knockout propositions. |
+| `settlement_minute_utc` | `TIMESTAMP` | Required UTC minute bucket in `[analysis_window_start_at_utc, analysis_window_end_at_utc)`. |
+| `settlement_minute_epoch` | `BIGINT` | Required Unix seconds for `settlement_minute_utc`; always minute-aligned. |
+| `elapsed_window_minute` | `BIGINT` | Required zero-based scheduled-window index: `0..149` for group propositions or `0..209` for knockout propositions. |
+| `condition_id` | `VARCHAR` | Required canonical 32-byte Polygon condition ID; use with oriented token IDs for cross-flow reconciliation. |
+| `yes_token_id` | `VARCHAR` | Required decimal ConditionalTokens position ID oriented to `yes_represents`. |
+| `no_token_id` | `VARCHAR` | Required decimal ConditionalTokens position ID oriented to `no_represents`. |
+| `market_structure` | `VARCHAR` | Required `neg_risk` for the 216 group propositions or `standard` for the 32 knockout propositions. |
+| `exchange_address` | `VARCHAR` | Required lower-case Polygon V2 exchange address: neg-risk `0xe2222d279d744050d28e00520010520000310f59` or standard `0xe111180000d2663c0091e4f400237545b87b996b`. |
+| `manifest_sha256` | `VARCHAR` | Required SHA-256 of the complete reviewed 248-row market manifest used by the published scan. |
+| `manifest_version` | `VARCHAR` | Required semantic version of that reviewed manifest. |
+
+Yes-side minute aggregates:
+
+| Column | Type | Contract |
+| --- | --- | --- |
+| `yes_open` | `DECIMAL(38,18)` | First Yes normalized leg in chain order; null when `yes_observed = false`. |
+| `yes_high` | `DECIMAL(38,18)` | Maximum Yes normalized-leg price; null when unobserved. |
+| `yes_low` | `DECIMAL(38,18)` | Minimum Yes normalized-leg price; null when unobserved. |
+| `yes_close` | `DECIMAL(38,18)` | Last Yes normalized leg in chain order; null when unobserved. |
+| `yes_vwap` | `DECIMAL(38,18)` | `sum(gross_collateral) / sum(shares)`, rounded deterministically half-even to 18 decimal places; null when unobserved. |
+| `yes_normalized_fill_count` | `BIGINT` | Count of normalized Yes economic legs, including derived counterparts; zero when unobserved. |
+| `yes_derived_fill_count` | `BIGINT` | Subset of normalized Yes legs derived as MINT/MERGE counterparts; between zero and `yes_normalized_fill_count`. |
+| `yes_share_volume` | `DECIMAL(38,6)` | Sum of normalized Yes outcome shares; zero when unobserved. |
+| `yes_gross_collateral_volume` | `DECIMAL(38,6)` | Sum of Yes gross USDC.e collateral before fees; zero when unobserved. |
+| `yes_first_settlement_at_utc` | `TIMESTAMP` | Earliest finalized event-block timestamp contributing to the minute; null when unobserved. |
+| `yes_last_settlement_at_utc` | `TIMESTAMP` | Latest finalized event-block timestamp contributing to the minute; null when unobserved. |
+| `yes_observed` | `BOOLEAN` | True when at least one normalized Yes leg exists in the minute. |
+
+No-side minute aggregates:
+
+| Column | Type | Contract |
+| --- | --- | --- |
+| `no_open` | `DECIMAL(38,18)` | First No normalized leg in chain order; null when `no_observed = false`. |
+| `no_high` | `DECIMAL(38,18)` | Maximum No normalized-leg price; null when unobserved. |
+| `no_low` | `DECIMAL(38,18)` | Minimum No normalized-leg price; null when unobserved. |
+| `no_close` | `DECIMAL(38,18)` | Last No normalized leg in chain order; null when unobserved. |
+| `no_vwap` | `DECIMAL(38,18)` | `sum(gross_collateral) / sum(shares)`, rounded deterministically half-even to 18 decimal places; null when unobserved. |
+| `no_normalized_fill_count` | `BIGINT` | Count of normalized No economic legs, including derived counterparts; zero when unobserved. |
+| `no_derived_fill_count` | `BIGINT` | Subset of normalized No legs derived as MINT/MERGE counterparts; between zero and `no_normalized_fill_count`. |
+| `no_share_volume` | `DECIMAL(38,6)` | Sum of normalized No outcome shares; zero when unobserved. |
+| `no_gross_collateral_volume` | `DECIMAL(38,6)` | Sum of No gross USDC.e collateral before fees; zero when unobserved. |
+| `no_first_settlement_at_utc` | `TIMESTAMP` | Earliest finalized event-block timestamp contributing to the minute; null when unobserved. |
+| `no_last_settlement_at_utc` | `TIMESTAMP` | Latest finalized event-block timestamp contributing to the minute; null when unobserved. |
+| `no_observed` | `BOOLEAN` | True when at least one normalized No leg exists in the minute. |
+
+Minute completeness:
+
+| Column | Type | Contract |
+| --- | --- | --- |
+| `minute_complete` | `BOOLEAN` | Required; exactly `yes_observed AND no_observed`. It describes two-sided settlement activity, not finality or football-time completeness. |
+| `minute_status` | `VARCHAR` | Required mapping: both sides → `both_observed`, Yes only → `yes_only`, No only → `no_only`, neither → `no_fills`. |
+
+OHLC chain order is `(block_number, transaction_index, passive_log_index,
+normalized_leg_ordinal)`, not event timestamp alone. `first` and `last`
+settlement timestamps are the minimum and maximum contributing finalized
+event-block timestamps. Derived counts are already included in normalized fill
+counts and volumes; they must not be added a second time.
 
 ### Internal audit release and operator-local technical export
 

@@ -106,7 +106,8 @@ unrelated Polymarket tests.
 
 The combined job selects `+tag:cross_domain`. Source-specific Polymarket and
 Kalshi dbt jobs exclude that tag, so they cannot publish a partially refreshed
-cross-provider comparison.
+cross-provider comparison. Operator recipe:
+[Run cross-platform knockout](../guides/run-cross-platform-knockout.md).
 
 ## Scope behavior
 

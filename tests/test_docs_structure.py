@@ -228,26 +228,68 @@ def test_shipped_scopes_and_public_marts_remain_documented():
 
 
 def test_local_mart_recreation_guide_keeps_complete_operator_runbook():
-    guide = (DOCS_DIR / "guides/recreate-local-marts.md").read_text()
-    required = [
-        "A clean clone is necessary, but not sufficient",
+    index = (DOCS_DIR / "guides/recreate-local-marts.md").read_text()
+    match_minute = (DOCS_DIR / "guides/recreate-match-minute-mart.md").read_text()
+    polygon = (DOCS_DIR / "guides/recreate-polygon-settlement-mart.md").read_text()
+    combined = "\n".join((index, match_minute, polygon))
+
+    assert "recreate-match-minute-mart.md" in index
+    assert "recreate-polygon-settlement-mart.md" in index
+    assert "A clean clone is necessary, but not sufficient" in index
+    assert "uv run make local-marts-rebuild" in index
+
+    assert "uv run make match-minute-inputs-validate" in match_minute
+    assert "uv run make match-minute-live-smoke" in match_minute
+    assert "30,936 rows" in match_minute
+    assert ".cache/match_minute_live_smoke.duckdb" in match_minute
+
+    assert "uv run make polygon-settlement-seed-candidate" in polygon
+    assert "uv run make polygon-settlement-seed-validate" in polygon
+    assert "uv run make polygon-settlement-live-smoke" in polygon
+    assert "39,120 rows" in polygon
+    assert ".cache/polygon_settlement/benchmarks/v4/live_smoke.duckdb" in polygon
+
+    for term in (
         "dbt/seeds/wc2026_schedule_matches.csv",
         "dbt/seeds/polymarket_wc2026_polygon_settlement_markets.csv",
         "config/polygon-settlement-resolution-attestation.yml",
-        "uv run make match-minute-inputs-validate",
-        "uv run make match-minute-live-smoke",
-        "uv run make polygon-settlement-seed-candidate",
-        "uv run make polygon-settlement-seed-validate",
-        "uv run make polygon-settlement-live-smoke",
-        "uv run make local-marts-rebuild",
-        ".cache/match_minute_live_smoke.duckdb",
-        ".cache/polygon_settlement/benchmarks/v4/live_smoke.duckdb",
-        "30,936 rows",
-        "39,120 rows",
-    ]
+    ):
+        assert term in combined, term
 
-    for term in required:
-        assert term in guide
+
+def test_cross_platform_knockout_guide_and_entry_points():
+    guide = (DOCS_DIR / "guides/run-cross-platform-knockout.md").read_text()
+    choose = (DOCS_DIR / "getting-started/choose-a-scope.md").read_text()
+    operators = (DOCS_DIR / "audiences/operators.md").read_text()
+
+    assert "wc2026_knockout_match_odds_full_pipeline" in guide
+    assert "dagster job execute" in guide
+    assert "run-cross-platform-knockout.md" in choose
+    assert "run-cross-platform-knockout.md" in operators
+
+
+def test_strategy_contracts_split_and_public_contracts_link():
+    strategy = DOCS_DIR / "reference/strategy-contracts.md"
+    assert strategy.is_file()
+    strategy_text = strategy.read_text()
+    public = (DOCS_DIR / "reference/data-contracts.md").read_text()
+
+    assert "oddsfox.raw.v1" in strategy_text
+    assert "contract_metadata" in strategy_text
+    assert "strategy-contracts.md" in public
+    assert "#### Complete column contract" in public
+
+
+def test_development_schedule_snippet_includes_knockout_flag():
+    development = (DOCS_DIR / "development/index.md").read_text()
+    assert "WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED" in development
+
+
+def test_integrators_hub_checklist_covers_graph_and_polygon_boundary():
+    integrators = (DOCS_DIR / "audiences/integrators.md").read_text()
+    assert "export_polymarket_wc2026_graph_hourly_odds.py" in integrators
+    assert "not `wc2026.v1` signal inputs" in integrators
+    assert "strategy-contracts.md" in integrators
 
 
 def test_brand_assets_and_compact_styles_exist():

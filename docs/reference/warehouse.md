@@ -3,8 +3,14 @@
 The local warehouse is DuckDB. By default it is `oddsfox.duckdb` in the repo
 root. OddsFox Pipeline is designed for prediction-market data; the v0.1.x warehouse
 schemas and relation names are source-specific because adapters ship in parallel.
-For public mart guarantees, see
-[Data contracts](data-contracts.md).
+
+!!! note "Reference ladder"
+
+    Chooser → dictionary → public contracts → warehouse reference; do not treat
+    staging/raw as APIs. This page is the physical/schema map for contributors.
+    Analysts should start with
+    [Query the warehouse](../guides/query-the-warehouse.md). Public mart
+    guarantees live in [Data contracts](data-contracts.md).
 
 If you are analyzing data rather than operating the pipeline, start with the
 [Query the warehouse](../guides/query-the-warehouse.md),

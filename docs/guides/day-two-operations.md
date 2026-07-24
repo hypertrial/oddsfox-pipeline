@@ -46,5 +46,7 @@ schedule-enable flags.
 ## Advanced Paths
 
 - [Recreate local marts](recreate-local-marts.md) for WC2026 minute marts
+  ([match-minute](recreate-match-minute-mart.md),
+  [Polygon settlement](recreate-polygon-settlement-mart.md))
 - [Docker image](docker-image.md) for the signed GHCR artifact
 - [Operators](../audiences/operators.md) hub for the full operator map

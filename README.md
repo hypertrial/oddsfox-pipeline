@@ -49,17 +49,11 @@ Query an existing warehouse (default `oddsfox.duckdb` in the repo root; use
 duckdb oddsfox.duckdb
 ```
 
-Run the local pipeline:
-
-```bash
-uv sync --extra dev
-cp .env.example .env
-uv run make dbt-parse
-uv run make dagster-dev
-```
-
-Schedules are disabled by default. Keep them off until manual jobs and dbt
-builds are healthy. Read the full [Quickstart](docs/getting-started/index.md).
+For a first warehouse, follow the full
+[Quickstart](docs/getting-started/index.md)
+(`uv run python scripts/run_scope.py polymarket:wc2026 --step full`).
+After that install, you can inspect jobs with `uv run make dagster-dev`.
+Schedules stay disabled until manual jobs and dbt builds are healthy.
 
 Analyst rules of thumb: query `*_marts` first; use `*_observability` for trust
 checks; prefer `is_actionable_live_market`, then inspect `current_price_status`.

@@ -19,9 +19,8 @@ dataset.
     `duckdb.connect(..., read_only=True)` in notebooks so you do not compete
     with a writer.
 
-    Start with [Query the warehouse](../guides/query-the-warehouse.md),
-    [Query recipes](../guides/query-recipes.md), and the
-    [Data dictionary](../reference/data-dictionary.md).
+    Continue with [Query the warehouse](../guides/query-the-warehouse.md) for
+    table chooser, trust rules, and query rules.
 
 === "No — need a run first"
 
@@ -29,15 +28,6 @@ dataset.
     [Run a scope](../guides/run-a-scope.md), then return here. Analysts do not
     need Dagster schedules or Polygon settlement history for ordinary mart
     queries.
-
-## Query Rules
-
-- Query `*_marts` first. These are the public analytics surfaces.
-- Use `*_observability` for freshness, coverage, and trust checks.
-- Treat `*_raw`, `*_ops`, staging, and intermediate schemas as internal.
-- For current live analysis, prefer `is_actionable_live_market` where available,
-  then inspect `current_price_status`.
-- See the [Glossary](../concepts/glossary.md) for price and status semantics.
 
 ## Join Map
 

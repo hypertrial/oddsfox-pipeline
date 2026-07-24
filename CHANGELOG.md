@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added an operator guide for the cross-platform knockout job
+  (`wc2026_knockout_match_odds_full_pipeline`) and linked it from Choose a
+  scope, Operators, Enable schedules, and Orchestration.
+- Split private `oddsfox.raw.v1` / strategy clean-data docs into
+  `docs/reference/strategy-contracts.md`; public mart contracts remain on
+  `docs/reference/data-contracts.md`.
+- Split the WC2026 minute-mart recreation runbook into an index plus
+  match-minute and Polygon settlement child guides.
+- Expanded the Integrators hub with a consume/pin/export/Polygon-boundary
+  checklist.
 - Documented audience hubs (analysts, operators, contributors, integrators),
   FAQ, glossary, scope and non-goals, design decisions, integration guidance,
   day-two operations, and the signed Docker image as an advanced path.
@@ -20,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Moved the Polygon settlement complete column contract from the data
+  dictionary into public data contracts; dictionary keeps analyst summary.
+- Slimmed the Analysts hub to a warehouse branch and join map; added a shared
+  reference-ladder note on the chooser, dictionary, contracts, and warehouse
+  pages.
+- Aligned Development schedule snippets with all four disabled-by-default
+  hourly flags and pointed README first-run readers at Quickstart.
 - Reshaped the docs site and README toward progressive disclosure: thinner
   README portal, quality-gate SSOT in `AGENTS.md`, contributor checklists in the
   Development guide, and Polygon settlement framed as optional/advanced.

@@ -22,7 +22,9 @@ generator writes below ignored `artifacts/`; review its output before copying a
 manifest to the seed path and supplying the matching local resolution
 attestation. The source and authoring steps for the two WC2026 minute marts are
 documented in
-[`Recreate the WC2026 minute marts locally`](../../docs/guides/recreate-local-marts.md).
+[`Recreate local marts`](../../docs/guides/recreate-local-marts.md)
+([match-minute](../../docs/guides/recreate-match-minute-mart.md),
+[Polygon settlement](../../docs/guides/recreate-polygon-settlement-mart.md)).
 
 Local overlays make a checkout dirty and must never be committed. Restore the
 tracked shells with `git restore dbt/seeds` after local work. The ordinary dbt

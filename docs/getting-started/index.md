@@ -67,8 +67,9 @@ quickstart.
 
     Polygon settlement is an optional isolated historical flow, not part of this
     first run. Validate it offline with `uv run make dbt-polygon-settlement-ci`,
-    or follow [Recreate local marts](../guides/recreate-local-marts.md) when you
-    explicitly want that dataset.
+    or follow
+    [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md)
+    when you explicitly want that dataset.
 
 ## Run the first pipeline
 

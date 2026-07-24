@@ -83,5 +83,7 @@ disposable warehouse plus exact 39,120-row assertion, use
 SSD-local checkpoint by default; opt into a clean disposable scan with
 `POLYGON_SETTLEMENT_LIVE_SMOKE_RESET=true`.
 
+For the full seed-authoring and disposable-smoke path, see
+[Recreate Polygon settlement mart](recreate-polygon-settlement-mart.md).
 Next, [validate the run](validate-and-recover.md). The Polygon settlement flow
 remains manual-only.

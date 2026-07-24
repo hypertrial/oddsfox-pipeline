@@ -1,7 +1,15 @@
 # Data Dictionary
 
-This page is the analyst-facing dictionary for public marts. For formal grains,
-scope rules, and data-contract tests, see [Data Contracts](data-contracts.md).
+This page is the analyst-facing dictionary for public marts: grain, filters, and
+common mistakes.
+
+!!! note "Reference ladder"
+
+    Chooser → dictionary → public contracts → warehouse reference; do not treat
+    staging/raw as APIs. Start with
+    [Query the warehouse](../guides/query-the-warehouse.md). Formal grains and
+    the Polygon complete column contract live in
+    [Data contracts](data-contracts.md).
 
 ## Core Semantics
 
@@ -200,86 +208,9 @@ international-results, FotMob, match results, or runtime OpenFootball requests.
 It does not infer prices from complements or use an external currency/odds
 feed.
 
-#### Complete column contract
-
-Types below are the materialized DuckDB types. “Required” describes the
-publication contract rather than a physical DuckDB `NOT NULL` constraint.
-Prices are USDC.e collateral per outcome share and are validated in `[0, 1]`.
-All timestamps are UTC without a stored timezone suffix.
-
-Identity, schedule, and provenance:
-
-| Column | Type | Contract |
-| --- | --- | --- |
-| `proposition_id` | `VARCHAR` | Required stable authored identifier; one of 248 propositions. |
-| `fifa_match_id` | `INTEGER` | Required FIFA schedule identifier in `1..104`. |
-| `stage` | `VARCHAR` | Required: `group_stage`, `round_of_32`, `round_of_16`, `quarterfinal`, `semifinal`, `third_place`, or `final`. |
-| `group_name` | `VARCHAR` | OpenFootball group label for group-stage matches; null for knockout matches. |
-| `home_team` | `VARCHAR` | Required independently sourced fixture home/display team; not a cross-flow join key. |
-| `away_team` | `VARCHAR` | Required independently sourced fixture away/display team; not a cross-flow join key. |
-| `proposition_type` | `VARCHAR` | Required: `home_win`, `draw`, `away_win`, `home_advances`, `home_win_third_place`, or `home_wins_final`. |
-| `yes_represents` | `VARCHAR` | Required authored meaning of the oriented Yes token. |
-| `no_represents` | `VARCHAR` | Required authored meaning of the oriented No token. |
-| `scheduled_kickoff_at_utc` | `TIMESTAMP` | Required minute-aligned scheduled kickoff from the pinned fixture source. |
-| `analysis_window_start_at_utc` | `TIMESTAMP` | Required inclusive window start; equal to scheduled kickoff. |
-| `analysis_window_end_at_utc` | `TIMESTAMP` | Required exclusive window end; start plus 150 minutes for group propositions or 210 minutes for knockout propositions. |
-| `settlement_minute_utc` | `TIMESTAMP` | Required UTC minute bucket in `[analysis_window_start_at_utc, analysis_window_end_at_utc)`. |
-| `settlement_minute_epoch` | `BIGINT` | Required Unix seconds for `settlement_minute_utc`; always minute-aligned. |
-| `elapsed_window_minute` | `BIGINT` | Required zero-based scheduled-window index: `0..149` for group propositions or `0..209` for knockout propositions. |
-| `condition_id` | `VARCHAR` | Required canonical 32-byte Polygon condition ID; use with oriented token IDs for cross-flow reconciliation. |
-| `yes_token_id` | `VARCHAR` | Required decimal ConditionalTokens position ID oriented to `yes_represents`. |
-| `no_token_id` | `VARCHAR` | Required decimal ConditionalTokens position ID oriented to `no_represents`. |
-| `market_structure` | `VARCHAR` | Required `neg_risk` for the 216 group propositions or `standard` for the 32 knockout propositions. |
-| `exchange_address` | `VARCHAR` | Required lower-case Polygon V2 exchange address: neg-risk `0xe2222d279d744050d28e00520010520000310f59` or standard `0xe111180000d2663c0091e4f400237545b87b996b`. |
-| `manifest_sha256` | `VARCHAR` | Required SHA-256 of the complete reviewed 248-row market manifest used by the published scan. |
-| `manifest_version` | `VARCHAR` | Required semantic version of that reviewed manifest. |
-
-Yes-side minute aggregates:
-
-| Column | Type | Contract |
-| --- | --- | --- |
-| `yes_open` | `DECIMAL(38,18)` | First Yes normalized leg in chain order; null when `yes_observed = false`. |
-| `yes_high` | `DECIMAL(38,18)` | Maximum Yes normalized-leg price; null when unobserved. |
-| `yes_low` | `DECIMAL(38,18)` | Minimum Yes normalized-leg price; null when unobserved. |
-| `yes_close` | `DECIMAL(38,18)` | Last Yes normalized leg in chain order; null when unobserved. |
-| `yes_vwap` | `DECIMAL(38,18)` | `sum(gross_collateral) / sum(shares)`, rounded deterministically half-even to 18 decimal places; null when unobserved. |
-| `yes_normalized_fill_count` | `BIGINT` | Count of normalized Yes economic legs, including derived counterparts; zero when unobserved. |
-| `yes_derived_fill_count` | `BIGINT` | Subset of normalized Yes legs derived as MINT/MERGE counterparts; between zero and `yes_normalized_fill_count`. |
-| `yes_share_volume` | `DECIMAL(38,6)` | Sum of normalized Yes outcome shares; zero when unobserved. |
-| `yes_gross_collateral_volume` | `DECIMAL(38,6)` | Sum of Yes gross USDC.e collateral before fees; zero when unobserved. |
-| `yes_first_settlement_at_utc` | `TIMESTAMP` | Earliest finalized event-block timestamp contributing to the minute; null when unobserved. |
-| `yes_last_settlement_at_utc` | `TIMESTAMP` | Latest finalized event-block timestamp contributing to the minute; null when unobserved. |
-| `yes_observed` | `BOOLEAN` | True when at least one normalized Yes leg exists in the minute. |
-
-No-side minute aggregates:
-
-| Column | Type | Contract |
-| --- | --- | --- |
-| `no_open` | `DECIMAL(38,18)` | First No normalized leg in chain order; null when `no_observed = false`. |
-| `no_high` | `DECIMAL(38,18)` | Maximum No normalized-leg price; null when unobserved. |
-| `no_low` | `DECIMAL(38,18)` | Minimum No normalized-leg price; null when unobserved. |
-| `no_close` | `DECIMAL(38,18)` | Last No normalized leg in chain order; null when unobserved. |
-| `no_vwap` | `DECIMAL(38,18)` | `sum(gross_collateral) / sum(shares)`, rounded deterministically half-even to 18 decimal places; null when unobserved. |
-| `no_normalized_fill_count` | `BIGINT` | Count of normalized No economic legs, including derived counterparts; zero when unobserved. |
-| `no_derived_fill_count` | `BIGINT` | Subset of normalized No legs derived as MINT/MERGE counterparts; between zero and `no_normalized_fill_count`. |
-| `no_share_volume` | `DECIMAL(38,6)` | Sum of normalized No outcome shares; zero when unobserved. |
-| `no_gross_collateral_volume` | `DECIMAL(38,6)` | Sum of No gross USDC.e collateral before fees; zero when unobserved. |
-| `no_first_settlement_at_utc` | `TIMESTAMP` | Earliest finalized event-block timestamp contributing to the minute; null when unobserved. |
-| `no_last_settlement_at_utc` | `TIMESTAMP` | Latest finalized event-block timestamp contributing to the minute; null when unobserved. |
-| `no_observed` | `BOOLEAN` | True when at least one normalized No leg exists in the minute. |
-
-Minute completeness:
-
-| Column | Type | Contract |
-| --- | --- | --- |
-| `minute_complete` | `BOOLEAN` | Required; exactly `yes_observed AND no_observed`. It describes two-sided settlement activity, not finality or football-time completeness. |
-| `minute_status` | `VARCHAR` | Required mapping: both sides → `both_observed`, Yes only → `yes_only`, No only → `no_only`, neither → `no_fills`. |
-
-OHLC chain order is `(block_number, transaction_index, passive_log_index,
-normalized_leg_ordinal)`, not event timestamp alone. `first` and `last`
-settlement timestamps are the minimum and maximum contributing finalized
-event-block timestamps. Derived counts are already included in normalized fill
-counts and volumes; they must not be added a second time.
+Full materialized column types and required/null contracts are documented under
+[Complete column contract](data-contracts.md#complete-column-contract) in Data
+contracts.
 
 ## International Results WC2026 Marts
 

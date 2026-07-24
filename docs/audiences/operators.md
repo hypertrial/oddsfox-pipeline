@@ -46,9 +46,9 @@ These are optional. They are not part of the default quickstart.
 | Topic | Page |
 | --- | --- |
 | Enable hourly schedules | [Enable schedules](../guides/enable-schedules.md) |
-| Cross-platform knockout full pipeline | [Orchestration](../reference/orchestration.md) (`wc2026_knockout_match_odds_full_pipeline`) |
+| Cross-platform knockout full pipeline | [Run cross-platform knockout](../guides/run-cross-platform-knockout.md) |
 | Recreate WC2026 minute marts locally | [Recreate local marts](../guides/recreate-local-marts.md) |
-| Isolated Polygon settlement history | [Run a scope](../guides/run-a-scope.md#run-the-isolated-polygon-settlement-history) |
+| Isolated Polygon settlement history | [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md) |
 | Graph / knockout parquet exports | [Scripts](../reference/scripts.md) |
 | Signed GHCR image | [Docker image](../guides/docker-image.md) |
 | Configuration reference | [Configuration](../reference/configuration.md) |

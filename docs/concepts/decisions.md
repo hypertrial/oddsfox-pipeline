@@ -44,5 +44,5 @@ runtime. Ordinary WC2026 odds pipelines do not depend on it.
 Why: historical on-chain evidence has different trust, privacy, and operational
 boundaries than quote/CLOB history.
 
-See [Recreate local marts](../guides/recreate-local-marts.md) and
-[Data contracts](../reference/data-contracts.md).
+See [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md)
+and [Data contracts](../reference/data-contracts.md).

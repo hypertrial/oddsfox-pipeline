@@ -15,6 +15,10 @@ and dbt jobs complete successfully against the intended warehouse.
 The first three use hourly fidelity (`fidelity=60`). All four are stopped by
 default. Polygon settlement jobs remain unscheduled.
 
+Before enabling `wc2026_knockout_match_odds_hourly_schedule`, complete a manual
+combined run with
+[Run cross-platform knockout](run-cross-platform-knockout.md).
+
 ## Enable one source
 
 Change only the required `.env` value. Example for Polymarket WC2026 only:

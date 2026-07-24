@@ -6,6 +6,11 @@ Analysts query the DuckDB file produced by a local or self-managed run. For the
 full analyst map, start with [Analysts](../audiences/analysts.md). Term
 definitions live in the [Glossary](../concepts/glossary.md).
 
+!!! note "Reference ladder"
+
+    Chooser → dictionary → public contracts → warehouse reference; do not treat
+    staging/raw as APIs. This page is the chooser and trust guide.
+
 ## Shortest Path
 
 === "I already have a warehouse"

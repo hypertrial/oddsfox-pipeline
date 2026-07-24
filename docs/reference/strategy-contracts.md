@@ -1,0 +1,79 @@
+# Strategy Contracts
+
+Use this page when consuming private canonical snapshots (`oddsfox.raw.v1`) or
+the strategy clean-data relation set under `wc2026.v1`. Ordinary public mart
+queries, graph parquet, and open-source integrator work should start with
+[Data contracts](data-contracts.md) instead.
+
+## Canonical raw snapshots
+
+Private collectors do not write implementation-specific tables into this
+warehouse. They publish one immutable directory per source and snapshot:
+
+```text
+.runtime/raw/<source>/<snapshot_id>/
+  manifest.json
+  <table>.parquet
+```
+
+The `oddsfox.raw.v1` manifest records the source and snapshot ID, UTC collection
+time, collector Git SHA and container digest, credential-free upstream
+revision/request provenance, predecessor snapshot, and each file's SHA-256,
+Arrow schema fingerprint, row count, and byte size. Both `status` and
+`completeness` must be `complete`.
+
+Collectors publish payloads into a temporary directory and publish
+`manifest.json` last. The pipeline refuses missing manifests or payloads,
+unknown versions/tables, unregistered schemas, unsafe paths, duplicate IDs,
+predecessor mismatches, timestamp regressions, hash/size/row/schema mismatches,
+and credential-bearing provenance. A successful load appends the Parquet rows
+and `wc2026_ops.raw_snapshot_ledger` record in one DuckDB transaction.
+Raw rows remain append-only for auditability, but each private source publishes
+a complete replacement snapshot: strategy-facing marts use only the latest
+ledger-declared snapshot. Rows omitted from a newer complete snapshot therefore
+do not leak forward from an older load.
+
+Public tests use synthetic Parquet snapshots only. HTML, selectors, cached
+pages, discretionary URLs, and real scrape fixtures are not part of this
+repository.
+
+## Strategy clean-data contract
+
+`wc2026_marts.contract_metadata` publishes contract version `wc2026.v1` and a
+fingerprint of the stable relation set. There are no legacy compatibility
+views.
+
+| Relation | Purpose |
+| --- | --- |
+| `fixtures`, `results`, `team_identities` | Official schedule, completed outcomes, and canonical team identity. |
+| `team_ratings_current`, `team_ratings_history` | Current and point-in-time national-team ratings. |
+| `player_features`, `squad_player_features` | FIFAIndex features and official-squad matches. |
+| `club_strength_current`, `club_strength_history`, `club_strength_snapshot` | Current and point-in-time club strength. |
+| `base_camp_venues`, `travel_features` | Venue, base-camp, rest, distance, timezone, and altitude features. |
+| `venue_markets` | Venue event/market identity, Polymarket `condition_id`, outcomes, and token IDs. |
+| `price_liquidity_current`, `price_liquidity_history` | Current and historical token price/liquidity data. |
+| `event_state_timing` | Optional point-in-time match event state. |
+| `international_matches` | Public 2006+ scorelines, tournament taxonomy, shootouts, and goal-event counts. |
+| `third_place_slot_assignments` | FIFA Annexe C knockout-slot mapping. |
+| `source_provenance` | Canonical snapshot provenance. |
+
+Completed group results align by date and canonical home/away team identity.
+Knockout schedule rows contain bracket slots until participants resolve, so
+completed knockout results use the schedule's unique `(match_date, host_city)`
+key and retain the source's actual teams when deriving the winner.
+
+Private FIFAIndex, Wikipedia squad, EloRatings, ClubElo, and FotMob inputs are
+optional for a public build. The on-run-start contract macro creates
+schema-correct empty raw tables when they are absent, so every public model
+still builds. Missing optional inputs are surfaced as warnings and blocking
+reasons rather than hidden. A ledger record alone is not availability: the
+latest snapshot must contain canonical rows, and the source-availability model
+publishes that latest payload's `row_count`.
+
+`wc2026_observability.wc2026_strategy_input_readiness` evaluates required-source
+availability, freshness, point-in-time interval integrity, and blocking reasons
+per strategy. Strategy consumers must open DuckDB read-only and fail closed
+unless the required contract version and readiness row both pass.
+
+See [System overview](../concepts/system-overview.md) for repository roles and
+[Integration](../concepts/integration.md) for the public-vs-strategy boundary.

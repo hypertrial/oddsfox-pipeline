@@ -48,5 +48,15 @@ List the accepted refs and aliases at any time:
 uv run python scripts/run_scope.py --list
 ```
 
+## Beyond `run_scope.py`
+
+These fixed jobs are not chooser refs:
+
+| Flow | Guide |
+| --- | --- |
+| Cross-platform knockout match odds (`wc2026_knockout_match_odds_full_pipeline`) | [Run cross-platform knockout](../guides/run-cross-platform-knockout.md) |
+| Isolated Polygon settlement history | [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md) |
+| Match-minute and Polygon minute mart recreation | [Recreate local marts](../guides/recreate-local-marts.md) |
+
 Next, read [Run a scope](../guides/run-a-scope.md) for staged execution or
 [Data contracts](../reference/data-contracts.md) for the exact public marts.
