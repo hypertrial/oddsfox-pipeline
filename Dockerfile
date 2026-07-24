@@ -25,7 +25,7 @@ RUN python -m pip install --no-cache-dir . \
 
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="OddsFox Pipeline" \
-      org.opencontainers.image.description="MIT-licensed local-first analytics pipeline software; no production datasets" \
+      org.opencontainers.image.description="Hypertrial-owned MIT application; no hosted service or bundled production datasets; third-party components retain their licences" \
       org.opencontainers.image.source="https://github.com/hypertrial/oddsfox-pipeline" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.licenses="MIT"

@@ -24,7 +24,7 @@ operator workflow.
 
 Do not open public issues for vulnerabilities. Follow
 [SECURITY](https://github.com/hypertrial/oddsfox-pipeline/blob/main/SECURITY.md) and use
-GitHub Private Vulnerability Reporting when available.
+GitHub Private Vulnerability Reporting.
 
 ## Project Files
 

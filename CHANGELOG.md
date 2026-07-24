@@ -7,8 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-07-24
+
+### Added
+
+- Enforced the reviewed licence mapping for every direct runtime dependency
+  while retaining the release SBOM for transitive and base-image inventory.
+
 ### Changed
 
+- Established `THIRD_PARTY_NOTICES.md` as the authoritative statement that
+  Hypertrial owns and MIT-licenses the first-party project, operates no hosted
+  production pipeline or data service, and does not restrict recipients' MIT
+  rights.
+- Documented independently authored Polygon event-interface provenance,
+  third-party source and Contributor Covenant attribution, nominative use of
+  third-party marks, and contributor-retained MIT licensing.
+- Made GitHub Private Vulnerability Reporting the sole private security channel
+  and scoped the container's MIT label to the Hypertrial-owned application.
 - Split automatic validation into parallel static/docs, fast-test/contract, and
   dbt-lint workers behind the stable `fast-gate` check. Fast unit tests now use
   xdist while DuckDB, Dagster, dbt integration, replay contract, and browser
@@ -432,7 +448,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: lint, tests, docs build, dbt parse, and dbt build.
 - Schedules disabled by default; opt-in via `.env` for live ingestion.
 
-[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.4...v0.1.5

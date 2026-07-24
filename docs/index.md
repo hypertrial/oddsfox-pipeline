@@ -15,8 +15,8 @@ hide:
 Build inspectable local prediction-market warehouses with Dagster, dlt,
 DuckDB, dbt, and Python.
 
-MIT-licensed pipeline software, not a production dataset. Supply your own
-inputs; outputs stay on infrastructure you control.
+Hypertrial-owned MIT software. No hosted service or bundled production data.
+[Licence scope](https://github.com/hypertrial/oddsfox-pipeline/blob/main/THIRD_PARTY_NOTICES.md).
 
 [Get started](getting-started/index.md){ .md-button .md-button--primary }
 [Query the warehouse](guides/query-the-warehouse.md){ .md-button }

@@ -47,6 +47,18 @@ and rate-limit notes.
 Do not assume centralized OddsFox Pipeline-hosted data. Operators must be able to run
 ingestion and store data in their own local or self-managed warehouse.
 
+## Contribution licensing
+
+Unless explicitly stated otherwise, any contribution intentionally submitted
+for inclusion in OddsFox Pipeline is licensed under the project's MIT License.
+Contributors retain copyright in their contributions and represent that they
+have the rights needed to submit them. The project requires no contributor
+licence agreement or copyright assignment.
+
+See [Third-Party Notices](THIRD_PARTY_NOTICES.md) for the authoritative boundary
+between first-party project material and independently governed data, code,
+services, documents, dependencies, fonts, and marks.
+
 ## AI-assisted development
 
 If you use Cursor, [Ponytail](https://github.com/DietrichGebert/ponytail) loads from [`.cursor/rules/ponytail.mdc`](.cursor/rules/ponytail.mdc). Repo-specific guardrails (layout, quality gate, orchestration limits) live in [AGENTS.md](AGENTS.md).

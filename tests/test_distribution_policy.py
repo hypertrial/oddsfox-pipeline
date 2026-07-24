@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import re
 import subprocess
 from pathlib import Path
@@ -14,6 +15,7 @@ from tests.support.distribution_fixtures import write_synthetic_distribution_inp
 pytestmark = pytest.mark.repo_check
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+LICENSE_SHA256 = "fe2e2a565cd69c8440a51d72816c893cdadf8e1a9522bb3a88f938c70b7c7dfd"
 
 DATA_LIKE_SUFFIXES = {
     ".csv",
@@ -159,6 +161,10 @@ def _indexed_bytes(relative_path: str) -> bytes:
     return completed.stdout
 
 
+def _compact(text: str) -> str:
+    return " ".join(text.split())
+
+
 def test_tracked_data_like_files_match_the_reviewed_allowlist() -> None:
     actual = {
         name
@@ -213,18 +219,66 @@ def test_reviewed_resolution_attestation_is_operator_local() -> None:
 
 def test_distribution_notices_and_package_scope_are_explicit() -> None:
     notices = (REPO_ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+    license_bytes = (REPO_ROOT / "LICENSE").read_bytes()
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    contributing = (REPO_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    security = (REPO_ROOT / "SECURITY.md").read_text(encoding="utf-8")
+    conduct = (REPO_ROOT / "CODE_OF_CONDUCT.md").read_text(encoding="utf-8")
+    data_dictionary = (REPO_ROOT / "docs/reference/data-dictionary.md").read_text(
+        encoding="utf-8"
+    )
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
     fixtures = (REPO_ROOT / "tests/fixtures/README.md").read_text(encoding="utf-8")
     seeds = (REPO_ROOT / "dbt/seeds/README.md").read_text(encoding="utf-8")
+    public_scope = "\n".join(
+        (
+            notices,
+            readme,
+            contributing,
+            security,
+            conduct,
+            data_dictionary,
+        )
+    )
+    compact_notices = _compact(notices)
 
-    assert "Hypertrial is a project name, not a legal entity" in notices
-    assert "contain no production datasets" in notices
+    assert hashlib.sha256(license_bytes).hexdigest() == LICENSE_SHA256
+    assert (
+        "Hypertrial owns and licenses the existing first-party software and "
+        "associated documentation"
+    ) in compact_notices
+    assert (
+        "Hypertrial develops, tests, researches, and validates OddsFox Pipeline "
+        "locally. Hypertrial does not operate continuous live ingestion, a hosted "
+        "production pipeline, or a hosted data service."
+    ) in compact_notices
+    assert (
+        "does not modify or restrict any permission in the MIT License"
+        in compact_notices
+    )
+    assert "not a legal entity" not in public_scope
+    assert "not licensed for production" not in public_scope.casefold()
+    assert "no bundled production datasets or operator data" in notices
+    assert "independently written implementation" in notices
+    assert "No source code from" in notices
+    assert "BUSL-1.1" in notices
+    assert "independently written from publicly observable" in data_dictionary
+    assert (
+        "contributors retain copyright in their contributions"
+        in contributing.casefold()
+    )
+    assert "CC BY 4.0" in conduct
+    assert "public endpoints, public blockchain state" in compact_notices
+    assert "not affiliated with, sponsored by, or endorsed" in compact_notices
     assert "No third-party material is relicensed" in notices
     assert "OddsFox name, logo, favicon" in notices
+    assert "GitHub Private Vulnerability Reporting" in security
+    assert "standard security contact process" not in security
     assert 'license = "MIT"' in pyproject
     assert 'license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]' in pyproject
     assert "LICENSE THIRD_PARTY_NOTICES.md" in dockerfile
+    assert "third-party components retain their licences" in dockerfile
     assert "synthetic, Hypertrial-authored inputs" in fixtures
     assert "Header-only schema shells" in seeds
     assert (REPO_ROOT / "docs/assets/fonts/INTER-OFL.txt").is_file()

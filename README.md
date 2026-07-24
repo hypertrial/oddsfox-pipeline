@@ -6,8 +6,9 @@
 
 OddsFox Pipeline is MIT-licensed, local-first batch data-pipeline software for
 prediction-market analytics. The canonical repository, source archives, Python
-packages, documentation, and newly published images contain no production
-datasets. Operators supply and control their own source data.
+packages, documentation, and newly published images contain no bundled
+production datasets or operator data. Operators supply and control their own
+source data.
 
 It uses Dagster to orchestrate dlt/CSV ingestion, canonical Parquet snapshot
 loading, DuckDB storage, Python sync ledgers, and dbt analytics models. The
@@ -17,10 +18,11 @@ Optional inputs are accepted only through the canonical raw snapshot contract.
 Existing local warehouses from older layouts must
 be reset with `rm oddsfox.duckdb*`.
 
-Hypertrial is a project name, not a legal entity. MIT applies to
-Hypertrial-authored software and associated documentation; operator data,
-third-party fonts and dependencies, and OddsFox visual marks are outside that
-grant. See [Third-Party Notices](THIRD_PARTY_NOTICES.md).
+Hypertrial owns and licenses the existing first-party software and
+documentation under MIT. Hypertrial operates no continuous live ingestion,
+hosted production pipeline, or hosted data service. This operational statement
+does not restrict recipients' MIT rights. See
+[Third-Party Notices](THIRD_PARTY_NOTICES.md) for the authoritative scope.
 
 ## Project Scope
 

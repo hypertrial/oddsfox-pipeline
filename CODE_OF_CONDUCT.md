@@ -61,7 +61,7 @@ representative at an online or offline event.
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement at
 **GitHub Private Vulnerability Reporting** on this repository (Security tab),
-or through the maintainer contact described in [SECURITY.md](SECURITY.md).
+as described in [SECURITY.md](SECURITY.md).
 
 All complaints will be reviewed and investigated promptly and fairly.
 
@@ -119,6 +119,8 @@ the community.
 This Code of Conduct is adapted from the [Contributor Covenant][homepage],
 version 2.1, available at
 [https://www.contributor-covenant.org/version/2/1/code_of_conduct.html][v2.1].
+Contributor Covenant 2.1 is licensed under
+[Creative Commons Attribution 4.0 International][CC BY 4.0].
 
 Community Impact Guidelines were inspired by
 [Mozilla's code of conduct enforcement ladder][Mozilla CoC].
@@ -129,6 +131,7 @@ For answers to common questions about this code of conduct, see the FAQ at
 
 [homepage]: https://www.contributor-covenant.org
 [v2.1]: https://www.contributor-covenant.org/version/2/1/code_of_conduct.html
+[CC BY 4.0]: https://github.com/EthicalSource/contributor_covenant/blob/2.1/LICENSE.md
 [Mozilla CoC]: https://github.com/mozilla/diversity
 [FAQ]: https://www.contributor-covenant.org/faq
 [translations]: https://www.contributor-covenant.org/translations

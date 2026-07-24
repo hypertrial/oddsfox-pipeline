@@ -8,6 +8,11 @@ technical CSV dossier from it entirely offline. It does not host datasets or
 upload outputs. Trade execution is a separate concern owned by
 `oddsfox-execution`.
 
+Hypertrial owns and licenses the first-party project under MIT and operates no
+continuous live ingestion, hosted production pipeline, or hosted data service.
+See the
+[authoritative licence scope](https://github.com/hypertrial/oddsfox-pipeline/blob/main/THIRD_PARTY_NOTICES.md).
+
 ```text
 Public sources and private canonical snapshots
   -> oddsfox-pipeline: DuckDB warehouse and wc2026.v1 dbt marts

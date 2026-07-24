@@ -89,7 +89,7 @@ def test_dbt_project_sources_are_wc2026_only():
 def test_dbt_project_version():
     text = (Path(__file__).resolve().parents[2] / "dbt" / "dbt_project.yml").read_text()
 
-    assert "version: 0.1.7" in text
+    assert "version: 0.1.8" in text
     assert "profile: oddsfox" in text
 
 

@@ -1,8 +1,11 @@
 # AGENTS.md
 
 OddsFox Pipeline is MIT-licensed, local-first prediction-market pipeline
-software. The canonical repository and its release artifacts contain no
-production datasets; operators supply and control their own data.
+software owned and licensed by Hypertrial. The canonical repository and its
+release artifacts contain no bundled production datasets or operator data.
+Hypertrial operates no hosted production pipeline or data service; operators
+supply and control their own data. `THIRD_PARTY_NOTICES.md` is the authoritative
+scope statement.
 Version `0.1.x` ships a WC2026 Polymarket pipeline for FIFA World Cup
 2026 markets and odds, a Kalshi WC2026 pipeline for stage, group-winner, and
 match-advance markets, a standardized cross-platform knockout match mart, plus
