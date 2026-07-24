@@ -139,7 +139,11 @@ def test_homepage_uses_parsed_markdown_and_operator_actions():
     assert 'class="of-hero" markdown' in homepage
     assert "[Get started](getting-started/index.md)" in homepage
     assert "[Query the warehouse](guides/query-the-warehouse.md)" in homepage
-    assert homepage.count('class="of-task-card"') == 3
+    assert homepage.count('class="of-task-card"') == 4
+    assert "audiences/analysts.md" in homepage
+    assert "audiences/operators.md" in homepage
+    assert "audiences/contributors.md" in homepage
+    assert "audiences/integrators.md" in homepage
     assert "of-brand-lockup" not in homepage
     assert "of-badges" not in homepage
     assert "of-capability-grid" not in homepage

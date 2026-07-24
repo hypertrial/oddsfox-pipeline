@@ -1,38 +1,46 @@
 # Analyst Guide
 
 Use this page when you want to query OddsFox Pipeline data, not operate it.
-OddsFox Pipeline ships code and local warehouse tooling, not a hosted dataset. Analysts
-query the DuckDB file produced by a local or self-managed run.
+OddsFox Pipeline ships code and local warehouse tooling, not a hosted dataset.
+Analysts query the DuckDB file produced by a local or self-managed run. For the
+full analyst map, start with [Analysts](../audiences/analysts.md). Term
+definitions live in the [Glossary](../concepts/glossary.md).
 
 ## Shortest Path
 
-If a populated warehouse already exists, open it directly:
+=== "I already have a warehouse"
 
-```bash
-duckdb oddsfox.duckdb
-```
+    Open it directly:
 
-The default warehouse is `oddsfox.duckdb` in the repo root. If `.env` sets
-`DUCKDB_PATH`, query that file instead. See
-[Configuration](../reference/configuration.md)
-for path precedence.
+    ```bash
+    duckdb oddsfox.duckdb
+    ```
 
-For a fresh local run:
+    The default warehouse is `oddsfox.duckdb` in the repo root. If `.env` sets
+    `DUCKDB_PATH`, query that file instead. See
+    [Configuration](../reference/configuration.md)
+    for path precedence. Prefer `read_only=True` in Python notebooks.
 
-```bash
-uv sync --extra dev
-cp .env.example .env
-uv run python scripts/run_scope.py polymarket:wc2026 --step full
-```
+=== "I need a warehouse first"
 
-Optional shipped scopes are:
+    Ask an operator to run a scope, or run one yourself:
 
-```bash
-uv run python scripts/run_scope.py kalshi:wc2026 --step full
-uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step full
-```
+    ```bash
+    uv sync --extra dev
+    cp .env.example .env
+    uv run python scripts/run_scope.py polymarket:wc2026 --step full
+    ```
 
-Use [Quickstart](../getting-started/index.md) if you need the full operator path.
+    Optional shipped scopes:
+
+    ```bash
+    uv run python scripts/run_scope.py kalshi:wc2026 --step full
+    uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step full
+    ```
+
+    Use [Quickstart](../getting-started/index.md) for the full operator path.
+    Polygon settlement history is optional and advanced; ordinary mart queries
+    do not need it.
 
 ## Query Rules
 
@@ -76,16 +84,18 @@ running Dagster/dbt writer.
 | Goal | Start Here | Notes |
 | --- | --- | --- |
 | Current WC2026 Polymarket progression prices | `polymarket_wc2026_marts.polymarket_wc2026_knockout_markets` | Filter to `is_actionable_live_market` for current live use. |
-| WC2026 finalized Polygon settlement minutes | `polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds` | Fixed 150/210-minute scheduled windows; empty sides remain null, and fill counts are normalized economic legs. |
 | WC2026 Polymarket progression hourly series | `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` | One row per `clob_token_id`, `odds_hour_epoch`. Prices are normalized to progression. |
 | WC2026 graph or both-token analysis | `polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds` | Keeps Yes and No tokens with `is_progression_token`. |
-| WC2026 fixtures and results | `international_results_wc2026_marts.international_results_wc2026_matches` | One row per match, with knockout advancer inference. |
+| Cross-platform knockout match hours | `wc2026_marts.wc2026_knockout_match_hourly_odds` | Compare Polymarket and Kalshi match-advance closes. |
+| WC2026 in-game match minutes | `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds` | Dense minute series for all 104 matches; requires the match-minute path, not ordinary hourly ingest alone. |
+| WC2026 fixtures and results | `international_results_wc2026_marts.international_results_wc2026_matches` | One row per `match_id`, with knockout advancer inference. |
 | WC2026 team status | `international_results_wc2026_marts.international_results_wc2026_team_status` | Join on `canonical_team_name` or `team_name`. |
 | Current Kalshi stage prices | `kalshi_wc2026_marts.kalshi_wc2026_stage_markets` | Filter to `is_actionable_live_market`. |
 | Kalshi stage hourly series | `kalshi_wc2026_marts.kalshi_wc2026_stage_market_hourly_odds` | Use `progression_*_price` for stage progression semantics. |
 | Current Kalshi group-winner prices | `kalshi_wc2026_marts.kalshi_wc2026_group_winner_markets` | Use `group_winner_price`. |
 | Kalshi group-winner hourly series | `kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds` | One row per `market_ticker`, `odds_hour_epoch`. |
 | US midterms Polymarket hourly odds | `polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds` | Balance of Power combos are independent binary markets. |
+| WC2026 finalized Polygon settlement minutes (advanced) | `polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds` | Fixed 150/210-minute scheduled windows; empty sides remain null; fill counts are normalized economic legs. |
 
 ## Trust Before Analysis
 

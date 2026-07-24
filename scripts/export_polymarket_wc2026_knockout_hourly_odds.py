@@ -27,10 +27,6 @@ MART_SCHEMA: Final = POLYMARKET_WC2026_MARTS_SCHEMA
 MART_NAME: Final = "polymarket_wc2026_knockout_token_hourly_odds"
 
 
-def _qualified_name() -> str:
-    return qualified_mart_name(MART_SCHEMA, MART_NAME)
-
-
 def mart_exists(conn: duckdb.DuckDBPyConnection) -> bool:
     return _mart_exists(conn, MART_SCHEMA, MART_NAME)
 
@@ -44,7 +40,7 @@ def export_polymarket_wc2026_knockout_hourly_odds(
 ) -> int:
     if not mart_exists(conn):
         raise LookupError(f"Missing {MART_SCHEMA}.{MART_NAME}. Run dbt build first.")
-    rel = _qualified_name()
+    rel = qualified_mart_name(MART_SCHEMA, MART_NAME)
     filters: list[str] = []
     if live_only:
         filters.append("is_live_market = true")

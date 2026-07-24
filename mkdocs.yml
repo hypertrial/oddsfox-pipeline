@@ -65,6 +65,11 @@ extra:
 
 nav:
   - Home: index.md
+  - Audiences:
+      - Analysts: audiences/analysts.md
+      - Operators: audiences/operators.md
+      - Contributors: audiences/contributors.md
+      - Integrators: audiences/integrators.md
   - Get started:
       - Quickstart: getting-started/index.md
       - Choose a scope: getting-started/choose-a-scope.md
@@ -72,9 +77,11 @@ nav:
       - Run a scope: guides/run-a-scope.md
       - Query the warehouse: guides/query-the-warehouse.md
       - Query recipes: guides/query-recipes.md
+      - Day-two operations: guides/day-two-operations.md
       - Recreate local marts: guides/recreate-local-marts.md
       - Enable schedules: guides/enable-schedules.md
       - Validate and recover: guides/validate-and-recover.md
+      - Docker image: guides/docker-image.md
       - Troubleshooting: guides/troubleshooting.md
   - Reference:
       - Configuration: reference/configuration.md
@@ -87,6 +94,11 @@ nav:
   - Concepts:
       - System overview: concepts/system-overview.md
       - Architecture: concepts/architecture.md
+      - Scope and non-goals: concepts/scope-and-non-goals.md
+      - FAQ: concepts/faq.md
+      - Glossary: concepts/glossary.md
+      - Design decisions: concepts/decisions.md
+      - Integration: concepts/integration.md
   - Development:
       - Development guide: development/index.md
       - Community: development/community.md

@@ -1,9 +1,11 @@
 # Development
 
 Use this page when changing code, dbt models, docs, or orchestration behavior.
-OddsFox Pipeline is a prediction-market pipeline; v0.1.x development touches the WC2026 and
-US midterms 2026 Polymarket adapters, marts, and orchestration. For operator
-setup, start with [Quickstart](../getting-started/index.md).
+OddsFox Pipeline is a prediction-market pipeline; v0.1.x development touches the
+Polymarket WC2026 and US midterms 2026 adapters, Kalshi WC2026, marts, and
+orchestration. For a short contributor map, start with
+[Contributors](../audiences/contributors.md). For operator setup, start with
+[Quickstart](../getting-started/index.md).
 
 ## Repo Layout
 
@@ -31,60 +33,32 @@ POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
-For documentation work, install Chromium once and leave the live-reload server
-running while you edit:
+For documentation work, install Chromium once into the Makefile runtime browser
+cache, then leave the live-reload server running while you edit:
 
 ```bash
-uv run playwright install chromium
+uv run make runtime-dirs
+PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/runtime/ms-playwright" \
+  uv run playwright install chromium
 uv run make docs-serve
 ```
 
 Open `http://127.0.0.1:8000`. MkDocs rebuilds and refreshes the page after each
 saved documentation, stylesheet, or configuration change; no restart is needed.
 
-## Quality Gate
+## Which Quality Gate?
 
-Run the full local release checks. The canonical command list lives in
-[AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md)
-and [CONTRIBUTING.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CONTRIBUTING.md#quality-gate).
+| Change | Gate |
+| --- | --- |
+| Docs, styles, or `mkdocs.yml` only | `uv run make docs-check` |
+| Ordinary code or test PR | `uv run make ci-fast` |
+| Dependency, Docker, Dagster, dbt, or data-quality changes; pre-release | `uv run make release-gate` |
+| Live network acceptance (local only) | `live-smoke`, `match-minute-live-smoke`, or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
 
-`dagster-jobs-smoke` executes every registered public Dagster job with
-deterministic temp resources, mocked external APIs, and no `dagster-dev`
-server. `integration-dagster` includes that check plus deeper seeded Dagster
-smokes. `coverage` enforces 100% branch coverage for product-core package code;
-warehouse profiling helpers are smoke-tested instead. Local gates run their
-Make targets sequentially. GitHub Actions parallelizes the equivalent compact
-offline gate across eight-minute `static-docs`, `tests`, and `dbt` workers,
-then reports the stable `fast-gate` aggregate. Fast tests use xdist; replay
-contracts and DuckDB, Dagster, dbt integration, and browser suites remain
-serial. The manual workflow parallelizes coverage, dbt/data quality, and
-static/docs/container groups behind `full-gate`. Run the complete gate locally
-before a release.
-
-The deterministic trust checks are separate from live ingestion. `dbt-unit`
-exercises high-risk SQL branches with dbt unit tests, `golden-dbt` compares
-public mart rows against exact fixtures, `dbt-source-freshness-ci` seeds current
-loaded-at rows before `dbt source freshness`, and `gx-data-quality` writes a
-local Great Expectations report under `.cache/` after `dbt-build-ci` has already
-created the disposable warehouse. `data-quality` remains the safe local wrapper
-that rebuilds first. `contract-http` replays sanitized HTTP cassettes in the
-fast GitHub gate; the default `make test` command excludes the `contract` marker.
-`live-smoke` is also opt-in: it runs the combined WC2026 public-source job with
-a smoke-only 24-hour odds window, no historical backfill, and the normal
-Polymarket volume floor. Production job defaults are unchanged. Live ingestion
-is local-only and must not run in GitHub Actions.
-`match-minute-live-smoke` is the disposable, opt-in acceptance smoke for the
-completed-match minute backfill. It rebuilds `.cache/match_minute_live_smoke.duckdb`
-and fails unless the quality model reports exactly 104 games, 248 markets (216
-group and 32 knockout), 496 tokens, one valid results revision/hash, 496
-successful published fetch audits, zero structural issue rows, and no blocking
-issue. Warning counts are intentionally not pinned.
-`dbt-polygon-settlement-ci` is the network-free gate for the isolated Polygon
-graph: it creates complete synthetic seed/scan/chunk/fill fixtures, runs only
-`tag:polygon_settlement`, and asserts the exact 39,120-row mart. The ordinary
-`dbt-build` excludes that tag. `polygon-settlement-live-smoke` is separately
-opt-in and requires a finalized-capable Polygon RPC; neither Polygon job has a
-schedule.
+The canonical Make target tables, Costguard install, coverage rules, and
+no-legacy policy live in
+[AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md).
+Do not duplicate those tables here.
 
 All Make child processes use `.cache/runtime/` for temporary files, uv/XDG and
 browser caches, Python bytecode, and dbt output. Polygon and local mart rebuild
@@ -105,6 +79,34 @@ measured dbt debt, not automatic materialization work. Before changing dbt
 materializations or adding incremental models, capture the failing advisory,
 dbt build runtime, and warehouse/profile size evidence that justifies the
 change.
+
+## Add A Market Adapter
+
+1. Keep the pipeline local-first and operator-owned; do not assume hosted data.
+2. Add fetch/sync code under `src/oddsfox_pipeline` with rate-limit and ownership
+   notes in docs/config examples.
+3. Wire Dagster assets/jobs with source-first asset keys; register jobs in the
+   existing orchestration surface.
+4. Add unit and orchestration tests; mark live network checks local-only.
+5. Update configuration examples, [Choose a scope](../getting-started/choose-a-scope.md)
+   or runbooks when operator behavior changes, and
+   [Data contracts](../reference/data-contracts.md) / the
+   [Data dictionary](../reference/data-dictionary.md) when public marts change.
+6. Run the gate tree above, then the broader targets listed in AGENTS.md.
+
+## Add A Public Mart
+
+1. Add dbt models under the correct source-first schema layers and tags.
+2. Define grain, null policy, and intended use in
+   [Data contracts](../reference/data-contracts.md) and the
+   [Data dictionary](../reference/data-dictionary.md).
+3. Add dbt unit tests and, for stable public shapes, golden fixtures.
+4. Expose the mart through existing Dagster dbt selectors/jobs; do not invent a
+   runtime scope selector.
+5. Add or update query guidance in
+   [Query the warehouse](../guides/query-the-warehouse.md) when analysts need a
+   new starting table.
+6. Run `dbt-unit` / `golden-dbt` as relevant, then `ci-fast` or `release-gate`.
 
 ## dbt Materialization Debt
 

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Documented audience hubs (analysts, operators, contributors, integrators),
+  FAQ, glossary, scope and non-goals, design decisions, integration guidance,
+  day-two operations, and the signed Docker image as an advanced path.
+
+### Changed
+
+- Reshaped the docs site and README toward progressive disclosure: thinner
+  README portal, quality-gate SSOT in `AGENTS.md`, contributor checklists in the
+  Development guide, and Polygon settlement framed as optional/advanced.
+- Reordered the analyst data dictionary so common WC2026 marts lead and the
+  Polygon settlement mart follows.
+
 ### Fixed
 
 - Corrected the pinned Neg Risk adapter provenance notice: its repository

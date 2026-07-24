@@ -293,7 +293,9 @@ MIT-licensed project data. See `THIRD_PARTY_NOTICES.md`.
 
 ## Further reading
 
-- [OddsFox Pipeline docs](docs/index.md) — overview, runbooks, warehouse, troubleshooting
+- [OddsFox Pipeline docs](docs/index.md) — overview, audience hubs, runbooks
+- [Contributors hub](docs/audiences/contributors.md) and
+  [Integration](docs/concepts/integration.md) — human docs entry points
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contributor and release workflow
 - [Orchestration](docs/reference/orchestration.md) — assets, jobs, and schedules
 - [Configuration](docs/reference/configuration.md) — `.env` reference

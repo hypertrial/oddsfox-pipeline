@@ -32,6 +32,7 @@ Confirm these values in `.env`:
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED=false
 ```
 
 Kalshi uses the public trade API. Polymarket CLOB credentials are optional
@@ -60,9 +61,14 @@ uv run make dbt-build
 
 The ordinary build intentionally excludes the manual
 `tag:polygon_settlement` graph, so no Polygon RPC configuration is needed for
-quickstart. Validate that graph offline with
-`uv run make dbt-polygon-settlement-ci`; run its live backfill only when you
-explicitly want the historical settlement dataset.
+quickstart.
+
+!!! note "Advanced: Polygon settlement history"
+
+    Polygon settlement is an optional isolated historical flow, not part of this
+    first run. Validate it offline with `uv run make dbt-polygon-settlement-ci`,
+    or follow [Recreate local marts](../guides/recreate-local-marts.md) when you
+    explicitly want that dataset.
 
 ## Run the first pipeline
 
@@ -94,6 +100,7 @@ The first run should create `oddsfox.duckdb`, complete
 `polymarket_wc2026_full_pipeline`, and build relations under
 `polymarket_wc2026_marts` and `international_results_wc2026_marts`.
 
-Next, [choose another shipped scope](choose-a-scope.md),
+Next, return to the [Operators](../audiences/operators.md) hub,
+[choose another shipped scope](choose-a-scope.md),
 [query the warehouse](../guides/query-the-warehouse.md), or
 [validate and recover a run](../guides/validate-and-recover.md).

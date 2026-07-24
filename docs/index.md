@@ -16,7 +16,7 @@ Build inspectable local prediction-market warehouses with Dagster, dlt,
 DuckDB, dbt, and Python.
 
 Hypertrial-owned MIT software. No hosted service or bundled production data.
-[Licence scope](https://github.com/hypertrial/oddsfox-pipeline/blob/main/THIRD_PARTY_NOTICES.md).
+[Licence scope](concepts/scope-and-non-goals.md).
 
 [Get started](getting-started/index.md){ .md-button .md-button--primary }
 [Query the warehouse](guides/query-the-warehouse.md){ .md-button }
@@ -46,34 +46,44 @@ uv sync --extra dev
 
 <article class="of-task-card" markdown>
 
-### Run the pipeline
-
-Install the project, keep schedules disabled, and complete a validated
-Polymarket WC2026 run.
-
-[Follow the quickstart](getting-started/index.md)
-
-</article>
-
-<article class="of-task-card" markdown>
-
 ### Analyze the data
 
-Open the local DuckDB warehouse, find the supported marts, and start from
-tested SQL and Python examples.
+Open a local DuckDB warehouse, pick a public mart, and start from tested SQL
+and Python examples.
 
-[Query the warehouse](guides/query-the-warehouse.md)
+[Analysts hub](audiences/analysts.md)
 
 </article>
 
 <article class="of-task-card" markdown>
 
-### Operate and deploy
+### Operate the pipeline
 
-Run fixed scopes, validate freshness, recover failed jobs, or publish portable
-graph artifacts for offline analysis.
+Install the project, keep schedules disabled, complete a validated scope run,
+then keep the warehouse healthy.
 
-[Open the operator guides](guides/run-a-scope.md)
+[Operators hub](audiences/operators.md)
+
+</article>
+
+<article class="of-task-card" markdown>
+
+### Contribute code
+
+Change adapters, dbt marts, orchestration, or docs with the right quality gate.
+
+[Contributors hub](audiences/contributors.md)
+
+</article>
+
+<article class="of-task-card" markdown>
+
+### Integrate downstream
+
+Consume `wc2026.v1` marts and graph parquet without treating pipeline output as
+execution.
+
+[Integrators hub](audiences/integrators.md)
 
 </article>
 
@@ -83,12 +93,15 @@ graph artifacts for offline analysis.
 
 Version `0.1.x` supports Polymarket FIFA World Cup 2026 and US midterms 2026
 pipelines, Kalshi WC2026 stage, group-winner, and exact match-advance markets,
-a standardized cross-platform knockout match mart, an isolated finalized
-Polygon WC2026 settlement-history mart with internal-audit and operator-local
-technical-export paths, and FIFA fixture/results ingestion for identity and
-real-team validation.
+a standardized cross-platform knockout match mart, and FIFA fixture/results
+ingestion for identity and real-team validation.
+
+An isolated finalized Polygon WC2026 settlement-history mart with internal-audit
+and operator-local technical-export paths is optional and advanced; it is not
+required for ordinary odds analysis.
 
 This site is software documentation and does not host datasets.
 
-[Choose a scope](getting-started/choose-a-scope.md) or read the
+[Choose a scope](getting-started/choose-a-scope.md), read the
+[FAQ](concepts/faq.md), or review the
 [architecture](concepts/architecture.md) before extending the pipeline.

@@ -5,22 +5,25 @@ and dbt jobs complete successfully against the intended warehouse.
 
 ## Available schedules
 
-| Schedule | Target job |
-| --- | --- |
-| `polymarket_wc2026_hourly_odds_schedule` | `polymarket_wc2026_hourly_odds_ingest` |
-| `polymarket_us_midterms_2026_hourly_odds_schedule` | `polymarket_us_midterms_2026_hourly_odds_ingest` |
-| `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` |
+| Schedule | Target job | `.env` flag |
+| --- | --- | --- |
+| `polymarket_wc2026_hourly_odds_schedule` | `polymarket_wc2026_hourly_odds_ingest` | `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED` |
+| `polymarket_us_midterms_2026_hourly_odds_schedule` | `polymarket_us_midterms_2026_hourly_odds_ingest` | `POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED` |
+| `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED` |
+| `wc2026_knockout_match_odds_hourly_schedule` | `wc2026_knockout_match_odds_full_pipeline` | `WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED` |
 
-All three use hourly fidelity (`fidelity=60`) and are stopped by default.
+The first three use hourly fidelity (`fidelity=60`). All four are stopped by
+default. Polygon settlement jobs remain unscheduled.
 
 ## Enable one source
 
-Change only the required `.env` value:
+Change only the required `.env` value. Example for Polymarket WC2026 only:
 
 ```dotenv
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=true
 POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED=false
 ```
 
 Restart `uv run make dagster-dev` after changing schedule configuration, then

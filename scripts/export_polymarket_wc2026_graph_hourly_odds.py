@@ -27,10 +27,6 @@ MART_SCHEMA: Final = POLYMARKET_WC2026_MARTS_SCHEMA
 MART_NAME: Final = "polymarket_wc2026_graph_token_hourly_odds"
 
 
-def _qualified_name() -> str:
-    return qualified_mart_name(MART_SCHEMA, MART_NAME)
-
-
 def mart_exists(conn: duckdb.DuckDBPyConnection) -> bool:
     return _mart_exists(conn, MART_SCHEMA, MART_NAME)
 
@@ -43,7 +39,7 @@ def export_polymarket_wc2026_graph_hourly_odds(
         raise LookupError(f"Missing {MART_SCHEMA}.{MART_NAME}. Run dbt build first.")
     output_path = output_path.resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    rel = _qualified_name()
+    rel = qualified_mart_name(MART_SCHEMA, MART_NAME)
     conn.execute(
         f"copy (select * from {rel}) to ? (format parquet)", [str(output_path)]
     )

@@ -14,10 +14,12 @@ cp .env.example .env
 ```
 
 Documentation contributors should also install the browser used by the
-responsive docs smoke tests:
+responsive docs smoke tests into the Makefile runtime cache:
 
 ```bash
-uv run playwright install chromium
+uv run make runtime-dirs
+PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/runtime/ms-playwright" \
+  uv run playwright install chromium
 ```
 
 The default warehouse is `oddsfox.duckdb` in the repo root. Keep schedules disabled in local dev and CI unless you intentionally run live ingestion:
@@ -65,45 +67,17 @@ If you use Cursor, [Ponytail](https://github.com/DietrichGebert/ponytail) loads 
 
 ## Quality gate
 
-Run the fast offline gate before an ordinary push:
+| Change | Gate |
+| --- | --- |
+| Docs / MkDocs only | `uv run make docs-check` |
+| Ordinary PR | `uv run make ci-fast` |
+| Dependency, Docker, Dagster, dbt, data-quality, or pre-release | `uv run make release-gate` |
+| Live network acceptance | Local-only smokes; never add to GitHub Actions |
 
-```bash
-uv run make ci-fast
-```
-
-Run the full local gate before releases and after dependency, Docker, Dagster,
-dbt, or data-quality changes:
-
-```bash
-uv run make release-gate
-```
-
-The full gate includes 100% branch coverage, the isolated replay-backed Polygon
-settlement graph and exact 39,120-row contract, Costguard, and a non-root
-container smoke that requires Docker. For narrower local runs, `make test`,
-`make integration-dagster`, `make integration-dbt`, and `make coverage` remain
-available.
-
-Local gates run their Make targets sequentially. GitHub Actions runs the
-equivalent automatic content in parallel eight-minute `static-docs`, `tests`,
-and `dbt` workers, followed by the stable `fast-gate` aggregate. The workers
-cover Python and fail-closed dbt lint, repository policies, parallel fast
-tests, serial replay-only HTTP contracts, and a strict documentation build.
-The manual full workflow similarly parallelizes coverage, dbt/data quality,
-and static/docs/container validation behind `full-gate`. `dbt-build-ci`
-bootstraps a disposable DuckDB database under `.cache/` for the broader local
-gate. `live-smoke`, `match-minute-live-smoke`, and
-`polygon-settlement-live-smoke` perform public network requests and are
-local-only; they use disposable smoke configuration and must never be added to
-GitHub Actions.
-Costguard is a dbt/release guardrail, not an odds ingestion runtime dependency.
-Install the pinned local scanner with:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/install.sh | sh -s -- v2.5.0
-```
-
-Additional targets are available in the [Makefile](Makefile) (`unit-core`, `unit-ingest`, etc.).
+The canonical command tables, Costguard install, and layout guardrails live in
+[AGENTS.md](AGENTS.md). Contributor checklists and the same gate tree are in
+the [Development guide](docs/development/index.md) and
+[Contributors hub](docs/audiences/contributors.md).
 
 ## Versioning expectations
 

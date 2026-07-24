@@ -1,7 +1,9 @@
 # Run a scope
 
 Use `scripts/run_scope.py` to preview or execute the fixed Dagster jobs for one
-or more shipped scopes without navigating the Dagster UI.
+or more shipped scopes without navigating the Dagster UI. For the operator map,
+start with [Operators](../audiences/operators.md). Day-two cadence lives in
+[Day-two operations](day-two-operations.md).
 
 ## Inspect the command surface
 
@@ -71,7 +73,8 @@ uv run python -m dagster job execute \
   -j polymarket_wc2026_polygon_settlement_backfill
 ```
 
-This job reads the committed static market seed, scans finalized Polygon V2
+This job reads a complete operator-local market manifest at the tracked seed
+path (the committed file is a header-only shell), scans finalized Polygon V2
 logs, and builds only the dedicated `polygon_settlement` dbt ancestors. It does
 not refresh Gamma, CLOB, international-results, or OpenFootball. For a
 disposable warehouse plus exact 39,120-row assertion, use
