@@ -220,7 +220,6 @@ def test_reviewed_resolution_attestation_is_operator_local() -> None:
 def test_distribution_notices_and_package_scope_are_explicit() -> None:
     notices = (REPO_ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
     license_bytes = (REPO_ROOT / "LICENSE").read_bytes()
-    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
     contributing = (REPO_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     security = (REPO_ROOT / "SECURITY.md").read_text(encoding="utf-8")
     conduct = (REPO_ROOT / "CODE_OF_CONDUCT.md").read_text(encoding="utf-8")
@@ -231,16 +230,6 @@ def test_distribution_notices_and_package_scope_are_explicit() -> None:
     dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
     fixtures = (REPO_ROOT / "tests/fixtures/README.md").read_text(encoding="utf-8")
     seeds = (REPO_ROOT / "dbt/seeds/README.md").read_text(encoding="utf-8")
-    public_scope = "\n".join(
-        (
-            notices,
-            readme,
-            contributing,
-            security,
-            conduct,
-            data_dictionary,
-        )
-    )
     compact_notices = _compact(notices)
 
     assert hashlib.sha256(license_bytes).hexdigest() == LICENSE_SHA256
@@ -257,13 +246,14 @@ def test_distribution_notices_and_package_scope_are_explicit() -> None:
         "does not modify or restrict any permission in the MIT License"
         in compact_notices
     )
-    assert "not a legal entity" not in public_scope
-    assert "not licensed for production" not in public_scope.casefold()
     assert "no bundled production datasets or operator data" in notices
     assert "independently written implementation" in notices
     assert "No source code from" in notices
     assert "BUSL-1.1" in notices
+    assert "pinned revision contains no licence file" in notices
+    assert "this notice infers no licence permission" in notices
     assert "independently written from publicly observable" in data_dictionary
+    assert "no licence permission is inferred" in data_dictionary
     assert (
         "contributors retain copyright in their contributions"
         in contributing.casefold()
@@ -283,6 +273,28 @@ def test_distribution_notices_and_package_scope_are_explicit() -> None:
     assert "Header-only schema shells" in seeds
     assert (REPO_ROOT / "docs/assets/fonts/INTER-OFL.txt").is_file()
     assert (REPO_ROOT / "docs/assets/fonts/JETBRAINS-MONO-OFL.txt").is_file()
+
+
+def test_tracked_tree_has_no_non_entity_or_production_use_restriction() -> None:
+    forbidden = (
+        ("not " + "a legal entity").encode(),
+        ("not licensed " + "for production").encode(),
+        ("non-production " + "use only").encode(),
+        ("production use " + "prohibited").encode(),
+    )
+    violations = []
+    for relative_path in _tracked_files():
+        path = REPO_ROOT / relative_path
+        if not path.is_file():
+            continue
+        content = path.read_bytes()
+        if b"\0" in content[:8192]:
+            continue
+        lowered = content.lower()
+        for phrase in forbidden:
+            if phrase in lowered:
+                violations.append(f"{relative_path}: {phrase.decode()}")
+    assert not violations, "\n".join(violations)
 
 
 def test_current_project_docs_do_not_frame_external_publication() -> None:

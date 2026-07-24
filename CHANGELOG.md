@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected the pinned Neg Risk adapter provenance notice: its repository
+  contains no licence file, so the project infers no licence permission.
+- Extended ownership and production-use wording enforcement across the complete
+  tracked tree.
+
 ## [0.1.8] - 2026-07-24
 
 ### Added

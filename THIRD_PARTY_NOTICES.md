@@ -66,8 +66,10 @@ The project references these independently governed upstream materials:
 - [Gnosis Conditional Tokens](https://github.com/gnosis/conditional-tokens-contracts/tree/eeefca66eb46c800a9aaab88db2064a99026fde5)
   interfaces under LGPL-3.0;
 - the [UMA CTF Adapter](https://github.com/Polymarket/uma-ctf-adapter/tree/8b76cc9e0d46c6f7450a0adb0ddc0f5b0568c9cc)
-  and [Neg Risk CTF Adapter](https://github.com/Polymarket/neg-risk-ctf-adapter/tree/f78b35b0863b4308a431ca307d06f49b2ea65e78)
-  interface sources under their upstream MIT notices; and
+  interface source under its upstream MIT notice;
+- the [Neg Risk CTF Adapter](https://github.com/Polymarket/neg-risk-ctf-adapter/tree/f78b35b0863b4308a431ca307d06f49b2ea65e78)
+  as interface provenance. That pinned revision contains no licence file, so
+  this notice infers no licence permission; and
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), adapted from
   [Contributor Covenant 2.1](https://github.com/EthicalSource/contributor_covenant/tree/2.1)
   under
