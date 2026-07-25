@@ -1,4 +1,4 @@
-.PHONY: ci-fast release-gate release-gate-core container-smoke container-smoke-run package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-lint dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality mutation mutation-ci contract-http live-smoke match-minute-live-smoke polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint python-lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-distribution check-secrets compact-warehouse prune-odds-history
+.PHONY: ci-fast release-gate release-gate-core container-smoke container-smoke-run package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-lint dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality mutation mutation-ci contract-http live-smoke match-minute-live-smoke polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate export-wc2026-elo-freezes costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint python-lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-cov integration-dagster integration-dagster-cov check-distribution check-secrets compact-warehouse prune-odds-history
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -221,6 +221,9 @@ polygon-settlement-release: polygon-runtime-dirs
 polygon-settlement-export:
 	@test -n "$(POLYGON_DATASET_VERSION)" || (echo "POLYGON_DATASET_VERSION is required" >&2; exit 2)
 	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_polymarket_wc2026_polygon_settlement_minute_odds.py --audit-release "$(POLYGON_AUDIT_OUTPUT_ROOT)/releases/$(POLYGON_DATASET_VERSION)" --output-root "$(POLYGON_EXPORT_OUTPUT_ROOT)"
+
+export-wc2026-elo-freezes:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_eloratings_wc2026_team_ratings_freezes.py
 
 local-marts-rebuild: runtime-dirs match-minute-inputs-validate polygon-settlement-seed-validate
 	@test -n "$(MATCH_MINUTE_REBUILD_DUCKDB_PATH)" || (echo "MATCH_MINUTE_REBUILD_DUCKDB_PATH is required" >&2; exit 2)

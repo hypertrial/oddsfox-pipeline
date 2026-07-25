@@ -240,6 +240,19 @@ def test_polygon_settlement_export_is_offline_and_reads_the_audit_release():
     assert "polygon-runtime-dirs" not in recipe
 
 
+def test_export_wc2026_elo_freezes_runs_the_freeze_script():
+    proc = subprocess.run(
+        ["make", "-n", "export-wc2026-elo-freezes"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    recipe = proc.stdout
+    assert "export_eloratings_wc2026_team_ratings_freezes.py" in recipe
+
+
 def test_runtime_and_temporary_storage_default_below_the_checkout():
     makefile = (REPO_ROOT / "Makefile").read_text()
 

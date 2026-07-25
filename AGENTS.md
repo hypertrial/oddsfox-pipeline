@@ -141,6 +141,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make polygon-settlement-seed-validate` | Validate an operator-local 248-proposition seed and resolution attestation |
 | `make polygon-settlement-release` | Build an immutable internal Polygon settlement audit bundle |
 | `make polygon-settlement-export` | Build an offline allowlisted technical export from an audit bundle |
+| `make export-wc2026-elo-freezes` | Export national-team Elo CSV freezes (year-end 2025 pre-kickoff + latest World scrape) |
 | `make costguard-scan` | Run the dbt cost guardrail against an existing dbt build |
 | `make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard |
 | `make dagster-dev` | Local Dagster UI |

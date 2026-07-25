@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `scripts/export_eloratings_wc2026_team_ratings_freezes.py` and
+  `make export-wc2026-elo-freezes` to export national-team Elo CSV freezes
+  (`pre_kickoff` = year-end 2025 history; `latest_current` = live World scrape)
+  under `artifacts/wc2026_elo_exports/`.
 - Added strict focused Mutmut coverage for outbound URL safety, raw snapshot
   contracts, Polymarket scope predicates, market persistence, and odds
   planning, enforced by ordinary policy tests plus local and manual full
