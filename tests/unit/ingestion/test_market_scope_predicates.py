@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -234,7 +236,9 @@ def test_is_market_scope_strict_excludes_unrelated_market():
     assert not is_market_scope_row(
         market_id="x",
         question="Premier League 2026",
+        category="sports",
         description="No world cup here",
+        slug="premier-league-2026",
         config=cfg,
     )
 
@@ -423,3 +427,453 @@ def test_predicate_helpers_cover_remaining_branches() -> None:
         seed_tags=(),
     )
     assert denied == []
+
+
+def test_resolve_market_scope_discovery_preserves_every_effective_option() -> None:
+    cfg = slug_only_cfg(
+        event_tags=("scope-tag",),
+        keyset_closed=False,
+        keyset_related_tags=False,
+        keyset_volume_min=3.5,
+        tag_discovery=False,
+        registry_max_event_pages=41,
+        tag_closure_rounds=2,
+        tag_crawl_max=17,
+    )
+
+    resolved = scope_predicates_mod.resolve_market_scope_discovery(
+        cfg,
+        max_pages=7,
+        max_pages_without_progress=11,
+        keyset_closed=True,
+        keyset_tag_slugs=(" Explicit-Tag ",),
+        keyset_related_tags=True,
+        keyset_volume_min=12.5,
+        tag_discovery=True,
+    )
+
+    assert resolved == scope_predicates_mod.ResolvedMarketScopeDiscovery(
+        keyset_closed=True,
+        keyset_related_tags=True,
+        keyset_volume_min=12.5,
+        keyset_tag_slugs=("explicit-tag",),
+        tag_discovery=True,
+        pass_page_cap=7,
+        total_page_budget=7,
+        max_pages_without_progress=11,
+        scope_tag_slugs=("scope-tag",),
+        scope_for_passes=("scope-tag",),
+        seed_tag_slugs=("scope-tag",),
+        max_closure_rounds=2,
+        max_crawl_tags=17,
+    )
+
+    uncapped = scope_predicates_mod.resolve_market_scope_discovery(
+        slug_only_cfg(
+            event_tags=(),
+            registry_max_event_pages=41,
+            keyset_volume_min=9.5,
+            tag_closure_rounds=-1,
+            tag_crawl_max=0,
+        ),
+        max_pages=None,
+        max_pages_without_progress=None,
+    )
+    assert uncapped.pass_page_cap == 41
+    assert uncapped.keyset_closed is False
+    assert uncapped.keyset_related_tags is False
+    assert uncapped.keyset_volume_min == 9.5
+    assert uncapped.scope_for_passes is None
+    assert uncapped.max_closure_rounds == 0
+    assert uncapped.max_crawl_tags is None
+    one = scope_predicates_mod.resolve_market_scope_discovery(
+        slug_only_cfg(tag_crawl_max=1),
+        max_pages=None,
+        max_pages_without_progress=None,
+    )
+    assert one.max_crawl_tags == 1
+
+
+def test_keyset_option_helpers_distinguish_explicit_false_and_zero() -> None:
+    cfg = slug_only_cfg(
+        keyset_closed=True,
+        keyset_related_tags=False,
+        keyset_volume_min=9.5,
+    )
+
+    assert scope_predicates_mod._resolve_keyset_closed(False, cfg) is False
+    assert scope_predicates_mod._resolve_keyset_closed(None, cfg) is True
+    assert scope_predicates_mod._resolve_keyset_closed(None, None) is None
+    assert scope_predicates_mod._resolve_keyset_related_tags(True, cfg) is True
+    assert scope_predicates_mod._resolve_keyset_related_tags(None, cfg) is False
+    assert scope_predicates_mod._resolve_keyset_related_tags(None, None) is True
+    assert scope_predicates_mod._resolve_keyset_volume_min(0.0, cfg) == 0.0
+    assert scope_predicates_mod._resolve_keyset_volume_min(None, cfg) == 9.5
+    assert scope_predicates_mod._resolve_keyset_volume_min(None, None) is None
+
+
+def test_crawl_tag_rules_normalize_each_collection_independently() -> None:
+    assert scope_predicates_mod._crawl_tag_allowed(
+        " SCOPE ",
+        scope_tags=(" scope ",),
+        seed_tags=(),
+        denylist=("scope",),
+    )
+    assert scope_predicates_mod._crawl_tag_allowed(
+        " SEED ",
+        scope_tags=(),
+        seed_tags=(" seed ",),
+        denylist=("seed",),
+    )
+    assert not scope_predicates_mod._crawl_tag_allowed(
+        " BLOCKED ",
+        scope_tags=(),
+        seed_tags=(),
+        denylist=(" blocked ",),
+        keyword_gate=False,
+    )
+    assert scope_predicates_mod._crawl_tag_allowed(
+        "anything",
+        scope_tags=(),
+        seed_tags=(),
+        denylist=(),
+        keyword_gate=False,
+    )
+    assert not scope_predicates_mod._crawl_tag_allowed(
+        "anything",
+        scope_tags=(),
+        seed_tags=(),
+        denylist=(),
+    )
+
+
+def test_filter_crawl_tags_passes_policy_and_logs_exact_rejection(
+    monkeypatch, caplog
+) -> None:
+    cfg = slug_only_cfg(
+        tag_crawl_denylist=("blocked",),
+        tag_closure_keyword_gate=True,
+        tag_discovery_keywords=("world",),
+    )
+    calls: list[tuple[object, ...]] = []
+
+    def allowed(slug, **kwargs):
+        calls.append((slug, kwargs))
+        return slug == "kept"
+
+    monkeypatch.setattr(scope_predicates_mod, "_crawl_tag_allowed", allowed)
+    caplog.set_level(logging.INFO, logger=scope_predicates_mod.__name__)
+
+    assert scope_predicates_mod._filter_crawl_tag_slugs(
+        ("kept", "blocked"),
+        scope_tags=("scope",),
+        seed_tags=("seed",),
+        config=cfg,
+    ) == ["kept"]
+    assert calls == [
+        (
+            "kept",
+            {
+                "scope_tags": ("scope",),
+                "seed_tags": ("seed",),
+                "denylist": ("blocked",),
+                "keyword_gate": True,
+                "keywords": ("world",),
+            },
+        ),
+        (
+            "blocked",
+            {
+                "scope_tags": ("scope",),
+                "seed_tags": ("seed",),
+                "denylist": ("blocked",),
+                "keyword_gate": True,
+                "keywords": ("world",),
+            },
+        ),
+    ]
+    assert caplog.messages == [
+        "Skipping market-scope crawl tag blocked (denylist or keyword gate)"
+    ]
+
+
+def test_event_predicates_reject_wrong_shapes_and_use_exact_inputs(monkeypatch) -> None:
+    cfg = slug_only_cfg(
+        event_slugs=("exact-event",),
+        event_slug_prefixes=("prefix-",),
+        event_tags=("scope-tag",),
+    )
+
+    assert not scope_predicates_mod.event_matches_scope_tags([], config=cfg)
+    assert not scope_predicates_mod.event_matches_scope_tags("event", config=cfg)
+    assert not scope_predicates_mod.event_matches_scope_tags(
+        {"tags": [{"slug": "scope-tag"}]},
+        config=slug_only_cfg(event_tags=()),
+    )
+    assert scope_predicates_mod.event_matches_scope_config(" EXACT-EVENT ", config=cfg)
+    assert scope_predicates_mod.event_matches_scope_config("PREFIX-child", config=cfg)
+    assert not scope_predicates_mod.event_matches_scope_config(None, config=cfg)
+    assert not scope_predicates_mod.event_in_scope([], config=cfg)
+    assert not scope_predicates_mod.event_in_scope("event", config=cfg)
+    assert scope_predicates_mod.event_in_scope(
+        {"slug": "unrelated"},
+        config=cfg,
+        keyset_tag_slug="scope-tag",
+    )
+    assert scope_predicates_mod.event_in_scope(
+        {"slug": " EXACT-EVENT "},
+        config=cfg,
+    )
+
+    calls: list[tuple[object, object, object]] = []
+
+    def matches_tags(event, *, config, scope_tag_slugs):
+        calls.append((event, config, scope_tag_slugs))
+        return False
+
+    monkeypatch.setattr(scope_predicates_mod, "event_matches_scope_tags", matches_tags)
+    event = {"slug": "unrelated"}
+    assert scope_predicates_mod.event_in_scope(
+        event,
+        config=cfg,
+        keyset_tag_slug="scope-tag",
+        keyset_related_tags=False,
+        scope_tag_slugs=("scope-tag",),
+    )
+    assert not scope_predicates_mod.event_in_scope(
+        event,
+        config=cfg,
+        keyset_tag_slug="other-tag",
+        keyset_related_tags=False,
+        scope_tag_slugs=("scope-tag",),
+    )
+    assert calls == [(event, cfg, ("scope-tag",))]
+
+
+def test_event_in_scope_forwards_normal_branch_arguments(monkeypatch) -> None:
+    cfg = slug_only_cfg(event_tags=("scope-tag",))
+    event = {"slug": "event-slug"}
+    config_calls: list[tuple[object, object]] = []
+    tag_calls: list[tuple[object, object, object]] = []
+
+    def matches_config(slug, *, config):
+        config_calls.append((slug, config))
+        return False
+
+    def matches_tags(candidate, *, config, scope_tag_slugs):
+        tag_calls.append((candidate, config, scope_tag_slugs))
+        return True
+
+    monkeypatch.setattr(
+        scope_predicates_mod, "event_matches_scope_config", matches_config
+    )
+    monkeypatch.setattr(scope_predicates_mod, "event_matches_scope_tags", matches_tags)
+
+    assert scope_predicates_mod.event_in_scope(
+        event,
+        config=cfg,
+        scope_tag_slugs=("explicit-scope",),
+    )
+    assert config_calls == [("event-slug", cfg)]
+    assert tag_calls == [(event, cfg, ("explicit-scope",))]
+
+
+def test_event_in_scope_does_not_invent_a_missing_slug() -> None:
+    cfg = slug_only_cfg(
+        event_slugs=(),
+        event_slug_prefixes=("x",),
+        event_tags=(),
+    )
+
+    assert not scope_predicates_mod.event_in_scope({"id": "event"}, config=cfg)
+
+
+def test_keyset_crawl_resolution_preserves_sources_calls_and_logs(
+    monkeypatch, caplog
+) -> None:
+    cfg = slug_only_cfg(
+        event_tags=("seed-tag",),
+        tag_discovery_keywords=("world",),
+        tag_discovery=True,
+    )
+    explicit = scope_predicates_mod.resolve_keyset_crawl_tags(
+        ("one", "two"),
+        config=cfg,
+        client=object(),
+        tag_discovery=True,
+    )
+    assert explicit == (
+        ["one", "two"],
+        {"one": {"explicit"}, "two": {"explicit"}},
+    )
+
+    seen: dict[str, object] = {}
+
+    def discover(client, *, seed_slugs, keywords):
+        seen.update(
+            client=client,
+            seed_slugs=seed_slugs,
+            keywords=keywords,
+        )
+        return SimpleNamespace(
+            tag_slugs=("seed-tag", "new-tag"),
+            sources={"new-tag": {"keyword"}},
+        )
+
+    client = object()
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.discover_market_scope_tag_slugs",
+        discover,
+    )
+    caplog.set_level(logging.INFO, logger=scope_predicates_mod.__name__)
+    resolved = scope_predicates_mod.resolve_keyset_crawl_tags(
+        None,
+        config=cfg,
+        client=client,
+        tag_discovery=True,
+    )
+    assert resolved == (
+        ["new-tag", "seed-tag"],
+        {"seed-tag": {"seed"}, "new-tag": {"keyword"}},
+    )
+    assert seen == {
+        "client": client,
+        "seed_slugs": ["seed-tag"],
+        "keywords": ("world",),
+    }
+    assert caplog.messages == [
+        "Market-scope tag discovery expanded crawl tags from ['seed-tag'] "
+        "to ['new-tag', 'seed-tag']"
+    ]
+    assert scope_predicates_mod.resolve_keyset_tag_slugs(
+        None,
+        config=cfg,
+        client=None,
+        tag_discovery=False,
+    ) == ["seed-tag"]
+
+
+def test_disabled_discovery_never_calls_client_discovery(monkeypatch) -> None:
+    calls = 0
+
+    def unexpected(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        raise AssertionError("discovery must stay disabled")
+
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.discover_market_scope_tag_slugs",
+        unexpected,
+    )
+
+    assert scope_predicates_mod.resolve_keyset_crawl_tags(
+        None,
+        config=slug_only_cfg(event_tags=("seed-tag",), tag_discovery=False),
+        client=object(),
+        tag_discovery=False,
+    ) == (["seed-tag"], {"seed-tag": {"seed"}})
+    assert calls == 0
+
+
+def test_keyset_tag_wrapper_forwards_every_argument(monkeypatch) -> None:
+    cfg = slug_only_cfg(event_tags=("seed-tag",))
+    client = object()
+    calls: list[tuple[object, object, object, object]] = []
+
+    def resolve(tags, *, config, client, tag_discovery):
+        calls.append((tags, config, client, tag_discovery))
+        return ["resolved"], {"resolved": {"test"}}
+
+    monkeypatch.setattr(scope_predicates_mod, "resolve_keyset_crawl_tags", resolve)
+
+    assert scope_predicates_mod.resolve_keyset_tag_slugs(
+        ("explicit",),
+        config=cfg,
+        client=client,
+        tag_discovery=True,
+    ) == ["resolved"]
+    assert calls == [(("explicit",), cfg, client, True)]
+
+
+def test_keyset_discovery_failure_log_is_operationally_complete(
+    monkeypatch, caplog
+) -> None:
+    def fail(*args, **kwargs):
+        raise RuntimeError("discovery down")
+
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.discover_market_scope_tag_slugs",
+        fail,
+    )
+    caplog.set_level(logging.WARNING, logger=scope_predicates_mod.__name__)
+
+    result = scope_predicates_mod.resolve_keyset_crawl_tags(
+        None,
+        config=slug_only_cfg(event_tags=("seed-tag",), tag_discovery=True),
+        client=object(),
+        tag_discovery=True,
+    )
+
+    assert result == (["seed-tag"], {"seed-tag": {"seed"}})
+    assert caplog.messages == [
+        "Market-scope tag discovery failed; using configured event_tags only"
+    ]
+    assert caplog.records[0].exc_info is not None
+
+
+def test_keyset_discovery_failure_passes_exact_logger_arguments(monkeypatch) -> None:
+    def fail(*args, **kwargs):
+        raise RuntimeError("discovery down")
+
+    warning = MagicMock()
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.polymarket.market_scope_tags.discover_market_scope_tag_slugs",
+        fail,
+    )
+    monkeypatch.setattr(scope_predicates_mod.logger, "warning", warning)
+
+    scope_predicates_mod.resolve_keyset_crawl_tags(
+        None,
+        config=slug_only_cfg(event_tags=("seed-tag",), tag_discovery=True),
+        client=object(),
+        tag_discovery=True,
+    )
+
+    warning.assert_called_once_with(
+        "Market-scope tag discovery failed; using configured event_tags only",
+        exc_info=True,
+    )
+
+
+def test_is_market_scope_row_distinguishes_each_admission_route() -> None:
+    cfg = slug_only_cfg(
+        market_ids=("market-id",),
+        event_slugs=("exact-event",),
+        event_slug_prefixes=("prefix-",),
+        event_tags=("scope-tag",),
+    )
+
+    assert scope_predicates_mod.is_market_scope_row(
+        market_id="other", in_registry=True, config=cfg
+    )
+    assert scope_predicates_mod.is_market_scope_row(market_id="market-id", config=cfg)
+    assert scope_predicates_mod.is_market_scope_row(
+        market_id="other", event_slug="EXACT-EVENT", config=cfg
+    )
+    assert scope_predicates_mod.is_market_scope_row(
+        market_id="other", event_slug="PREFIX-child", config=cfg
+    )
+    assert scope_predicates_mod.is_market_scope_row(
+        market_id="other", event_tags=(" SCOPE-TAG ",), config=cfg
+    )
+    assert not scope_predicates_mod.is_market_scope_row(
+        market_id="other", event_slug="", event_tags=("other",), config=cfg
+    )
+    assert not scope_predicates_mod.is_market_scope_row(
+        market_id="other",
+        config=slug_only_cfg(
+            event_slugs=(),
+            event_slug_prefixes=("x",),
+            event_tags=("none",),
+        ),
+    )

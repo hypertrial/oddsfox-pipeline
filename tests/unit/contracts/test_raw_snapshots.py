@@ -4,12 +4,14 @@ import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import MagicMock, call
 
 import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
+from oddsfox_pipeline.contracts import raw_snapshots as raw_snapshots_mod
 from oddsfox_pipeline.contracts.raw_snapshots import (
     RAW_CONTRACT_VERSION,
     RawSnapshotError,
@@ -265,24 +267,45 @@ def test_load_wraps_invalid_manifest_json(
 @pytest.mark.parametrize(
     ("case", "message"),
     [
-        ("blank_required", "non-empty string"),
-        ("invalid_timestamp", "ISO-8601"),
-        ("missing_timezone", "include a timezone"),
-        ("invalid_source", "must match"),
-        ("directory_mismatch", "directory name"),
-        ("parent_mismatch", "parent directory"),
-        ("incomplete", "must both be complete"),
-        ("invalid_predecessor", "string or null"),
-        ("invalid_upstream", "must be an object"),
-        ("empty_files", "non-empty array"),
-        ("invalid_file_entry", "must be an object"),
-        ("duplicate_table", "duplicate table"),
-        ("unsafe_path", "unsafe Parquet path"),
-        ("missing_payload", "payload is missing"),
-        ("hash_mismatch", "SHA-256 mismatch"),
-        ("row_mismatch", "row count mismatch"),
-        ("fingerprint_mismatch", "schema fingerprint mismatch"),
-        ("unknown_table", "unknown table"),
+        (
+            "blank_required",
+            "manifest field 'collector_git_sha' must be a non-empty string",
+        ),
+        ("invalid_timestamp", "collected_at must be an ISO-8601 timestamp"),
+        ("missing_timezone", "collected_at must include a timezone"),
+        (
+            "invalid_source",
+            "source must match '^[a-z][a-z0-9_]*$': 'Invalid-Source'",
+        ),
+        (
+            "directory_mismatch",
+            "snapshot_id must equal the snapshot directory name",
+        ),
+        ("parent_mismatch", "source must equal the parent directory name"),
+        (
+            "incomplete",
+            "snapshot status and completeness must both be complete",
+        ),
+        (
+            "invalid_predecessor",
+            "previous_snapshot_id must be a string or null",
+        ),
+        ("invalid_upstream", "upstream provenance must be an object"),
+        ("empty_files", "files must be a non-empty array"),
+        ("invalid_file_entry", "each files entry must be an object"),
+        ("duplicate_table", "duplicate table in manifest: team_ratings"),
+        ("unsafe_path", "unsafe Parquet path: team_ratings.csv"),
+        ("missing_payload", "declared payload is missing: missing.parquet"),
+        ("hash_mismatch", "SHA-256 mismatch for team_ratings.parquet"),
+        ("row_mismatch", "row count mismatch for team_ratings.parquet"),
+        (
+            "fingerprint_mismatch",
+            "schema fingerprint mismatch for team_ratings.parquet",
+        ),
+        (
+            "unknown_table",
+            "unknown table for source eloratings: team_ratings",
+        ),
     ],
 )
 def test_rejects_invalid_manifest_shapes(
@@ -332,8 +355,9 @@ def test_rejects_invalid_manifest_shapes(
 
     manifest_path.write_text(json.dumps(manifest))
     expected_schemas = {} if case == "unknown_table" else None
-    with pytest.raises(RawSnapshotError, match=message):
+    with pytest.raises(RawSnapshotError) as raised:
         validate_snapshot(snapshot, expected_schemas=expected_schemas)
+    assert str(raised.value) == message
 
 
 def test_rejects_duplicate_and_escaping_payload_paths(tmp_path: Path) -> None:
@@ -422,3 +446,315 @@ def test_load_rejects_missing_manifest_and_rolls_back_schema_mismatch(
         assert conn.execute(
             "select count(*) from wc2026_ops.raw_snapshot_ledger"
         ).fetchone() == (1,)
+
+
+def test_snapshot_value_contract_is_complete(tmp_path: Path) -> None:
+    directory = _snapshot(tmp_path / "raw")
+    manifest = json.loads((directory / "manifest.json").read_text())
+    validated = validate_snapshot(directory)
+    payload = validated.files[0]
+
+    assert validated.directory == directory.resolve()
+    assert validated.source == "eloratings"
+    assert validated.snapshot_id == "snapshot-1"
+    assert validated.collected_at == datetime(2026, 7, 18, 17, tzinfo=timezone.utc)
+    assert validated.collector_git_sha == "a" * 40
+    assert validated.collector_container_digest == "sha256:" + "b" * 64
+    assert validated.previous_snapshot_id is None
+    assert validated.manifest == manifest
+    assert len(validated.files) == 1
+    assert payload.table == "team_ratings"
+    assert payload.path == (directory / "team_ratings.parquet").resolve()
+    assert payload.sha256 == manifest["files"][0]["sha256"]
+    assert payload.schema_fingerprint == manifest["files"][0]["schema_fingerprint"]
+    assert payload.row_count == 1
+    assert payload.byte_size == (directory / "team_ratings.parquet").stat().st_size
+
+    with_previous = _snapshot(
+        tmp_path / "previous",
+        previous_snapshot_id="snapshot-0",
+    )
+    assert validate_snapshot(with_previous).previous_snapshot_id == "snapshot-0"
+
+
+def test_schema_fingerprint_has_a_stable_canonical_encoding() -> None:
+    schema = pa.schema(
+        [
+            pa.field("name", pa.string(), nullable=False),
+            pa.field("score", pa.int64(), nullable=True),
+        ]
+    )
+
+    assert schema_fingerprint(schema) == (
+        "63fb1515be791b1239ce2ca2eab368814282ae66568359d652af023b8789ea0b"
+    )
+
+
+def test_timestamp_parser_preserves_utc_semantics_and_exact_errors() -> None:
+    expected = datetime(2026, 7, 18, 17, 1, 2, tzinfo=timezone.utc)
+    assert raw_snapshots_mod._parse_timestamp("2026-07-18T17:01:02Z") == expected
+    assert raw_snapshots_mod._parse_timestamp("2026-07-18T17:01:02+00:00") == expected
+    assert raw_snapshots_mod._parse_timestamp(
+        "2026-07-18T17:01:02.123456Z"
+    ) == expected.replace(microsecond=123456)
+    assert raw_snapshots_mod._parse_timestamp("2026-07-18 17:01:02+00:00") == expected
+
+    for value, message in [
+        ("bad", "collected_at must be an ISO-8601 timestamp"),
+        ("2026-07-18T17:01:02z", "collected_at must be an ISO-8601 timestamp"),
+        ("2026-07-18T17:01:02", "collected_at must include a timezone"),
+        ("2026-07-18T18:01:02+01:00", "collected_at must be UTC"),
+    ]:
+        with pytest.raises(RawSnapshotError) as raised:
+            raw_snapshots_mod._parse_timestamp(value)
+        assert str(raised.value) == message
+
+
+def test_timestamp_parser_normalizes_z_before_python_310_parser(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parsed_values: list[str] = []
+
+    class RecordingDateTime:
+        @staticmethod
+        def fromisoformat(value: str) -> datetime:
+            parsed_values.append(value)
+            return datetime.fromisoformat(value)
+
+    monkeypatch.setattr(raw_snapshots_mod, "datetime", RecordingDateTime)
+
+    assert raw_snapshots_mod._parse_timestamp("2026-07-18T17:01:02Z") == datetime(
+        2026, 7, 18, 17, 1, 2, tzinfo=timezone.utc
+    )
+    assert parsed_values == ["2026-07-18T17:01:02+00:00"]
+
+
+def test_sensitive_provenance_reports_the_exact_nested_path() -> None:
+    with pytest.raises(RawSnapshotError) as raised:
+        raw_snapshots_mod._reject_sensitive_provenance(
+            {"requests": [{"metadata": {"private-key": "value"}}]}
+        )
+
+    assert str(raised.value) == (
+        "upstream provenance contains sensitive field: "
+        "upstream.requests[0].metadata.private-key"
+    )
+
+
+def test_manifest_helpers_accept_zero_and_reject_bad_values_exactly(
+    tmp_path: Path,
+) -> None:
+    assert raw_snapshots_mod._nonnegative_integer({"row_count": 0}, "row_count") == 0
+    for value in (-1, True, 1.5):
+        with pytest.raises(RawSnapshotError) as raised:
+            raw_snapshots_mod._nonnegative_integer({"row_count": value}, "row_count")
+        assert str(raised.value) == (
+            "row_count and byte_size must be non-negative integers"
+        )
+
+    invalid = tmp_path / "manifest.json"
+    invalid.write_text("{")
+    with pytest.raises(RawSnapshotError) as raised:
+        raw_snapshots_mod._read_manifest(invalid)
+    assert str(raised.value) == "manifest.json is not valid UTF-8 JSON"
+
+    invalid.write_text("[]")
+    with pytest.raises(RawSnapshotError) as raised:
+        raw_snapshots_mod._read_manifest(invalid)
+    assert str(raised.value) == "manifest.json must contain an object"
+
+
+def test_manifest_and_ledger_use_exact_storage_contracts() -> None:
+    manifest_path = MagicMock(spec=Path)
+    manifest_path.read_text.return_value = "{}"
+    assert raw_snapshots_mod._read_manifest(manifest_path) == {}
+    manifest_path.read_text.assert_called_once_with(encoding="utf-8")
+
+    conn = MagicMock()
+    raw_snapshots_mod._ensure_ledger(conn)
+    assert conn.execute.call_args_list[:2] == [
+        call("create schema if not exists wc2026_ops"),
+        call("create schema if not exists wc2026_raw"),
+    ]
+
+
+def test_load_uses_exact_transaction_commands(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_connect = duckdb.connect
+    commands: list[str] = []
+    fail_ledger_insert = False
+
+    class RecordingConnection:
+        def __init__(self, path: str) -> None:
+            self.inner = real_connect(path)
+
+        def execute(self, query: str, parameters=None):
+            commands.append(query)
+            if (
+                fail_ledger_insert
+                and "insert into wc2026_ops.raw_snapshot_ledger" in query
+            ):
+                raise RuntimeError("forced ledger failure")
+            if parameters is None:
+                return self.inner.execute(query)
+            return self.inner.execute(query, parameters)
+
+        def close(self) -> None:
+            self.inner.close()
+
+    monkeypatch.setattr(
+        raw_snapshots_mod.duckdb,
+        "connect",
+        lambda path: RecordingConnection(path),
+    )
+    snapshot = _snapshot(tmp_path / "success")
+    fingerprint = validate_snapshot(snapshot).files[0].schema_fingerprint
+    load_snapshot(
+        snapshot,
+        tmp_path / "success.duckdb",
+        expected_schemas={"team_ratings": fingerprint},
+    )
+    assert "begin transaction" in commands
+    assert commands[-1] == "commit"
+
+    commands.clear()
+    fail_ledger_insert = True
+    failing = _snapshot(tmp_path / "failure")
+    fingerprint = validate_snapshot(failing).files[0].schema_fingerprint
+    with pytest.raises(RuntimeError, match="forced ledger failure"):
+        load_snapshot(
+            failing,
+            tmp_path / "failure.duckdb",
+            expected_schemas={"team_ratings": fingerprint},
+        )
+    assert "begin transaction" in commands
+    assert commands[-1] == "rollback"
+
+
+@pytest.mark.parametrize("unsafe_path", ["/tmp/payload.parquet", "../payload.parquet"])
+def test_rejects_each_unsafe_parquet_path_condition(
+    tmp_path: Path,
+    unsafe_path: str,
+) -> None:
+    snapshot = _snapshot(tmp_path / unsafe_path.replace("/", "_"))
+    manifest_path = snapshot / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files"][0]["path"] = unsafe_path
+    manifest_path.write_text(json.dumps(manifest))
+
+    with pytest.raises(RawSnapshotError) as raised:
+        validate_snapshot(snapshot)
+    assert str(raised.value) == f"unsafe Parquet path: {unsafe_path}"
+
+
+def test_rejects_equal_predecessor_timestamp(tmp_path: Path) -> None:
+    collected_at = datetime(2026, 7, 18, 17, tzinfo=timezone.utc)
+    snapshot = _snapshot(tmp_path / "raw", collected_at=collected_at)
+
+    with pytest.raises(RawSnapshotError) as raised:
+        validate_snapshot(snapshot, previous_collected_at=collected_at)
+
+    assert str(raised.value) == "snapshot collection timestamp regressed"
+
+
+def test_load_creates_nested_warehouse_parents(tmp_path: Path) -> None:
+    snapshot = _snapshot(tmp_path / "raw")
+    fingerprint = validate_snapshot(snapshot).files[0].schema_fingerprint
+    warehouse = tmp_path / "deep" / "nested" / "warehouse.duckdb"
+
+    loaded = load_snapshot(
+        snapshot,
+        warehouse,
+        expected_schemas={"team_ratings": fingerprint},
+    )
+
+    assert warehouse.is_file()
+    assert loaded.snapshot_id == "snapshot-1"
+
+
+def test_snapshot_and_load_errors_preserve_exact_contract_context(
+    tmp_path: Path,
+) -> None:
+    partial = tmp_path / "raw" / "eloratings" / "snapshot-1"
+    partial.mkdir(parents=True)
+    expected_missing = f"snapshot is partial: missing {partial / 'manifest.json'}"
+    with pytest.raises(RawSnapshotError) as raised:
+        validate_snapshot(partial)
+    assert str(raised.value) == expected_missing
+    with pytest.raises(RawSnapshotError) as raised:
+        load_snapshot(
+            partial,
+            tmp_path / "warehouse.duckdb",
+            expected_schemas={"team_ratings": "fingerprint"},
+        )
+    assert str(raised.value) == expected_missing
+
+    snapshot = _snapshot(tmp_path / "invalid-table")
+    manifest_path = snapshot / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files"][0]["table"] = "Invalid-Table"
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(RawSnapshotError) as raised:
+        validate_snapshot(snapshot)
+    assert str(raised.value) == (
+        "table must match '^[a-z][a-z0-9_]*$': 'Invalid-Table'"
+    )
+
+    invalid_source = _snapshot(tmp_path / "invalid-source")
+    manifest_path = invalid_source / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["source"] = "Invalid-Source"
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(RawSnapshotError) as raised:
+        load_snapshot(
+            invalid_source,
+            tmp_path / "invalid-source.duckdb",
+            expected_schemas={"team_ratings": "fingerprint"},
+        )
+    assert str(raised.value) == (
+        "source must match '^[a-z][a-z0-9_]*$': 'Invalid-Source'"
+    )
+
+
+def test_predecessor_errors_and_load_schema_requirement_are_exact(
+    tmp_path: Path,
+) -> None:
+    snapshot = _snapshot(tmp_path / "raw")
+    manifest_path = snapshot / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["previous_snapshot_id"] = ""
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(RawSnapshotError) as raised:
+        validate_snapshot(snapshot)
+    assert str(raised.value) == "previous_snapshot_id must be non-empty or null"
+
+    manifest["previous_snapshot_id"] = "wrong"
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(RawSnapshotError) as raised:
+        validate_snapshot(snapshot, previous_snapshot_id="expected")
+    assert str(raised.value) == (
+        "previous_snapshot_id does not match the loaded predecessor"
+    )
+
+    with pytest.raises(RawSnapshotError) as raised:
+        load_snapshot(snapshot, tmp_path / "warehouse.duckdb")
+    assert str(raised.value) == (
+        "expected_schemas is required when loading a canonical snapshot"
+    )
+
+
+def test_load_enforces_expected_schema_registry_on_fresh_warehouse(
+    tmp_path: Path,
+) -> None:
+    snapshot = _snapshot(tmp_path / "raw")
+
+    with pytest.raises(RawSnapshotError) as raised:
+        load_snapshot(
+            snapshot,
+            tmp_path / "fresh.duckdb",
+            expected_schemas={},
+        )
+
+    assert str(raised.value) == "unknown table for source eloratings: team_ratings"

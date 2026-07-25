@@ -32,14 +32,7 @@ def _host_from_parsed(parsed) -> str:
 
 
 def _is_non_public_ip(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return (
-        addr.is_private
-        or addr.is_loopback
-        or addr.is_link_local
-        or addr.is_multicast
-        or addr.is_reserved
-        or addr.is_unspecified
-    )
+    return not addr.is_global or addr.is_multicast
 
 
 def _reject_non_public_ip_literal(host: str) -> None:
@@ -105,7 +98,7 @@ def validate_outbound_https_url(url: str) -> str:
 def assert_same_origin(url: str, base_url: str) -> str:
     """Return url when its origin matches base_url."""
     validated = validate_outbound_https_url(url)
-    base_origin = _origin_key(validate_outbound_https_url(base_url.rstrip("/")))
+    base_origin = _origin_key(validate_outbound_https_url(base_url))
     if _origin_key(validated) != base_origin:
         raise OutboundUrlError(
             f"URL origin {_origin_key(validated)!r} does not match "
@@ -116,7 +109,7 @@ def assert_same_origin(url: str, base_url: str) -> str:
 
 def join_under_base(base_url: str, href: str) -> str:
     """Join href under base_url; reject foreign absolute or protocol-relative URLs."""
-    base = validate_outbound_https_url(base_url.rstrip("/"))
+    base = validate_outbound_https_url(base_url)
     base_origin = _origin_key(base)
     link = href.strip()
     if not link:
@@ -130,10 +123,14 @@ def join_under_base(base_url: str, href: str) -> str:
                 f"absolute href must use https scheme, got {parsed_href.scheme!r}"
             )
         return assert_same_origin(link, base)
-    joined = urljoin(base + "/", link.lstrip("/"))
+    joined = urljoin(base + "/", link.removeprefix("/"))
+    # This defensive branch is unreachable after foreign links are rejected.
+    # Its message therefore has no observable behavior for accepted inputs.
+    # pragma: no mutate start
     if _origin_key(joined) != base_origin:  # pragma: no cover
         raise OutboundUrlError(
             f"URL origin {_origin_key(joined)!r} does not match "
             f"base origin {base_origin!r}"
         )
+    # pragma: no mutate end
     return joined

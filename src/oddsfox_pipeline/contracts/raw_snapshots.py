@@ -58,11 +58,14 @@ def _require_text(manifest: Mapping[str, object], name: str) -> str:
 
 
 def _parse_timestamp(value: str) -> datetime:
+    normalized = value.removesuffix("Z")
+    if normalized != value:
+        normalized += "+00:00"
     try:
-        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        timestamp = datetime.fromisoformat(normalized)
     except ValueError as exc:
         raise RawSnapshotError("collected_at must be an ISO-8601 timestamp") from exc
-    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+    if timestamp.tzinfo is None:
         raise RawSnapshotError("collected_at must include a timezone")
     if timestamp.utcoffset() != timedelta(0):
         raise RawSnapshotError("collected_at must be UTC")
@@ -107,14 +110,19 @@ def schema_fingerprint(schema: pa.Schema) -> str:
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+        while True:
+            # Buffer size affects I/O performance only; it cannot change the digest.
+            chunk = handle.read(1024 * 1024)  # pragma: no mutate
+            if not chunk:
+                break
             digest.update(chunk)
     return digest.hexdigest()
 
 
 def _read_manifest(manifest_path: Path) -> dict[str, object]:
     try:
-        raw_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        text = manifest_path.read_text(encoding="utf-8")
+        raw_manifest = json.loads(text)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise RawSnapshotError("manifest.json is not valid UTF-8 JSON") from exc
     if not isinstance(raw_manifest, dict):

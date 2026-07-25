@@ -88,13 +88,14 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
     assert set(manual["jobs"]) == {
         "coverage",
         "dbt-quality",
+        "mutation",
         "static-docs-container",
         "full-gate",
         "publish",
     }
     assert manual["permissions"] == {"contents": "read"}
     assert {key: manual["env"][key] for key in SCHEDULE_FLAGS} == SCHEDULE_FLAGS
-    for worker in ("coverage", "dbt-quality", "static-docs-container"):
+    for worker in ("coverage", "dbt-quality", "mutation", "static-docs-container"):
         _assert_python_worker(manual["jobs"][worker], 45)
     assert _make_targets(manual["jobs"]["coverage"]) == [
         "test-cov",
@@ -109,9 +110,27 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
         "dbt-source-freshness-ci",
         "dbt-polygon-settlement-ci",
         "dbt-build-ci",
-        "gx-data-quality",
         "costguard-scan",
     ]
+    assert _make_targets(manual["jobs"]["mutation"]) == ["mutation-ci"]
+    mutation_export = manual["jobs"]["mutation"]["steps"][-2]
+    assert mutation_export == {
+        "name": "Export mutation statistics",
+        "if": "always()",
+        "run": "uv run mutmut export-cicd-stats",
+    }
+    mutation_artifact = manual["jobs"]["mutation"]["steps"][-1]
+    assert mutation_artifact == {
+        "name": "Upload mutation statistics",
+        "if": "always()",
+        "uses": ("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"),
+        "with": {
+            "name": "mutmut-cicd-stats",
+            "path": "mutants/mutmut-cicd-stats.json",
+            "if-no-files-found": "error",
+            "retention-days": 7,
+        },
+    }
     assert _make_targets(manual["jobs"]["static-docs-container"]) == [
         "python-lint",
         "dbt-lint",
@@ -129,13 +148,14 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
     assert set(full_gate["needs"]) == {
         "coverage",
         "dbt-quality",
+        "mutation",
         "static-docs-container",
     }
     assert full_gate["timeout-minutes"] == 1
     full_gate_command = full_gate["steps"][0]["run"]
     assert all(
         f"needs.{worker}.result" in full_gate_command
-        for worker in ("coverage", "dbt-quality", "static-docs-container")
+        for worker in ("coverage", "dbt-quality", "mutation", "static-docs-container")
     )
 
     assert manual["jobs"]["publish"]["needs"] == "full-gate"

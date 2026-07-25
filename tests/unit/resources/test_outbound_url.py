@@ -1,3 +1,4 @@
+import ipaddress
 import socket
 from unittest.mock import patch
 from urllib.parse import urlparse
@@ -9,6 +10,7 @@ from hypothesis import strategies as st
 from oddsfox_pipeline.resources.outbound_url import (
     OutboundUrlError,
     _host_from_parsed,
+    _is_non_public_ip,
     _origin_key,
     _reject_non_public_ip_literal,
     _resolve_host_must_be_public,
@@ -191,3 +193,99 @@ def test_resolve_host_rejects_non_public_dns(monkeypatch):
 
     with pytest.raises(OutboundUrlError, match="non-public address"):
         validate_outbound_https_url("https://private.example/data.csv")
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://example.com/path", "example.com"),
+        ("https://EXAMPLE.com:443/path", "example.com"),
+        ("https://example.com:80/path", "example.com"),
+        ("https://example.com:81/path", "example.com:81"),
+        ("https://example.com:444/path", "example.com:444"),
+    ],
+)
+def test_origin_key_port_contract(url, expected):
+    assert _origin_key(url) == expected
+
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        "10.0.0.1",
+        "127.0.0.1",
+        "169.254.1.1",
+        "224.0.0.1",
+        "240.0.0.1",
+        "0.0.0.0",
+    ],
+)
+def test_each_non_public_ip_class_is_rejected(address):
+    parsed = ipaddress.ip_address(address)
+    assert _is_non_public_ip(parsed)
+    with pytest.raises(
+        OutboundUrlError,
+        match=rf"^URL host {address!r} resolves to a non-public address$",
+    ):
+        _reject_non_public_ip_literal(address)
+
+
+@pytest.mark.parametrize(
+    ("url", "message"),
+    [
+        (" ", "URL must be non-empty"),
+        ("http://example.com", "URL must use https scheme, got 'http'"),
+        ("https://", "URL missing authority: 'https://'"),
+    ],
+)
+def test_validation_errors_are_exact(monkeypatch, url, message):
+    _mock_public_dns(monkeypatch)
+
+    with pytest.raises(OutboundUrlError) as raised:
+        validate_outbound_https_url(url)
+
+    assert str(raised.value) == message
+
+
+def test_same_origin_strips_only_trailing_slashes(monkeypatch):
+    _mock_public_dns(monkeypatch)
+
+    assert (
+        assert_same_origin(
+            "https://example.com/path",
+            "https://example.com/root///",
+        )
+        == "https://example.com/path"
+    )
+
+
+@pytest.mark.parametrize(
+    ("href", "message"),
+    [
+        (" ", "href must be non-empty"),
+        ("//evil.example/x", "protocol-relative href is not allowed"),
+        (
+            "http://example.com/x",
+            "absolute href must use https scheme, got 'http'",
+        ),
+    ],
+)
+def test_join_errors_are_exact(monkeypatch, href, message):
+    _mock_public_dns(monkeypatch)
+
+    with pytest.raises(OutboundUrlError) as raised:
+        join_under_base("https://example.com/root///", href)
+
+    assert str(raised.value) == message
+
+
+def test_join_strips_only_leading_path_slashes(monkeypatch):
+    _mock_public_dns(monkeypatch)
+
+    assert (
+        join_under_base(
+            "https://example.com/root///",
+            "/child",
+        )
+        == "https://example.com/root/child"
+    )

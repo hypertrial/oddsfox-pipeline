@@ -138,14 +138,12 @@ def _crawl_tag_allowed(
     if not normalized:
         return False
 
-    scope_set = frozenset(str(t).strip().lower() for t in scope_tags if str(t).strip())
-    seed_set = frozenset(str(t).strip().lower() for t in seed_tags if str(t).strip())
+    scope_set = frozenset(str(t).strip().lower() for t in scope_tags)
+    seed_set = frozenset(str(t).strip().lower() for t in seed_tags)
     if normalized in scope_set or normalized in seed_set:
         return True
 
-    if normalized in frozenset(
-        str(d).strip().lower() for d in denylist if str(d).strip()
-    ):
+    if normalized in frozenset(str(d).strip().lower() for d in denylist):
         return False
 
     if not keyword_gate:
@@ -311,6 +309,9 @@ def resolve_keyset_tag_slugs(
     return crawl_tags
 
 
+# These descriptive inputs are accepted by the exported helper but intentionally
+# do not participate in registry-backed scope decisions.
+# pragma: no mutate start
 def is_market_scope_row(
     *,
     market_id: str,
@@ -324,6 +325,7 @@ def is_market_scope_row(
     config: MarketScopeConfig | None = None,
     in_registry: bool = False,
 ) -> bool:
+    # pragma: no mutate end
     """Pure-Python scope check for unit tests and local predicates."""
     scope = validate_market_scope(market_scope)
     cfg = config or load_market_scope_config(scope_name=scope)
@@ -334,10 +336,9 @@ def is_market_scope_row(
         return True
     if any(es.startswith(p) for p in cfg.event_slug_prefixes):
         return True
-    if cfg.event_tags and event_tags:
-        allowed = frozenset(cfg.event_tags)
-        if allowed & {t.strip().lower() for t in event_tags if str(t).strip()}:
-            return True
+    allowed = frozenset(cfg.event_tags)
+    if allowed & {t.strip().lower() for t in event_tags}:
+        return True
     return False
 
 

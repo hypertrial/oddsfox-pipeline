@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from hypothesis import given
@@ -13,6 +14,10 @@ pytest.importorskip("duckdb")
 from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
 from oddsfox_pipeline.ingestion.polymarket.odds.engine.bootstrap import (
     bootstrap_planning,
+)
+from oddsfox_pipeline.ingestion.polymarket.odds.support import (
+    OddsSyncOptions,
+    TokenPlan,
 )
 
 
@@ -835,3 +840,572 @@ def test_iter_token_plans_paged_accepts_prebuilt_options(monkeypatch):
     list(odds_sync.iter_token_plans_paged(options=options))
 
     assert captured["options"] is options
+
+
+def test_parse_created_at_preserves_all_supported_timestamp_semantics():
+    naive = datetime(2026, 7, 18, 17, 1, 2)
+    aware = datetime(
+        2026,
+        7,
+        18,
+        19,
+        1,
+        2,
+        tzinfo=timezone(timedelta(hours=2)),
+    )
+    expected = datetime(2026, 7, 18, 17, 1, 2, tzinfo=timezone.utc)
+
+    assert odds_sync._parse_created_at(None) is None
+    assert odds_sync._parse_created_at(naive) == expected
+    parsed_aware = odds_sync._parse_created_at(aware)
+    assert parsed_aware == expected
+    assert parsed_aware.tzinfo is timezone.utc
+    assert odds_sync._parse_created_at("2026-07-18T17:01:02") == expected
+    assert odds_sync._parse_created_at("2026-07-18 17:01:02.987654") == expected
+
+
+def test_parse_cutoff_date_has_exact_fallback_and_operational_log(caplog):
+    assert odds_sync._parse_cutoff_date("2026-07-18") == datetime(
+        2026, 7, 18, tzinfo=timezone.utc
+    )
+
+    with caplog.at_level("ERROR"):
+        fallback = odds_sync._parse_cutoff_date("bad-date")
+
+    assert fallback == datetime(2023, 1, 1, tzinfo=timezone.utc)
+    assert caplog.messages == ["Invalid clob_cutoff_date 'bad-date'; using 2023-01-01"]
+
+
+def test_build_single_token_plan_boundary_contract_is_exact():
+    token = "z" * 33 + "12"
+    plan, skip, invalid = odds_sync.build_single_token_plan(
+        token_id=token,
+        market_id="market",
+        closed=False,
+        created_ts=100,
+        latest_timestamps={token: 150},
+        fully_checked_tokens={token},
+        persisted_skips={},
+        seen_tokens=set(),
+        now_ts=200,
+        fidelity=60,
+        force=False,
+        rebuild_history=False,
+        overlap_seconds=10,
+        recent_seconds=50,
+        empty_token_skip_budgets={token: 0},
+        empty_token_skip_runs=1,
+    )
+
+    assert skip is None
+    assert invalid is None
+    assert plan == odds_sync.TokenPlan(
+        token_id=token,
+        market_id="market",
+        is_closed=False,
+        created_at_ts=100,
+        start_ts=140,
+        end_ts=200,
+        fidelity=60,
+        empty_run_streak=0,
+    )
+
+    at_now, at_now_skip, _ = odds_sync.build_single_token_plan(
+        token_id="y" * 33 + "12",
+        market_id="market",
+        closed=False,
+        created_ts=200,
+        latest_timestamps={},
+        fully_checked_tokens=set(),
+        persisted_skips={},
+        seen_tokens=set(),
+        now_ts=200,
+        fidelity=60,
+        force=True,
+        rebuild_history=False,
+        overlap_seconds=0,
+        recent_seconds=0,
+    )
+    assert at_now is None
+    assert at_now_skip == "already_current"
+
+
+def test_empty_skip_budget_removes_only_the_exhausted_token():
+    token = "x" * 33 + "12"
+    other = "w" * 33 + "12"
+    budgets = {token: 1, other: 4}
+
+    plan, skip, invalid = odds_sync.build_single_token_plan(
+        token_id=token,
+        market_id="market",
+        closed=False,
+        created_ts=100,
+        latest_timestamps={},
+        fully_checked_tokens=set(),
+        persisted_skips={},
+        seen_tokens=set(),
+        now_ts=200,
+        fidelity=60,
+        force=False,
+        rebuild_history=False,
+        overlap_seconds=0,
+        recent_seconds=0,
+        empty_token_skip_budgets=budgets,
+        empty_token_skip_runs=1,
+    )
+
+    assert (plan, skip, invalid) == (None, "empty_cache_skip", None)
+    assert budgets == {other: 4}
+
+    no_skip, no_skip_reason, _ = odds_sync.build_single_token_plan(
+        token_id=other,
+        market_id="market",
+        closed=False,
+        created_ts=100,
+        latest_timestamps={},
+        fully_checked_tokens=set(),
+        persisted_skips={},
+        seen_tokens=set(),
+        now_ts=200,
+        fidelity=60,
+        force=False,
+        rebuild_history=False,
+        overlap_seconds=0,
+        recent_seconds=0,
+        empty_token_skip_budgets={other: 1},
+        empty_token_skip_runs=0,
+    )
+    assert no_skip_reason is None
+    assert no_skip is not None
+
+
+def test_force_and_backfill_bypass_only_routine_skips():
+    token = "v" * 33 + "12"
+    common = {
+        "token_id": token,
+        "market_id": "market",
+        "closed": True,
+        "created_ts": 100,
+        "latest_timestamps": {},
+        "fully_checked_tokens": {token},
+        "persisted_skips": {token: "previous"},
+        "now_ts": 200,
+        "fidelity": 60,
+        "overlap_seconds": 0,
+        "recent_seconds": 0,
+        "empty_token_skip_budgets": {token: 2},
+        "empty_token_skip_runs": 1,
+    }
+
+    forced, forced_skip, _ = odds_sync.build_single_token_plan(
+        **common,
+        seen_tokens=set(),
+        force=True,
+        rebuild_history=False,
+    )
+    assert forced is None
+    assert forced_skip == "closed_done"
+
+    rebuilt, rebuilt_skip, _ = odds_sync.build_single_token_plan(
+        **common,
+        seen_tokens=set(),
+        force=False,
+        rebuild_history=True,
+    )
+    assert rebuilt_skip is None
+    assert rebuilt is not None
+    assert rebuilt.start_ts == 100
+
+
+def _collect_plans_and_result(iterator):
+    plans = []
+    while True:
+        try:
+            plans.append(next(iterator))
+        except StopIteration as done:
+            return plans, done.value
+
+
+def test_paged_planning_forwards_every_full_scan_option(monkeypatch):
+    planning = odds_sync._planning_mod
+    now_ts = 1_800_000_000
+    tokens = [_valid_token(1001), _valid_token(1002), _valid_token(1003)]
+    budgets = {tokens[0]: 4}
+    iterator_calls = []
+    snapshot_calls = []
+    build_calls = []
+
+    def pages(**kwargs):
+        iterator_calls.append(kwargs)
+        yield [
+            (
+                "market-1",
+                json.dumps(tokens[:2]),
+                "2024-01-01 00:00:00",
+                True,
+            )
+        ]
+        yield [
+            (
+                "market-2",
+                json.dumps(tokens[2:]),
+                "2024-01-02 00:00:00",
+                False,
+            )
+        ]
+
+    def snapshot(token_ids, **kwargs):
+        snapshot_calls.append((token_ids, kwargs))
+        return (
+            {},
+            set(),
+            {},
+            {
+                token: odds_sync.TokenSyncSchedulerState(empty_run_streak=index + 2)
+                for index, token in enumerate(tokens)
+            },
+        )
+
+    def build(**kwargs):
+        build_calls.append(kwargs)
+        index = tokens.index(kwargs["token_id"])
+        return (
+            TokenPlan(
+                token_id=kwargs["token_id"],
+                market_id=kwargs["market_id"],
+                is_closed=kwargs["closed"],
+                created_at_ts=kwargs["created_ts"],
+                start_ts=100 + index * 10,
+                end_ts=200,
+                fidelity=kwargs["fidelity"],
+                empty_run_streak=kwargs["empty_run_streak"],
+            ),
+            None,
+            None,
+        )
+
+    monkeypatch.setattr(planning, "build_single_token_plan", build)
+    options = OddsSyncOptions(
+        clob_cutoff_date="2024-01-01",
+        fidelity=17,
+        force=True,
+        overlap_minutes=2,
+        skip_recent_minutes=3,
+        market_page_size=23,
+        reconcile_ledger=True,
+        short_range_first=False,
+        market_scope="scope-a",
+        ended_market_grace_days=4,
+        min_volume=5.5,
+        max_volume=99.5,
+        history_backfill_days=1,
+        empty_token_skip_budgets=budgets,
+        empty_token_skip_runs=7,
+    )
+
+    plans, (state, invalid) = _collect_plans_and_result(
+        planning.iter_token_plans_paged(
+            now_ts=now_ts,
+            options=options,
+            iter_markets_with_tokens_fn=pages,
+            get_token_sync_snapshot_fn=snapshot,
+        )
+    )
+
+    assert [plan.token_id for plan in plans] == tokens
+    assert state.plans == 3
+    assert state.pre_clob_markets == 0
+    assert invalid == {}
+    assert iterator_calls == [
+        {
+            "page_size": 23,
+            "cutoff_created_at": "2024-01-01 00:00:00",
+            "json_array_only": True,
+            "market_scope": "scope-a",
+            "ended_market_grace_days": 4,
+            "min_volume": 5.5,
+            "max_volume": 99.5,
+        }
+    ]
+    assert len(snapshot_calls) == 2
+    assert [set(call[0]) for call in snapshot_calls] == [
+        set(tokens[:2]),
+        {tokens[2]},
+    ]
+    assert [call[1] for call in snapshot_calls] == [
+        {
+            "reconcile_with_history": True,
+            "repair_ledger": True,
+            "include_scheduler_state": True,
+        },
+        {
+            "reconcile_with_history": True,
+            "repair_ledger": True,
+            "include_scheduler_state": True,
+        },
+    ]
+    assert len(build_calls) == 3
+    for index, call in enumerate(build_calls):
+        assert call["token_id"] == tokens[index]
+        assert call["market_id"] == ("market-1" if index < 2 else "market-2")
+        assert call["closed"] is (index < 2)
+        assert call["now_ts"] == now_ts
+        assert call["fidelity"] == 17
+        assert call["force"] is True
+        assert call["rebuild_history"] is False
+        assert call["overlap_seconds"] == 120
+        assert call["recent_seconds"] == 180
+        assert call["history_backfill_floor_ts"] == now_ts - 86400
+        assert call["empty_run_streak"] == index + 2
+        assert call["empty_token_skip_budgets"] is budgets
+        assert call["empty_token_skip_runs"] == 7
+
+
+def test_paged_planning_preserves_zero_overlap_and_recent_windows(monkeypatch):
+    planning = odds_sync._planning_mod
+    token = _valid_token(1500)
+    calls = []
+
+    def build(**kwargs):
+        calls.append(kwargs)
+        return None, None, None
+
+    monkeypatch.setattr(planning, "build_single_token_plan", build)
+    plans, _ = _collect_plans_and_result(
+        planning.iter_token_plans_paged(
+            now_ts=1_800_000_000,
+            options=OddsSyncOptions(
+                clob_cutoff_date="2024-01-01",
+                force=True,
+                overlap_minutes=0,
+                skip_recent_minutes=0,
+            ),
+            iter_markets_with_tokens_fn=lambda **kwargs: iter(
+                [
+                    [
+                        (
+                            "market",
+                            json.dumps([token]),
+                            "2024-01-01 00:00:00",
+                            False,
+                        )
+                    ]
+                ]
+            ),
+            get_token_sync_snapshot_fn=lambda token_ids, **kwargs: ({}, set(), {}),
+        )
+    )
+
+    assert plans == []
+    assert len(calls) == 1
+    assert calls[0]["overlap_seconds"] == 0
+    assert calls[0]["recent_seconds"] == 0
+
+
+@pytest.mark.parametrize(
+    ("exclusion_counts", "expected_scope", "expected_ended"),
+    [
+        ({"scope_skip": 2, "ended_market_skip": 3}, 2, 3),
+        ({}, 0, 0),
+    ],
+)
+def test_paged_planning_due_scan_counts_and_boundaries_are_exact(
+    exclusion_counts,
+    expected_scope,
+    expected_ended,
+):
+    planning = odds_sync._planning_mod
+    token = _valid_token(2001)
+    exclusion_calls = []
+    due_calls = []
+    snapshot_calls = []
+
+    def count_exclusions(**kwargs):
+        exclusion_calls.append(kwargs)
+        return exclusion_counts
+
+    def due_pages(**kwargs):
+        due_calls.append(kwargs)
+        yield [
+            ("old-1", token, "2023-12-31 23:59:58", False),
+            ("old-2", token, "2023-12-31 23:59:59", False),
+            ("boundary", token, "2024-01-01 00:00:00", True),
+        ]
+
+    def snapshot(token_ids, **kwargs):
+        snapshot_calls.append((token_ids, kwargs))
+        return {}, set(), {}, {}
+
+    plans, (state, invalid) = _collect_plans_and_result(
+        planning.iter_token_plans_paged(
+            now_ts=1_800_000_000,
+            options=OddsSyncOptions(
+                clob_cutoff_date="2024-01-01",
+                market_page_size=31,
+                market_scope="scope-b",
+                ended_market_grace_days=6,
+                min_volume=7.5,
+                max_volume=88.5,
+                short_range_first=False,
+            ),
+            iter_due_market_tokens_fn=due_pages,
+            count_due_market_token_exclusions_fn=count_exclusions,
+            get_token_sync_snapshot_fn=snapshot,
+        )
+    )
+
+    assert [plan.market_id for plan in plans] == ["boundary"]
+    assert plans[0].is_closed is True
+    assert state.pre_clob_markets == 2
+    assert state.scope_skip == expected_scope
+    assert state.ended_market_skip == expected_ended
+    assert invalid == {}
+    expected_args = {
+        "cutoff_created_at": "2024-01-01 00:00:00",
+        "market_scope": "scope-b",
+        "ended_market_grace_days": 6,
+        "min_volume": 7.5,
+        "max_volume": 88.5,
+    }
+    assert exclusion_calls == [expected_args]
+    assert due_calls == [{"page_size": 31, **expected_args}]
+    assert snapshot_calls == [
+        (
+            [token],
+            {"include_scheduler_state": True},
+        )
+    ]
+
+
+def test_paged_planning_rejects_non_list_tokens_and_avoids_empty_callback(
+    monkeypatch,
+):
+    planning = odds_sync._planning_mod
+    token = _valid_token(3001)
+    build_calls = []
+    callback_calls = []
+
+    def pages(**kwargs):
+        yield [
+            ("empty", json.dumps([]), "2024-01-01 00:00:00", False),
+        ]
+        yield [
+            ("bad-time", json.dumps([token]), None, False),
+            ("old-1", json.dumps([token]), "2023-12-31 23:59:58", False),
+            ("old-2", json.dumps([token]), "2023-12-31 23:59:59", False),
+            ("mapping", json.dumps({"token": token}), "2024-01-01 00:00:00", False),
+            ("valid", json.dumps([token]), "2024-01-01 00:00:00", False),
+        ]
+
+    original_build = planning.build_single_token_plan
+
+    def build(**kwargs):
+        build_calls.append(kwargs["token_id"])
+        return original_build(**kwargs)
+
+    monkeypatch.setattr(planning, "build_single_token_plan", build)
+    plans, (state, invalid) = _collect_plans_and_result(
+        planning.iter_token_plans_paged(
+            now_ts=1_800_000_000,
+            options=OddsSyncOptions(
+                clob_cutoff_date="2024-01-01",
+                force=True,
+                short_range_first=False,
+            ),
+            on_invalid_tokens_batch=callback_calls.append,
+            iter_markets_with_tokens_fn=pages,
+            get_token_sync_snapshot_fn=lambda token_ids, **kwargs: ({}, set(), {}),
+        )
+    )
+
+    assert [plan.market_id for plan in plans] == ["valid"]
+    assert build_calls == [token]
+    assert callback_calls == []
+    assert state.plans == 1
+    assert state.pre_clob_markets == 2
+    assert invalid == {}
+
+
+def test_paged_planning_scope_counts_and_sort_order_are_exact(monkeypatch):
+    planning = odds_sync._planning_mod
+    tokens = [_valid_token(4001), _valid_token(4002), _valid_token(4003)]
+    windows = {
+        tokens[0]: (50, 100, 20),
+        tokens[1]: (80, 100, 10),
+        tokens[2]: (80, 100, 5),
+    }
+
+    def pages(**kwargs):
+        yield [
+            ("market", json.dumps(tokens), "2024-01-01 00:00:00", False),
+        ]
+
+    def build(**kwargs):
+        start, end, created = windows[kwargs["token_id"]]
+        return (
+            TokenPlan(
+                token_id=kwargs["token_id"],
+                market_id=kwargs["market_id"],
+                is_closed=False,
+                created_at_ts=created,
+                start_ts=start,
+                end_ts=end,
+                fidelity=1,
+            ),
+            None,
+            None,
+        )
+
+    monkeypatch.setattr(planning, "build_single_token_plan", build)
+    common = {
+        "now_ts": 1_800_000_000,
+        "iter_markets_with_tokens_fn": pages,
+        "get_token_sync_snapshot_fn": lambda token_ids, **kwargs: ({}, set(), {}),
+    }
+
+    sorted_plans, (sorted_state, _) = _collect_plans_and_result(
+        planning.iter_token_plans_paged(
+            **common,
+            options=OddsSyncOptions(
+                clob_cutoff_date="2024-01-01",
+                force=True,
+                short_range_first=True,
+            ),
+        )
+    )
+    assert [plan.token_id for plan in sorted_plans] == [
+        tokens[2],
+        tokens[1],
+        tokens[0],
+    ]
+    assert sorted_state.plans == 3
+
+    filtered_plans, (filtered_state, _) = _collect_plans_and_result(
+        planning.iter_token_plans_paged(
+            **common,
+            options=OddsSyncOptions(
+                clob_cutoff_date="2024-01-01",
+                force=True,
+                short_range_first=False,
+            ),
+            token_id_allowlist={tokens[0]},
+        )
+    )
+    assert [plan.token_id for plan in filtered_plans] == [tokens[0]]
+    assert filtered_state.plans == 1
+    assert filtered_state.scope_skip == 2
+
+    denied_plans, (denied_state, _) = _collect_plans_and_result(
+        planning.iter_token_plans_paged(
+            **common,
+            options=OddsSyncOptions(
+                clob_cutoff_date="2024-01-01",
+                force=True,
+                short_range_first=False,
+            ),
+            token_id_denylist={tokens[1], tokens[2]},
+        )
+    )
+    assert [plan.token_id for plan in denied_plans] == [tokens[0]]
+    assert denied_state.plans == 1
+    assert denied_state.scope_skip == 2

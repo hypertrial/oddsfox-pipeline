@@ -23,8 +23,9 @@ make dagster-refresh-cov
 make dbt-unit
 make golden-dbt
 make dbt-source-freshness-ci
-make gx-data-quality
 make data-quality
+make mutation
+make mutation-ci
 make integration-dbt
 make integration-dagster
 make contract-http
@@ -38,12 +39,12 @@ The ordinary `make test` suite uses xdist and excludes `tests/integration`,
 The full local release gate accumulates coverage with `make test-cov`,
 `make dagster-jobs-smoke-cov`, `make dagster-refresh-cov`,
 `make integration-dbt-cov`, and `make coverage-report`, alongside the dbt,
-freshness, golden, and data-quality targets. `make integration-dagster-cov`
-wraps both split Dagster coverage targets, while `make coverage` is the
-one-shot equivalent. Local gates invoke these commands sequentially. GitHub's
-automatic `tests` worker runs the parallel fast suite and serial
-`make contract-http` while independent static/docs and dbt-lint workers run in
-parallel; the `contract` marker remains excluded from `make test` and
+freshness, golden, data-quality, and focused mutation targets. `make
+integration-dagster-cov` wraps both split Dagster coverage targets, while `make
+coverage` is the one-shot equivalent. Local gates invoke these commands
+sequentially. GitHub's automatic `tests` worker runs the parallel fast suite and
+serial `make contract-http` while independent static/docs and dbt-lint workers
+run in parallel; the `contract` marker remains excluded from `make test` and
 `make test-cov`.
 
 `make dagster-jobs-smoke` runs every registered public Dagster job headlessly
@@ -54,11 +55,11 @@ commands, they enforce 100% branch coverage for `src/oddsfox_pipeline` except
 the warehouse profiling operator helpers under `storage/duckdb/profile/`, which
 are covered by smoke tests instead.
 
-`make gx-data-quality` runs against an existing disposable
-`.cache/dbt_build.duckdb` database and writes Great Expectations report artifacts
-under `.cache/`. `make data-quality` is the safe local wrapper that rebuilds
-that disposable dbt state first. Generated reports are local artifacts and
-should not be committed.
+`make data-quality` rebuilds disposable dbt state and runs the dbt-native model
+and data tests. `make mutation` resumes cached focused Mutmut work; `make
+mutation-ci` deletes `mutants/` first and is the deterministic release gate.
+Mutation output is local or a short-lived Manual Full Validation artifact and
+must not be committed.
 
 When `.env` sets `DUCKDB_PATH`, use `isolate_duckdb_test_env()` from
 `tests/unit/storage/duckdb_storage_test_support.py` so tests do not write to the

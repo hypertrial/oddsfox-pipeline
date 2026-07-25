@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added strict focused Mutmut coverage for outbound URL safety, raw snapshot
+  contracts, Polymarket scope predicates, and odds planning, enforced by local
+  and manual full release gates.
 - Added an operator guide for the cross-platform knockout job
   (`wc2026_knockout_match_odds_full_pipeline`) and linked it from Choose a
   scope, Operators, Enable schedules, and Orchestration.
@@ -30,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Removed the unused Great Expectations-style report layer; dbt build/tests and
+  observability relations remain the data-quality authority.
 - Moved the Polygon settlement complete column contract from the data
   dictionary into public data contracts; dictionary keeps analyst summary.
 - Slimmed the Analysts hub to a warehouse branch and join map; added a shared

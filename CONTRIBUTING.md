@@ -93,6 +93,9 @@ The canonical command tables, Costguard install, and layout guardrails live in
 [AGENTS.md](AGENTS.md). Contributor checklists and the same gate tree are in
 the [Development guide](docs/development/index.md) and
 [Contributors hub](docs/audiences/contributors.md).
+Data quality remains dbt-native through `uv run make data-quality`. Use
+`uv run make mutation` for resumable focused work and `uv run make mutation-ci`
+for a clean strict mutation run.
 
 ## Versioning expectations
 

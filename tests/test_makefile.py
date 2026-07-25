@@ -75,8 +75,17 @@ def test_dagster_dev_recipe_prefers_dg_with_python_fallback():
 def test_ci_split_targets_remain_wired():
     makefile = (REPO_ROOT / "Makefile").read_text()
 
-    assert "gx-data-quality:" in makefile
-    assert "data-quality: dbt-build-ci gx-data-quality" in makefile
+    assert "gx-data-quality" not in makefile
+    assert re.search(r"^data-quality: dbt-build-ci$", makefile, re.MULTILINE)
+    assert "mutmut run" in _target_recipe(makefile, "mutation")
+    assert "mutmut export-cicd-stats" in _target_recipe(makefile, "mutation")
+    assert "scripts/check_mutmut_stats.py" in _target_recipe(makefile, "mutation")
+    assert 'rm -rf "$(REPO_ROOT)/mutants"' in _target_recipe(makefile, "mutation-ci")
+    assert "mutants" in _target_recipe(makefile, "clean-local-artifacts")
+    assert "mutants/" in (REPO_ROOT / ".gitignore").read_text().splitlines()
+    assert _recursive_make_targets(_target_recipe(makefile, "mutation-ci")) == [
+        "mutation"
+    ]
     assert "costguard-scan:" in makefile
     assert "costguard: dbt-build-ci costguard-scan" in makefile
     assert "dagster-jobs-smoke-cov:" in makefile
@@ -159,12 +168,12 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
         "golden-dbt",
         "dbt-source-freshness-ci",
         "coverage-report",
+        "mutation-ci",
         "contract-http",
         "docs-build",
         "docs-test",
         "dbt-polygon-settlement-ci",
         "dbt-build-ci",
-        "gx-data-quality",
         "costguard-scan",
     ]
 

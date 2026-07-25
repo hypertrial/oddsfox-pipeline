@@ -1,8 +1,39 @@
+import inspect
 import os
 import sys
+from functools import wraps
 from pathlib import Path
 
 import pytest
+
+
+def _preserve_mutmut_generator_return_values() -> None:
+    """Patch Mutmut 3.6's generator wrapper to forward StopIteration.value."""
+    if "MUTANT_UNDER_TEST" not in os.environ:
+        return
+
+    from mutmut.mutation import trampoline as trampoline_module
+
+    original = trampoline_module.wrap_in_trampoline
+
+    def wrap_in_trampoline(mutants_dict, is_classmethod=False):
+        decorate = original(mutants_dict, is_classmethod)
+
+        def preserve_return_value(func):
+            wrapped = decorate(func)
+            if not inspect.isgeneratorfunction(func):
+                return wrapped
+            trampoline = inspect.getclosurevars(wrapped).nonlocals["trampoline"]
+
+            @wraps(func)
+            def generator_wrapper(*args, **kwargs):
+                return (yield from trampoline(*args, **kwargs))
+
+            return generator_wrapper
+
+        return preserve_return_value
+
+    trampoline_module.wrap_in_trampoline = wrap_in_trampoline
 
 
 def _isolate_xdist_xdg_cache() -> None:
@@ -17,6 +48,7 @@ def _isolate_xdist_xdg_cache() -> None:
 
 
 _isolate_xdist_xdg_cache()
+_preserve_mutmut_generator_return_values()
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"

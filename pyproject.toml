@@ -33,10 +33,10 @@ cache-dir = ".cache/uv"
 [project.optional-dependencies]
 dev = [
   "dagster-dg-cli>=1.13.0",
-  "great_expectations>=1.19.0",
   "hypothesis>=6.156.6",
   "mkdocs>=1.6.0",
   "mkdocs-material>=9.5.0",
+  "mutmut==3.6.0",
   "playwright>=1.55.0,<2",
   "pip-audit>=2.10.1",
   "pytest>=8.0.0",
@@ -46,6 +46,22 @@ dev = [
   "sqlfluff>=4.2.2",
   "sqlfluff-templater-dbt>=3.0.0",
   "vcrpy>=6.0.0",
+]
+
+[tool.mutmut]
+source_paths = ["src/oddsfox_pipeline"]
+only_mutate = [
+  "src/oddsfox_pipeline/resources/outbound_url.py",
+  "src/oddsfox_pipeline/contracts/raw_snapshots.py",
+  "src/oddsfox_pipeline/ingestion/polymarket/market_scope/predicates.py",
+  "src/oddsfox_pipeline/ingestion/polymarket/odds/planning.py",
+]
+pytest_add_cli_args = ["--hypothesis-seed=20260725"]
+pytest_add_cli_args_test_selection = [
+  "tests/unit/resources/test_outbound_url.py",
+  "tests/unit/contracts/test_raw_snapshots.py",
+  "tests/unit/ingestion/test_market_scope_predicates.py",
+  "tests/unit/ingestion/test_odds_planning.py",
 ]
 
 [tool.setuptools]

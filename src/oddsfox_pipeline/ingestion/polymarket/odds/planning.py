@@ -93,7 +93,8 @@ def build_single_token_plan(
             if remaining > 0:
                 empty_token_skip_budgets[token_id] = remaining
             else:
-                empty_token_skip_budgets.pop(token_id, None)
+                # The positive value read above proves this dict key exists.
+                empty_token_skip_budgets.pop(token_id, None)  # pragma: no mutate
             return None, "empty_cache_skip", None
     latest_ts = latest_timestamps.get(token_id)
     if rebuild_history:
@@ -163,9 +164,9 @@ def iter_token_plans_paged(
             min_volume=options.min_volume,
             max_volume=options.max_volume,
         )
-        planning_state.scope_skip += int(exclusion_counts.get("scope_skip", 0) or 0)
-        planning_state.ended_market_skip += int(
-            exclusion_counts.get("ended_market_skip", 0) or 0
+        planning_state.scope_skip = int(exclusion_counts.get("scope_skip") or 0)
+        planning_state.ended_market_skip = int(
+            exclusion_counts.get("ended_market_skip") or 0
         )
     row_pages = (
         iter_due_market_tokens_fn(

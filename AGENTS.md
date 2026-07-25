@@ -68,26 +68,29 @@ uv run make ci-fast
 
 Run `uv run make release-gate` before releases and after dependency, Docker,
 Dagster, dbt, or data-quality changes. It runs the lint, contract, docs,
-100%-coverage and integration surfaces, Costguard, and a non-root container
-smoke without repeating the ordinary test pass before coverage. Local gates run
-their Make targets sequentially. GitHub parallelizes the equivalent automatic
-surface across `static-docs`, `tests`, and `dbt` workers, then reports the
-stable `fast-gate` aggregate. The manual `Manual Full Validation` workflow
-parallelizes coverage, dbt/data quality, and static/docs/container validation
-behind the stable `full-gate` aggregate; optional signed multi-arch publication
-still depends on that aggregate. For narrower local runs, `make test`, `make
-integration-dagster`, `make integration-dbt`, `make data-quality`, and `make
-coverage` still work.
+100%-coverage and integration surfaces, focused mutation testing, Costguard,
+and a non-root container smoke without repeating the ordinary test pass before
+coverage. Local gates run their Make targets sequentially. GitHub parallelizes
+the equivalent automatic surface across `static-docs`, `tests`, and `dbt`
+workers, then reports the stable `fast-gate` aggregate. The manual `Manual Full
+Validation` workflow parallelizes coverage, dbt/data quality, focused mutation,
+and static/docs/container validation behind the stable `full-gate` aggregate;
+optional signed multi-arch publication still depends on that aggregate. For
+narrower local runs, `make test`, `make integration-dagster`, `make
+integration-dbt`, `make data-quality`, `make mutation`, and `make coverage`
+still work.
 
 `dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
 running the ordinary dbt graph, which excludes `tag:polygon_settlement`.
 `dbt-polygon-settlement-ci` separately builds that graph against complete
 synthetic replay fixtures and asserts the 39,120-row mart contract.
-`gx-data-quality` checks the ordinary disposable database
-so data-quality validation does not rebuild dbt. `contract-http` is replay-only
-and part of both gates, while the default `make test` still excludes
-the `contract` marker. `live-smoke` is local-only and runs the public-source
-WC2026 cross-platform pipeline against its smoke configuration.
+`data-quality` is the safe dbt-only wrapper that rebuilds the disposable
+database before validation. `mutation` resumes focused Mutmut work, while
+`mutation-ci` starts from an empty mutation cache and enforces zero unresolved
+mutants. `contract-http` is replay-only and part of both gates, while the
+default `make test` still excludes the `contract` marker. `live-smoke` is
+local-only and runs the public-source WC2026 cross-platform pipeline against
+its smoke configuration.
 Costguard is a dbt/release guardrail, not an odds ingestion runtime dependency.
 Install the pinned local scanner with:
 
@@ -119,8 +122,9 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make runtime-dirs` | Create SSD-local temp, cache, dbt, Python, DuckDB-extension, and browser directories below `.cache/runtime` |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
 | `make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement graph against replay fixtures |
-| `make gx-data-quality` | Great Expectations data-quality report against an existing disposable dbt build |
-| `make data-quality` | Safe local wrapper that rebuilds disposable dbt state before `gx-data-quality` |
+| `make data-quality` | Safe local dbt build-and-test wrapper against disposable state |
+| `make mutation` | Resume the focused Mutmut run and enforce its exported statistics |
+| `make mutation-ci` | Delete cached mutants and run the deterministic focused mutation gate |
 | `make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate |
 | `make live-smoke` | Opt-in live WC2026 cross-platform pipeline against the configured warehouse |
 | `make match-minute-inputs-validate` | Validate the operator-local 104-match schedule overlay |

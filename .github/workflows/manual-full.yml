@@ -78,10 +78,36 @@ jobs:
         run: uv run make dbt-polygon-settlement-ci
       - name: Ordinary dbt graph
         run: uv run make dbt-build-ci
-      - name: Great Expectations data quality
-        run: uv run make gx-data-quality
       - name: Costguard scan
         run: uv run make costguard-scan
+
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v6
+        with:
+          python-version: "3.10"
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.3.2
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --extra dev
+      - name: Focused mutation gate
+        run: uv run make mutation-ci
+      - name: Export mutation statistics
+        if: always()
+        run: uv run mutmut export-cicd-stats
+      - name: Upload mutation statistics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutmut-cicd-stats
+          path: mutants/mutmut-cicd-stats.json
+          if-no-files-found: error
+          retention-days: 7
 
   static-docs-container:
     runs-on: ubuntu-latest
@@ -140,7 +166,7 @@ jobs:
 
   full-gate:
     if: always()
-    needs: [coverage, dbt-quality, static-docs-container]
+    needs: [coverage, dbt-quality, mutation, static-docs-container]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
@@ -148,6 +174,7 @@ jobs:
         run: |
           test "${{ needs.coverage.result }}" = "success"
           test "${{ needs.dbt-quality.result }}" = "success"
+          test "${{ needs.mutation.result }}" = "success"
           test "${{ needs.static-docs-container.result }}" = "success"
 
   publish:
