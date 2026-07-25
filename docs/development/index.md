@@ -61,6 +61,13 @@ no-legacy policy live in
 [AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md).
 Do not duplicate those tables here.
 
+Python 3.10 is the supported floor and remains the full-release runtime.
+Automatic pull-request CI also requires package smoke and the ordinary test
+suite on Python 3.13. Release integration tests compare incremental execution
+with full refresh for all five incremental odds models, replay each shipped
+refresh path twice, and verify recovery after a transactional Polymarket writer
+failure.
+
 All Make child processes use `.cache/runtime/` for temporary files, uv/XDG and
 browser caches, Python bytecode, and dbt output. Polygon and local mart rebuild
 targets also use SSD-local DuckDB extension directories. Put the checkout on
@@ -189,8 +196,8 @@ when settings reload from disk. See
 | `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
 | `uv run make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement graph against replay fixtures. |
 | `uv run make data-quality` | Safe local dbt build-and-test wrapper against disposable state. |
-| `uv run make mutation` | Resume focused mutation testing and enforce exported Mutmut statistics. |
-| `uv run make mutation-ci` | Start from a clean mutation cache and run the deterministic mutation gate. |
+| `uv run make mutation` | Resume focused mutation testing for five curated modules and enforce exported Mutmut statistics. |
+| `uv run make mutation-ci` | Start from a clean mutation cache and run the deterministic zero-unresolved-mutant gate. |
 | `uv run make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate. |
 | `uv run make live-smoke` | Opt-in live WC2026 cross-platform pipeline. |
 | `uv run make match-minute-live-smoke` | Opt-in disposable live acceptance check for the 104-game Polymarket minute mart. |

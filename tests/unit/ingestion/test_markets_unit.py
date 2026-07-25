@@ -1,13 +1,6 @@
-from datetime import datetime, timezone
-
-import polars as pl
-
 from oddsfox_pipeline.ingestion.polymarket.market_scope import MarketScopeConfig
 from oddsfox_pipeline.ingestion.polymarket.markets import fetch, transform
 from oddsfox_pipeline.ingestion.polymarket.markets import sync as markets_sync
-from oddsfox_pipeline.ingestion.polymarket.markets.persistence import (
-    prepare_batch_for_db,
-)
 
 _SLUG_ONLY_CFG = MarketScopeConfig(
     event_slugs=("2026-fifa-world-cup-winner",),
@@ -63,32 +56,6 @@ def test_process_markets_dataframe_shapes():
     assert df["outcomes_str"][0] == '["Y", "N"]'
     assert df["clobTokenIds_str"][0] == '["t1", "t2"]'
     assert df["event_slug"][0] == "ev"
-
-
-def test_prepare_batch_for_db_empty():
-    assert prepare_batch_for_db(pl.DataFrame()) == ([], [])
-
-
-def test_prepare_batch_for_db_column_variants():
-    df = pl.DataFrame(
-        {
-            "id": ["1"],
-            "question": ["q"],
-            "category": ["c"],
-            "description": ["d"],
-            "outcomes_str": ["[]"],
-            "volumeNum": [2.0],
-            "active": [True],
-            "closed": [False],
-            "created_at": [datetime(2024, 1, 1, tzinfo=timezone.utc)],
-            "end_date": [datetime(2024, 2, 1, tzinfo=timezone.utc)],
-            "slug": ["sl"],
-            "event_slug": ["es"],
-            "clobTokenIds_str": ['["a"]'],
-        }
-    )
-    m, t = prepare_batch_for_db(df)
-    assert m and t
 
 
 def test_build_client():

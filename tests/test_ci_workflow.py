@@ -59,9 +59,32 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
 
     assert automatic["permissions"] == {"contents": "read"}
     assert {key: automatic["env"][key] for key in SCHEDULE_FLAGS} == SCHEDULE_FLAGS
-    assert set(automatic["jobs"]) == {"static-docs", "tests", "dbt", "fast-gate"}
-    for worker in ("static-docs", "tests", "dbt"):
+    assert set(automatic["jobs"]) == {
+        "static-docs",
+        "tests",
+        "dbt",
+        "python-compat",
+        "fast-gate",
+    }
+    for worker in ("static-docs", "tests", "dbt", "python-compat"):
         _assert_python_worker(automatic["jobs"][worker], 8)
+    assert all(
+        next(
+            step["with"]["python-version"]
+            for step in automatic["jobs"][worker]["steps"]
+            if step.get("uses", "").startswith("actions/setup-python")
+        )
+        == "3.10"
+        for worker in ("static-docs", "tests", "dbt")
+    )
+    assert (
+        next(
+            step["with"]["python-version"]
+            for step in automatic["jobs"]["python-compat"]["steps"]
+            if step.get("uses", "").startswith("actions/setup-python")
+        )
+        == "3.13"
+    )
     assert _make_targets(automatic["jobs"]["static-docs"]) == [
         "python-lint",
         "check-secrets",
@@ -70,15 +93,24 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
     ]
     assert _make_targets(automatic["jobs"]["tests"]) == ["test", "contract-http"]
     assert _make_targets(automatic["jobs"]["dbt"]) == ["dbt-lint"]
+    assert _make_targets(automatic["jobs"]["python-compat"]) == [
+        "package-smoke",
+        "test",
+    ]
 
     fast_gate = automatic["jobs"]["fast-gate"]
     assert fast_gate["if"] == "always()"
-    assert set(fast_gate["needs"]) == {"static-docs", "tests", "dbt"}
+    assert set(fast_gate["needs"]) == {
+        "static-docs",
+        "tests",
+        "dbt",
+        "python-compat",
+    }
     assert fast_gate["timeout-minutes"] == 8
     fast_gate_command = fast_gate["steps"][0]["run"]
     assert all(
         f"needs.{worker}.result" in fast_gate_command
-        for worker in ("static-docs", "tests", "dbt")
+        for worker in ("static-docs", "tests", "dbt", "python-compat")
     )
     assert "uv run make ci-fast" not in automatic_text
     assert "dbt-parse" not in automatic_text

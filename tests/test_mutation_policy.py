@@ -4,14 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 try:
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10 CI
     import toml as tomllib
-
-pytestmark = pytest.mark.repo_check
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -19,12 +15,14 @@ TARGETS = [
     "src/oddsfox_pipeline/resources/outbound_url.py",
     "src/oddsfox_pipeline/contracts/raw_snapshots.py",
     "src/oddsfox_pipeline/ingestion/polymarket/market_scope/predicates.py",
+    "src/oddsfox_pipeline/ingestion/polymarket/markets/persistence.py",
     "src/oddsfox_pipeline/ingestion/polymarket/odds/planning.py",
 ]
 TESTS = [
     "tests/unit/resources/test_outbound_url.py",
     "tests/unit/contracts/test_raw_snapshots.py",
     "tests/unit/ingestion/test_market_scope_predicates.py",
+    "tests/unit/ingestion/test_market_persistence.py",
     "tests/unit/ingestion/test_odds_planning.py",
 ]
 

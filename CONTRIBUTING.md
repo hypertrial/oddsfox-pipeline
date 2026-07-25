@@ -95,7 +95,11 @@ the [Development guide](docs/development/index.md) and
 [Contributors hub](docs/audiences/contributors.md).
 Data quality remains dbt-native through `uv run make data-quality`. Use
 `uv run make mutation` for resumable focused work and `uv run make mutation-ci`
-for a clean strict mutation run.
+for a clean strict mutation run over the five curated deterministic modules.
+Automatic CI verifies the Python 3.10 support floor and requires package and
+ordinary-test compatibility on Python 3.13. Release integration tests compare
+every incremental odds model with a full refresh and exercise repeat-run and
+writer-recovery behavior without live network calls.
 
 ## Versioning expectations
 

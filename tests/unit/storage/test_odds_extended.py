@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 
-import duckdb
 import pytest
 
 import oddsfox_pipeline.storage.duckdb.odds as odds_mod
@@ -90,12 +89,6 @@ def test_refresh_token_odds_daily_rolls_back_on_error():
         )
 
     assert "ROLLBACK" in calls
-
-
-def test_save_odds_bulk_upsert_no_appender(duck, monkeypatch):
-    with odds_mod.get_connection() as conn:
-        monkeypatch.delattr(duckdb, "Appender", raising=False)
-        odds_mod.save_odds_bulk_upsert([("nx", 1, 0.1)], conn, assume_deduped=False)
 
 
 def test_save_odds_bulk_appender_empty_and_assume_deduped(duck):
@@ -338,32 +331,19 @@ def test_get_token_sync_snapshot_reconcile_without_repair_updates_latest_only(du
     assert ledger_ts == 10
 
 
-def test_save_odds_bulk_appender_and_upsert_write_canonical_rows(monkeypatch, duck):
-    appended = []
+def test_save_odds_bulk_appender_delegates_to_canonical_upsert(monkeypatch):
+    calls = []
+    records = [("app", 1, 0.1)]
+    conn = object()
+    monkeypatch.setattr(
+        odds_writes,
+        "save_odds_bulk_upsert",
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
 
-    class FakeAppender:
-        def __init__(self, conn, table):
-            self.table = table
+    odds_mod.save_odds_bulk_appender(records, conn)
 
-        def append(self, row):
-            appended.append((self.table, tuple(row)))
-
-        def close(self):
-            appended.append((self.table, "closed"))
-
-    monkeypatch.setattr(duckdb, "Appender", FakeAppender, raising=False)
-    with odds_mod.get_connection() as conn:
-        odds_mod.save_odds_bulk_appender([("app", 1, 0.1)], conn)
-        odds_mod.save_odds_bulk_upsert([("up", 2, 0.2)], conn, assume_deduped=False)
-        rows = conn.execute(
-            f"""
-            SELECT clobTokenId, timestamp, price
-            FROM {T_OH}
-            ORDER BY clobTokenId
-            """
-        ).fetchall()
-    assert appended == []
-    assert rows == [("app", 1, 0.1), ("up", 2, 0.2)]
+    assert calls == [((records, conn), {"assume_deduped": False})]
 
 
 def test_save_sync_status_batch_preserves_fully_checked(duck):

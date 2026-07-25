@@ -71,10 +71,12 @@ Dagster, dbt, or data-quality changes. It runs the lint, contract, docs,
 100%-coverage and integration surfaces, focused mutation testing, Costguard,
 and a non-root container smoke without repeating the ordinary test pass before
 coverage. Local gates run their Make targets sequentially. GitHub parallelizes
-the equivalent automatic surface across `static-docs`, `tests`, and `dbt`
-workers, then reports the stable `fast-gate` aggregate. The manual `Manual Full
-Validation` workflow parallelizes coverage, dbt/data quality, focused mutation,
-and static/docs/container validation behind the stable `full-gate` aggregate;
+the equivalent automatic surface across `static-docs`, `tests`, `dbt`, and a
+Python 3.13 package/test compatibility worker, then reports the stable
+`fast-gate` aggregate. Python 3.10 remains the supported floor and full-release
+runtime. The manual `Manual Full Validation` workflow parallelizes coverage,
+dbt/data quality, focused mutation, and static/docs/container validation behind
+the stable `full-gate` aggregate;
 optional signed multi-arch publication still depends on that aggregate. For
 narrower local runs, `make test`, `make integration-dagster`, `make
 integration-dbt`, `make data-quality`, `make mutation`, and `make coverage`
@@ -87,7 +89,11 @@ synthetic replay fixtures and asserts the 39,120-row mart contract.
 `data-quality` is the safe dbt-only wrapper that rebuilds the disposable
 database before validation. `mutation` resumes focused Mutmut work, while
 `mutation-ci` starts from an empty mutation cache and enforces zero unresolved
-mutants. `contract-http` is replay-only and part of both gates, while the
+mutants across outbound URL safety, raw snapshot contracts, market-scope
+predicates, market persistence, and odds planning. Incremental dbt tests compare
+all five incremental odds models with a full refresh; seeded Dagster tests prove
+repeat-run stability and Polymarket writer recovery. `contract-http` is
+replay-only and part of both gates, while the
 default `make test` still excludes the `contract` marker. `live-smoke` is
 local-only and runs the public-source WC2026 cross-platform pipeline against
 its smoke configuration.

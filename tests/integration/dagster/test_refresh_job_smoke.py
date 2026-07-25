@@ -146,6 +146,134 @@ def _seed_dlt_owned_markets(
         )
 
 
+def _pipeline_run_counts(conn, *, ops_schema: str) -> dict[str, int]:
+    return dict(
+        conn.execute(
+            f"""
+            select task_name, count(*)
+            from "{ops_schema}"."pipeline_run_events"
+            group by task_name
+            order by task_name
+            """
+        ).fetchall()
+    )
+
+
+def _polymarket_business_state(conn, *, scope_name: str) -> dict[str, list[tuple]]:
+    raw = f"polymarket_{scope_name}_raw"
+    ops = f"polymarket_{scope_name}_ops"
+    intermediate = f"polymarket_{scope_name}_intermediate"
+    model = f"int_polymarket_{scope_name}_token_hourly_odds"
+    return {
+        "markets": conn.execute(
+            f"""
+            select id, question, volume, active, closed, slug, event_slug,
+                clob_token_ids
+            from "{raw}"."markets"
+            order by id
+            """
+        ).fetchall(),
+        "market_tokens": conn.execute(
+            f"""
+            select market_id, clobTokenIds
+            from "{raw}"."market_tokens"
+            order by market_id
+            """
+        ).fetchall(),
+        "registry": conn.execute(
+            f"""
+            select scope_name, market_id, event_slug, event_id, source
+            from "{ops}"."market_scope_registry"
+            order by scope_name, market_id
+            """
+        ).fetchall(),
+        "odds_history": conn.execute(
+            f"""
+            select clobTokenId, timestamp, price
+            from "{raw}"."odds_history"
+            order by clobTokenId, timestamp
+            """
+        ).fetchall(),
+        "daily": conn.execute(
+            f"""
+            select clobTokenId, odds_date_utc, open_price, high_price, low_price,
+                close_price, avg_price, observed_points, first_timestamp,
+                last_timestamp
+            from "{raw}"."token_odds_daily"
+            order by clobTokenId, odds_date_utc
+            """
+        ).fetchall(),
+        "ledger": conn.execute(
+            f"""
+            select clobTokenId, last_sync_timestamp, fully_checked,
+                empty_run_streak
+            from "{ops}"."token_sync_ledger"
+            order by clobTokenId
+            """
+        ).fetchall(),
+        "skips": conn.execute(
+            f"""
+            select clobTokenId, reason
+            from "{ops}"."token_sync_skips"
+            order by clobTokenId
+            """
+        ).fetchall(),
+        "hourly_model": conn.execute(
+            f"""
+            select clob_token_id, odds_hour_epoch, open_price, high_price,
+                low_price, close_price, avg_price, observed_points,
+                first_timestamp, last_timestamp
+            from "{intermediate}"."{model}"
+            order by clob_token_id, odds_hour_epoch
+            """
+        ).fetchall(),
+    }
+
+
+def _kalshi_business_state(conn) -> dict[str, list[tuple]]:
+    return {
+        "events": conn.execute(
+            """
+            select event_ticker, series_ticker, title, status
+            from "kalshi_wc2026_raw"."events"
+            order by event_ticker
+            """
+        ).fetchall(),
+        "markets": conn.execute(
+            """
+            select market_ticker, event_ticker, series_ticker, title, status,
+                volume, open_interest, last_price_dollars
+            from "kalshi_wc2026_raw"."markets"
+            order by market_ticker
+            """
+        ).fetchall(),
+        "registry": conn.execute(
+            """
+            select scope_name, market_ticker, event_ticker, series_ticker, source
+            from "kalshi_wc2026_ops"."market_scope_registry"
+            order by scope_name, market_ticker
+            """
+        ).fetchall(),
+        "candlesticks": conn.execute(
+            """
+            select market_ticker, hour_start_utc, open_price, high_price,
+                low_price, close_price, avg_price, volume
+            from "kalshi_wc2026_raw"."market_candlesticks_hourly"
+            order by market_ticker, hour_start_utc
+            """
+        ).fetchall(),
+        "hourly_model": conn.execute(
+            """
+            select market_ticker, odds_hour_epoch, open_price, high_price,
+                low_price, close_price, avg_price, volume
+            from "kalshi_wc2026_intermediate".
+                "int_kalshi_wc2026_market_hourly_odds"
+            order by market_ticker, odds_hour_epoch
+            """
+        ).fetchall(),
+    }
+
+
 def _materialize_refresh_path(
     monkeypatch,
     tmp_path: Path,
@@ -154,10 +282,12 @@ def _materialize_refresh_path(
     slug: str,
     question: str,
     transient_token: str | None,
+    fail_second_writer_flush: bool = False,
+    one_point_history: bool = False,
 ) -> Path:
     db_path = tmp_path / db_name
     profiles_dir = tmp_path / f"profiles-{db_name}"
-    profiles_dir.mkdir()
+    profiles_dir.mkdir(exist_ok=True)
     (profiles_dir / "profiles.yml").write_text(
         f"""
 oddsfox:
@@ -245,16 +375,14 @@ oddsfox:
         now_ts=None,
         **kwargs,
     ):
-        del client, fidelity, kwargs
+        del client, start_ts, end_ts, fidelity, now_ts, kwargs
         if transient_token is not None and str(token_id) == transient_token:
             return None
-        base_ts = int(
-            start_ts if start_ts is not None else now_ts if now_ts is not None else 0
-        )
-        return [
-            (str(token_id), base_ts + 60, 0.55),
-            (str(token_id), base_ts + 120, 0.60),
+        rows = [
+            (str(token_id), 1_784_851_260, 0.55),
+            (str(token_id), 1_784_851_320, 0.60),
         ]
+        return rows[:1] if one_point_history else rows
 
     monkeypatch.setattr(
         "oddsfox_pipeline.ingestion.polymarket.markets.sync.refresh_registry_and_collect_markets_targeted",
@@ -319,30 +447,57 @@ oddsfox:
     )
     assert ingest_result.success is True
 
-    odds_result = materialize(
-        [polymarket_wc2026_raw_token_odds_history_hourly],
-        run_config={
-            "ops": {
-                "polymarket_wc2026_raw_token_odds_history_hourly": {
-                    "config": {
-                        "workers": 1,
-                        "batch_size": 1000,
-                        "requests_per_second": 1,
-                        "skip_recent_minutes": 0,
-                        "overlap_minutes": 0,
-                        "window_hours": 1,
-                        "market_page_size": 100,
-                        "min_volume": 0,
-                        "progress_log_interval_tokens": 1,
-                        "progress_log_interval_seconds": 1,
-                        "no_progress_soft_timeout_seconds": 120,
-                        "no_progress_hard_timeout_seconds": 600,
-                        "progress_poll_seconds": 1,
-                    }
-                },
-            }
-        },
-    )
+    with monkeypatch.context() as writer_patch:
+        if fail_second_writer_flush:
+            from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
+
+            original_flush = odds_sync._flush_writer_buffers
+            flush_calls = 0
+
+            def fail_write(*_args, **_kwargs):
+                raise RuntimeError("injected second writer flush failure")
+
+            def flaky_flush(*args, **kwargs):
+                nonlocal flush_calls
+                flush_calls += 1
+                if flush_calls == 2:
+                    kwargs["save_odds_bulk_upsert_fn"] = fail_write
+                    kwargs["upsert_token_sync_state_batch_fn"] = fail_write
+                return original_flush(*args, **kwargs)
+
+            writer_patch.setattr(
+                odds_sync, "_dynamic_writer_flush_rows", lambda *_args: 1
+            )
+            writer_patch.setattr(odds_sync, "_flush_writer_buffers", flaky_flush)
+        odds_result = materialize(
+            [polymarket_wc2026_raw_token_odds_history_hourly],
+            run_config={
+                "ops": {
+                    "polymarket_wc2026_raw_token_odds_history_hourly": {
+                        "config": {
+                            "workers": 1,
+                            "batch_size": 1000,
+                            "requests_per_second": 1,
+                            "skip_recent_minutes": 0,
+                            "overlap_minutes": 0,
+                            "window_hours": 1,
+                            "market_page_size": 100,
+                            "min_volume": 0,
+                            "progress_log_interval_tokens": 1,
+                            "progress_log_interval_seconds": 1,
+                            "no_progress_soft_timeout_seconds": 120,
+                            "no_progress_hard_timeout_seconds": 600,
+                            "progress_poll_seconds": 1,
+                        }
+                    },
+                }
+            },
+            raise_on_error=False,
+        )
+    if fail_second_writer_flush:
+        assert odds_result.success is False
+        assert flush_calls == 2
+        return db_path
     assert odds_result.success is True
 
     dbt_result = materialize(
@@ -380,7 +535,7 @@ def test_refresh_path_materializes(
 ) -> None:
     slug = "world-cup-2026-smoke-pipeline-pass"
     question = "Will the World Cup 2026 smoke pipeline pass?"
-    _materialize_refresh_path(
+    db_path = _materialize_refresh_path(
         monkeypatch,
         tmp_path,
         db_name=f"pipeline-{slug}.duckdb",
@@ -389,6 +544,10 @@ def test_refresh_path_materializes(
         transient_token=None,
     )
     with connection.get_connection() as conn:
+        first_state = _polymarket_business_state(conn, scope_name="wc2026")
+        first_run_counts = _pipeline_run_counts(
+            conn, ops_schema="polymarket_wc2026_ops"
+        )
         checks = (
             conn.execute(
                 'select count(*) from "polymarket_wc2026_raw"."markets"'
@@ -416,6 +575,81 @@ def test_refresh_path_materializes(
             == (2,),
         )
         assert all(checks)
+    assert db_path.exists()
+
+    _materialize_refresh_path(
+        monkeypatch,
+        tmp_path,
+        db_name=f"pipeline-{slug}.duckdb",
+        slug=slug,
+        question=question,
+        transient_token=None,
+    )
+    with connection.get_connection() as conn:
+        assert _polymarket_business_state(conn, scope_name="wc2026") == first_state
+        assert _pipeline_run_counts(conn, ops_schema="polymarket_wc2026_ops") == {
+            task: count * 2 for task, count in first_run_counts.items()
+        }
+
+
+def test_refresh_path_recovers_after_second_writer_flush_failure(
+    monkeypatch,
+    tmp_path,
+    reset_connection_globals,
+    no_sleep,
+) -> None:
+    slug = "world-cup-2026-writer-recovery"
+    question = "Will the World Cup 2026 writer recovery pass?"
+    db_name = "pipeline-writer-recovery.duckdb"
+    failed_db = _materialize_refresh_path(
+        monkeypatch,
+        tmp_path,
+        db_name=db_name,
+        slug=slug,
+        question=question,
+        transient_token=None,
+        fail_second_writer_flush=True,
+        one_point_history=True,
+    )
+    with connection.get_connection() as conn:
+        assert conn.execute(
+            'select count(*) from "polymarket_wc2026_raw"."odds_history"'
+        ).fetchone() == (1,)
+        assert conn.execute(
+            'select count(*) from "polymarket_wc2026_ops"."token_sync_ledger"'
+        ).fetchone() == (0,)
+        assert conn.execute(
+            'select count(*) from "polymarket_wc2026_raw"."token_odds_daily"'
+        ).fetchone() == (0,)
+
+    _materialize_refresh_path(
+        monkeypatch,
+        tmp_path,
+        db_name=db_name,
+        slug=slug,
+        question=question,
+        transient_token=None,
+        one_point_history=True,
+    )
+    with connection.get_connection() as conn:
+        recovered_state = _polymarket_business_state(conn, scope_name="wc2026")
+
+    clean_dir = tmp_path / "clean"
+    clean_dir.mkdir()
+    _materialize_refresh_path(
+        monkeypatch,
+        clean_dir,
+        db_name="pipeline-writer-clean.duckdb",
+        slug=slug,
+        question=question,
+        transient_token=None,
+        one_point_history=True,
+    )
+    with connection.get_connection() as conn:
+        clean_state = _polymarket_business_state(conn, scope_name="wc2026")
+
+    assert failed_db.exists()
+    assert recovered_state == clean_state
 
 
 _MIDTERMS_EVENT_SLUG = "balance-of-power-2026-midterms"
@@ -498,15 +732,12 @@ def _patch_midterms_refresh_externals(
         now_ts=None,
         **kwargs,
     ):
-        del client, fidelity, kwargs
+        del client, start_ts, end_ts, fidelity, now_ts, kwargs
         if transient_token is not None and str(token_id) == transient_token:
             return None
-        base_ts = int(
-            start_ts if start_ts is not None else now_ts if now_ts is not None else 0
-        )
         return [
-            (str(token_id), base_ts + 60, 0.52),
-            (str(token_id), base_ts + 120, 0.54),
+            (str(token_id), 1_784_851_260, 0.52),
+            (str(token_id), 1_784_851_320, 0.54),
         ]
 
     def fake_sync_market_scope_registry(**kwargs):
@@ -607,7 +838,7 @@ def _patch_midterms_job_externals(monkeypatch, market_page: list[dict]) -> None:
 def _configure_midterms_smoke_env(monkeypatch, tmp_path: Path, db_name: str) -> Path:
     db_path = tmp_path / db_name
     profiles_dir = tmp_path / f"profiles-{db_name}"
-    profiles_dir.mkdir()
+    profiles_dir.mkdir(exist_ok=True)
     (profiles_dir / "profiles.yml").write_text(
         f"""
 oddsfox:
@@ -731,6 +962,10 @@ def test_midterms_refresh_path_materializes(
         transient_token=None,
     )
     with connection.get_connection() as conn:
+        first_state = _polymarket_business_state(conn, scope_name=_MIDTERMS_SCOPE)
+        first_run_counts = _pipeline_run_counts(
+            conn, ops_schema="polymarket_us_midterms_2026_ops"
+        )
         checks = {
             "markets": conn.execute(
                 f'select count(*) from "{_MIDTERMS_RAW_SCHEMA}"."markets"'
@@ -766,6 +1001,20 @@ def test_midterms_refresh_path_materializes(
         }
         assert all(checks.values()), checks
     assert db_path.exists()
+
+    _materialize_midterms_refresh_path(
+        monkeypatch,
+        tmp_path,
+        db_name="pipeline-us-midterms-2026-smoke.duckdb",
+        transient_token=None,
+    )
+    with connection.get_connection() as conn:
+        assert (
+            _polymarket_business_state(conn, scope_name=_MIDTERMS_SCOPE) == first_state
+        )
+        assert _pipeline_run_counts(
+            conn, ops_schema="polymarket_us_midterms_2026_ops"
+        ) == {task: count * 2 for task, count in first_run_counts.items()}
 
 
 @pytest.mark.parametrize("job_name", _MIDTERMS_JOBS)
@@ -1033,7 +1282,7 @@ def _patch_kalshi_refresh_externals(monkeypatch) -> dict[str, list[dict]]:
 def _configure_kalshi_smoke_env(monkeypatch, tmp_path: Path, db_name: str) -> Path:
     db_path = tmp_path / db_name
     profiles_dir = tmp_path / f"profiles-{db_name}"
-    profiles_dir.mkdir()
+    profiles_dir.mkdir(exist_ok=True)
     (profiles_dir / "profiles.yml").write_text(
         f"""
 oddsfox:
@@ -1071,10 +1320,15 @@ oddsfox:
 
 
 def _materialize_kalshi_refresh_path(
-    monkeypatch, tmp_path: Path, *, db_name: str
+    monkeypatch,
+    tmp_path: Path,
+    *,
+    db_name: str,
+    patch_externals: bool = True,
 ) -> Path:
     profiles_dir = _configure_kalshi_smoke_env(monkeypatch, tmp_path, db_name)
-    _patch_kalshi_refresh_externals(monkeypatch)
+    if patch_externals:
+        _patch_kalshi_refresh_externals(monkeypatch)
 
     noop_dlt = MagicMock()
     noop_dlt.run.return_value = iter([])
@@ -1142,6 +1396,8 @@ def test_kalshi_refresh_path_materializes(
         db_name="pipeline-kalshi-wc2026-smoke.duckdb",
     )
     with connection.get_connection() as conn:
+        first_state = _kalshi_business_state(conn)
+        first_run_counts = _pipeline_run_counts(conn, ops_schema="kalshi_wc2026_ops")
         checks = {
             "raw_markets": conn.execute(
                 f'select count(*) from "{_KALSHI_RAW_SCHEMA}"."markets"'
@@ -1163,6 +1419,18 @@ def test_kalshi_refresh_path_materializes(
         }
         assert all(checks.values()), checks
     assert db_path.exists()
+
+    _materialize_kalshi_refresh_path(
+        monkeypatch,
+        tmp_path,
+        db_name="pipeline-kalshi-wc2026-smoke.duckdb",
+        patch_externals=False,
+    )
+    with connection.get_connection() as conn:
+        assert _kalshi_business_state(conn) == first_state
+        assert _pipeline_run_counts(conn, ops_schema="kalshi_wc2026_ops") == {
+            task: count * 2 for task, count in first_run_counts.items()
+        }
 
 
 def _patch_kalshi_job_externals(monkeypatch) -> None:

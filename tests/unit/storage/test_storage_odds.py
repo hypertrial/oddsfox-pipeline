@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import duckdb
 import pytest
 from tests.unit.storage.duckdb_storage_test_support import T_OH, T_TOD
 
@@ -74,12 +73,6 @@ def test_refresh_token_odds_daily_and_backfill(duck):
             """
         ).fetchone()
     assert low_price <= avg_price <= high_price
-
-
-def test_save_odds_bulk_appender_fallback_without_appender(duck, monkeypatch):
-    with odds_mod.get_connection() as conn:
-        monkeypatch.delattr(duckdb, "Appender", raising=False)
-        odds_mod.save_odds_bulk_appender([("z", 1, 0.1)], conn)
 
 
 def test_save_odds_bulk_upsert_paths(duck):

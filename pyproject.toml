@@ -54,6 +54,7 @@ only_mutate = [
   "src/oddsfox_pipeline/resources/outbound_url.py",
   "src/oddsfox_pipeline/contracts/raw_snapshots.py",
   "src/oddsfox_pipeline/ingestion/polymarket/market_scope/predicates.py",
+  "src/oddsfox_pipeline/ingestion/polymarket/markets/persistence.py",
   "src/oddsfox_pipeline/ingestion/polymarket/odds/planning.py",
 ]
 pytest_add_cli_args = ["--hypothesis-seed=20260725"]
@@ -61,6 +62,7 @@ pytest_add_cli_args_test_selection = [
   "tests/unit/resources/test_outbound_url.py",
   "tests/unit/contracts/test_raw_snapshots.py",
   "tests/unit/ingestion/test_market_scope_predicates.py",
+  "tests/unit/ingestion/test_market_persistence.py",
   "tests/unit/ingestion/test_odds_planning.py",
 ]
 

@@ -7,7 +7,6 @@ from contextlib import contextmanager
 from queue import Empty, Queue
 from unittest.mock import MagicMock
 
-import duckdb
 import pytest
 
 pytest.importorskip("duckdb")
@@ -952,41 +951,3 @@ def test_writer_loop_fatal_flush_and_final(monkeypatch, tmp_path):
     q.put(None)
     t.join(timeout=5)
     assert failures
-
-
-def test_save_odds_bulk_appender_with_appender(monkeypatch, tmp_path):
-    from oddsfox_pipeline.storage.duckdb import odds as odds_mod
-
-    if not hasattr(duckdb, "Appender"):
-        pytest.skip("DuckDB Appender not available")
-    monkeypatch.delenv("DUCKDB_PATH", raising=False)
-    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "app.duckdb"))
-
-    reload_all_settings_modules()
-    monkeypatch.delenv("DUCKDB_PATH", raising=False)
-    import oddsfox_pipeline.storage.duckdb.connection as conn
-
-    conn.reset_duckdb_connection_state()
-    importlib.reload(conn)
-    conn.ensure_duck_db()
-    with odds_mod.get_connection() as c:
-        odds_mod.save_odds_bulk_appender([("app", 3, 0.4)], c)
-
-
-def test_save_odds_bulk_upsert_appender_staging(monkeypatch, tmp_path):
-    from oddsfox_pipeline.storage.duckdb import odds as odds_mod
-
-    if not hasattr(duckdb, "Appender"):
-        pytest.skip("Appender required")
-    monkeypatch.delenv("DUCKDB_PATH", raising=False)
-    monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "stg.duckdb"))
-
-    reload_all_settings_modules()
-    monkeypatch.delenv("DUCKDB_PATH", raising=False)
-    import oddsfox_pipeline.storage.duckdb.connection as conn
-
-    conn.reset_duckdb_connection_state()
-    importlib.reload(conn)
-    conn.ensure_duck_db()
-    with odds_mod.get_connection() as c:
-        odds_mod.save_odds_bulk_upsert([("stg", 9, 0.7)] * 3, c, assume_deduped=False)

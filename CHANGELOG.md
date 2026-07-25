@@ -10,8 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added strict focused Mutmut coverage for outbound URL safety, raw snapshot
-  contracts, Polymarket scope predicates, and odds planning, enforced by local
-  and manual full release gates.
+  contracts, Polymarket scope predicates, market persistence, and odds
+  planning, enforced by ordinary policy tests plus local and manual full
+  release gates.
+- Added incremental/full-refresh equivalence coverage for all five incremental
+  odds models, repeat-run tests for all shipped refresh paths, and transactional
+  Polymarket writer failure/recovery validation.
+- Added a required Python 3.13 package and ordinary-test compatibility worker
+  while retaining Python 3.10 as the supported floor and full-release runtime.
 - Added an operator guide for the cross-platform knockout job
   (`wc2026_knockout_match_odds_full_pipeline`) and linked it from Choose a
   scope, Operators, Enable schedules, and Orchestration.

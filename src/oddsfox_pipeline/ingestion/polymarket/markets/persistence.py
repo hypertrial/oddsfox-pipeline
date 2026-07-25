@@ -5,7 +5,7 @@ This module holds DB-facing batching logic so the sync orchestration stays
 focused on control flow rather than storage details.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable, List, Tuple
 
 import polars as pl
@@ -42,12 +42,23 @@ MARKET_RECORD_COLUMNS = (
 )
 
 
+def _utc_now() -> datetime:
+    """Return the current UTC time in the warehouse's naive timestamp shape."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def market_records_to_dicts(market_data: Iterable[Tuple]) -> list[dict]:
     rows_by_id: dict[str, dict] = {}
     for row in market_data:
         payload = dict(zip(MARKET_RECORD_COLUMNS, row, strict=True))
         rows_by_id[str(payload["id"])] = payload
     return list(rows_by_id.values())
+
+
+def _format_timestamp(value: object) -> object:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    return value
 
 
 def prepare_batch_for_db(df: pl.DataFrame) -> Tuple[List[Tuple], List[Tuple]]:
@@ -58,197 +69,55 @@ def prepare_batch_for_db(df: pl.DataFrame) -> Tuple[List[Tuple], List[Tuple]]:
     if df.is_empty():
         return [], []
 
-    # Handle potentially missing columns by adding them with defaults
-    # This mimics the logic from the original db.py
-    select_cols = []
-
-    # ID
-    if "id" in df.columns:
-        select_cols.append(pl.col("id"))
-    else:
-        select_cols.append(pl.lit("").alias("id"))
-
-    # Question
-    if "question" in df.columns:
-        select_cols.append(pl.col("question"))
-    else:
-        select_cols.append(pl.lit("").alias("question"))
-
-    # Category
-    if "category" in df.columns:
-        select_cols.append(pl.col("category"))
-    else:
-        select_cols.append(pl.lit("").alias("category"))
-
-    # Description
-    if "description" in df.columns:
-        select_cols.append(pl.col("description"))
-    else:
-        select_cols.append(pl.lit("").alias("description"))
-
-    # Outcomes
-    if "outcomes_str" in df.columns:
-        select_cols.append(pl.col("outcomes_str"))
-    else:
-        select_cols.append(pl.lit("").alias("outcomes_str"))
-
-    # Volume
-    if "volumeNum" in df.columns:
-        select_cols.append(pl.col("volumeNum").alias("volume"))
-    elif "volume" in df.columns:
-        select_cols.append(pl.col("volume"))
-    else:
-        select_cols.append(pl.lit(0.0).alias("volume"))
-
-    # Active
-    if "active" in df.columns:
-        select_cols.append(pl.col("active"))
-    else:
-        select_cols.append(pl.lit(False).alias("active"))
-
-    # Closed
-    if "closed" in df.columns:
-        select_cols.append(pl.col("closed"))
-    else:
-        select_cols.append(pl.lit(False).alias("closed"))
-
-    # Created At
-    if "created_at" in df.columns:
-        select_cols.append(
-            pl.col("created_at")
-            .dt.strftime("%Y-%m-%d %H:%M:%S")
-            .alias("created_at_str")
-        )
-    else:
-        select_cols.append(pl.lit("").alias("created_at_str"))
-
-    # End Date
-    if "end_date" in df.columns:
-        select_cols.append(
-            pl.col("end_date").dt.strftime("%Y-%m-%d %H:%M:%S").alias("end_date_str")
-        )
-    else:
-        select_cols.append(pl.lit("").alias("end_date_str"))
-
-    # Slug
-    if "slug" in df.columns:
-        select_cols.append(pl.col("slug"))
-    else:
-        select_cols.append(pl.lit(None).alias("slug"))
-
-    # Event Slug
-    if "event_slug" in df.columns:
-        select_cols.append(pl.col("event_slug"))
-    else:
-        select_cols.append(pl.lit(None).alias("event_slug"))
-
-    # Event Id
-    if "event_id" in df.columns:
-        select_cols.append(pl.col("event_id"))
-    else:
-        select_cols.append(pl.lit(None).alias("event_id"))
-
-    for col in (
-        "event_title",
-        "event_start_time",
-        "event_finished_time",
-        "event_game_id",
-        "event_ended",
-        "condition_id",
-        "sports_market_type",
-        "game_start_time",
-        "group_item_title",
-        "tags_str",
-        "clob_token_ids",
-        "is_resolved",
-        "winning_outcome",
-        "winning_clob_token_id",
-    ):
-        if col in df.columns:
-            select_cols.append(pl.col(col))
-        else:
-            select_cols.append(pl.lit(None).alias(col))
-
-    # Tokens
-    if "clobTokenIds_str" in df.columns:
-        select_cols.append(pl.col("clobTokenIds_str"))
-    else:
-        select_cols.append(pl.lit("").alias("clobTokenIds_str"))
-
-    # Select and iterate
-    records_df = df.select(select_cols)
-    scraped_at = datetime.now().isoformat()
+    columns = set(df.columns)
+    scraped_at = _utc_now().isoformat()
 
     market_data = []
     token_data = []
 
-    for row in records_df.rows():
-        # Row: (id, question, ..., slug, event_slug, event_id, clobTokenIds)
-        (
-            m_id,
-            q,
-            cat,
-            desc,
-            out,
-            vol,
-            act,
-            clo,
-            cre,
-            end_date,
-            slug,
-            event_slug,
-            event_id,
-            event_title,
-            event_start_time,
-            event_finished_time,
-            event_game_id,
-            event_ended,
-            condition_id,
-            sports_market_type,
-            game_start_time,
-            group_item_title,
-            tags,
-            clob_token_ids,
-            is_resolved,
-            winning_outcome,
-            winning_clob_token_id,
-            toks,
-        ) = row
+    for row in df.to_dicts():
+        volume = row.get("volumeNum") if "volumeNum" in columns else row.get("volume")
+        active = row.get("active", False)
+        closed = row.get("closed", False)
+        event_ended = row.get("event_ended")
+        is_resolved = row.get("is_resolved")
+        market_id = row.get("id", "")
 
         market_data.append(
             (
-                m_id,
-                q,
-                cat,
-                desc,
-                out,
-                float(vol) if vol is not None else 0.0,
-                bool(act) if act is not None else None,
-                bool(clo) if clo is not None else None,
-                cre,
+                market_id,
+                row.get("question", ""),
+                row.get("category", ""),
+                row.get("description", ""),
+                row.get("outcomes_str", ""),
+                float(volume) if volume is not None else 0.0,
+                bool(active) if active is not None else None,
+                bool(closed) if closed is not None else None,
+                _format_timestamp(row.get("created_at", "")),
                 scraped_at,
-                end_date,
-                slug,
-                event_slug,
-                event_id,
-                event_title,
-                event_start_time,
-                event_finished_time,
-                event_game_id,
+                _format_timestamp(row.get("end_date", "")),
+                row.get("slug"),
+                row.get("event_slug"),
+                row.get("event_id"),
+                row.get("event_title"),
+                row.get("event_start_time"),
+                row.get("event_finished_time"),
+                row.get("event_game_id"),
                 bool(event_ended) if event_ended is not None else None,
-                condition_id,
-                sports_market_type,
-                game_start_time,
-                group_item_title,
-                tags,
-                clob_token_ids,
+                row.get("condition_id"),
+                row.get("sports_market_type"),
+                row.get("game_start_time"),
+                row.get("group_item_title"),
+                row.get("tags_str"),
+                row.get("clob_token_ids"),
                 bool(is_resolved) if is_resolved is not None else None,
-                winning_outcome,
-                winning_clob_token_id,
+                row.get("winning_outcome"),
+                row.get("winning_clob_token_id"),
             )
         )
 
-        if toks and toks != "" and toks != "[]":
-            token_data.append((m_id, toks))
+        toks = row.get("clobTokenIds_str")
+        if toks and toks != "[]":
+            token_data.append((market_id, toks))
 
     return market_data, token_data
