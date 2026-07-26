@@ -77,7 +77,11 @@ def _insert_canonical_rows(conn: duckdb.DuckDBPyConnection) -> None:
          'eloratings', 'elo-old', '2026-07-17T00:00:00Z'),
         (2, 'CAN', 'Canada', 1750, 2025, 'year_end',
          'eloratings', 'elo-old', '2026-07-17T00:00:00Z'),
-        (1, 'USA', 'United States', 1810, 2025, 'year_end',
+        (1, 'USA', 'United States', 1810, 2025, '2025',
+         'eloratings', 'elo-new', '2026-07-18T00:00:00Z'),
+        (1, 'USA', 'United States', 1900, null, 'current',
+         'eloratings', 'elo-new', '2026-07-18T00:00:00Z'),
+        (2, 'CAN', 'Canada', 1850, null, 'current',
          'eloratings', 'elo-new', '2026-07-18T00:00:00Z')
         """
     )
@@ -185,9 +189,24 @@ def test_strategy_marts_use_only_latest_complete_canonical_snapshots(
         assert conn.execute(
             """
             select team_code, rating, snapshot_id
-            from wc2026_marts.team_ratings_history
+            from wc2026_marts.team_ratings_current
+            order by team_code
             """
-        ).fetchall() == [("USA", 1810.0, "elo-new")]
+        ).fetchall() == [
+            ("CAN", 1850.0, "elo-new"),
+            ("USA", 1900.0, "elo-new"),
+        ]
+        assert conn.execute(
+            """
+            select team_code, rating, snapshot_id, snapshot_year, snapshot_scope
+            from wc2026_marts.team_ratings_history
+            order by snapshot_year nulls last, team_code
+            """
+        ).fetchall() == [
+            ("USA", 1810.0, "elo-new", 2025, "2025"),
+            ("CAN", 1850.0, "elo-new", None, "current"),
+            ("USA", 1900.0, "elo-new", None, "current"),
+        ]
         assert conn.execute(
             """
             select club_key, elo, snapshot_id

@@ -8,8 +8,10 @@ select
     _snapshot_id as snapshot_id,
     _collected_at as collected_at
 from {{ source('wc2026_canonical_raw', 'eloratings__team_ratings') }}
-where _snapshot_id = {{ latest_wc2026_snapshot_id('eloratings') }}
+where
+    _snapshot_id = {{ latest_wc2026_snapshot_id('eloratings') }}
+    and snapshot_scope = 'current'
 qualify row_number() over (
     partition by team_code
-    order by _collected_at desc, snapshot_year desc nulls last
+    order by _collected_at desc, rank asc
 ) = 1

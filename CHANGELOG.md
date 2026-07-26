@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `wc2026_team_ratings_current` now selects only EloRatings
+  `snapshot_scope = current` (live World scrape). It previously preferred
+  year-end rows via `snapshot_year desc nulls last`, so the “current” mart and
+  latest freeze CSV mostly echoed 2025 year-end ratings.
+
 ### Added
 
 - Added `scripts/export_eloratings_wc2026_team_ratings_freezes.py` and

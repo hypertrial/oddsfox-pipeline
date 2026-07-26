@@ -161,7 +161,9 @@ models:
             grain_columns: [option_id, round_of_32_slot]
 
   - name: wc2026_team_ratings_current
-    description: Latest point-in-time EloRatings row for each national team.
+    description: >
+      Latest EloRatings World scrape (`snapshot_scope = current`) for each
+      national team from the newest complete source snapshot.
     columns:
       - name: team_code
         description: Source national-team code.

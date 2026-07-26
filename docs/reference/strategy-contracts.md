@@ -46,15 +46,7 @@ views.
 | Relation | Purpose |
 | --- | --- |
 | `fixtures`, `results`, `team_identities` | Official schedule, completed outcomes, and canonical team identity. |
-| `team_ratings_current`, `team_ratings_history` | Current and point-in-time national-team ratings. |
-
-Operator CSV freezes from those marts (`make export-wc2026-elo-freezes`) write
-`artifacts/wc2026_elo_exports/team_ratings_pre_kickoff.csv` (year-end
-`snapshot_year = 2025`, designated pre-WC2026 freeze — not a recovered
-June-2026 `World.tsv` scrape) and
-`team_ratings_latest_current.csv` (latest `team_ratings_current` World scrape).
-Both CSVs use mart columns `rank, team_code, team_name, rating` plus export
-metadata `freeze_label, as_of, snapshot_id, collected_at`.
+| `team_ratings_current`, `team_ratings_history` | Current World scrape (`snapshot_scope = current`) and point-in-time national-team ratings. |
 | `player_features`, `squad_player_features` | FIFAIndex features and official-squad matches. |
 | `club_strength_current`, `club_strength_history`, `club_strength_snapshot` | Current and point-in-time club strength. |
 | `base_camp_venues`, `travel_features` | Venue, base-camp, rest, distance, timezone, and altitude features. |
@@ -64,6 +56,14 @@ metadata `freeze_label, as_of, snapshot_id, collected_at`.
 | `international_matches` | Public 2006+ scorelines, tournament taxonomy, shootouts, and goal-event counts. |
 | `third_place_slot_assignments` | FIFA Annexe C knockout-slot mapping. |
 | `source_provenance` | Canonical snapshot provenance. |
+
+Operator CSV freezes from those marts (`make export-wc2026-elo-freezes`) write
+`artifacts/wc2026_elo_exports/team_ratings_pre_kickoff.csv` (year-end
+`snapshot_year = 2025`, designated pre-WC2026 freeze — not a recovered
+June-2026 `World.tsv` scrape) and
+`team_ratings_latest_current.csv` (latest `team_ratings_current` World scrape).
+Both CSVs use mart columns `rank, team_code, team_name, rating` plus export
+metadata `freeze_label, as_of, snapshot_id, collected_at`.
 
 Completed group results align by date and canonical home/away team identity.
 Knockout schedule rows contain bracket slots until participants resolve, so
