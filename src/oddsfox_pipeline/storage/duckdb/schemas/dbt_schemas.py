@@ -158,6 +158,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (WC2026_MARTS_SCHEMA, "wc2026_team_identities"),
     (WC2026_MARTS_SCHEMA, "wc2026_team_ratings_current"),
     (WC2026_MARTS_SCHEMA, "wc2026_team_ratings_history"),
+    (WC2026_MARTS_SCHEMA, "wc2026_team_ratings_pre_match"),
     (WC2026_MARTS_SCHEMA, "wc2026_third_place_lookup"),
     (WC2026_MARTS_SCHEMA, "wc2026_third_place_slot_assignments"),
     (WC2026_MARTS_SCHEMA, "wc2026_travel_features"),

@@ -11,6 +11,10 @@ sources:
         meta:
           dagster:
             asset_key: [wc2026, raw, eloratings]
+      - name: eloratings__match_results
+        meta:
+          dagster:
+            asset_key: [wc2026, raw, eloratings]
       - name: clubelo__club_ratings
         meta:
           dagster:

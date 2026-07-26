@@ -87,6 +87,17 @@ def _insert_canonical_rows(conn: duckdb.DuckDBPyConnection) -> None:
     )
     conn.execute(
         """
+        insert into wc2026_raw.eloratings__match_results values
+        ('2026-06-11', 'WC', 'USA', 'CAN', 'United States', 'Canada',
+         2, 1, 12.0, 1812.0, 1738.0,
+         'eloratings', 'elo-old', '2026-07-17T00:00:00Z'),
+        ('2026-06-11', 'WC', 'USA', 'CAN', 'United States', 'Canada',
+         2, 1, 10.0, 1910.0, 1840.0,
+         'eloratings', 'elo-new', '2026-07-18T00:00:00Z')
+        """
+    )
+    conn.execute(
+        """
         insert into wc2026_raw.clubelo__club_ratings values
         ('2026-07-17', 'club-a', 'Club A', 'Club A', 'USA', 1500, 1,
          '2026-01-01', null, 'clubelo', 'club-old', '2026-07-17T00:00:00Z'),
@@ -174,6 +185,7 @@ def test_strategy_marts_use_only_latest_complete_canonical_snapshots(
             "--select",
             "wc2026_team_ratings_current",
             "wc2026_team_ratings_history",
+            "wc2026_team_ratings_pre_match",
             "wc2026_club_strength_current",
             "wc2026_club_strength_history",
             "wc2026_club_strength_snapshot",
@@ -206,6 +218,17 @@ def test_strategy_marts_use_only_latest_complete_canonical_snapshots(
             ("USA", 1810.0, "elo-new", 2025, "2025"),
             ("CAN", 1850.0, "elo-new", None, "current"),
             ("USA", 1900.0, "elo-new", None, "current"),
+        ]
+        assert conn.execute(
+            """
+            select team_code, opponent_code, is_home, pre_match_rating,
+                   post_match_rating, rating_change, snapshot_id
+            from wc2026_marts.team_ratings_pre_match
+            order by is_home desc
+            """
+        ).fetchall() == [
+            ("USA", "CAN", True, 1900.0, 1910.0, 10.0, "elo-new"),
+            ("CAN", "USA", False, 1850.0, 1840.0, -10.0, "elo-new"),
         ]
         assert conn.execute(
             """

@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `wc2026_marts.team_ratings_pre_match`: match×team pre-match EloRatings
+  reconstructed from canonical `wc2026_raw.eloratings__match_results`
+  (`pre = post ∓ change`, all competitions on/after 2026-01-01). Requires a
+  fresh EloRatings collector snapshot that publishes `match_results.parquet`
+  alongside `team_ratings.parquet`.
 - Added `scripts/export_eloratings_wc2026_team_ratings_freezes.py` and
   `make export-wc2026-elo-freezes` to export national-team Elo CSV freezes
   (`pre_kickoff` = year-end 2025 history; `latest_current` = live World scrape)

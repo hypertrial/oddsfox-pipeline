@@ -176,6 +176,26 @@ models:
           arguments:
             grain_columns: [snapshot_year, snapshot_scope, team_code]
 
+  - name: wc2026_team_ratings_pre_match
+    description: >
+      Match×team EloRatings pre-match ratings reconstructed from published
+      `{year}_results.tsv` rows (`pre = post ∓ change`) in the latest complete
+      EloRatings snapshot. Includes all competitions on/after 2026-01-01.
+      Not a calendar-day series and not the year-end/current freeze marts.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [match_date, team_code, opponent_code, competition]
+    columns:
+      - name: match_date
+        tests: [not_null]
+      - name: team_code
+        tests: [not_null]
+      - name: pre_match_rating
+        tests: [not_null]
+      - name: post_match_rating
+        tests: [not_null]
+
   - name: wc2026_club_strength_current
     description: Latest ClubElo strength row per canonical club.
     columns:

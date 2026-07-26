@@ -77,6 +77,16 @@ coalesce(
       )"
     ) %}
     {% do run_query(
+      "create table if not exists wc2026_raw.eloratings__match_results (
+        match_date date, competition varchar,
+        home_team_code varchar, away_team_code varchar,
+        home_team_name varchar, away_team_name varchar,
+        home_goals integer, away_goals integer,
+        rating_change double, home_post_rating double, away_post_rating double,
+        _source varchar, _snapshot_id varchar, _collected_at timestamptz
+      )"
+    ) %}
+    {% do run_query(
       "create table if not exists wc2026_raw.clubelo__club_ratings (
         snapshot_date date, club_key varchar, club_name varchar,
         api_club_name varchar, country_code varchar, elo double, rank integer,

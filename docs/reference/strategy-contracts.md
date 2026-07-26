@@ -47,6 +47,7 @@ views.
 | --- | --- |
 | `fixtures`, `results`, `team_identities` | Official schedule, completed outcomes, and canonical team identity. |
 | `team_ratings_current`, `team_ratings_history` | Current World scrape (`snapshot_scope = current`) and point-in-time national-team ratings. |
+| `team_ratings_pre_match` | Match×team pre-match Elo from EloRatings `{year}_results.tsv` (`pre = post ∓ change`), all competitions on/after 2026-01-01. Not a freeze and not a calendar-day series. |
 | `player_features`, `squad_player_features` | FIFAIndex features and official-squad matches. |
 | `club_strength_current`, `club_strength_history`, `club_strength_snapshot` | Current and point-in-time club strength. |
 | `base_camp_venues`, `travel_features` | Venue, base-camp, rest, distance, timezone, and altitude features. |
@@ -64,6 +65,11 @@ June-2026 `World.tsv` scrape) and
 `team_ratings_latest_current.csv` (latest `team_ratings_current` World scrape).
 Both CSVs use mart columns `rank, team_code, team_name, rating` plus export
 metadata `freeze_label, as_of, snapshot_id, collected_at`.
+
+`team_ratings_pre_match` is a separate match×team reconstruction from
+`eloratings__match_results` (collector `{year}_results.tsv`). It is not covered
+by the freeze export. Query the mart directly after a snapshot that includes
+`match_results.parquet`.
 
 Completed group results align by date and canonical home/away team identity.
 Knockout schedule rows contain bracket slots until participants resolve, so
