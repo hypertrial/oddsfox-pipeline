@@ -99,6 +99,7 @@ nav:
       - Orchestration: reference/orchestration.md
       - Warehouse: reference/warehouse.md
       - Data contracts: reference/data-contracts.md
+      - Market portrait: reference/market-portrait.md
       - Strategy contracts: reference/strategy-contracts.md
       - Data dictionary: reference/data-dictionary.md
       - Scripts: reference/scripts.md

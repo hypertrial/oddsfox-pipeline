@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,6 +27,7 @@ def test_match_order_book_sync_bridge_forwards_bounded_config(monkeypatch):
         transient_retries=2,
         transient_backoff_seconds=0.5,
         force=True,
+        manifest_path="/tmp/target.yml",
     )
     progress = MagicMock()
 
@@ -46,7 +48,18 @@ def test_match_order_book_sync_bridge_forwards_bounded_config(monkeypatch):
         force=True,
         lease_owner="run-1",
         progress_callback=progress,
+        manifest_path=Path("/tmp/target.yml"),
     )
+    sync.reset_mock()
+
+    assets_mod._sync_match_order_book(
+        "connection",
+        config.model_copy(update={"manifest_path": None}),
+        lease_owner="run-1",
+        progress_callback=progress,
+    )
+
+    assert "manifest_path" not in sync.call_args.kwargs
 
 
 def test_match_order_book_asset_emits_progress_and_summary(monkeypatch):

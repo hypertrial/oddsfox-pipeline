@@ -13,6 +13,9 @@ from oddsfox_pipeline.naming import (
 from oddsfox_pipeline.orchestration.assets_match_order_book import (
     POLYMARKET_WC2026_RAW_MATCH_ORDER_BOOK_SNAPSHOTS,
 )
+from oddsfox_pipeline.orchestration.assets_match_trades import (
+    POLYMARKET_WC2026_RAW_MATCH_TRADES,
+)
 from oddsfox_pipeline.orchestration.assets_polygon_settlement import (
     POLYMARKET_WC2026_RAW_POLYGON_SETTLEMENT_FILLS,
     POLYMARKET_WC2026_RELEASE_POLYGON_SETTLEMENT_ODDS_BUNDLE,
@@ -28,6 +31,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
@@ -100,6 +104,9 @@ POLYMARKET_WC2026_MATCH_MINUTE_RAW_SELECTION = AssetSelection.assets(
 
 POLYMARKET_WC2026_MATCH_ORDER_BOOK_RAW_SELECTION = AssetSelection.assets(
     POLYMARKET_WC2026_RAW_MATCH_ORDER_BOOK_SNAPSHOTS
+)
+POLYMARKET_WC2026_MATCH_TRADES_RAW_SELECTION = AssetSelection.assets(
+    POLYMARKET_WC2026_RAW_MATCH_TRADES
 )
 
 POLYMARKET_WC2026_POLYGON_SETTLEMENT_RAW_SELECTION = AssetSelection.assets(
@@ -179,6 +186,10 @@ POLYMARKET_WC2026_MATCH_ORDER_BOOK_SELECTION = (
     OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION
     | POLYMARKET_WC2026_MATCH_ORDER_BOOK_RAW_SELECTION
     | POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_SELECTION
+)
+POLYMARKET_WC2026_MARKET_PORTRAIT_SELECTION = (
+    POLYMARKET_WC2026_MATCH_ORDER_BOOK_SELECTION
+    | POLYMARKET_WC2026_MATCH_TRADES_RAW_SELECTION
 )
 
 POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
@@ -282,6 +293,14 @@ polymarket_wc2026_match_order_book_backfill = define_asset_job(
     selection=POLYMARKET_WC2026_MATCH_ORDER_BOOK_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_match_order_book_run_config(),
+    tags=_POLYMARKET_WC2026_TAGS,
+)
+
+polymarket_wc2026_market_portrait_backfill = define_asset_job(
+    "polymarket_wc2026_market_portrait_backfill",
+    selection=POLYMARKET_WC2026_MARKET_PORTRAIT_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_wc2026_market_portrait_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
 )
 

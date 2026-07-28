@@ -224,7 +224,7 @@ def reserve_api_attempt(
 ) -> bool:
     """Reserve one PMXT request before issuing it, enforcing a local UTC cap."""
     current = _utc_naive(now) if now else _utcnow()
-    key = f"pmxt_order_book_api_attempts_{date(current.year, current.month, 1)}"
+    key = f"pmxt_api_attempts_{date(current.year, current.month, 1)}"
     conn.execute("BEGIN TRANSACTION")
     try:
         _require_lease(
@@ -538,6 +538,26 @@ def publish_scan(
             [scan_id],
         ).fetchone()
         snapshot_count, observed_tokens = map(int, inventory)
+        contradictory_ordering = int(
+            conn.execute(
+                f"""
+                SELECT count(*)
+                FROM (
+                    SELECT clob_token_id, snapshot_timestamp_ms,
+                           provider_sequence
+                    FROM {SNAPSHOTS}
+                    WHERE scan_id = ?
+                    GROUP BY ALL
+                    HAVING count(DISTINCT snapshot_sha256) > 1
+                )
+                """,
+                [scan_id],
+            ).fetchone()[0]
+        )
+        if contradictory_ordering:
+            raise RuntimeError(
+                "PMXT overlapping windows contradict provider snapshot ordering"
+            )
         if snapshot_count <= 0 or observed_tokens != expected_tokens:
             raise RuntimeError(
                 "PMXT scan snapshot inventory is incomplete: "

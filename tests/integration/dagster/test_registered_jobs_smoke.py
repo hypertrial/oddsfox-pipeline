@@ -18,6 +18,7 @@ from oddsfox_pipeline.orchestration import assets_kalshi_wc2026 as kalshi_assets
 from oddsfox_pipeline.orchestration import (
     assets_match_order_book as order_book_assets_mod,
 )
+from oddsfox_pipeline.orchestration import assets_match_trades as trade_assets_mod
 from oddsfox_pipeline.orchestration import (
     assets_openfootball as openfootball_assets_mod,
 )
@@ -37,6 +38,7 @@ _NON_SCOPE_JOB_NAMES = {
     "wc2026_knockout_match_odds_full_pipeline",
     "polymarket_wc2026_match_minute_odds_backfill",
     "polymarket_wc2026_match_order_book_backfill",
+    "polymarket_wc2026_market_portrait_backfill",
     "polymarket_wc2026_polygon_settlement_backfill",
     "polymarket_wc2026_polygon_settlement_release",
 }
@@ -195,6 +197,18 @@ oddsfox:
             "snapshot_count": 2,
             "token_count": 2,
             "level_count": 4,
+        },
+    )
+    monkeypatch.setattr(trade_assets_mod, "get_connection", mock_connection)
+    monkeypatch.setattr(
+        trade_assets_mod,
+        "sync_match_trades",
+        lambda *_args, **_kwargs: {
+            "scan_id": "pmxt-smoke",
+            "trade_count": 1,
+            "empty_landscape_warnings": [],
+            "aggregate_sha256": "c" * 64,
+            "noop": False,
         },
     )
     monkeypatch.setattr(

@@ -7,6 +7,7 @@ from dagster import AssetKey, DefaultScheduleStatus, build_schedule_context
 from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
@@ -77,6 +78,7 @@ def test_definitions_expose_v010_jobs_only():
         "polymarket_wc2026_market_registry_refresh",
         "polymarket_wc2026_match_minute_odds_backfill",
         "polymarket_wc2026_match_order_book_backfill",
+        "polymarket_wc2026_market_portrait_backfill",
         "polymarket_wc2026_polygon_settlement_backfill",
         "polymarket_wc2026_polygon_settlement_release",
         "polymarket_wc2026_dbt_build",
@@ -108,7 +110,7 @@ def test_definitions_expose_v010_asset_keys():
         ("wc2026", "raw", "clubelo"),
         ("wc2026", "raw", "eloratings"),
         ("wc2026", "raw", "fifaindex"),
-        ("wc2026", "raw", "fotmob"),
+        ("wc2026", "raw", "private_match_events"),
         ("wc2026", "raw", "wikipedia_squads"),
         ("wc2026", "ops", "raw_snapshot_ledger"),
         ("kalshi", "wc2026", "raw", "events"),
@@ -290,6 +292,15 @@ def test_match_order_book_job_is_isolated_and_unscheduled():
     assert raw["force"] is False
     assert dbt["dbt_select"] == "+tag:pmxt_order_book"
     assert dbt["dbt_exclude"] == "tag:polygon_settlement"
+    assert "polymarket_wc2026_raw_match_trades" not in config
+
+    portrait = polymarket_wc2026_market_portrait_run_config(
+        manifest_path="/private/target.yml"
+    )["ops"]
+    assert (
+        portrait["polymarket_wc2026_raw_match_trades"]["config"]["manifest_path"]
+        == "/private/target.yml"
+    )
 
     selected = defs.get_job_def(
         "polymarket_wc2026_match_order_book_backfill"

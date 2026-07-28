@@ -38,6 +38,14 @@ class GammaClient:
         return self.payload
 
 
+class GammaMappingClient:
+    def __init__(self, payloads):
+        self.payloads = payloads
+
+    def get(self, path):
+        return self.payloads[path.rsplit("/", 1)[-1]]
+
+
 class PmxtClient:
     def __init__(self, responder):
         self.responder = responder
@@ -68,6 +76,34 @@ def _manifest_payload() -> dict:
     return yaml.safe_load(
         subject.default_order_book_targets_path().read_text(encoding="utf-8")
     )
+
+
+def _group_manifest_payload() -> dict:
+    source = _manifest_payload()["targets"][0]
+    targets = []
+    for offset, role in enumerate(("home_win", "draw", "away_win"), start=1):
+        target = copy.deepcopy(source)
+        target.update(
+            {
+                "fifa_match_id": 1,
+                "stage": "group",
+                "home_team": "Azure",
+                "away_team": "Coral",
+                "market_id": str(100 + offset),
+                "market_slug": f"group-market-{offset}",
+                "market_type": "moneyline",
+                "condition_id": "0x" + str(offset) * 64,
+                "outcomes": [
+                    {
+                        "label": "Yes",
+                        "clob_token_id": str(1_000 + offset),
+                        "role": role,
+                    }
+                ],
+            }
+        )
+        targets.append(target)
+    return {"version": 1, "targets": targets}
 
 
 def _write_manifest(path: Path, payload: dict) -> Path:
@@ -123,6 +159,96 @@ def test_manifest_rejects_invalid_contracts(tmp_path, mutate, match):
         )
 
 
+def test_manifest_validates_declared_content_hash(tmp_path):
+    payload = _manifest_payload()
+    payload["content_sha256"] = "0" * 64
+
+    with pytest.raises(ValueError, match="content_sha256 does not match"):
+        subject.load_order_book_manifest(
+            _write_manifest(tmp_path / "targets.yml", payload)
+        )
+
+
+def test_manifest_accepts_group_yes_books_and_infers_knockout_roles(tmp_path):
+    group = subject.load_order_book_manifest(
+        _write_manifest(tmp_path / "group.yml", _group_manifest_payload())
+    )
+    assert [
+        outcome.role for target in group.targets for outcome in target.outcomes
+    ] == ["home_win", "draw", "away_win"]
+
+    knockout_payload = _manifest_payload()
+    for outcome in knockout_payload["targets"][0]["outcomes"]:
+        outcome.pop("role", None)
+    knockout = subject.load_order_book_manifest(
+        _write_manifest(tmp_path / "knockout.yml", knockout_payload)
+    )
+    assert [outcome.role for outcome in knockout.targets[0].outcomes] == [
+        "home",
+        "away",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("mutate", "match"),
+    [
+        (
+            lambda payload: payload["targets"][0].update(
+                {"market_type": "soccer_team_to_advance"}
+            ),
+            "group order-book targets must be moneyline",
+        ),
+        (
+            lambda payload: payload["targets"][0]["outcomes"][0].update(
+                {"role": "unknown"}
+            ),
+            "Invalid landscape role",
+        ),
+        (
+            lambda payload: payload["targets"][0].update({"home_team": "Different"}),
+            "exactly one match",
+        ),
+        (
+            lambda payload: payload["targets"][0]["outcomes"][0].update(
+                {"role": "draw"}
+            ),
+            "exactly home_win, draw, and away_win",
+        ),
+        (
+            lambda payload: payload["targets"][0]["outcomes"][0].update(
+                {"label": "No"}
+            ),
+            "literal Yes token",
+        ),
+    ],
+)
+def test_group_manifest_rejects_invalid_layout(tmp_path, mutate, match):
+    payload = _group_manifest_payload()
+    mutate(payload)
+    with pytest.raises(ValueError, match=match):
+        subject.load_order_book_manifest(
+            _write_manifest(tmp_path / "group.yml", payload)
+        )
+
+
+def test_knockout_manifest_rejects_non_team_roles(tmp_path):
+    payload = _manifest_payload()
+    payload["targets"][0]["outcomes"][0]["role"] = "draw"
+
+    with pytest.raises(ValueError, match="named home and away"):
+        subject.load_order_book_manifest(
+            _write_manifest(tmp_path / "knockout.yml", payload)
+        )
+
+    payload = _manifest_payload()
+    payload["targets"][0]["outcomes"][0].pop("role", None)
+    payload["targets"][0]["outcomes"][0]["label"] = "Neither team"
+    with pytest.raises(ValueError, match="Invalid landscape role"):
+        subject.load_order_book_manifest(
+            _write_manifest(tmp_path / "knockout.yml", payload)
+        )
+
+
 @pytest.mark.parametrize(
     ("payload", "match"),
     [
@@ -144,7 +270,7 @@ def test_manifest_rejects_invalid_container_shapes(tmp_path, payload, match):
     [
         (
             lambda target: target.update({"fifa_match_id": True}),
-            "knockout match",
+            "WC2026 match",
         ),
         (lambda target: target.update({"event_id": ""}), "must not be blank"),
         (lambda target: target.update({"event_id": "abc"}), "Invalid event_id"),
@@ -256,6 +382,34 @@ def test_gamma_preflight_accepts_short_utc_offset():
     payload["closedTime"] = "2026-07-07 18:18:44+00"
 
     subject.validate_gamma_targets(manifest, GammaClient(payload))
+
+
+def test_group_gamma_preflight_checks_literal_yes_token(tmp_path):
+    manifest = subject.load_order_book_manifest(
+        _write_manifest(tmp_path / "group.yml", _group_manifest_payload())
+    )
+    payloads = {}
+    for target in manifest.targets:
+        payloads[target.market_slug] = {
+            "id": target.market_id,
+            "slug": target.market_slug,
+            "sportsMarketType": target.market_type,
+            "conditionId": target.condition_id,
+            "outcomes": ["Yes", "No"],
+            "clobTokenIds": [target.outcomes[0].clob_token_id, "9999"],
+            "closed": True,
+            "acceptingOrdersTimestamp": target.accepting_orders_at.isoformat(),
+            "closedTime": target.closed_at.isoformat(),
+            "events": [{"id": target.event_id, "slug": target.event_slug}],
+        }
+    payloads[manifest.targets[0].market_slug]["clobTokenIds"][0] = "changed"
+
+    with pytest.raises(ValueError, match="clob_token_ids"):
+        subject.validate_gamma_targets(manifest, GammaMappingClient(payloads))
+
+    target = manifest.targets[0]
+    payloads[target.market_slug]["clobTokenIds"][0] = target.outcomes[0].clob_token_id
+    subject.validate_gamma_targets(manifest, GammaMappingClient(payloads))
 
 
 @pytest.mark.parametrize(
@@ -851,7 +1005,7 @@ def test_retry_after_is_honored_and_every_retry_is_budgeted(duck):
             """
             select cast(value as bigint)
             from polymarket_wc2026_ops.scrape_metadata
-            where key like 'pmxt_order_book_api_attempts_%'
+            where key like 'pmxt_api_attempts_%'
             """
         ).fetchone()[0]
 
@@ -1046,7 +1200,8 @@ def test_same_millisecond_distinct_books_are_retained(duck):
         )
         same_millisecond = conn.execute(
             """
-            select count(*), count(distinct snapshot_sha256)
+            select count(*), count(distinct snapshot_sha256),
+                   list(provider_sequence order by provider_sequence)
             from polymarket_wc2026_raw.match_order_book_snapshots
             where clob_token_id = ?
             """,
@@ -1054,7 +1209,7 @@ def test_same_millisecond_distinct_books_are_retained(duck):
         ).fetchone()
 
     assert summary["snapshot_count"] == 3
-    assert same_millisecond == (2, 2)
+    assert same_millisecond == (2, 2, [0, 1])
 
 
 def test_crash_after_dlt_load_refetches_and_merges_without_duplicates(duck):

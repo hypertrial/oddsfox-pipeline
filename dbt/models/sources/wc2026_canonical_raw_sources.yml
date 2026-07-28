@@ -27,10 +27,10 @@ sources:
         meta:
           dagster:
             asset_key: [wc2026, raw, wikipedia_squads]
-      - name: fotmob__events
+      - name: private_match_events__events
         meta:
           dagster:
-            asset_key: [wc2026, raw, fotmob]
+            asset_key: [wc2026, raw, private_match_events]
 
   - name: wc2026_snapshot_ops
     schema: wc2026_ops

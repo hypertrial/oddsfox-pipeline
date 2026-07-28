@@ -222,7 +222,8 @@ data sources.
 
 This flow does **not** use the Polymarket Gamma API, CLOB API or price history,
 the Polymarket website/UI, the repository's existing FIFA schedule seed,
-international-results, FotMob, match results, or runtime OpenFootball requests.
+international-results, private match-event inputs, match results, or runtime
+OpenFootball requests.
 It does not infer prices from complements or use an external currency/odds
 feed.
 

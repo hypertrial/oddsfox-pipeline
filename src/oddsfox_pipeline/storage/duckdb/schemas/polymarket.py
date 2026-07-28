@@ -137,6 +137,9 @@ def bootstrap_polymarket_tables(
         order_book_snapshots = polymarket_raw_tbl(
             scope_name, "match_order_book_snapshots"
         )
+        match_trades = polymarket_raw_tbl(scope_name, "match_trades")
+        match_trade_runs = polymarket_ops_tbl(scope_name, "match_trade_scan_runs")
+        match_trade_windows = polymarket_ops_tbl(scope_name, "match_trade_scan_windows")
         order_book_runs = polymarket_ops_tbl(scope_name, "match_order_book_scan_runs")
         order_book_windows = polymarket_ops_tbl(
             scope_name, "match_order_book_scan_windows"
@@ -215,12 +218,20 @@ def bootstrap_polymarket_tables(
                 market_type TEXT NOT NULL,
                 condition_id TEXT NOT NULL,
                 outcome_label TEXT NOT NULL,
+                landscape_role TEXT NOT NULL CHECK (
+                    landscape_role IN (
+                        'home', 'away', 'home_win', 'draw', 'away_win'
+                    )
+                ),
                 clob_token_id TEXT NOT NULL,
                 window_start_ms BIGINT NOT NULL,
                 window_end_ms BIGINT NOT NULL,
                 snapshot_timestamp_ms BIGINT NOT NULL,
                 snapshot_at TIMESTAMP NOT NULL,
                 snapshot_sha256 TEXT NOT NULL,
+                provider_sequence BIGINT NOT NULL CHECK (
+                    provider_sequence >= 0
+                ),
                 bids_json TEXT NOT NULL,
                 asks_json TEXT NOT NULL,
                 is_neg_risk BOOLEAN,
@@ -262,6 +273,69 @@ def bootstrap_polymarket_tables(
                 error_type TEXT,
                 error_message TEXT CHECK (
                     error_message IS NULL OR length(error_message) <= 500
+                )
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {match_trades} (
+                scan_id TEXT NOT NULL,
+                manifest_sha256 TEXT NOT NULL,
+                fifa_match_id BIGINT NOT NULL,
+                market_id TEXT NOT NULL,
+                clob_token_id TEXT NOT NULL,
+                landscape_role TEXT NOT NULL,
+                trade_id TEXT NOT NULL,
+                trade_timestamp_ms BIGINT NOT NULL,
+                event_sequence BIGINT NOT NULL CHECK (event_sequence >= 0),
+                price TEXT NOT NULL,
+                amount TEXT NOT NULL,
+                source_endpoint TEXT NOT NULL,
+                ingested_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (scan_id, clob_token_id, trade_id)
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {match_trade_runs} (
+                scan_id TEXT PRIMARY KEY,
+                manifest_sha256 TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (
+                    status IN ('running', 'paused', 'failed', 'published')
+                ),
+                trade_count BIGINT NOT NULL DEFAULT 0,
+                aggregate_sha256 TEXT,
+                started_at TIMESTAMP NOT NULL,
+                finished_at TIMESTAMP,
+                error_type TEXT,
+                error_message TEXT
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {match_trade_windows} (
+                scan_id TEXT NOT NULL,
+                fifa_match_id BIGINT NOT NULL,
+                market_id TEXT NOT NULL,
+                clob_token_id TEXT NOT NULL,
+                landscape_role TEXT NOT NULL,
+                window_start_ms BIGINT NOT NULL,
+                window_end_ms BIGINT NOT NULL,
+                depth INTEGER NOT NULL CHECK (depth >= 0),
+                status TEXT NOT NULL CHECK (
+                    status IN ('pending', 'split', 'loaded', 'empty', 'failed')
+                ),
+                api_attempt_count INTEGER NOT NULL DEFAULT 0,
+                trade_count INTEGER NOT NULL DEFAULT 0,
+                trade_ids_sha256 TEXT,
+                updated_at TIMESTAMP NOT NULL,
+                error_type TEXT,
+                error_message TEXT,
+                PRIMARY KEY (
+                    scan_id, clob_token_id, window_start_ms, window_end_ms
                 )
             )
             """

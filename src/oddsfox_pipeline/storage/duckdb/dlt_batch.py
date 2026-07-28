@@ -76,12 +76,14 @@ MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS = {
     "market_type": {"data_type": "text"},
     "condition_id": {"data_type": "text"},
     "outcome_label": {"data_type": "text"},
+    "landscape_role": {"data_type": "text"},
     "clob_token_id": {"data_type": "text"},
     "window_start_ms": {"data_type": "bigint"},
     "window_end_ms": {"data_type": "bigint"},
     "snapshot_timestamp_ms": {"data_type": "bigint"},
     "snapshot_at": {"data_type": "timestamp"},
     "snapshot_sha256": {"data_type": "text"},
+    "provider_sequence": {"data_type": "bigint"},
     "bids_json": {"data_type": "text"},
     "asks_json": {"data_type": "text"},
     "is_neg_risk": {"data_type": "bool", "nullable": True},
@@ -375,12 +377,25 @@ def merge_match_order_book_snapshots(
     """
     if not rows:
         return
+    normalized_rows = []
+    for source in rows:
+        row = dict(source)
+        if not row.get("landscape_role"):
+            label = str(row.get("outcome_label") or "")
+            if label.casefold() == str(row.get("home_team") or "").casefold():
+                row["landscape_role"] = "home"
+            elif label.casefold() == str(row.get("away_team") or "").casefold():
+                row["landscape_role"] = "away"
+            else:
+                raise ValueError("snapshot row requires an explicit landscape_role")
+        row.setdefault("provider_sequence", 0)
+        normalized_rows.append(row)
     raw_schema = polymarket_raw_schema(SCOPE_WC2026)
     target = polymarket_raw_tbl(SCOPE_WC2026, "match_order_book_snapshots")
     stage = load_stage_rows(
         schema=raw_schema,
         stage_table="stage_match_order_book_snapshots_v1",
-        rows=rows,
+        rows=normalized_rows,
         columns=MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS,
     )
     target_columns = ", ".join(MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS)

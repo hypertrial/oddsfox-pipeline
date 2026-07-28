@@ -17,6 +17,7 @@ inventory as (
         count(distinct scan_id) as scan_count,
         count(distinct manifest_sha256) as manifest_count,
         count(distinct fifa_match_id) as match_count,
+        min(fifa_match_id) as fifa_match_id,
         count(distinct market_id) as market_count,
         count(distinct clob_token_id) as token_count,
         sum(
@@ -32,13 +33,13 @@ inventory as (
         count(*) filter (where not bids_json_valid or not asks_json_valid) as invalid_json_count,
         count(*) filter (
             where
-            fifa_match_id != 95
-            or market_id != '2793969'
-            or market_type != 'soccer_team_to_advance'
-            or condition_id != '0x7f481c96a3bf0d8292a2515e3dd0e709e5bdd240189b81fc98f8003480b4eb14'
-            or stage != 'round_of_16'
-            or home_team != 'Argentina'
-            or away_team != 'Egypt'
+            fifa_match_id not between 1 and 104
+            or landscape_role not in (
+                'home', 'away', 'home_win', 'draw', 'away_win'
+            )
+            or condition_id is null
+            or home_team is null
+            or away_team is null
         ) as identity_issue_count,
         count(*) filter (
             where
@@ -69,35 +70,16 @@ inventory as (
     from snapshots
 ),
 
-expected_tokens (outcome_label, clob_token_id) as (
-    values
-    (
-        'Argentina',
-        '62322024443983575289896387710034399425619931224187000571202629586505505867789'
-    ),
-    (
-        'Egypt',
-        '65153945878003754040337604701661751644439825992768932338975436339166807792069'
-    )
-),
-
 token_identity as (
     select count(*) as issue_count
     from (
-        (
-            select distinct
-                outcome_label,
-                clob_token_id
-            from snapshots
-        )
-        except
-        (
-            select
-                outcome_label,
-                clob_token_id
-            from expected_tokens
-        )
-    ) as unexpected_tokens
+        select clob_token_id
+        from snapshots
+        group by clob_token_id
+        having
+            count(distinct outcome_label) != 1
+            or count(distinct landscape_role) != 1
+    ) as inconsistent_tokens
 ),
 
 scan_contract as (
@@ -116,8 +98,8 @@ scan_contract as (
         or not runs.raw_published
         or runs.aggregate_sha256 is null
         or runs.snapshot_count != inventory.snapshot_count
-        or runs.token_count != 2
-        or runs.target_count != 1
+        or runs.token_count != inventory.token_count
+        or runs.target_count != inventory.market_count
         or runs.manifest_sha256 != snapshots.manifest_sha256
 ),
 
@@ -127,10 +109,13 @@ fixture_contract as (
     left join {{ ref('stg_openfootball_wc2026_knockout_fixtures') }} as fixture
         on snapshots.fifa_match_id = fixture.fifa_match_id
     where
-        fixture.fifa_match_id is null
-        or fixture.stage_key != snapshots.stage
-        or fixture.home_team != snapshots.home_team
-        or fixture.away_team != snapshots.away_team
+        snapshots.fifa_match_id >= 73
+        and (
+            fixture.fifa_match_id is null
+            or fixture.stage_key != snapshots.stage
+            or fixture.home_team != snapshots.home_team
+            or fixture.away_team != snapshots.away_team
+        )
 ),
 
 duplicate_snapshots as (
@@ -294,15 +279,17 @@ issues as (
         'inventory' as issue_key,
         'error' as severity,
         1 as affected_rows,
-        'expected one published scan, manifest, match, market, and two tokens with snapshots' as details
+        'expected one match and either a 3-market group or 1-market knockout role inventory' as details
     from inventory
     where
         snapshot_count = 0
         or scan_count != 1
         or manifest_count != 1
         or match_count != 1
-        or market_count != 1
-        or token_count != 2
+        or (
+            (fifa_match_id <= 72 and (market_count != 3 or token_count != 3))
+            or (fifa_match_id >= 73 and (market_count != 1 or token_count != 2))
+        )
 
     union all
 

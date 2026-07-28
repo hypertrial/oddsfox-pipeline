@@ -62,8 +62,16 @@ def _insert_ledger_rows(conn: duckdb.DuckDBPyConnection) -> None:
                     "squad-new",
                     "2026-07-18T00:00:00Z",
                 ),
-                ("fotmob", "events-old", "2026-07-17T00:00:00Z"),
-                ("fotmob", "events-new", "2026-07-18T00:00:00Z"),
+                (
+                    "private_match_events",
+                    "events-old",
+                    "2026-07-17T00:00:00Z",
+                ),
+                (
+                    "private_match_events",
+                    "events-new",
+                    "2026-07-18T00:00:00Z",
+                ),
             ]
         ],
     )
@@ -140,12 +148,12 @@ def _insert_canonical_rows(conn: duckdb.DuckDBPyConnection) -> None:
     )
     conn.execute(
         """
-        insert into wc2026_raw.fotmob__events (
+        insert into wc2026_raw.private_match_events__events (
             match_id, event_id, event_type, _source, _snapshot_id, _collected_at
         ) values
-        ('match-1', 'old-event', 'goal', 'fotmob', 'events-old',
+        ('match-1', 'old-event', 'goal', 'private_match_events', 'events-old',
          '2026-07-17T00:00:00Z'),
-        ('match-1', 'new-event', 'goal', 'fotmob', 'events-new',
+        ('match-1', 'new-event', 'goal', 'private_match_events', 'events-new',
          '2026-07-18T00:00:00Z')
         """
     )

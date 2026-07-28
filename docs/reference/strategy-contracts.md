@@ -76,8 +76,8 @@ Knockout schedule rows contain bracket slots until participants resolve, so
 completed knockout results use the schedule's unique `(match_date, host_city)`
 key and retain the source's actual teams when deriving the winner.
 
-Private FIFAIndex, Wikipedia squad, EloRatings, ClubElo, and FotMob inputs are
-optional for a public build. The on-run-start contract macro creates
+Private FIFAIndex, Wikipedia squad, EloRatings, ClubElo, and match-event inputs
+are optional for a public build. The on-run-start contract macro creates
 schema-correct empty raw tables when they are absent, so every public model
 still builds. Missing optional inputs are surfaced as warnings and blocking
 reasons rather than hidden. A ledger record alone is not availability: the

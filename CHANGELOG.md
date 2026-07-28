@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-07-28
+
+### Added
+
+- Added the private `oddsfox.market-portrait.v1` contract, neutral football
+  fact API, group/knockout target generation, resumable PMXT trade acquisition,
+  exact complete-state marts, and explicit portrait backfill workflow.
+- Renamed the optional public match-event placeholder and asset identity to the
+  provider-neutral `private_match_events` boundary.
+
 ### Fixed
 
 - `wc2026_team_ratings_current` now selects only EloRatings
@@ -533,7 +543,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: lint, tests, docs build, dbt parse, and dbt build.
 - Schedules disabled by default; opt-in via `.env` for live ingestion.
 
-[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.5...v0.1.6

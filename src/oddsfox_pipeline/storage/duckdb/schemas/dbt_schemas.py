@@ -284,6 +284,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_match_trade_publication_gate",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
         "int_polymarket_wc2026_polygon_settlement_market_universe",
     ),
     (
@@ -305,6 +309,14 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         POLYMARKET_WC2026_MARTS_SCHEMA,
         "polymarket_wc2026_match_order_book",
+    ),
+    (
+        POLYMARKET_WC2026_MARTS_SCHEMA,
+        "polymarket_wc2026_match_order_book_states",
+    ),
+    (
+        POLYMARKET_WC2026_MARTS_SCHEMA,
+        "polymarket_wc2026_match_trades",
     ),
     (
         POLYMARKET_WC2026_MARTS_SCHEMA,

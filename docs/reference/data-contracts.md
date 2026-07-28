@@ -214,7 +214,7 @@ match 104 is `home_wins_final`. The seed pins the source revision and hashes,
 on-chain question/condition locators, ancillary-data hash, verified token
 orientation, exchange, manifest version, and review time. The backfill does not
 call Gamma, CLOB, the Polymarket UI, OpenFootball, international-results, or
-FotMob.
+private match-event collectors.
 
 The matching resolution attestation is also operator-local. The authoring tool
 writes candidate evidence below ignored `artifacts/`; operators review it and

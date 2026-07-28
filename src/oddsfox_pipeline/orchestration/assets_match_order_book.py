@@ -1,5 +1,6 @@
-"""Dagster asset for the fixed WC2026 PMXT historical order-book backfill."""
+"""Dagster asset for an approved WC2026 PMXT historical order-book backfill."""
 
+from pathlib import Path
 from typing import Any
 
 from dagster import AssetExecutionContext, AssetSpec, MaterializeResult, multi_asset
@@ -28,16 +29,18 @@ def _sync_match_order_book(
     lease_owner: str,
     progress_callback,
 ) -> dict[str, Any]:
-    return sync_match_order_book_history(
-        conn,
-        requests_per_minute=config.requests_per_minute,
-        monthly_credit_budget=config.monthly_credit_budget,
-        transient_retries=config.transient_retries,
-        transient_backoff_seconds=config.transient_backoff_seconds,
-        force=config.force,
-        lease_owner=lease_owner,
-        progress_callback=progress_callback,
-    )
+    kwargs = {
+        "requests_per_minute": config.requests_per_minute,
+        "monthly_credit_budget": config.monthly_credit_budget,
+        "transient_retries": config.transient_retries,
+        "transient_backoff_seconds": config.transient_backoff_seconds,
+        "force": config.force,
+        "lease_owner": lease_owner,
+        "progress_callback": progress_callback,
+    }
+    if config.manifest_path:
+        kwargs["manifest_path"] = Path(config.manifest_path)
+    return sync_match_order_book_history(conn, **kwargs)
 
 
 @multi_asset(

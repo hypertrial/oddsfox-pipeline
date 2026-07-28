@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -135,12 +137,13 @@ def _seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
                 away_team, event_id, event_slug, market_id, market_slug,
                 market_type, condition_id, outcome_label, clob_token_id,
                 window_start_ms, window_end_ms, snapshot_timestamp_ms,
-                snapshot_at, snapshot_sha256, bids_json, asks_json,
+                snapshot_at, snapshot_sha256, provider_sequence,
+                landscape_role, bids_json, asks_json,
                 is_neg_risk, last_trade_price, source_endpoint, ingested_at
             ) values (
                 ?, ?, 95, 'round_of_16', 'Argentina', 'Egypt', ?, ?, ?, ?,
                 'soccer_team_to_advance', ?, ?, ?, ?, ?, ?,
-                to_timestamp(? / 1000.0), ?, ?, ?, false, '0.5',
+                to_timestamp(? / 1000.0), ?, 0, ?, ?, ?, false, '0.5',
                 'api.pmxt.dev/api/polymarket/fetchOrderBook',
                 timestamp '2026-07-07 18:20:00'
             )
@@ -160,8 +163,85 @@ def _seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
                 timestamp_ms,
                 timestamp_ms,
                 snapshot_hash,
+                outcome.role,
                 bids_json,
                 asks_json,
+            ],
+        )
+    trade_rows = [
+        (
+            outcome,
+            f"trade-{outcome.role}",
+            target.window_start_ms + 3_000 + index,
+        )
+        for index, outcome in enumerate(target.outcomes)
+    ]
+    aggregate = hashlib.sha256(
+        "\n".join(
+            trade_id
+            for outcome, trade_id, _ in sorted(
+                trade_rows, key=lambda row: (row[0].clob_token_id, row[2], row[1])
+            )
+        ).encode()
+    ).hexdigest()
+    conn.execute(
+        """
+        insert into polymarket_wc2026_ops.match_trade_scan_runs (
+            scan_id, manifest_sha256, status, trade_count, aggregate_sha256,
+            started_at, finished_at
+        ) values (
+            ?, ?, 'published', 2, ?,
+            timestamp '2026-07-07 18:20:00',
+            timestamp '2026-07-07 18:25:00'
+        )
+        """,
+        [scan_id, manifest.sha256, aggregate],
+    )
+    for outcome, trade_id, timestamp_ms in trade_rows:
+        ids_sha256 = hashlib.sha256(
+            json.dumps([trade_id], separators=(",", ":")).encode()
+        ).hexdigest()
+        conn.execute(
+            """
+            insert into polymarket_wc2026_ops.match_trade_scan_windows (
+                scan_id, fifa_match_id, market_id, clob_token_id,
+                landscape_role, window_start_ms, window_end_ms, depth, status,
+                api_attempt_count, trade_count, trade_ids_sha256, updated_at
+            ) values (
+                ?, 95, ?, ?, ?, ?, ?, 0, 'loaded', 1, 1, ?,
+                timestamp '2026-07-07 18:25:00'
+            )
+            """,
+            [
+                scan_id,
+                target.market_id,
+                outcome.clob_token_id,
+                outcome.role,
+                target.window_start_ms,
+                target.window_end_ms,
+                ids_sha256,
+            ],
+        )
+        conn.execute(
+            """
+            insert into polymarket_wc2026_raw.match_trades (
+                scan_id, manifest_sha256, fifa_match_id, market_id,
+                clob_token_id, landscape_role, trade_id, trade_timestamp_ms,
+                event_sequence, price, amount, source_endpoint, ingested_at
+            ) values (
+                ?, ?, 95, ?, ?, ?, ?, ?, 0, '0.6', '3',
+                'api.pmxt.dev/api/polymarket/fetchTrades',
+                timestamp '2026-07-07 18:25:00'
+            )
+            """,
+            [
+                scan_id,
+                manifest.sha256,
+                target.market_id,
+                outcome.clob_token_id,
+                outcome.role,
+                trade_id,
+                timestamp_ms,
             ],
         )
 
@@ -218,6 +298,12 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
             from polymarket_wc2026_marts.polymarket_wc2026_match_order_book
             """
         ).fetchall()
+        trade_count = conn.execute(
+            """
+            select count(*)
+            from polymarket_wc2026_marts.polymarket_wc2026_match_trades
+            """
+        ).fetchone()[0]
 
     assert [row[:5] for row in levels] == [
         ("ask", 1, Decimal("0.6"), Decimal("4"), Decimal("4")),
@@ -239,6 +325,7 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
     assert source_labels == [
         ("api.pmxt.dev/api/polymarket/fetchOrderBook",),
     ]
+    assert trade_count == 2
 
     with duckdb.connect(str(db_path)) as conn:
         conn.execute(

@@ -332,3 +332,71 @@ def test_publication_rejects_malformed_window_hash_inventory(duck):
         )
         with pytest.raises(RuntimeError, match="hash inventory is malformed"):
             publish_scan(conn, scan_id, lease_owner="owner")
+
+
+def test_publication_rejects_contradictory_provider_ordering(duck):
+    manifest = load_order_book_manifest()
+    target = manifest.targets[0]
+    outcome = target.outcomes[0]
+    timestamp_ms = target.window_start_ms + 1
+    with duck.get_connection() as conn:
+        scan_id, _, _ = acquire_scan(
+            conn,
+            manifest_version=manifest.version,
+            manifest_sha256=manifest.sha256,
+            targets=manifest.targets,
+            lease_owner="owner",
+            force=False,
+        )
+        conn.execute(
+            """
+            UPDATE polymarket_wc2026_ops.match_order_book_scan_windows
+            SET status = 'empty', snapshot_count = 0,
+                content_sha256 = NULL, snapshot_hashes_json = '[]'
+            WHERE scan_id = ?
+            """,
+            [scan_id],
+        )
+        for snapshot_hash in ("b" * 64, "c" * 64):
+            conn.execute(
+                """
+                INSERT INTO polymarket_wc2026_raw.match_order_book_snapshots (
+                    scan_id, manifest_sha256, fifa_match_id, stage,
+                    home_team, away_team, event_id, event_slug, market_id,
+                    market_slug, market_type, condition_id, outcome_label,
+                    landscape_role, clob_token_id, window_start_ms,
+                    window_end_ms, snapshot_timestamp_ms, snapshot_at,
+                    snapshot_sha256, provider_sequence, bids_json, asks_json,
+                    is_neg_risk, last_trade_price, source_endpoint, ingested_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    to_timestamp(? / 1000.0), ?, 0, '[]', '[]', false, NULL,
+                    'api.pmxt.dev/api/polymarket/fetchOrderBook',
+                    current_timestamp
+                )
+                """,
+                [
+                    scan_id,
+                    manifest.sha256,
+                    target.fifa_match_id,
+                    target.stage,
+                    target.home_team,
+                    target.away_team,
+                    target.event_id,
+                    target.event_slug,
+                    target.market_id,
+                    target.market_slug,
+                    target.market_type,
+                    target.condition_id,
+                    outcome.label,
+                    outcome.role,
+                    outcome.clob_token_id,
+                    target.window_start_ms,
+                    target.window_end_ms,
+                    timestamp_ms,
+                    timestamp_ms,
+                    snapshot_hash,
+                ],
+            )
+        with pytest.raises(RuntimeError, match="contradict provider snapshot ordering"):
+            publish_scan(conn, scan_id, lease_owner="owner")

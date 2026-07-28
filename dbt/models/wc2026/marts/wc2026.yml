@@ -286,7 +286,7 @@ models:
             grain_columns: [market_id, clob_token_id, odds_date_utc]
 
   - name: wc2026_event_state_timing
-    description: Optional private live-match event state from the latest complete FotMob snapshot.
+    description: Optional private live-match event state from the latest complete neutral snapshot.
     columns:
       - name: snapshot_id
         description: Canonical raw snapshot identifier.

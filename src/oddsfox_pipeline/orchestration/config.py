@@ -206,6 +206,7 @@ class MatchOrderBookBackfillConfig(GuardrailConfig):
     transient_retries: int = Field(default=4, ge=0, le=10)
     transient_backoff_seconds: float = Field(default=1.0, ge=0, le=120)
     force: bool = False
+    manifest_path: str | None = None
 
 
 class PolygonSettlementSyncConfig(GuardrailConfig):
@@ -379,7 +380,9 @@ def polymarket_wc2026_match_minute_odds_run_config() -> dict:
     }
 
 
-def polymarket_wc2026_match_order_book_run_config() -> dict:
+def polymarket_wc2026_match_order_book_run_config(
+    *, manifest_path: str | None = None
+) -> dict:
     dbt = DbtBuildConfig(
         full_refresh=False,
         dbt_select="+tag:pmxt_order_book",
@@ -388,11 +391,23 @@ def polymarket_wc2026_match_order_book_run_config() -> dict:
     return {
         "ops": {
             "polymarket_wc2026_raw_match_order_book_snapshots": {
-                "config": MatchOrderBookBackfillConfig().model_dump()
+                "config": MatchOrderBookBackfillConfig(
+                    manifest_path=manifest_path
+                ).model_dump()
             },
             "oddsfox_dbt": {"config": dbt.model_dump()},
         }
     }
+
+
+def polymarket_wc2026_market_portrait_run_config(
+    *, manifest_path: str | None = None
+) -> dict:
+    config = polymarket_wc2026_match_order_book_run_config(manifest_path=manifest_path)
+    config["ops"]["polymarket_wc2026_raw_match_trades"] = {
+        "config": MatchOrderBookBackfillConfig(manifest_path=manifest_path).model_dump()
+    }
+    return config
 
 
 def polymarket_wc2026_polygon_settlement_backfill_run_config(

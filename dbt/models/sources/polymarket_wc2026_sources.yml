@@ -125,6 +125,24 @@ sources:
             tests: [not_null]
           - name: ingested_at
             tests: [not_null]
+      - name: match_trades
+        description: Exact PMXT trades for a complete published market portrait scan.
+        config:
+          tags: [pmxt_order_book, market_portrait]
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, match_trades]
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [scan_id, clob_token_id, trade_id]
+        columns:
+          - name: scan_id
+            tests: [not_null]
+          - name: trade_id
+            tests: [not_null]
+          - name: landscape_role
+            tests: [not_null]
       - name: token_odds_daily
         description: Raw daily token odds aggregates derived from canonical odds_history points.
         meta:
@@ -316,6 +334,20 @@ sources:
               - accepted_values:
                   arguments:
                     values: [pending, split, loaded, empty, failed]
+      - name: match_trade_scan_runs
+        description: Publication ledger for resumable PMXT trade acquisition.
+        config:
+          tags: [pmxt_order_book, market_portrait]
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, match_trades]
+      - name: match_trade_scan_windows
+        description: Adaptive PMXT trade-range work tree.
+        config:
+          tags: [pmxt_order_book, market_portrait]
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, match_trades]
       - name: polygon_settlement_scan_runs
         description: One row per deterministic Polygon settlement scan, including atomic publication state.
         config:

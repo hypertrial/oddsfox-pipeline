@@ -15,6 +15,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
@@ -46,6 +47,7 @@ EXPECTED_JOB_NAMES = {
     "polymarket_wc2026_market_registry_refresh",
     "polymarket_wc2026_match_minute_odds_backfill",
     "polymarket_wc2026_match_order_book_backfill",
+    "polymarket_wc2026_market_portrait_backfill",
     "polymarket_wc2026_polygon_settlement_backfill",
     "polymarket_wc2026_polygon_settlement_release",
     "polymarket_wc2026_hourly_odds_ingest",
@@ -74,6 +76,7 @@ EXPECTED_OP_NAMES = {
     "polymarket_wc2026_raw_token_odds_history_hourly",
     "polymarket_wc2026_raw_match_token_odds_history_minute",
     "polymarket_wc2026_raw_match_order_book_snapshots",
+    "polymarket_wc2026_raw_match_trades",
     "polymarket_wc2026_raw_polygon_settlement_fills",
     "polymarket_wc2026_release_polygon_settlement_odds_bundle",
     "oddsfox_dbt",
@@ -109,6 +112,7 @@ EXPECTED_ASSET_KEYS = {
     ("polymarket", "wc2026", "raw", "token_odds_history_hourly"),
     ("polymarket", "wc2026", "raw", "match_token_odds_history_minute"),
     ("polymarket", "wc2026", "raw", "match_order_book_snapshots"),
+    ("polymarket", "wc2026", "raw", "match_trades"),
     ("polymarket", "wc2026", "raw", "polygon_settlement_fills"),
     ("polymarket", "wc2026", "release", "polygon_settlement_odds_bundle"),
     ("polymarket", "wc2026", "staging", "markets"),
@@ -126,6 +130,8 @@ EXPECTED_ASSET_KEYS = {
     ("polymarket", "wc2026", "marts", "knockout_token_hourly_odds"),
     ("polymarket", "wc2026", "marts", "match_minute_odds"),
     ("polymarket", "wc2026", "marts", "match_order_book"),
+    ("polymarket", "wc2026", "marts", "match_order_book_states"),
+    ("polymarket", "wc2026", "marts", "match_trades"),
     ("polymarket", "wc2026", "observability", "sync_run_observability"),
     ("polymarket", "wc2026", "observability", "match_minute_odds_data_quality"),
     ("polymarket", "wc2026", "observability", "match_order_book_data_quality"),
@@ -262,6 +268,7 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         assets.polymarket_wc2026_raw_token_odds_history_hourly.op.name,
         assets.polymarket_wc2026_raw_match_token_odds_history_minute.op.name,
         assets.polymarket_wc2026_raw_match_order_book_snapshots.op.name,
+        assets.polymarket_wc2026_raw_match_trades.op.name,
         assets.polymarket_wc2026_raw_polygon_settlement_fills.op.name,
         assets.polymarket_wc2026_release_polygon_settlement_odds_bundle.op.name,
         assets.oddsfox_dbt.op.name,
@@ -271,6 +278,7 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         | set(polymarket_wc2026_hourly_odds_run_config()["ops"])
         | set(polymarket_wc2026_match_minute_odds_run_config()["ops"])
         | set(polymarket_wc2026_match_order_book_run_config()["ops"])
+        | set(polymarket_wc2026_market_portrait_run_config()["ops"])
         | set(polymarket_wc2026_polygon_settlement_backfill_run_config()["ops"])
         | set(
             polymarket_wc2026_polygon_settlement_release_run_config(

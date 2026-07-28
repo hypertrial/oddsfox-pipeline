@@ -11,6 +11,38 @@ from oddsfox_pipeline.storage.duckdb.dlt_batch import (
 from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_wc2026_raw_tbl
 
 
+def _order_book_row(**overrides):
+    row = {
+        "scan_id": "scan-1",
+        "manifest_sha256": "a" * 64,
+        "fifa_match_id": 95,
+        "stage": "round_of_16",
+        "home_team": "Argentina",
+        "away_team": "Egypt",
+        "event_id": "665733",
+        "event_slug": "fifwc-arg-egy-2026-07-07-more-markets",
+        "market_id": "2793969",
+        "market_slug": "fifwc-arg-egy-2026-07-07-team-to-advance",
+        "market_type": "soccer_team_to_advance",
+        "condition_id": "0x" + ("1" * 64),
+        "outcome_label": "Argentina",
+        "clob_token_id": "123",
+        "window_start_ms": 1_000,
+        "window_end_ms": 2_000,
+        "snapshot_timestamp_ms": 1_500,
+        "snapshot_at": "1970-01-01T00:00:01.500000+00:00",
+        "snapshot_sha256": "b" * 64,
+        "bids_json": '[{"price":"0.4","size":"10"}]',
+        "asks_json": '[{"price":"0.6","size":"5"}]',
+        "is_neg_risk": False,
+        "last_trade_price": "0.5",
+        "source_endpoint": "pmxt",
+        "ingested_at": "2026-07-28T00:00:00+00:00",
+    }
+    row.update(overrides)
+    return row
+
+
 def test_dlt_batch_loads_stage_and_finalizes_market_tokens(duck):
     with duck.get_connection() as conn:
         conn.execute(
@@ -57,36 +89,18 @@ def test_load_stage_rows_rejects_empty_rows():
 
 
 def test_match_order_book_dlt_stage_merges_canonical_rows_idempotently(duck):
-    row = {
-        "scan_id": "scan-1",
-        "manifest_sha256": "a" * 64,
-        "fifa_match_id": 95,
-        "stage": "round_of_16",
-        "home_team": "Argentina",
-        "away_team": "Egypt",
-        "event_id": "665733",
-        "event_slug": "fifwc-arg-egy-2026-07-07-more-markets",
-        "market_id": "2793969",
-        "market_slug": "fifwc-arg-egy-2026-07-07-team-to-advance",
-        "market_type": "soccer_team_to_advance",
-        "condition_id": "0x" + ("1" * 64),
-        "outcome_label": "Argentina",
-        "clob_token_id": "123",
-        "window_start_ms": 1_000,
-        "window_end_ms": 2_000,
-        "snapshot_timestamp_ms": 1_500,
-        "snapshot_at": "1970-01-01T00:00:01.500000+00:00",
-        "snapshot_sha256": "b" * 64,
-        "bids_json": '[{"price":"0.4","size":"10"}]',
-        "asks_json": '[{"price":"0.6","size":"5"}]',
-        "is_neg_risk": False,
-        "last_trade_price": "0.5",
-        "source_endpoint": "pmxt",
-        "ingested_at": "2026-07-28T00:00:00+00:00",
-    }
+    row = _order_book_row()
+    away_row = _order_book_row(
+        outcome_label="Egypt",
+        clob_token_id="456",
+        snapshot_timestamp_ms=1_600,
+        snapshot_at="1970-01-01T00:00:01.600000+00:00",
+        snapshot_sha256="c" * 64,
+    )
     with duck.get_connection() as conn:
         merge_match_order_book_snapshots([row], conn)
         merge_match_order_book_snapshots([row], conn)
+        merge_match_order_book_snapshots([away_row], conn)
         canonical_count = conn.execute(
             """
             SELECT count(*)
@@ -100,8 +114,26 @@ def test_match_order_book_dlt_stage_merges_canonical_rows_idempotently(duck):
             """
         ).fetchone()[0]
 
-    assert canonical_count == 1
+        roles = conn.execute(
+            """
+            SELECT landscape_role
+            FROM polymarket_wc2026_raw.match_order_book_snapshots
+            ORDER BY clob_token_id
+            """
+        ).fetchall()
+
+    assert canonical_count == 2
     assert staged_count == 1
+    assert roles == [("home",), ("away",)]
+
+
+def test_match_order_book_dlt_stage_rejects_unknown_role(duck):
+    with duck.get_connection() as conn:
+        with pytest.raises(ValueError, match="explicit landscape_role"):
+            merge_match_order_book_snapshots(
+                [_order_book_row(outcome_label="Draw")],
+                conn,
+            )
 
 
 def test_load_stage_rows_drops_pending_packages(monkeypatch):

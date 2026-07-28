@@ -4,7 +4,7 @@ with private_sources (source, required_for_v4) as (
     ('fifaindex', true),
     ('wikipedia_squads', true),
     ('clubelo', true),
-    ('fotmob', false)
+    ('private_match_events', false)
 ),
 
 private_latest as (
@@ -54,10 +54,10 @@ private_payload_rows as (
     union all
 
     select
-        'fotmob' as source,
+        'private_match_events' as source,
         _snapshot_id as snapshot_id,
         count(*) as row_count
-    from {{ source('wc2026_canonical_raw', 'fotmob__events') }}
+    from {{ source('wc2026_canonical_raw', 'private_match_events__events') }}
     group by _snapshot_id
 ),
 

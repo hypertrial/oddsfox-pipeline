@@ -59,6 +59,7 @@ _SLUG_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
 class MatchOrderBookOutcome:
     label: str
     clob_token_id: str
+    role: str
 
 
 @dataclass(frozen=True)
@@ -159,6 +160,7 @@ def _manifest_payload(manifest: MatchOrderBookManifest) -> dict[str, Any]:
                     {
                         "label": outcome.label,
                         "clob_token_id": outcome.clob_token_id,
+                        "role": outcome.role,
                     }
                     for outcome in target.outcomes
                 ],
@@ -175,6 +177,16 @@ def load_order_book_manifest(
     payload = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
     if not isinstance(payload, dict):
         raise ValueError(f"Invalid order-book manifest root in {manifest_path}")
+    declared_hash = payload.get("content_sha256")
+    if declared_hash is not None:
+        unhashed = {
+            key: value for key, value in payload.items() if key != "content_sha256"
+        }
+        actual_hash = hashlib.sha256(
+            json.dumps(unhashed, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        if declared_hash != actual_hash:
+            raise ValueError("order-book manifest content_sha256 does not match")
     version = payload.get("version")
     if isinstance(version, bool) or not isinstance(version, int) or version < 1:
         raise ValueError("order-book manifest version must be a positive integer")
@@ -183,7 +195,6 @@ def load_order_book_manifest(
         raise ValueError("order-book manifest targets must be a non-empty list")
 
     targets: list[MatchOrderBookTarget] = []
-    seen_matches: set[int] = set()
     seen_markets: set[str] = set()
     seen_conditions: set[str] = set()
     seen_tokens: set[str] = set()
@@ -194,15 +205,21 @@ def load_order_book_manifest(
         if (
             isinstance(fifa_match_id, bool)
             or not isinstance(fifa_match_id, int)
-            or not 73 <= fifa_match_id <= 104
+            or not 1 <= fifa_match_id <= 104
         ):
-            raise ValueError("fifa_match_id must identify a WC2026 knockout match")
+            raise ValueError("fifa_match_id must identify a WC2026 match")
         event_id = _required_text(raw_target, "event_id")
         market_id = _required_text(raw_target, "market_id")
         condition_id = _required_text(raw_target, "condition_id").lower()
         event_slug = _required_text(raw_target, "event_slug").lower()
         market_slug = _required_text(raw_target, "market_slug").lower()
         market_type = _required_text(raw_target, "market_type")
+        if fifa_match_id <= 72 and market_type != "moneyline":
+            raise ValueError("group order-book targets must be moneyline markets")
+        if fifa_match_id >= 73 and market_type != "soccer_team_to_advance":
+            raise ValueError(
+                "knockout order-book targets must be soccer_team_to_advance"
+            )
         if not _NUMERIC_ID_RE.fullmatch(event_id):
             raise ValueError(f"Invalid event_id {event_id!r}")
         if not _NUMERIC_ID_RE.fullmatch(market_id):
@@ -211,8 +228,6 @@ def load_order_book_manifest(
             raise ValueError(f"Invalid condition_id {condition_id!r}")
         if not _SLUG_RE.fullmatch(event_slug) or not _SLUG_RE.fullmatch(market_slug):
             raise ValueError("event_slug and market_slug must be lowercase slugs")
-        if market_type != "soccer_team_to_advance":
-            raise ValueError("order-book targets must be soccer_team_to_advance")
         start = _utc_datetime(
             raw_target.get("accepting_orders_at"), field="accepting_orders_at"
         )
@@ -221,8 +236,11 @@ def load_order_book_manifest(
             raise ValueError("accepting_orders_at must precede closed_at")
 
         raw_outcomes = raw_target.get("outcomes")
-        if not isinstance(raw_outcomes, list) or len(raw_outcomes) != 2:
-            raise ValueError("each order-book target must have exactly two outcomes")
+        if not isinstance(raw_outcomes, list) or not raw_outcomes:
+            expected = (
+                "exactly two outcomes" if fifa_match_id >= 73 else "a Yes outcome"
+            )
+            raise ValueError(f"each order-book target must have {expected}")
         outcomes: list[MatchOrderBookOutcome] = []
         for raw_outcome in raw_outcomes:
             if not isinstance(raw_outcome, dict):
@@ -234,12 +252,31 @@ def load_order_book_manifest(
             if token_id in seen_tokens:
                 raise ValueError(f"Duplicate clob_token_id {token_id}")
             seen_tokens.add(token_id)
-            outcomes.append(MatchOrderBookOutcome(label=label, clob_token_id=token_id))
-        if outcomes[0].label.casefold() == outcomes[1].label.casefold():
+            role = str(raw_outcome.get("role") or "").strip()
+            if not role:
+                if (
+                    label.casefold()
+                    == _required_text(raw_target, "home_team").casefold()
+                ):
+                    role = "home"
+                elif (
+                    label.casefold()
+                    == _required_text(raw_target, "away_team").casefold()
+                ):
+                    role = "away"
+            if role not in {"home", "away", "home_win", "draw", "away_win"}:
+                raise ValueError(f"Invalid landscape role {role!r}")
+            outcomes.append(
+                MatchOrderBookOutcome(
+                    label=label,
+                    clob_token_id=token_id,
+                    role=role,
+                )
+            )
+        if len({outcome.label.casefold() for outcome in outcomes}) != len(outcomes):
             raise ValueError("outcome labels must be distinct")
 
         for value, seen, label in (
-            (fifa_match_id, seen_matches, "fifa_match_id"),
             (market_id, seen_markets, "market_id"),
             (condition_id, seen_conditions, "condition_id"),
         ):
@@ -262,6 +299,38 @@ def load_order_book_manifest(
                 closed_at=end,
                 outcomes=tuple(outcomes),
             )
+        )
+        if (
+            fifa_match_id >= 73
+            and sum(target.fifa_match_id == fifa_match_id for target in targets) > 1
+        ):
+            raise ValueError(f"Duplicate fifa_match_id {fifa_match_id}")
+
+    match_ids = {target.fifa_match_id for target in targets}
+    identities = {
+        (target.stage, target.home_team, target.away_team) for target in targets
+    }
+    roles = [outcome.role for target in targets for outcome in target.outcomes]
+    if len(match_ids) != 1 or len(identities) != 1:
+        raise ValueError("a target manifest must describe exactly one match")
+    fifa_match_id = next(iter(match_ids))
+    if fifa_match_id <= 72:
+        if len(targets) != 3 or sorted(roles) != [
+            "away_win",
+            "draw",
+            "home_win",
+        ]:
+            raise ValueError(
+                "group target must select exactly home_win, draw, and away_win"
+            )
+        if any(
+            len(target.outcomes) != 1 or target.outcomes[0].label.casefold() != "yes"
+            for target in targets
+        ):
+            raise ValueError("group target must select only each literal Yes token")
+    elif len(targets) != 1 or sorted(roles) != ["away", "home"]:
+        raise ValueError(
+            "knockout target must select the named home and away outcome tokens"
         )
 
     provisional = MatchOrderBookManifest(
@@ -324,10 +393,16 @@ def validate_gamma_targets(
         ]
         outcomes = _json_string_list(market.get("outcomes"), field="outcomes")
         tokens = _json_string_list(market.get("clobTokenIds"), field="clobTokenIds")
-        if outcomes != [outcome.label for outcome in target.outcomes]:
-            mismatches.append("outcomes")
-        if tokens != [outcome.clob_token_id for outcome in target.outcomes]:
-            mismatches.append("clob_token_ids")
+        gamma_tokens = dict(zip(outcomes, tokens, strict=True))
+        if target.fifa_match_id >= 73:
+            if outcomes != [outcome.label for outcome in target.outcomes]:
+                mismatches.append("outcomes")
+            if tokens != [outcome.clob_token_id for outcome in target.outcomes]:
+                mismatches.append("clob_token_ids")
+        else:
+            outcome = target.outcomes[0]
+            if gamma_tokens.get(outcome.label) != outcome.clob_token_id:
+                mismatches.append("clob_token_ids")
         if market.get("closed") is not True:
             mismatches.append("closed")
         accepting = _utc_datetime(
@@ -445,6 +520,7 @@ def normalize_pmxt_snapshot(
     scan_id: str,
     window_start_ms: int,
     window_end_ms: int,
+    provider_sequence: int = 0,
     ingested_at: datetime | None = None,
 ) -> dict[str, Any]:
     if not isinstance(snapshot, dict):
@@ -502,6 +578,7 @@ def normalize_pmxt_snapshot(
         "market_type": target.market_type,
         "condition_id": target.condition_id,
         "outcome_label": outcome.label,
+        "landscape_role": outcome.role,
         "clob_token_id": outcome.clob_token_id,
         "window_start_ms": window_start_ms,
         "window_end_ms": window_end_ms,
@@ -510,6 +587,7 @@ def normalize_pmxt_snapshot(
             timestamp / 1_000, tz=timezone.utc
         ).replace(tzinfo=None),
         "snapshot_sha256": snapshot_sha256,
+        "provider_sequence": provider_sequence,
         "bids_json": json.dumps(bids, sort_keys=True, separators=(",", ":")),
         "asks_json": json.dumps(asks, sort_keys=True, separators=(",", ":")),
         "is_neg_risk": is_neg_risk,
@@ -697,7 +775,7 @@ def sync_match_order_book_history(
             if len(books) > PMXT_MAX_RANGE_SNAPSHOTS:
                 raise ValueError("PMXT returned more than the requested snapshot limit")
             rows_by_key: dict[tuple[int, str], dict[str, Any]] = {}
-            for book in books:
+            for provider_sequence, book in enumerate(books):
                 row = normalize_pmxt_snapshot(
                     book,
                     manifest=manifest,
@@ -706,9 +784,11 @@ def sync_match_order_book_history(
                     scan_id=scan_id,
                     window_start_ms=int(window["window_start_ms"]),
                     window_end_ms=int(window["window_end_ms"]),
+                    provider_sequence=provider_sequence,
                 )
-                rows_by_key[(row["snapshot_timestamp_ms"], row["snapshot_sha256"])] = (
-                    row
+                rows_by_key.setdefault(
+                    (row["snapshot_timestamp_ms"], row["snapshot_sha256"]),
+                    row,
                 )
             if len(books) == PMXT_MAX_RANGE_SNAPSHOTS:
                 split_window(

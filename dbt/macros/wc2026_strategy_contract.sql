@@ -125,7 +125,7 @@ coalesce(
       )"
     ) %}
     {% do run_query(
-      "create table if not exists wc2026_raw.fotmob__events (
+      "create table if not exists wc2026_raw.private_match_events__events (
         match_id varchar, event_id varchar, event_type varchar,
         event_minute integer, event_second integer, team varchar,
         player varchar, event_at timestamptz, source_status varchar,
