@@ -71,9 +71,12 @@ def stream_dbt_build(
             build_args.extend(["--select", config.dbt_select])
         if config.dbt_exclude:
             build_args.extend(["--exclude", config.dbt_exclude])
-    elif config.dbt_select is None and config.dbt_exclude == "tag:polygon_settlement":
-        # Dagster owns subset selection, but the dedicated Polygon graph must
-        # remain opt-in even when the whole dbt multi-asset is materialized.
+    elif (
+        config.dbt_select is None
+        and config.dbt_exclude == "tag:polygon_settlement tag:pmxt_order_book"
+    ):
+        # Dagster owns subset selection, but dedicated historical graphs remain
+        # opt-in even when the whole dbt multi-asset is materialized.
         build_args.extend(["--exclude", config.dbt_exclude])
     invocation = dbt.cli(build_args, context=context)
     sentinel = object()

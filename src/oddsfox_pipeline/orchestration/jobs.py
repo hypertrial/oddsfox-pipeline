@@ -10,6 +10,9 @@ from oddsfox_pipeline.naming import (
     SOURCE_POLYMARKET,
     asset_key,
 )
+from oddsfox_pipeline.orchestration.assets_match_order_book import (
+    POLYMARKET_WC2026_RAW_MATCH_ORDER_BOOK_SNAPSHOTS,
+)
 from oddsfox_pipeline.orchestration.assets_polygon_settlement import (
     POLYMARKET_WC2026_RAW_POLYGON_SETTLEMENT_FILLS,
     POLYMARKET_WC2026_RELEASE_POLYGON_SETTLEMENT_ODDS_BUNDLE,
@@ -26,6 +29,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
+    polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
     wc2026_knockout_match_odds_full_pipeline_run_config,
 )
@@ -94,6 +98,10 @@ POLYMARKET_WC2026_MATCH_MINUTE_RAW_SELECTION = AssetSelection.assets(
     ),
 )
 
+POLYMARKET_WC2026_MATCH_ORDER_BOOK_RAW_SELECTION = AssetSelection.assets(
+    POLYMARKET_WC2026_RAW_MATCH_ORDER_BOOK_SNAPSHOTS
+)
+
 POLYMARKET_WC2026_POLYGON_SETTLEMENT_RAW_SELECTION = AssetSelection.assets(
     POLYMARKET_WC2026_RAW_POLYGON_SETTLEMENT_FILLS
 )
@@ -116,6 +124,17 @@ _POLYMARKET_WC2026_MATCH_MINUTE_DBT_GRAPH = build_dbt_asset_selection(
 # expansion can otherwise include relationship tests for sibling model branches.
 POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION = (
     _POLYMARKET_WC2026_MATCH_MINUTE_DBT_GRAPH.without_checks().downstream(
+        depth=0,
+        include_self=True,
+    )
+)
+
+_POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_GRAPH = build_dbt_asset_selection(
+    [oddsfox_dbt],
+    dbt_select="+tag:pmxt_order_book",
+)
+POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_SELECTION = (
+    _POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_GRAPH.without_checks().downstream(
         depth=0,
         include_self=True,
     )
@@ -154,6 +173,12 @@ POLYMARKET_WC2026_MATCH_MINUTE_SELECTION = (
     | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
     | POLYMARKET_WC2026_MATCH_MINUTE_RAW_SELECTION
     | POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION
+)
+
+POLYMARKET_WC2026_MATCH_ORDER_BOOK_SELECTION = (
+    OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION
+    | POLYMARKET_WC2026_MATCH_ORDER_BOOK_RAW_SELECTION
+    | POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_SELECTION
 )
 
 POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
@@ -249,6 +274,14 @@ polymarket_wc2026_match_minute_odds_backfill = define_asset_job(
     selection=POLYMARKET_WC2026_MATCH_MINUTE_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_match_minute_odds_run_config(),
+    tags=_POLYMARKET_WC2026_TAGS,
+)
+
+polymarket_wc2026_match_order_book_backfill = define_asset_job(
+    "polymarket_wc2026_match_order_book_backfill",
+    selection=POLYMARKET_WC2026_MATCH_ORDER_BOOK_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_wc2026_match_order_book_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
 )
 

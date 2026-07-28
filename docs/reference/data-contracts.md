@@ -101,6 +101,7 @@ Schema: `polymarket_wc2026_marts`
 | `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
 | `polymarket_wc2026_graph_token_hourly_odds` | One row per `(market_id, clob_token_id, odds_hour_epoch)` | Graph-build export with both Yes and No tokens per real-team knockout market plus dbt-clean stage/team/progression semantics. |
 | `polymarket_wc2026_match_minute_odds` | One row per `(odds_minute_utc, market_id)` | Dense in-game minute OHLC for 216 group moneyline markets and 32 knockout advance/win markets across FIFA match IDs 1–104. |
+| `polymarket_wc2026_match_order_book` | One row per `(fifa_match_id, market_id, clob_token_id, snapshot_timestamp_ms, snapshot_sha256, book_side, level_rank)` | Every bid and ask level from every PMXT historical L2 snapshot in the reviewed Argentina–Egypt match-95 market window. |
 | `polymarket_wc2026_polygon_settlement_minute_odds` | One row per `(proposition_id, settlement_minute_utc)` | Finalized Polygon V2 settlement-time OHLC/VWAP over fixed half-open scheduled windows; exactly 39,120 dense rows. |
 
 The match-minute contract contains 248 markets and 496 source tokens. Group
@@ -153,6 +154,43 @@ per-token in-game histories validate. It also refreshes and validates the latest
 keeps 496 append-only token audit rows; a successful run publishes one exact raw
 snapshot, while failed runs preserve the prior raw and public tables. The job has
 no schedule.
+
+### PMXT historical match order book
+
+`polymarket_wc2026_marts.polymarket_wc2026_match_order_book` initially covers
+only FIFA match 95, Argentina–Egypt, market `2793969`, from
+`2026-07-04T10:34:02Z` through `2026-07-07T18:18:44Z`, inclusive. The market is
+`soccer_team_to_advance`; both pinned outcome-token streams are retained
+independently. Rows are not synchronized, paired, forward-filled, sampled onto
+a fixed cadence, or converted into complementary prices.
+
+“Full order book” means every bid and ask level from every complete historical
+L2 snapshot returned by PMXT across demonstrably unsaturated ranges. It does
+not mean individual order events or a claim of fixed snapshot cadence. Empty
+snapshot books remain in private raw/audit coverage and intentionally emit no
+public level rows.
+
+The public grain is
+`fifa_match_id + market_id + clob_token_id + snapshot_timestamp_ms +
+snapshot_sha256 + book_side + level_rank`. `snapshot_sha256` distinguishes
+different books at the same token millisecond. Bids rank from highest to lowest
+price; asks rank from lowest to highest. Exact `DECIMAL(38,18)` price and size
+fields feed `level_notional`, `cumulative_size`, and `cumulative_notional`,
+calculated independently per side.
+
+Every row also exposes match/event/market/condition/outcome/token identity,
+UTC and epoch-millisecond snapshot time, optional `order_count`, snapshot best
+bid and ask, spread, midpoint, last-trade price, negative-risk flag, published
+scan ID, manifest hash, source label, and ingestion time. Missing best sides
+produce null spread/midpoint; no price is synthesized.
+
+Publication requires one published manifest-consistent scan, both expected
+tokens, complete terminal window trees, nonempty snapshot inventories, exact
+OpenFootball match-95 team/stage identity, valid JSON/numerics, exact raw-to-
+exploded level counts, unique grain/prices, and consistent ranks/cumulative
+depth. Empty books, crossed books, and gaps over six hours are warnings only.
+The only supported writer is the unscheduled
+`polymarket_wc2026_match_order_book_backfill`.
 
 ### Polygon settlement minute odds
 

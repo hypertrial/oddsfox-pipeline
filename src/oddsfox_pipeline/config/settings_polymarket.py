@@ -13,6 +13,8 @@ from oddsfox_pipeline.config._env import (
 
 GAMMA_API_URL = "https://gamma-api.polymarket.com"
 CLOB_API_URL = "https://clob.polymarket.com"
+PMXT_API_URL = "https://api.pmxt.dev"
+PMXT_API_KEY = os.getenv("PMXT_API_KEY", "").strip()
 
 POLYGON_RPC_URL = os.getenv("POLYGON_RPC_URL", "").strip()
 POLYGON_RPC_PROVIDER_LABEL = os.getenv("POLYGON_RPC_PROVIDER_LABEL", "").strip()
@@ -191,6 +193,8 @@ __all__ = [
     "US_MIDTERMS_2026_CONTRACT_DEFAULTS",
     "MIN_ODDS_FIDELITY_MINUTES",
     "ODDS_REQUESTS_PER_SECOND",
+    "PMXT_API_KEY",
+    "PMXT_API_URL",
     "POLYMARKET_WC2026_SCOPE_EVENT_SLUG_PREFIXES",
     "POLYMARKET_WC2026_SCOPE_EVENT_SLUGS",
     "POLYMARKET_WC2026_SCOPE_EVENT_TAGS",

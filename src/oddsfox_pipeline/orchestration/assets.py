@@ -8,6 +8,9 @@ from oddsfox_pipeline.orchestration.assets_kalshi_wc2026 import (
     kalshi_wc2026_raw_markets,
     kalshi_wc2026_raw_markets_snapshot,
 )
+from oddsfox_pipeline.orchestration.assets_match_order_book import (
+    polymarket_wc2026_raw_match_order_book_snapshots,
+)
 from oddsfox_pipeline.orchestration.assets_openfootball import (
     openfootball_wc2026_raw_knockout_fixtures,
 )
@@ -59,6 +62,7 @@ __all__ = [
     "polymarket_wc2026_raw_markets",
     "polymarket_wc2026_raw_markets_snapshot",
     "polymarket_wc2026_raw_match_token_odds_history_minute",
+    "polymarket_wc2026_raw_match_order_book_snapshots",
     "polymarket_wc2026_raw_polygon_settlement_fills",
     "polymarket_wc2026_raw_token_odds_history_hourly",
     "polymarket_wc2026_release_polygon_settlement_odds_bundle",

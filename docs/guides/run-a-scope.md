@@ -87,3 +87,16 @@ For the full seed-authoring and disposable-smoke path, see
 [Recreate Polygon settlement mart](recreate-polygon-settlement-mart.md).
 Next, [validate the run](validate-and-recover.md). The Polygon settlement flow
 remains manual-only.
+
+## Run the isolated PMXT order-book history
+
+The PMXT flow is also outside `run_scope.py` and is never scheduled. Configure
+`PMXT_API_KEY`, then use the credit-consuming disposable/resumable acceptance
+target:
+
+```bash
+uv run make match-order-book-live-smoke
+```
+
+For identity, credit, resume, and warehouse checks, see
+[Recreate the PMXT order-book mart](recreate-match-order-book-mart.md).

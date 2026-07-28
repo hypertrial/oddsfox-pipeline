@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added an unscheduled, resumable hosted-PMXT historical L2 backfill for the
+  pinned Argentina–Egypt WC2026 round-of-16 team-to-advance market, including
+  both outcome-token snapshot streams, conservative credit accounting,
+  fail-closed adaptive range splitting, dlt landing, transactional publication,
+  and the long-form
+  `polymarket_wc2026_marts.polymarket_wc2026_match_order_book` mart.
+- Added PMXT order-book identity/completeness/depth observability, an isolated
+  Dagster/dbt graph, replay and integration coverage, and the opt-in
+  `make match-order-book-live-smoke` operator path.
 - Added `wc2026_marts.team_ratings_pre_match`: match×team pre-match EloRatings
   reconstructed from canonical `wc2026_raw.eloratings__match_results`
   (`pre = post ∓ change`, all competitions on/after 2026-01-01). Requires a

@@ -200,6 +200,14 @@ class MatchMinuteOddsSyncConfig(GuardrailConfig):
     transient_backoff_seconds: float = Field(default=0.25, ge=0)
 
 
+class MatchOrderBookBackfillConfig(GuardrailConfig):
+    requests_per_minute: int = Field(default=50, ge=1, le=60)
+    monthly_credit_budget: int = Field(default=20_000, ge=1, le=25_000)
+    transient_retries: int = Field(default=4, ge=0, le=10)
+    transient_backoff_seconds: float = Field(default=1.0, ge=0, le=120)
+    force: bool = False
+
+
 class PolygonSettlementSyncConfig(GuardrailConfig):
     requests_per_second: float = Field(default=5.0, gt=0)
     workers: int = Field(default=5, ge=1)
@@ -230,7 +238,7 @@ class DbtBuildConfig(GuardrailConfig):
     )
     full_refresh: bool = False
     dbt_select: str | None = None
-    dbt_exclude: str | None = "tag:polygon_settlement"
+    dbt_exclude: str | None = "tag:polygon_settlement tag:pmxt_order_book"
     fetch_dbt_metadata: bool = False
     expected_duckdb_path: str | None = None
 
@@ -365,6 +373,22 @@ def polymarket_wc2026_match_minute_odds_run_config() -> dict:
             },
             "polymarket_wc2026_raw_match_token_odds_history_minute": {
                 "config": MatchMinuteOddsSyncConfig().model_dump()
+            },
+            "oddsfox_dbt": {"config": dbt.model_dump()},
+        }
+    }
+
+
+def polymarket_wc2026_match_order_book_run_config() -> dict:
+    dbt = DbtBuildConfig(
+        full_refresh=False,
+        dbt_select="+tag:pmxt_order_book",
+        dbt_exclude="tag:polygon_settlement",
+    )
+    return {
+        "ops": {
+            "polymarket_wc2026_raw_match_order_book_snapshots": {
+                "config": MatchOrderBookBackfillConfig().model_dump()
             },
             "oddsfox_dbt": {"config": dbt.model_dump()},
         }

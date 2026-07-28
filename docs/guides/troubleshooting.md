@@ -137,8 +137,9 @@ release records a warning. It does not invalidate a primary finalized scan.
 
 ## Polygon dbt Graph Is Missing
 
-`make dbt-build` intentionally excludes `tag:polygon_settlement`, so ordinary
-credential-free builds cannot publish from empty Polygon raw tables. Use:
+`make dbt-build` intentionally excludes `tag:polygon_settlement` and
+`tag:pmxt_order_book`, so ordinary credential-free builds cannot publish from
+empty historical raw tables. For Polygon settlement, use:
 
 ```bash
 uv run make dbt-polygon-settlement-ci

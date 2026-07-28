@@ -67,6 +67,17 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "raw",
         "match_token_odds_history_minute",
     ]
+    for relation in (
+        ("polymarket_wc2026_raw", "match_order_book_snapshots"),
+        ("polymarket_wc2026_ops", "match_order_book_scan_runs"),
+        ("polymarket_wc2026_ops", "match_order_book_scan_windows"),
+    ):
+        assert tables[relation] == [
+            "polymarket",
+            "wc2026",
+            "raw",
+            "match_order_book_snapshots",
+        ]
     assert tables[("polymarket_wc2026_raw", "token_odds_daily")] == [
         "polymarket",
         "wc2026",
@@ -175,6 +186,23 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
         ).parent_keys
     }
     assert "openfootball/wc2026/raw/knockout_fixtures" in stg_fixtures_parents
+
+    stg_order_book_parents = {
+        key.to_user_string()
+        for key in graph.get(
+            AssetKey(
+                [
+                    "polymarket",
+                    "wc2026",
+                    "staging",
+                    "match_order_book_snapshots",
+                ]
+            )
+        ).parent_keys
+    }
+    assert "polymarket/wc2026/raw/match_order_book_snapshots" in (
+        stg_order_book_parents
+    )
 
     dangling_dbt_keys = sorted(
         key.to_user_string()
@@ -583,7 +611,12 @@ def test_stream_dbt_build_appends_full_refresh_flag():
         )
     )
     assert captured_args == [
-        ["build", "--full-refresh", "--exclude", "tag:polygon_settlement"]
+        [
+            "build",
+            "--full-refresh",
+            "--exclude",
+            "tag:polygon_settlement tag:pmxt_order_book",
+        ]
     ]
 
 
@@ -721,7 +754,9 @@ def test_stream_dbt_build_keeps_polygon_graph_opt_in_for_subset():
         )
     )
 
-    assert captured_args == [["build", "--exclude", "tag:polygon_settlement"]]
+    assert captured_args == [
+        ["build", "--exclude", "tag:polygon_settlement tag:pmxt_order_book"]
+    ]
 
 
 def test_stream_dbt_build_fetches_row_counts_and_column_metadata():

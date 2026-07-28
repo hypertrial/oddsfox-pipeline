@@ -63,6 +63,10 @@ The project references these independently governed upstream materials:
 - [OpenFootball World Cup](https://github.com/openfootball/worldcup/tree/bd46a148289f9930da66c140d4d7d2325e95d387)
   and [international_results](https://github.com/martj42/international_results)
   data sources under CC0-1.0;
+- [PMXT](https://www.pmxt.dev/docs/introduction), an independently governed
+  hosted source used only when an operator runs the opt-in historical
+  order-book backfill. PMXT output, credentials, quotas, and provider terms
+  remain outside the project's MIT grant and are not bundled in releases;
 - [Gnosis Conditional Tokens](https://github.com/gnosis/conditional-tokens-contracts/tree/eeefca66eb46c800a9aaab88db2064a99026fde5)
   interfaces under LGPL-3.0;
 - the [UMA CTF Adapter](https://github.com/Polymarket/uma-ctf-adapter/tree/8b76cc9e0d46c6f7450a0adb0ddc0f5b0568c9cc)

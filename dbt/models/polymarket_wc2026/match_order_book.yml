@@ -1,0 +1,90 @@
+version: 2
+
+models:
+  - name: stg_polymarket_wc2026_match_order_book_snapshots
+    description: Canonical PMXT snapshots from the newest atomically published scan.
+    columns:
+      - name: scan_id
+        tests: [not_null]
+      - name: clob_token_id
+        tests: [not_null]
+      - name: snapshot_timestamp_ms
+        tests: [not_null]
+      - name: snapshot_sha256
+        tests: [not_null]
+
+  - name: int_polymarket_wc2026_match_order_book_levels
+    description: Full bid/ask price levels expanded independently for each outcome-token snapshot.
+    columns:
+      - name: book_side
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [bid, ask]
+      - name: level_rank
+        tests: [not_null]
+      - name: price
+        tests: [not_null]
+      - name: size
+        tests: [not_null]
+
+  - name: int_polymarket_wc2026_match_order_book_publication_gate
+    description: One-row gate that blocks the public mart when any error-severity quality issue exists.
+    columns:
+      - name: publication_ready
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true]
+
+  - name: polymarket_wc2026_match_order_book_quality_issues
+    description: Error and warning inventory for the fixed PMXT order-book contract.
+    columns:
+      - name: issue_key
+        tests: [not_null]
+      - name: severity
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [error, warning]
+
+  - name: polymarket_wc2026_match_order_book_data_quality
+    description: One-row inventory and publication summary for the PMXT order-book mart.
+
+  - name: polymarket_wc2026_match_order_book
+    description: Full historical PMXT L2 bid/ask levels for approved WC2026 match-advance markets.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns:
+              - fifa_match_id
+              - market_id
+              - clob_token_id
+              - snapshot_timestamp_ms
+              - snapshot_sha256
+              - book_side
+              - level_rank
+    columns:
+      - name: fifa_match_id
+        tests: [not_null]
+      - name: market_id
+        tests: [not_null]
+      - name: clob_token_id
+        tests: [not_null]
+      - name: snapshot_timestamp_ms
+        tests: [not_null]
+      - name: snapshot_sha256
+        tests: [not_null]
+      - name: book_side
+        tests: [not_null]
+      - name: level_rank
+        tests: [not_null]
+      - name: price
+        tests: [not_null]
+      - name: size
+        tests: [not_null]
+      - name: source_label
+        tests: [not_null]

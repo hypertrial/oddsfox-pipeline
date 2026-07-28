@@ -15,23 +15,24 @@ For procedures, use [Run a scope](../guides/run-a-scope.md),
 4. `polymarket/wc2026/raw/market_metadata_backfill`
 5. `polymarket/wc2026/raw/token_odds_history_hourly`
 6. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
-7. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
-8. `polymarket/us_midterms_2026/raw/markets`
-9. `polymarket/us_midterms_2026/raw/markets_snapshot`
-10. `polymarket/us_midterms_2026/ops/market_scope_registry`
-11. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
-12. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
-13. `international_results/historical/raw/snapshot`
-14. `international_results/wc2026/raw/match_results`
-15. `openfootball/wc2026/raw/knockout_fixtures`
-16. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
-17. `kalshi/wc2026/raw/markets`
-18. `kalshi/wc2026/raw/markets_snapshot`
-19. `kalshi/wc2026/ops/market_scope_registry`
-20. `kalshi/wc2026/raw/market_candlesticks_hourly`
-21. dbt model assets under the matching
+7. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
+8. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
+9. `polymarket/us_midterms_2026/raw/markets`
+10. `polymarket/us_midterms_2026/raw/markets_snapshot`
+11. `polymarket/us_midterms_2026/ops/market_scope_registry`
+12. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
+13. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
+14. `international_results/historical/raw/snapshot`
+15. `international_results/wc2026/raw/match_results`
+16. `openfootball/wc2026/raw/knockout_fixtures`
+17. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
+18. `kalshi/wc2026/raw/markets`
+19. `kalshi/wc2026/raw/markets_snapshot`
+20. `kalshi/wc2026/ops/market_scope_registry`
+21. `kalshi/wc2026/raw/market_candlesticks_hourly`
+22. dbt model assets under the matching
     `{staging,intermediate,marts,observability}` namespaces.
-22. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
+23. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
 
 Flat Dagster op names preserve the same source-first order, for example
 `polymarket_wc2026_raw_token_odds_history_hourly`.
@@ -56,6 +57,14 @@ Flat Dagster op names preserve the same source-first order, for example
   those audits published.
   Run `uv run make match-minute-live-smoke` for the disposable live acceptance
   check; it is intentionally absent from CI and all schedules.
+- `polymarket_wc2026_match_order_book_backfill`: validates the reviewed
+  Argentina–Egypt match-95 manifest against one exact Gamma market lookup,
+  retrieves both independent outcome-token snapshot streams from PMXT, and
+  builds only `+tag:pmxt_order_book`. Saturated 1,000-snapshot ranges split
+  recursively with a one-millisecond overlap; terminal loads merge
+  idempotently before their window checkpoints. Compatible published runs
+  return without Gamma, PMXT, or credential access. Credit exhaustion pauses
+  the scan for a later resume. The job has no schedule.
 - `polymarket_wc2026_polygon_settlement_backfill`: validates the committed
   248-proposition seed, resolves each unique window once, and scans only the
   authored exchange for each range through the finalized head. Five bounded
@@ -123,13 +132,18 @@ cross-provider comparison. Operator recipe:
   the hourly token-sync ledger. Any missing token history aborts before dbt. A
   failed run keeps its append-only audit evidence while leaving the previous raw
   snapshot and public table intact.
+- The PMXT order-book asset uses separate raw snapshots and ops scan/window
+  ledgers. It neither joins the two outcome streams by time nor enters the
+  routine hourly/full selections. Empty books remain auditable raw snapshots
+  but generate no artificial public levels.
 - FIFA results supply the real-team validation inputs used by dbt.
 - The Polygon settlement asset is a parallel historical path. Its market and
   fixture semantics come only from the reviewed dbt seed at runtime. It scans
   finalized Polygon logs and stores normalized economic legs without wallets,
   order hashes, signatures, raw event payloads, oracle prose, or RPC URLs.
-- The ordinary Polymarket dbt/full jobs exclude `tag:polygon_settlement`; only
-  the dedicated backfill or replay-backed CI target builds it.
+- The ordinary Polymarket dbt/full jobs exclude `tag:polygon_settlement` and
+  `tag:pmxt_order_book`; only their dedicated backfills or replay-backed
+  validation targets build them.
 
 ### Polymarket US midterms 2026
 
@@ -168,6 +182,7 @@ cross-provider comparison. Operator recipe:
 | `wc2026_knockout_match_odds_hourly_schedule` | `wc2026_knockout_match_odds_full_pipeline` | Stopped |
 
 The match-minute backfill has no schedule or environment enable flag.
+The PMXT match-order-book backfill has no schedule or environment enable flag.
 The Polygon settlement backfill and audit-release jobs likewise have no schedule
 or environment enable flag. The technical exporter is standalone and
 unscheduled. None of these paths uploads or distributes data.
@@ -180,8 +195,10 @@ markets, and remains stopped unless its dedicated env flag is enabled.
 ## Landing and finalization
 
 Canonical raw and ops table schemas are the operator and dbt boundary. dlt
-lands market, odds-history, registry, and pipeline-event batches; stage tables
-and `_dlt*` metadata are internal.
+lands market, odds-history, registry, pipeline-event, and bounded PMXT snapshot
+batches; stage tables and `_dlt*` metadata are internal. PMXT terminal batches
+use a dlt-owned replaceable stage followed by an idempotent canonical merge, so
+a crash before the window checkpoint can safely replay the same content.
 
 International-results CSV storage, canonical snapshot loading, OpenFootball
 fixture storage, and Kalshi candlesticks use custom transactional SQL.

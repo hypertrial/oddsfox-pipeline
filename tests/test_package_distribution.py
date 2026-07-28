@@ -130,6 +130,11 @@ def test_built_wheel_declares_mit_and_contains_notices(tmp_path: Path) -> None:
     assert any(
         name.endswith(".dist-info/licenses/THIRD_PARTY_NOTICES.md") for name in names
     )
+    assert {
+        "oddsfox_pipeline/ingestion/kalshi/seeds/market_scopes.yml",
+        "oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml",
+        "oddsfox_pipeline/ingestion/polymarket/seeds/order_book_targets.yml",
+    } <= set(names)
     assert not any(
         name.endswith((".csv", ".db", ".duckdb", ".parquet", ".pdf")) for name in names
     )

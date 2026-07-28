@@ -95,6 +95,36 @@ sources:
                     values: [1]
           - name: ingested_at
             description: UTC timestamp when the bounded backfill was persisted.
+      - name: match_order_book_snapshots
+        description: Canonical full-depth PMXT snapshots for approved WC2026 match markets; unpublished scan rows remain private.
+        config:
+          tags: [pmxt_order_book]
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, match_order_book_snapshots]
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [scan_id, clob_token_id, snapshot_timestamp_ms, snapshot_sha256]
+        columns:
+          - name: scan_id
+            tests: [not_null]
+          - name: fifa_match_id
+            tests: [not_null]
+          - name: market_id
+            tests: [not_null]
+          - name: clob_token_id
+            tests: [not_null]
+          - name: snapshot_timestamp_ms
+            tests: [not_null]
+          - name: snapshot_sha256
+            tests: [not_null]
+          - name: bids_json
+            tests: [not_null]
+          - name: asks_json
+            tests: [not_null]
+          - name: ingested_at
+            tests: [not_null]
       - name: token_odds_daily
         description: Raw daily token odds aggregates derived from canonical odds_history points.
         meta:
@@ -244,6 +274,48 @@ sources:
                     values: ['success', 'empty', 'error', 'cancelled']
           - name: raw_published
             tests: [not_null]
+      - name: match_order_book_scan_runs
+        description: Resumable PMXT scan state and atomic publication marker.
+        config:
+          tags: [pmxt_order_book]
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, match_order_book_snapshots]
+        columns:
+          - name: scan_id
+            tests: [not_null, unique]
+          - name: manifest_sha256
+            tests: [not_null]
+          - name: status
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [running, paused, failed, published]
+          - name: raw_published
+            tests: [not_null]
+      - name: match_order_book_scan_windows
+        description: Adaptive historical range work tree for PMXT order-book scans.
+        config:
+          tags: [pmxt_order_book]
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, match_order_book_snapshots]
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [scan_id, clob_token_id, window_start_ms, window_end_ms]
+        columns:
+          - name: scan_id
+            tests: [not_null]
+          - name: clob_token_id
+            tests: [not_null]
+          - name: status
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [pending, split, loaded, empty, failed]
       - name: polygon_settlement_scan_runs
         description: One row per deterministic Polygon settlement scan, including atomic publication state.
         config:

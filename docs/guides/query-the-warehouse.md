@@ -93,6 +93,7 @@ running Dagster/dbt writer.
 | WC2026 graph or both-token analysis | `polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds` | Keeps Yes and No tokens with `is_progression_token`. |
 | Cross-platform knockout match hours | `wc2026_marts.wc2026_knockout_match_hourly_odds` | Compare Polymarket and Kalshi match-advance closes. |
 | WC2026 in-game match minutes | `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds` | Dense minute series for all 104 matches; requires the match-minute path, not ordinary hourly ingest alone. |
+| Argentina–Egypt historical L2 depth | `polymarket_wc2026_marts.polymarket_wc2026_match_order_book` | Long-form independent bid/ask levels for both PMXT outcome-token snapshot streams; requires the unscheduled PMXT backfill. |
 | WC2026 fixtures and results | `international_results_wc2026_marts.international_results_wc2026_matches` | One row per `match_id`, with knockout advancer inference. |
 | WC2026 team status | `international_results_wc2026_marts.international_results_wc2026_team_status` | Join on `canonical_team_name` or `team_name`. |
 | Current Kalshi stage prices | `kalshi_wc2026_marts.kalshi_wc2026_stage_markets` | Filter to `is_actionable_live_market`. |

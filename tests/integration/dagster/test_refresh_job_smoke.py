@@ -483,6 +483,8 @@ oddsfox:
                             "window_hours": 1,
                             "market_page_size": 100,
                             "min_volume": 0,
+                            # Keep this synthetic refresh fixture valid after WC2026.
+                            "ended_market_grace_days": None,
                             "progress_log_interval_tokens": 1,
                             "progress_log_interval_seconds": 1,
                             "no_progress_soft_timeout_seconds": 120,

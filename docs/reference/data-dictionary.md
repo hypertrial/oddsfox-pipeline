@@ -128,6 +128,24 @@ game rather than treating every boundary null as equivalent. Use
 stoppage-adjusted football time: delays, halftime, extra time, and penalties all
 remain on the axis.
 
+### `polymarket_wc2026_marts.polymarket_wc2026_match_order_book`
+
+| Property | Value |
+| --- | --- |
+| Grain | One row per `(fifa_match_id, market_id, clob_token_id, snapshot_timestamp_ms, snapshot_sha256, book_side, level_rank)` |
+| Coverage | FIFA match 95, Argentina–Egypt team-to-advance market; both outcome-token streams from accepting orders through closure |
+| Intended use | Historical L2 depth, spread, midpoint, and liquidity analysis |
+| Prices and size | Exact `DECIMAL(38,18)` levels; bids rank high-to-low and asks low-to-high |
+| Depth | `level_notional`, `cumulative_size`, and `cumulative_notional` are calculated independently per snapshot side |
+| Snapshot fields | Best bid/ask, spread, midpoint, optional last-trade price, negative-risk flag, UTC and epoch-millisecond time |
+| Provenance | Published scan and manifest hashes, PMXT source label, and ingestion timestamp |
+| Null policy | Missing sides remain null; empty raw books emit no artificial mart level |
+| Common mistakes | Pairing the two token streams by timestamp, inferring fixed cadence, treating snapshots as order events, or synthesizing complementary prices |
+
+This is an optional, unscheduled historical flow. “Full order book” means all
+levels in every PMXT snapshot returned across demonstrably unsaturated ranges;
+it is not an order-event or fixed-interval feed.
+
 !!! note "Advanced historical flow"
 
     The Polygon settlement-minute mart is optional and isolated. Ordinary

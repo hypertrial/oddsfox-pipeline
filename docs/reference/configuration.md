@@ -78,6 +78,26 @@ command. The complete setup and both mart workflows are in
 ([match-minute](../guides/recreate-match-minute-mart.md),
 [Polygon settlement](../guides/recreate-polygon-settlement-mart.md)).
 
+## WC2026 PMXT order-book history
+
+`PMXT_API_KEY` is optional for ordinary scopes and required only when an
+unpublished `polymarket_wc2026_match_order_book_backfill` scan needs hosted
+PMXT network access. The value is sent solely as an `Authorization: Bearer`
+header. It is never logged, persisted, or included in Dagster metadata.
+
+The dedicated run config defaults to 50 requests per minute, a conservative
+20,000-attempt UTC-month local ceiling, four bounded transient retries, and an
+expiring single-writer lease. Typed one-off Dagster run config may lower those
+limits or set `force=true` to create a separate scan. It cannot provide
+arbitrary event, market, condition, token, or timestamp values; reviewed
+targets live in
+`src/oddsfox_pipeline/ingestion/polymarket/seeds/order_book_targets.yml`.
+The initial manifest contains only FIFA match 95, Argentina–Egypt.
+
+The flow is backfill-only. It has no schedule flag and is excluded from
+ordinary dbt and full-pipeline jobs with `tag:pmxt_order_book`. See
+[Recreate the PMXT order-book mart](../guides/recreate-match-order-book-mart.md).
+
 ## WC2026 Polygon settlement history
 
 The independent Polygon flow has no schedule and does not reuse Gamma/CLOB
@@ -214,6 +234,10 @@ All schedule flags default to `false`.
 no schedule or enable flag, and the release job writes only a local immutable
 internal audit bundle. The technical exporter is standalone and unscheduled;
 neither path uploads data.
+
+`polymarket_wc2026_match_order_book_backfill` is also manual-only and has no
+schedule or enable flag. Its only credential is the optional-until-needed
+`PMXT_API_KEY`.
 
 The neutral `wc2026_*` schemas are a breaking local warehouse layout change.
 v0.1.x has no compatibility aliases or migration path; delete

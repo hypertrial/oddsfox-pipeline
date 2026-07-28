@@ -26,6 +26,12 @@ from oddsfox_pipeline.ingestion.polymarket.gamma_events import fetch_gamma_event
 from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
     process_markets_dataframe,
 )
+from oddsfox_pipeline.ingestion.polymarket.match_order_book import (
+    PMXT_ORDER_BOOK_ENDPOINT,
+    build_pmxt_client,
+    load_order_book_manifest,
+    normalize_pmxt_snapshot,
+)
 from oddsfox_pipeline.ingestion.polymarket.odds.fetch import fetch_token_history
 from oddsfox_pipeline.resources.http import APIClient
 
@@ -78,6 +84,44 @@ def test_polymarket_clob_minute_history_replay_contract():
         ("pm-wc-match-home", 1_782_907_230, 0.42),
         ("pm-wc-match-home", 1_782_907_290, 0.57),
     ]
+
+
+def test_pmxt_order_book_payload_replay_contract():
+    manifest = load_order_book_manifest()
+    target = manifest.targets[0]
+    outcome = target.outcomes[0]
+    client = build_pmxt_client(requests_per_minute=60)
+
+    with _replay_vcr().use_cassette("pmxt_order_book.yml"):
+        payload = client.post(
+            PMXT_ORDER_BOOK_ENDPOINT,
+            headers={"Authorization": "Bearer synthetic-replay-key"},
+            json={
+                "args": [
+                    target.market_id,
+                    None,
+                    {
+                        "since": target.window_start_ms,
+                        "until": target.window_end_ms,
+                        "outcome": outcome.clob_token_id,
+                        "limit": 1_000,
+                    },
+                ]
+            },
+        )
+
+    assert payload["success"] is True
+    row = normalize_pmxt_snapshot(
+        payload["data"][0],
+        manifest=manifest,
+        target=target,
+        outcome=outcome,
+        scan_id="replay",
+        window_start_ms=target.window_start_ms,
+        window_end_ms=target.window_end_ms,
+    )
+    assert row["bids_json"] == ('[{"order_count":2,"price":"0.4","size":"10"}]')
+    assert row["asks_json"] == ('[{"order_count":1,"price":"0.6","size":"5"}]')
 
 
 def test_international_results_immutable_revision_replay_contract():

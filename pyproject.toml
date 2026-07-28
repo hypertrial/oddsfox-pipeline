@@ -73,6 +73,12 @@ package-dir = {"" = "src"}
 where = ["src"]
 include = ["oddsfox_pipeline*"]
 
+[tool.setuptools.package-data]
+oddsfox_pipeline = [
+  "ingestion/kalshi/seeds/*.yml",
+  "ingestion/polymarket/seeds/*.yml",
+]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]

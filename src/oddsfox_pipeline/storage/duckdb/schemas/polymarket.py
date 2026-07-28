@@ -134,6 +134,13 @@ def bootstrap_polymarket_tables(
     conn.execute(f"ALTER TABLE {oh} ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMP")
     if scope_name == SCOPE_WC2026:
         mmoh = polymarket_raw_tbl(scope_name, "match_minute_odds_history")
+        order_book_snapshots = polymarket_raw_tbl(
+            scope_name, "match_order_book_snapshots"
+        )
+        order_book_runs = polymarket_ops_tbl(scope_name, "match_order_book_scan_runs")
+        order_book_windows = polymarket_ops_tbl(
+            scope_name, "match_order_book_scan_windows"
+        )
         polygon_fills = polymarket_raw_tbl(scope_name, "polygon_settlement_fills")
         polygon_runs = polymarket_ops_tbl(scope_name, "polygon_settlement_scan_runs")
         polygon_chunks = polymarket_ops_tbl(
@@ -189,6 +196,111 @@ def bootstrap_polymarket_tables(
                 CHECK (request_start_epoch <= request_end_epoch),
                 CHECK (fetch_started_at <= fetch_finished_at),
                 PRIMARY KEY (fetch_run_id, clobTokenId)
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {order_book_snapshots} (
+                scan_id TEXT NOT NULL,
+                manifest_sha256 TEXT NOT NULL,
+                fifa_match_id BIGINT NOT NULL,
+                stage TEXT NOT NULL,
+                home_team TEXT NOT NULL,
+                away_team TEXT NOT NULL,
+                event_id TEXT NOT NULL,
+                event_slug TEXT NOT NULL,
+                market_id TEXT NOT NULL,
+                market_slug TEXT NOT NULL,
+                market_type TEXT NOT NULL,
+                condition_id TEXT NOT NULL,
+                outcome_label TEXT NOT NULL,
+                clob_token_id TEXT NOT NULL,
+                window_start_ms BIGINT NOT NULL,
+                window_end_ms BIGINT NOT NULL,
+                snapshot_timestamp_ms BIGINT NOT NULL,
+                snapshot_at TIMESTAMP NOT NULL,
+                snapshot_sha256 TEXT NOT NULL,
+                bids_json TEXT NOT NULL,
+                asks_json TEXT NOT NULL,
+                is_neg_risk BOOLEAN,
+                last_trade_price TEXT,
+                source_endpoint TEXT NOT NULL,
+                ingested_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (
+                    scan_id, clob_token_id, snapshot_timestamp_ms,
+                    snapshot_sha256
+                )
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {order_book_runs} (
+                scan_id TEXT PRIMARY KEY,
+                manifest_version INTEGER NOT NULL,
+                manifest_sha256 TEXT NOT NULL CHECK (
+                    regexp_full_match(manifest_sha256, '[0-9a-f]{{64}}')
+                ),
+                target_count INTEGER NOT NULL CHECK (target_count > 0),
+                token_count INTEGER NOT NULL CHECK (token_count > 0),
+                status TEXT NOT NULL CHECK (
+                    status IN ('running', 'paused', 'failed', 'published')
+                ),
+                raw_published BOOLEAN NOT NULL DEFAULT FALSE,
+                lease_owner TEXT,
+                lease_expires_at TIMESTAMP,
+                api_attempt_count BIGINT NOT NULL DEFAULT 0,
+                snapshot_count BIGINT NOT NULL DEFAULT 0,
+                aggregate_sha256 TEXT CHECK (
+                    aggregate_sha256 IS NULL
+                    OR regexp_full_match(aggregate_sha256, '[0-9a-f]{{64}}')
+                ),
+                started_at TIMESTAMP NOT NULL,
+                last_checkpoint_at TIMESTAMP NOT NULL,
+                finished_at TIMESTAMP,
+                error_type TEXT,
+                error_message TEXT CHECK (
+                    error_message IS NULL OR length(error_message) <= 500
+                )
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {order_book_windows} (
+                scan_id TEXT NOT NULL,
+                fifa_match_id BIGINT NOT NULL,
+                market_id TEXT NOT NULL,
+                condition_id TEXT NOT NULL,
+                outcome_label TEXT NOT NULL,
+                clob_token_id TEXT NOT NULL,
+                window_start_ms BIGINT NOT NULL,
+                window_end_ms BIGINT NOT NULL,
+                depth INTEGER NOT NULL CHECK (depth >= 0),
+                status TEXT NOT NULL CHECK (
+                    status IN (
+                        'pending', 'split', 'loaded', 'empty', 'failed'
+                    )
+                ),
+                api_attempt_count INTEGER NOT NULL DEFAULT 0,
+                snapshot_count INTEGER NOT NULL DEFAULT 0,
+                content_sha256 TEXT CHECK (
+                    content_sha256 IS NULL
+                    OR regexp_full_match(content_sha256, '[0-9a-f]{{64}}')
+                ),
+                snapshot_hashes_json TEXT NOT NULL DEFAULT '[]' CHECK (
+                    json_valid(snapshot_hashes_json)
+                ),
+                updated_at TIMESTAMP NOT NULL,
+                error_type TEXT,
+                error_message TEXT CHECK (
+                    error_message IS NULL OR length(error_message) <= 500
+                ),
+                CHECK (window_start_ms <= window_end_ms),
+                PRIMARY KEY (
+                    scan_id, clob_token_id, window_start_ms, window_end_ms
+                )
             )
             """
         )

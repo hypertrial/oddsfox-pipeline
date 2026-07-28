@@ -88,6 +88,7 @@ nav:
       - Day-two operations: guides/day-two-operations.md
       - Recreate local marts: guides/recreate-local-marts.md
       - Recreate match-minute mart: guides/recreate-match-minute-mart.md
+      - Recreate PMXT order-book mart: guides/recreate-match-order-book-mart.md
       - Recreate Polygon settlement mart: guides/recreate-polygon-settlement-mart.md
       - Enable schedules: guides/enable-schedules.md
       - Validate and recover: guides/validate-and-recover.md

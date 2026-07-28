@@ -60,8 +60,8 @@ uv run make dbt-build
 ```
 
 The ordinary build intentionally excludes the manual
-`tag:polygon_settlement` graph, so no Polygon RPC configuration is needed for
-quickstart.
+`tag:polygon_settlement` and `tag:pmxt_order_book` graphs, so no Polygon RPC or
+PMXT configuration is needed for quickstart.
 
 !!! note "Advanced: Polygon settlement history"
 

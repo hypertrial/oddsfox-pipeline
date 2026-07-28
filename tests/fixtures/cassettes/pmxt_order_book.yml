@@ -1,0 +1,16 @@
+interactions:
+  - request:
+      body: '{"args": ["2793969", null, {"since": 1783161242000, "until": 1783448324000, "outcome": "62322024443983575289896387710034399425619931224187000571202629586505505867789", "limit": 1000}]}'
+      headers: {}
+      method: POST
+      uri: https://api.pmxt.dev/api/polymarket/fetchOrderBook
+    response:
+      body:
+        string: '{"success":true,"data":[{"timestamp":1783161242000,"bids":[{"price":"0.4","size":"10","orderCount":2}],"asks":[{"price":"0.6","size":"5","orderCount":1}],"lastTradePrice":"0.5","isNegRisk":false}]}'
+      headers:
+        Content-Type:
+          - application/json
+      status:
+        code: 200
+        message: OK
+version: 1

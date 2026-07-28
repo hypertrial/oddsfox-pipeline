@@ -8,6 +8,7 @@ from oddsfox_pipeline.orchestration.config import (
     HourlyOddsSyncConfig,
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
+    MatchOrderBookBackfillConfig,
     MetadataBackfillConfig,
     OddsSyncConfig,
     PolygonSettlementReleaseConfig,
@@ -82,6 +83,17 @@ def test_dbt_build_config_accepts_fixed_scope_selectors():
     assert cfg.dbt_select == "+tag:polymarket,tag:wc2026"
     assert cfg.dbt_exclude == "tag:kalshi"
     assert cfg.expected_duckdb_path is None
+
+
+def test_match_order_book_config_enforces_pmxt_limits():
+    config = MatchOrderBookBackfillConfig()
+
+    assert config.requests_per_minute == 50
+    assert config.monthly_credit_budget == 20_000
+    with pytest.raises(ValueError):
+        MatchOrderBookBackfillConfig(requests_per_minute=61)
+    with pytest.raises(ValueError):
+        MatchOrderBookBackfillConfig(monthly_credit_budget=25_001)
 
 
 def test_polygon_settlement_configs_are_fixed_and_release_inputs_are_explicit():
@@ -162,4 +174,6 @@ def test_combined_match_odds_config_preserves_history_and_bypasses_volume_floor(
     )
     assert ops["oddsfox_dbt"]["config"]["full_refresh"] is False
     assert ops["oddsfox_dbt"]["config"]["dbt_select"] == "+tag:cross_domain"
-    assert ops["oddsfox_dbt"]["config"]["dbt_exclude"] == "tag:polygon_settlement"
+    assert ops["oddsfox_dbt"]["config"]["dbt_exclude"] == (
+        "tag:polygon_settlement tag:pmxt_order_book"
+    )

@@ -23,6 +23,10 @@ STATIC_SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             r"['\"]?[^\s'\"#]{12,}"
         ),
     ),
+    (
+        "pmxt_env_assignment",
+        re.compile(r"PMXT_API_KEY\s*[:=]\s*['\"]?[^\s'\"#]{12,}"),
+    ),
 )
 
 

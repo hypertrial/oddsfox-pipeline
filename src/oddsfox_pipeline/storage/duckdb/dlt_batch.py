@@ -62,6 +62,34 @@ MATCH_MINUTE_ODDS_HISTORY_COLUMNS = {
     "row_order": {"data_type": "bigint"},
 }
 
+MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS = {
+    "scan_id": {"data_type": "text"},
+    "manifest_sha256": {"data_type": "text"},
+    "fifa_match_id": {"data_type": "bigint"},
+    "stage": {"data_type": "text"},
+    "home_team": {"data_type": "text"},
+    "away_team": {"data_type": "text"},
+    "event_id": {"data_type": "text"},
+    "event_slug": {"data_type": "text"},
+    "market_id": {"data_type": "text"},
+    "market_slug": {"data_type": "text"},
+    "market_type": {"data_type": "text"},
+    "condition_id": {"data_type": "text"},
+    "outcome_label": {"data_type": "text"},
+    "clob_token_id": {"data_type": "text"},
+    "window_start_ms": {"data_type": "bigint"},
+    "window_end_ms": {"data_type": "bigint"},
+    "snapshot_timestamp_ms": {"data_type": "bigint"},
+    "snapshot_at": {"data_type": "timestamp"},
+    "snapshot_sha256": {"data_type": "text"},
+    "bids_json": {"data_type": "text"},
+    "asks_json": {"data_type": "text"},
+    "is_neg_risk": {"data_type": "bool", "nullable": True},
+    "last_trade_price": {"data_type": "text", "nullable": True},
+    "source_endpoint": {"data_type": "text"},
+    "ingested_at": {"data_type": "timestamp"},
+}
+
 PIPELINE_RUN_EVENT_COLUMNS = {
     "run_id": {"data_type": "text"},
     "task_name": {"data_type": "text"},
@@ -335,6 +363,36 @@ def load_match_minute_odds_history_stage(
         raise
 
 
+def merge_match_order_book_snapshots(
+    rows: Sequence[dict[str, Any]],
+    conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Land a bounded dlt batch, then merge it into the canonical raw table.
+
+    dlt owns the replaceable staging relation and may add its internal columns
+    there. The canonical relation remains an explicit project contract for dbt
+    and recovery logic.
+    """
+    if not rows:
+        return
+    raw_schema = polymarket_raw_schema(SCOPE_WC2026)
+    target = polymarket_raw_tbl(SCOPE_WC2026, "match_order_book_snapshots")
+    stage = load_stage_rows(
+        schema=raw_schema,
+        stage_table="stage_match_order_book_snapshots_v1",
+        rows=rows,
+        columns=MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS,
+    )
+    target_columns = ", ".join(MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS)
+    conn.execute(
+        f"""
+        INSERT OR REPLACE INTO {target} ({target_columns})
+        SELECT {target_columns}
+        FROM {stage}
+        """
+    )
+
+
 def append_pipeline_run_event_stage(
     row: dict[str, Any],
     conn: duckdb.DuckDBPyConnection,
@@ -416,6 +474,7 @@ __all__ = [
     "PIPELINE_RUN_EVENT_COLUMNS",
     "MARKET_SCOPE_REGISTRY_COLUMNS",
     "MATCH_MINUTE_ODDS_HISTORY_COLUMNS",
+    "MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS",
     "append_pipeline_run_event_stage",
     "load_market_tokens_stage",
     "load_odds_history_stage",
@@ -423,6 +482,7 @@ __all__ = [
     "load_market_scope_registry_stage",
     "load_match_minute_fetch_audit",
     "load_match_minute_odds_history_stage",
+    "merge_match_order_book_snapshots",
     "merge_odds_history_stage",
     "prepare_odds_history_stage",
     "reset_dlt_batch_pipelines",
