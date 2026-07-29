@@ -1,8 +1,15 @@
 # World Cup market portrait
 
-The pipeline owns the public `oddsfox.market-portrait.v1` file contract and all
-prediction-market semantics. Production bundles are private operator artifacts,
-not repository inputs.
+For market portraits, this public repository owns the PMXT acquisition,
+prediction-market semantics, provider-neutral story construction, and the
+`oddsfox.market-portrait.v1` file contract. Production bundles are private
+operator artifacts, not repository inputs.
+
+Private collection, source-native schemas, sanitation implementation, and
+rendering do not belong here. The public API accepts only neutral, sanitized
+facts; it must not import a private collector package, name a private source,
+query a private source relation, or contain plotting and video-rendering
+implementation.
 
 ## Acquire an approved target
 
@@ -32,8 +39,8 @@ blocks publication. Books and trades share the UTC-month PMXT credit counter.
 `build_market_portrait_bundle` accepts a read-only DuckDB connection, a FIFA
 match ID, sanitized `MatchFacts`, ordered sanitized `FootballEvent` values, an
 output root, and a `RenderProfile`. It never imports collector code, names a
-private upstream provider, or accepts raw provider relations. The scraper is
-responsible for sanitizing and mapping its private sidecar to these neutral
+private upstream provider, or accepts raw provider relations. The private
+adapter is responsible for sanitizing and mapping source facts to these neutral
 types.
 
 The output directory contains:
@@ -65,5 +72,5 @@ warehouse until the bundle is verified. For this pre-1.0 release, do not migrate
 old warehouse layouts: preserve the old database separately, rebuild a clean
 warehouse, and reacquire only operator-approved targets.
 
-Keep source bundles inside the scraper private export root. Copy an MP4 out only
-after the operator completes rights and provenance review.
+Keep source bundles inside the caller-managed private export root. Copy an MP4
+out only after the operator completes rights and provenance review.
