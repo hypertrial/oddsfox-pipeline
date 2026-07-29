@@ -664,7 +664,7 @@ def _request_window(
                 headers={"Authorization": f"Bearer {api_key}"},
                 json={
                     "args": [
-                        str(window["market_id"]),
+                        str(window["condition_id"]),
                         None,
                         {
                             "since": int(window["window_start_ms"]),

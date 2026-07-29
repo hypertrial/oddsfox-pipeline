@@ -32,7 +32,8 @@ def generate_target_manifest(
     rows = connection.execute(
         f"""
         SELECT stage, home_team, away_team, market_id, proposition_type,
-               yes_clob_token_id, no_clob_token_id
+               yes_clob_token_id, no_clob_token_id,
+               selected_market_event_id, selected_market_event_slug
         FROM {UNIVERSE}
         WHERE fifa_match_id=?
           AND fixture_mapping_count=1
@@ -73,9 +74,23 @@ def generate_target_manifest(
             raise ValueError("Gamma outcome/token inventory is inconsistent")
         gamma_tokens = dict(zip(outcomes, tokens, strict=True))
         events = market.get("events")
-        if not isinstance(events, list) or len(events) != 1:
+        if events in (None, []):
+            event = gamma.get(f"/events/{row[7]}")
+            event_markets = event.get("markets") if isinstance(event, dict) else None
+            if not isinstance(event_markets, list) or str(row[3]) not in {
+                str(item.get("id")) for item in event_markets if isinstance(item, dict)
+            }:
+                raise ValueError(f"Gamma event does not contain market {row[3]}")
+        elif isinstance(events, list) and len(events) == 1:
+            event = events[0]
+        else:
             raise ValueError(f"market {row[3]} does not have one Gamma event")
-        event = events[0]
+        if (
+            not isinstance(event, dict)
+            or str(event.get("id")) != str(row[7])
+            or str(event.get("slug")) != str(row[8])
+        ):
+            raise ValueError(f"Gamma event identity changed for market {row[3]}")
         if fifa_match_id <= 72:
             if gamma_tokens.get("Yes") != str(row[5]):
                 raise ValueError(f"group market {row[3]} literal Yes token changed")

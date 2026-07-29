@@ -208,12 +208,15 @@ def test_synthetic_factory_populates_only_a_temporary_project(tmp_path: Path) ->
 
 def test_reviewed_resolution_attestation_is_operator_local() -> None:
     example = REPO_ROOT / "config/polygon-settlement-resolution-attestation.example.yml"
+    private_path = "config/polygon-settlement-resolution-attestation.yml"
     assert "config/polygon-settlement-resolution-attestation.yml" not in (
         _tracked_files()
     )
-    assert "/config/polygon-settlement-resolution-attestation.yml" in (
-        REPO_ROOT / ".gitignore"
-    ).read_text(encoding="utf-8")
+    assert f"/{private_path}" in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert (
+        private_path
+        in (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    )
     text = example.read_text(encoding="utf-8")
     assert "REPLACE_WITH_LOCAL_" in text
     assert "resolved_condition_count: 0" in text

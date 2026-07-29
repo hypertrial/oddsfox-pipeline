@@ -31,6 +31,7 @@ class MatchFacts:
     stage: str
     home_team: str
     away_team: str
+    kickoff_at_utc: datetime
     first_half_started_at: datetime
     first_half_ended_at: datetime
     second_half_started_at: datetime
@@ -155,6 +156,14 @@ def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
         for character in facts.source_provenance_sha256
     ):
         raise ValueError("source provenance must be a lowercase SHA-256 commitment")
+    kickoff = _utc(facts.kickoff_at_utc, "kickoff_at_utc")
+    first_half_start = _utc(facts.first_half_started_at, "first_half")
+    kickoff_delta = first_half_start - kickoff
+    if not timedelta(minutes=-2) <= kickoff_delta <= timedelta(minutes=30):
+        raise ValueError(
+            "first_half must begin between two minutes before and "
+            "30 minutes after kickoff_at_utc"
+        )
     periods = [
         ("first_half", facts.first_half_started_at, facts.first_half_ended_at),
         ("second_half", facts.second_half_started_at, facts.second_half_ended_at),
@@ -184,10 +193,46 @@ def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
     ):
         raise ValueError("football periods overlap or are out of order")
     final_period_end = ordered[-1][1]
+    duration_limits = [
+        ("first_half", ordered[0], timedelta(minutes=40), timedelta(minutes=75)),
+        ("second_half", ordered[1], timedelta(minutes=40), timedelta(minutes=90)),
+    ]
+    if len(ordered) == 4:
+        duration_limits.extend(
+            [
+                (
+                    "first_extra_half",
+                    ordered[2],
+                    timedelta(minutes=10),
+                    timedelta(minutes=30),
+                ),
+                (
+                    "second_extra_half",
+                    ordered[3],
+                    timedelta(minutes=10),
+                    timedelta(minutes=30),
+                ),
+            ]
+        )
+    for name, (start, end), minimum, maximum in duration_limits:
+        if not minimum <= end - start <= maximum:
+            raise ValueError(f"{name} duration is implausible")
+    halftime = ordered[1][0] - ordered[0][1]
+    if not timedelta(minutes=5) <= halftime <= timedelta(minutes=30):
+        raise ValueError("halftime duration is implausible")
+    if len(ordered) == 4:
+        full_time_break = ordered[2][0] - ordered[1][1]
+        extra_time_break = ordered[3][0] - ordered[2][1]
+        if not timedelta(0) <= full_time_break <= timedelta(minutes=30):
+            raise ValueError("full-time to extra-time break is implausible")
+        if not timedelta(0) <= extra_time_break <= timedelta(minutes=15):
+            raise ValueError("extra-time break is implausible")
     if facts.game_ended_at is not None:
         game_ended_at = _utc(facts.game_ended_at, "game_ended_at")
         if game_ended_at < final_period_end:
             raise ValueError("game_ended_at precedes the final period boundary")
+        if game_ended_at - final_period_end > timedelta(minutes=45):
+            raise ValueError("game_ended_at is implausibly late")
     orders = [event.event_order for event in events]
     if orders != sorted(orders) or len(orders) != len(set(orders)):
         raise ValueError("football event order must be unique and monotonic")
@@ -462,6 +507,44 @@ def build_story(
                 "alignment": "minute-aligned",
             }
         )
+    annotations.sort(
+        key=lambda row: (
+            row["video_start_seconds"],
+            row["video_end_seconds"],
+            row["event_order"],
+        )
+    )
+    annotation_start_by_order = {
+        annotation["event_order"]: annotation["video_start_seconds"]
+        for annotation in annotations
+    }
+    score_checkpoints = [
+        {
+            "event_order": 0,
+            "video_start_seconds": 0.0,
+            "home_score": 0,
+            "away_score": 0,
+        }
+    ]
+    current_score = (0, 0)
+    for event in events:
+        if event.home_score is None or event.away_score is None:
+            continue
+        next_score = (event.home_score, event.away_score)
+        if next_score == current_score:
+            continue
+        score_checkpoints.append(
+            {
+                "event_order": event.event_order,
+                "video_start_seconds": annotation_start_by_order[event.event_order],
+                "home_score": event.home_score,
+                "away_score": event.away_score,
+            }
+        )
+        current_score = next_score
+    score_checkpoints.sort(
+        key=lambda row: (row["video_start_seconds"], row["event_order"])
+    )
     metrics = _market_metrics(states, trades)
     reactions = _reactions(minute_rows, annotations, metrics)
     return {
@@ -473,28 +556,7 @@ def build_story(
         ),
         "football_minute_bands": minute_rows,
         "annotations": annotations,
-        "score_checkpoints": [
-            {
-                "event_order": 0,
-                "video_start_seconds": 0.0,
-                "home_score": 0,
-                "away_score": 0,
-            },
-            *[
-                {
-                    "event_order": event.event_order,
-                    "video_start_seconds": next(
-                        annotation["video_start_seconds"]
-                        for annotation in annotations
-                        if annotation["event_order"] == event.event_order
-                    ),
-                    "home_score": event.home_score,
-                    "away_score": event.away_score,
-                }
-                for event in events
-                if event.home_score is not None and event.away_score is not None
-            ],
-        ],
+        "score_checkpoints": score_checkpoints,
         "market_metrics": metrics,
         "reactions": reactions,
     }
@@ -836,6 +898,108 @@ def _fetch_rows(
     )
 
 
+def _as_utc(value: datetime, field: str) -> datetime:
+    return _utc(value, field)
+
+
+def _validate_export_alignment(
+    connection: Any,
+    *,
+    scan_id: str,
+    fifa_match_id: int,
+    facts: MatchFacts,
+    states: Sequence[dict[str, Any]],
+) -> None:
+    required = {
+        (
+            "polymarket_wc2026_intermediate",
+            "int_polymarket_wc2026_match_market_universe",
+        ),
+        ("polymarket_wc2026_ops", "match_order_book_scan_windows"),
+    }
+    available = {
+        (str(schema), str(table))
+        for schema, table in connection.execute(
+            """
+            SELECT table_schema, table_name
+            FROM information_schema.tables
+            WHERE (
+                table_schema='polymarket_wc2026_intermediate'
+                AND table_name='int_polymarket_wc2026_match_market_universe'
+            ) OR (
+                table_schema='polymarket_wc2026_ops'
+                AND table_name='match_order_book_scan_windows'
+            )
+            """
+        ).fetchall()
+    }
+    if available != required:
+        raise ValueError(
+            "validated match timing and PMXT scan windows are required for export"
+        )
+    timing_rows = connection.execute(
+        """
+        SELECT DISTINCT scheduled_kickoff_at_utc, game_started_at_utc
+        FROM polymarket_wc2026_intermediate
+            .int_polymarket_wc2026_match_market_universe
+        WHERE fifa_match_id=?
+          AND fixture_mapping_count=1
+          AND primary_mapping_count=1
+        """,
+        [fifa_match_id],
+    ).fetchall()
+    if len(timing_rows) != 1 or any(value is None for value in timing_rows[0]):
+        raise ValueError(
+            "validated match universe must provide one consistent match timing"
+        )
+    scheduled = _as_utc(timing_rows[0][0], "scheduled_kickoff_at_utc")
+    market_start = _as_utc(timing_rows[0][1], "game_started_at_utc")
+    kickoff = _utc(facts.kickoff_at_utc, "kickoff_at_utc")
+    if abs((kickoff - scheduled).total_seconds()) > 60:
+        raise ValueError(
+            "football kickoff does not agree with the validated match universe"
+        )
+    first_half = _utc(facts.first_half_started_at, "first_half")
+    market_delta = first_half - market_start
+    if not timedelta(minutes=-2) <= market_delta <= timedelta(minutes=30):
+        raise ValueError(
+            "football period timing does not agree with the validated market start"
+        )
+
+    role_by_token = {str(state["token_id"]): str(state["role"]) for state in states}
+    rows = connection.execute(
+        """
+        SELECT clob_token_id, min(window_start_ms), max(window_end_ms), count(*)
+        FROM polymarket_wc2026_ops.match_order_book_scan_windows
+        WHERE scan_id=? AND fifa_match_id=? AND depth=0
+        GROUP BY clob_token_id
+        """,
+        [scan_id, fifa_match_id],
+    ).fetchall()
+    windows = {
+        role_by_token[str(token)]: (int(start), int(end))
+        for token, start, end, count in rows
+        if str(token) in role_by_token and int(count) == 1
+    }
+    roles = set(role_by_token.values())
+    if set(windows) != roles:
+        raise ValueError("PMXT root scan windows do not cover every portrait role")
+    final_whistle = _utc(
+        facts.game_ended_at
+        or facts.second_extra_half_ended_at
+        or facts.second_half_ended_at,
+        "game_ended_at",
+    )
+    football_start_ms = int(first_half.timestamp() * 1_000)
+    football_end_ms = int(final_whistle.timestamp() * 1_000)
+    for role, (window_start, window_end) in windows.items():
+        if window_start >= football_start_ms or window_end <= football_end_ms:
+            raise ValueError(
+                f"PMXT root scan window does not cover the football timeline "
+                f"for role {role}"
+            )
+
+
 def build_market_portrait_bundle(
     connection: Any,
     *,
@@ -851,6 +1015,14 @@ def build_market_portrait_bundle(
     if match_facts.fifa_match_id != fifa_match_id:
         raise ValueError("fifa_match_id does not match MatchFacts")
     scan_id, states, trades, scan_hashes = _fetch_rows(connection, fifa_match_id)
+    _validate_facts(match_facts, football_events)
+    _validate_export_alignment(
+        connection,
+        scan_id=scan_id,
+        fifa_match_id=fifa_match_id,
+        facts=match_facts,
+        states=states,
+    )
     story = build_story(match_facts, football_events, states, trades, render_profile)
     book_bytes = _gzip(_ndjson(states))
     trade_bytes = _gzip(_ndjson(trades))

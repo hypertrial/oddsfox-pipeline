@@ -26,6 +26,7 @@ def _facts(**changes):
         "stage": "round_of_16",
         "home_team": "Azure",
         "away_team": "Coral",
+        "kickoff_at_utc": start - timedelta(minutes=1),
         "first_half_started_at": start,
         "first_half_ended_at": start + timedelta(minutes=48),
         "second_half_started_at": start + timedelta(minutes=63),
@@ -35,6 +36,48 @@ def _facts(**changes):
     }
     values.update(changes)
     return MatchFacts(**values)
+
+
+def _add_alignment_contract(connection, roles=("home", "away")):
+    connection.execute("CREATE SCHEMA polymarket_wc2026_intermediate")
+    connection.execute(
+        """
+        CREATE TABLE polymarket_wc2026_intermediate
+            .int_polymarket_wc2026_match_market_universe (
+            fifa_match_id BIGINT,
+            scheduled_kickoff_at_utc TIMESTAMPTZ,
+            game_started_at_utc TIMESTAMPTZ,
+            fixture_mapping_count BIGINT,
+            primary_mapping_count BIGINT
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO polymarket_wc2026_intermediate
+            .int_polymarket_wc2026_match_market_universe
+        VALUES (95, ?, ?, 1, 1)
+        """,
+        [_facts().kickoff_at_utc, _facts().kickoff_at_utc],
+    )
+    connection.execute(
+        """
+        CREATE TABLE polymarket_wc2026_ops.match_order_book_scan_windows (
+            scan_id VARCHAR, fifa_match_id BIGINT, clob_token_id VARCHAR,
+            window_start_ms BIGINT, window_end_ms BIGINT, depth INTEGER
+        )
+        """
+    )
+    start = int((_facts().kickoff_at_utc - timedelta(days=1)).timestamp() * 1_000)
+    end = int((_facts().game_ended_at + timedelta(days=1)).timestamp() * 1_000)
+    for role in roles:
+        connection.execute(
+            """
+            INSERT INTO polymarket_wc2026_ops.match_order_book_scan_windows
+            VALUES ('scan', 95, ?, ?, ?, 0)
+            """,
+            [f"token-{role}", start, end],
+        )
 
 
 def _published_connection(
@@ -124,6 +167,7 @@ def _published_connection(
             """,
             [started],
         )
+    _add_alignment_contract(connection, roles)
     return connection
 
 
@@ -168,6 +212,58 @@ def test_story_uses_actual_periods_and_penalties_have_no_reaction():
         ]
         == "PENS"
     )
+
+
+def test_story_orders_backdated_period_marker_by_timeline_and_deduplicates_score():
+    events = [
+        FootballEvent(
+            event_id="late-goal",
+            event_order=23,
+            event_type="Goal",
+            period="2H",
+            match_minute=90,
+            stoppage_minute=2,
+            minute_label="90+2",
+            home_score=3,
+            away_score=2,
+        ),
+        FootballEvent(
+            event_id="final-half-marker",
+            event_order=24,
+            event_type="Half",
+            period="2H",
+            match_minute=90,
+            stoppage_minute=None,
+            minute_label="90",
+            home_score=3,
+            away_score=2,
+        ),
+    ]
+
+    story = build_story(_facts(), events, [], [], RenderProfile())
+
+    assert [row["event_id"] for row in story["annotations"]] == [
+        "final-half-marker",
+        "late-goal",
+    ]
+    assert story["score_checkpoints"] == [
+        {
+            "event_order": 0,
+            "video_start_seconds": 0.0,
+            "home_score": 0,
+            "away_score": 0,
+        },
+        {
+            "event_order": 23,
+            "video_start_seconds": next(
+                row["video_start_seconds"]
+                for row in story["annotations"]
+                if row["event_id"] == "late-goal"
+            ),
+            "home_score": 3,
+            "away_score": 2,
+        },
+    ]
 
 
 def test_story_rejects_missing_actual_period_boundary():
@@ -218,6 +314,11 @@ def test_landscape_roles_are_canonical_for_both_portrait_layouts():
             "timezone-aware",
         ),
         (
+            _facts(kickoff_at_utc=datetime(2026, 6, 1, 17, tzinfo=UTC)),
+            [],
+            "between two minutes before and 30 minutes after",
+        ),
+        (
             _facts(first_half_ended_at=datetime(2026, 6, 1, 18, tzinfo=UTC)),
             [],
             "boundaries are inconsistent",
@@ -228,9 +329,50 @@ def test_landscape_roles_are_canonical_for_both_portrait_layouts():
             "overlap or are out of order",
         ),
         (
+            _facts(first_half_ended_at=datetime(2026, 6, 1, 18, 30, tzinfo=UTC)),
+            [],
+            "first_half duration is implausible",
+        ),
+        (
+            _facts(
+                second_half_started_at=datetime(2026, 6, 1, 19, 20, tzinfo=UTC),
+                second_half_ended_at=datetime(2026, 6, 1, 20, 10, tzinfo=UTC),
+                game_ended_at=datetime(2026, 6, 1, 20, 10, tzinfo=UTC),
+            ),
+            [],
+            "halftime duration is implausible",
+        ),
+        (
+            _facts(
+                first_extra_half_started_at=datetime(2026, 6, 1, 20, 30, tzinfo=UTC),
+                first_extra_half_ended_at=datetime(2026, 6, 1, 20, 45, tzinfo=UTC),
+                second_extra_half_started_at=datetime(2026, 6, 1, 20, 48, tzinfo=UTC),
+                second_extra_half_ended_at=datetime(2026, 6, 1, 21, 3, tzinfo=UTC),
+                game_ended_at=datetime(2026, 6, 1, 21, 3, tzinfo=UTC),
+            ),
+            [],
+            "full-time to extra-time break is implausible",
+        ),
+        (
+            _facts(
+                first_extra_half_started_at=datetime(2026, 6, 1, 20, tzinfo=UTC),
+                first_extra_half_ended_at=datetime(2026, 6, 1, 20, 15, tzinfo=UTC),
+                second_extra_half_started_at=datetime(2026, 6, 1, 20, 35, tzinfo=UTC),
+                second_extra_half_ended_at=datetime(2026, 6, 1, 20, 50, tzinfo=UTC),
+                game_ended_at=datetime(2026, 6, 1, 20, 50, tzinfo=UTC),
+            ),
+            [],
+            "extra-time break is implausible",
+        ),
+        (
             _facts(game_ended_at=datetime(2026, 6, 1, 19, 30, tzinfo=UTC)),
             [],
             "precedes the final period boundary",
+        ),
+        (
+            _facts(game_ended_at=datetime(2026, 6, 1, 20, 38, tzinfo=UTC)),
+            [],
+            "game_ended_at is implausibly late",
         ),
         (
             _facts(),
@@ -452,6 +594,7 @@ def test_bundle_is_content_addressed_byte_stable_and_infers_aggressor(tmp_path):
                 """,
             ["b" * 64, f"token-{role}", role, started, role[0] * 64],
         )
+    _add_alignment_contract(connection)
     connection.execute(
         """
         INSERT INTO polymarket_wc2026_marts.polymarket_wc2026_match_trades
@@ -522,6 +665,111 @@ def test_bundle_rejects_mismatched_match_id_and_nonfinite_decimals(tmp_path):
         )
     with pytest.raises(ValueError, match="must be finite"):
         subject._decimal("NaN", "value")
+
+
+def test_bundle_rejects_shifted_timeline_and_market_window_undercoverage(tmp_path):
+    shifted = _published_connection()
+    two_hours = timedelta(hours=2)
+    facts = _facts(
+        kickoff_at_utc=_facts().kickoff_at_utc + two_hours,
+        first_half_started_at=_facts().first_half_started_at + two_hours,
+        first_half_ended_at=_facts().first_half_ended_at + two_hours,
+        second_half_started_at=_facts().second_half_started_at + two_hours,
+        second_half_ended_at=_facts().second_half_ended_at + two_hours,
+        game_ended_at=_facts().game_ended_at + two_hours,
+    )
+    with pytest.raises(ValueError, match="validated match universe"):
+        build_market_portrait_bundle(
+            shifted,
+            fifa_match_id=95,
+            match_facts=facts,
+            football_events=[],
+            output_root=tmp_path,
+        )
+
+    undercovered = _published_connection()
+    undercovered.execute(
+        """
+        UPDATE polymarket_wc2026_ops.match_order_book_scan_windows
+        SET window_end_ms=?
+        """,
+        [int(_facts().game_ended_at.timestamp() * 1_000)],
+    )
+    with pytest.raises(ValueError, match="does not cover the football timeline"):
+        build_market_portrait_bundle(
+            undercovered,
+            fifa_match_id=95,
+            match_facts=_facts(),
+            football_events=[],
+            output_root=tmp_path,
+        )
+
+
+def test_bundle_requires_complete_timing_and_root_window_contracts(tmp_path):
+    missing_contract = _published_connection()
+    missing_contract.execute(
+        """
+        DROP TABLE polymarket_wc2026_intermediate
+            .int_polymarket_wc2026_match_market_universe
+        """
+    )
+    with pytest.raises(ValueError, match="validated match timing"):
+        build_market_portrait_bundle(
+            missing_contract,
+            fifa_match_id=95,
+            match_facts=_facts(),
+            football_events=[],
+            output_root=tmp_path,
+        )
+
+    missing_timing = _published_connection()
+    missing_timing.execute(
+        """
+        DELETE FROM polymarket_wc2026_intermediate
+            .int_polymarket_wc2026_match_market_universe
+        """
+    )
+    with pytest.raises(ValueError, match="one consistent match timing"):
+        build_market_portrait_bundle(
+            missing_timing,
+            fifa_match_id=95,
+            match_facts=_facts(),
+            football_events=[],
+            output_root=tmp_path,
+        )
+
+    mismatched_start = _published_connection()
+    mismatched_start.execute(
+        """
+        UPDATE polymarket_wc2026_intermediate
+            .int_polymarket_wc2026_match_market_universe
+        SET game_started_at_utc=game_started_at_utc + INTERVAL 2 HOUR
+        """
+    )
+    with pytest.raises(ValueError, match="validated market start"):
+        build_market_portrait_bundle(
+            mismatched_start,
+            fifa_match_id=95,
+            match_facts=_facts(),
+            football_events=[],
+            output_root=tmp_path,
+        )
+
+    missing_root = _published_connection()
+    missing_root.execute(
+        """
+        DELETE FROM polymarket_wc2026_ops.match_order_book_scan_windows
+        WHERE clob_token_id='token-away'
+        """
+    )
+    with pytest.raises(ValueError, match="do not cover every portrait role"):
+        build_market_portrait_bundle(
+            missing_root,
+            fifa_match_id=95,
+            match_facts=_facts(),
+            football_events=[],
+            output_root=tmp_path,
+        )
 
 
 def test_fetch_rows_requires_complete_published_contract():

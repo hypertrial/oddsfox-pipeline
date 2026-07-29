@@ -775,8 +775,8 @@ def test_sync_publishes_both_tokens_and_second_run_is_network_free(duck):
         for call in pmxt.calls
     )
     assert [call[1]["json"]["args"][0] for call in pmxt.calls] == [
-        manifest.targets[0].market_id,
-        manifest.targets[0].market_id,
+        manifest.targets[0].condition_id,
+        manifest.targets[0].condition_id,
     ]
     assert [call[1]["json"]["args"][2]["outcome"] for call in pmxt.calls] == [
         outcome.clob_token_id for outcome in manifest.targets[0].outcomes

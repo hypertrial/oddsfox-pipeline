@@ -111,7 +111,11 @@ select
     size,
     order_count,
     order_count_type,
-    cast(price * size as decimal(38, 18)) as level_notional,
+    cast(
+        cast(price as decimal(20, 18))
+        * cast(size as decimal(18, 6))
+        as decimal(38, 18)
+    ) as level_notional,
     best_bid_price,
     best_ask_price,
     last_trade_price,
@@ -133,7 +137,11 @@ select
         order by level_rank
         rows between unbounded preceding and current row
     ) as cumulative_size,
-    sum(cast(price * size as decimal(38, 18))) over (
+    sum(cast(
+        cast(price as decimal(20, 18))
+        * cast(size as decimal(18, 6))
+        as decimal(38, 18)
+    )) over (
         partition by
             scan_id,
             clob_token_id,

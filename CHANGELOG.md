@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-07-29
+
+### Changed
+
+- Added sanitized UTC kickoff to the neutral market-portrait fact boundary.
+- Market-portrait export now rejects implausible or shifted period timelines,
+  inconsistent validated-universe timing, and PMXT root windows that do not
+  strictly cover the complete football interval before serializing a bundle.
+- Preserved the byte-stable `oddsfox.market-portrait.v1` bundle contract.
+
 ## [0.1.9] - 2026-07-28
 
 ### Added
@@ -543,7 +553,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: lint, tests, docs build, dbt parse, and dbt build.
 - Schedules disabled by default; opt-in via `.env` for live ingestion.
 
-[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.6...v0.1.7

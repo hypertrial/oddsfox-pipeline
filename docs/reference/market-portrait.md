@@ -50,9 +50,13 @@ The manifest records book and trade aggregate scan hashes alongside each file
 hash and record count.
 
 Timeline mapping requires actual start and end timestamps for every played
-period. Scheduled kickoff is never substituted. Event reactions are explicitly
-labelled `minute-aligned`; shootout events receive annotations but no reaction
-metric.
+period. `MatchFacts.kickoff_at_utc` and every period boundary must be
+timezone-aware and sanitized. Before story construction, export verifies the
+kickoff against the validated match universe and verifies that each required
+role's published root scan window strictly contains the complete football
+timeline. Scheduled kickoff is a validation anchor and is never substituted
+for missing actual boundaries. Event reactions are explicitly labelled
+`minute-aligned`; shootout events receive annotations but no reaction metric.
 
 ## Recovery and retention
 

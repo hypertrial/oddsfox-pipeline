@@ -38,7 +38,8 @@ def _connection():
             fifa_match_id BIGINT, stage VARCHAR, home_team VARCHAR,
             away_team VARCHAR, market_id VARCHAR, proposition_type VARCHAR,
             yes_clob_token_id VARCHAR, no_clob_token_id VARCHAR,
-            fixture_mapping_count BIGINT, primary_mapping_count BIGINT
+            fixture_mapping_count BIGINT, primary_mapping_count BIGINT,
+            selected_market_event_id VARCHAR, selected_market_event_slug VARCHAR
         )
         """
     )
@@ -78,7 +79,8 @@ def test_group_target_selects_only_three_literal_yes_books(tmp_path):
         connection.execute(
             """
             INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
-            VALUES (1, 'group', 'Azure', 'Coral', ?, ?, ?, ?, 1, 1)
+            VALUES (1, 'group', 'Azure', 'Coral', ?, ?, ?, ?, 1, 1,
+                    '100', 'event-100')
             """,
             [market_id, role, yes_token, no_token],
         )
@@ -115,7 +117,7 @@ def test_knockout_target_maps_named_team_tokens():
         """
         INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
         VALUES (95, 'round_of_16', 'Azure', 'Coral', '200', 'home_advances',
-                '3001', '3002', 1, 1)
+                '3001', '3002', 1, 1, '100', 'event-100')
         """
     )
     payload = generate_target_manifest(
@@ -146,7 +148,7 @@ def test_target_generation_fails_before_gamma_when_universe_is_ambiguous():
             """
             INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
             VALUES (95, 'round_of_16', 'Azure', 'Coral', ?, 'home_advances',
-                    '3001', '3002', 1, 1)
+                    '3001', '3002', 1, 1, '100', 'event-100')
             """,
             [market_id],
         )
@@ -163,7 +165,7 @@ def _knockout_case():
         """
         INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
         VALUES (95, 'round_of_16', 'Azure', 'Coral', '200', 'home_advances',
-                '3001', '3002', 1, 1)
+                '3001', '3002', 1, 1, '100', 'event-100')
         """
     )
     return connection, _market(
@@ -187,7 +189,7 @@ def test_group_target_rejects_missing_proposition_before_gamma():
         """
         INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
         VALUES (1, 'group', 'Azure', 'Coral', '101', 'home_win',
-                '1001', '2001', 1, 1)
+                '1001', '2001', 1, 1, '100', 'event-100')
         """
     )
     with pytest.raises(ValueError, match="exactly three propositions"):
@@ -206,7 +208,10 @@ def test_group_target_rejects_missing_proposition_before_gamma():
             lambda market: {**market, "clobTokenIds": ["3001"]},
             "inventory is inconsistent",
         ),
-        (lambda market: {**market, "events": []}, "one Gamma event"),
+        (
+            lambda market: {**market, "events": [{}, {}]},
+            "one Gamma event",
+        ),
         (
             lambda market: {**market, "clobTokenIds": ["changed", "3002"]},
             "team-token mapping changed",
@@ -224,6 +229,27 @@ def test_knockout_target_rejects_stale_gamma_contract(mutate, match):
         )
 
 
+@pytest.mark.parametrize(
+    ("event", "match"),
+    [
+        ({"id": "100", "slug": "event-100", "markets": []}, "does not contain"),
+        (
+            {"id": "changed", "slug": "event-100", "markets": [{"id": "200"}]},
+            "event identity changed",
+        ),
+    ],
+)
+def test_knockout_target_rejects_changed_fallback_event(event, match):
+    connection, market = _knockout_case()
+    market["events"] = []
+    with pytest.raises(ValueError, match=match):
+        generate_target_manifest(
+            connection,
+            fifa_match_id=95,
+            gamma_client=GammaClient({"200": market, "100": event}),
+        )
+
+
 def test_target_generation_uses_default_gamma_client(monkeypatch):
     connection, market = _knockout_case()
     gamma = GammaClient({"200": market})
@@ -234,6 +260,27 @@ def test_target_generation_uses_default_gamma_client(monkeypatch):
     assert payload["targets"][0]["market_id"] == "200"
 
 
+def test_target_generation_fetches_event_when_market_omits_embedding():
+    connection, market = _knockout_case()
+    market.pop("events")
+    payload = generate_target_manifest(
+        connection,
+        fifa_match_id=95,
+        gamma_client=GammaClient(
+            {
+                "200": market,
+                "100": {
+                    "id": "100",
+                    "slug": "event-100",
+                    "markets": [{"id": "200"}],
+                },
+            }
+        ),
+    )
+
+    assert payload["targets"][0]["event_id"] == "100"
+
+
 def test_group_target_rejects_inconsistent_identity_and_changed_yes_token():
     connection = _connection()
     markets = {}
@@ -242,7 +289,8 @@ def test_group_target_rejects_inconsistent_identity_and_changed_yes_token():
         connection.execute(
             """
             INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
-            VALUES (1, 'group', 'Azure', ?, ?, ?, ?, ?, 1, 1)
+            VALUES (1, 'group', 'Azure', ?, ?, ?, ?, ?, 1, 1,
+                    '100', 'event-100')
             """,
             [
                 "Different" if role == "draw" else "Coral",
