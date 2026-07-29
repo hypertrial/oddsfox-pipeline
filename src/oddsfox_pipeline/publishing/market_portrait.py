@@ -82,10 +82,11 @@ class RenderProfile:
     width: int = 1920
     height: int = 1080
     fps: int = 60
-    regulation_seconds: float = 75.0
-    pre_match_seconds: float = 8.0
-    halftime_seconds: float = 3.0
-    post_match_seconds: float = 6.0
+    regulation_seconds: float = 45.0
+    pre_match_seconds: float = 0.0
+    halftime_seconds: float = 0.0
+    post_match_seconds: float = 0.0
+    penalty_seconds: float = 5.0
 
 
 def _utc(value: datetime, field: str) -> datetime:
@@ -318,7 +319,10 @@ def _duration(
     if not extra_minutes and not penalties:
         return profile.regulation_seconds
     return min(
-        90.0, profile.regulation_seconds + 0.5 * extra_minutes + (5 if penalties else 0)
+        profile.regulation_seconds + 20.0,
+        profile.regulation_seconds
+        + 0.5 * extra_minutes
+        + (profile.penalty_seconds if penalties else 0),
     )
 
 
@@ -341,7 +345,11 @@ def build_story(
     """Build source/video mapping, minute bands, annotations, and exact-book metrics."""
     _validate_facts(facts, events)
     duration = _duration(facts, events, profile)
-    penalty_seconds = 5.0 if any(event.period == "PENS" for event in events) else 0.0
+    penalty_seconds = (
+        profile.penalty_seconds
+        if any(event.period == "PENS" for event in events)
+        else 0.0
+    )
     football_seconds = (
         duration
         - profile.pre_match_seconds
@@ -350,19 +358,10 @@ def build_story(
         - penalty_seconds
     )
     specs = _minute_specs(facts, events)
-    p0_minutes = {
-        (event.period, event.match_minute, event.stoppage_minute)
-        for event in events
-        if event.period != "PENS" and _priority(event) == "P0"
-    }
     minute_rows: list[dict[str, Any]] = []
     weights = sum(
-        1.5 if (period, minute, added) in p0_minutes else 1.0
-        for period, start, end, stoppage_count, _, _ in specs
-        for minute, added in (
-            [(value, None) for value in range(start, end + 1)]
-            + [(end, value) for value in range(1, stoppage_count + 1)]
-        )
+        end - start + 1 + stoppage_count
+        for _, start, end, stoppage_count, _, _ in specs
     )
     source_timestamps = [
         int(row["timestamp_ms"]) for row in [*states, *trades] if "timestamp_ms" in row
@@ -384,17 +383,19 @@ def build_story(
         if source_timestamps
         else final_whistle
     )
-    fixed_segments = [
-        {
-            "kind": "pre_match",
-            "period": "PRE",
-            "minute_label": "PRE",
-            "source_start": _iso(min(market_start, first_half_start)),
-            "source_end": _iso(first_half_start),
-            "video_start_seconds": 0.0,
-            "video_end_seconds": profile.pre_match_seconds,
-        }
-    ]
+    fixed_segments = []
+    if profile.pre_match_seconds:
+        fixed_segments.append(
+            {
+                "kind": "pre_match",
+                "period": "PRE",
+                "minute_label": "PRE",
+                "source_start": _iso(min(market_start, first_half_start)),
+                "source_end": _iso(first_half_start),
+                "video_start_seconds": 0.0,
+                "video_end_seconds": profile.pre_match_seconds,
+            }
+        )
     cursor = profile.pre_match_seconds
     for period, first, last, stoppage_count, source_start, source_end in specs:
         minutes = [(value, None) for value in range(first, last + 1)] + [
@@ -405,7 +406,7 @@ def build_story(
             _utc(source_end, period) - _utc(source_start, period)
         ).total_seconds()
         for offset, (minute, added) in enumerate(minutes):
-            weight = 1.5 if (period, minute, added) in p0_minutes else 1.0
+            weight = 1.0
             video_start = cursor
             cursor += football_seconds * weight / weights
             minute_rows.append(
@@ -430,7 +431,7 @@ def build_story(
                     "weight": weight,
                 }
             )
-        if period == "1H":
+        if period == "1H" and profile.halftime_seconds:
             fixed_segments.append(
                 {
                     "kind": "halftime",
@@ -468,17 +469,18 @@ def build_story(
                 "weight": None,
             }
         )
-    fixed_segments.append(
-        {
-            "kind": "post_match",
-            "period": "POST",
-            "minute_label": "FT",
-            "source_start": _iso(final_whistle),
-            "source_end": _iso(max(market_end, final_whistle)),
-            "video_start_seconds": round(duration - profile.post_match_seconds, 9),
-            "video_end_seconds": duration,
-        }
-    )
+    if profile.post_match_seconds:
+        fixed_segments.append(
+            {
+                "kind": "post_match",
+                "period": "POST",
+                "minute_label": "FT",
+                "source_start": _iso(final_whistle),
+                "source_end": _iso(max(market_end, final_whistle)),
+                "video_start_seconds": round(duration - profile.post_match_seconds, 9),
+                "video_end_seconds": duration,
+            }
+        )
     annotations = []
     for event in events:
         band = next(
@@ -1046,8 +1048,32 @@ def build_market_portrait_bundle(
         "away_team": match_facts.away_team,
         "landscape_roles": _landscape_roles(states),
         "source_bounds": {
-            "start": story["segments"][0]["source_start"],
-            "end": story["segments"][-1]["source_end"],
+            "start": _iso(
+                min(
+                    [match_facts.first_half_started_at]
+                    + [
+                        datetime.fromtimestamp(
+                            row["timestamp_ms"] / 1_000, tz=timezone.utc
+                        )
+                        for row in [*states, *trades]
+                    ]
+                )
+            ),
+            "end": _iso(
+                max(
+                    [
+                        match_facts.game_ended_at
+                        or match_facts.second_extra_half_ended_at
+                        or match_facts.second_half_ended_at
+                    ]
+                    + [
+                        datetime.fromtimestamp(
+                            row["timestamp_ms"] / 1_000, tz=timezone.utc
+                        )
+                        for row in [*states, *trades]
+                    ]
+                )
+            ),
         },
         "render_defaults": {
             **asdict(render_profile),

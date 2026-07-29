@@ -65,6 +65,13 @@ timeline. Scheduled kickoff is a validation anchor and is never substituted
 for missing actual boundaries. Event reactions are explicitly labelled
 `minute-aligned`; shootout events receive annotations but no reaction metric.
 
+The default story begins at the actual first-half boundary with elapsed minute
+zero. Regulation flows continuously for 45 seconds with uniform minute weights;
+extra time extends the story to 60 seconds and a shootout adds one five-second
+`PENS` phase. Pre-match, halftime, and post-match remain zero-valued render
+defaults and are not emitted as timeline segments. The source clock jumps over
+the validated halftime interval rather than interpolating through it.
+
 ## Recovery and retention
 
 Interrupted PMXT work resumes from terminal window leaves. Preserve a completed

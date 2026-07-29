@@ -203,7 +203,7 @@ def test_story_uses_actual_periods_and_penalties_have_no_reaction():
     ]
     story = build_story(facts, events, [], [], RenderProfile())
 
-    assert story["duration_seconds"] == 90
+    assert story["duration_seconds"] == 65
     assert story["alignment"] == "minute-aligned"
     assert [item["event_id"] for item in story["reactions"]] == []
     assert (
@@ -291,7 +291,7 @@ def test_landscape_roles_are_canonical_for_both_portrait_layouts():
         build_story(_facts(game_ended_at=None), [], [], [], RenderProfile())[
             "duration_seconds"
         ]
-        == 75
+        == 45
     )
 
 
@@ -520,7 +520,90 @@ def test_reactions_use_minute_open_close_and_following_minute_boundaries():
     assert reaction["primary"]["before"]["midpoint"] == pytest.approx(0.3)
     assert reaction["primary"]["after"]["midpoint"] == pytest.approx(0.6)
     assert reaction["extended"]["after"]["midpoint"] == pytest.approx(0.7)
-    assert story["football_minute_bands"][0]["weight"] == 1.5
+    assert story["football_minute_bands"][0]["weight"] == 1.0
+
+
+def test_story_starts_at_kickoff_and_flows_continuously_for_45_seconds():
+    facts = _facts()
+    story = build_story(
+        facts,
+        [
+            FootballEvent(
+                event_id="goal",
+                event_order=1,
+                event_type="Goal",
+                period="1H",
+                match_minute=15,
+                stoppage_minute=None,
+                minute_label="15",
+            )
+        ],
+        [],
+        [],
+        RenderProfile(),
+    )
+
+    assert story["duration_seconds"] == 45
+    assert story["segments"][0]["kind"] == "football_minute"
+    assert story["segments"][0]["video_start_seconds"] == 0
+    assert story["segments"][0][
+        "source_start"
+    ] == facts.first_half_started_at.isoformat().replace("+00:00", "Z")
+    assert story["segments"][-1]["video_end_seconds"] == 45
+    assert {row["kind"] for row in story["segments"]} == {"football_minute"}
+    assert {row["weight"] for row in story["football_minute_bands"]} == {1.0}
+
+    second_half = next(row for row in story["segments"] if row["period"] == "2H")
+    first_half = story["segments"][story["segments"].index(second_half) - 1]
+    assert first_half["video_end_seconds"] == second_half["video_start_seconds"]
+    assert first_half["source_end"] == facts.first_half_ended_at.isoformat().replace(
+        "+00:00", "Z"
+    )
+    assert second_half[
+        "source_start"
+    ] == facts.second_half_started_at.isoformat().replace("+00:00", "Z")
+
+
+def test_explicit_nonzero_chapter_overrides_remain_supported():
+    story = build_story(
+        _facts(),
+        [],
+        [],
+        [],
+        RenderProfile(
+            pre_match_seconds=2,
+            halftime_seconds=1,
+            post_match_seconds=2,
+        ),
+    )
+
+    chapters = [row for row in story["segments"] if row["kind"] != "football_minute"]
+    assert [row["kind"] for row in chapters] == [
+        "pre_match",
+        "halftime",
+        "post_match",
+    ]
+    assert chapters[0]["video_start_seconds"] == 0
+    assert chapters[0]["video_end_seconds"] == 2
+    assert chapters[1]["video_end_seconds"] - chapters[1]["video_start_seconds"] == 1
+    assert chapters[2]["video_start_seconds"] == 43
+    assert chapters[2]["video_end_seconds"] == 45
+
+
+def test_extra_time_adds_15_seconds_without_a_shootout():
+    facts = _facts(
+        first_extra_half_started_at=datetime(2026, 6, 1, 20, 8, tzinfo=UTC),
+        first_extra_half_ended_at=datetime(2026, 6, 1, 20, 25, tzinfo=UTC),
+        second_extra_half_started_at=datetime(2026, 6, 1, 20, 30, tzinfo=UTC),
+        second_extra_half_ended_at=datetime(2026, 6, 1, 20, 47, tzinfo=UTC),
+        game_ended_at=datetime(2026, 6, 1, 20, 47, tzinfo=UTC),
+    )
+
+    story = build_story(facts, [], [], [], RenderProfile())
+
+    assert story["duration_seconds"] == 60
+    assert story["segments"][-1]["period"] == "ET2"
+    assert story["segments"][-1]["video_end_seconds"] == 60
 
 
 def test_bundle_is_content_addressed_byte_stable_and_infers_aggressor(tmp_path):
@@ -635,6 +718,21 @@ def test_bundle_is_content_addressed_byte_stable_and_infers_aggressor(tmp_path):
     ]
     assert manifest["contract_version"] == "oddsfox.market-portrait.v1"
     assert manifest["landscape_roles"] == ["home", "away"]
+    assert manifest["render_defaults"] == {
+        "duration_seconds": 45.0,
+        "fps": 60,
+        "halftime_seconds": 0.0,
+        "height": 1080,
+        "penalty_seconds": 5.0,
+        "post_match_seconds": 0.0,
+        "pre_match_seconds": 0.0,
+        "regulation_seconds": 45.0,
+        "width": 1920,
+    }
+    assert manifest["source_bounds"] == {
+        "start": _facts().first_half_started_at.isoformat().replace("+00:00", "Z"),
+        "end": _facts().game_ended_at.isoformat().replace("+00:00", "Z"),
+    }
     assert manifest["source_facts"]["sanitization"].endswith("micro-epsilon-v1")
     assert manifest["pmxt"]["order_book_aggregate_sha256"] == "c" * 64
     assert manifest["pmxt"]["trade_aggregate_sha256"] == "d" * 64
