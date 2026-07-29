@@ -230,16 +230,25 @@ def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
             raise ValueError("extra-time break is implausible")
     if facts.game_ended_at is not None:
         game_ended_at = _utc(facts.game_ended_at, "game_ended_at")
-        if game_ended_at < final_period_end:
+        if game_ended_at + timedelta(microseconds=2) < final_period_end:
             raise ValueError("game_ended_at precedes the final period boundary")
         if game_ended_at - final_period_end > timedelta(minutes=45):
             raise ValueError("game_ended_at is implausibly late")
     orders = [event.event_order for event in events]
     if orders != sorted(orders) or len(orders) != len(set(orders)):
         raise ValueError("football event order must be unique and monotonic")
+    event_ids = [event.event_id for event in events]
+    if len(event_ids) != len(set(event_ids)):
+        raise ValueError("football event IDs must be unique")
+    if (facts.home_score is None) != (facts.away_score is None):
+        raise ValueError("final match score must provide both teams or neither")
     for event in events:
         if event.time_precision != "minute":
             raise ValueError("market portrait events must be minute-precision")
+        if (event.home_score is None) != (event.away_score is None):
+            raise ValueError(
+                f"event {event.event_id} score must provide both teams or neither"
+            )
         if event.period == "PENS":
             if not event.is_penalty_shootout or event.match_minute is not None:
                 raise ValueError(
@@ -259,8 +268,13 @@ def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
 def _minute_specs(
     facts: MatchFacts, events: Sequence[FootballEvent]
 ) -> list[tuple[str, int, int, int, datetime, datetime]]:
-    def stoppage(period: str, boundary: int) -> int:
-        return max(
+    def stoppage(
+        period: str,
+        boundary: int,
+        source_start: datetime,
+        source_end: datetime,
+    ) -> int:
+        explicit = max(
             [0]
             + [
                 event.stoppage_minute or 0
@@ -268,13 +282,26 @@ def _minute_specs(
                 if event.period == period and event.match_minute == boundary
             ]
         )
+        nominal_minutes = 45 if period in {"1H", "2H"} else 15
+        span = _utc(source_end, period) - _utc(source_start, period)
+        excess_microseconds = max(
+            0,
+            span // timedelta(microseconds=1) - nominal_minutes * 60_000_000 - 1_000,
+        )
+        inferred = (excess_microseconds + 59_999_999) // 60_000_000
+        return max(explicit, inferred)
 
     specs: list[tuple[str, int, int, int, datetime, datetime]] = [
         (
             "1H",
             1,
             45,
-            stoppage("1H", 45),
+            stoppage(
+                "1H",
+                45,
+                facts.first_half_started_at,
+                facts.first_half_ended_at,
+            ),
             facts.first_half_started_at,
             facts.first_half_ended_at,
         ),
@@ -282,7 +309,12 @@ def _minute_specs(
             "2H",
             46,
             90,
-            stoppage("2H", 90),
+            stoppage(
+                "2H",
+                90,
+                facts.second_half_started_at,
+                facts.second_half_ended_at,
+            ),
             facts.second_half_started_at,
             facts.second_half_ended_at,
         ),
@@ -294,7 +326,12 @@ def _minute_specs(
                     "ET1",
                     91,
                     105,
-                    stoppage("ET1", 105),
+                    stoppage(
+                        "ET1",
+                        105,
+                        facts.first_extra_half_started_at,
+                        facts.first_extra_half_ended_at,
+                    ),
                     facts.first_extra_half_started_at,
                     facts.first_extra_half_ended_at,
                 ),
@@ -302,7 +339,12 @@ def _minute_specs(
                     "ET2",
                     106,
                     120,
-                    stoppage("ET2", 120),
+                    stoppage(
+                        "ET2",
+                        120,
+                        facts.second_extra_half_started_at,
+                        facts.second_extra_half_ended_at,
+                    ),
                     facts.second_extra_half_started_at,
                     facts.second_extra_half_ended_at,
                 ),
@@ -333,6 +375,63 @@ def _landscape_roles(states: Sequence[dict[str, Any]]) -> list[str]:
     if roles == {"home_win", "draw", "away_win"}:
         return ["home_win", "draw", "away_win"]
     raise ValueError(f"invalid portrait role inventory: {sorted(roles)}")
+
+
+def _is_scoring_annotation(annotation: dict[str, Any]) -> bool:
+    event_type = str(annotation["event_type"]).casefold()
+    return (
+        annotation["period"] != "PENS"
+        and not annotation["is_penalty_shootout"]
+        and not annotation["is_revoked"]
+        and event_type in {"goal", "own goal", "penalty scored"}
+    )
+
+
+def _normalize_scores(
+    facts: MatchFacts, annotations: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    checkpoints = [
+        {
+            "event_order": 0,
+            "video_start_seconds": 0.0,
+            "home_score": 0,
+            "away_score": 0,
+        }
+    ]
+    current = (0, 0)
+    for annotation in annotations:
+        if _is_scoring_annotation(annotation):
+            supplied = (annotation["home_score"], annotation["away_score"])
+            if supplied[0] is None or supplied[1] is None:
+                raise ValueError(
+                    f"scoring event {annotation['event_id']} requires a "
+                    "post-event score"
+                )
+            next_score = (int(supplied[0]), int(supplied[1]))
+            delta = (next_score[0] - current[0], next_score[1] - current[1])
+            if delta not in {(1, 0), (0, 1)}:
+                raise ValueError(
+                    f"scoring event {annotation['event_id']} must increment "
+                    "exactly one team by one"
+                )
+            current = next_score
+            checkpoints.append(
+                {
+                    "event_order": annotation["event_order"],
+                    "video_start_seconds": annotation["video_end_seconds"],
+                    "home_score": current[0],
+                    "away_score": current[1],
+                }
+            )
+        annotation["home_score"], annotation["away_score"] = current
+
+    if facts.home_score is not None and facts.away_score is not None:
+        final_score = (facts.home_score, facts.away_score)
+        if current != final_score:
+            raise ValueError(
+                "chronological event score does not match the final MatchFacts score"
+            )
+    return checkpoints
 
 
 def build_story(
@@ -401,14 +500,23 @@ def build_story(
         minutes = [(value, None) for value in range(first, last + 1)] + [
             (last, value) for value in range(1, stoppage_count + 1)
         ]
-        count = len(minutes)
-        source_span = (
-            _utc(source_end, period) - _utc(source_start, period)
-        ).total_seconds()
+        period_start = _utc(source_start, period)
+        period_end = _utc(source_end, period)
         for offset, (minute, added) in enumerate(minutes):
             weight = 1.0
             video_start = cursor
             cursor += football_seconds * weight / weights
+            band_start = period_start + timedelta(minutes=offset)
+            band_end = (
+                period_end
+                if offset == len(minutes) - 1
+                else band_start + timedelta(minutes=1)
+            )
+            if band_start >= band_end or band_end > period_end:
+                label = f"{minute}+{added}" if added is not None else str(minute)
+                raise ValueError(
+                    f"football band {period} {label} has no source duration"
+                )
             minute_rows.append(
                 {
                     "period": period,
@@ -418,14 +526,8 @@ def build_story(
                     "minute_label": (
                         f"{minute}+{added}" if added is not None else str(minute)
                     ),
-                    "source_start": _iso(
-                        _utc(source_start, period)
-                        + timedelta(seconds=source_span * offset / count)
-                    ),
-                    "source_end": _iso(
-                        _utc(source_start, period)
-                        + timedelta(seconds=source_span * (offset + 1) / count)
-                    ),
+                    "source_start": _iso(band_start),
+                    "source_end": _iso(band_end),
                     "video_start_seconds": round(video_start, 9),
                     "video_end_seconds": round(cursor, 9),
                     "weight": weight,
@@ -516,40 +618,10 @@ def build_story(
             row["event_order"],
         )
     )
-    annotation_start_by_order = {
-        annotation["event_order"]: annotation["video_start_seconds"]
-        for annotation in annotations
-    }
-    score_checkpoints = [
-        {
-            "event_order": 0,
-            "video_start_seconds": 0.0,
-            "home_score": 0,
-            "away_score": 0,
-        }
-    ]
-    current_score = (0, 0)
-    for event in events:
-        if event.home_score is None or event.away_score is None:
-            continue
-        next_score = (event.home_score, event.away_score)
-        if next_score == current_score:
-            continue
-        score_checkpoints.append(
-            {
-                "event_order": event.event_order,
-                "video_start_seconds": annotation_start_by_order[event.event_order],
-                "home_score": event.home_score,
-                "away_score": event.away_score,
-            }
-        )
-        current_score = next_score
-    score_checkpoints.sort(
-        key=lambda row: (row["video_start_seconds"], row["event_order"])
-    )
+    score_checkpoints = _normalize_scores(facts, annotations)
     metrics = _market_metrics(states, trades)
     reactions = _reactions(minute_rows, annotations, metrics)
-    return {
+    story = {
         "duration_seconds": duration,
         "alignment": "minute-aligned",
         "segments": sorted(
@@ -562,6 +634,8 @@ def build_story(
         "market_metrics": metrics,
         "reactions": reactions,
     }
+    _validate_story(facts, story)
+    return story
 
 
 def _market_metrics(
@@ -650,19 +724,50 @@ def _reactions(
         "rolling_midpoint_change_volatility_60s",
     )
 
-    def before(rows: Sequence[dict[str, Any]], boundary: int) -> dict[str, Any] | None:
+    def before(
+        rows: Sequence[dict[str, Any]], boundary: int, period_start: int | None
+    ) -> dict[str, Any] | None:
         timestamps = [int(row["timestamp_ms"]) for row in rows]
         index = bisect.bisect_left(timestamps, boundary) - 1
-        if index < 0:
+        if index < 0 or (period_start is not None and timestamps[index] < period_start):
+            return None
+        return {field: rows[index][field] for field in projected_fields}
+
+    def after(
+        rows: Sequence[dict[str, Any]], boundary: int, period_end: int
+    ) -> dict[str, Any] | None:
+        timestamps = [int(row["timestamp_ms"]) for row in rows]
+        index = bisect.bisect_left(timestamps, boundary)
+        if index >= len(rows) or timestamps[index] > period_end:
             return None
         return {field: rows[index][field] for field in projected_fields}
 
     by_role: dict[str, list[dict[str, Any]]] = {}
     for metric in metrics:
         by_role.setdefault(str(metric["role"]), []).append(metric)
+    for rows in by_role.values():
+        rows.sort(key=lambda row: (int(row["timestamp_ms"]), row["event_sequence"]))
+    period_end_by_name = {
+        str(row["period"]): max(
+            _story_timestamp_floor_ms(candidate["source_end"])
+            for candidate in minute_rows
+            if candidate["period"] == row["period"]
+        )
+        for row in minute_rows
+        if row["period"] != "PENS"
+    }
+    period_start_by_name = {
+        str(row["period"]): min(
+            _story_timestamp_ceil_ms(candidate["source_start"])
+            for candidate in minute_rows
+            if candidate["period"] == row["period"]
+        )
+        for row in minute_rows
+        if row["period"] != "PENS"
+    }
     reactions = []
     for annotation in annotations:
-        if annotation["period"] == "PENS":
+        if annotation["is_penalty_shootout"]:
             continue
         band = next(
             row
@@ -672,30 +777,19 @@ def _reactions(
             and row["stoppage_minute"] == annotation["stoppage_minute"]
         )
         band_index = minute_rows.index(band)
-        start = int(
-            datetime.fromisoformat(
-                str(band["source_start"]).replace("Z", "+00:00")
-            ).timestamp()
-            * 1000
-        )
-        end = int(
-            datetime.fromisoformat(
-                str(band["source_end"]).replace("Z", "+00:00")
-            ).timestamp()
-            * 1000
-        )
+        start = _story_timestamp_ceil_ms(band["source_start"])
+        end = _story_timestamp_ceil_ms(band["source_end"])
         following_end = (
-            int(
-                datetime.fromisoformat(
-                    str(minute_rows[band_index + 1]["source_end"]).replace(
-                        "Z", "+00:00"
-                    )
-                ).timestamp()
-                * 1000
-            )
+            _story_timestamp_ceil_ms(minute_rows[band_index + 1]["source_end"])
             if band_index + 1 < len(minute_rows)
-            and minute_rows[band_index + 1]["period"] != "PENS"
+            and minute_rows[band_index + 1]["period"] == band["period"]
             else None
+        )
+        period_end = period_end_by_name[str(band["period"])]
+        period_start = (
+            None
+            if band["period"] == "1H"
+            else period_start_by_name[str(band["period"])]
         )
         for role, rows in sorted(by_role.items()):
             reactions.append(
@@ -707,15 +801,15 @@ def _reactions(
                     "primary": {
                         "source_start_ms": start,
                         "source_end_ms": end,
-                        "before": before(rows, start),
-                        "after": before(rows, end),
+                        "before": before(rows, start, period_start),
+                        "after": after(rows, end, period_end),
                     },
                     "extended": {
                         "source_start_ms": start,
                         "source_end_ms": following_end,
-                        "before": before(rows, start),
+                        "before": before(rows, start, period_start),
                         "after": (
-                            before(rows, following_end)
+                            after(rows, following_end, period_end)
                             if following_end is not None
                             else None
                         ),
@@ -723,6 +817,246 @@ def _reactions(
                 }
             )
     return reactions
+
+
+def _story_datetime(value: Any) -> datetime:
+    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+
+def _story_timestamp_microseconds(value: Any) -> int:
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    return (_story_datetime(value).astimezone(timezone.utc) - epoch) // timedelta(
+        microseconds=1
+    )
+
+
+def _story_timestamp_floor_ms(value: Any) -> int:
+    return _story_timestamp_microseconds(value) // 1_000
+
+
+def _story_timestamp_ceil_ms(value: Any) -> int:
+    microseconds = _story_timestamp_microseconds(value)
+    return -(-microseconds // 1_000)
+
+
+def _validate_story(facts: MatchFacts, story: dict[str, Any]) -> None:
+    """Fail closed if derived story fields disagree with their source invariants."""
+
+    def require(condition: bool, message: str) -> None:
+        if not condition:
+            raise ValueError(f"invalid market portrait story: {message}")
+
+    bands = story["football_minute_bands"]
+    regular_bands = [row for row in bands if row["period"] != "PENS"]
+    period_boundaries = {
+        "1H": (facts.first_half_started_at, facts.first_half_ended_at),
+        "2H": (facts.second_half_started_at, facts.second_half_ended_at),
+    }
+    if facts.first_extra_half_started_at and facts.first_extra_half_ended_at:
+        period_boundaries.update(
+            {
+                "ET1": (
+                    facts.first_extra_half_started_at,
+                    facts.first_extra_half_ended_at,
+                ),
+                "ET2": (
+                    facts.second_extra_half_started_at,
+                    facts.second_extra_half_ended_at,
+                ),
+            }
+        )
+    require(
+        {str(row["period"]) for row in regular_bands} == set(period_boundaries),
+        "football period inventory does not match MatchFacts",
+    )
+    video_durations = []
+    for period, (expected_start, expected_end) in period_boundaries.items():
+        rows = [row for row in regular_bands if row["period"] == period]
+        require(bool(rows), f"{period} has no football bands")
+        require(
+            _story_datetime(rows[0]["source_start"]) == _utc(expected_start, period),
+            f"{period} does not begin at its actual boundary",
+        )
+        require(
+            _story_datetime(rows[-1]["source_end"]) == _utc(expected_end, period),
+            f"{period} does not end at its actual boundary",
+        )
+        for index, row in enumerate(rows):
+            source_start = _story_datetime(row["source_start"])
+            source_end = _story_datetime(row["source_end"])
+            source_duration = source_end - source_start
+            require(source_duration > timedelta(0), "football band is empty")
+            if index < len(rows) - 1:
+                require(
+                    source_duration == timedelta(minutes=1),
+                    "only a period's final football band may be clamped",
+                )
+                require(
+                    source_end == _story_datetime(rows[index + 1]["source_start"]),
+                    "football source bands do not tile their period",
+                )
+            else:
+                require(
+                    source_duration <= timedelta(minutes=1, milliseconds=1),
+                    "final football band exceeds the one-millisecond tolerance",
+                )
+            require(row["weight"] == 1.0, "football bands must have equal weight")
+            video_duration = float(row["video_end_seconds"]) - float(
+                row["video_start_seconds"]
+            )
+            require(video_duration > 0, "football video band is empty")
+            video_durations.append(video_duration)
+    require(
+        max(video_durations) - min(video_durations) <= 2e-9,
+        "football video bands are not uniformly weighted",
+    )
+
+    band_by_key = {
+        (
+            row["period"],
+            row["match_minute"],
+            row["stoppage_minute"],
+        ): row
+        for row in bands
+    }
+    annotation_by_id = {}
+    for annotation in story["annotations"]:
+        require(
+            annotation["event_id"] not in annotation_by_id,
+            "annotation event IDs are not unique",
+        )
+        annotation_by_id[annotation["event_id"]] = annotation
+        key = (
+            annotation["period"],
+            annotation["match_minute"],
+            annotation["stoppage_minute"],
+        )
+        band = band_by_key.get(key)
+        require(band is not None, "annotation does not map to a football band")
+        require(
+            annotation["video_start_seconds"] == band["video_start_seconds"]
+            and annotation["video_end_seconds"] == band["video_end_seconds"],
+            "annotation video bounds disagree with its football band",
+        )
+        require(
+            isinstance(annotation["home_score"], int)
+            and isinstance(annotation["away_score"], int)
+            and annotation["home_score"] >= 0
+            and annotation["away_score"] >= 0,
+            "annotation score is not a non-negative pair",
+        )
+
+    checkpoints = story["score_checkpoints"]
+    require(
+        checkpoints
+        and checkpoints[0]
+        == {
+            "event_order": 0,
+            "video_start_seconds": 0.0,
+            "home_score": 0,
+            "away_score": 0,
+        },
+        "score checkpoints do not begin at 0-0",
+    )
+    scoring_annotations = [
+        annotation
+        for annotation in story["annotations"]
+        if _is_scoring_annotation(annotation)
+    ]
+    require(
+        len(checkpoints) == len(scoring_annotations) + 1,
+        "score checkpoint count does not match scoring events",
+    )
+    for checkpoint, annotation in zip(checkpoints[1:], scoring_annotations):
+        require(
+            checkpoint["event_order"] == annotation["event_order"]
+            and checkpoint["video_start_seconds"] == annotation["video_end_seconds"]
+            and checkpoint["home_score"] == annotation["home_score"]
+            and checkpoint["away_score"] == annotation["away_score"],
+            "score checkpoint is not effective at its event band end",
+        )
+
+    roles = sorted({str(row["role"]) for row in story["market_metrics"]})
+    expected_reactions = [
+        (annotation["event_id"], role)
+        for annotation in story["annotations"]
+        if not annotation["is_penalty_shootout"]
+        for role in roles
+    ]
+    actual_reactions = [
+        (reaction["event_id"], reaction["role"]) for reaction in story["reactions"]
+    ]
+    require(
+        actual_reactions == expected_reactions
+        and len(actual_reactions) == len(set(actual_reactions)),
+        "reaction event-role inventory is incomplete, duplicated, or unsorted",
+    )
+    period_end_ms = {
+        period: _story_timestamp_floor_ms(rows[-1]["source_end"])
+        for period in period_boundaries
+        if (rows := [row for row in regular_bands if row["period"] == period])
+    }
+    period_start_ms = {
+        period: _story_timestamp_ceil_ms(rows[0]["source_start"])
+        for period in period_boundaries
+        if (rows := [row for row in regular_bands if row["period"] == period])
+    }
+    band_indexes = {id(row): index for index, row in enumerate(bands)}
+    for reaction in story["reactions"]:
+        annotation = annotation_by_id[reaction["event_id"]]
+        band = band_by_key[
+            (
+                annotation["period"],
+                annotation["match_minute"],
+                annotation["stoppage_minute"],
+            )
+        ]
+        start = _story_timestamp_ceil_ms(band["source_start"])
+        end = _story_timestamp_ceil_ms(band["source_end"])
+        index = band_indexes[id(band)]
+        following_end = (
+            _story_timestamp_ceil_ms(bands[index + 1]["source_end"])
+            if index + 1 < len(bands) and bands[index + 1]["period"] == band["period"]
+            else None
+        )
+        primary = reaction["primary"]
+        extended = reaction["extended"]
+        require(
+            primary["source_start_ms"] == start
+            and primary["source_end_ms"] == end
+            and extended["source_start_ms"] == start
+            and extended["source_end_ms"] == following_end,
+            "reaction bounds disagree with its football bands",
+        )
+        require(
+            primary["before"] == extended["before"],
+            "reaction windows disagree on their pre-event observation",
+        )
+        if primary["before"] is not None:
+            require(
+                int(primary["before"]["timestamp_ms"]) < start
+                and (
+                    band["period"] == "1H"
+                    or int(primary["before"]["timestamp_ms"])
+                    >= period_start_ms[str(band["period"])]
+                ),
+                "reaction before observation is not strictly pre-window",
+            )
+        if primary["after"] is not None:
+            require(
+                end
+                <= int(primary["after"]["timestamp_ms"])
+                <= period_end_ms[str(band["period"])],
+                "primary reaction after observation crosses its period",
+            )
+        if extended["after"] is not None:
+            require(
+                following_end is not None
+                and following_end
+                <= int(extended["after"]["timestamp_ms"])
+                <= period_end_ms[str(band["period"])],
+                "extended reaction after observation crosses its period",
+            )
 
 
 def _fetch_rows(

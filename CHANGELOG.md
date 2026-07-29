@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-07-29
+
+### Fixed
+
+- Football stories now use exact half-open 60-second UTC bands, infer missing
+  stoppage labels from actual period duration with a one-millisecond tolerance,
+  and clamp only the final band to the actual period boundary. Validation
+  tolerates only the sanitizer's possible two-microsecond inversion between
+  equal final-period and game-end timestamps.
+- Football annotations now carry chronological post-event scores. Scoring
+  transitions are validated one goal at a time, final scores must agree with
+  `MatchFacts`, and score checkpoints become effective at the uncertain
+  event-minute band's end.
+- Minute-aligned reaction windows now select the last strictly pre-window and
+  first guaranteed post-window observations, return null when unavailable, and
+  never cross a halftime or extra-time break. Directional millisecond rounding
+  uses ceilings for `< S` and `>= E` thresholds and floors for same-period
+  upper bounds, preserving those predicates at sanitized micro-epsilon
+  boundaries.
+- Story publication now fails closed on derived band, annotation, score, and
+  reaction invariant violations without changing the
+  `oddsfox.market-portrait.v1` wire shape.
+
 ## [0.1.11] - 2026-07-29
 
 ### Changed
@@ -562,7 +585,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: lint, tests, docs build, dbt parse, and dbt build.
 - Schedules disabled by default; opt-in via `.env` for live ingestion.
 
-[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.8...v0.1.9

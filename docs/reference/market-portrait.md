@@ -62,15 +62,49 @@ timezone-aware and sanitized. Before story construction, export verifies the
 kickoff against the validated match universe and verifies that each required
 role's published root scan window strictly contains the complete football
 timeline. Scheduled kickoff is a validation anchor and is never substituted
-for missing actual boundaries. Event reactions are explicitly labelled
-`minute-aligned`; shootout events receive annotations but no reaction metric.
+for missing actual boundaries. The declared deterministic sanitizer can move
+equal raw timestamps independently by one microsecond, so `game_ended_at` may
+precede the final period boundary by at most two microseconds; any larger
+inversion blocks publication.
+
+Each played period is tiled with half-open UTC bands `[S, E)`. Regular bands
+are exactly 60 seconds; only the last band is clamped to the remaining positive
+period duration so that it ends at the actual boundary. The one-millisecond
+tolerance prevents a timestamp micro-epsilon from creating another band.
+Missing stoppage labels are inferred as
+`ceil(max(0, actual duration - nominal duration - 1 ms) / 60 seconds)`, then
+combined with any explicit event stoppage by taking the greater count. An event
+whose labelled band has no positive source duration blocks publication.
+
+Sanitized event scores are post-event facts. The builder derives display scores
+in football-timeline order, accepts only non-revoked, non-shootout `Goal`,
+`Own goal`, or `Penalty scored` events as scoring transitions, and requires
+each transition to add exactly one goal to one team. Non-scoring annotations
+receive the derived chronological score rather than trusting a possibly stale
+source score. A score checkpoint becomes effective at its event band's end,
+and the derived terminal score must agree with `MatchFacts` when supplied.
+
+Event reactions are explicitly labelled `minute-aligned`. For an event band
+`[S, E)`, `before` is the last observation strictly before `S`, and primary
+`after` is the first observation at or after `E`. Extended `after` uses the
+following band end. Observations cannot cross a halftime or extra-time break;
+missing qualifying observations are serialized as null. Shootout events
+receive annotations but no reaction metric. Because market observations use
+integer milliseconds while sanitized football boundaries may retain
+microseconds, both the bisect threshold for `< S` and the lower bound for
+`>= E` use the ceiling millisecond; the same-period upper bound uses the floor
+millisecond. These directional rules preserve the real datetime predicates
+rather than truncating them. Producer validation checks the derived band
+tiling, annotation mapping, score checkpoints, reaction event-role inventory,
+bounds, and observation predicates before publication.
 
 The default story begins at the actual first-half boundary with elapsed minute
-zero. Regulation flows continuously for 45 seconds with uniform minute weights;
-extra time extends the story to 60 seconds and a shootout adds one five-second
-`PENS` phase. Pre-match, halftime, and post-match remain zero-valued render
-defaults and are not emitted as timeline segments. The source clock jumps over
-the validated halftime interval rather than interpolating through it.
+zero. Every football band has equal video weight. Regulation flows continuously
+for 45 seconds; extra time extends the story to 60 seconds and a shootout adds
+one five-second `PENS` phase. Pre-match, halftime, and post-match remain
+zero-valued render defaults and are not emitted as timeline segments. The
+source clock jumps over each validated period break rather than interpolating
+through it.
 
 ## Recovery and retention
 

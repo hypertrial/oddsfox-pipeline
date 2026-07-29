@@ -178,6 +178,8 @@ def test_story_uses_actual_periods_and_penalties_have_no_reaction():
         second_extra_half_started_at=datetime(2026, 6, 1, 20, 30, tzinfo=UTC),
         second_extra_half_ended_at=datetime(2026, 6, 1, 20, 47, tzinfo=UTC),
         game_ended_at=datetime(2026, 6, 1, 20, 55, tzinfo=UTC),
+        home_score=1,
+        away_score=0,
     )
     events = [
         FootballEvent(
@@ -188,6 +190,8 @@ def test_story_uses_actual_periods_and_penalties_have_no_reaction():
             match_minute=90,
             stoppage_minute=4,
             minute_label="90+4",
+            home_score=1,
+            away_score=0,
         ),
         FootballEvent(
             event_id="penalty",
@@ -217,8 +221,52 @@ def test_story_uses_actual_periods_and_penalties_have_no_reaction():
 def test_story_orders_backdated_period_marker_by_timeline_and_deduplicates_score():
     events = [
         FootballEvent(
+            "away-1",
+            1,
+            "Goal",
+            "1H",
+            15,
+            None,
+            "15",
+            away_score=1,
+            home_score=0,
+        ),
+        FootballEvent(
+            "away-2",
+            2,
+            "Goal",
+            "2H",
+            67,
+            None,
+            "67",
+            away_score=2,
+            home_score=0,
+        ),
+        FootballEvent(
+            "home-1",
+            3,
+            "Goal",
+            "2H",
+            79,
+            None,
+            "79",
+            away_score=2,
+            home_score=1,
+        ),
+        FootballEvent(
+            "home-2",
+            4,
+            "Goal",
+            "2H",
+            83,
+            None,
+            "83",
+            away_score=2,
+            home_score=2,
+        ),
+        FootballEvent(
             event_id="late-goal",
-            event_order=23,
+            event_order=5,
             event_type="Goal",
             period="2H",
             match_minute=90,
@@ -229,7 +277,7 @@ def test_story_orders_backdated_period_marker_by_timeline_and_deduplicates_score
         ),
         FootballEvent(
             event_id="final-half-marker",
-            event_order=24,
+            event_order=6,
             event_type="Half",
             period="2H",
             match_minute=90,
@@ -240,30 +288,311 @@ def test_story_orders_backdated_period_marker_by_timeline_and_deduplicates_score
         ),
     ]
 
-    story = build_story(_facts(), events, [], [], RenderProfile())
+    story = build_story(
+        _facts(home_score=3, away_score=2), events, [], [], RenderProfile()
+    )
 
-    assert [row["event_id"] for row in story["annotations"]] == [
+    annotations = story["annotations"]
+    assert [row["event_id"] for row in annotations[-2:]] == [
         "final-half-marker",
         "late-goal",
     ]
-    assert story["score_checkpoints"] == [
-        {
-            "event_order": 0,
-            "video_start_seconds": 0.0,
-            "home_score": 0,
-            "away_score": 0,
-        },
-        {
-            "event_order": 23,
-            "video_start_seconds": next(
-                row["video_start_seconds"]
-                for row in story["annotations"]
-                if row["event_id"] == "late-goal"
-            ),
-            "home_score": 3,
-            "away_score": 2,
-        },
+    marker, goal = annotations[-2:]
+    assert (marker["home_score"], marker["away_score"]) == (2, 2)
+    assert (goal["home_score"], goal["away_score"]) == (3, 2)
+    assert story["score_checkpoints"][-1] == {
+        "event_order": 5,
+        "video_start_seconds": goal["video_end_seconds"],
+        "home_score": 3,
+        "away_score": 2,
+    }
+
+
+def test_story_uses_exact_sixty_second_bands_and_infers_both_stoppages():
+    start = _facts().first_half_started_at
+    first_end = start + timedelta(minutes=52)
+    second_start = first_end + timedelta(minutes=15)
+    second_end = second_start + timedelta(minutes=57)
+    story = build_story(
+        _facts(
+            first_half_ended_at=first_end,
+            second_half_started_at=second_start,
+            second_half_ended_at=second_end,
+            game_ended_at=second_end,
+        ),
+        [],
+        [],
+        [],
+        RenderProfile(),
+    )
+
+    first = [row for row in story["football_minute_bands"] if row["period"] == "1H"]
+    second = [row for row in story["football_minute_bands"] if row["period"] == "2H"]
+    assert len(first) == 52
+    assert len(second) == 57
+    assert first[-1]["minute_label"] == "45+7"
+    assert second[-1]["minute_label"] == "90+12"
+    assert len(story["football_minute_bands"]) == 109
+    for period in (first, second):
+        for current, following in zip(period, period[1:]):
+            current_end = datetime.fromisoformat(
+                current["source_end"].replace("Z", "+00:00")
+            )
+            current_start = datetime.fromisoformat(
+                current["source_start"].replace("Z", "+00:00")
+            )
+            assert current_end - current_start == timedelta(minutes=1)
+            assert current["source_end"] == following["source_start"]
+    video_widths = {
+        round(row["video_end_seconds"] - row["video_start_seconds"], 8)
+        for row in story["football_minute_bands"]
+    }
+    assert video_widths == {round(45 / 109, 8)}
+
+
+@pytest.mark.parametrize(
+    ("excess", "expected_count"),
+    [
+        (timedelta(milliseconds=1), 45),
+        (timedelta(microseconds=1_001), 46),
+    ],
+)
+def test_story_stoppage_inference_has_one_millisecond_tolerance(excess, expected_count):
+    start = _facts().first_half_started_at
+    first_end = start + timedelta(minutes=45) + excess
+    second_start = first_end + timedelta(minutes=15)
+    second_end = second_start + timedelta(minutes=45)
+
+    story = build_story(
+        _facts(
+            first_half_ended_at=first_end,
+            second_half_started_at=second_start,
+            second_half_ended_at=second_end,
+            game_ended_at=second_end,
+        ),
+        [],
+        [],
+        [],
+        RenderProfile(),
+    )
+
+    first = [row for row in story["football_minute_bands"] if row["period"] == "1H"]
+    assert len(first) == expected_count
+    assert first[-1]["source_end"] == first_end.isoformat().replace("+00:00", "Z")
+
+
+def test_story_clamps_only_the_final_band_and_rejects_empty_event_band():
+    start = _facts().first_half_started_at
+    first_end = start + timedelta(minutes=47, seconds=13)
+    second_start = first_end + timedelta(minutes=15)
+    second_end = second_start + timedelta(minutes=45)
+    facts = _facts(
+        first_half_ended_at=first_end,
+        second_half_started_at=second_start,
+        second_half_ended_at=second_end,
+        game_ended_at=second_end,
+    )
+
+    story = build_story(facts, [], [], [], RenderProfile())
+    first = [row for row in story["football_minute_bands"] if row["period"] == "1H"]
+    penultimate_start = datetime.fromisoformat(
+        first[-2]["source_start"].replace("Z", "+00:00")
+    )
+    penultimate_end = datetime.fromisoformat(
+        first[-2]["source_end"].replace("Z", "+00:00")
+    )
+    final_start = datetime.fromisoformat(
+        first[-1]["source_start"].replace("Z", "+00:00")
+    )
+    final_end = datetime.fromisoformat(first[-1]["source_end"].replace("Z", "+00:00"))
+    assert penultimate_end - penultimate_start == timedelta(minutes=1)
+    assert final_end - final_start == timedelta(seconds=13)
+
+    with pytest.raises(ValueError, match="45\\+4 has no source duration"):
+        build_story(
+            _facts(),
+            [
+                FootballEvent(
+                    "impossible",
+                    1,
+                    "Added time",
+                    "1H",
+                    45,
+                    4,
+                    "45+4",
+                )
+            ],
+            [],
+            [],
+            RenderProfile(),
+        )
+
+
+def test_story_normalizes_nonscoring_and_same_minute_goal_scores_at_band_end():
+    events = [
+        FootballEvent(
+            "revoked",
+            1,
+            "Disallowed goal",
+            "1H",
+            10,
+            None,
+            "10",
+            home_score=1,
+            away_score=0,
+            is_revoked=True,
+        ),
+        FootballEvent(
+            "disallowed",
+            2,
+            "Disallowed goal",
+            "1H",
+            11,
+            None,
+            "11",
+            home_score=1,
+            away_score=0,
+        ),
+        FootballEvent(
+            "home",
+            3,
+            "Goal",
+            "1H",
+            15,
+            None,
+            "15",
+            home_score=1,
+            away_score=0,
+        ),
+        FootballEvent(
+            "away",
+            4,
+            "Goal",
+            "1H",
+            15,
+            None,
+            "15",
+            home_score=1,
+            away_score=1,
+        ),
     ]
+
+    story = build_story(
+        _facts(home_score=1, away_score=1), events, [], [], RenderProfile()
+    )
+
+    revoked, disallowed, home, away = story["annotations"]
+    assert (revoked["home_score"], revoked["away_score"]) == (0, 0)
+    assert (disallowed["home_score"], disallowed["away_score"]) == (0, 0)
+    assert (home["home_score"], home["away_score"]) == (1, 0)
+    assert (away["home_score"], away["away_score"]) == (1, 1)
+    assert [
+        checkpoint["video_start_seconds"]
+        for checkpoint in story["score_checkpoints"][1:]
+    ] == [home["video_end_seconds"], away["video_end_seconds"]]
+
+
+@pytest.mark.parametrize(
+    ("facts", "events", "message"),
+    [
+        (
+            _facts(),
+            [
+                FootballEvent(
+                    "missing",
+                    1,
+                    "Goal",
+                    "1H",
+                    1,
+                    None,
+                    "1",
+                )
+            ],
+            "requires a post-event score",
+        ),
+        (
+            _facts(),
+            [
+                FootballEvent(
+                    "incomplete",
+                    1,
+                    "Goal",
+                    "1H",
+                    1,
+                    None,
+                    "1",
+                    home_score=1,
+                )
+            ],
+            "score must provide both teams or neither",
+        ),
+        (
+            _facts(),
+            [
+                FootballEvent(
+                    "jump",
+                    1,
+                    "Goal",
+                    "1H",
+                    1,
+                    None,
+                    "1",
+                    home_score=2,
+                    away_score=0,
+                )
+            ],
+            "increment exactly one team by one",
+        ),
+        (
+            _facts(),
+            [
+                FootballEvent(
+                    "first",
+                    1,
+                    "Goal",
+                    "1H",
+                    1,
+                    None,
+                    "1",
+                    home_score=1,
+                    away_score=0,
+                ),
+                FootballEvent(
+                    "regression",
+                    2,
+                    "Goal",
+                    "1H",
+                    2,
+                    None,
+                    "2",
+                    home_score=0,
+                    away_score=0,
+                ),
+            ],
+            "increment exactly one team by one",
+        ),
+        (
+            _facts(home_score=2, away_score=0),
+            [
+                FootballEvent(
+                    "only-goal",
+                    1,
+                    "Goal",
+                    "1H",
+                    1,
+                    None,
+                    "1",
+                    home_score=1,
+                    away_score=0,
+                )
+            ],
+            "does not match the final MatchFacts score",
+        ),
+    ],
+)
+def test_story_rejects_invalid_post_event_score_sequences(facts, events, message):
+    with pytest.raises(ValueError, match=message):
+        build_story(facts, events, [], [], RenderProfile())
 
 
 def test_story_rejects_missing_actual_period_boundary():
@@ -275,6 +604,22 @@ def test_story_rejects_missing_actual_period_boundary():
             [],
             RenderProfile(),
         )
+
+
+@pytest.mark.parametrize("inversion_microseconds", [1, 2])
+def test_story_allows_declared_game_end_micro_epsilon_inversion(
+    inversion_microseconds,
+):
+    facts = _facts(
+        game_ended_at=_facts().second_half_ended_at
+        - timedelta(microseconds=inversion_microseconds)
+    )
+
+    story = build_story(facts, [], [], [], RenderProfile())
+
+    assert story["football_minute_bands"][-1][
+        "source_end"
+    ] == facts.second_half_ended_at.isoformat().replace("+00:00", "Z")
 
 
 def test_landscape_roles_are_canonical_for_both_portrait_layouts():
@@ -370,6 +715,13 @@ def test_landscape_roles_are_canonical_for_both_portrait_layouts():
             "precedes the final period boundary",
         ),
         (
+            _facts(
+                game_ended_at=_facts().second_half_ended_at - timedelta(microseconds=3)
+            ),
+            [],
+            "precedes the final period boundary",
+        ),
+        (
             _facts(game_ended_at=datetime(2026, 6, 1, 20, 38, tzinfo=UTC)),
             [],
             "game_ended_at is implausibly late",
@@ -397,6 +749,19 @@ def test_landscape_roles_are_canonical_for_both_portrait_layouts():
                 FootballEvent("b", 1, "Other", "1H", 2, None, "2"),
             ],
             "unique and monotonic",
+        ),
+        (
+            _facts(),
+            [
+                FootballEvent("same", 1, "Other", "1H", 1, None, "1"),
+                FootballEvent("same", 2, "Other", "1H", 2, None, "2"),
+            ],
+            "event IDs must be unique",
+        ),
+        (
+            _facts(home_score=1),
+            [],
+            "final match score must provide both teams or neither",
         ),
         (
             _facts(),
@@ -507,9 +872,9 @@ def test_reactions_use_minute_open_close_and_following_minute_boundaries():
             )
         ],
         [
+            state(2, start + 120_000, "0.6", "0.8"),
             state(0, start - 1, "0.2", "0.4"),
             state(1, start + 60_000, "0.5", "0.7"),
-            state(2, start + 120_000, "0.6", "0.8"),
         ],
         [],
         RenderProfile(),
@@ -523,8 +888,123 @@ def test_reactions_use_minute_open_close_and_following_minute_boundaries():
     assert story["football_minute_bands"][0]["weight"] == 1.0
 
 
-def test_story_starts_at_kickoff_and_flows_continuously_for_45_seconds():
+def test_reactions_do_not_reuse_observations_across_period_breaks():
     facts = _facts()
+    first_end = int(facts.first_half_ended_at.timestamp() * 1_000)
+    second_start = int(facts.second_half_started_at.timestamp() * 1_000)
+
+    def state(sequence, timestamp, bid, ask):
+        return {
+            "event_sequence": sequence,
+            "role": "home",
+            "timestamp_ms": timestamp,
+            "bids": [{"price": bid, "size": "2"}],
+            "asks": [{"price": ask, "size": "3"}],
+        }
+
+    story = build_story(
+        facts,
+        [
+            FootballEvent(
+                "first-half-end",
+                1,
+                "Other",
+                "1H",
+                45,
+                3,
+                "45+3",
+            ),
+            FootballEvent("second-half-start", 2, "Other", "2H", 46, None, "46"),
+        ],
+        [
+            state(0, first_end - 60_001, "0.2", "0.4"),
+            state(1, second_start, "0.5", "0.7"),
+            state(2, second_start + 60_000, "0.6", "0.8"),
+        ],
+        [],
+        RenderProfile(),
+    )
+
+    first, second = story["reactions"]
+    assert first["primary"]["before"]["midpoint"] == pytest.approx(0.3)
+    assert first["primary"]["after"] is None
+    assert first["extended"]["source_end_ms"] is None
+    assert first["extended"]["after"] is None
+    assert second["primary"]["before"] is None
+    assert second["primary"]["after"]["midpoint"] == pytest.approx(0.7)
+
+
+def test_reactions_round_micro_epsilon_boundaries_by_predicate_direction():
+    first_start = _facts().first_half_started_at - timedelta(microseconds=1)
+    first_end = first_start + timedelta(minutes=48)
+    second_start = first_end + timedelta(minutes=15)
+    second_end = second_start + timedelta(minutes=49)
+    facts = _facts(
+        first_half_started_at=first_start,
+        first_half_ended_at=first_end,
+        second_half_started_at=second_start,
+        second_half_ended_at=second_end,
+        game_ended_at=second_end,
+    )
+    epoch = datetime(1970, 1, 1, tzinfo=UTC)
+
+    def bounds(value):
+        microseconds = (value - epoch) // timedelta(microseconds=1)
+        return microseconds // 1_000, (microseconds + 999) // 1_000
+
+    def state(sequence, timestamp, midpoint):
+        return {
+            "event_sequence": sequence,
+            "role": "home",
+            "timestamp_ms": timestamp,
+            "bids": [{"price": str(midpoint - 0.1), "size": "2"}],
+            "asks": [{"price": str(midpoint + 0.1), "size": "3"}],
+        }
+
+    first_floor, first_ceil = bounds(first_start)
+    minute_end_floor, minute_end_ceil = bounds(first_start + timedelta(minutes=1))
+    following_end_floor, following_end_ceil = bounds(first_start + timedelta(minutes=2))
+    final_start_floor, _ = bounds(first_end - timedelta(minutes=1))
+    final_end_floor, final_end_ceil = bounds(first_end)
+    assert first_ceil == first_floor + 1
+    assert minute_end_ceil == minute_end_floor + 1
+    assert following_end_ceil == following_end_floor + 1
+    assert final_end_ceil == final_end_floor + 1
+
+    story = build_story(
+        facts,
+        [
+            FootballEvent("opening", 1, "Other", "1H", 1, None, "1"),
+            FootballEvent("closing", 2, "Other", "1H", 45, 3, "45+3"),
+        ],
+        [
+            state(0, first_floor, 0.2),
+            state(1, first_ceil, 0.3),
+            state(2, minute_end_floor, 0.4),
+            state(3, minute_end_ceil, 0.5),
+            state(4, following_end_ceil, 0.6),
+            state(5, final_start_floor, 0.65),
+            state(6, final_end_floor, 0.7),
+            state(7, final_end_ceil, 0.8),
+        ],
+        [],
+        RenderProfile(),
+    )
+
+    opening, closing = story["reactions"]
+    assert opening["primary"]["source_start_ms"] == first_ceil
+    assert opening["primary"]["source_end_ms"] == minute_end_ceil
+    assert opening["primary"]["before"]["timestamp_ms"] == first_floor
+    assert opening["primary"]["after"]["timestamp_ms"] == minute_end_ceil
+    assert opening["extended"]["source_end_ms"] == following_end_ceil
+    assert opening["extended"]["after"]["timestamp_ms"] == following_end_ceil
+    assert closing["primary"]["source_end_ms"] == final_end_ceil
+    assert closing["primary"]["before"]["timestamp_ms"] == final_start_floor
+    assert closing["primary"]["after"] is None
+
+
+def test_story_starts_at_kickoff_and_flows_continuously_for_45_seconds():
+    facts = _facts(home_score=1, away_score=0)
     story = build_story(
         facts,
         [
@@ -536,6 +1016,8 @@ def test_story_starts_at_kickoff_and_flows_continuously_for_45_seconds():
                 match_minute=15,
                 stoppage_minute=None,
                 minute_label="15",
+                home_score=1,
+                away_score=0,
             )
         ],
         [],
@@ -562,6 +1044,15 @@ def test_story_starts_at_kickoff_and_flows_continuously_for_45_seconds():
     assert second_half[
         "source_start"
     ] == facts.second_half_started_at.isoformat().replace("+00:00", "Z")
+
+
+def test_story_validator_fails_closed_on_derived_invariant_violation():
+    facts = _facts()
+    story = build_story(facts, [], [], [], RenderProfile())
+    story["football_minute_bands"][0]["weight"] = 2.0
+
+    with pytest.raises(ValueError, match="football bands must have equal weight"):
+        subject._validate_story(facts, story)
 
 
 def test_explicit_nonzero_chapter_overrides_remain_supported():
