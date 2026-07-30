@@ -20,6 +20,11 @@ models:
     +persist_docs:
       relation: true
       columns: true
+    polymarket_catalog:
+      +tags: ["polymarket", "catalog"]
+      staging:
+        +schema: polymarket_catalog_staging
+        +tags: ["staging", "polymarket", "catalog"]
     polymarket_wc2026:
       +tags: ["wc2026", "polymarket"]
       staging:

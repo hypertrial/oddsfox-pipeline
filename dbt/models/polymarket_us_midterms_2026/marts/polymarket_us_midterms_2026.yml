@@ -3,11 +3,13 @@ version: 2
 models:
   - name: polymarket_us_midterms_2026_markets
     description: >
-      Public market catalog for US midterms 2026 Polymarket markets admitted by
-      the scope registry with reported volume at or above $100,000 USD. One row
+      Public market catalog for every Polymarket market with reported volume at
+      or above $100,000 USD (same platform-wide catalog sync as
+      polymarket_wc2026_markets; no midterms tag or registry filter). One row
       per market_id with identity, description, outcomes, token IDs, timing,
-      category, and tags. Distinct from int_polymarket_us_midterms_2026_markets
-      ($5,000 intermediate floor) and from the hourly odds mart.
+      category, and tags. Distinct from
+      int_polymarket_us_midterms_2026_markets ($5,000 intermediate floor) and
+      from the hourly odds mart.
     tests:
       - no_duplicate_grain:
           arguments:
@@ -20,7 +22,7 @@ models:
           - unique
           - relationships:
               arguments:
-                to: ref('stg_polymarket_us_midterms_2026_markets')
+                to: ref('stg_polymarket_catalog_markets')
                 field: market_id
       - name: event_id
         description: Parent Gamma event id when present on the market payload.
@@ -35,16 +37,17 @@ models:
         description: JSON text array of outcome labels.
         tests: [not_null]
       - name: clob_token_ids
-        description: JSON text array of CLOB outcome token identifiers.
-        tests: [not_null]
+        description: >
+          JSON text array of CLOB outcome token identifiers when Gamma provides
+          them; null for some older high-volume markets that predate CLOB tokens.
       - name: start_time
-        description: game_start_time from Gamma; null when missing.
+        description: coalesce(game_start_time, event_start_time) from Gamma; null when neither is present.
       - name: end_time
         description: Market end_date from Gamma; null when missing.
       - name: category
         description: Market category when Gamma provides one.
       - name: tags
-        description: JSON text of market tags when present.
+        description: JSON text of market tags when present on the Gamma market payload.
 
   - name: polymarket_us_midterms_2026_market_token_hourly_odds
     description: >
@@ -95,54 +98,27 @@ unit_tests:
   - name: test_polymarket_us_midterms_2026_markets_applies_100k_volume_floor
     model: polymarket_us_midterms_2026_markets
     given:
-      - input: source('polymarket_us_midterms_2026_ops', 'market_scope_registry')
-        rows:
-          - {scope_name: us_midterms_2026, market_id: above-floor}
-          - {scope_name: us_midterms_2026, market_id: below-floor}
-      - input: ref('stg_polymarket_us_midterms_2026_markets')
-        rows:
-          - {
-              market_id: "above-floor",
-              event_id: "evt-m-1",
-              event_slug: "us-midterms-2026",
-              question: "Which party wins the House?",
-              description: "Resolves to the popular-vote winner.",
-              outcomes: '["Dem","Rep"]',
-              clob_token_ids: '["dem","rep"]',
-              game_start_time: "2026-11-03 00:00:00",
-              end_date: "2026-11-04 00:00:00",
-              category: "Politics",
-              tags: '[{"slug":"us-politics"}]',
-              volume: 100000.0
-            }
-          - {
-              market_id: "below-floor",
-              event_id: "evt-m-2",
-              event_slug: "us-midterms-2026",
-              question: "Low volume race?",
-              description: "",
-              outcomes: '["Yes","No"]',
-              clob_token_ids: '["y","n"]',
-              game_start_time: null,
-              end_date: null,
-              category: null,
-              tags: null,
-              volume: 50000.0
-            }
-          - {
-              market_id: "not-in-registry",
-              event_id: "evt-m-3",
-              event_slug: "other",
-              question: "Unrelated?",
-              description: "",
-              outcomes: '["Yes","No"]',
-              clob_token_ids: '["a","b"]',
-              game_start_time: null,
-              end_date: null,
-              category: null,
-              tags: null,
-              volume: 500000.0
-            }
+      - input: ref('stg_polymarket_catalog_markets')
+        format: sql
+        rows: |
+          select 'above-floor' as market_id, 'evt-m-1' as event_id, 'us-midterms-2026' as event_slug,
+            'Which party wins the House?' as question,
+            'Resolves to the popular-vote winner.' as description,
+            '["Dem","Rep"]' as outcomes, '["dem","rep"]' as clob_token_ids,
+            timestamp '2026-11-03 00:00:00' as game_start_time,
+            cast(null as timestamp) as event_start_time,
+            timestamp '2026-11-04 00:00:00' as end_date,
+            'Politics' as category, '[{"slug":"us-politics"}]' as tags, 100000.0 as volume
+          union all
+          select 'below-floor', 'evt-m-2', 'us-midterms-2026', 'Low volume race?', '',
+            '["Yes","No"]', '["y","n"]',
+            cast(null as timestamp), cast(null as timestamp), cast(null as timestamp),
+            cast(null as varchar), cast(null as varchar), 50000.0
+          union all
+          select 'high-volume-other', 'evt-m-3', 'other', 'Unrelated?', '',
+            '["Yes","No"]', '["a","b"]',
+            cast(null as timestamp), cast(null as timestamp), cast(null as timestamp),
+            cast(null as varchar), cast(null as varchar), 500000.0
     expect:
       rows:
         - {
@@ -157,6 +133,19 @@ unit_tests:
             end_time: "2026-11-04 00:00:00",
             category: "Politics",
             tags: '[{"slug":"us-politics"}]'
+          }
+        - {
+            market_id: "high-volume-other",
+            event_id: "evt-m-3",
+            event_slug: "other",
+            question: "Unrelated?",
+            description: "",
+            outcomes: '["Yes","No"]',
+            clob_token_ids: '["a","b"]',
+            start_time: null,
+            end_time: null,
+            category: null,
+            tags: null
           }
 
   - name: test_us_midterms_hourly_mart_preserves_token_hour_grain

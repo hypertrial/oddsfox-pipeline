@@ -1,0 +1,25 @@
+version: 2
+
+sources:
+  - name: polymarket_catalog_raw
+    description: >
+      Platform-wide Polymarket markets landed by
+      scripts/sync_polymarket_markets_catalog.py via Gamma /markets/keyset
+      (volume_num_min >= $100k; open and closed passes; no tag/scope filter).
+    schema: polymarket_catalog_raw
+    tables:
+      - name: markets
+        description: Raw market metadata for every Gamma market at or above the catalog volume floor.
+        meta:
+          dagster:
+            asset_key: [polymarket, catalog, raw, markets]
+        columns:
+          - name: id
+            description: Polymarket market identifier.
+            tests: [not_null, unique]
+          - name: question
+            description: Market prompt.
+          - name: scraped_at
+            description: UTC timestamp when this market row was last written by the catalog sync.
+          - name: event_id
+            description: Parent Gamma event id when present on the market payload.

@@ -21,6 +21,7 @@ DBT_SOURCE_OPENFOOTBALL_WC2026: Final = "openfootball_wc2026"
 DBT_SOURCE_KALSHI_WC2026: Final = "kalshi_wc2026"
 DBT_SOURCE_POLYMARKET_WC2026: Final = "polymarket_wc2026"
 DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026: Final = "polymarket_us_midterms_2026"
+DBT_SOURCE_POLYMARKET_CATALOG: Final = "polymarket_catalog"
 DBT_SOURCE_WC2026: Final = "wc2026"
 
 _POLYMARKET_SOURCE_SCOPES: dict[str, str] = {
@@ -82,6 +83,7 @@ POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA: Final = schema_name(
 POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA: Final = schema_name(
     SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "observability"
 )
+POLYMARKET_CATALOG_STAGING_SCHEMA: Final = "polymarket_catalog_staging"
 DBT_FALLBACK_SCHEMA: Final = "dbt"
 POLYMARKET_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "polymarket_wc2026_match_order_book_data_quality",
@@ -116,6 +118,7 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
     WC2026_INTERMEDIATE_SCHEMA,
     WC2026_MARTS_SCHEMA,
     WC2026_OBSERVABILITY_SCHEMA,
+    POLYMARKET_CATALOG_STAGING_SCHEMA,
     POLYMARKET_WC2026_STAGING_SCHEMA,
     POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
     POLYMARKET_WC2026_MARTS_SCHEMA,
@@ -199,6 +202,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
         "international_results_wc2026_data_quality",
     ),
+    (POLYMARKET_CATALOG_STAGING_SCHEMA, "stg_polymarket_catalog_markets"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_markets"),
     (
         POLYMARKET_WC2026_STAGING_SCHEMA,
@@ -492,6 +496,8 @@ def _kalshi_source_slug(model_name: str) -> str | None:
 
 
 def _polymarket_source_slug(model_name: str) -> str | None:
+    if model_name.startswith("stg_polymarket_catalog_"):
+        return DBT_SOURCE_POLYMARKET_CATALOG
     if model_name.startswith("stg_polymarket_us_midterms_2026_"):
         return DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026
     if model_name.startswith(
@@ -519,6 +525,8 @@ def resolve_source_slug(
 ) -> str:
     tags = set(props.get("tags") or ())
     path_fqn = list(fqn or props.get("fqn") or ())
+    if len(path_fqn) >= 2 and path_fqn[1] == DBT_SOURCE_POLYMARKET_CATALOG:
+        return DBT_SOURCE_POLYMARKET_CATALOG
     if len(path_fqn) >= 2 and path_fqn[1] in _POLYMARKET_SOURCE_SCOPES:
         return path_fqn[1]
     if len(path_fqn) >= 2 and path_fqn[1] in _KALSHI_SOURCE_SCOPES:
@@ -704,6 +712,10 @@ def shorten_model_name(model_name: str, source_slug: str) -> str:
         return _polymarket_wc2026_subject(model_name)
     if source_slug == DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026:
         return _polymarket_us_midterms_2026_subject(model_name)
+    if source_slug == DBT_SOURCE_POLYMARKET_CATALOG:
+        prefix = "stg_polymarket_catalog_"
+        if model_name.startswith(prefix):
+            return model_name[len(prefix) :]
     return model_name
 
 
@@ -763,6 +775,24 @@ def dbt_model_asset_key_for_name(
             layer or _polymarket_us_midterms_2026_layer(model_name, props, fqn=fqn),
             _polymarket_us_midterms_2026_subject(model_name),
         )
+    if source_slug == DBT_SOURCE_POLYMARKET_CATALOG:
+        path_fqn = list(fqn or (props or {}).get("fqn") or ())
+        resolved_layer = layer or next(
+            (
+                segment
+                for segment in path_fqn
+                if segment in {"staging", "intermediate", "marts", "observability"}
+            ),
+            "staging",
+        )
+        return AssetKey(
+            [
+                SOURCE_POLYMARKET,
+                "catalog",
+                resolved_layer,
+                shorten_model_name(model_name, source_slug),
+            ]
+        )
     return AssetKey(f"{source_slug}_{shorten_model_name(model_name, source_slug)}")
 
 
@@ -783,6 +813,7 @@ __all__ = [
     "DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026",
     "DBT_SOURCE_KALSHI_WC2026",
     "DBT_SOURCE_OPENFOOTBALL_WC2026",
+    "DBT_SOURCE_POLYMARKET_CATALOG",
     "DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026",
     "DBT_SOURCE_POLYMARKET_WC2026",
     "DBT_SOURCE_WC2026",
@@ -802,6 +833,7 @@ __all__ = [
     "POLYMARKET_WC2026_INTERMEDIATE_SCHEMA",
     "POLYMARKET_WC2026_MARTS_SCHEMA",
     "POLYMARKET_WC2026_OBSERVABILITY_SCHEMA",
+    "POLYMARKET_CATALOG_STAGING_SCHEMA",
     "POLYMARKET_WC2026_STAGING_SCHEMA",
     "WC2026_INTERMEDIATE_SCHEMA",
     "WC2026_MARTS_SCHEMA",

@@ -11,7 +11,9 @@ import duckdb
 
 from oddsfox_pipeline.naming import SCOPE_US_MIDTERMS_2026, SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
+    POLYMARKET_CATALOG_RAW_SCHEMA,
     polymarket_ops_tbl,
+    polymarket_q,
     polymarket_raw_schema,
     polymarket_raw_tbl,
     polymarket_wc2026_ops_tbl,
@@ -689,6 +691,38 @@ def ensure_all_polymarket_indexes(conn: duckdb.DuckDBPyConnection) -> None:
         ensure_polymarket_indexes(conn, scope_name=scope_name)
 
 
+_MARKETS_TEST_DDL: str = """
+    id TEXT PRIMARY KEY,
+    question TEXT,
+    category TEXT,
+    description TEXT,
+    outcomes TEXT,
+    volume DOUBLE,
+    active BOOLEAN,
+    closed BOOLEAN,
+    created_at TIMESTAMP,
+    scraped_at TIMESTAMP,
+    end_date TIMESTAMP,
+    slug TEXT,
+    event_slug TEXT,
+    event_id TEXT,
+    event_title TEXT,
+    event_start_time TIMESTAMP,
+    event_finished_time TIMESTAMP,
+    event_game_id TEXT,
+    event_ended BOOLEAN,
+    condition_id TEXT,
+    sports_market_type TEXT,
+    game_start_time TIMESTAMP,
+    group_item_title TEXT,
+    tags TEXT,
+    clob_token_ids TEXT,
+    is_resolved BOOLEAN,
+    winning_outcome TEXT,
+    winning_clob_token_id TEXT
+"""
+
+
 def create_test_markets_table(
     conn: duckdb.DuckDBPyConnection,
     *,
@@ -696,45 +730,20 @@ def create_test_markets_table(
 ) -> None:
     """Empty markets source fixture for dbt source tests and local CI."""
     m = polymarket_raw_tbl(scope_name, "markets")
-    conn.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS {m} (
-            id TEXT PRIMARY KEY,
-            question TEXT,
-            category TEXT,
-            description TEXT,
-            outcomes TEXT,
-            volume DOUBLE,
-            active BOOLEAN,
-            closed BOOLEAN,
-            created_at TIMESTAMP,
-            scraped_at TIMESTAMP,
-            end_date TIMESTAMP,
-            slug TEXT,
-            event_slug TEXT,
-            event_id TEXT,
-            event_title TEXT,
-            event_start_time TIMESTAMP,
-            event_finished_time TIMESTAMP,
-            event_game_id TEXT,
-            event_ended BOOLEAN,
-            condition_id TEXT,
-            sports_market_type TEXT,
-            game_start_time TIMESTAMP,
-            group_item_title TEXT,
-            tags TEXT,
-            clob_token_ids TEXT,
-            is_resolved BOOLEAN,
-            winning_outcome TEXT,
-            winning_clob_token_id TEXT
-        )
-        """
-    )
+    conn.execute(f"CREATE TABLE IF NOT EXISTS {m} ({_MARKETS_TEST_DDL})")
+
+
+def create_test_catalog_markets_table(conn: duckdb.DuckDBPyConnection) -> None:
+    """Empty platform-wide catalog markets fixture for dbt CI builds."""
+    conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_CATALOG_RAW_SCHEMA}"')
+    m = polymarket_q(POLYMARKET_CATALOG_RAW_SCHEMA, "markets")
+    conn.execute(f"CREATE TABLE IF NOT EXISTS {m} ({_MARKETS_TEST_DDL})")
 
 
 def create_all_scope_test_markets_tables(conn: duckdb.DuckDBPyConnection) -> None:
     for scope_name in _POLYMARKET_SCOPES:
         create_test_markets_table(conn, scope_name=scope_name)
+    create_test_catalog_markets_table(conn)
 
 
 def seed_test_pipeline_run_event(conn: duckdb.DuckDBPyConnection) -> None:
@@ -781,6 +790,7 @@ __all__ = [
     "bootstrap_all_polymarket_tables",
     "bootstrap_polymarket_tables",
     "create_all_scope_test_markets_tables",
+    "create_test_catalog_markets_table",
     "create_test_markets_table",
     "ensure_all_polymarket_indexes",
     "ensure_polymarket_indexes",

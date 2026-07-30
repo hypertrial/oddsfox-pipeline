@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: stg_polymarket_catalog_markets
+    description: >
+      Typed platform-wide Polymarket market catalog from
+      polymarket_catalog_raw.markets (volume >= $100k sync).
+    columns:
+      - name: market_id
+        description: Polymarket market identifier.
+        tests: [not_null, unique]

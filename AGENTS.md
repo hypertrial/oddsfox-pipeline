@@ -161,6 +161,7 @@ src/oddsfox_pipeline/
   storage/duckdb/  # Connection, schemas, markets/odds persistence, profiling
 dbt/
   models/international_results_wc2026/{staging,intermediate,marts,observability}/
+  models/polymarket_catalog/staging/
   models/polymarket_wc2026/{staging,intermediate,marts,observability}/
   models/polymarket_us_midterms_2026/{staging,intermediate,marts,observability}/
   models/kalshi_wc2026/{staging,intermediate,marts,observability}/

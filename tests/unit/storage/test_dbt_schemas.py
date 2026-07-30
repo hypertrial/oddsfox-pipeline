@@ -108,6 +108,16 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         dbt_schemas.DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026,
     ) == AssetKey(["international_results", "wc2026", "marts", "custom_model"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
+        "stg_polymarket_catalog_markets",
+        dbt_schemas.DBT_SOURCE_POLYMARKET_CATALOG,
+        fqn=[
+            "oddsfox",
+            "polymarket_catalog",
+            "staging",
+            "stg_polymarket_catalog_markets",
+        ],
+    ) == AssetKey(["polymarket", "catalog", "staging", "markets"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
         "stg_polymarket_wc2026_markets",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
     ) == AssetKey(["polymarket", "wc2026", "staging", "markets"])

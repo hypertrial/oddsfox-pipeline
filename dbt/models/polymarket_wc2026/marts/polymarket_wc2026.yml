@@ -3,11 +3,12 @@ version: 2
 models:
   - name: polymarket_wc2026_markets
     description: >
-      Public market catalog for WC2026 Polymarket markets admitted by the scope
-      registry with reported volume at or above $100,000 USD. One row per
-      market_id with identity, description, outcomes, token IDs, timing,
-      category, and tags. Distinct from int_polymarket_wc2026_markets ($5,000
-      intermediate floor) and from knockout odds marts.
+      Public market catalog for every Polymarket market with reported volume at
+      or above $100,000 USD (platform-wide catalog sync; no WC2026 tag or
+      registry filter). One row per market_id with identity, description,
+      outcomes, token IDs, timing, category, and tags. Distinct from
+      int_polymarket_wc2026_markets ($5,000 registry-scoped intermediate) and
+      from knockout odds marts.
     tests:
       - no_duplicate_grain:
           arguments:
@@ -20,7 +21,7 @@ models:
           - unique
           - relationships:
               arguments:
-                to: ref('stg_polymarket_wc2026_markets')
+                to: ref('stg_polymarket_catalog_markets')
                 field: market_id
       - name: event_id
         description: Parent Gamma event id when present on the market payload.
@@ -35,8 +36,9 @@ models:
         description: JSON text array of outcome labels.
         tests: [not_null]
       - name: clob_token_ids
-        description: JSON text array of CLOB outcome token identifiers.
-        tests: [not_null]
+        description: >
+          JSON text array of CLOB outcome token identifiers when Gamma provides
+          them; null for some older high-volume markets that predate CLOB tokens.
       - name: start_time
         description: coalesce(game_start_time, event_start_time) from Gamma; null when neither is present.
       - name: end_time
@@ -44,7 +46,7 @@ models:
       - name: category
         description: Market category when Gamma provides one.
       - name: tags
-        description: JSON text of market tags when present.
+        description: JSON text of market tags when present on the Gamma market payload.
 
   - name: polymarket_wc2026_match_minute_odds
     description: >
@@ -499,73 +501,31 @@ unit_tests:
   - name: test_polymarket_wc2026_markets_applies_100k_volume_floor
     model: polymarket_wc2026_markets
     given:
-      - input: source('polymarket_wc2026_ops', 'market_scope_registry')
-        rows:
-          - {scope_name: wc2026, market_id: above-floor}
-          - {scope_name: wc2026, market_id: event-start-only}
-          - {scope_name: wc2026, market_id: below-floor}
-      - input: ref('stg_polymarket_wc2026_markets')
-        rows:
-          - {
-              market_id: "above-floor",
-              event_id: "evt-1",
-              event_slug: "world-cup",
-              question: "Will Argentina win?",
-              description: "Resolves Yes if Argentina wins.",
-              outcomes: '["Yes","No"]',
-              clob_token_ids: '["yes","no"]',
-              game_start_time: "2026-06-11 18:00:00",
-              event_start_time: "2026-06-01 00:00:00",
-              end_date: "2026-07-19 00:00:00",
-              category: "Sports",
-              tags: '[{"slug":"fifa-world-cup"}]',
-              volume: 100000.0
-            }
-          - {
-              market_id: "event-start-only",
-              event_id: "evt-1b",
-              event_slug: "world-cup",
-              question: "Will Brazil win?",
-              description: "Resolves Yes if Brazil wins.",
-              outcomes: '["Yes","No"]',
-              clob_token_ids: '["b-yes","b-no"]',
-              game_start_time: null,
-              event_start_time: "2026-06-01 00:00:00",
-              end_date: "2026-07-19 00:00:00",
-              category: "Sports",
-              tags: "[]",
-              volume: 150000.0
-            }
-          - {
-              market_id: "below-floor",
-              event_id: "evt-2",
-              event_slug: "world-cup",
-              question: "Will Mexico win?",
-              description: "Resolves Yes if Mexico wins.",
-              outcomes: '["Yes","No"]',
-              clob_token_ids: '["m-yes","m-no"]',
-              game_start_time: null,
-              event_start_time: "2026-06-01 00:00:00",
-              end_date: "2026-07-19 00:00:00",
-              category: "Sports",
-              tags: "[]",
-              volume: 99999.0
-            }
-          - {
-              market_id: "not-in-registry",
-              event_id: "evt-3",
-              event_slug: "other",
-              question: "Unrelated market?",
-              description: "",
-              outcomes: '["Yes","No"]',
-              clob_token_ids: '["u-yes","u-no"]',
-              game_start_time: null,
-              event_start_time: null,
-              end_date: null,
-              category: null,
-              tags: null,
-              volume: 500000.0
-            }
+      - input: ref('stg_polymarket_catalog_markets')
+        format: sql
+        rows: |
+          select 'above-floor' as market_id, 'evt-1' as event_id, 'world-cup' as event_slug,
+            'Will Argentina win?' as question, 'Resolves Yes if Argentina wins.' as description,
+            '["Yes","No"]' as outcomes, '["yes","no"]' as clob_token_ids,
+            timestamp '2026-06-11 18:00:00' as game_start_time,
+            timestamp '2026-06-01 00:00:00' as event_start_time,
+            timestamp '2026-07-19 00:00:00' as end_date,
+            'Sports' as category, '[{"slug":"fifa-world-cup"}]' as tags, 100000.0 as volume
+          union all
+          select 'event-start-only', 'evt-1b', 'world-cup', 'Will Brazil win?',
+            'Resolves Yes if Brazil wins.', '["Yes","No"]', '["b-yes","b-no"]',
+            cast(null as timestamp), timestamp '2026-06-01 00:00:00',
+            timestamp '2026-07-19 00:00:00', 'Sports', '[]', 150000.0
+          union all
+          select 'below-floor', 'evt-2', 'world-cup', 'Will Mexico win?',
+            'Resolves Yes if Mexico wins.', '["Yes","No"]', '["m-yes","m-no"]',
+            cast(null as timestamp), timestamp '2026-06-01 00:00:00',
+            timestamp '2026-07-19 00:00:00', 'Sports', '[]', 99999.0
+          union all
+          select 'high-volume-other', 'evt-3', 'other', 'Unrelated market?', '',
+            '["Yes","No"]', '["u-yes","u-no"]',
+            cast(null as timestamp), cast(null as timestamp), cast(null as timestamp),
+            cast(null as varchar), cast(null as varchar), 500000.0
     expect:
       rows:
         - {
@@ -593,4 +553,17 @@ unit_tests:
             end_time: "2026-07-19 00:00:00",
             category: "Sports",
             tags: "[]"
+          }
+        - {
+            market_id: "high-volume-other",
+            event_id: "evt-3",
+            event_slug: "other",
+            question: "Unrelated market?",
+            description: "",
+            outcomes: '["Yes","No"]',
+            clob_token_ids: '["u-yes","u-no"]',
+            start_time: null,
+            end_time: null,
+            category: null,
+            tags: null
           }

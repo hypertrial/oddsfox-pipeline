@@ -19,6 +19,12 @@ If you are analyzing data rather than operating the pipeline, start with the
 
 ## Raw Tables
 
+Schema: `polymarket_catalog_raw`
+
+- `markets`: platform-wide Gamma market landing table written by
+  `scripts/sync_polymarket_markets_catalog.py` (`GET /markets/keyset`,
+  volume ≥ $100k, open + closed). Replaced each sync; not a Dagster scope asset.
+
 Schema: `polymarket_wc2026_raw`
 
 - `markets`: dlt-owned Gamma market landing table with frozen column/type contract.
@@ -209,11 +215,13 @@ Schema: `wc2026_marts`
 
 Schema: `polymarket_wc2026_marts`
 
-- `polymarket_wc2026_markets`: public market catalog for registry-scoped WC2026
-  markets with volume at or above $100,000 USD. One row per `market_id` with
+- `polymarket_wc2026_markets`: public platform-wide Polymarket market catalog
+  (volume ≥ $100,000) from `polymarket_catalog_raw.markets` after
+  `scripts/sync_polymarket_markets_catalog.py`. One row per `market_id` with
   event/market identity, question, description, outcomes, CLOB token IDs,
   start/end times, category, and tags. Metadata only; distinct from the $5,000
-  `int_polymarket_wc2026_markets` intermediate and from knockout odds marts.
+  registry-scoped `int_polymarket_wc2026_markets` intermediate and from knockout
+  odds marts.
 - `polymarket_wc2026_polygon_settlement_minute_odds`: exactly 39,120 dense rows
   at `(proposition_id, settlement_minute_utc)`: 216 group propositions × 150
   scheduled minutes and 32 knockout propositions × 210. Each oriented Yes/No
@@ -257,11 +265,8 @@ Schema: `international_results_wc2026_marts`
 
 Schema: `polymarket_us_midterms_2026_marts`
 
-- `polymarket_us_midterms_2026_markets`: public market catalog for registry-scoped
-  US midterms markets with volume at or above $100,000 USD. One row per
-  `market_id` with event/market identity, question, description, outcomes, CLOB
-  token IDs, start/end times, category, and tags. Metadata only; distinct from
-  the $5,000 intermediate market scope.
+- `polymarket_us_midterms_2026_markets`: same platform-wide ≥$100k catalog as
+  `polymarket_wc2026_markets` (alias relation for existing midterms consumers).
 - `polymarket_us_midterms_2026_market_token_hourly_odds`: trailing 30-day hourly
   OHLC odds for admitted US midterms market tokens joined to source metadata.
 

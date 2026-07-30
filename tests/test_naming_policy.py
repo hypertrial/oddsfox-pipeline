@@ -103,8 +103,11 @@ EXPECTED_ASSET_KEYS = {
     ("polymarket", "us_midterms_2026", "raw", "market_metadata_backfill"),
     ("polymarket", "us_midterms_2026", "raw", "token_odds_history_hourly"),
     ("polymarket", "us_midterms_2026", "staging", "markets"),
+    ("polymarket", "us_midterms_2026", "marts", "markets"),
     ("polymarket", "us_midterms_2026", "marts", "market_token_hourly_odds"),
     ("polymarket", "us_midterms_2026", "observability", "sync_run_observability"),
+    ("polymarket", "catalog", "raw", "markets"),
+    ("polymarket", "catalog", "staging", "markets"),
     ("polymarket", "wc2026", "raw", "markets"),
     ("polymarket", "wc2026", "raw", "markets_snapshot"),
     ("polymarket", "wc2026", "ops", "market_scope_registry"),
@@ -116,6 +119,7 @@ EXPECTED_ASSET_KEYS = {
     ("polymarket", "wc2026", "raw", "polygon_settlement_fills"),
     ("polymarket", "wc2026", "release", "polygon_settlement_odds_bundle"),
     ("polymarket", "wc2026", "staging", "markets"),
+    ("polymarket", "wc2026", "marts", "markets"),
     ("polymarket", "wc2026", "staging", "match_minute_odds_history"),
     ("polymarket", "wc2026", "staging", "match_order_book_snapshots"),
     ("polymarket", "wc2026", "intermediate", "token_universe"),
@@ -167,8 +171,10 @@ OLD_ACTIVE_PATTERNS = (
 EXPECTED_SCRIPT_FILES = {
     "build_polymarket_wc2026_polygon_settlement_release.py",
     "count_polymarket_wc2026_gamma_tag_events.py",
+    "export_polymarket_markets.py",
     "export_polymarket_wc2026_knockout_hourly_odds.py",
     "repair_polymarket_wc2026_token_sync_ledger.py",
+    "sync_polymarket_markets_catalog.py",
 }
 
 OLD_SCRIPT_FILES = {
@@ -315,6 +321,7 @@ def test_registered_asset_keys_are_hierarchical_source_scope_layer():
         in {
             ("polymarket", "wc2026"),
             ("polymarket", "us_midterms_2026"),
+            ("polymarket", "catalog"),
             ("international_results", "historical"),
             ("international_results", "wc2026"),
             ("openfootball", "wc2026"),
@@ -332,6 +339,7 @@ def test_dlt_source_name_is_source_first():
 
 
 def test_dbt_project_uses_source_first_directory_and_schemas():
+    assert (ROOT / "dbt" / "models" / "polymarket_catalog").is_dir()
     assert (ROOT / "dbt" / "models" / "polymarket_wc2026").is_dir()
     assert (ROOT / "dbt" / "models" / "polymarket_us_midterms_2026").is_dir()
     assert (ROOT / "dbt" / "models" / "international_results_wc2026").is_dir()
@@ -341,6 +349,7 @@ def test_dbt_project_uses_source_first_directory_and_schemas():
     assert not (ROOT / "dbt" / "models" / "wc2026_polymarket").exists()
 
     project = yaml.safe_load((ROOT / "dbt" / "dbt_project.yml").read_text())
+    catalog_cfg = project["models"]["oddsfox"]["polymarket_catalog"]
     model_cfg = project["models"]["oddsfox"]["polymarket_wc2026"]
     kalshi_cfg = project["models"]["oddsfox"]["kalshi_wc2026"]
     midterms_cfg = project["models"]["oddsfox"]["polymarket_us_midterms_2026"]
@@ -348,6 +357,7 @@ def test_dbt_project_uses_source_first_directory_and_schemas():
     openfootball_cfg = project["models"]["oddsfox"]["openfootball_wc2026"]
     wc2026_cfg = project["models"]["oddsfox"]["wc2026"]
 
+    assert catalog_cfg["staging"]["+schema"] == "polymarket_catalog_staging"
     assert model_cfg["staging"]["+schema"] == "polymarket_wc2026_staging"
     assert model_cfg["intermediate"]["+schema"] == "polymarket_wc2026_intermediate"
     assert model_cfg["marts"]["+schema"] == "polymarket_wc2026_marts"
@@ -384,6 +394,7 @@ def test_dbt_project_uses_source_first_directory_and_schemas():
 
 def test_dbt_model_filenames_are_source_first_by_layer():
     layer_prefixes = {
+        "polymarket_catalog/staging": "stg_polymarket_catalog_",
         "polymarket_wc2026/staging": "stg_polymarket_wc2026_",
         "polymarket_wc2026/intermediate": "int_polymarket_wc2026_",
         "polymarket_wc2026/marts": "polymarket_wc2026_",
@@ -441,6 +452,7 @@ def test_storage_schema_constants_are_source_first():
         "wc2026_intermediate",
         "wc2026_marts",
         "wc2026_observability",
+        "polymarket_catalog_staging",
         "polymarket_wc2026_staging",
         "polymarket_wc2026_intermediate",
         "polymarket_wc2026_marts",
