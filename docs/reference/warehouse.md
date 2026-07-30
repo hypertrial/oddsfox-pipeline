@@ -219,9 +219,10 @@ Schema: `polymarket_wc2026_marts`
   (volume ≥ $100,000) from `polymarket_catalog_raw.markets` after
   `scripts/sync_polymarket_markets_catalog.py`. One row per `market_id` with
   event/market identity, question, description, outcomes, CLOB token IDs,
-  start/end times, category, and tags. Metadata only; distinct from the $5,000
-  registry-scoped `int_polymarket_wc2026_markets` intermediate and from knockout
-  odds marts.
+  reported USD volume (≥ $100k), start/end times, category, and tags. Metadata
+  only; distinct from the $5,000 registry-scoped `int_polymarket_wc2026_markets`
+  intermediate and from knockout odds marts. `start_time` is nulled when Gamma
+  reports a start after `end_time`. `tags` is usually null on this sync path.
 - `polymarket_wc2026_polygon_settlement_minute_odds`: exactly 39,120 dense rows
   at `(proposition_id, settlement_minute_utc)`: 216 group propositions × 150
   scheduled minutes and 32 knockout propositions × 210. Each oriented Yes/No

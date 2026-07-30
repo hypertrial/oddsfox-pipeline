@@ -90,14 +90,14 @@ Schema: `polymarket_us_midterms_2026_marts`
 
 | Relation | Grain | Contract |
 | --- | --- | --- |
-| `polymarket_us_midterms_2026_markets` | One row per `market_id` | Platform-wide Polymarket market catalog (same rows as `polymarket_wc2026_markets`): every Gamma market with reported volume at or above $100,000 USD from `scripts/sync_polymarket_markets_catalog.py`. Metadata only; not an odds mart. Distinct from `int_polymarket_us_midterms_2026_markets` ($5,000 intermediate floor). |
+| `polymarket_us_midterms_2026_markets` | One row per `market_id` | Platform-wide Polymarket market catalog (same rows as `polymarket_wc2026_markets`): every Gamma market with reported volume at or above $100,000 USD from `scripts/sync_polymarket_markets_catalog.py`, including reported USD `volume`. `start_time` is nulled when Gamma reports a start after `end_time`. Metadata only; not an odds mart. Distinct from `int_polymarket_us_midterms_2026_markets` ($5,000 intermediate floor). |
 | `polymarket_us_midterms_2026_market_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for admitted US midterms 2026 market tokens joined to source market metadata. No office-type classification in v0.1.x. |
 
 Schema: `polymarket_wc2026_marts`
 
 | Relation | Grain | Contract |
 | --- | --- | --- |
-| `polymarket_wc2026_markets` | One row per `market_id` | Platform-wide Polymarket market catalog: every Gamma market with reported volume at or above $100,000 USD from `scripts/sync_polymarket_markets_catalog.py` (`GET /markets/keyset` with `volume_num_min`; open + closed; no tag/registry filter). Metadata only; not an odds mart. Distinct from `int_polymarket_wc2026_markets` ($5,000 registry-scoped intermediate) and from strategy `wc2026_venue_markets`. |
+| `polymarket_wc2026_markets` | One row per `market_id` | Platform-wide Polymarket market catalog: every Gamma market with reported volume at or above $100,000 USD from `scripts/sync_polymarket_markets_catalog.py` (`GET /markets/keyset` with `volume_num_min`; open + closed; no tag/registry filter), including reported USD `volume`. `start_time` is nulled when Gamma reports a start after `end_time`. Metadata only; not an odds mart. Distinct from `int_polymarket_wc2026_markets` ($5,000 registry-scoped intermediate) and from strategy `wc2026_venue_markets`. |
 | `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token universe for knockout-related markets at or above the WC2026 contract volume floor, including explicit price semantics. |
 | `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, result metadata, and price semantics. |
 | `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |

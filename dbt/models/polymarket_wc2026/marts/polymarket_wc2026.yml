@@ -39,14 +39,21 @@ models:
         description: >
           JSON text array of CLOB outcome token identifiers when Gamma provides
           them; null for some older high-volume markets that predate CLOB tokens.
+      - name: volume
+        description: Reported Gamma market volume in USD; always at or above $100,000.
+        tests: [not_null]
       - name: start_time
-        description: coalesce(game_start_time, event_start_time) from Gamma; null when neither is present.
+        description: >
+          coalesce(game_start_time, event_start_time) from Gamma; null when neither
+          is present, or when that start is after end_time (Gamma date/time quirks).
       - name: end_time
         description: Market end_date from Gamma; null when missing.
       - name: category
-        description: Market category when Gamma provides one.
+        description: Market category when Gamma provides one (often null on /markets/keyset).
       - name: tags
-        description: JSON text of market tags when present on the Gamma market payload.
+        description: >
+          JSON text of market tags when present on the Gamma market payload; usually
+          null on the /markets/keyset catalog path.
 
   - name: polymarket_wc2026_match_minute_odds
     description: >
@@ -526,6 +533,11 @@ unit_tests:
             '["Yes","No"]', '["u-yes","u-no"]',
             cast(null as timestamp), cast(null as timestamp), cast(null as timestamp),
             cast(null as varchar), cast(null as varchar), 500000.0
+          union all
+          select 'start-after-end', 'evt-4', 'quirky', ' Timing quirk?', '',
+            '["Yes","No"]', '["q-yes","q-no"]',
+            cast(null as timestamp), timestamp '2026-10-04 06:00:00',
+            timestamp '2026-10-04 00:00:00', ' Sports ', cast(null as varchar), 200000.0
     expect:
       rows:
         - {
@@ -536,6 +548,7 @@ unit_tests:
             description: "Resolves Yes if Argentina wins.",
             outcomes: '["Yes","No"]',
             clob_token_ids: '["yes","no"]',
+            volume: 100000.0,
             start_time: "2026-06-11 18:00:00",
             end_time: "2026-07-19 00:00:00",
             category: "Sports",
@@ -549,6 +562,7 @@ unit_tests:
             description: "Resolves Yes if Brazil wins.",
             outcomes: '["Yes","No"]',
             clob_token_ids: '["b-yes","b-no"]',
+            volume: 150000.0,
             start_time: "2026-06-01 00:00:00",
             end_time: "2026-07-19 00:00:00",
             category: "Sports",
@@ -562,8 +576,23 @@ unit_tests:
             description: "",
             outcomes: '["Yes","No"]',
             clob_token_ids: '["u-yes","u-no"]',
+            volume: 500000.0,
             start_time: null,
             end_time: null,
             category: null,
+            tags: null
+          }
+        - {
+            market_id: "start-after-end",
+            event_id: "evt-4",
+            event_slug: "quirky",
+            question: "Timing quirk?",
+            description: "",
+            outcomes: '["Yes","No"]',
+            clob_token_ids: '["q-yes","q-no"]',
+            volume: 200000.0,
+            start_time: null,
+            end_time: "2026-10-04 00:00:00",
+            category: "Sports",
             tags: null
           }

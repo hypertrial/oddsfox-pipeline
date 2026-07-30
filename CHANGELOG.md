@@ -13,11 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `polymarket_us_midterms_2026_markets`: one row per platform-wide Gamma market
   with volume at or above $100,000 USD (`/markets/keyset` catalog sync; no
   tag/registry filter), exposing event/market identity, question, description, outcomes,
-  CLOB token IDs, start/end times, category, and tags.
+  CLOB token IDs, reported USD volume, start/end times (nulling `start_time` when
+  Gamma reports a start after `end_time`), category, and tags.
 - `scripts/sync_polymarket_markets_catalog.py` to land that platform-wide catalog
   into `polymarket_catalog_raw.markets`.
 - `scripts/export_polymarket_markets.py` to export those catalog marts to parquet
-  under `artifacts/polymarket_markets_exports/`.
+  under `artifacts/polymarket_markets_exports/` with fail-closed grain, volume-floor,
+  timing, and outcomes/CLOB JSON checks.
 
 ## [0.1.12] - 2026-07-29
 

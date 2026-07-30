@@ -57,8 +57,8 @@ common mistakes.
 | Intended use | Platform-wide Polymarket market catalog with identity and metadata (not odds). |
 | Grain | One row per `market_id`. |
 | Identifiers | `market_id`, `event_id`, `event_slug`, `clob_token_ids`. |
-| Time columns | `start_time` (`coalesce(game_start_time, event_start_time)`), `end_time` (`end_date`). |
-| Price columns | None. |
+| Time columns | `start_time` (`coalesce(game_start_time, event_start_time)`; nulled when that start is after `end_time`), `end_time` (`end_date`). |
+| Price columns | None. `volume` is reported Gamma USD volume (≥ $100,000). |
 | Recommended filters | Sync via `scripts/sync_polymarket_markets_catalog.py` (`GET /markets/keyset`) first; every market with volume ≥ $100,000 USD is admitted (open + closed). Filter further by `event_slug` or `category`; `tags` is usually null on this Gamma path. |
 | Common joins | Join `market_id` to token/odds marts; parse `outcomes` / `clob_token_ids` JSON for outcome labels. |
 | Common mistakes | Treating this as the $5,000 registry-scoped `int_polymarket_wc2026_markets` intermediate or as a knockout odds snapshot; expecting a separate `resolution_rules` column (`description` holds Gamma prose). |
@@ -336,8 +336,8 @@ contracts.
 | Intended use | Same platform-wide Polymarket ≥$100k catalog as `polymarket_wc2026_markets`. |
 | Grain | One row per `market_id`. |
 | Identifiers | `market_id`, `event_id`, `event_slug`, `clob_token_ids`. |
-| Time columns | `start_time` (`coalesce(game_start_time, event_start_time)`), `end_time` (`end_date`). |
-| Price columns | None. |
+| Time columns | `start_time` (`coalesce(game_start_time, event_start_time)`; nulled when that start is after `end_time`), `end_time` (`end_date`). |
+| Price columns | None. `volume` is reported Gamma USD volume (≥ $100,000). |
 | Recommended filters | Same catalog as `polymarket_wc2026_markets`; sync via `scripts/sync_polymarket_markets_catalog.py` first. Filter by `event_slug` or `category`; `tags` is usually null on this Gamma path. |
 | Common joins | Join `market_id` to the hourly odds mart; parse `outcomes` / `clob_token_ids` JSON for outcome labels. |
 | Common mistakes | Treating this as the $5,000 registry-scoped intermediate market scope or as an odds time series; expecting a separate `resolution_rules` column (`description` holds Gamma prose). |

@@ -40,14 +40,21 @@ models:
         description: >
           JSON text array of CLOB outcome token identifiers when Gamma provides
           them; null for some older high-volume markets that predate CLOB tokens.
+      - name: volume
+        description: Reported Gamma market volume in USD; always at or above $100,000.
+        tests: [not_null]
       - name: start_time
-        description: coalesce(game_start_time, event_start_time) from Gamma; null when neither is present.
+        description: >
+          coalesce(game_start_time, event_start_time) from Gamma; null when neither
+          is present, or when that start is after end_time (Gamma date/time quirks).
       - name: end_time
         description: Market end_date from Gamma; null when missing.
       - name: category
-        description: Market category when Gamma provides one.
+        description: Market category when Gamma provides one (often null on /markets/keyset).
       - name: tags
-        description: JSON text of market tags when present on the Gamma market payload.
+        description: >
+          JSON text of market tags when present on the Gamma market payload; usually
+          null on the /markets/keyset catalog path.
 
   - name: polymarket_us_midterms_2026_market_token_hourly_odds
     description: >
@@ -129,6 +136,7 @@ unit_tests:
             description: "Resolves to the popular-vote winner.",
             outcomes: '["Dem","Rep"]',
             clob_token_ids: '["dem","rep"]',
+            volume: 100000.0,
             start_time: "2026-11-03 00:00:00",
             end_time: "2026-11-04 00:00:00",
             category: "Politics",
@@ -142,6 +150,7 @@ unit_tests:
             description: "",
             outcomes: '["Yes","No"]',
             clob_token_ids: '["a","b"]',
+            volume: 500000.0,
             start_time: null,
             end_time: null,
             category: null,
