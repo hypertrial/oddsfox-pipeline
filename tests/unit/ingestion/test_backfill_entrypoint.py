@@ -4,28 +4,15 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 from tests.unit.ingestion.backfill_test_support import (
     bf_end_dates,
     bf_event_slugs,
-    bf_events_fallback,
     bf_gamma,
     bf_slugs,
     bf_tokens,
 )
 
 from oddsfox_pipeline.ingestion.polymarket.markets import backfill as bf
-
-
-@pytest.fixture
-def no_sleep_tqdm(monkeypatch):
-    monkeypatch.setattr(
-        bf,
-        "tqdm",
-        lambda *a, **k: MagicMock(__enter__=lambda s: s, __exit__=lambda *x: None),
-    )
-    monkeypatch.setattr(bf_gamma.time, "sleep", lambda s: None)
-    monkeypatch.setattr(bf_events_fallback.time, "sleep", lambda s: None)
 
 
 def test_backfill_tokens_early_and_empty(monkeypatch):
