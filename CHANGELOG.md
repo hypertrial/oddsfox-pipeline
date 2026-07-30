@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Public Polymarket market catalog marts `polymarket_wc2026_markets` and
+  `polymarket_us_midterms_2026_markets`: one row per registry-scoped market with
+  volume at or above $100,000 USD, exposing event/market identity, question,
+  description, outcomes, CLOB token IDs, start/end times, category, and tags.
+
 ## [0.1.12] - 2026-07-29
 
 ### Fixed

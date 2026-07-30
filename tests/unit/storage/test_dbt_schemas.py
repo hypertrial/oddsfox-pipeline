@@ -116,6 +116,10 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
     ) == AssetKey(["polymarket", "wc2026", "intermediate", "token_universe"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
+        "polymarket_wc2026_markets",
+        dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
+    ) == AssetKey(["polymarket", "wc2026", "marts", "markets"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
         "polymarket_wc2026_knockout_token_hourly_odds",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
     ) == AssetKey(["polymarket", "wc2026", "marts", "knockout_token_hourly_odds"])
@@ -131,6 +135,10 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         "polymarket_wc2026_knockout_data_quality",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
     ) == AssetKey(["polymarket", "wc2026", "observability", "knockout_data_quality"])
+    assert dbt_schemas.dbt_model_asset_key_for_name(
+        "polymarket_us_midterms_2026_markets",
+        dbt_schemas.DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026,
+    ) == AssetKey(["polymarket", "us_midterms_2026", "marts", "markets"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
         "polymarket_us_midterms_2026_market_token_hourly_odds",
         dbt_schemas.DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026,

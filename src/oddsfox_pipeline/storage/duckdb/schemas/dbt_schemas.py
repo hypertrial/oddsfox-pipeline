@@ -322,6 +322,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         POLYMARKET_WC2026_MARTS_SCHEMA,
         "polymarket_wc2026_polygon_settlement_minute_odds",
     ),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_markets"),
     (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_market_tokens"),
     (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_markets"),
     (
@@ -420,6 +421,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
         "int_polymarket_us_midterms_2026_token_hourly_odds",
+    ),
+    (
+        POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
+        "polymarket_us_midterms_2026_markets",
     ),
     (
         POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,

@@ -209,6 +209,11 @@ Schema: `wc2026_marts`
 
 Schema: `polymarket_wc2026_marts`
 
+- `polymarket_wc2026_markets`: public market catalog for registry-scoped WC2026
+  markets with volume at or above $100,000 USD. One row per `market_id` with
+  event/market identity, question, description, outcomes, CLOB token IDs,
+  start/end times, category, and tags. Metadata only; distinct from the $5,000
+  `int_polymarket_wc2026_markets` intermediate and from knockout odds marts.
 - `polymarket_wc2026_polygon_settlement_minute_odds`: exactly 39,120 dense rows
   at `(proposition_id, settlement_minute_utc)`: 216 group propositions × 150
   scheduled minutes and 32 knockout propositions × 210. Each oriented Yes/No
@@ -252,9 +257,13 @@ Schema: `international_results_wc2026_marts`
 
 Schema: `polymarket_us_midterms_2026_marts`
 
+- `polymarket_us_midterms_2026_markets`: public market catalog for registry-scoped
+  US midterms markets with volume at or above $100,000 USD. One row per
+  `market_id` with event/market identity, question, description, outcomes, CLOB
+  token IDs, start/end times, category, and tags. Metadata only; distinct from
+  the $5,000 intermediate market scope.
 - `polymarket_us_midterms_2026_market_token_hourly_odds`: trailing 30-day hourly
-  OHLC odds for admitted US midterms market tokens joined to source metadata. This
-  is the only public midterms mart in v0.1.x.
+  OHLC odds for admitted US midterms market tokens joined to source metadata.
 
 Schema: `kalshi_wc2026_marts`
 

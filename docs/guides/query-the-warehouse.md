@@ -88,6 +88,7 @@ running Dagster/dbt writer.
 
 | Goal | Start Here | Notes |
 | --- | --- | --- |
+| WC2026 Polymarket market catalog (metadata) | `polymarket_wc2026_marts.polymarket_wc2026_markets` | Registry-scoped markets with volume ≥ $100,000; not odds. |
 | Current WC2026 Polymarket progression prices | `polymarket_wc2026_marts.polymarket_wc2026_knockout_markets` | Filter to `is_actionable_live_market` for current live use. |
 | WC2026 Polymarket progression hourly series | `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` | One row per `clob_token_id`, `odds_hour_epoch`. Prices are normalized to progression. |
 | WC2026 graph or both-token analysis | `polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds` | Keeps Yes and No tokens with `is_progression_token`. |
@@ -100,6 +101,7 @@ running Dagster/dbt writer.
 | Kalshi stage hourly series | `kalshi_wc2026_marts.kalshi_wc2026_stage_market_hourly_odds` | Use `progression_*_price` for stage progression semantics. |
 | Current Kalshi group-winner prices | `kalshi_wc2026_marts.kalshi_wc2026_group_winner_markets` | Use `group_winner_price`. |
 | Kalshi group-winner hourly series | `kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds` | One row per `market_ticker`, `odds_hour_epoch`. |
+| US midterms Polymarket market catalog (metadata) | `polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_markets` | Registry-scoped markets with volume ≥ $100,000; not odds. |
 | US midterms Polymarket hourly odds | `polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds` | Balance of Power combos are independent binary markets. |
 | WC2026 finalized Polygon settlement minutes (advanced) | `polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds` | Fixed 150/210-minute scheduled windows; empty sides remain null; fill counts are normalized economic legs. |
 

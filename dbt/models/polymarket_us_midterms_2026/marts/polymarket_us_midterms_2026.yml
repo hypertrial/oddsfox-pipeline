@@ -1,6 +1,51 @@
 version: 2
 
 models:
+  - name: polymarket_us_midterms_2026_markets
+    description: >
+      Public market catalog for US midterms 2026 Polymarket markets admitted by
+      the scope registry with reported volume at or above $100,000 USD. One row
+      per market_id with identity, description, outcomes, token IDs, timing,
+      category, and tags. Distinct from int_polymarket_us_midterms_2026_markets
+      ($5,000 intermediate floor) and from the hourly odds mart.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_id]
+    columns:
+      - name: market_id
+        description: Polymarket market identifier.
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('stg_polymarket_us_midterms_2026_markets')
+                field: market_id
+      - name: event_id
+        description: Parent Gamma event id when present on the market payload.
+      - name: event_slug
+        description: Parent Polymarket event slug when known.
+      - name: question
+        description: Market prompt text.
+        tests: [not_null]
+      - name: description
+        description: Market description prose, including resolution criteria when Gamma provides it.
+      - name: outcomes
+        description: JSON text array of outcome labels.
+        tests: [not_null]
+      - name: clob_token_ids
+        description: JSON text array of CLOB outcome token identifiers.
+        tests: [not_null]
+      - name: start_time
+        description: game_start_time from Gamma; null when missing.
+      - name: end_time
+        description: Market end_date from Gamma; null when missing.
+      - name: category
+        description: Market category when Gamma provides one.
+      - name: tags
+        description: JSON text of market tags when present.
+
   - name: polymarket_us_midterms_2026_market_token_hourly_odds
     description: >
       US midterms 2026 market tokens joined to admitted markets and trailing
@@ -47,6 +92,73 @@ models:
         tests: [not_null]
 
 unit_tests:
+  - name: test_polymarket_us_midterms_2026_markets_applies_100k_volume_floor
+    model: polymarket_us_midterms_2026_markets
+    given:
+      - input: source('polymarket_us_midterms_2026_ops', 'market_scope_registry')
+        rows:
+          - {scope_name: us_midterms_2026, market_id: above-floor}
+          - {scope_name: us_midterms_2026, market_id: below-floor}
+      - input: ref('stg_polymarket_us_midterms_2026_markets')
+        rows:
+          - {
+              market_id: "above-floor",
+              event_id: "evt-m-1",
+              event_slug: "us-midterms-2026",
+              question: "Which party wins the House?",
+              description: "Resolves to the popular-vote winner.",
+              outcomes: '["Dem","Rep"]',
+              clob_token_ids: '["dem","rep"]',
+              game_start_time: "2026-11-03 00:00:00",
+              end_date: "2026-11-04 00:00:00",
+              category: "Politics",
+              tags: '[{"slug":"us-politics"}]',
+              volume: 100000.0
+            }
+          - {
+              market_id: "below-floor",
+              event_id: "evt-m-2",
+              event_slug: "us-midterms-2026",
+              question: "Low volume race?",
+              description: "",
+              outcomes: '["Yes","No"]',
+              clob_token_ids: '["y","n"]',
+              game_start_time: null,
+              end_date: null,
+              category: null,
+              tags: null,
+              volume: 50000.0
+            }
+          - {
+              market_id: "not-in-registry",
+              event_id: "evt-m-3",
+              event_slug: "other",
+              question: "Unrelated?",
+              description: "",
+              outcomes: '["Yes","No"]',
+              clob_token_ids: '["a","b"]',
+              game_start_time: null,
+              end_date: null,
+              category: null,
+              tags: null,
+              volume: 500000.0
+            }
+    expect:
+      rows:
+        - {
+            market_id: "above-floor",
+            event_id: "evt-m-1",
+            event_slug: "us-midterms-2026",
+            question: "Which party wins the House?",
+            description: "Resolves to the popular-vote winner.",
+            outcomes: '["Dem","Rep"]',
+            clob_token_ids: '["dem","rep"]',
+            start_time: "2026-11-03 00:00:00",
+            end_time: "2026-11-04 00:00:00",
+            category: "Politics",
+            tags: '[{"slug":"us-politics"}]'
+          }
+
   - name: test_us_midterms_hourly_mart_preserves_token_hour_grain
     model: polymarket_us_midterms_2026_market_token_hourly_odds
     given:

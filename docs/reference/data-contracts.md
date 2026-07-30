@@ -90,12 +90,14 @@ Schema: `polymarket_us_midterms_2026_marts`
 
 | Relation | Grain | Contract |
 | --- | --- | --- |
+| `polymarket_us_midterms_2026_markets` | One row per `market_id` | Market catalog for registry-scoped US midterms markets with reported volume at or above $100,000 USD: event/market identity, question, description, outcomes, CLOB token IDs, start/end times, category, and tags. Metadata only; not an odds mart. Distinct from `int_polymarket_us_midterms_2026_markets` ($5,000 intermediate floor). |
 | `polymarket_us_midterms_2026_market_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for admitted US midterms 2026 market tokens joined to source market metadata. No office-type classification in v0.1.x. |
 
 Schema: `polymarket_wc2026_marts`
 
 | Relation | Grain | Contract |
 | --- | --- | --- |
+| `polymarket_wc2026_markets` | One row per `market_id` | Market catalog for registry-scoped WC2026 markets with reported volume at or above $100,000 USD: event/market identity, question, description, outcomes, CLOB token IDs, start/end times, category, and tags. Metadata only; not an odds mart. Distinct from `int_polymarket_wc2026_markets` ($5,000 intermediate floor) and from strategy `wc2026_venue_markets`. |
 | `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token universe for knockout-related markets at or above the WC2026 contract volume floor, including explicit price semantics. |
 | `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, result metadata, and price semantics. |
 | `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
@@ -540,7 +542,10 @@ Schema: `kalshi_wc2026_marts`
 - After `make prune-odds-history`, `polymarket_wc2026_raw.odds_history` only guarantees the trailing ~365 days of source
   odds points unless you change the retention window.
 - `int_polymarket_wc2026_markets` is the canonical market-level WC2026 scope (grain:
-  `scope_name`, `market_id`) with the WC2026 contract volume floor applied.
+  `scope_name`, `market_id`) with the WC2026 contract volume floor applied
+  ($5,000). Public catalog marts `polymarket_wc2026_markets` and
+  `polymarket_us_midterms_2026_markets` use a separate $100,000 volume floor and
+  do not replace that intermediate.
 
 ## dbt Checks
 

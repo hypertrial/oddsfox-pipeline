@@ -127,7 +127,8 @@ team coverage.
 ### US midterms 2026
 
 Targeted Polymarket discovery lands in `polymarket_us_midterms_2026_raw` and
-`polymarket_us_midterms_2026_ops`. dbt builds a single public mart,
+`polymarket_us_midterms_2026_ops`. dbt builds public marts
+`polymarket_us_midterms_2026_markets` (catalog, volume ≥ $100k) and
 `polymarket_us_midterms_2026_market_token_hourly_odds`, plus run observability.
 There is no `international_results` join or office-type classification in v0.1.x.
 
