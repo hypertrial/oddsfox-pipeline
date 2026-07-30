@@ -140,3 +140,37 @@ def test_validate_catalog_export_rejects_below_volume_floor(tmp_path: Path) -> N
             validate(conn, path)
     finally:
         conn.close()
+
+
+def test_export_rejects_start_after_end_without_writing_final(
+    tmp_path: Path,
+) -> None:
+    export_one, _, _, _ = _load_export_module()
+    conn = duckdb.connect()
+    try:
+        conn.execute("create schema polymarket_wc2026_marts")
+        conn.execute(
+            """
+            create table polymarket_wc2026_marts.polymarket_wc2026_markets as
+            select
+              'evt' as event_id, 'slug' as event_slug, 'm1' as market_id,
+              'Q' as question, '' as description, '["Yes","No"]' as outcomes,
+              '["y","n"]' as clob_token_ids, 150000.0 as volume,
+              timestamp '2026-07-02 00:00:00' as start_time,
+              timestamp '2026-07-01 00:00:00' as end_time,
+              cast(null as varchar) as category,
+              cast(null as varchar) as tags
+            """
+        )
+        out = tmp_path / "catalog.parquet"
+        with pytest.raises(ValueError, match="start_time > end_time"):
+            export_one(
+                conn,
+                "polymarket_wc2026_marts",
+                "polymarket_wc2026_markets",
+                out,
+            )
+        assert not out.exists()
+        assert not out.with_suffix(out.suffix + ".tmp").exists()
+    finally:
+        conn.close()

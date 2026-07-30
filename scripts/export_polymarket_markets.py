@@ -64,7 +64,7 @@ def validate_catalog_export(
     cols = [
         row[0]
         for row in conn.execute(
-            f"describe select * from read_parquet('{path}')"
+            "describe select * from read_parquet(?)", [path]
         ).fetchall()
     ]
     missing_cols = [name for name in REQUIRED_COLUMNS if name not in cols]
@@ -72,19 +72,20 @@ def validate_catalog_export(
         raise ValueError(f"{parquet_path.name} missing columns: {missing_cols}")
 
     stats = conn.execute(
-        f"""
+        """
         select
           count(*) as row_count,
           count(distinct market_id) as distinct_market_id,
           count(*) filter (where market_id is null or trim(market_id) = '') as bad_market_id,
           count(*) filter (where question is null or trim(question) = '') as bad_question,
           count(*) filter (where outcomes is null or trim(outcomes) = '') as bad_outcomes,
-          count(*) filter (where volume is null or volume < {MIN_VOLUME_USD}) as below_floor,
+          count(*) filter (where volume is null or volume < ?) as below_floor,
           count(*) filter (
             where start_time is not null and end_time is not null and start_time > end_time
           ) as start_after_end
-        from read_parquet('{path}')
-        """
+        from read_parquet(?)
+        """,
+        [MIN_VOLUME_USD, path],
     ).fetchone()
     assert stats is not None
     (
@@ -120,7 +121,7 @@ def validate_catalog_export(
     bad_json = 0
     len_mismatch = 0
     for outcomes, clob_token_ids in conn.execute(
-        f"select outcomes, clob_token_ids from read_parquet('{path}')"
+        "select outcomes, clob_token_ids from read_parquet(?)", [path]
     ).fetchall():
         try:
             outcome_list = json.loads(outcomes)

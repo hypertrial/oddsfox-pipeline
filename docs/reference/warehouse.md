@@ -267,7 +267,8 @@ Schema: `international_results_wc2026_marts`
 Schema: `polymarket_us_midterms_2026_marts`
 
 - `polymarket_us_midterms_2026_markets`: same platform-wide ≥$100k catalog as
-  `polymarket_wc2026_markets` (alias relation for existing midterms consumers).
+  `polymarket_wc2026_markets` (alias relation for existing midterms consumers),
+  including reported USD volume and the same start-after-end nulling.
 - `polymarket_us_midterms_2026_market_token_hourly_odds`: trailing 30-day hourly
   OHLC odds for admitted US midterms market tokens joined to source metadata.
 
