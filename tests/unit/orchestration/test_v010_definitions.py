@@ -5,6 +5,7 @@ import yaml
 from dagster import AssetKey, DefaultScheduleStatus, build_schedule_context
 
 from oddsfox_pipeline.orchestration.config import (
+    polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
     polymarket_wc2026_logical_atlas_run_config,
@@ -259,6 +260,18 @@ def test_wc2026_jobs_do_not_expose_scope_config():
     assert legacy_key not in set(_nested_keys(hourly_config))
     assert legacy_key not in set(_nested_keys(full_config))
     assert "oddsfox_dbt" in full_config
+
+
+def test_full_pipeline_merge_retains_logical_atlas_and_scope_dbt_selects():
+    merged = _merge_run_configs(
+        polymarket_wc2026_logical_atlas_run_config(),
+        polymarket_wc2026_dbt_build_run_config(),
+    )["ops"]["oddsfox_dbt"]["config"]
+
+    assert "+tag:wc2026_logical_atlas" in merged["dbt_select"]
+    assert "+tag:polymarket,tag:wc2026" in merged["dbt_select"]
+    assert "tag:polygon_settlement" in merged["dbt_exclude"]
+    assert "tag:pmxt_order_book" in merged["dbt_exclude"]
 
 
 def test_match_minute_job_is_closed_untruncated_and_unscheduled():

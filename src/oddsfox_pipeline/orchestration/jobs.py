@@ -76,10 +76,44 @@ _WC2026_CROSS_DOMAIN_TAGS = {
 }
 
 
+def _merge_dbt_build_config(existing: dict, incoming: dict) -> dict:
+    merged = {**existing, **incoming}
+    selects: list[str] = []
+    for cfg in (existing, incoming):
+        select = cfg.get("dbt_select")
+        if select:
+            selects.extend(str(select).split())
+    if selects:
+        merged["dbt_select"] = " ".join(dict.fromkeys(selects))
+
+    excludes: list[str] = []
+    for cfg in (existing, incoming):
+        exclude = cfg.get("dbt_exclude")
+        if exclude:
+            excludes.extend(str(exclude).split())
+    if excludes:
+        merged["dbt_exclude"] = " ".join(dict.fromkeys(excludes))
+    return merged
+
+
+def _merge_op_config(existing: dict | None, incoming: dict) -> dict:
+    if not existing:
+        return dict(incoming)
+    existing_cfg = existing.get("config")
+    incoming_cfg = incoming.get("config")
+    if isinstance(existing_cfg, dict) and isinstance(incoming_cfg, dict):
+        if {"dbt_select", "dbt_exclude"} & (set(existing_cfg) | set(incoming_cfg)):
+            merged_cfg = _merge_dbt_build_config(existing_cfg, incoming_cfg)
+            return {**existing, **incoming, "config": merged_cfg}
+    return {**existing, **incoming}
+
+
 def _merge_run_configs(*configs: dict) -> dict:
     merged: dict = {"ops": {}}
     for config in configs:
-        merged["ops"].update(config.get("ops", {}))
+        for op_name, op_config in config.get("ops", {}).items():
+            existing = merged["ops"].get(op_name)
+            merged["ops"][op_name] = _merge_op_config(existing, op_config)
     return merged
 
 
