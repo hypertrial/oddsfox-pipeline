@@ -480,7 +480,9 @@ def test_market_scope_registry_runs_sync_when_snapshot_did_not_refresh(monkeypat
         captured.update(kwargs)
         return {"registry_rows_upserted": 1}
 
-    monkeypatch.setattr(assets_mod, "get_sync_run_metrics", lambda _task: None)
+    monkeypatch.setattr(
+        assets_mod, "get_sync_run_metrics", lambda *_args, **_kwargs: None
+    )
     monkeypatch.setattr(
         assets_mod.ops, "sync_market_scope_registry", sync_market_scope_registry
     )
