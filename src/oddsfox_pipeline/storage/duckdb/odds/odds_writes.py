@@ -11,7 +11,6 @@ from oddsfox_pipeline.storage.duckdb.dlt_batch import (
 from oddsfox_pipeline.storage.duckdb.odds._common import (
     _utc_now,
     logger,
-    odds_history_tbl,
 )
 
 
@@ -44,22 +43,6 @@ def save_odds_bulk_appender(
     save_odds_bulk_upsert(records, conn, assume_deduped=False)
     logger.debug("Saved %d odds records to DuckDB", len(records))
 
-
-def _ensure_odds_history_schema(conn: duckdb.DuckDBPyConnection) -> None:
-    conn.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS {odds_history_tbl()} (
-            clobTokenId TEXT,
-            timestamp BIGINT,
-            price DOUBLE,
-            ingested_at TIMESTAMP,
-            PRIMARY KEY (clobTokenId, timestamp)
-        )
-        """
-    )
-    conn.execute(
-        f"ALTER TABLE {odds_history_tbl()} ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMP"
-    )
 
 
 def _odds_history_stage_rows(
@@ -101,7 +84,7 @@ def prepare_odds_bulk_upsert(
     """Load a dlt odds stage table; call before ``BEGIN`` on ``conn``."""
     if not records:
         return None
-    _ensure_odds_history_schema(conn)
+    ensure_duck_db()
     return prepare_odds_history_stage(
         _odds_history_stage_rows(records, assume_deduped=assume_deduped)
     )

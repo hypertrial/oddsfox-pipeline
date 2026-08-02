@@ -23,6 +23,19 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     bootstrap_polymarket_tables,
 )
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
+    EVENT_CATALOG_MARKET_COLUMNS,
+    EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS,
+    EVENT_MARKET_SNAPSHOT_COLUMNS,
+    EVENT_SNAPSHOT_COLUMNS,
+    EVENT_TAG_SNAPSHOT_COLUMNS,
+    INGESTION_RUN_EVENT_COLUMNS,
+    MARKET_SCOPE_REGISTRY_COLUMNS,
+    MARKET_TOKEN_COLUMNS,
+    MATCH_MINUTE_ODDS_HISTORY_COLUMNS,
+    MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS,
+    ODDS_HISTORY_COLUMNS,
+)
 
 DLT_STRICT_SCHEMA_CONTRACT = {
     "tables": "evolve",
@@ -32,188 +45,6 @@ DLT_STRICT_SCHEMA_CONTRACT = {
 
 _PIPELINES: dict[tuple[str, str], dlt.Pipeline] = {}
 _BATCH_PIPELINE_RUN_ID = f"{os.getpid():x}"
-
-MARKET_TOKEN_COLUMNS = {
-    "market_id": {"data_type": "text"},
-    "clobTokenIds": {"data_type": "text"},
-    "updated_at": {"data_type": "timestamp"},
-    "row_order": {"data_type": "bigint"},
-}
-
-ODDS_HISTORY_COLUMNS = {
-    "clobTokenId": {"data_type": "text"},
-    "timestamp": {"data_type": "bigint"},
-    "price": {"data_type": "double"},
-    "ingested_at": {"data_type": "timestamp"},
-    "row_order": {"data_type": "bigint"},
-}
-
-MATCH_MINUTE_ODDS_HISTORY_COLUMNS = {
-    "market_id": {"data_type": "text"},
-    "clobTokenId": {"data_type": "text"},
-    "timestamp": {"data_type": "bigint"},
-    "price": {"data_type": "double"},
-    "fidelity_minutes": {"data_type": "bigint"},
-    "window_start_at": {"data_type": "timestamp"},
-    "window_end_at": {"data_type": "timestamp"},
-    "ingested_at": {"data_type": "timestamp"},
-    "row_order": {"data_type": "bigint"},
-}
-
-MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS = {
-    "scan_id": {"data_type": "text"},
-    "manifest_sha256": {"data_type": "text"},
-    "fifa_match_id": {"data_type": "bigint"},
-    "stage": {"data_type": "text"},
-    "home_team": {"data_type": "text"},
-    "away_team": {"data_type": "text"},
-    "event_id": {"data_type": "text"},
-    "event_slug": {"data_type": "text"},
-    "market_id": {"data_type": "text"},
-    "market_slug": {"data_type": "text"},
-    "market_type": {"data_type": "text"},
-    "condition_id": {"data_type": "text"},
-    "outcome_label": {"data_type": "text"},
-    "landscape_role": {"data_type": "text"},
-    "clob_token_id": {"data_type": "text"},
-    "window_start_ms": {"data_type": "bigint"},
-    "window_end_ms": {"data_type": "bigint"},
-    "snapshot_timestamp_ms": {"data_type": "bigint"},
-    "snapshot_at": {"data_type": "timestamp"},
-    "snapshot_sha256": {"data_type": "text"},
-    "provider_sequence": {"data_type": "bigint"},
-    "bids_json": {"data_type": "text"},
-    "asks_json": {"data_type": "text"},
-    "is_neg_risk": {"data_type": "bool", "nullable": True},
-    "last_trade_price": {"data_type": "text", "nullable": True},
-    "source_endpoint": {"data_type": "text"},
-    "ingested_at": {"data_type": "timestamp"},
-}
-
-INGESTION_RUN_EVENT_COLUMNS = {
-    "run_id": {"data_type": "text"},
-    "task_name": {"data_type": "text"},
-    "recorded_at": {"data_type": "timestamp"},
-    "metrics_json": {"data_type": "text"},
-}
-
-MARKET_SCOPE_REGISTRY_COLUMNS = {
-    "scope_name": {"data_type": "text"},
-    "market_id": {"data_type": "text"},
-    "event_slug": {"data_type": "text", "nullable": True},
-    "event_id": {"data_type": "text", "nullable": True},
-    "source": {"data_type": "text"},
-    "refreshed_at": {"data_type": "timestamp"},
-    "row_order": {"data_type": "bigint"},
-}
-
-EVENT_SNAPSHOT_COLUMNS = {
-    "event_id": {"data_type": "text"},
-    "event_slug": {"data_type": "text", "nullable": True},
-    "event_title": {"data_type": "text", "nullable": True},
-    "event_subtitle": {"data_type": "text", "nullable": True},
-    "event_description": {"data_type": "text", "nullable": True},
-    "resolution_source": {"data_type": "text", "nullable": True},
-    "event_volume_usd_lifetime_reported": {"data_type": "double", "nullable": True},
-    "volume_24h_usd": {"data_type": "double", "nullable": True},
-    "volume_1w_usd": {"data_type": "double", "nullable": True},
-    "volume_1m_usd": {"data_type": "double", "nullable": True},
-    "volume_1y_usd": {"data_type": "double", "nullable": True},
-    "liquidity_usd": {"data_type": "double", "nullable": True},
-    "open_interest_usd": {"data_type": "double", "nullable": True},
-    "is_active": {"data_type": "bool", "nullable": True},
-    "is_closed": {"data_type": "bool", "nullable": True},
-    "is_archived": {"data_type": "bool", "nullable": True},
-    "created_at": {"data_type": "timestamp", "nullable": True},
-    "source_updated_at": {"data_type": "timestamp", "nullable": True},
-    "start_at": {"data_type": "timestamp", "nullable": True},
-    "end_at": {"data_type": "timestamp", "nullable": True},
-    "closed_at": {"data_type": "timestamp", "nullable": True},
-    "event_start_at": {"data_type": "timestamp", "nullable": True},
-    "finished_at": {"data_type": "timestamp", "nullable": True},
-    "game_id": {"data_type": "text", "nullable": True},
-    "parent_event_id": {"data_type": "text", "nullable": True},
-    "neg_risk": {"data_type": "bool", "nullable": True},
-    "enable_neg_risk": {"data_type": "bool", "nullable": True},
-    "neg_risk_market_id": {"data_type": "text", "nullable": True},
-    "show_all_outcomes": {"data_type": "bool", "nullable": True},
-    "tags_json": {"data_type": "text"},
-    "series_slugs_json": {"data_type": "text"},
-    "candidate_sources_json": {"data_type": "text"},
-    "source_market_count": {"data_type": "bigint"},
-    "observed_at": {"data_type": "timestamp"},
-    "source_endpoint": {"data_type": "text"},
-    "row_order": {"data_type": "bigint"},
-}
-
-EVENT_TAG_SNAPSHOT_COLUMNS = {
-    "event_id": {"data_type": "text"},
-    "tag_key": {"data_type": "text"},
-    "tag_id": {"data_type": "text", "nullable": True},
-    "tag_slug": {"data_type": "text", "nullable": True},
-    "tag_label": {"data_type": "text", "nullable": True},
-    "observed_at": {"data_type": "timestamp"},
-    "row_order": {"data_type": "bigint"},
-}
-
-EVENT_MARKET_SNAPSHOT_COLUMNS = {
-    "event_id": {"data_type": "text"},
-    "market_id": {"data_type": "text"},
-    "source_ordinal": {"data_type": "bigint"},
-    "is_enclosing_event": {"data_type": "bool"},
-    "observed_at": {"data_type": "timestamp"},
-    "row_order": {"data_type": "bigint"},
-}
-
-EVENT_CATALOG_MARKET_COLUMNS = {
-    "id": {"data_type": "text"},
-    "question": {"data_type": "text"},
-    "category": {"data_type": "text", "nullable": True},
-    "description": {"data_type": "text", "nullable": True},
-    "market_resolution_source": {"data_type": "text", "nullable": True},
-    "outcomes": {"data_type": "text"},
-    "volume": {"data_type": "double"},
-    "active": {"data_type": "bool", "nullable": True},
-    "closed": {"data_type": "bool", "nullable": True},
-    "created_at": {"data_type": "timestamp", "nullable": True},
-    "scraped_at": {"data_type": "timestamp"},
-    "end_date": {"data_type": "timestamp", "nullable": True},
-    "slug": {"data_type": "text", "nullable": True},
-    "event_slug": {"data_type": "text", "nullable": True},
-    "event_id": {"data_type": "text", "nullable": True},
-    "event_title": {"data_type": "text", "nullable": True},
-    "event_start_time": {"data_type": "timestamp", "nullable": True},
-    "event_finished_time": {"data_type": "timestamp", "nullable": True},
-    "event_game_id": {"data_type": "text", "nullable": True},
-    "event_ended": {"data_type": "bool", "nullable": True},
-    "condition_id": {"data_type": "text", "nullable": True},
-    "sports_market_type": {"data_type": "text", "nullable": True},
-    "game_start_time": {"data_type": "timestamp", "nullable": True},
-    "group_item_title": {"data_type": "text", "nullable": True},
-    "group_item_threshold": {"data_type": "text", "nullable": True},
-    "line": {"data_type": "double", "nullable": True},
-    "tags": {"data_type": "text", "nullable": True},
-    "clob_token_ids": {"data_type": "text", "nullable": True},
-    "is_resolved": {"data_type": "bool", "nullable": True},
-    "winning_outcome": {"data_type": "text", "nullable": True},
-    "winning_clob_token_id": {"data_type": "text", "nullable": True},
-    "neg_risk_market_id": {"data_type": "text", "nullable": True},
-    "neg_risk_request_id": {"data_type": "text", "nullable": True},
-    "neg_risk_other": {"data_type": "bool", "nullable": True},
-    "row_order": {"data_type": "bigint"},
-}
-
-EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS = {
-    "market_id": EVENT_CATALOG_MARKET_COLUMNS["id"],
-    **{
-        column: contract
-        for column, contract in EVENT_CATALOG_MARKET_COLUMNS.items()
-        if column not in {"id", "row_order"}
-    },
-    "observed_at": {"data_type": "timestamp"},
-    "row_order": {"data_type": "bigint"},
-}
-
 
 def reset_dlt_batch_pipelines() -> None:
     """Clear cached pipelines; useful when tests swap DUCKDB_NAME."""

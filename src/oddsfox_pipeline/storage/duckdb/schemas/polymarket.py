@@ -18,6 +18,9 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     polymarket_raw_tbl,
     polymarket_wc2026_ops_tbl,
 )
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
+    polymarket_raw_ddl_body,
+)
 
 
 def _add_column_if_missing(
@@ -175,41 +178,7 @@ def bootstrap_polymarket_tables(
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {event_snapshots} (
-                event_id TEXT,
-                event_slug TEXT,
-                event_title TEXT,
-                event_subtitle TEXT,
-                event_description TEXT,
-                resolution_source TEXT,
-                event_volume_usd_lifetime_reported DOUBLE,
-                volume_24h_usd DOUBLE,
-                volume_1w_usd DOUBLE,
-                volume_1m_usd DOUBLE,
-                volume_1y_usd DOUBLE,
-                liquidity_usd DOUBLE,
-                open_interest_usd DOUBLE,
-                is_active BOOLEAN,
-                is_closed BOOLEAN,
-                is_archived BOOLEAN,
-                created_at TIMESTAMP,
-                source_updated_at TIMESTAMP,
-                start_at TIMESTAMP,
-                end_at TIMESTAMP,
-                closed_at TIMESTAMP,
-                event_start_at TIMESTAMP,
-                finished_at TIMESTAMP,
-                game_id TEXT,
-                parent_event_id TEXT,
-                neg_risk BOOLEAN,
-                enable_neg_risk BOOLEAN,
-                neg_risk_market_id TEXT,
-                show_all_outcomes BOOLEAN,
-                tags_json TEXT NOT NULL,
-                series_slugs_json TEXT NOT NULL,
-                candidate_sources_json TEXT NOT NULL,
-                source_market_count BIGINT NOT NULL,
-                observed_at TIMESTAMP NOT NULL,
-                source_endpoint TEXT NOT NULL,
+                {polymarket_raw_ddl_body("event_snapshots")},
                 PRIMARY KEY (event_id, observed_at)
             )
             """
@@ -223,12 +192,7 @@ def bootstrap_polymarket_tables(
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {event_tag_snapshots} (
-                event_id TEXT,
-                tag_key TEXT,
-                tag_id TEXT,
-                tag_slug TEXT,
-                tag_label TEXT,
-                observed_at TIMESTAMP NOT NULL,
+                {polymarket_raw_ddl_body("event_tag_snapshots")},
                 PRIMARY KEY (event_id, tag_key, observed_at)
             )
             """
@@ -236,11 +200,7 @@ def bootstrap_polymarket_tables(
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {event_market_snapshots} (
-                event_id TEXT,
-                market_id TEXT,
-                source_ordinal BIGINT NOT NULL,
-                is_enclosing_event BOOLEAN NOT NULL,
-                observed_at TIMESTAMP NOT NULL,
+                {polymarket_raw_ddl_body("event_market_snapshots")},
                 PRIMARY KEY (event_id, market_id, observed_at)
             )
             """
@@ -260,41 +220,7 @@ def bootstrap_polymarket_tables(
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {event_market_payload_snapshots} (
-                market_id TEXT NOT NULL,
-                question TEXT,
-                category TEXT,
-                description TEXT,
-                market_resolution_source TEXT,
-                outcomes TEXT,
-                volume DOUBLE,
-                active BOOLEAN,
-                closed BOOLEAN,
-                created_at TIMESTAMP,
-                scraped_at TIMESTAMP,
-                end_date TIMESTAMP,
-                slug TEXT,
-                event_slug TEXT,
-                event_id TEXT,
-                event_title TEXT,
-                event_start_time TIMESTAMP,
-                event_finished_time TIMESTAMP,
-                event_game_id TEXT,
-                event_ended BOOLEAN,
-                condition_id TEXT,
-                sports_market_type TEXT,
-                game_start_time TIMESTAMP,
-                group_item_title TEXT,
-                group_item_threshold TEXT,
-                line DOUBLE,
-                tags TEXT,
-                clob_token_ids TEXT,
-                is_resolved BOOLEAN,
-                winning_outcome TEXT,
-                winning_clob_token_id TEXT,
-                neg_risk_market_id TEXT,
-                neg_risk_request_id TEXT,
-                neg_risk_other BOOLEAN,
-                observed_at TIMESTAMP NOT NULL,
+                {polymarket_raw_ddl_body("event_market_payload_snapshots")},
                 PRIMARY KEY (market_id, observed_at)
             )
             """
@@ -329,10 +255,7 @@ def bootstrap_polymarket_tables(
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {oh} (
-            clobTokenId TEXT,
-            timestamp BIGINT,
-            price DOUBLE,
-            ingested_at TIMESTAMP,
+            {polymarket_raw_ddl_body("odds_history")},
             PRIMARY KEY (clobTokenId, timestamp)
         )
         """
@@ -359,14 +282,8 @@ def bootstrap_polymarket_tables(
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {mmoh} (
-                market_id TEXT NOT NULL,
-                clobTokenId TEXT NOT NULL,
-                timestamp BIGINT NOT NULL,
-                price DOUBLE NOT NULL,
-                fidelity_minutes INTEGER NOT NULL CHECK (fidelity_minutes = 1),
-                window_start_at TIMESTAMP NOT NULL,
-                window_end_at TIMESTAMP NOT NULL,
-                ingested_at TIMESTAMP NOT NULL,
+                {polymarket_raw_ddl_body("match_minute_odds_history")},
+                CHECK (fidelity_minutes = 1),
                 PRIMARY KEY (clobTokenId, timestamp)
             )
             """
@@ -411,39 +328,13 @@ def bootstrap_polymarket_tables(
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {order_book_snapshots} (
-                scan_id TEXT NOT NULL,
-                manifest_sha256 TEXT NOT NULL,
-                fifa_match_id BIGINT NOT NULL,
-                stage TEXT NOT NULL,
-                home_team TEXT NOT NULL,
-                away_team TEXT NOT NULL,
-                event_id TEXT NOT NULL,
-                event_slug TEXT NOT NULL,
-                market_id TEXT NOT NULL,
-                market_slug TEXT NOT NULL,
-                market_type TEXT NOT NULL,
-                condition_id TEXT NOT NULL,
-                outcome_label TEXT NOT NULL,
-                landscape_role TEXT NOT NULL CHECK (
+                {polymarket_raw_ddl_body("match_order_book_snapshots")},
+                CHECK (
                     landscape_role IN (
                         'home', 'away', 'home_win', 'draw', 'away_win'
                     )
                 ),
-                clob_token_id TEXT NOT NULL,
-                window_start_ms BIGINT NOT NULL,
-                window_end_ms BIGINT NOT NULL,
-                snapshot_timestamp_ms BIGINT NOT NULL,
-                snapshot_at TIMESTAMP NOT NULL,
-                snapshot_sha256 TEXT NOT NULL,
-                provider_sequence BIGINT NOT NULL CHECK (
-                    provider_sequence >= 0
-                ),
-                bids_json TEXT NOT NULL,
-                asks_json TEXT NOT NULL,
-                is_neg_risk BOOLEAN,
-                last_trade_price TEXT,
-                source_endpoint TEXT NOT NULL,
-                ingested_at TIMESTAMP NOT NULL,
+                CHECK (provider_sequence >= 0),
                 PRIMARY KEY (
                     scan_id, clob_token_id, snapshot_timestamp_ms,
                     snapshot_sha256
@@ -856,10 +747,8 @@ def bootstrap_polymarket_tables(
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {pre} (
-            run_id TEXT PRIMARY KEY,
-            task_name TEXT NOT NULL,
-            recorded_at TIMESTAMP NOT NULL,
-            metrics_json TEXT NOT NULL
+            {polymarket_raw_ddl_body("ingestion_run_events")},
+            PRIMARY KEY (run_id)
         )
         """
     )
@@ -876,12 +765,7 @@ def bootstrap_polymarket_tables(
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {scope_reg} (
-            scope_name TEXT,
-            market_id TEXT,
-            event_slug TEXT,
-            event_id TEXT,
-            source TEXT,
-            refreshed_at TIMESTAMP,
+            {polymarket_raw_ddl_body("market_scope_registry")},
             PRIMARY KEY (scope_name, market_id)
         )
         """
