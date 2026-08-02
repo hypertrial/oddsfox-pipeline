@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import Any, Callable
 
 import dlt
@@ -9,71 +8,13 @@ from dagster import AssetExecutionContext, MaterializeResult, MetadataValue
 from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_KALSHI, schema_name
 from oddsfox_pipeline.orchestration import kalshi_ops as ops
 from oddsfox_pipeline.orchestration.config import KalshiHourlyOddsSyncConfig
-from oddsfox_pipeline.storage.duckdb.connection import active_duckdb_path
-from oddsfox_pipeline.storage.duckdb.observability import (
-    delta_raw_layer,
-    snapshot_raw_layer,
+from oddsfox_pipeline.orchestration.raw_snapshot_helpers import (
+    _DLT_PIPELINE_BY_PATH,
+    _raw_snapshot_metadata,
+    _run_with_raw_snapshot,
+    get_cached_dlt_pipeline,
 )
-
-
-def _raw_snapshot_metadata(
-    pre: dict[str, Any],
-    post: dict[str, Any],
-    delta: dict[str, Any],
-    *,
-    run_summary: dict[str, Any] | None = None,
-) -> dict[str, MetadataValue]:
-    metadata = {
-        "duckdb_raw_pre": MetadataValue.json(pre),
-        "duckdb_raw_post": MetadataValue.json(post),
-        "duckdb_raw_delta": MetadataValue.json(delta),
-    }
-    if run_summary is not None:
-        metadata["run_summary"] = MetadataValue.json(run_summary)
-    return metadata
-
-
-def _run_with_raw_snapshot(
-    raw_snapshot_level: str,
-    run_fn: Callable[[dict[str, Any]], dict[str, Any]],
-    *,
-    snapshot_raw_layer_fn: Callable[..., dict[str, Any]] = snapshot_raw_layer,
-    delta_raw_layer_fn: Callable[
-        [dict[str, Any], dict[str, Any]], dict[str, Any]
-    ] = delta_raw_layer,
-) -> tuple[
-    dict[str, Any],
-    dict[str, Any],
-    dict[str, Any],
-    dict[str, Any],
-    dict[str, MetadataValue],
-]:
-    pre = snapshot_raw_layer_fn(level=raw_snapshot_level)
-    run_summary = run_fn(pre)
-    post = snapshot_raw_layer_fn(level=raw_snapshot_level)
-    delta = delta_raw_layer_fn(pre, post)
-    return (
-        run_summary,
-        pre,
-        post,
-        delta,
-        _raw_snapshot_metadata(
-            pre,
-            post,
-            delta,
-            run_summary=run_summary,
-        ),
-    )
-
-
-_DLT_PIPELINE_BY_PATH: dict[str, dlt.Pipeline] = {}
-
-
-def _dlt_pipeline_name(dataset_name: str) -> str:
-    worker = os.environ.get("PYTEST_XDIST_WORKER")
-    if worker:
-        return f"{dataset_name}_{worker}_landing"
-    return f"{dataset_name}_landing"
+from oddsfox_pipeline.storage.duckdb.connection import active_duckdb_path
 
 
 def get_kalshi_dlt_pipeline(
@@ -82,19 +23,12 @@ def get_kalshi_dlt_pipeline(
     active_duckdb_path_fn: Callable[[], Any] = active_duckdb_path,
     dlt_module: Any = dlt,
 ) -> dlt.Pipeline:
-    db_path = str(active_duckdb_path_fn())
     dataset_name = schema_name(SOURCE_KALSHI, scope_name, "raw")
-    cache_key = f"{db_path}:{dataset_name}"
-    cached = _DLT_PIPELINE_BY_PATH.get(cache_key)
-    if cached is not None:
-        return cached
-    pipe = dlt_module.pipeline(
-        pipeline_name=_dlt_pipeline_name(dataset_name),
-        destination=dlt_module.destinations.duckdb(credentials=db_path),
+    return get_cached_dlt_pipeline(
         dataset_name=dataset_name,
+        active_duckdb_path_fn=active_duckdb_path_fn,
+        dlt_module=dlt_module,
     )
-    _DLT_PIPELINE_BY_PATH[cache_key] = pipe
-    return pipe
 
 
 def materialize_kalshi_candlesticks_sync(
