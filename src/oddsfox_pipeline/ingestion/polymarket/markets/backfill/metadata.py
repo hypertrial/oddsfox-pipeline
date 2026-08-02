@@ -50,6 +50,128 @@ def _error_metadata(failed_batches: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _enrich_ledger_keys(
+    *,
+    include_tokens: bool,
+    include_slugs: bool,
+    include_event_slugs: bool,
+    include_end_dates: bool,
+) -> list[str]:
+    ledger_keys = []
+    if include_tokens:
+        ledger_keys.append("tokens")
+    if include_slugs:
+        ledger_keys.append("slugs")
+    if include_event_slugs:
+        ledger_keys.append("event_slugs")
+    if include_end_dates:
+        ledger_keys.append("end_dates")
+    return ledger_keys
+
+
+def _enrich_skip_response(
+    t0: float,
+    *,
+    reason: str,
+    failed_batches: list[dict[str, Any]] | None = None,
+) -> Dict[str, Any]:
+    batches = failed_batches if failed_batches is not None else []
+    return {
+        "task": "enrich_market_metadata",
+        "skipped": True,
+        "reason": reason,
+        "duration_seconds": _duration_since(t0),
+        "api_requests": 0,
+        **_error_metadata(batches),
+    }
+
+
+def _extract_metadata_batch_rows(
+    chunk: list[str],
+    markets: list[dict[str, Any]] | None,
+    *,
+    include_tokens: bool,
+    include_slugs: bool,
+    include_event_slugs: bool,
+    include_end_dates: bool,
+    remaining_event_slug_ids: set[str],
+) -> tuple[
+    list[tuple[str, str]],
+    list[tuple[str, str]],
+    list[tuple[str, str]],
+    list[tuple[str, str]],
+    int,
+]:
+    token_rows: list[tuple[str, str]] = []
+    slug_rows: list[tuple[str, str]] = []
+    event_slug_rows: list[tuple[str, str]] = []
+    end_date_rows: list[tuple[str, str]] = []
+    processed = 0
+    returned_map = {str(market.get("id")): market for market in markets or []}
+    for market_id in chunk:
+        market = returned_map.get(str(market_id))
+        if not market:
+            processed += 1
+            continue
+        if include_tokens:
+            record = _extract_tokens_record(market_id, market)
+            if record is not None:
+                token_rows.append(record)
+        if include_slugs:
+            slug = market.get("slug")
+            if slug:
+                slug_rows.append((slug, market_id))
+        if include_event_slugs:
+            record = _extract_event_slug_record(market_id, market)
+            if record is not None:
+                event_slug_rows.append(record)
+            else:
+                remaining_event_slug_ids.add(str(market_id))
+        if include_end_dates:
+            record = _extract_end_date_record(market_id, market)
+            if record is not None:
+                end_date_rows.append(record)
+        processed += 1
+    return token_rows, slug_rows, event_slug_rows, end_date_rows, processed
+
+
+def _persist_metadata_batch_rows(
+    *,
+    token_rows: list[tuple[str, str]],
+    slug_rows: list[tuple[str, str]],
+    event_slug_rows: list[tuple[str, str]],
+    end_date_rows: list[tuple[str, str]],
+    market_scope: str,
+    saved: dict[str, int],
+) -> None:
+    if token_rows:
+        save_tokens_batch(token_rows, scope_name=market_scope)
+        saved["tokens"] += len(token_rows)
+    if slug_rows:
+        save_slugs_batch(slug_rows, scope_name=market_scope)
+        saved["slugs"] += len(slug_rows)
+    if event_slug_rows:
+        save_event_slugs_batch(event_slug_rows, scope_name=market_scope)
+        saved["event_slugs"] += len(event_slug_rows)
+    if end_date_rows:
+        save_end_dates_batch(end_date_rows, scope_name=market_scope)
+        saved["end_dates"] += len(end_date_rows)
+
+
+def _set_enrich_ledger_state(
+    ledger_keys: list[str],
+    *,
+    max_markets: int | None,
+    completed_all: bool,
+) -> None:
+    if max_markets is None:
+        for key in ledger_keys:
+            set_backfill_fully_checked(key, completed_all)
+        return
+    for key in ledger_keys:
+        set_backfill_fully_checked(key, False)
+
+
 def enrich_market_metadata(
     batch_size: int = 50,
     max_markets: int = None,
@@ -72,35 +194,16 @@ def enrich_market_metadata(
     """Enrich requested market metadata with a single Gamma pass per market."""
     t0 = time.monotonic()
     if not any([include_tokens, include_slugs, include_event_slugs, include_end_dates]):
-        failed_batches: list[dict[str, Any]] = []
-        return {
-            "task": "enrich_market_metadata",
-            "skipped": True,
-            "reason": "no_fields_enabled",
-            "duration_seconds": _duration_since(t0),
-            "api_requests": 0,
-            **_error_metadata(failed_batches),
-        }
+        return _enrich_skip_response(t0, reason="no_fields_enabled")
 
-    ledger_keys = []
-    if include_tokens:
-        ledger_keys.append("tokens")
-    if include_slugs:
-        ledger_keys.append("slugs")
-    if include_event_slugs:
-        ledger_keys.append("event_slugs")
-    if include_end_dates:
-        ledger_keys.append("end_dates")
+    ledger_keys = _enrich_ledger_keys(
+        include_tokens=include_tokens,
+        include_slugs=include_slugs,
+        include_event_slugs=include_event_slugs,
+        include_end_dates=include_end_dates,
+    )
     if not force and all(get_backfill_fully_checked(k) for k in ledger_keys):
-        failed_batches = []
-        return {
-            "task": "enrich_market_metadata",
-            "skipped": True,
-            "reason": "fully_checked",
-            "duration_seconds": _duration_since(t0),
-            "api_requests": 0,
-            **_error_metadata(failed_batches),
-        }
+        return _enrich_skip_response(t0, reason="fully_checked")
 
     ensure_duck_db()
     market_ids = get_markets_missing_any_metadata(
@@ -114,8 +217,8 @@ def enrich_market_metadata(
     total_markets = len(market_ids)
     failed_batches: list[dict[str, Any]] = []
     if total_markets == 0:
-        for key in ledger_keys:
-            if max_markets is None:
+        if max_markets is None:
+            for key in ledger_keys:
                 set_backfill_fully_checked(key, True)
         return {
             "task": "enrich_market_metadata",
@@ -166,52 +269,30 @@ def enrich_market_metadata(
         total=total_markets, desc="Enriching market metadata", disable=not use_tqdm
     ) as pbar:
         for batch_idx, chunk in enumerate(chunks, start=1):
-            token_rows: list[tuple[str, str]] = []
-            slug_rows: list[tuple[str, str]] = []
-            event_slug_rows: list[tuple[str, str]] = []
-            end_date_rows: list[tuple[str, str]] = []
             try:
                 api_requests += 1
                 markets = _fetch_markets_batch(client, chunk, include_events=True)
-                returned_map = {str(m.get("id")): m for m in markets or []}
-                for market_id in chunk:
-                    market = returned_map.get(str(market_id))
-                    if not market:
-                        processed += 1
-                        pbar.update(1)
-                        continue
-                    if include_tokens:
-                        record = _extract_tokens_record(market_id, market)
-                        if record is not None:
-                            token_rows.append(record)
-                    if include_slugs:
-                        slug = market.get("slug")
-                        if slug:
-                            slug_rows.append((slug, market_id))
-                    if include_event_slugs:
-                        record = _extract_event_slug_record(market_id, market)
-                        if record is not None:
-                            event_slug_rows.append(record)
-                        else:
-                            remaining_event_slug_ids.add(str(market_id))
-                    if include_end_dates:
-                        record = _extract_end_date_record(market_id, market)
-                        if record is not None:
-                            end_date_rows.append(record)
-                    processed += 1
-                    pbar.update(1)
-                if token_rows:
-                    save_tokens_batch(token_rows, scope_name=market_scope)
-                    saved["tokens"] += len(token_rows)
-                if slug_rows:
-                    save_slugs_batch(slug_rows, scope_name=market_scope)
-                    saved["slugs"] += len(slug_rows)
-                if event_slug_rows:
-                    save_event_slugs_batch(event_slug_rows, scope_name=market_scope)
-                    saved["event_slugs"] += len(event_slug_rows)
-                if end_date_rows:
-                    save_end_dates_batch(end_date_rows, scope_name=market_scope)
-                    saved["end_dates"] += len(end_date_rows)
+                token_rows, slug_rows, event_slug_rows, end_date_rows, batch_processed = (
+                    _extract_metadata_batch_rows(
+                        chunk,
+                        markets,
+                        include_tokens=include_tokens,
+                        include_slugs=include_slugs,
+                        include_event_slugs=include_event_slugs,
+                        include_end_dates=include_end_dates,
+                        remaining_event_slug_ids=remaining_event_slug_ids,
+                    )
+                )
+                processed += batch_processed
+                pbar.update(len(chunk))
+                _persist_metadata_batch_rows(
+                    token_rows=token_rows,
+                    slug_rows=slug_rows,
+                    event_slug_rows=event_slug_rows,
+                    end_date_rows=end_date_rows,
+                    market_scope=market_scope,
+                    saved=saved,
+                )
             except (GammaRequestError, OSError) as exc:
                 logger.error("Error during combined metadata enrichment batch: %s", exc)
                 failed_batches.append(
@@ -287,12 +368,11 @@ def enrich_market_metadata(
         )
 
     completed_all = processed >= total_markets and not failed_batches
-    if max_markets is None:
-        for key in ledger_keys:
-            set_backfill_fully_checked(key, completed_all)
-    else:
-        for key in ledger_keys:
-            set_backfill_fully_checked(key, False)
+    _set_enrich_ledger_state(
+        ledger_keys,
+        max_markets=max_markets,
+        completed_all=completed_all,
+    )
 
     if progress_callback:
         progress_callback(
