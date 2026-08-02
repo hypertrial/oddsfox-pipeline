@@ -2,8 +2,8 @@ import os
 import tempfile
 from pathlib import Path
 
-import duckdb
 import dlt
+import duckdb
 from dagster import (
     AssetExecutionContext,
     AssetSpec,
@@ -43,10 +43,10 @@ from oddsfox_pipeline.orchestration.config import (
     MetadataEnrichmentConfig,
     ReviewedMembershipConfig,
 )
+from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
 from oddsfox_pipeline.orchestration.logical_bundle_export import (
     export_polymarket_wc2026_logical_bundle,
 )
-from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
 from oddsfox_pipeline.orchestration.snapshot_helpers import (
     _snapshot_refreshed_scope_name,
 )

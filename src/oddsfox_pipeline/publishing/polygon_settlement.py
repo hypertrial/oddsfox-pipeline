@@ -18,6 +18,14 @@ from urllib.parse import urlsplit
 import duckdb
 
 from oddsfox_pipeline.config.settings_warehouse import BASE_DIR
+from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (
+    load_polygon_resolution_attestation,
+)
+from oddsfox_pipeline.ingestion.polymarket.polygon_seed import (
+    DEFAULT_POLYGON_MARKET_SEED_PATH,
+    PolygonMarketManifest,
+    load_polygon_market_seed,
+)
 from oddsfox_pipeline.publishing._bundle_io import (
     COMMIT_RE,
     SEMVER_RE,
@@ -26,14 +34,6 @@ from oddsfox_pipeline.publishing._bundle_io import (
     validate_dataset_version,
     write_checksums,
     write_text,
-)
-from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (
-    load_polygon_resolution_attestation,
-)
-from oddsfox_pipeline.ingestion.polymarket.polygon_seed import (
-    DEFAULT_POLYGON_MARKET_SEED_PATH,
-    PolygonMarketManifest,
-    load_polygon_market_seed,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
     POLYMARKET_WC2026_MARTS_SCHEMA,

@@ -17,6 +17,9 @@ from typing import Any, Final, Mapping, Sequence
 import duckdb
 
 from oddsfox_pipeline.config.settings_warehouse import BASE_DIR
+from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (
+    load_polygon_resolution_attestation,
+)
 from oddsfox_pipeline.publishing._bundle_io import (
     COMMIT_RE,
     SEMVER_RE,
@@ -25,9 +28,6 @@ from oddsfox_pipeline.publishing._bundle_io import (
     validate_dataset_version,
     write_checksums,
     write_text,
-)
-from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (
-    load_polygon_resolution_attestation,
 )
 
 DATASET_TITLE: Final = "WC2026 Polygon Settlement Minute Aggregates"

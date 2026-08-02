@@ -5,7 +5,6 @@ import pytest
 import requests
 from tests.unit.ingestion.backfill_test_support import (
     bf_events_fallback,
-    bf_gamma,
     bf_metadata,
     patch_ensure_duck_db,
 )
