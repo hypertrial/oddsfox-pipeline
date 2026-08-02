@@ -161,28 +161,74 @@ def _merge_scan_results(
     left: MarketScopeEventsScanResult,
     right: MarketScopeEventsScanResult,
 ) -> MarketScopeEventsScanResult:
-    rows = list(left.registry_rows) + list(right.registry_rows)
-    markets_by_id: dict[str, dict[str, Any]] = {
-        str(m.get("id")): m for m in left.raw_markets if m.get("id")
-    }
-    for market in right.raw_markets:
-        market_id = str(market.get("id") or "")
-        if market_id:
-            markets_by_id[market_id] = market
-    slugs = set(left.discovered_slugs) | set(right.discovered_slugs)
-    harvested = left.harvested_tag_slugs | right.harvested_tag_slugs
-    return MarketScopeEventsScanResult(
-        registry_rows=tuple(rows),
-        raw_markets=tuple(markets_by_id.values()),
-        pages_done=max(left.pages_done, right.pages_done),
-        truncated=left.truncated or right.truncated,
-        discovered_slugs=tuple(sorted(slugs)),
-        api_requests=left.api_requests + right.api_requests,
-        harvested_tag_slugs=harvested,
-        crawl_tag_slugs=left.crawl_tag_slugs or right.crawl_tag_slugs,
-        scope_tag_slugs=left.scope_tag_slugs or right.scope_tag_slugs,
-        tag_sources=left.tag_sources or right.tag_sources,
-    )
+    accumulator = _ScanAccumulator.from_result(left)
+    accumulator.merge(right)
+    return accumulator.to_result()
+
+
+@dataclass
+class _ScanAccumulator:
+    registry_rows: list[RegistryRow] = field(default_factory=list)
+    markets_by_id: dict[str, dict[str, Any]] = field(default_factory=dict)
+    discovered_slugs: set[str] = field(default_factory=set)
+    harvested_tag_slugs: set[str] = field(default_factory=set)
+    pages_done: int = 0
+    truncated: bool = False
+    api_requests: int = 0
+    crawl_tag_slugs: tuple[str, ...] = ()
+    scope_tag_slugs: tuple[str, ...] = ()
+    tag_sources: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    @classmethod
+    def from_result(cls, result: MarketScopeEventsScanResult) -> "_ScanAccumulator":
+        accumulator = cls(
+            registry_rows=list(result.registry_rows),
+            discovered_slugs=set(result.discovered_slugs),
+            harvested_tag_slugs=set(result.harvested_tag_slugs),
+            pages_done=result.pages_done,
+            truncated=result.truncated,
+            api_requests=result.api_requests,
+            crawl_tag_slugs=result.crawl_tag_slugs,
+            scope_tag_slugs=result.scope_tag_slugs,
+            tag_sources=result.tag_sources,
+        )
+        for market in result.raw_markets:
+            market_id = str(market.get("id") or "")
+            if market_id:
+                accumulator.markets_by_id[market_id] = market
+        return accumulator
+
+    def merge(self, other: MarketScopeEventsScanResult) -> None:
+        self.registry_rows.extend(other.registry_rows)
+        for market in other.raw_markets:
+            market_id = str(market.get("id") or "")
+            if market_id:
+                self.markets_by_id[market_id] = market
+        self.discovered_slugs.update(other.discovered_slugs)
+        self.harvested_tag_slugs.update(other.harvested_tag_slugs)
+        self.pages_done = max(self.pages_done, other.pages_done)
+        self.truncated = self.truncated or other.truncated
+        self.api_requests += other.api_requests
+        if other.crawl_tag_slugs:
+            self.crawl_tag_slugs = other.crawl_tag_slugs
+        if other.scope_tag_slugs:
+            self.scope_tag_slugs = other.scope_tag_slugs
+        if other.tag_sources:
+            self.tag_sources = other.tag_sources
+
+    def to_result(self) -> MarketScopeEventsScanResult:
+        return MarketScopeEventsScanResult(
+            registry_rows=tuple(self.registry_rows),
+            raw_markets=tuple(self.markets_by_id.values()),
+            pages_done=self.pages_done,
+            truncated=self.truncated,
+            discovered_slugs=tuple(sorted(self.discovered_slugs)),
+            api_requests=self.api_requests,
+            harvested_tag_slugs=frozenset(self.harvested_tag_slugs),
+            crawl_tag_slugs=self.crawl_tag_slugs,
+            scope_tag_slugs=self.scope_tag_slugs,
+            tag_sources=self.tag_sources,
+        )
 
 
 def _empty_scan_result() -> MarketScopeEventsScanResult:
@@ -208,7 +254,7 @@ def _scan_market_scope_gamma_events_keyset_pass(
     progress_task: str,
 ) -> MarketScopeEventsScanResult:
     """Single /events/keyset pass with optional tag and volume filters."""
-    merged = _empty_scan_result()
+    accumulator = _ScanAccumulator()
     pages_done = 0
     truncated = False
     pages_without_progress = 0
@@ -251,7 +297,7 @@ def _scan_market_scope_gamma_events_keyset_pass(
                 keyset_related_tags=resolved.keyset_related_tags,
                 scope_tag_slugs=scope_tag_slugs,
             )
-            merged = _merge_scan_results(merged, page_scan)
+            accumulator.merge(page_scan)
             pages_without_progress = 0
         else:
             pages_without_progress += 1
@@ -270,6 +316,7 @@ def _scan_market_scope_gamma_events_keyset_pass(
         if not events or page_meta.truncated:
             break
 
+    merged = accumulator.to_result()
     return MarketScopeEventsScanResult(
         registry_rows=merged.registry_rows,
         raw_markets=merged.raw_markets,
@@ -344,7 +391,7 @@ class _CrawlState:
     tag_sources_map: dict[str, set[str]]
     crawled_keys: list[str] = field(default_factory=list)
     crawled_set: set[str] = field(default_factory=set)
-    merged: MarketScopeEventsScanResult = field(default_factory=_empty_scan_result)
+    merged: _ScanAccumulator = field(default_factory=_ScanAccumulator)
     total_pages: int = 0
     truncated: bool = False
 
@@ -375,7 +422,7 @@ class _CrawlState:
         return _remaining_page_budget(max_pages, self.total_pages)
 
     def merge_pass(self, pass_scan: MarketScopeEventsScanResult) -> None:
-        self.merged = _merge_scan_results(self.merged, pass_scan)
+        self.merged.merge(pass_scan)
         self.total_pages += pass_scan.pages_done
         if pass_scan.truncated:
             self.truncated = True
@@ -518,12 +565,13 @@ def _scan_market_scope_gamma_events(
     if final_sources:
         logger.info("Market-scope tag crawl sources: %s", dict(final_sources))
 
+    merged = state.merged.to_result()
     return MarketScopeEventsScanResult(
-        registry_rows=state.merged.registry_rows,
-        raw_markets=state.merged.raw_markets,
+        registry_rows=merged.registry_rows,
+        raw_markets=merged.raw_markets,
         pages_done=state.total_pages,
         truncated=state.truncated,
-        discovered_slugs=state.merged.discovered_slugs,
+        discovered_slugs=merged.discovered_slugs,
         api_requests=state.total_pages,
         crawl_tag_slugs=final_crawl,
         scope_tag_slugs=resolved.scope_tag_slugs,
