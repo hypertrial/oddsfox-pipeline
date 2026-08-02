@@ -1,4 +1,4 @@
-{{ config(tags=['wc2026_logical_atlas']) }}
+{{ config(materialized='table', tags=['wc2026_logical_atlas']) }}
 -- costguard: disable-file=SQLCOST020
 
 with latest_observation as (
