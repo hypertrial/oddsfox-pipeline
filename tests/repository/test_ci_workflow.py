@@ -48,7 +48,7 @@ def _uv_sync_command(job: dict) -> str:
 def _assert_python_worker(job: dict, timeout: int, *, sync_command: str) -> None:
     assert job["timeout-minutes"] == timeout
     assert [step["uses"] for step in job["steps"] if "uses" in step][:3] == [
-        "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+        "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
         "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
         "astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39",
     ]
