@@ -65,6 +65,13 @@ flowchart TD
 Do not use **flow** for a product path. Qualify third-party objects: **dlt
 pipeline**, **OddsFox Pipeline**. Jobs named `*_full_pipeline` remain valid.
 
+Entry-point jobs (`*_full_pipeline`, or the sole job for single-job isolated
+pipelines such as Polygon settlement) are pipelines. Narrower jobs such as
+`*_dbt_build`, `*_market_scope_registry_refresh`, `*_hourly_odds_ingest`, and
+`*_logical_atlas` run one step of a pipeline, not a separate pipeline. See the
+[Pipeline registry](orchestration.md#pipeline-registry) for the full inventory
+and maturity tiers.
+
 ### Identity
 
 | Term | Meaning | Example |

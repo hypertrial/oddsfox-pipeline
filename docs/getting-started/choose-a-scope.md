@@ -56,7 +56,7 @@ These fixed jobs are not chooser refs:
 | --- | --- |
 | Cross-platform knockout match odds (`wc2026_knockout_match_odds_full_pipeline`) | [Run cross-platform knockout](../guides/run-cross-platform-knockout.md) |
 | Isolated Polygon settlement history | [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md) |
-| Match-minute and Polygon minute mart recreation | [Recreate local marts](../guides/recreate-local-marts.md) |
+| Advanced match analysis (experimental): minute odds (optional); order book → market portrait | [Recreate local marts](../guides/recreate-local-marts.md), [Recreate PMXT order-book mart](../guides/recreate-match-order-book-mart.md), [Market portrait](../reference/market-portrait.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
 
 Next, read [Run a scope](../guides/run-a-scope.md) for staged execution or
 [Data contracts](../reference/data-contracts.md) for the exact documented marts.

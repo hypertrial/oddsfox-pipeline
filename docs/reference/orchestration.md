@@ -9,6 +9,30 @@ For procedures, use [Run a scope](../guides/run-a-scope.md),
 
 Canonical vocabulary lives in [Terminology](terminology.md).
 
+## Pipeline registry
+
+Entry-point jobs are pipelines; narrower jobs run one step of a pipeline. See
+[Terminology](terminology.md#execution) for the distinction.
+
+**Maturity tiers:** **Production** — scheduled-capable, full `ci-fast` dbt gate,
+primary quickstart path. **Mature, composed** — composes existing scope assets
+into a cross-provider mart. **Mature, isolated** — own CI lane and documented
+data-boundary isolation, not immaturity. **Experimental** — opt-in backfill,
+paid or narrow credentials, single-target manifests.
+
+| Pipeline | Entry job(s) | Steps | Schedule | CI dbt gate | Maturity |
+| --- | --- | --- | --- | --- | --- |
+| Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt`, `logical_atlas` | Hourly odds (stopped) | `ci-fast` (`+tag:polymarket,tag:wc2026`) | Production |
+| Polymarket US midterms 2026 | `polymarket_us_midterms_2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` (`+tag:us_midterms_2026`) | Production |
+| Kalshi WC2026 | `kalshi_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` (`+tag:kalshi`) | Production |
+| Cross-platform WC2026 knockout | `wc2026_knockout_match_odds_full_pipeline` | OpenFootball fixtures + both provider registries and hourly odds + `+tag:cross_domain` dbt | Hourly (stopped) | `ci-fast` (`+tag:cross_domain`) | Mature, composed |
+| Polygon settlement history | `polymarket_wc2026_polygon_settlement_backfill` → `_release` → standalone exporter | Backfill scan, audit release, offline export | None | `dbt-polygon-settlement-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
+| Advanced match analysis | `polymarket_wc2026_match_order_book_backfill` → `polymarket_wc2026_market_portrait_backfill`; `polymarket_wc2026_match_minute_odds_backfill` (independent) | Order book, then portrait (portrait requires order book + trades); minute odds is a separate optional path in the same family | None | Minute mart in `ci-fast`; PMXT-tagged models excluded (`tag:pmxt_order_book`) | Experimental |
+
+Supporting ingestion jobs (`international_results_historical_ingest`,
+`international_results_wc2026_match_results_ingest`) feed WC2026 production
+pipelines but are not separate product pipelines.
+
 ## Asset order
 
 1. `polymarket/wc2026/raw/markets`
@@ -46,32 +70,29 @@ Flat Dagster op names preserve the same source-first order, for example
 
 ## Jobs
 
+Entry-point jobs are pipelines; narrower jobs run one step. See
+[Pipeline registry](#pipeline-registry) and [Terminology](terminology.md#execution).
+
 ### Polymarket WC2026
 
-- `international_results_historical_ingest`: public 2006+ matches, shootouts,
-  and goalscorers for strategy model fitting.
+**Entry point**
+
+- `polymarket_wc2026_full_pipeline`: results, registry, odds, dbt, and logical
+  atlas release.
+
+**Steps**
+
 - `polymarket_wc2026_market_scope_registry_refresh`: market discovery, market
   scope registry refresh, and metadata enrichment.
 - `polymarket_wc2026_hourly_odds_ingest`: trailing hourly token-odds refresh.
-- `polymarket_wc2026_match_minute_odds_backfill`: one-time or rerunnable
-  completed-match backfill for all 104 FIFA-numbered games and the dedicated
-  minute mart. It refreshes the latest 104 international-results rows and the
-  OpenFootball schedule fixtures (knockout subset 73–104), discovers closed
-  Gamma events without a volume floor, validates result alignment and the
-  104/248/496 inventory, fetches exact game windows at CLOB `fidelity=1`, then
-  runs dbt. The results refresh first resolves and downloads an immutable Git
-  revision. Minute fetches append 496 audit rows; only an all-success run
-  atomically replaces raw history and marks those audits published.
-  Run `uv run make match-minute-live-smoke` for the disposable live acceptance
-  check; it is intentionally absent from CI and all schedules.
-- `polymarket_wc2026_match_order_book_backfill`: validates the reviewed
-  Argentina–Egypt match-95 manifest against one exact Gamma market lookup,
-  retrieves both independent outcome-token snapshot streams from PMXT, and
-  builds only `+tag:pmxt_order_book`. Saturated 1,000-snapshot ranges split
-  recursively with a one-millisecond overlap; terminal loads merge
-  idempotently before their window checkpoints. Compatible published runs
-  return without Gamma, PMXT, or credential access. Credit exhaustion pauses
-  the scan for a later resume. The job has no schedule.
+- `polymarket_wc2026_dbt_build`: WC2026 and international-results dbt build.
+- `polymarket_wc2026_logical_atlas`: builds logical marts and publishes the
+  `polymarket/wc2026/release/logical_bundle` for the static WC2026 logical atlas
+  (no odds). See
+  [Build the WC2026 logical atlas](../guides/build-wc2026-logical-atlas.md).
+
+**Isolated: Polygon settlement**
+
 - `polymarket_wc2026_polygon_settlement_backfill`: validates the committed
   248-proposition seed, resolves each unique window once, and scans only the
   authored exchange for each range through the finalized head. Five bounded
@@ -89,15 +110,42 @@ Flat Dagster op names preserve the same source-first order, for example
   scan. The standalone technical exporter is not a Dagster asset or job; it
   reads a completed audit bundle offline and writes below
   `artifacts/polygon_settlement/exports/releases/`.
+
+**Advanced match analysis (experimental)**
+
+Portrait requires order book and trades; minute odds is an independent path in
+the same family. See [Pipeline registry](#pipeline-registry).
+
+1. `polymarket_wc2026_match_minute_odds_backfill` (optional, independent): one-time or rerunnable
+   completed-match backfill for all 104 FIFA-numbered games and the dedicated
+   minute mart. It refreshes the latest 104 international-results rows and the
+   OpenFootball schedule fixtures (knockout subset 73–104), discovers closed
+   Gamma events without a volume floor, validates result alignment and the
+   104/248/496 inventory, fetches exact game windows at CLOB `fidelity=1`, then
+   runs dbt. The results refresh first resolves and downloads an immutable Git
+   revision. Minute fetches append 496 audit rows; only an all-success run
+   atomically replaces raw history and marks those audits published.
+   Run `uv run make match-minute-live-smoke` for the disposable live acceptance
+   check; it is intentionally absent from CI and all schedules.
+2. `polymarket_wc2026_match_order_book_backfill` (required before portrait): validates the reviewed
+   Argentina–Egypt match-95 manifest against one exact Gamma market lookup,
+   retrieves both independent outcome-token snapshot streams from PMXT, and
+   builds only `+tag:pmxt_order_book`. Saturated 1,000-snapshot ranges split
+   recursively with a one-millisecond overlap; terminal loads merge
+   idempotently before their window checkpoints. Compatible published runs
+   return without Gamma, PMXT, or credential access. Credit exhaustion pauses
+   the scan for a later resume. The job has no schedule.
+3. `polymarket_wc2026_market_portrait_backfill` (requires step 2): resumable PMXT books and
+   trades backfill for a reviewed target manifest; builds the
+   `oddsfox.market-portrait.v1` bundle. Requires `TARGET_MANIFEST` and a PMXT
+   API key. See [Market portrait](market-portrait.md).
+
+**Supporting ingestion**
+
+- `international_results_historical_ingest`: public 2006+ matches, shootouts,
+  and goalscorers for strategy model fitting.
 - `international_results_wc2026_match_results_ingest`: FIFA fixture/results
   refresh.
-- `polymarket_wc2026_dbt_build`: WC2026 and international-results dbt build.
-- `polymarket_wc2026_logical_atlas`: builds logical marts and publishes the
-  `polymarket/wc2026/release/logical_bundle` for the static WC2026 logical atlas
-  (no odds). See
-  [Build the WC2026 logical atlas](../guides/build-wc2026-logical-atlas.md).
-- `polymarket_wc2026_full_pipeline`: results, registry, odds, dbt, and logical
-  atlas release.
 
 ### Polymarket US midterms 2026
 

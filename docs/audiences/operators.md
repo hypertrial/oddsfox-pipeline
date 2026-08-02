@@ -21,8 +21,7 @@ Schedules stay disabled until manual jobs and dbt builds are healthy.
 | `polymarket:us_midterms_2026` | Public Gamma/CLOB; auth optional for public pipelines | `.env` only |
 | `kalshi:wc2026` | Public trade API; no API credentials | `.env` only |
 | FIFA / international results | Public CSV feeds pulled by WC2026 jobs | `.env` only |
-| Match-minute mart recreation | Live APIs or a completed raw warehouse | Populated schedule overlay at the documented seed path (tracked file is a header-only shell) |
-| PMXT historical order book | Hosted PMXT with a free or paid API key | Reviewed tracked target manifest; initial target is fixed to Argentina–Egypt match 95 |
+| Advanced match analysis (experimental): minute odds (optional); order book → market portrait | Live APIs or completed raw warehouse; PMXT API key for order-book and portrait steps | Populated schedule overlay (tracked shell) for minute; reviewed target manifest for match 95 (order book / portrait) |
 | Polygon settlement (advanced) | Finalized-capable Polygon JSON-RPC | Reviewed 248-row manifest + resolution attestation (tracked seed is a header-only shell) |
 
 Never commit `.env`, operator seed rows, reviewed attestations, DuckDB files, or
@@ -48,8 +47,7 @@ These are optional. They are not part of the default quickstart.
 | --- | --- |
 | Enable hourly schedules | [Enable schedules](../guides/enable-schedules.md) |
 | Cross-platform knockout full pipeline | [Run cross-platform knockout](../guides/run-cross-platform-knockout.md) |
-| Recreate WC2026 minute marts locally | [Recreate local marts](../guides/recreate-local-marts.md) |
-| PMXT historical order-book backfill | [Recreate PMXT order-book mart](../guides/recreate-match-order-book-mart.md) |
+| Advanced match analysis (experimental): minute odds (optional); order book → market portrait | [Recreate local marts](../guides/recreate-local-marts.md), [Recreate PMXT order-book mart](../guides/recreate-match-order-book-mart.md), [Market portrait](../reference/market-portrait.md); maturity tiers in [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
 | Isolated Polygon settlement history | [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md) |
 | Graph / knockout parquet exports | [Scripts](../reference/scripts.md) |
 | Configuration reference | [Configuration](../reference/configuration.md) |

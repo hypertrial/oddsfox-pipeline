@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Pipeline clarity docs: [Pipeline registry](docs/reference/orchestration.md#pipeline-registry)
+  with maturity tiers (production, mature composed/isolated, experimental);
+  entry-point jobs vs steps in [Terminology](docs/reference/terminology.md#execution);
+  advanced match-analysis family (order book → market portrait; minute odds
+  optional and independent) grouped in operator and scope guides. Docs-only; no job or code changes.
 - Compact terminology cutover: normative vocabulary is exactly **34** core
   terms in `docs/reference/terminology.md`, gated by
   `config/terminology_policy.toml` and `make check-terminology`. Breaking

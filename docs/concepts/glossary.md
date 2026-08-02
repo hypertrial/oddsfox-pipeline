@@ -37,7 +37,9 @@ have usable closes for that row's comparison.
 ## Operator And Integration Terms
 
 **pipeline** — A coherent source-to-output data path such as the Polymarket
-WC2026 match-minute odds pipeline. See
+WC2026 match-minute odds pipeline. Entry-point jobs are pipelines; narrower jobs
+are steps. Full inventory and maturity tiers:
+[Pipeline registry](../reference/orchestration.md#pipeline-registry). See
 [Terminology](../reference/terminology.md#execution).
 
 **scope** — A fixed shipped product slice within a source, such as `wc2026`.

@@ -46,3 +46,21 @@ boundaries than quote/CLOB history.
 
 See [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md)
 and [Data contracts](../reference/data-contracts.md).
+
+## Pipeline, Step, and Advanced-Family Language
+
+Entry-point jobs (`*_full_pipeline`, or the sole job for single-job isolated
+pipelines) are pipelines. Narrower jobs such as `*_dbt_build`,
+`*_market_scope_registry_refresh`, `*_hourly_odds_ingest`, and
+`*_logical_atlas` run one step of a pipeline, not a separate pipeline. The
+match-minute, PMXT order-book, and market-portrait jobs are documented together
+as one advanced match-analysis pipeline family. Portrait requires order book
+and trades; minute odds is an independent optional path in the same family,
+without changing job names or schedules.
+
+Why: one authoritative inventory and maturity table prevents counting every
+registered job as a separate pipeline; grouping reflects actual operator
+dependencies.
+
+See [Pipeline registry](../reference/orchestration.md#pipeline-registry) and
+[Terminology](../reference/terminology.md#execution).
