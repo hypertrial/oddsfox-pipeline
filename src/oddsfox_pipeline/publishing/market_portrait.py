@@ -147,16 +147,7 @@ def _priority(event: FootballEvent) -> str:
     return "P2"
 
 
-def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
-    if facts.sanitization != "deterministic-micro-epsilon-v1":
-        raise ValueError(
-            "football facts must use deterministic-micro-epsilon-v1 sanitation"
-        )
-    if len(facts.source_provenance_sha256) != 64 or any(
-        character not in "0123456789abcdef"
-        for character in facts.source_provenance_sha256
-    ):
-        raise ValueError("source provenance must be a lowercase SHA-256 commitment")
+def _validate_match_periods(facts: MatchFacts) -> list[tuple[datetime, datetime]]:
     kickoff = _utc(facts.kickoff_at_utc, "kickoff_at_utc")
     first_half_start = _utc(facts.first_half_started_at, "first_half")
     kickoff_delta = first_half_start - kickoff
@@ -234,6 +225,15 @@ def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
             raise ValueError("match_ended_at precedes the final period boundary")
         if match_ended_at - final_period_end > timedelta(minutes=45):
             raise ValueError("match_ended_at is implausibly late")
+    return ordered
+
+
+def _validate_football_events(
+    facts: MatchFacts,
+    events: Sequence[FootballEvent],
+    *,
+    final_period_end: datetime,
+) -> None:
     orders = [event.event_order for event in events]
     if orders != sorted(orders) or len(orders) != len(set(orders)):
         raise ValueError("football event order must be unique and monotonic")
@@ -263,6 +263,22 @@ def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
         raise ValueError(
             "penalties require an actual match_ended_at after the final period"
         )
+
+
+def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
+    if facts.sanitization != "deterministic-micro-epsilon-v1":
+        raise ValueError(
+            "football facts must use deterministic-micro-epsilon-v1 sanitation"
+        )
+    if len(facts.source_provenance_sha256) != 64 or any(
+        character not in "0123456789abcdef"
+        for character in facts.source_provenance_sha256
+    ):
+        raise ValueError("source provenance must be a lowercase SHA-256 commitment")
+    ordered = _validate_match_periods(facts)
+    _validate_football_events(
+        facts, events, final_period_end=ordered[-1][1]
+    )
 
 
 def _minute_specs(
@@ -1071,15 +1087,15 @@ def _validate_story(facts: MatchFacts, story: dict[str, Any]) -> None:
             )
 
 
-def _fetch_rows(
-    connection: Any, fifa_match_id: int
-) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], dict[str, str]]:
-    required_tables = {
-        ("polymarket_wc2026_marts", "polymarket_wc2026_match_order_book_states"),
-        ("polymarket_wc2026_marts", "polymarket_wc2026_match_trades"),
-        ("polymarket_wc2026_ops", "match_order_book_scan_runs"),
-        ("polymarket_wc2026_ops", "match_trade_scan_runs"),
-    }
+_PORTRAIT_REQUIRED_TABLES = {
+    ("polymarket_wc2026_marts", "polymarket_wc2026_match_order_book_states"),
+    ("polymarket_wc2026_marts", "polymarket_wc2026_match_trades"),
+    ("polymarket_wc2026_ops", "match_order_book_scan_runs"),
+    ("polymarket_wc2026_ops", "match_trade_scan_runs"),
+}
+
+
+def _require_portrait_marts(connection: Any) -> None:
     available_tables = {
         (str(schema), str(table))
         for schema, table in connection.execute(
@@ -1091,10 +1107,15 @@ def _fetch_rows(
             )
             """
         ).fetchall()
-        if (str(schema), str(table)) in required_tables
+        if (str(schema), str(table)) in _PORTRAIT_REQUIRED_TABLES
     }
-    if available_tables != required_tables:
+    if available_tables != _PORTRAIT_REQUIRED_TABLES:
         raise ValueError("published PMXT portrait marts are required for export")
+
+
+def _resolve_published_pmxt_scan(
+    connection: Any, fifa_match_id: int
+) -> tuple[str, str, str]:
     candidates = connection.execute(
         """
         SELECT DISTINCT scan_id, manifest_sha256
@@ -1120,7 +1141,12 @@ def _fetch_rows(
             published.append((str(scan_id), str(manifest_sha256), str(valid[0])))
     if len(published) != 1:
         raise ValueError(f"no published PMXT scan exists for match {fifa_match_id}")
-    scan_id, manifest_sha256, order_book_sha256 = published[0]
+    return published[0]
+
+
+def _fetch_portrait_states(
+    connection: Any, *, scan_id: str, fifa_match_id: int
+) -> list[dict[str, Any]]:
     cursor = connection.execute(
         """
         SELECT market_id, clob_token_id, landscape_role,
@@ -1166,6 +1192,18 @@ def _fetch_rows(
     roles = set(_landscape_roles(states))
     if not roles <= _ROLES:  # pragma: no cover - helper validates the exact inventory
         raise ValueError(f"invalid portrait role inventory: {sorted(roles)}")
+    return states
+
+
+def _fetch_portrait_trades(
+    connection: Any,
+    *,
+    scan_id: str,
+    manifest_sha256: str,
+    fifa_match_id: int,
+    states: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], str]:
+    roles = {str(state["role"]) for state in states}
     trade_run = connection.execute(
         """
         SELECT trade_count, aggregate_sha256
@@ -1234,6 +1272,26 @@ def _fetch_rows(
                 side = "sell"
         trade["aggressor_side"] = side
         trades.append(trade)
+    return trades, str(trade_run[1])
+
+
+def _fetch_rows(
+    connection: Any, fifa_match_id: int
+) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], dict[str, str]]:
+    _require_portrait_marts(connection)
+    scan_id, manifest_sha256, order_book_sha256 = _resolve_published_pmxt_scan(
+        connection, fifa_match_id
+    )
+    states = _fetch_portrait_states(
+        connection, scan_id=scan_id, fifa_match_id=fifa_match_id
+    )
+    trades, trade_aggregate_sha256 = _fetch_portrait_trades(
+        connection,
+        scan_id=scan_id,
+        manifest_sha256=manifest_sha256,
+        fifa_match_id=fifa_match_id,
+        states=states,
+    )
     return (
         scan_id,
         states,
@@ -1241,7 +1299,7 @@ def _fetch_rows(
         {
             "manifest_sha256": manifest_sha256,
             "order_book_aggregate_sha256": order_book_sha256,
-            "trade_aggregate_sha256": str(trade_run[1]),
+            "trade_aggregate_sha256": trade_aggregate_sha256,
         },
     )
 
