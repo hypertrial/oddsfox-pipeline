@@ -890,14 +890,9 @@ def apply_creator_updates(
     }
 
 
-def _condition_events(
+def _scan_neg_risk_adapter_markets(
     rpc: AuthoringRPC,
-    questions: dict[tuple[int, str], Question] | None = None,
-) -> tuple[
-    dict[tuple[str, str], dict[str, Any]],
-    dict[str, dict[str, Any]],
-    dict[str, NegRiskQuestionChain],
-]:
+) -> dict[str, tuple[str, dict[str, Any]]]:
     adapter_markets: dict[str, tuple[str, dict[str, Any]]] = {}
     for log in rpc.scan(
         GROUP_FROM_BLOCK,
@@ -914,7 +909,13 @@ def _condition_events(
         adapter_markets[market_id] = (_topic_address(str(topics[2])), log)
     if not adapter_markets:
         raise ValueError("No NegRiskAdapter markets found in the audited group batch")
+    return adapter_markets
 
+
+def _scan_neg_risk_adapter_questions(
+    rpc: AuthoringRPC,
+    adapter_markets: dict[str, tuple[str, dict[str, Any]]],
+) -> dict[str, tuple[str, dict[str, Any]]]:
     adapter_questions: dict[str, tuple[str, dict[str, Any]]] = {}
     for log in rpc.scan(
         GROUP_FROM_BLOCK,
@@ -932,7 +933,12 @@ def _condition_events(
         if question_id in adapter_questions:
             raise ValueError(f"Duplicate NegRiskAdapter question {question_id}")
         adapter_questions[question_id] = (market_id, log)
+    return adapter_questions
 
+
+def _scan_neg_risk_operator_markets(
+    rpc: AuthoringRPC,
+) -> dict[tuple[str, str], dict[str, Any]]:
     operator_markets: dict[tuple[str, str], dict[str, Any]] = {}
     for log in rpc.scan(
         GROUP_FROM_BLOCK,
@@ -949,7 +955,16 @@ def _condition_events(
         if key in operator_markets:
             raise ValueError(f"Duplicate NegRiskOperator market {key[1]}")
         operator_markets[key] = log
+    return operator_markets
 
+
+def _scan_neg_risk_question_chains(
+    rpc: AuthoringRPC,
+    *,
+    adapter_markets: dict[str, tuple[str, dict[str, Any]]],
+    adapter_questions: dict[str, tuple[str, dict[str, Any]]],
+    operator_markets: dict[tuple[str, str], dict[str, Any]],
+) -> dict[str, NegRiskQuestionChain]:
     chains_by_request: dict[str, NegRiskQuestionChain] = {}
     for log in rpc.scan(
         GROUP_FROM_BLOCK,
@@ -988,6 +1003,41 @@ def _condition_events(
             adapter_question_log=adapter_question_log,
             operator_question_log=log,
         )
+    return chains_by_request
+
+
+def _condition_preparation_topics(
+    questions: dict[tuple[int, str], Question] | None,
+    chains_by_request: dict[str, NegRiskQuestionChain],
+) -> tuple[Any, ...]:
+    if questions is None:
+        return (CONDITION_PREPARATION_TOPIC,)
+    selected_question_ids: set[str] = set()
+    for question in questions.values():
+        if question.fixture_id <= 72:
+            chain = chains_by_request.get(question.question_id)
+            if chain is None:
+                raise ValueError(
+                    "Selected group question has no complete neg-risk chain: "
+                    f"request_id={question.question_id}"
+                )
+            selected_question_ids.add(chain.question_id)
+        else:
+            selected_question_ids.add(question.question_id)
+    if not selected_question_ids:
+        raise ValueError("Selected condition question-ID filter is empty")
+    return (
+        CONDITION_PREPARATION_TOPIC,
+        None,
+        None,
+        sorted(selected_question_ids),
+    )
+
+
+def _scan_condition_preparations(
+    rpc: AuthoringRPC,
+    condition_topics: tuple[Any, ...],
+) -> tuple[dict[tuple[str, str], dict[str, Any]], dict[str, dict[str, Any]]]:
     # A question ID is scoped to the UMA adapter/oracle which initialized it.
     # The same ancillary data can therefore legitimately produce the same
     # question ID on more than one adapter.  A duplicate for the same oracle
@@ -998,28 +1048,6 @@ def _condition_events(
         (GROUP_FROM_BLOCK, GROUP_TO_BLOCK),
         (KNOCKOUT_FROM_BLOCK, KNOCKOUT_TO_BLOCK),
     )
-    condition_topics: tuple[Any, ...] = (CONDITION_PREPARATION_TOPIC,)
-    if questions is not None:
-        selected_question_ids: set[str] = set()
-        for question in questions.values():
-            if question.fixture_id <= 72:
-                chain = chains_by_request.get(question.question_id)
-                if chain is None:
-                    raise ValueError(
-                        "Selected group question has no complete neg-risk chain: "
-                        f"request_id={question.question_id}"
-                    )
-                selected_question_ids.add(chain.question_id)
-            else:
-                selected_question_ids.add(question.question_id)
-        if not selected_question_ids:
-            raise ValueError("Selected condition question-ID filter is empty")
-        condition_topics = (
-            CONDITION_PREPARATION_TOPIC,
-            None,
-            None,
-            sorted(selected_question_ids),
-        )
     for start, end in ranges:
         for log in rpc.scan(
             start,
@@ -1041,6 +1069,31 @@ def _condition_events(
                 )
             by_oracle_question[key] = log
             by_transaction.setdefault(transaction_hash, log)
+    return by_oracle_question, by_transaction
+
+
+def _condition_events(
+    rpc: AuthoringRPC,
+    questions: dict[tuple[int, str], Question] | None = None,
+) -> tuple[
+    dict[tuple[str, str], dict[str, Any]],
+    dict[str, dict[str, Any]],
+    dict[str, NegRiskQuestionChain],
+]:
+    adapter_markets = _scan_neg_risk_adapter_markets(rpc)
+    adapter_questions = _scan_neg_risk_adapter_questions(rpc, adapter_markets)
+    operator_markets = _scan_neg_risk_operator_markets(rpc)
+    chains_by_request = _scan_neg_risk_question_chains(
+        rpc,
+        adapter_markets=adapter_markets,
+        adapter_questions=adapter_questions,
+        operator_markets=operator_markets,
+    )
+    condition_topics = _condition_preparation_topics(questions, chains_by_request)
+    by_oracle_question, by_transaction = _scan_condition_preparations(
+        rpc,
+        condition_topics,
+    )
     for chain in chains_by_request.values():
         condition_log = by_oracle_question.get((NEG_RISK_ADAPTER, chain.question_id))
         if condition_log is not None:
