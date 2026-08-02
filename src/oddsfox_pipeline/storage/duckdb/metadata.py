@@ -4,6 +4,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+import duckdb
+
 from oddsfox_pipeline.config.settings_kalshi import (
     DEFAULT_KALSHI_WC2026_MARKET_SCOPE,
 )
@@ -11,6 +13,7 @@ from oddsfox_pipeline.config.settings_polymarket import (
     DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
 )
 from oddsfox_pipeline.storage.duckdb.connection import (
+    _use_conn,
     ensure_duck_db,
     get_connection,
     polymarket_wc2026_ops_tbl,
@@ -46,20 +49,27 @@ def _ops_tbl(
     return polymarket_ops_tbl(scope, table)
 
 
-def _metadata_get(key: str) -> Optional[str]:
+def _metadata_get(
+    key: str,
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> Optional[str]:
     ensure_duck_db()
-    with get_connection() as conn:
-        row = conn.execute(
+    with _use_conn(conn) as active:
+        row = active.execute(
             f"SELECT value FROM {polymarket_wc2026_ops_tbl('scrape_metadata')} WHERE key = ?",
             [key],
         ).fetchone()
         return row[0] if row else None
 
 
-def _metadata_set(key: str, value: str):
+def _metadata_set(
+    key: str,
+    value: str,
+    conn: duckdb.DuckDBPyConnection | None = None,
+):
     ensure_duck_db()
-    with get_connection() as conn:
-        conn.execute(
+    with _use_conn(conn) as active:
+        active.execute(
             f"""
             INSERT OR REPLACE INTO {polymarket_wc2026_ops_tbl("scrape_metadata")} (key, value)
             VALUES (?, ?)
@@ -68,37 +78,54 @@ def _metadata_set(key: str, value: str):
         )
 
 
-def get_backfill_fully_checked(task: str) -> Optional[bool]:
+def get_backfill_fully_checked(
+    task: str,
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> Optional[bool]:
     """Return ledger status for a backfill task (True/False) or None if unset."""
     key = f"{_BACKFILL_KEY_PREFIX}{task}:fully_checked"
-    raw = _metadata_get(key)
+    raw = _metadata_get(key, conn)
     if raw is None:
         return None
     return raw.lower() in ("1", "true", "yes")
 
 
-def set_backfill_fully_checked(task: str, fully_checked: bool):
+def set_backfill_fully_checked(
+    task: str,
+    fully_checked: bool,
+    conn: duckdb.DuckDBPyConnection | None = None,
+):
     """Persist ledger status for a backfill task and update timestamp."""
     now_iso = datetime.now(timezone.utc).isoformat()
     _metadata_set(
         f"{_BACKFILL_KEY_PREFIX}{task}:fully_checked",
         "1" if fully_checked else "0",
+        conn,
     )
-    _metadata_set(f"{_BACKFILL_KEY_PREFIX}{task}:timestamp", now_iso)
+    _metadata_set(f"{_BACKFILL_KEY_PREFIX}{task}:timestamp", now_iso, conn)
 
 
-def get_backfill_progress(task: str) -> int:
+def get_backfill_progress(
+    task: str,
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> int:
     """Return the last processed count for a backfill task (0 if unset)."""
-    raw = _metadata_get(f"{_BACKFILL_KEY_PREFIX}{task}:progress")
+    raw = _metadata_get(f"{_BACKFILL_KEY_PREFIX}{task}:progress", conn)
     try:
         return int(raw) if raw is not None else 0
     except ValueError:
         return 0
 
 
-def set_backfill_progress(task: str, processed: int):
+def set_backfill_progress(
+    task: str,
+    processed: int,
+    conn: duckdb.DuckDBPyConnection | None = None,
+):
     """Persist the last processed count for a backfill task."""
-    _metadata_set(f"{_BACKFILL_KEY_PREFIX}{task}:progress", str(int(processed)))
+    _metadata_set(
+        f"{_BACKFILL_KEY_PREFIX}{task}:progress", str(int(processed)), conn
+    )
 
 
 def append_ingestion_run_event(
@@ -108,6 +135,7 @@ def append_ingestion_run_event(
     recorded_at: Optional[datetime] = None,
     scope_name: str | None = None,
     source: OpsSource = "polymarket",
+    conn: duckdb.DuckDBPyConnection | None = None,
 ) -> str:
     """
     Append one row to the append-only ingestion_run_events table for queryable audit history.
@@ -126,13 +154,13 @@ def append_ingestion_run_event(
         "recorded_at": ts,
         "metrics_json": json.dumps(payload, sort_keys=True),
     }
-    with get_connection() as conn:
+    with _use_conn(conn) as active:
         if source == "kalshi":
             append_kalshi_ingestion_run_event_stage(
-                row, conn, scope_name=scope_name or _default_scope(source)
+                row, active, scope_name=scope_name or _default_scope(source)
             )
         else:
-            append_ingestion_run_event_stage(row, conn, scope_name=scope_name)
+            append_ingestion_run_event_stage(row, active, scope_name=scope_name)
     return run_id
 
 
@@ -143,6 +171,7 @@ def save_sync_run_metrics(
     *,
     scope_name: str | None = None,
     source: OpsSource = "polymarket",
+    conn: duckdb.DuckDBPyConnection | None = None,
 ):
     """
     Persist latest sync metrics and a short rolling history in scrape_metadata.
@@ -155,7 +184,12 @@ def save_sync_run_metrics(
 
     try:
         append_ingestion_run_event(
-            task, payload, recorded_at=recorded, scope_name=scope_name, source=source
+            task,
+            payload,
+            recorded_at=recorded,
+            scope_name=scope_name,
+            source=source,
+            conn=conn,
         )
     except Exception as exc:
         payload["ingestion_run_event_append_failed"] = True
@@ -165,10 +199,10 @@ def save_sync_run_metrics(
             exc,
         )
 
-    _metadata_set(f"{base_key}:last", json.dumps(payload, sort_keys=True))
+    _metadata_set(f"{base_key}:last", json.dumps(payload, sort_keys=True), conn)
 
     history_key = f"{base_key}:history"
-    history_raw = _metadata_get(history_key)
+    history_raw = _metadata_get(history_key, conn)
     history: list[dict[str, Any]] = []
     if history_raw:
         try:
@@ -181,9 +215,9 @@ def save_sync_run_metrics(
     history.append(payload)
     if history_limit > 0:
         history = history[-int(history_limit) :]
-    _metadata_set(history_key, json.dumps(history, sort_keys=True))
-    with get_connection() as conn:
-        conn.execute(
+    _metadata_set(history_key, json.dumps(history, sort_keys=True), conn)
+    with _use_conn(conn) as active:
+        active.execute(
             f"""
             INSERT OR REPLACE INTO {_ops_tbl(scope_name, "sync_run_metrics", source=source)} (
                 task_name, recorded_at, metrics_json, history_json
@@ -211,12 +245,13 @@ def get_sync_run_metrics(
     *,
     scope_name: str | None = None,
     source: OpsSource = "polymarket",
+    conn: duckdb.DuckDBPyConnection | None = None,
 ) -> Optional[dict[str, Any]]:
     """Return the most recent sync metrics payload for task, if present."""
     ensure_duck_db()
-    with get_connection() as conn:
+    with _use_conn(conn) as active:
         try:
-            row = conn.execute(
+            row = active.execute(
                 f"""
                 SELECT metrics_json
                 FROM {_ops_tbl(scope_name, "sync_run_metrics", source=source)}
@@ -234,7 +269,7 @@ def get_sync_run_metrics(
         if isinstance(parsed_table, dict):
             return parsed_table
 
-    raw = _metadata_get(f"sync_metrics:{task}:last")
+    raw = _metadata_get(f"sync_metrics:{task}:last", conn)
     if raw is None:
         return None
     try:
@@ -256,9 +291,10 @@ def _scope_discovery_key(scope_name: str, suffix: str) -> str:
 
 def get_market_scope_discovery_fully_checked(
     scope_name: str = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
+    conn: duckdb.DuckDBPyConnection | None = None,
 ) -> Optional[bool]:
     """Return whether a full keyset market-scope discovery completed cleanly."""
-    raw = _metadata_get(_scope_discovery_key(scope_name, "fully_checked"))
+    raw = _metadata_get(_scope_discovery_key(scope_name, "fully_checked"), conn)
     if raw is None:
         return None
     return raw.lower() in ("1", "true", "yes")
@@ -266,8 +302,9 @@ def get_market_scope_discovery_fully_checked(
 
 def get_market_scope_discovery_scope_config_hash(
     scope_name: str = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
+    conn: duckdb.DuckDBPyConnection | None = None,
 ) -> Optional[str]:
-    raw = _metadata_get(_scope_discovery_key(scope_name, "scope_config_hash"))
+    raw = _metadata_get(_scope_discovery_key(scope_name, "scope_config_hash"), conn)
     return raw if raw else None
 
 
@@ -276,24 +313,28 @@ def set_market_scope_discovery_fully_checked(
     fully_checked: bool = False,
     *,
     scope_config_hash: str,
+    conn: duckdb.DuckDBPyConnection | None = None,
 ) -> None:
     """Persist full keyset discovery completion and scope config hash."""
     now_iso = datetime.now(timezone.utc).isoformat()
     _metadata_set(
         _scope_discovery_key(scope_name, "fully_checked"),
         "1" if fully_checked else "0",
+        conn,
     )
     _metadata_set(
         _scope_discovery_key(scope_name, "scope_config_hash"),
         scope_config_hash,
+        conn,
     )
-    _metadata_set(_scope_discovery_key(scope_name, "last_run_at"), now_iso)
+    _metadata_set(_scope_discovery_key(scope_name, "last_run_at"), now_iso, conn)
 
 
 __all__ = [
     "_metadata_get",
     "_metadata_set",
     "append_ingestion_run_event",
+    "get_connection",
     "get_backfill_fully_checked",
     "set_backfill_fully_checked",
     "get_backfill_progress",

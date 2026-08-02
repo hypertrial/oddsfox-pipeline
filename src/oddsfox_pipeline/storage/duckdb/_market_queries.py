@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple
 
+import duckdb
+
 from oddsfox_pipeline.ingestion.polymarket import scope_sql
 from oddsfox_pipeline.storage.duckdb.connection import (
+    _use_conn,
     ensure_duck_db,
     get_connection,
 )
@@ -51,12 +54,17 @@ def _due_token_join_sql() -> str:
 """
 
 
-def _fetch_market_ids(base_query: str, limit: Optional[int] = None) -> List[str]:
+def _fetch_market_ids(
+    base_query: str,
+    limit: Optional[int] = None,
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> List[str]:
     query = base_query
     if limit:
         query += f" LIMIT {int(limit)}"
-    with get_connection() as conn:
-        rows = conn.execute(query).fetchall()
+    ensure_duck_db()
+    with _use_conn(conn) as active:
+        rows = active.execute(query).fetchall()
         return [row[0] for row in rows]
 
 

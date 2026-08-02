@@ -181,12 +181,12 @@ def test_get_sync_run_metrics_query_exception_falls_back(monkeypatch):
             raise RuntimeError("query failed")
 
     @contextmanager
-    def connection():
-        yield Conn()
+    def use_conn(conn=None):
+        yield conn if conn is not None else Conn()
 
     monkeypatch.setattr(metadata, "ensure_duck_db", lambda: None)
-    monkeypatch.setattr(metadata, "get_connection", connection)
-    monkeypatch.setattr(metadata, "_metadata_get", lambda _key: None)
+    monkeypatch.setattr(metadata, "_use_conn", use_conn)
+    monkeypatch.setattr(metadata, "_metadata_get", lambda _key, _conn=None: None)
 
     assert metadata.get_sync_run_metrics("query_error") is None
 
@@ -224,3 +224,32 @@ def test_save_and_get_sync_run_metrics_kalshi_source(duck):
     )
     assert saved is not None
     assert saved["total_markets"] == 4
+
+
+def test_metadata_helpers_reuse_supplied_connection(duck, monkeypatch):
+    from oddsfox_pipeline.storage.duckdb.connection import get_connection
+
+    opened = 0
+    real_get_connection = get_connection
+
+    @contextmanager
+    def counting_get_connection():
+        nonlocal opened
+        opened += 1
+        with real_get_connection() as conn:
+            yield conn
+
+    monkeypatch.setattr(
+        "oddsfox_pipeline.storage.duckdb.connection.get_connection",
+        counting_get_connection,
+    )
+
+    with real_get_connection() as conn:
+        metadata._metadata_set("conn-thread", "1", conn)
+        assert metadata._metadata_get("conn-thread", conn) == "1"
+        metadata.save_sync_run_metrics("conn-thread", {"ok": True}, conn=conn)
+        saved = metadata.get_sync_run_metrics("conn-thread", conn=conn)
+
+    assert saved is not None
+    assert saved["ok"] is True
+    assert opened == 0
