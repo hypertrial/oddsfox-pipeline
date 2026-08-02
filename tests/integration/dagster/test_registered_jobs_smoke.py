@@ -169,7 +169,7 @@ oddsfox:
             module, "get_sync_run_metrics", lambda *_task, **_kwargs: None
         )
 
-    monkeypatch.setattr(assets_mod, "snapshot_dbt_models", lambda: {})
+    monkeypatch.setattr(assets_mod, "snapshot_dbt_models", lambda **_kwargs: {})
     monkeypatch.setattr(assets_mod, "delta_dbt_models", lambda _pre, _post: {})
     monkeypatch.setattr(assets_mod, "format_raw_snapshot_log", lambda _snapshot: "")
     monkeypatch.setattr(assets_mod, "format_dbt_snapshot_log", lambda _snapshot: "")
