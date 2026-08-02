@@ -44,7 +44,6 @@ def save_odds_bulk_appender(
     logger.debug("Saved %d odds records to DuckDB", len(records))
 
 
-
 def _odds_history_stage_rows(
     records: List[Tuple[str, int, float]],
     *,

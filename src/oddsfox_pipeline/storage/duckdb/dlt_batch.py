@@ -46,6 +46,7 @@ DLT_STRICT_SCHEMA_CONTRACT = {
 _PIPELINES: dict[tuple[str, str], dlt.Pipeline] = {}
 _BATCH_PIPELINE_RUN_ID = f"{os.getpid():x}"
 
+
 def reset_dlt_batch_pipelines() -> None:
     """Clear cached pipelines; useful when tests swap DUCKDB_NAME."""
     _PIPELINES.clear()

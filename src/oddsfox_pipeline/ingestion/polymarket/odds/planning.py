@@ -143,7 +143,10 @@ def iter_token_plans_paged(
     def prepare_page_rows(
         page_rows: object,
     ) -> tuple[
-        List[Tuple[str, bool, int, List[str]]], set[str], Dict[str, str], List[TokenPlan]
+        List[Tuple[str, bool, int, List[str]]],
+        set[str],
+        Dict[str, str],
+        List[TokenPlan],
     ]:
         prepared_rows: List[Tuple[str, bool, int, List[str]]] = []
         page_token_ids: set[str] = set()
@@ -316,9 +319,7 @@ def iter_token_plans_paged(
         )
     )
     for page_rows in row_pages:
-        prepared_rows, _, page_invalid_tokens, page_plans = prepare_page_rows(
-            page_rows
-        )
+        prepared_rows, _, page_invalid_tokens, page_plans = prepare_page_rows(page_rows)
         if not prepared_rows:
             continue
         for token_plan in page_plans:

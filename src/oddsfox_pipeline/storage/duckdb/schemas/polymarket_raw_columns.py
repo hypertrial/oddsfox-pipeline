@@ -232,9 +232,8 @@ EVENT_SNAPSHOT_COLUMNS = columns_to_dlt(_EVENT_SNAPSHOT)
 EVENT_TAG_SNAPSHOT_COLUMNS = columns_to_dlt(_EVENT_TAG_SNAPSHOT)
 EVENT_MARKET_SNAPSHOT_COLUMNS = columns_to_dlt(_EVENT_MARKET_SNAPSHOT)
 EVENT_CATALOG_MARKET_COLUMNS = columns_to_dlt(_EVENT_CATALOG_MARKET)
-EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS = columns_to_dlt(
-    _EVENT_MARKET_PAYLOAD_SNAPSHOT
-)
+EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS = columns_to_dlt(_EVENT_MARKET_PAYLOAD_SNAPSHOT)
+
 
 def polymarket_raw_ddl_body(
     relation: str,
@@ -277,9 +276,7 @@ def dlt_column_names(
     exclude: frozenset[str] = frozenset({"row_order"}),
 ) -> frozenset[str]:
     return frozenset(
-        name
-        for name in _DLT_COLUMNS_BY_RELATION[relation]
-        if name not in exclude
+        name for name in _DLT_COLUMNS_BY_RELATION[relation] if name not in exclude
     )
 
 

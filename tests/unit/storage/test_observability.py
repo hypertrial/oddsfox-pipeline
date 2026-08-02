@@ -144,17 +144,13 @@ def test_scoped_dbt_relations_filters_us_midterms_scope():
     assert all(
         schema.startswith("polymarket_us_midterms_2026_") for schema, _ in relations
     )
-    assert not any(
-        schema.startswith("polymarket_wc2026_") for schema, _ in relations
-    )
+    assert not any(schema.startswith("polymarket_wc2026_") for schema, _ in relations)
 
 
 def test_batch_table_row_counts_reports_missing_and_existing_tables(tmp_path):
     with duckdb.connect(str(tmp_path / "batch.duckdb")) as conn:
         conn.execute("CREATE SCHEMA polymarket_wc2026_raw")
-        conn.execute(
-            "CREATE TABLE polymarket_wc2026_raw.markets (id VARCHAR)"
-        )
+        conn.execute("CREATE TABLE polymarket_wc2026_raw.markets (id VARCHAR)")
         conn.execute("INSERT INTO polymarket_wc2026_raw.markets VALUES ('m1')")
         counts = obs._batch_table_row_counts(
             conn,

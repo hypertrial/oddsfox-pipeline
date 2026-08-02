@@ -381,10 +381,10 @@ def _materialize_market_scope_registry(
             scope_name=scope_name,
             max_event_pages=config.max_event_pages,
             max_pages_without_progress=(
-            DEFAULT_MAX_PAGES_WITHOUT_PROGRESS
-            if config.max_pages_without_progress is None
-            else config.max_pages_without_progress
-        ),
+                DEFAULT_MAX_PAGES_WITHOUT_PROGRESS
+                if config.max_pages_without_progress is None
+                else config.max_pages_without_progress
+            ),
             keyset_closed=config.keyset_closed,
             keyset_tag_slugs=config.keyset_tag_slugs,
             keyset_volume_min=config.keyset_volume_min,

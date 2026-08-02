@@ -32,9 +32,7 @@ def _contract(monkeypatch) -> None:
         "EXPECTED_PROPOSITION_INVENTORY",
         Counter({"home_win": 1, "draw": 1, "away_win": 1}),
     )
-    monkeypatch.setattr(
-        export, "current_clean_commit", lambda _root, **_: "b" * 40
-    )
+    monkeypatch.setattr(export, "current_clean_commit", lambda _root, **_: "b" * 40)
 
 
 def _row(proposition_type: str, proposition_id: str, minute: int) -> dict[str, str]:

@@ -123,9 +123,7 @@ def set_backfill_progress(
     conn: duckdb.DuckDBPyConnection | None = None,
 ):
     """Persist the last processed count for a backfill task."""
-    _metadata_set(
-        f"{_BACKFILL_KEY_PREFIX}{task}:progress", str(int(processed)), conn
-    )
+    _metadata_set(f"{_BACKFILL_KEY_PREFIX}{task}:progress", str(int(processed)), conn)
 
 
 def append_ingestion_run_event(

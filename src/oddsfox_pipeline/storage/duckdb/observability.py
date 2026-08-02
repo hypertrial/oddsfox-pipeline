@@ -115,8 +115,7 @@ def _batch_table_row_counts(
     if not tables:
         return {}
     values_sql = ",\n".join(
-        f"({_sql_literal(schema)}, {_sql_literal(table)})"
-        for schema, table in tables
+        f"({_sql_literal(schema)}, {_sql_literal(table)})" for schema, table in tables
     )
     try:
         exists_rows = conn.execute(
@@ -164,15 +163,11 @@ def _batch_table_row_counts(
             out[(str(schema), str(table))] = (True, int(row_count))
     except duckdb.Error:
         for schema, table in existing:
-            out[(schema, table)] = _table_row_count(
-                conn, _qualified(schema, table)
-            )
+            out[(schema, table)] = _table_row_count(conn, _qualified(schema, table))
     except (TypeError, ValueError) as exc:
         logger.warning("unexpected value in _batch_table_row_counts: %s", exc)
         for schema, table in existing:
-            out[(schema, table)] = _table_row_count(
-                conn, _qualified(schema, table)
-            )
+            out[(schema, table)] = _table_row_count(conn, _qualified(schema, table))
     return out
 
 
@@ -385,7 +380,9 @@ def _infer_dbt_model_tags(schema: str, model: str) -> frozenset[str]:
     return frozenset(tags)
 
 
-def _token_matches_model(token: str, schema: str, model: str, tags: frozenset[str]) -> bool:
+def _token_matches_model(
+    token: str, schema: str, model: str, tags: frozenset[str]
+) -> bool:
     if token.startswith("tag:"):
         return token[4:] in tags
     return token == model or model.startswith(token) or schema.startswith(token)
@@ -411,16 +408,13 @@ def _scoped_dbt_relations(
 ) -> tuple[tuple[str, str], ...]:
     select_groups = _selector_groups(dbt_select)
     exclude_tokens = [
-        token
-        for group in _selector_groups(dbt_exclude)
-        for token in group
+        token for group in _selector_groups(dbt_exclude) for token in group
     ]
     relations: list[tuple[str, str]] = []
     for schema, model in DBT_EXPECTED_RELATIONS:
         tags = _infer_dbt_model_tags(schema, model)
         if exclude_tokens and any(
-            _token_matches_model(token, schema, model, tags)
-            for token in exclude_tokens
+            _token_matches_model(token, schema, model, tags) for token in exclude_tokens
         ):
             continue
         if not _relation_matches_selector_groups(schema, model, select_groups):
@@ -445,7 +439,10 @@ def snapshot_dbt_models(
             key = f"{schema}.{model}"
             exists, row_count = counts.get((schema, model), (False, None))
             if exists:
-                out[key] = {"exists": True, "rows": row_count if row_count is not None else 0}
+                out[key] = {
+                    "exists": True,
+                    "rows": row_count if row_count is not None else 0,
+                }
             else:
                 out[key] = {"exists": False, "rows": None}
 

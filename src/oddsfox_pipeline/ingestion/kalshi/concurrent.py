@@ -34,9 +34,7 @@ def map_bounded(
         return [worker(item) for item in items]
     results: list[R | None] = [None] * len(items)
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {
-            pool.submit(worker, item): index for index, item in enumerate(items)
-        }
+        futures = {pool.submit(worker, item): index for index, item in enumerate(items)}
         for future in as_completed(futures):
             results[futures[future]] = future.result()
     return [result for result in results if result is not None]

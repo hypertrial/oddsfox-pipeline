@@ -240,7 +240,6 @@ class PolygonSettlementAuditSpec:
         validate_dataset_version(self.dataset_version)
 
 
-
 def current_generator_commit(repo_root: Path = BASE_DIR) -> str:
     """Return the exact tracked generator revision used for a release."""
     return current_clean_commit(repo_root)
@@ -872,7 +871,8 @@ def _write_audit_metadata(
     issue_rows: Sequence[Mapping[str, Any]],
 ) -> None:
     data_hashes = {
-        name: sha256_file(directory / name) for name in (MAIN_CSV_NAME, MARKETS_CSV_NAME)
+        name: sha256_file(directory / name)
+        for name in (MAIN_CSV_NAME, MARKETS_CSV_NAME)
     }
     audit_provenance = {
         key: provenance[key] for key in _PROVENANCE_KEYS if key != "block_ranges"
@@ -1147,7 +1147,6 @@ def _validate_audit_bundle_files(directory: Path) -> None:
         )
     if (directory / "dataset-metadata.json").exists():  # pragma: no cover
         raise RuntimeError("dataset-metadata.json must not be in the audit bundle")
-
 
 
 def _quote_identifier(value: str) -> str:

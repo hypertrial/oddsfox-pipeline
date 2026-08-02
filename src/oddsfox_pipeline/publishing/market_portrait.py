@@ -276,9 +276,7 @@ def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
     ):
         raise ValueError("source provenance must be a lowercase SHA-256 commitment")
     ordered = _validate_match_periods(facts)
-    _validate_football_events(
-        facts, events, final_period_end=ordered[-1][1]
-    )
+    _validate_football_events(facts, events, final_period_end=ordered[-1][1])
 
 
 def _minute_specs(

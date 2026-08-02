@@ -272,16 +272,20 @@ def enrich_market_metadata(
             try:
                 api_requests += 1
                 markets = _fetch_markets_batch(client, chunk, include_events=True)
-                token_rows, slug_rows, event_slug_rows, end_date_rows, batch_processed = (
-                    _extract_metadata_batch_rows(
-                        chunk,
-                        markets,
-                        include_tokens=include_tokens,
-                        include_slugs=include_slugs,
-                        include_event_slugs=include_event_slugs,
-                        include_end_dates=include_end_dates,
-                        remaining_event_slug_ids=remaining_event_slug_ids,
-                    )
+                (
+                    token_rows,
+                    slug_rows,
+                    event_slug_rows,
+                    end_date_rows,
+                    batch_processed,
+                ) = _extract_metadata_batch_rows(
+                    chunk,
+                    markets,
+                    include_tokens=include_tokens,
+                    include_slugs=include_slugs,
+                    include_event_slugs=include_event_slugs,
+                    include_end_dates=include_end_dates,
+                    remaining_event_slug_ids=remaining_event_slug_ids,
                 )
                 processed += batch_processed
                 pbar.update(len(chunk))

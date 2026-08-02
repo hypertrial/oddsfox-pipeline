@@ -178,7 +178,10 @@ def validate_snapshot(
             raise RawSnapshotError("previous_snapshot_id must be a string or null")
         if isinstance(declared_previous, str) and not declared_previous.strip():
             raise RawSnapshotError("previous_snapshot_id must be non-empty or null")
-        if previous_snapshot_id is not None and declared_previous != previous_snapshot_id:
+        if (
+            previous_snapshot_id is not None
+            and declared_previous != previous_snapshot_id
+        ):
             raise RawSnapshotError(
                 "previous_snapshot_id does not match the loaded predecessor"
             )
