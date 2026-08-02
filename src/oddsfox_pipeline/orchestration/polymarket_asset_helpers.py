@@ -381,7 +381,10 @@ def _materialize_market_scope_registry(
         context.log.info("[%s] %s", phase, payload)
 
     if config.skip_if_snapshot_refreshed and not config.force_refresh:
-        snapshot_metrics = get_sync_run_metrics_fn("sync_markets")
+        snapshot_metrics = get_sync_run_metrics_fn(
+            "sync_markets",
+            scope_name=scope_name,
+        )
         refreshed_scope_name = (
             snapshot_refreshed_scope_name_fn(snapshot_metrics)
             if snapshot_metrics

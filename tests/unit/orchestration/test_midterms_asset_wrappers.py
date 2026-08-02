@@ -131,9 +131,9 @@ def test_midterms_market_scope_registry_skips_when_snapshot_already_refreshed(
     monkeypatch.setattr(
         assets_mod,
         "get_sync_run_metrics",
-        lambda task: {
+        lambda task, scope_name=None: {
             "registry_refreshed": True,
-            "scope_name": "us_midterms_2026",
+            "scope_name": scope_name,
             "task": task,
         },
     )
@@ -147,6 +147,32 @@ def test_midterms_market_scope_registry_skips_when_snapshot_already_refreshed(
     run_summary = result.metadata["run_summary"].value
     assert run_summary["skipped"] is True
     assert run_summary["reason"] == "snapshot_refreshed_registry"
+    assert run_summary["scope_name"] == "us_midterms_2026"
+
+
+def test_midterms_market_scope_registry_skip_reads_metrics_for_active_scope(
+    monkeypatch,
+):
+    captured = {}
+
+    def get_sync_run_metrics(task, scope_name=None):
+        captured["task"] = task
+        captured["scope_name"] = scope_name
+        return {
+            "registry_refreshed": True,
+            "scope_name": scope_name,
+            "task": task,
+        }
+
+    monkeypatch.setattr(assets_mod, "get_sync_run_metrics", get_sync_run_metrics)
+    monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {"x": 1})
+
+    fn = (
+        polymarket_us_midterms_2026_ops_market_scope_registry.op.compute_fn.decorated_fn
+    )
+    fn(MagicMock(), orch_config.MarketScopeRegistryConfig())
+
+    assert captured == {"task": "sync_markets", "scope_name": "us_midterms_2026"}
 
 
 def test_midterms_market_scope_registry_runs_sync(monkeypatch):
