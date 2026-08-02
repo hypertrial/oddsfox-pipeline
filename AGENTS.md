@@ -79,9 +79,9 @@ Dagster, dbt, or data-quality changes. It runs the lint, contract, docs,
 100%-coverage and integration surfaces, focused mutation testing, Costguard,
 and a non-root container smoke without repeating the ordinary test pass before
 coverage. Local `ci-fast` and `release-gate` launch isolated parallel lanes that
-mirror GitHub's worker topology; `release-gate` finishes mutation after the
-other three lanes so Mutmut is not CPU-starved. Use `ci-fast-core` /
-`release-gate-core` for sequential diagnosis. GitHub parallelizes the equivalent automatic surface
+mirror GitHub's worker topology; `release-gate` also parallelizes coverage
+shards and dbt-quality sub-lanes, and caps Mutmut via `MUTMUT_MAX_CHILDREN`.
+Use `ci-fast-core` / `release-gate-core` for sequential diagnosis. GitHub parallelizes the equivalent automatic surface
 across `static-docs`, `tests`, `dbt`, and a Python 3.13 package/test
 compatibility worker, then reports the stable `fast-gate` aggregate. Python 3.10
 remains the supported floor and full-release runtime. The manual

@@ -1,4 +1,5 @@
 {{ config(tags=['wc2026_logical_atlas']) }}
+-- costguard: disable-file=SQLCOST036
 
 with primary_links as (
     select

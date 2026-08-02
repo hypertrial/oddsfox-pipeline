@@ -38,7 +38,7 @@ The ordinary `make test` suite uses xdist and excludes `tests/integration`,
 `tests/dbt`, and `tests/contract`; those paths retain dedicated targets.
 `make test` / `make test-cov` first run `dbt-prepare` so xdist workers reuse one
 shared dbt manifest under `DBT_TARGET_PATH`. `make integration-dbt` splits
-isolated incremental cases (`DBT_TEST_WORKERS`, default 2) from the remaining
+isolated incremental cases (`DBT_TEST_WORKERS`, default 4) from the remaining
 serial DuckDB/dbt suite, which includes the golden marts. Standalone
 `make golden-dbt` remains available but is not duplicated in the release gate.
 The full local release gate accumulates coverage with `make test-cov`,

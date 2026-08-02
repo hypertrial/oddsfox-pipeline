@@ -64,12 +64,14 @@ saved documentation, stylesheet, or configuration change; no restart is needed.
 
 `ci-fast` and `release-gate` run isolated parallel lanes that mirror GitHub's
 worker topology. Use `ci-fast-core` / `release-gate-core` when you need a
-sequential diagnostic pass. Local `release-gate` runs coverage, dbt-quality, and
-static/docs/container first (`-j3`), then mutation alone so Mutmut is not
-starved by the other lanes. Each lane overrides `ODDSFOX_RUNTIME_ROOT` so
-disposable dbt DuckDB files and dbt target dirs do not collide; `dbt-prepare`
-serializes `dbt deps` across lanes. Override `DBT_TEST_WORKERS` (default `2`)
-to bound parallel incremental dbt cases. Capture cold/warm timings with
+sequential diagnostic pass. Local `release-gate` runs four top-level lanes
+(`-j4`); coverage shards write distinct `COVERAGE_FILE`s and combine, dbt-quality
+overlaps unit/freshness/polygon before build+Costguard, and Mutmut is capped
+with `MUTMUT_MAX_CHILDREN` (default `2`). Each lane overrides
+`ODDSFOX_RUNTIME_ROOT` so disposable dbt DuckDB files and dbt target dirs do not
+collide; `dbt-prepare` serializes `dbt deps` across lanes. Override
+`DBT_TEST_WORKERS` (default `4`) to bound parallel incremental dbt cases.
+Capture cold/warm timings with
 `uv run make gate-timing GATE_TIMING_ARGS='--label warm unit-orchestration test'`.
 
 The canonical Make target tables, Costguard install, coverage rules, and

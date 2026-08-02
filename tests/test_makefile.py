@@ -94,7 +94,8 @@ def test_ci_split_targets_remain_wired():
         "mutation"
     ]
     assert "costguard-scan:" in makefile
-    assert "costguard: dbt-build-ci costguard-scan" in makefile
+    assert "dbt-build-ci costguard-scan" in _target_recipe(makefile, "costguard")
+    assert "-j1" in _target_recipe(makefile, "costguard")
     assert "dagster-jobs-smoke-cov:" in makefile
     assert "dagster-refresh-cov:" in makefile
     assert "integration-dagster-cov: dagster-jobs-smoke-cov dagster-refresh-cov" in (
@@ -187,36 +188,38 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
         "contract-http",
         "docs-build",
     ]
-    assert "-j3" in _target_recipe(makefile, "release-gate")
+    assert "-j4" in _target_recipe(makefile, "release-gate")
     assert _recursive_make_targets(_target_recipe(makefile, "release-gate")) == [
         "release-gate-coverage",
         "release-gate-dbt-quality",
-        "release-gate-static-docs-container",
         "release-gate-mutation",
+        "release-gate-static-docs-container",
     ]
     assert _recursive_make_targets(_target_recipe(makefile, "release-gate-core")) == [
-        "lint",
-        "package-smoke",
-        "test-cov",
-        "dagster-jobs-smoke-cov",
-        "dagster-refresh-cov",
-        "integration-dbt-cov",
-        "dbt-unit",
-        "dbt-source-freshness-ci",
-        "coverage-report",
-        "mutation-ci",
-        "contract-http",
-        "docs-build",
-        "docs-test",
-        "dbt-polygon-settlement-ci",
-        "dbt-build-ci",
-        "costguard-scan",
-        "container-smoke",
+        "release-gate-coverage",
+        "release-gate-dbt-quality",
+        "release-gate-mutation",
+        "release-gate-static-docs-container",
     ]
     assert "golden-dbt" not in _recursive_make_targets(
         _target_recipe(makefile, "release-gate-core")
     )
     assert "golden-dbt" not in _target_recipe(makefile, "release-gate-dbt-quality")
+    assert "-j4" in _target_recipe(makefile, "release-gate-coverage")
+    assert "coverage-combine-report" in _target_recipe(
+        makefile, "release-gate-coverage"
+    )
+    assert "COVERAGE_FILE=" in _target_recipe(makefile, "release-gate-cov-unit")
+    assert "-j2" in _target_recipe(makefile, "release-gate-cov-integration-dbt")
+    assert "-j3" in _target_recipe(makefile, "release-gate-dbt-quality")
+    assert "-j1" in _target_recipe(makefile, "release-gate-dbt-quality")
+    assert "dbt-build-ci costguard-scan" in _target_recipe(
+        makefile, "release-gate-dbt-quality"
+    )
+    assert "-j3" in _target_recipe(makefile, "release-gate-static-docs-container")
+    assert "--max-children" in _target_recipe(makefile, "mutation")
+    assert "MUTMUT_MAX_CHILDREN ?=" in makefile
+    assert "DBT_TEST_WORKERS ?= 4" in makefile
     serial_dbt = _target_recipe(makefile, "integration-dbt-serial")
     assert "tests/integration/duckdb" in serial_dbt
     assert "test_dbt_incremental_hourly_odds.py" in serial_dbt
@@ -229,13 +232,7 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
     assert "dbt-prepare:" in makefile
     assert "ODDSFOX_RUNTIME_ROOT=" in _target_recipe(makefile, "ci-fast-tests")
     assert "ODDSFOX_RUNTIME_ROOT=" in _target_recipe(makefile, "release-gate-coverage")
-    for lane in (
-        "release-gate-coverage",
-        "release-gate-dbt-quality",
-        "release-gate-mutation",
-        "release-gate-static-docs-container",
-    ):
-        assert "-j1" in _target_recipe(makefile, lane), lane
+    assert "-j1" in _target_recipe(makefile, "release-gate-mutation")
     assert "DBT_LINT_DUCKDB_PATH := $(ODDSFOX_RUNTIME_ROOT)/dbt_lint.duckdb" in makefile
     assert (
         "DBT_BUILD_DUCKDB_PATH := $(ODDSFOX_RUNTIME_ROOT)/dbt_build.duckdb" in makefile

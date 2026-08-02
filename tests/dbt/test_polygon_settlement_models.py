@@ -159,9 +159,10 @@ def test_polygon_settlement_graph_has_an_isolated_release_gate():
         REPO_ROOT / "tests" / "integration" / "test_polygon_settlement_dbt.py"
     ).read_text(encoding="utf-8")
 
-    ordinary_build = makefile.split("dbt-build dbt-test:", 1)[1].split("\n\n", 1)[0]
-    ordinary_unit = makefile.split("dbt-unit:", 1)[1].split("\n\n", 1)[0]
-    dedicated_build = makefile.split("dbt-polygon-settlement-ci:", 1)[1].split(
+    ordinary_build = makefile.split("\ndbt-build dbt-test:", 1)[1].split("\n\n", 1)[0]
+    # Anchor on a newline so release-gate-dbt-unit: does not match first.
+    ordinary_unit = makefile.split("\ndbt-unit:", 1)[1].split("\n\n", 1)[0]
+    dedicated_build = makefile.split("\ndbt-polygon-settlement-ci:", 1)[1].split(
         "\n\n", 1
     )[0]
     release_gate = subprocess.run(

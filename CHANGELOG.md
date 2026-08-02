@@ -11,9 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Local `ci-fast` and `release-gate` now launch isolated parallel lanes that
   mirror GitHub worker topology; use `ci-fast-core` / `release-gate-core` for
-  sequential diagnosis. Local `release-gate` runs coverage/dbt/static first
-  (`-j3`), then mutation alone to avoid Mutmut timeouts under laptop
-  contention. Disposable dbt DuckDB files live under each lane's
+  sequential diagnosis. `release-gate` fans out coverage shards and dbt-quality
+  sub-lanes in parallel (`COVERAGE_FILE` combine, isolated dbt runtime roots),
+  caps Mutmut with `MUTMUT_MAX_CHILDREN`, and raises default `DBT_TEST_WORKERS`
+  to 4. Disposable dbt DuckDB files live under each lane's
   `ODDSFOX_RUNTIME_ROOT`, and `dbt-prepare` serializes `dbt deps` so parallel
   lanes do not race `dbt/dbt_packages`. PR CI and Manual Full Validation install
   narrower uv dependency groups per worker (`--no-default-groups`) while keeping

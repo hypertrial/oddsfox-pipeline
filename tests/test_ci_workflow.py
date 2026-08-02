@@ -173,21 +173,9 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
         ),
     ):
         _assert_python_worker(manual["jobs"][worker], 45, sync_command=sync_command)
-    assert _make_targets(manual["jobs"]["coverage"]) == [
-        "test-cov",
-        "dagster-jobs-smoke-cov",
-        "dagster-refresh-cov",
-        "integration-dbt-cov",
-        "coverage-report",
-    ]
-    assert _make_targets(manual["jobs"]["dbt-quality"]) == [
-        "dbt-unit",
-        "dbt-source-freshness-ci",
-        "dbt-polygon-settlement-ci",
-        "dbt-build-ci",
-        "costguard-scan",
-    ]
-    assert "golden-dbt" not in _make_targets(manual["jobs"]["dbt-quality"])
+    assert _make_targets(manual["jobs"]["coverage"]) == ["release-gate-coverage"]
+    assert _make_targets(manual["jobs"]["dbt-quality"]) == ["release-gate-dbt-quality"]
+    assert "golden-dbt" not in manual_text
     playwright_cache = next(
         step
         for step in manual["jobs"]["static-docs-container"]["steps"]

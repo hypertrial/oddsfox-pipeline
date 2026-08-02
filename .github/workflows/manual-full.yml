@@ -38,16 +38,8 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen --no-default-groups --group coverage
-      - name: Parallel unit coverage
-        run: uv run make test-cov
-      - name: Registered Dagster job coverage
-        run: uv run make dagster-jobs-smoke-cov
-      - name: Dagster refresh coverage
-        run: uv run make dagster-refresh-cov
-      - name: dbt integration coverage
-        run: uv run make integration-dbt-cov
-      - name: Enforce complete coverage
-        run: uv run make coverage-report
+      - name: Parallel coverage gate
+        run: uv run make release-gate-coverage
 
   dbt-quality:
     runs-on: ubuntu-latest
@@ -68,16 +60,8 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/v2.5.0/scripts/install.sh -o /tmp/install-costguard.sh
           sh /tmp/install-costguard.sh v2.5.0
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: dbt unit tests
-        run: uv run make dbt-unit
-      - name: dbt source freshness
-        run: uv run make dbt-source-freshness-ci
-      - name: Polygon settlement graph
-        run: uv run make dbt-polygon-settlement-ci
-      - name: Ordinary dbt graph
-        run: uv run make dbt-build-ci
-      - name: Costguard scan
-        run: uv run make costguard-scan
+      - name: Parallel dbt quality gate
+        run: uv run make release-gate-dbt-quality
 
   mutation:
     runs-on: ubuntu-latest

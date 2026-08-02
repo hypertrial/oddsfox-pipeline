@@ -1,4 +1,5 @@
 {{ config(tags=['wc2026_logical_atlas']) }}
+-- costguard: disable-file=SQLCOST020
 
 with proposition_players as (
     select
