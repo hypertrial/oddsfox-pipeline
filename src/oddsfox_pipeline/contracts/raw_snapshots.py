@@ -145,58 +145,62 @@ def validate_snapshot(
     previous_snapshot_id: str | None = None,
 ) -> RawSnapshot:
     """Validate the published manifest and every declared Parquet payload."""
-    directory = snapshot_dir.resolve()
-    manifest_path = directory / "manifest.json"
-    if not manifest_path.is_file():
-        raise RawSnapshotError(f"snapshot is partial: missing {manifest_path}")
-    manifest = _read_manifest(manifest_path)
 
-    contract_version = _require_text(manifest, "contract_version")
-    if contract_version != RAW_CONTRACT_VERSION:
-        raise RawSnapshotError(f"unknown raw contract version: {contract_version}")
-    source = _safe_identifier("source", _require_text(manifest, "source"))
-    snapshot_id = _require_text(manifest, "snapshot_id")
-    if not _SNAPSHOT_ID.fullmatch(snapshot_id):
-        raise RawSnapshotError(
-            f"snapshot_id must match {_SNAPSHOT_ID.pattern!r}: {snapshot_id!r}"
+    def validate_manifest(
+        manifest: Mapping[str, object],
+    ) -> tuple[str, str, datetime, str | None, str, str]:
+        contract_version = _require_text(manifest, "contract_version")
+        if contract_version != RAW_CONTRACT_VERSION:
+            raise RawSnapshotError(f"unknown raw contract version: {contract_version}")
+        source = _safe_identifier("source", _require_text(manifest, "source"))
+        snapshot_id = _require_text(manifest, "snapshot_id")
+        if not _SNAPSHOT_ID.fullmatch(snapshot_id):
+            raise RawSnapshotError(
+                f"snapshot_id must match {_SNAPSHOT_ID.pattern!r}: {snapshot_id!r}"
+            )
+        if directory.name != snapshot_id:
+            raise RawSnapshotError("snapshot_id must equal the snapshot directory name")
+        if directory.parent.name != source:
+            raise RawSnapshotError("source must equal the parent directory name")
+        if (
+            manifest.get("status") != "complete"
+            or manifest.get("completeness") != "complete"
+        ):
+            raise RawSnapshotError(
+                "snapshot status and completeness must both be complete"
+            )
+
+        collected_at = _parse_timestamp(_require_text(manifest, "collected_at"))
+        if previous_collected_at is not None and collected_at <= previous_collected_at:
+            raise RawSnapshotError("snapshot collection timestamp regressed")
+        declared_previous = manifest.get("previous_snapshot_id")
+        if declared_previous is not None and not isinstance(declared_previous, str):
+            raise RawSnapshotError("previous_snapshot_id must be a string or null")
+        if isinstance(declared_previous, str) and not declared_previous.strip():
+            raise RawSnapshotError("previous_snapshot_id must be non-empty or null")
+        if previous_snapshot_id is not None and declared_previous != previous_snapshot_id:
+            raise RawSnapshotError(
+                "previous_snapshot_id does not match the loaded predecessor"
+            )
+
+        collector_git_sha = _require_text(manifest, "collector_git_sha")
+        collector_container_digest = _require_text(
+            manifest, "collector_container_digest"
         )
-    if directory.name != snapshot_id:
-        raise RawSnapshotError("snapshot_id must equal the snapshot directory name")
-    if directory.parent.name != source:
-        raise RawSnapshotError("source must equal the parent directory name")
-    if (
-        manifest.get("status") != "complete"
-        or manifest.get("completeness") != "complete"
-    ):
-        raise RawSnapshotError("snapshot status and completeness must both be complete")
-
-    collected_at = _parse_timestamp(_require_text(manifest, "collected_at"))
-    if previous_collected_at is not None and collected_at <= previous_collected_at:
-        raise RawSnapshotError("snapshot collection timestamp regressed")
-    declared_previous = manifest.get("previous_snapshot_id")
-    if declared_previous is not None and not isinstance(declared_previous, str):
-        raise RawSnapshotError("previous_snapshot_id must be a string or null")
-    if isinstance(declared_previous, str) and not declared_previous.strip():
-        raise RawSnapshotError("previous_snapshot_id must be non-empty or null")
-    if previous_snapshot_id is not None and declared_previous != previous_snapshot_id:
-        raise RawSnapshotError(
-            "previous_snapshot_id does not match the loaded predecessor"
+        upstream = manifest.get("upstream")
+        if not isinstance(upstream, dict):
+            raise RawSnapshotError("upstream provenance must be an object")
+        _reject_sensitive_provenance(upstream)
+        return (
+            source,
+            snapshot_id,
+            collected_at,
+            declared_previous if isinstance(declared_previous, str) else None,
+            collector_git_sha,
+            collector_container_digest,
         )
 
-    collector_git_sha = _require_text(manifest, "collector_git_sha")
-    collector_container_digest = _require_text(manifest, "collector_container_digest")
-    upstream = manifest.get("upstream")
-    if not isinstance(upstream, dict):
-        raise RawSnapshotError("upstream provenance must be an object")
-    _reject_sensitive_provenance(upstream)
-
-    raw_files = manifest.get("files")
-    if not isinstance(raw_files, list) or not raw_files:
-        raise RawSnapshotError("files must be a non-empty array")
-    files: list[SnapshotFile] = []
-    seen_tables: set[str] = set()
-    seen_paths: set[Path] = set()
-    for entry in raw_files:
+    def validate_file_entry(entry: Mapping[str, object]) -> SnapshotFile:
         if not isinstance(entry, dict):
             raise RawSnapshotError("each files entry must be an object")
         table = _safe_identifier("table", _require_text(entry, "table"))
@@ -246,16 +250,38 @@ def validate_snapshot(
 
         seen_tables.add(table)
         seen_paths.add(path)
-        files.append(
-            SnapshotFile(
-                table=table,
-                path=path,
-                sha256=actual_hash,
-                schema_fingerprint=actual_fingerprint,
-                row_count=actual_rows,
-                byte_size=actual_bytes,
-            )
+        return SnapshotFile(
+            table=table,
+            path=path,
+            sha256=actual_hash,
+            schema_fingerprint=actual_fingerprint,
+            row_count=actual_rows,
+            byte_size=actual_bytes,
         )
+
+    directory = snapshot_dir.resolve()
+    manifest_path = directory / "manifest.json"
+    if not manifest_path.is_file():
+        raise RawSnapshotError(f"snapshot is partial: missing {manifest_path}")
+    manifest = _read_manifest(manifest_path)
+
+    (
+        source,
+        snapshot_id,
+        collected_at,
+        declared_previous,
+        collector_git_sha,
+        collector_container_digest,
+    ) = validate_manifest(manifest)
+
+    raw_files = manifest.get("files")
+    if not isinstance(raw_files, list) or not raw_files:
+        raise RawSnapshotError("files must be a non-empty array")
+    files: list[SnapshotFile] = []
+    seen_tables: set[str] = set()
+    seen_paths: set[Path] = set()
+    for entry in raw_files:
+        files.append(validate_file_entry(entry))
 
     if expected_schemas is not None:
         missing_tables = sorted(set(expected_schemas) - seen_tables)
