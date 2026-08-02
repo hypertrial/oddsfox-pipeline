@@ -31,14 +31,18 @@ def test_intermediate_wc2026_markets_owns_scope_logic():
         / "intermediate"
         / "int_polymarket_wc2026_markets.sql"
     ).read_text()
+    macro_sql = (DBT_ROOT / "macros" / "polymarket_models.sql").read_text()
     lowered = sql.lower()
+    lowered_macro = macro_sql.lower()
 
-    assert "{{ ref('stg_polymarket_wc2026_markets') }}" in lowered
-    assert "{{ source('polymarket_wc2026_ops', 'market_scope_registry') }}" in lowered
-    assert "active_market_scopes" not in lowered
-    assert "where lower(scope_name) = 'wc2026'" in lowered
-    assert "scope_name" in lowered
-    assert "market_scope_event_slugs" not in lowered
+    assert "polymarket_markets_sql(" in lowered
+    assert "ref('stg_polymarket_wc2026_markets')" in lowered
+    assert "source('polymarket_wc2026_ops', 'market_scope_registry')" in lowered
+    assert "'wc2026'" in lowered
+    assert "active_market_scopes" not in lowered_macro
+    assert "where lower(scope_name) = '{{ scope_name }}'" in lowered_macro
+    assert "scope_name" in lowered_macro
+    assert "market_scope_event_slugs" not in lowered_macro
 
 
 def test_wc2026_fixture_mapping_uses_complete_event_catalog_payloads():
