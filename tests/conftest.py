@@ -57,9 +57,9 @@ if str(ROOT) not in sys.path:
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+# Paths define ownership; markers define execution properties.
 _INTEGRATION_ROOTS = (
     ROOT / "tests" / "integration",
-    ROOT / "tests" / "dbt",
     ROOT / "tests" / "dagster",
 )
 

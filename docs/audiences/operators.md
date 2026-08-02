@@ -52,5 +52,4 @@ These are optional. They are not part of the default quickstart.
 | PMXT historical order-book backfill | [Recreate PMXT order-book mart](../guides/recreate-match-order-book-mart.md) |
 | Isolated Polygon settlement history | [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md) |
 | Graph / knockout parquet exports | [Scripts](../reference/scripts.md) |
-| Signed GHCR image | [Docker image](../guides/docker-image.md) |
 | Configuration reference | [Configuration](../reference/configuration.md) |

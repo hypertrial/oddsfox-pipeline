@@ -93,7 +93,6 @@ nav:
       - Recreate Polygon settlement mart: guides/recreate-polygon-settlement-mart.md
       - Enable schedules: guides/enable-schedules.md
       - Validate and recover: guides/validate-and-recover.md
-      - Docker image: guides/docker-image.md
       - Troubleshooting: guides/troubleshooting.md
   - Reference:
       - Configuration: reference/configuration.md

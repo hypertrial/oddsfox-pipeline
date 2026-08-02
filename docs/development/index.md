@@ -59,7 +59,7 @@ saved documentation, stylesheet, or configuration change; no restart is needed.
 | --- | --- |
 | Docs, styles, or `mkdocs.yml` only | `uv run make docs-check` |
 | Ordinary code or test PR | `uv run make ci-fast` |
-| Dependency, Docker, Dagster, dbt, or data-quality changes; pre-release | `uv run make release-gate` |
+| Dependency, Dagster, dbt, or data-quality changes; pre-release | `uv run make release-gate` |
 | Live network acceptance (local only) | `live-smoke`, `match-minute-live-smoke`, or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
 
 `ci-fast` and `release-gate` run isolated parallel lanes that mirror GitHub's
@@ -201,7 +201,8 @@ when settings reload from disk. See
 | `uv run make unit-orchestration` | Dagster asset, job, and schedule tests. |
 | `uv run make dagster-jobs-smoke` | Headless deterministic smoke for every registered public Dagster job. |
 | `uv run make dagster-jobs-smoke-cov` | Coverage version of registered public Dagster job smoke. |
-| `uv run make dagster-refresh-cov` | Coverage for deeper seeded Dagster refresh-path smoke tests. |
+| `uv run make dagster-refresh-cov` | Coverage for scoped Dagster E2E, writer recovery, and dbt wiring. |
+| `uv run make check-repository` | Ownership suite for Make/workflow/naming/distribution/terminology/secrets/static dbt checks. |
 | `uv run make integration-dbt` | DuckDB and dbt smoke tests. |
 | `uv run make integration-dagster` | Dagster integration smoke tests. |
 | `uv run make test-cov` | Unit tests with coverage accumulation (`-n auto`). |
@@ -216,7 +217,7 @@ when settings reload from disk. See
 | `uv run make check-secrets` | Repo policy check for tracked secret leakage. |
 | `uv run make runtime-dirs` | Create SSD-local runtime, temporary, and cache directories. |
 | `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
-| `uv run make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement dbt graph against replay fixtures. |
+| `uv run make dbt-polygon-settlement-ci` | Polygon dbt unit tests plus slim 39,120-row integration against replay fixtures. |
 | `uv run make data-quality` | Safe local dbt build-and-test wrapper against disposable state. |
 | `uv run make mutation` | Resume focused mutation testing for five curated modules and enforce exported Mutmut statistics. |
 | `uv run make mutation-ci` | Start from a clean mutation cache and run the deterministic zero-unresolved-mutant gate. |

@@ -94,8 +94,12 @@ def test_operator_input_paths_reject_blank_values():
 
     with pytest.raises(ValueError, match="output_dir"):
         LogicalAtlasBundleConfig(output_dir=" ")
+    with pytest.raises(ValueError, match="output_dir"):
+        LogicalAtlasBundleConfig(output_dir="   ")
     with pytest.raises(ValueError, match="reviewed_membership_path"):
         ReviewedMembershipConfig(reviewed_membership_path="\t")
+    with pytest.raises(ValueError, match="reviewed_membership_path"):
+        ReviewedMembershipConfig(reviewed_membership_path="")
 
 
 def test_match_order_book_config_enforces_pmxt_limits():

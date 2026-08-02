@@ -446,96 +446,1702 @@ models:
               arguments:
                 values: [both_observed, yes_only, no_only, no_fills]
 
+  - name: int_polymarket_wc2026_polygon_settlement_seed_quality_summary
+    description: Seed inventory quality metrics for Polygon settlement.
+    config:
+      tags: ['polygon_settlement']
+  - name: int_polymarket_wc2026_polygon_settlement_latest_published_scan
+    description: Latest published Polygon settlement scan run.
+    config:
+      tags: ['polygon_settlement']
+  - name: int_polymarket_wc2026_polygon_settlement_scan_quality_summary
+    description: Scan and chunk quality metrics for Polygon settlement.
+    config:
+      tags: ['polygon_settlement']
+  - name: int_polymarket_wc2026_polygon_settlement_raw_quality_summary
+    description: Raw fill and normalization-pair quality metrics.
+    config:
+      tags: ['polygon_settlement']
+  - name: int_polymarket_wc2026_polygon_settlement_minute_quality_summary
+    description: Minute-candidate quality metrics for Polygon settlement.
+    config:
+      tags: ['polygon_settlement']
+
 unit_tests:
-  - name: test_polygon_settlement_token_minute_uses_chain_order_and_vwap
-    model: int_polymarket_wc2026_polygon_settlement_token_minute_odds
-    given:
-      - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_runs')
-        rows:
-          - {scan_id: scan-a, status: published, raw_published: true, published_at: '2026-08-01 00:00:00'}
-      - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
-        rows:
-          - {proposition_id: p1, condition_id: '0x01', yes_token_id: '1', no_token_id: '2', analysis_window_start_at_utc: '2026-06-11 12:00:00', analysis_window_end_at_utc: '2026-06-11 12:02:00'}
-          - {proposition_id: p2, condition_id: '0x02', yes_token_id: '3', no_token_id: '4', analysis_window_start_at_utc: '2026-06-11 12:00:00', analysis_window_end_at_utc: '2026-06-11 12:02:00'}
-      - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
-        rows:
-          - {scan_id: scan-a, proposition_id: p1, condition_id: '0x01', token_id: '1', outcome_side: 'yes', block_timestamp: '2026-06-11 12:00:20', block_number: 10, transaction_index: 2, passive_log_index: 1, normalized_leg_ordinal: 0, price: 0.4, share_volume: 10, gross_collateral_volume: 4, is_derived: false}
-          - {scan_id: scan-a, proposition_id: p1, condition_id: '0x01', token_id: '1', outcome_side: 'yes', block_timestamp: '2026-06-11 12:00:10', block_number: 10, transaction_index: 1, passive_log_index: 3, normalized_leg_ordinal: 0, price: 0.6, share_volume: 10, gross_collateral_volume: 6, is_derived: true}
-          - {scan_id: scan-a, proposition_id: p1, condition_id: '0x01', token_id: '1', outcome_side: 'yes', block_timestamp: '2026-06-11 12:00:10', block_number: 10, transaction_index: 1, passive_log_index: 2, normalized_leg_ordinal: 0, price: 0.2, share_volume: 10, gross_collateral_volume: 2, is_derived: false}
-          - {scan_id: scan-a, proposition_id: p1, condition_id: '0x01', token_id: '1', outcome_side: 'yes', block_timestamp: '2026-06-11 12:02:00', block_number: 11, transaction_index: 0, passive_log_index: 1, normalized_leg_ordinal: 0, price: 0.9, share_volume: 10, gross_collateral_volume: 9, is_derived: false}
-          - {scan_id: old-scan, proposition_id: p1, condition_id: '0x01', token_id: '1', outcome_side: 'yes', block_timestamp: '2026-06-11 12:00:05', block_number: 9, transaction_index: 0, passive_log_index: 1, normalized_leg_ordinal: 0, price: 0.1, share_volume: 10, gross_collateral_volume: 1, is_derived: false}
-          - {scan_id: scan-a, proposition_id: p1, condition_id: '0x01', token_id: '2', outcome_side: 'no', block_timestamp: '2026-06-11 12:01:05', block_number: 12, transaction_index: 0, passive_log_index: 1, normalized_leg_ordinal: 0, price: 0.07, share_volume: 100, gross_collateral_volume: 7, is_derived: false}
-          - {scan_id: scan-a, proposition_id: p2, condition_id: '0x02', token_id: '3', outcome_side: 'yes', block_timestamp: '2026-06-11 12:01:10', block_number: 12, transaction_index: 0, passive_log_index: 2, normalized_leg_ordinal: 0, price: '0.333333333333333333', share_volume: 3, gross_collateral_volume: 1, is_derived: false}
-    expect:
-      rows:
-        - {proposition_id: p1, token_id: '1', outcome_side: 'yes', settlement_minute_utc: '2026-06-11 12:00:00', open_price: 0.2, high_price: 0.6, low_price: 0.2, close_price: 0.4, vwap: 0.4, normalized_fill_count: 3, derived_fill_count: 1, share_volume: 30, gross_collateral_volume: 12}
-        - {proposition_id: p1, token_id: '2', outcome_side: 'no', settlement_minute_utc: '2026-06-11 12:01:00', open_price: 0.07, high_price: 0.07, low_price: 0.07, close_price: 0.07, vwap: '0.070000000000000000', normalized_fill_count: 1, derived_fill_count: 0, share_volume: 100, gross_collateral_volume: 7}
-        - {proposition_id: p2, token_id: '3', outcome_side: 'yes', settlement_minute_utc: '2026-06-11 12:01:00', open_price: '0.333333333333333333', high_price: '0.333333333333333333', low_price: '0.333333333333333333', close_price: '0.333333333333333333', vwap: '0.333333333333333333', normalized_fill_count: 1, derived_fill_count: 0, share_volume: 3, gross_collateral_volume: 1}
-
-  - name: test_polygon_settlement_candidate_keeps_dense_half_open_minutes
-    model: int_polymarket_wc2026_polygon_settlement_minute_odds_candidate
-    given:
-      - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
-        rows:
-          - {proposition_id: p1, fifa_match_id: 1, stage: group_stage, group_name: A, home_team: Alpha, away_team: Beta, proposition_type: home_win, yes_represents: Alpha wins, no_represents: Alpha does not win, scheduled_kickoff_at_utc: '2026-06-11 12:00:00', analysis_window_start_at_utc: '2026-06-11 12:00:00', analysis_window_end_at_utc: '2026-06-11 12:04:00', window_minutes: 4, condition_id: c1, yes_token_id: '1', no_token_id: '2', market_structure: standard, exchange_address: e1, manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, manifest_version: 1.0.0}
-      - input: ref('int_polymarket_wc2026_polygon_settlement_token_minute_odds')
-        rows:
-          - {proposition_id: p1, token_id: '1', settlement_minute_utc: '2026-06-11 12:00:00', open_price: 0.4, high_price: 0.4, low_price: 0.4, close_price: 0.4, vwap: 0.4, normalized_fill_count: 1, derived_fill_count: 0, share_volume: 10, gross_collateral_volume: 4, first_settlement_at_utc: '2026-06-11 12:00:10', last_settlement_at_utc: '2026-06-11 12:00:10'}
-          - {proposition_id: p1, token_id: '2', settlement_minute_utc: '2026-06-11 12:00:00', open_price: 0.6, high_price: 0.6, low_price: 0.6, close_price: 0.6, vwap: 0.6, normalized_fill_count: 1, derived_fill_count: 0, share_volume: 10, gross_collateral_volume: 6, first_settlement_at_utc: '2026-06-11 12:00:20', last_settlement_at_utc: '2026-06-11 12:00:20'}
-          - {proposition_id: p1, token_id: '1', settlement_minute_utc: '2026-06-11 12:01:00', open_price: 0.5, high_price: 0.5, low_price: 0.5, close_price: 0.5, vwap: 0.5, normalized_fill_count: 1, derived_fill_count: 0, share_volume: 10, gross_collateral_volume: 5, first_settlement_at_utc: '2026-06-11 12:01:10', last_settlement_at_utc: '2026-06-11 12:01:10'}
-          - {proposition_id: p1, token_id: '2', settlement_minute_utc: '2026-06-11 12:02:00', open_price: 0.7, high_price: 0.7, low_price: 0.7, close_price: 0.7, vwap: 0.7, normalized_fill_count: 1, derived_fill_count: 0, share_volume: 10, gross_collateral_volume: 7, first_settlement_at_utc: '2026-06-11 12:02:10', last_settlement_at_utc: '2026-06-11 12:02:10'}
-    expect:
-      rows:
-        - {proposition_id: p1, settlement_minute_utc: '2026-06-11 12:00:00', elapsed_window_minute: 0, yes_observed: true, no_observed: true, minute_complete: true, minute_status: both_observed, yes_normalized_fill_count: 1, no_normalized_fill_count: 1}
-        - {proposition_id: p1, settlement_minute_utc: '2026-06-11 12:01:00', elapsed_window_minute: 1, yes_observed: true, no_observed: false, minute_complete: false, minute_status: yes_only, yes_normalized_fill_count: 1, no_normalized_fill_count: 0}
-        - {proposition_id: p1, settlement_minute_utc: '2026-06-11 12:02:00', elapsed_window_minute: 2, yes_observed: false, no_observed: true, minute_complete: false, minute_status: no_only, yes_normalized_fill_count: 0, no_normalized_fill_count: 1}
-        - {proposition_id: p1, settlement_minute_utc: '2026-06-11 12:03:00', elapsed_window_minute: 3, yes_observed: false, no_observed: false, minute_complete: false, minute_status: no_fills, yes_normalized_fill_count: 0, no_normalized_fill_count: 0}
-
-  - name: test_polygon_settlement_empty_inputs_fail_closed
-    model: polymarket_wc2026_polygon_settlement_data_quality
-    given:
-      - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
-        rows: []
-      - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_runs')
-        rows: []
-      - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks')
-        rows: []
-      - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
-        rows: []
-      - input: ref('int_polymarket_wc2026_polygon_settlement_minute_odds_candidate')
-        rows: []
-      - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
-        rows: []
-    expect:
-      rows:
-        - {seed_rows: 0, published_scan_count: 0, raw_fill_rows: 0, actual_minute_rows: 0, publication_ready: false, blocking_issue_keys: 'seed_inventory,seed_stage_distribution,seed_unique_ids,seed_evidence,scan_missing,scan_integrity,scan_chunks,raw_empty,minute_inventory'}
-
-  - name: test_polygon_settlement_coverage_warnings_are_nonblocking_categories
-    model: polymarket_wc2026_polygon_settlement_quality_issues
-    given:
-      - input: ref('stg_polymarket_wc2026_polygon_settlement_markets')
-        rows:
-          - {reviewed_at_utc: '2026-08-01 00:00:00'}
-      - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_runs')
-        rows:
-          - {scan_id: scan-a, status: published, raw_published: true, verification_status: not_requested, published_at: '2026-08-01 00:00:00', finished_at: '2026-08-01 00:00:00'}
-      - input: ref('polymarket_wc2026_polygon_settlement_token_coverage')
-        rows:
-          - {proposition_id: p1, fifa_match_id: 1, token_side: 'yes', token_id: '1', expected_minute_buckets: 150, observed_minute_buckets: 0, normalized_fill_count: 0, derived_fill_count: 0, minute_coverage_ratio: 0, has_any_fill: false}
-          - {proposition_id: p1, fifa_match_id: 1, token_side: 'no', token_id: '2', expected_minute_buckets: 150, observed_minute_buckets: 1, normalized_fill_count: 2, derived_fill_count: 1, minute_coverage_ratio: 0.0066666667, has_any_fill: true}
-          - {proposition_id: p2, fifa_match_id: 2, token_side: 'yes', token_id: '3', expected_minute_buckets: 150, observed_minute_buckets: 0, normalized_fill_count: 0, derived_fill_count: 0, minute_coverage_ratio: 0, has_any_fill: false}
-          - {proposition_id: p2, fifa_match_id: 2, token_side: 'no', token_id: '4', expected_minute_buckets: 150, observed_minute_buckets: 0, normalized_fill_count: 0, derived_fill_count: 0, minute_coverage_ratio: 0, has_any_fill: false}
-      - input: ref('int_polymarket_wc2026_polygon_settlement_minute_odds_candidate')
-        rows:
-          - {proposition_id: p3, fifa_match_id: 3, settlement_minute_epoch: 123, settlement_minute_utc: '2026-06-11 12:00:00', minute_complete: true, yes_close_price: 0.6, no_close_price: 0.6}
-    expect:
-      rows:
-        - {issue_key: 'token_no_fills:p1:yes', severity: warn, issue_type: token_coverage}
-        - {issue_key: 'sparse_minutes:p1:no', severity: warn, issue_type: minute_coverage}
-        - {issue_key: 'derived_fills:p1:no', severity: warn, issue_type: derived_fills}
-        - {issue_key: 'proposition_no_fills:p2', severity: warn, issue_type: token_coverage}
-        - {issue_key: 'token_no_fills:p2:yes', severity: warn, issue_type: token_coverage}
-        - {issue_key: 'token_no_fills:p2:no', severity: warn, issue_type: token_coverage}
-        - {issue_key: 'pair_price_deviation:p3:123', severity: warn, issue_type: pair_price}
-        - {issue_key: 'elapsed_axis:p3', severity: error, issue_type: spine}
-        - {issue_key: 'secondary_verification:scan-a', severity: warn, issue_type: verification}
+- name: test_polygon_settlement_token_minute_uses_chain_order_and_vwap
+  model: int_polymarket_wc2026_polygon_settlement_token_minute_odds
+  given:
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_runs')
+    rows:
+    - scan_id: scan-a
+      status: published
+      raw_published: true
+      published_at: '2026-08-01 00:00:00'
+  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+    rows:
+    - proposition_id: p1
+      condition_id: '0x01'
+      yes_token_id: '1'
+      no_token_id: '2'
+      analysis_window_start_at_utc: '2026-06-11 12:00:00'
+      analysis_window_end_at_utc: '2026-06-11 12:02:00'
+    - proposition_id: p2
+      condition_id: '0x02'
+      yes_token_id: '3'
+      no_token_id: '4'
+      analysis_window_start_at_utc: '2026-06-11 12:00:00'
+      analysis_window_end_at_utc: '2026-06-11 12:02:00'
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+    rows:
+    - scan_id: scan-a
+      proposition_id: p1
+      condition_id: '0x01'
+      token_id: '1'
+      outcome_side: 'yes'
+      block_timestamp: '2026-06-11 12:00:20'
+      block_number: 10
+      transaction_index: 2
+      passive_log_index: 1
+      normalized_leg_ordinal: 0
+      price: 0.4
+      share_volume: 10
+      gross_collateral_volume: 4
+      is_derived: false
+    - scan_id: scan-a
+      proposition_id: p1
+      condition_id: '0x01'
+      token_id: '1'
+      outcome_side: 'yes'
+      block_timestamp: '2026-06-11 12:00:10'
+      block_number: 10
+      transaction_index: 1
+      passive_log_index: 3
+      normalized_leg_ordinal: 0
+      price: 0.6
+      share_volume: 10
+      gross_collateral_volume: 6
+      is_derived: true
+    - scan_id: scan-a
+      proposition_id: p1
+      condition_id: '0x01'
+      token_id: '1'
+      outcome_side: 'yes'
+      block_timestamp: '2026-06-11 12:00:10'
+      block_number: 10
+      transaction_index: 1
+      passive_log_index: 2
+      normalized_leg_ordinal: 0
+      price: 0.2
+      share_volume: 10
+      gross_collateral_volume: 2
+      is_derived: false
+    - scan_id: scan-a
+      proposition_id: p1
+      condition_id: '0x01'
+      token_id: '1'
+      outcome_side: 'yes'
+      block_timestamp: '2026-06-11 12:02:00'
+      block_number: 11
+      transaction_index: 0
+      passive_log_index: 1
+      normalized_leg_ordinal: 0
+      price: 0.9
+      share_volume: 10
+      gross_collateral_volume: 9
+      is_derived: false
+    - scan_id: old-scan
+      proposition_id: p1
+      condition_id: '0x01'
+      token_id: '1'
+      outcome_side: 'yes'
+      block_timestamp: '2026-06-11 12:00:05'
+      block_number: 9
+      transaction_index: 0
+      passive_log_index: 1
+      normalized_leg_ordinal: 0
+      price: 0.1
+      share_volume: 10
+      gross_collateral_volume: 1
+      is_derived: false
+    - scan_id: scan-a
+      proposition_id: p1
+      condition_id: '0x01'
+      token_id: '2'
+      outcome_side: 'no'
+      block_timestamp: '2026-06-11 12:01:05'
+      block_number: 12
+      transaction_index: 0
+      passive_log_index: 1
+      normalized_leg_ordinal: 0
+      price: 0.07
+      share_volume: 100
+      gross_collateral_volume: 7
+      is_derived: false
+    - scan_id: scan-a
+      proposition_id: p2
+      condition_id: '0x02'
+      token_id: '3'
+      outcome_side: 'yes'
+      block_timestamp: '2026-06-11 12:01:10'
+      block_number: 12
+      transaction_index: 0
+      passive_log_index: 2
+      normalized_leg_ordinal: 0
+      price: '0.333333333333333333'
+      share_volume: 3
+      gross_collateral_volume: 1
+      is_derived: false
+  expect:
+    rows:
+    - proposition_id: p1
+      token_id: '1'
+      outcome_side: 'yes'
+      settlement_minute_utc: '2026-06-11 12:00:00'
+      open_price: 0.2
+      high_price: 0.6
+      low_price: 0.2
+      close_price: 0.4
+      vwap: 0.4
+      normalized_fill_count: 3
+      derived_fill_count: 1
+      share_volume: 30
+      gross_collateral_volume: 12
+    - proposition_id: p1
+      token_id: '2'
+      outcome_side: 'no'
+      settlement_minute_utc: '2026-06-11 12:01:00'
+      open_price: 0.07
+      high_price: 0.07
+      low_price: 0.07
+      close_price: 0.07
+      vwap: '0.070000000000000000'
+      normalized_fill_count: 1
+      derived_fill_count: 0
+      share_volume: 100
+      gross_collateral_volume: 7
+    - proposition_id: p2
+      token_id: '3'
+      outcome_side: 'yes'
+      settlement_minute_utc: '2026-06-11 12:01:00'
+      open_price: '0.333333333333333333'
+      high_price: '0.333333333333333333'
+      low_price: '0.333333333333333333'
+      close_price: '0.333333333333333333'
+      vwap: '0.333333333333333333'
+      normalized_fill_count: 1
+      derived_fill_count: 0
+      share_volume: 3
+      gross_collateral_volume: 1
+- name: test_polygon_settlement_candidate_keeps_dense_half_open_minutes
+  model: int_polymarket_wc2026_polygon_settlement_minute_odds_candidate
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+    rows:
+    - proposition_id: p1
+      fifa_match_id: 1
+      stage: group_stage
+      group_name: A
+      home_team: Alpha
+      away_team: Beta
+      proposition_type: home_win
+      yes_represents: Alpha wins
+      no_represents: Alpha does not win
+      scheduled_kickoff_at_utc: '2026-06-11 12:00:00'
+      analysis_window_start_at_utc: '2026-06-11 12:00:00'
+      analysis_window_end_at_utc: '2026-06-11 12:04:00'
+      window_minutes: 4
+      condition_id: c1
+      yes_token_id: '1'
+      no_token_id: '2'
+      market_structure: standard
+      exchange_address: e1
+      manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      manifest_version: 1.0.0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_token_minute_odds')
+    rows:
+    - proposition_id: p1
+      token_id: '1'
+      settlement_minute_utc: '2026-06-11 12:00:00'
+      open_price: 0.4
+      high_price: 0.4
+      low_price: 0.4
+      close_price: 0.4
+      vwap: 0.4
+      normalized_fill_count: 1
+      derived_fill_count: 0
+      share_volume: 10
+      gross_collateral_volume: 4
+      first_settlement_at_utc: '2026-06-11 12:00:10'
+      last_settlement_at_utc: '2026-06-11 12:00:10'
+    - proposition_id: p1
+      token_id: '2'
+      settlement_minute_utc: '2026-06-11 12:00:00'
+      open_price: 0.6
+      high_price: 0.6
+      low_price: 0.6
+      close_price: 0.6
+      vwap: 0.6
+      normalized_fill_count: 1
+      derived_fill_count: 0
+      share_volume: 10
+      gross_collateral_volume: 6
+      first_settlement_at_utc: '2026-06-11 12:00:20'
+      last_settlement_at_utc: '2026-06-11 12:00:20'
+    - proposition_id: p1
+      token_id: '1'
+      settlement_minute_utc: '2026-06-11 12:01:00'
+      open_price: 0.5
+      high_price: 0.5
+      low_price: 0.5
+      close_price: 0.5
+      vwap: 0.5
+      normalized_fill_count: 1
+      derived_fill_count: 0
+      share_volume: 10
+      gross_collateral_volume: 5
+      first_settlement_at_utc: '2026-06-11 12:01:10'
+      last_settlement_at_utc: '2026-06-11 12:01:10'
+    - proposition_id: p1
+      token_id: '2'
+      settlement_minute_utc: '2026-06-11 12:02:00'
+      open_price: 0.7
+      high_price: 0.7
+      low_price: 0.7
+      close_price: 0.7
+      vwap: 0.7
+      normalized_fill_count: 1
+      derived_fill_count: 0
+      share_volume: 10
+      gross_collateral_volume: 7
+      first_settlement_at_utc: '2026-06-11 12:02:10'
+      last_settlement_at_utc: '2026-06-11 12:02:10'
+  expect:
+    rows:
+    - proposition_id: p1
+      settlement_minute_utc: '2026-06-11 12:00:00'
+      elapsed_window_minute: 0
+      yes_observed: true
+      no_observed: true
+      minute_complete: true
+      minute_status: both_observed
+      yes_normalized_fill_count: 1
+      no_normalized_fill_count: 1
+    - proposition_id: p1
+      settlement_minute_utc: '2026-06-11 12:01:00'
+      elapsed_window_minute: 1
+      yes_observed: true
+      no_observed: false
+      minute_complete: false
+      minute_status: yes_only
+      yes_normalized_fill_count: 1
+      no_normalized_fill_count: 0
+    - proposition_id: p1
+      settlement_minute_utc: '2026-06-11 12:02:00'
+      elapsed_window_minute: 2
+      yes_observed: false
+      no_observed: true
+      minute_complete: false
+      minute_status: no_only
+      yes_normalized_fill_count: 0
+      no_normalized_fill_count: 1
+    - proposition_id: p1
+      settlement_minute_utc: '2026-06-11 12:03:00'
+      elapsed_window_minute: 3
+      yes_observed: false
+      no_observed: false
+      minute_complete: false
+      minute_status: no_fills
+      yes_normalized_fill_count: 0
+      no_normalized_fill_count: 0
+- name: test_polygon_settlement_coverage_warnings_are_nonblocking_categories
+  model: polymarket_wc2026_polygon_settlement_quality_issues
+  given:
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_markets')
+    rows:
+    - reviewed_at_utc: '2026-08-01 00:00:00'
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_runs')
+    rows:
+    - scan_id: scan-a
+      status: published
+      raw_published: true
+      verification_status: not_requested
+      published_at: '2026-08-01 00:00:00'
+      finished_at: '2026-08-01 00:00:00'
+  - input: ref('polymarket_wc2026_polygon_settlement_token_coverage')
+    rows:
+    - proposition_id: p1
+      fifa_match_id: 1
+      token_side: 'yes'
+      token_id: '1'
+      expected_minute_buckets: 150
+      observed_minute_buckets: 0
+      normalized_fill_count: 0
+      derived_fill_count: 0
+      minute_coverage_ratio: 0
+      has_any_fill: false
+    - proposition_id: p1
+      fifa_match_id: 1
+      token_side: 'no'
+      token_id: '2'
+      expected_minute_buckets: 150
+      observed_minute_buckets: 1
+      normalized_fill_count: 2
+      derived_fill_count: 1
+      minute_coverage_ratio: 0.0066666667
+      has_any_fill: true
+    - proposition_id: p2
+      fifa_match_id: 2
+      token_side: 'yes'
+      token_id: '3'
+      expected_minute_buckets: 150
+      observed_minute_buckets: 0
+      normalized_fill_count: 0
+      derived_fill_count: 0
+      minute_coverage_ratio: 0
+      has_any_fill: false
+    - proposition_id: p2
+      fifa_match_id: 2
+      token_side: 'no'
+      token_id: '4'
+      expected_minute_buckets: 150
+      observed_minute_buckets: 0
+      normalized_fill_count: 0
+      derived_fill_count: 0
+      minute_coverage_ratio: 0
+      has_any_fill: false
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_odds_candidate')
+    rows:
+    - proposition_id: p3
+      fifa_match_id: 3
+      settlement_minute_epoch: 123
+      settlement_minute_utc: '2026-06-11 12:00:00'
+      minute_complete: true
+      yes_close_price: 0.6
+      no_close_price: 0.6
+  expect:
+    rows:
+    - issue_key: token_no_fills:p1:yes
+      severity: warn
+      issue_type: token_coverage
+    - issue_key: sparse_minutes:p1:no
+      severity: warn
+      issue_type: minute_coverage
+    - issue_key: derived_fills:p1:no
+      severity: warn
+      issue_type: derived_fills
+    - issue_key: proposition_no_fills:p2
+      severity: warn
+      issue_type: token_coverage
+    - issue_key: token_no_fills:p2:yes
+      severity: warn
+      issue_type: token_coverage
+    - issue_key: token_no_fills:p2:no
+      severity: warn
+      issue_type: token_coverage
+    - issue_key: pair_price_deviation:p3:123
+      severity: warn
+      issue_type: pair_price
+    - issue_key: elapsed_axis:p3
+      severity: error
+      issue_type: spine
+    - issue_key: secondary_verification:scan-a
+      severity: warn
+      issue_type: verification
+- name: test_polygon_settlement_quality_ready_baseline
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - &id004
+      seed_rows: 248
+      seed_propositions: 248
+      seed_games: 104
+      first_fifa_match_id: 1
+      last_fifa_match_id: 104
+      out_of_range_match_rows: 0
+      group_games: 72
+      round_of_32_games: 16
+      round_of_16_games: 8
+      quarterfinal_games: 4
+      semifinal_games: 2
+      third_place_games: 1
+      final_games: 1
+      group_propositions: 216
+      knockout_propositions: 32
+      invalid_match_shapes: 0
+      seed_conditions: 248
+      seed_token_rows: 496
+      seed_tokens: 496
+      invalid_window_rows: 0
+      missing_semantic_rows: 0
+      invalid_market_id_rows: 0
+      invalid_evidence_rows: 0
+      prohibited_source_rows: 0
+      manifest_version_count: 1
+      manifest_sha256_count: 1
+      manifest_version: 1.0.0
+      manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - &id001
+      published_scan_count: 1
+      scan_id: scan-a
+      scan_status: published
+      scan_raw_published: true
+      scan_manifest_version: 1.0.0
+      scan_manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      invalid_scan_rows: 0
+      target_range_count: 2
+      target_exchange_count: 2
+      invalid_target_ranges: 0
+      target_partition_count: 2
+      invalid_target_partitions: 0
+      invalid_chunk_rows: 0
+      unassigned_chunk_count: 0
+      chunk_fill_mismatch_count: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - &id002
+      foreign_scan_fill_rows: 0
+      duplicate_fill_grains: 0
+      invalid_normalization_pair_grains: 0
+      raw_fill_rows: 7
+      invalid_fill_mapping_rows: 0
+      invalid_fill_value_rows: 0
+      unmatched_fill_chunks: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - &id003
+      actual_minute_rows: 39120
+      distinct_minute_grains: 39120
+      invalid_proposition_axes: 0
+      invalid_candidate_state_rows: 0
+      candidate_fill_count: 7
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: true
+      blocking_issue_keys: null
+- name: test_polygon_settlement_empty_inputs_fail_closed
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - seed_rows: 0
+      seed_propositions: 0
+      seed_games: 0
+      first_fifa_match_id: null
+      last_fifa_match_id: null
+      out_of_range_match_rows: 0
+      group_games: 0
+      round_of_32_games: 0
+      round_of_16_games: 0
+      quarterfinal_games: 0
+      semifinal_games: 0
+      third_place_games: 0
+      final_games: 0
+      group_propositions: 0
+      knockout_propositions: 0
+      invalid_match_shapes: 0
+      seed_conditions: 0
+      seed_token_rows: 0
+      seed_tokens: 0
+      invalid_window_rows: 0
+      missing_semantic_rows: 0
+      invalid_market_id_rows: 0
+      invalid_evidence_rows: 0
+      prohibited_source_rows: 0
+      manifest_version_count: 0
+      manifest_sha256_count: 0
+      manifest_version: null
+      manifest_sha256: null
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - published_scan_count: 0
+      scan_id: null
+      scan_status: null
+      scan_raw_published: false
+      scan_manifest_version: null
+      scan_manifest_sha256: null
+      invalid_scan_rows: 0
+      target_range_count: 0
+      target_exchange_count: 0
+      invalid_target_ranges: 0
+      target_partition_count: 0
+      invalid_target_partitions: 0
+      invalid_chunk_rows: 0
+      unassigned_chunk_count: 0
+      chunk_fill_mismatch_count: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - foreign_scan_fill_rows: 0
+      duplicate_fill_grains: 0
+      invalid_normalization_pair_grains: 0
+      raw_fill_rows: 0
+      invalid_fill_mapping_rows: 0
+      invalid_fill_value_rows: 0
+      unmatched_fill_chunks: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - actual_minute_rows: 0
+      distinct_minute_grains: 0
+      invalid_proposition_axes: 0
+      invalid_candidate_state_rows: 0
+      candidate_fill_count: 0
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - seed_rows: 0
+      published_scan_count: 0
+      raw_fill_rows: 0
+      actual_minute_rows: 0
+      publication_ready: false
+      blocking_issue_keys: seed_inventory,seed_stage_distribution,seed_unique_ids,seed_evidence,scan_missing,scan_integrity,scan_chunks,raw_empty,minute_inventory
+- name: test_polygon_settlement_blocker_seed_inventory
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - seed_rows: 247
+      seed_propositions: 248
+      seed_games: 104
+      first_fifa_match_id: 1
+      last_fifa_match_id: 104
+      out_of_range_match_rows: 0
+      group_games: 72
+      round_of_32_games: 16
+      round_of_16_games: 8
+      quarterfinal_games: 4
+      semifinal_games: 2
+      third_place_games: 1
+      final_games: 1
+      group_propositions: 216
+      knockout_propositions: 32
+      invalid_match_shapes: 0
+      seed_conditions: 248
+      seed_token_rows: 496
+      seed_tokens: 496
+      invalid_window_rows: 0
+      missing_semantic_rows: 0
+      invalid_market_id_rows: 0
+      invalid_evidence_rows: 0
+      prohibited_source_rows: 0
+      manifest_version_count: 1
+      manifest_sha256_count: 1
+      manifest_version: 1.0.0
+      manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: seed_inventory
+- name: test_polygon_settlement_blocker_seed_stage_distribution
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - seed_rows: 248
+      seed_propositions: 248
+      seed_games: 104
+      first_fifa_match_id: 1
+      last_fifa_match_id: 104
+      out_of_range_match_rows: 0
+      group_games: 71
+      round_of_32_games: 16
+      round_of_16_games: 8
+      quarterfinal_games: 4
+      semifinal_games: 2
+      third_place_games: 1
+      final_games: 1
+      group_propositions: 216
+      knockout_propositions: 32
+      invalid_match_shapes: 0
+      seed_conditions: 248
+      seed_token_rows: 496
+      seed_tokens: 496
+      invalid_window_rows: 0
+      missing_semantic_rows: 0
+      invalid_market_id_rows: 0
+      invalid_evidence_rows: 0
+      prohibited_source_rows: 0
+      manifest_version_count: 1
+      manifest_sha256_count: 1
+      manifest_version: 1.0.0
+      manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: seed_stage_distribution
+- name: test_polygon_settlement_blocker_seed_proposition_shape
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - seed_rows: 248
+      seed_propositions: 248
+      seed_games: 104
+      first_fifa_match_id: 1
+      last_fifa_match_id: 104
+      out_of_range_match_rows: 0
+      group_games: 72
+      round_of_32_games: 16
+      round_of_16_games: 8
+      quarterfinal_games: 4
+      semifinal_games: 2
+      third_place_games: 1
+      final_games: 1
+      group_propositions: 216
+      knockout_propositions: 32
+      invalid_match_shapes: 1
+      seed_conditions: 248
+      seed_token_rows: 496
+      seed_tokens: 496
+      invalid_window_rows: 0
+      missing_semantic_rows: 0
+      invalid_market_id_rows: 0
+      invalid_evidence_rows: 0
+      prohibited_source_rows: 0
+      manifest_version_count: 1
+      manifest_sha256_count: 1
+      manifest_version: 1.0.0
+      manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: seed_proposition_shape
+- name: test_polygon_settlement_blocker_seed_unique_ids
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - seed_rows: 248
+      seed_propositions: 248
+      seed_games: 104
+      first_fifa_match_id: 1
+      last_fifa_match_id: 104
+      out_of_range_match_rows: 0
+      group_games: 72
+      round_of_32_games: 16
+      round_of_16_games: 8
+      quarterfinal_games: 4
+      semifinal_games: 2
+      third_place_games: 1
+      final_games: 1
+      group_propositions: 216
+      knockout_propositions: 32
+      invalid_match_shapes: 0
+      seed_conditions: 248
+      seed_token_rows: 496
+      seed_tokens: 495
+      invalid_window_rows: 0
+      missing_semantic_rows: 0
+      invalid_market_id_rows: 0
+      invalid_evidence_rows: 0
+      prohibited_source_rows: 0
+      manifest_version_count: 1
+      manifest_sha256_count: 1
+      manifest_version: 1.0.0
+      manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: seed_unique_ids
+- name: test_polygon_settlement_blocker_seed_windows
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - seed_rows: 248
+      seed_propositions: 248
+      seed_games: 104
+      first_fifa_match_id: 1
+      last_fifa_match_id: 104
+      out_of_range_match_rows: 0
+      group_games: 72
+      round_of_32_games: 16
+      round_of_16_games: 8
+      quarterfinal_games: 4
+      semifinal_games: 2
+      third_place_games: 1
+      final_games: 1
+      group_propositions: 216
+      knockout_propositions: 32
+      invalid_match_shapes: 0
+      seed_conditions: 248
+      seed_token_rows: 496
+      seed_tokens: 496
+      invalid_window_rows: 1
+      missing_semantic_rows: 0
+      invalid_market_id_rows: 0
+      invalid_evidence_rows: 0
+      prohibited_source_rows: 0
+      manifest_version_count: 1
+      manifest_sha256_count: 1
+      manifest_version: 1.0.0
+      manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: seed_windows
+- name: test_polygon_settlement_blocker_seed_evidence
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - seed_rows: 248
+      seed_propositions: 248
+      seed_games: 104
+      first_fifa_match_id: 1
+      last_fifa_match_id: 104
+      out_of_range_match_rows: 0
+      group_games: 72
+      round_of_32_games: 16
+      round_of_16_games: 8
+      quarterfinal_games: 4
+      semifinal_games: 2
+      third_place_games: 1
+      final_games: 1
+      group_propositions: 216
+      knockout_propositions: 32
+      invalid_match_shapes: 0
+      seed_conditions: 248
+      seed_token_rows: 496
+      seed_tokens: 496
+      invalid_window_rows: 0
+      missing_semantic_rows: 1
+      invalid_market_id_rows: 0
+      invalid_evidence_rows: 0
+      prohibited_source_rows: 0
+      manifest_version_count: 1
+      manifest_sha256_count: 1
+      manifest_version: 1.0.0
+      manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: seed_evidence
+- name: test_polygon_settlement_blocker_scan_missing
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - published_scan_count: 0
+      scan_id: scan-a
+      scan_status: published
+      scan_raw_published: true
+      scan_manifest_version: 1.0.0
+      scan_manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      invalid_scan_rows: 0
+      target_range_count: 2
+      target_exchange_count: 2
+      invalid_target_ranges: 0
+      target_partition_count: 2
+      invalid_target_partitions: 0
+      invalid_chunk_rows: 0
+      unassigned_chunk_count: 0
+      chunk_fill_mismatch_count: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: scan_missing
+- name: test_polygon_settlement_blocker_scan_manifest
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - published_scan_count: 1
+      scan_id: scan-a
+      scan_status: published
+      scan_raw_published: true
+      scan_manifest_version: 1.0.0
+      scan_manifest_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      invalid_scan_rows: 0
+      target_range_count: 2
+      target_exchange_count: 2
+      invalid_target_ranges: 0
+      target_partition_count: 2
+      invalid_target_partitions: 0
+      invalid_chunk_rows: 0
+      unassigned_chunk_count: 0
+      chunk_fill_mismatch_count: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: scan_manifest
+- name: test_polygon_settlement_blocker_scan_integrity
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - published_scan_count: 1
+      scan_id: scan-a
+      scan_status: published
+      scan_raw_published: true
+      scan_manifest_version: 1.0.0
+      scan_manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      invalid_scan_rows: 1
+      target_range_count: 2
+      target_exchange_count: 2
+      invalid_target_ranges: 0
+      target_partition_count: 2
+      invalid_target_partitions: 0
+      invalid_chunk_rows: 0
+      unassigned_chunk_count: 0
+      chunk_fill_mismatch_count: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: scan_integrity
+- name: test_polygon_settlement_blocker_scan_chunks
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - published_scan_count: 1
+      scan_id: scan-a
+      scan_status: published
+      scan_raw_published: true
+      scan_manifest_version: 1.0.0
+      scan_manifest_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      invalid_scan_rows: 0
+      target_range_count: 0
+      target_exchange_count: 2
+      invalid_target_ranges: 0
+      target_partition_count: 2
+      invalid_target_partitions: 0
+      invalid_chunk_rows: 0
+      unassigned_chunk_count: 0
+      chunk_fill_mismatch_count: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: scan_chunks
+- name: test_polygon_settlement_blocker_raw_empty
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - foreign_scan_fill_rows: 0
+      duplicate_fill_grains: 0
+      invalid_normalization_pair_grains: 0
+      raw_fill_rows: 0
+      invalid_fill_mapping_rows: 0
+      invalid_fill_value_rows: 0
+      unmatched_fill_chunks: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - actual_minute_rows: 39120
+      distinct_minute_grains: 39120
+      invalid_proposition_axes: 0
+      invalid_candidate_state_rows: 0
+      candidate_fill_count: 0
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: raw_empty
+- name: test_polygon_settlement_blocker_raw_scan_mismatch
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - foreign_scan_fill_rows: 1
+      duplicate_fill_grains: 0
+      invalid_normalization_pair_grains: 0
+      raw_fill_rows: 7
+      invalid_fill_mapping_rows: 0
+      invalid_fill_value_rows: 0
+      unmatched_fill_chunks: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: raw_scan_mismatch
+- name: test_polygon_settlement_blocker_raw_duplicates
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - foreign_scan_fill_rows: 0
+      duplicate_fill_grains: 1
+      invalid_normalization_pair_grains: 0
+      raw_fill_rows: 7
+      invalid_fill_mapping_rows: 0
+      invalid_fill_value_rows: 0
+      unmatched_fill_chunks: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: raw_duplicates
+- name: test_polygon_settlement_blocker_raw_normalization_pairs
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - foreign_scan_fill_rows: 0
+      duplicate_fill_grains: 0
+      invalid_normalization_pair_grains: 1
+      raw_fill_rows: 7
+      invalid_fill_mapping_rows: 0
+      invalid_fill_value_rows: 0
+      unmatched_fill_chunks: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: raw_normalization_pairs
+- name: test_polygon_settlement_blocker_raw_mapping
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - foreign_scan_fill_rows: 0
+      duplicate_fill_grains: 0
+      invalid_normalization_pair_grains: 0
+      raw_fill_rows: 7
+      invalid_fill_mapping_rows: 1
+      invalid_fill_value_rows: 0
+      unmatched_fill_chunks: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: raw_mapping
+- name: test_polygon_settlement_blocker_raw_values
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - foreign_scan_fill_rows: 0
+      duplicate_fill_grains: 0
+      invalid_normalization_pair_grains: 0
+      raw_fill_rows: 7
+      invalid_fill_mapping_rows: 0
+      invalid_fill_value_rows: 1
+      unmatched_fill_chunks: 0
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: raw_values
+- name: test_polygon_settlement_blocker_raw_chunk_coverage
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - foreign_scan_fill_rows: 0
+      duplicate_fill_grains: 0
+      invalid_normalization_pair_grains: 0
+      raw_fill_rows: 7
+      invalid_fill_mapping_rows: 0
+      invalid_fill_value_rows: 0
+      unmatched_fill_chunks: 1
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: raw_chunk_coverage
+- name: test_polygon_settlement_blocker_minute_inventory
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - actual_minute_rows: 39119
+      distinct_minute_grains: 39120
+      invalid_proposition_axes: 0
+      invalid_candidate_state_rows: 0
+      candidate_fill_count: 7
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: minute_inventory
+- name: test_polygon_settlement_blocker_minute_axis
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - actual_minute_rows: 39120
+      distinct_minute_grains: 39120
+      invalid_proposition_axes: 1
+      invalid_candidate_state_rows: 0
+      candidate_fill_count: 7
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: minute_axis
+- name: test_polygon_settlement_blocker_minute_values
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - actual_minute_rows: 39120
+      distinct_minute_grains: 39120
+      invalid_proposition_axes: 0
+      invalid_candidate_state_rows: 1
+      candidate_fill_count: 7
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: minute_values
+- name: test_polygon_settlement_blocker_aggregate_reconciliation
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - actual_minute_rows: 39120
+      distinct_minute_grains: 39120
+      invalid_proposition_axes: 0
+      invalid_candidate_state_rows: 0
+      candidate_fill_count: 6
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows: []
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: aggregate_reconciliation
+- name: test_polygon_settlement_blocker_quality_errors
+  model: polymarket_wc2026_polygon_settlement_data_quality
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_seed_quality_summary')
+    rows:
+    - *id004
+  - input: ref('int_polymarket_wc2026_polygon_settlement_scan_quality_summary')
+    rows:
+    - *id001
+  - input: ref('int_polymarket_wc2026_polygon_settlement_raw_quality_summary')
+    rows:
+    - *id002
+  - input: ref('int_polymarket_wc2026_polygon_settlement_minute_quality_summary')
+    rows:
+    - *id003
+  - input: ref('polymarket_wc2026_polygon_settlement_quality_issues')
+    rows:
+    - severity: error
+      issue_key: elapsed_axis:p1
+  expect:
+    rows:
+    - publication_ready: false
+      blocking_issue_keys: quality_errors
+- name: test_polygon_settlement_raw_valid_mint_pair
+  model: int_polymarket_wc2026_polygon_settlement_raw_quality_summary
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
+    rows:
+    - &id005
+      scan_id: scan-a
+      status: published
+      raw_published: true
+      published_at: '2026-08-01 00:00:00'
+      finished_at: '2026-08-01 00:00:00'
+  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+    rows:
+    - &id006
+      proposition_id: p1
+      condition_id: '0x01'
+      yes_token_id: '1'
+      no_token_id: '2'
+      exchange_address: '0xe111180000d2663c0091e4f400237545b87b996b'
+      analysis_window_start_at_utc: '2026-06-11 12:00:00'
+      analysis_window_end_at_utc: '2026-06-11 14:30:00'
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+    rows:
+    - &id007
+      scan_id: scan-a
+      chain_id: 137
+      exchange_address: '0xe111180000d2663c0091e4f400237545b87b996b'
+      transaction_hash: '0x1111111111111111111111111111111111111111111111111111111111111111'
+      passive_log_index: 1
+      normalized_leg_ordinal: 0
+      is_derived: false
+      token_id: '1'
+      outcome_side: 'yes'
+      source_token_id: '1'
+      share_volume: 10
+      gross_collateral_volume: 4
+      price: 0.4
+      chunk_from_block: 100
+      chunk_to_block: 200
+      block_number: 150
+      block_hash: '0x2222222222222222222222222222222222222222222222222222222222222222'
+      block_timestamp: '2026-06-11 12:00:10'
+      transaction_index: 0
+      active_log_index: 2
+      matched_log_index: 3
+      proposition_id: p1
+      condition_id: '0x01'
+      order_side: BUY
+      source_maker_amount: '4000000'
+      source_taker_amount: '10000000'
+      normalization_kind: mint
+      segment_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      decoder_version: polygon-v2-settlement-v4
+      ingested_at: '2026-08-01 00:00:00'
+    - scan_id: scan-a
+      chain_id: 137
+      exchange_address: '0xe111180000d2663c0091e4f400237545b87b996b'
+      transaction_hash: '0x1111111111111111111111111111111111111111111111111111111111111111'
+      passive_log_index: 1
+      normalized_leg_ordinal: 1
+      is_derived: true
+      token_id: '2'
+      outcome_side: 'no'
+      source_token_id: '1'
+      share_volume: 10
+      gross_collateral_volume: 6
+      price: 0.6
+      chunk_from_block: 100
+      chunk_to_block: 200
+      block_number: 150
+      block_hash: '0x2222222222222222222222222222222222222222222222222222222222222222'
+      block_timestamp: '2026-06-11 12:00:10'
+      transaction_index: 0
+      active_log_index: 2
+      matched_log_index: 3
+      proposition_id: p1
+      condition_id: '0x01'
+      order_side: BUY
+      source_maker_amount: '4000000'
+      source_taker_amount: '10000000'
+      normalization_kind: mint
+      segment_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      decoder_version: polygon-v2-settlement-v4
+      ingested_at: '2026-08-01 00:00:00'
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks')
+    rows:
+    - &id008
+      scan_id: scan-a
+      exchange_address: '0xe111180000d2663c0091e4f400237545b87b996b'
+      from_block: 100
+      to_block: 200
+      status: success
+  expect:
+    rows:
+    - invalid_normalization_pair_grains: 0
+      raw_fill_rows: 2
+- name: test_polygon_settlement_raw_pair_missing_derived_ordinal
+  model: int_polymarket_wc2026_polygon_settlement_raw_quality_summary
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
+    rows:
+    - *id005
+  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+    rows:
+    - *id006
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+    rows:
+    - *id007
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks')
+    rows:
+    - *id008
+  expect:
+    rows:
+    - invalid_normalization_pair_grains: 1
+- name: test_polygon_settlement_raw_pair_non_complementary_token_and_outcome
+  model: int_polymarket_wc2026_polygon_settlement_raw_quality_summary
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
+    rows:
+    - *id005
+  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+    rows:
+    - *id006
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+    rows:
+    - *id007
+    - scan_id: scan-a
+      chain_id: 137
+      exchange_address: '0xe111180000d2663c0091e4f400237545b87b996b'
+      transaction_hash: '0x1111111111111111111111111111111111111111111111111111111111111111'
+      passive_log_index: 1
+      normalized_leg_ordinal: 1
+      is_derived: true
+      token_id: '1'
+      outcome_side: 'yes'
+      source_token_id: '1'
+      share_volume: 10
+      gross_collateral_volume: 6
+      price: 0.6
+      chunk_from_block: 100
+      chunk_to_block: 200
+      block_number: 150
+      block_hash: '0x2222222222222222222222222222222222222222222222222222222222222222'
+      block_timestamp: '2026-06-11 12:00:10'
+      transaction_index: 0
+      active_log_index: 2
+      matched_log_index: 3
+      proposition_id: p1
+      condition_id: '0x01'
+      order_side: BUY
+      source_maker_amount: '4000000'
+      source_taker_amount: '10000000'
+      normalization_kind: mint
+      segment_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      decoder_version: polygon-v2-settlement-v4
+      ingested_at: '2026-08-01 00:00:00'
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks')
+    rows:
+    - *id008
+  expect:
+    rows:
+    - invalid_normalization_pair_grains: 1
+- name: test_polygon_settlement_raw_pair_unequal_shares
+  model: int_polymarket_wc2026_polygon_settlement_raw_quality_summary
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
+    rows:
+    - *id005
+  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+    rows:
+    - *id006
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+    rows:
+    - *id007
+    - scan_id: scan-a
+      chain_id: 137
+      exchange_address: '0xe111180000d2663c0091e4f400237545b87b996b'
+      transaction_hash: '0x1111111111111111111111111111111111111111111111111111111111111111'
+      passive_log_index: 1
+      normalized_leg_ordinal: 1
+      is_derived: true
+      token_id: '2'
+      outcome_side: 'no'
+      source_token_id: '1'
+      share_volume: 9
+      gross_collateral_volume: 5.4
+      price: 0.6
+      chunk_from_block: 100
+      chunk_to_block: 200
+      block_number: 150
+      block_hash: '0x2222222222222222222222222222222222222222222222222222222222222222'
+      block_timestamp: '2026-06-11 12:00:10'
+      transaction_index: 0
+      active_log_index: 2
+      matched_log_index: 3
+      proposition_id: p1
+      condition_id: '0x01'
+      order_side: BUY
+      source_maker_amount: '4000000'
+      source_taker_amount: '10000000'
+      normalization_kind: mint
+      segment_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      decoder_version: polygon-v2-settlement-v4
+      ingested_at: '2026-08-01 00:00:00'
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks')
+    rows:
+    - *id008
+  expect:
+    rows:
+    - invalid_normalization_pair_grains: 1
+- name: test_polygon_settlement_raw_pair_non_conserving_collateral
+  model: int_polymarket_wc2026_polygon_settlement_raw_quality_summary
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
+    rows:
+    - *id005
+  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+    rows:
+    - *id006
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+    rows:
+    - *id007
+    - scan_id: scan-a
+      chain_id: 137
+      exchange_address: '0xe111180000d2663c0091e4f400237545b87b996b'
+      transaction_hash: '0x1111111111111111111111111111111111111111111111111111111111111111'
+      passive_log_index: 1
+      normalized_leg_ordinal: 1
+      is_derived: true
+      token_id: '2'
+      outcome_side: 'no'
+      source_token_id: '1'
+      share_volume: 10
+      gross_collateral_volume: 5
+      price: 0.5
+      chunk_from_block: 100
+      chunk_to_block: 200
+      block_number: 150
+      block_hash: '0x2222222222222222222222222222222222222222222222222222222222222222'
+      block_timestamp: '2026-06-11 12:00:10'
+      transaction_index: 0
+      active_log_index: 2
+      matched_log_index: 3
+      proposition_id: p1
+      condition_id: '0x01'
+      order_side: BUY
+      source_maker_amount: '4000000'
+      source_taker_amount: '10000000'
+      normalization_kind: mint
+      segment_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      decoder_version: polygon-v2-settlement-v4
+      ingested_at: '2026-08-01 00:00:00'
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks')
+    rows:
+    - *id008
+  expect:
+    rows:
+    - invalid_normalization_pair_grains: 1
+- name: test_polygon_settlement_raw_pair_disagreeing_locator
+  model: int_polymarket_wc2026_polygon_settlement_raw_quality_summary
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
+    rows:
+    - *id005
+  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+    rows:
+    - *id006
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+    rows:
+    - *id007
+    - scan_id: scan-a
+      chain_id: 137
+      exchange_address: '0xe111180000d2663c0091e4f400237545b87b996b'
+      transaction_hash: '0x1111111111111111111111111111111111111111111111111111111111111111'
+      passive_log_index: 1
+      normalized_leg_ordinal: 1
+      is_derived: true
+      token_id: '2'
+      outcome_side: 'no'
+      source_token_id: '1'
+      share_volume: 10
+      gross_collateral_volume: 6
+      price: 0.6
+      chunk_from_block: 100
+      chunk_to_block: 200
+      block_number: 150
+      block_hash: '0x3333333333333333333333333333333333333333333333333333333333333333'
+      block_timestamp: '2026-06-11 12:00:10'
+      transaction_index: 0
+      active_log_index: 2
+      matched_log_index: 3
+      proposition_id: p1
+      condition_id: '0x01'
+      order_side: BUY
+      source_maker_amount: '4000000'
+      source_taker_amount: '10000000'
+      normalization_kind: mint
+      segment_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      decoder_version: polygon-v2-settlement-v4
+      ingested_at: '2026-08-01 00:00:00'
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks')
+    rows:
+    - *id008
+  expect:
+    rows:
+    - invalid_normalization_pair_grains: 1
+- name: test_polygon_settlement_raw_pair_disagreeing_kind
+  model: int_polymarket_wc2026_polygon_settlement_raw_quality_summary
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
+    rows:
+    - *id005
+  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+    rows:
+    - *id006
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+    rows:
+    - *id007
+    - scan_id: scan-a
+      chain_id: 137
+      exchange_address: '0xe111180000d2663c0091e4f400237545b87b996b'
+      transaction_hash: '0x1111111111111111111111111111111111111111111111111111111111111111'
+      passive_log_index: 1
+      normalized_leg_ordinal: 1
+      is_derived: true
+      token_id: '2'
+      outcome_side: 'no'
+      source_token_id: '1'
+      share_volume: 10
+      gross_collateral_volume: 6
+      price: 0.6
+      chunk_from_block: 100
+      chunk_to_block: 200
+      block_number: 150
+      block_hash: '0x2222222222222222222222222222222222222222222222222222222222222222'
+      block_timestamp: '2026-06-11 12:00:10'
+      transaction_index: 0
+      active_log_index: 2
+      matched_log_index: 3
+      proposition_id: p1
+      condition_id: '0x01'
+      order_side: SELL
+      source_maker_amount: '4000000'
+      source_taker_amount: '10000000'
+      normalization_kind: merge
+      segment_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      decoder_version: polygon-v2-settlement-v4
+      ingested_at: '2026-08-01 00:00:00'
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks')
+    rows:
+    - *id008
+  expect:
+    rows:
+    - invalid_normalization_pair_grains: 1
+- name: test_polygon_settlement_raw_pair_disagreeing_segment_hash
+  model: int_polymarket_wc2026_polygon_settlement_raw_quality_summary
+  given:
+  - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
+    rows:
+    - *id005
+  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+    rows:
+    - *id006
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
+    rows:
+    - *id007
+    - scan_id: scan-a
+      chain_id: 137
+      exchange_address: '0xe111180000d2663c0091e4f400237545b87b996b'
+      transaction_hash: '0x1111111111111111111111111111111111111111111111111111111111111111'
+      passive_log_index: 1
+      normalized_leg_ordinal: 1
+      is_derived: true
+      token_id: '2'
+      outcome_side: 'no'
+      source_token_id: '1'
+      share_volume: 10
+      gross_collateral_volume: 6
+      price: 0.6
+      chunk_from_block: 100
+      chunk_to_block: 200
+      block_number: 150
+      block_hash: '0x2222222222222222222222222222222222222222222222222222222222222222'
+      block_timestamp: '2026-06-11 12:00:10'
+      transaction_index: 0
+      active_log_index: 2
+      matched_log_index: 3
+      proposition_id: p1
+      condition_id: '0x01'
+      order_side: BUY
+      source_maker_amount: '4000000'
+      source_taker_amount: '10000000'
+      normalization_kind: mint
+      segment_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      decoder_version: polygon-v2-settlement-v4
+      ingested_at: '2026-08-01 00:00:00'
+  - input: ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks')
+    rows:
+    - *id008
+  expect:
+    rows:
+    - invalid_normalization_pair_grains: 1

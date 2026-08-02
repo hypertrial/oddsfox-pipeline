@@ -34,12 +34,8 @@ jobs:
       - run: uv sync --frozen --no-default-groups --group test --group python-lint --group docs
       - name: Python lint
         run: uv run make python-lint
-      - name: Secret policy
-        run: uv run make check-secrets
-      - name: Distribution policy
-        run: uv run make check-distribution
-      - name: Terminology policy
-        run: uv run make check-terminology
+      - name: Repository policy
+        run: uv run make check-repository
       - name: Strict documentation build
         run: uv run make docs-build
 

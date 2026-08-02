@@ -7,22 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Docker packaging and publication: Dockerfile(s), `.dockerignore`, container
+  smoke Make targets, GHCR multi-arch publish/sign steps, and the Docker image
+  guide. OddsFox Pipeline is macOS-first; distribution smoke stays on
+  `make package-smoke`.
+
 ### Changed
 
-- Local `ci-fast` and `release-gate` now launch isolated parallel lanes that
-  mirror GitHub worker topology; use `ci-fast-core` / `release-gate-core` for
-  sequential diagnosis. `release-gate` fans out coverage shards and dbt-quality
-  sub-lanes in parallel (`COVERAGE_FILE` combine, isolated dbt runtime roots),
-  caps Mutmut with `MUTMUT_MAX_CHILDREN`, and raises default `DBT_TEST_WORKERS`
-  to 4. Disposable dbt DuckDB files live under each lane's
-  `ODDSFOX_RUNTIME_ROOT`, and `dbt-prepare` serializes `dbt deps` so parallel
-  lanes do not race `dbt/dbt_packages`. PR CI and Manual Full Validation install
-  narrower uv dependency groups per worker (`--no-default-groups`) while keeping
-  full Python 3.10 and 3.13 suites.
-- Orchestration unit tests no longer bootstrap DuckDB on every autouse guard;
-  opt in with `orchestration_duckdb` / `duck`. Shared dbt manifest preparation
-  (`make dbt-prepare`) aligns Dagster and Make on `DBT_TARGET_PATH`, and
-  incremental dbt integration cases run with bounded xdist workers.
+- Local `ci-fast` and `release-gate` use one Make jobserver (`GATE_JOBS`) over a
+  prerequisite DAG; `ci-fast-core` / `release-gate-core` run the same graph with
+  `-j1`. Coverage shards write distinct `COVERAGE_FILE`s and combine once;
+  subprocess pools are capped with `RELEASE_PYTEST_WORKERS`, `DBT_TEST_WORKERS`,
+  and `MUTMUT_MAX_CHILDREN`. dbt profile threads are environment-configurable
+  (`DBT_THREADS`). PR CI and Manual Full Validation install narrower uv
+  dependency groups per worker (`--no-default-groups`) while keeping full
+  Python 3.10 and 3.13 suites. Manual Full Validation's static lane is
+  `static-docs` (no container worker).
+- Test ownership is path-based: `tests/repository/`, `tests/docs/`, and
+  `tests/package/` hold policy checks; `make check-repository` is the canonical
+  repo-check entrypoint wired into lint and CI static lanes. Ordinary unit
+  collection ignores those directories.
+- Orchestration unit fixtures no longer reload settings modules per test; market
+  scope tests live under `tests/unit/ingestion/market_scope/`. Polygon audit
+  release validation uses focused helpers and minimal row factories, with one
+  full 39,120-row aggregate check and one complete audit-bundle build.
+- Polygon settlement data-quality SQL is split into tagged seed/scan/raw/minute
+  summary seams. `dbt-polygon-settlement-ci` runs Polygon-tagged dbt unit tests
+  covering every hard blocker key and all seven normalization-pair branches,
+  then a slim integration suite (exact dense mart, representative scan failure,
+  representative raw-pair failure).
+- Dagster integration is layered: mocked registered-job smoke, recording-dbt
+  wiring for the twelve shipped scoped jobs, one real disposable-DuckDB/dbt E2E
+  per shipped scope, and writer recovery without repeated real dbt builds.
 - Golden mart fixtures remain available via `make golden-dbt` but are no longer
   duplicated in the release / Manual Full `dbt-quality` sequence because
   `integration-dbt-cov` already executes them.

@@ -47,7 +47,7 @@ and [Scope and non-goals](scope-and-non-goals.md).
 
 ## Export And Redistribution Matrix
 
-| Artifact | Ships in git / published image? | Redistribution |
+| Artifact | Ships in git? | Redistribution |
 | --- | --- | --- |
 | MIT code and docs | Yes | Per [LICENSE](https://github.com/hypertrial/oddsfox-pipeline/blob/main/LICENSE) |
 | Header-only seed shells | Yes | Yes (empty schema shells only) |

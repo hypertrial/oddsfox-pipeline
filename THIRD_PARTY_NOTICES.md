@@ -7,8 +7,7 @@ documentation authored for OddsFox Pipeline under the [MIT License](LICENSE).
 Accepted external contributors retain copyright in their contributions and
 license those contributions under MIT.
 
-Canonical source archives, Python packages, documentation, and newly published
-container images contain no bundled production datasets or operator data.
+Canonical source archives, Python packages, and documentation contain no bundled production datasets or operator data.
 
 Tracked CSV seed shells contain column headers only. Small pipeline policy constants,
 aliases, and market-scope identifiers are executable project configuration.
@@ -84,11 +83,8 @@ The project references these independently governed upstream materials:
   [CC BY 4.0](https://github.com/EthicalSource/contributor_covenant/blob/2.1/LICENSE.md).
   The file identifies the adaptation and retains the required attribution.
 
-Runtime and development dependencies and the container base image remain
-governed by their own licences. Installed distributions retain their licence
-metadata, and published container images include an SBOM. The OCI `MIT` licence
-label describes the Hypertrial-owned application, not every component in the
-image.
+Runtime and development dependencies remain governed by their own licences.
+Installed distributions retain their licence metadata.
 
 No third-party material is relicensed under the project's MIT License.
 

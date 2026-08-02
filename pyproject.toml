@@ -104,7 +104,7 @@ pytest_add_cli_args = ["--hypothesis-seed=20260725"]
 pytest_add_cli_args_test_selection = [
   "tests/unit/resources/test_outbound_url.py",
   "tests/unit/contracts/test_raw_snapshots.py",
-  "tests/unit/ingestion/test_market_scope_predicates.py",
+  "tests/unit/ingestion/market_scope/test_predicates.py",
   "tests/unit/ingestion/test_market_persistence.py",
   "tests/unit/ingestion/test_odds_planning.py",
 ]
@@ -134,9 +134,7 @@ markers = [
   "integration: hits external tools or shared resources",
   "performance: long-running benchmarks",
   "slow: expensive checks excluded from normal unit runs",
-  "orchestration: Dagster materialize or dbt asset tests",
-  "polymarket: Polymarket ingest and sync tests",
-  "repo_check: repository policy checks run via make lint only",
+  "repo_check: repository policy checks; run via make check-repository",
 ]
 
 [tool.coverage.run]

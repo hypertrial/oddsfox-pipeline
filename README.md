@@ -92,7 +92,7 @@ uv run make release-gate
 ```
 
 Run `ci-fast` before ordinary pushes and `release-gate` before releases or after
-dependency, Docker, Dagster, dbt, or data-quality changes. The canonical gate
+dependency, Dagster, dbt, or data-quality changes. The canonical gate
 tables and layout guardrails live in [AGENTS.md](AGENTS.md). See also
 [Development](docs/development/index.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 

@@ -23,8 +23,8 @@ Most operators should leave `DBT_PROFILES_DIR` unset and use the packaged `dbt/p
 
 Six external/reference seed paths under `dbt/seeds/` are distributed as
 header-only schema shells. Populate them locally only with data you are entitled
-to use, or mount populated files over those paths in a container. Do not commit
-local rows. Restore the shells with `git restore dbt/seeds` after local work.
+to use. Do not commit local rows. Restore the shells with
+`git restore dbt/seeds` after local work.
 
 The Polygon candidate generator writes below ignored `artifacts/`; after review,
 operators may copy its manifest to the existing seed path and supply the

@@ -1,4 +1,4 @@
-.PHONY: ci-fast ci-fast-core ci-fast-static-docs ci-fast-tests ci-fast-dbt release-gate release-gate-core release-gate-coverage release-gate-coverage-prep release-gate-cov-unit release-gate-cov-dagster-jobs release-gate-cov-dagster-refresh release-gate-cov-integration-dbt release-gate-cov-dbt-incremental release-gate-cov-dbt-serial coverage-combine-report release-gate-dbt-quality release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-mutation release-gate-static-docs-container release-gate-static-checks container-smoke container-smoke-run package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-lint dbt-prepare dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality mutation mutation-ci contract-http live-smoke match-minute-live-smoke match-order-book-live-smoke market-portrait-live-backfill polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate export-wc2026-elo-freezes costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint python-lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-parallel integration-dbt-serial integration-dbt-cov integration-dbt-cov-parallel integration-dbt-cov-serial integration-dagster integration-dagster-cov check-distribution check-secrets check-terminology compact-warehouse prune-odds-history gate-timing
+.PHONY: ci-fast ci-fast-core ci-fast-goal ci-fast-static-docs ci-fast-tests ci-fast-dbt release-gate release-gate-core release-gate-goal release-gate-coverage release-gate-coverage-prep release-gate-cov-unit release-gate-cov-unit-run release-gate-cov-dagster-jobs release-gate-cov-dagster-jobs-run release-gate-cov-dagster-refresh release-gate-cov-dagster-refresh-run release-gate-cov-dbt-incremental release-gate-cov-dbt-incremental-run release-gate-cov-dbt-serial release-gate-cov-dbt-serial-run coverage-combine-report coverage-combine-report-run release-gate-dbt-quality release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-dbt-build release-gate-costguard-scan release-gate-mutation release-gate-static-docs release-gate-static-checks release-gate-python-lint release-gate-dbt-lint release-gate-docs-build release-gate-docs-test package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-lint dbt-prepare dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality mutation mutation-ci contract-http live-smoke match-minute-live-smoke match-order-book-live-smoke market-portrait-live-backfill polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate export-wc2026-elo-freezes costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint python-lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-parallel integration-dbt-serial integration-dbt-cov integration-dbt-cov-parallel integration-dbt-cov-serial integration-dagster integration-dagster-cov check-repository check-distribution check-secrets check-terminology compact-warehouse prune-odds-history gate-timing
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -56,6 +56,8 @@ POLYGON_RUNTIME_DUCKDB_EXTENSIONS := $(POLYGON_RUNTIME_ROOT)/duckdb-extensions
 # ODDSFOX_RUNTIME_ROOT for dbt/tmp isolation.
 POLYGON_RUNTIME_UV := $(REPO_ROOT)/.cache/runtime/uv
 POLYGON_RUNTIME_UV_PYTHON := $(REPO_ROOT)/.cache/runtime/uv-python
+POLYGON_UNIT_DUCKDB_PATH := $(POLYGON_RUNTIME_ROOT)/dbt_unit.duckdb
+POLYGON_UNIT_ENV := DUCKDB_NAME="$(POLYGON_UNIT_DUCKDB_PATH)" DUCKDB_PATH="$(POLYGON_UNIT_DUCKDB_PATH)"
 POLYGON_RUNTIME_ENV := TMPDIR="$(POLYGON_RUNTIME_TMP)" XDG_CACHE_HOME="$(POLYGON_RUNTIME_XDG)" UV_CACHE_DIR="$(POLYGON_RUNTIME_UV)" UV_PYTHON_INSTALL_DIR="$(POLYGON_RUNTIME_UV_PYTHON)" DAGSTER_HOME="$(POLYGON_RUNTIME_DAGSTER_HOME)" DBT_TARGET_PATH="$(POLYGON_RUNTIME_DBT_TARGET)" DBT_LOG_PATH="$(POLYGON_RUNTIME_DBT_LOGS)" PYTHONPYCACHEPREFIX="$(POLYGON_RUNTIME_PYCACHE)" DUCKDB_EXTENSION_DIRECTORY="$(POLYGON_RUNTIME_DUCKDB_EXTENSIONS)" DBT_SEND_ANONYMOUS_USAGE_STATS=false
 POLYGON_SETTLEMENT_LIVE_SMOKE_DUCKDB_PATH := $(POLYGON_RUNTIME_ROOT)/benchmarks/v4/live_smoke.duckdb
 POLYGON_SETTLEMENT_LIVE_SMOKE_ENV := DUCKDB_NAME="$(POLYGON_SETTLEMENT_LIVE_SMOKE_DUCKDB_PATH)" DUCKDB_PATH="$(POLYGON_SETTLEMENT_LIVE_SMOKE_DUCKDB_PATH)"
@@ -78,14 +80,15 @@ MATCH_MINUTE_REBUILD_DUCKDB_PATH ?=
 POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH ?=
 PYTEST_FAST_MARKERS := not integration and not performance and not slow and not repo_check and not contract
 PYTEST_COVERAGE_MARKERS := not performance and not slow and not repo_check and not contract
+PYTEST_UNIT_IGNORES := --ignore=tests/integration --ignore=tests/contract --ignore=tests/repository --ignore=tests/docs --ignore=tests/package
 PYTEST_DURATION_ARGS ?= --durations=25
-DBT_TEST_WORKERS ?= 4
+GATE_JOBS ?= 4
+DBT_TEST_WORKERS ?= 2
+RELEASE_PYTEST_WORKERS ?= 2
 MUTMUT_MAX_CHILDREN ?= 2
 # --cov-report=: shards must stay quiet; release-gate combines then reports once.
 COV_ARGS := --cov=oddsfox_pipeline --cov-branch --cov-report=
 COV_APPEND_ARGS := $(COV_ARGS) --cov-append
-IMAGE ?= oddsfox-pipeline:ci
-VCS_REF ?= $(shell git -C "$(REPO_ROOT)" rev-parse HEAD)
 CI_FAST_STATIC_RUNTIME := $(REPO_ROOT)/.cache/runtime/ci-fast-static
 CI_FAST_TESTS_RUNTIME := $(REPO_ROOT)/.cache/runtime/ci-fast-tests
 CI_FAST_DBT_RUNTIME := $(REPO_ROOT)/.cache/runtime/ci-fast-dbt
@@ -95,22 +98,22 @@ RELEASE_DBT_FRESHNESS_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-dbt-freshne
 RELEASE_DBT_BUILD_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-dbt-build
 RELEASE_MUTATION_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-mutation
 RELEASE_STATIC_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-static
-COVERAGE_DATA_DIR := $(ODDSFOX_RUNTIME_ROOT)/coverage-data
+COVERAGE_DATA_DIR := $(RELEASE_COVERAGE_RUNTIME)/coverage-data
 
 runtime-dirs:
 	@mkdir -p $(ODDSFOX_RUNTIME_DIRS)
 
+# One jobserver owns parallelism. Nested recipes must not force -jN.
 ci-fast:
-	$(MAKE) -j3 ci-fast-static-docs ci-fast-tests ci-fast-dbt
+	$(MAKE) -j$(GATE_JOBS) ci-fast-goal
 
 ci-fast-core:
-	$(MAKE) lint
-	$(MAKE) test
-	$(MAKE) contract-http
-	$(MAKE) docs-build
+	$(MAKE) -j1 ci-fast-goal
+
+ci-fast-goal: ci-fast-static-docs ci-fast-tests ci-fast-dbt
 
 ci-fast-static-docs:
-	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(CI_FAST_STATIC_RUNTIME)" python-lint check-secrets check-distribution check-terminology docs-build
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(CI_FAST_STATIC_RUNTIME)" python-lint check-repository docs-build
 
 ci-fast-tests:
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(CI_FAST_TESTS_RUNTIME)" test contract-http
@@ -119,53 +122,58 @@ ci-fast-dbt:
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(CI_FAST_DBT_RUNTIME)" dbt-lint
 
 release-gate:
-	# Top-level lanes in parallel. Coverage/dbt-quality fan out further inside.
-	# Mutmut stays capped via MUTMUT_MAX_CHILDREN to limit CPU contention.
-	$(MAKE) -j4 release-gate-coverage release-gate-dbt-quality release-gate-mutation release-gate-static-docs-container
+	$(MAKE) -j$(GATE_JOBS) release-gate-goal
 
 release-gate-core:
-	$(MAKE) release-gate-coverage
-	$(MAKE) release-gate-dbt-quality
-	$(MAKE) release-gate-mutation
-	$(MAKE) release-gate-static-docs-container
+	$(MAKE) -j1 release-gate-goal
 
-release-gate-coverage:
-	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" release-gate-coverage-prep
-	$(MAKE) -j4 ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" \
-		release-gate-cov-unit \
-		release-gate-cov-dagster-jobs \
-		release-gate-cov-dagster-refresh \
-		release-gate-cov-integration-dbt
-	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" coverage-combine-report
+# Aggregate leaves only; concurrency comes from the single top-level -j.
+release-gate-goal: coverage-combine-report release-gate-costguard-scan release-gate-mutation release-gate-static-docs
+
+# Lane aliases keep GitHub job entrypoints stable.
+release-gate-coverage: coverage-combine-report
+	@:
 
 release-gate-coverage-prep: dbt-prepare
 	$(RUN_IN_REPO) rm -rf "$(COVERAGE_DATA_DIR)"
 	$(RUN_IN_REPO) mkdir -p "$(COVERAGE_DATA_DIR)"
-	$(MAKE) coverage-erase
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" coverage-erase
 
-release-gate-cov-unit:
-	$(RUN_IN_REPO) COVERAGE_FILE="$(COVERAGE_DATA_DIR)/unit" "$(PYTHON)" -m pytest tests --ignore=tests/integration --ignore=tests/dbt --ignore=tests/contract -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(COV_ARGS) $(PYTEST_DURATION_ARGS)
+release-gate-cov-unit: release-gate-coverage-prep
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" release-gate-cov-unit-run
+
+release-gate-cov-unit-run:
+	$(RUN_IN_REPO) COVERAGE_FILE="$(COVERAGE_DATA_DIR)/unit" "$(PYTHON)" -m pytest tests $(PYTEST_UNIT_IGNORES) -q -n $(RELEASE_PYTEST_WORKERS) -m "$(PYTEST_FAST_MARKERS)" $(COV_ARGS) $(PYTEST_DURATION_ARGS)
 	$(RUN_IN_REPO) COVERAGE_FILE="$(COVERAGE_DATA_DIR)/unit" "$(PYTHON)" -m pytest tests/integration/ingestion -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
 
-release-gate-cov-dagster-jobs:
+release-gate-cov-dagster-jobs: release-gate-coverage-prep
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" release-gate-cov-dagster-jobs-run
+
+release-gate-cov-dagster-jobs-run:
 	$(RUN_IN_REPO) COVERAGE_FILE="$(COVERAGE_DATA_DIR)/dagster-jobs" "$(PYTHON)" -m pytest tests/integration/dagster/test_registered_jobs_smoke.py -q -n 0 -m "not performance and not slow" $(COV_ARGS) $(PYTEST_DURATION_ARGS)
 
-release-gate-cov-dagster-refresh:
-	$(RUN_IN_REPO) COVERAGE_FILE="$(COVERAGE_DATA_DIR)/dagster-refresh" "$(PYTHON)" -m pytest tests/integration/dagster/test_refresh_job_smoke.py -q -n 0 -m "not performance and not slow" $(COV_ARGS) $(PYTEST_DURATION_ARGS)
+release-gate-cov-dagster-refresh: release-gate-coverage-prep
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" release-gate-cov-dagster-refresh-run
 
-release-gate-cov-integration-dbt:
-	# Overlap incremental xdist with the remaining dbt integration suite.
-	$(MAKE) -j2 ODDSFOX_RUNTIME_ROOT="$(ODDSFOX_RUNTIME_ROOT)" \
-		release-gate-cov-dbt-incremental \
-		release-gate-cov-dbt-serial
+release-gate-cov-dagster-refresh-run:
+	$(RUN_IN_REPO) COVERAGE_FILE="$(COVERAGE_DATA_DIR)/dagster-refresh" "$(PYTHON)" -m pytest tests/integration/dagster/test_scope_refresh_e2e.py tests/integration/dagster/test_polymarket_writer_recovery.py tests/integration/dagster/test_scoped_job_dbt_wiring.py -q -n 0 -m "not performance and not slow" $(COV_ARGS) $(PYTEST_DURATION_ARGS)
 
-release-gate-cov-dbt-incremental:
+release-gate-cov-dbt-incremental: release-gate-coverage-prep
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" release-gate-cov-dbt-incremental-run
+
+release-gate-cov-dbt-incremental-run:
 	$(RUN_IN_REPO) COVERAGE_FILE="$(COVERAGE_DATA_DIR)/dbt-incremental" "$(PYTHON)" -m pytest tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n $(DBT_TEST_WORKERS) -m "not performance and not slow" $(COV_ARGS) $(PYTEST_DURATION_ARGS)
 
-release-gate-cov-dbt-serial:
-	$(RUN_IN_REPO) COVERAGE_FILE="$(COVERAGE_DATA_DIR)/dbt-serial" "$(PYTHON)" -m pytest tests/integration/duckdb tests/dbt --ignore=tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n 0 -m "not performance and not slow" $(COV_ARGS) $(PYTEST_DURATION_ARGS)
+release-gate-cov-dbt-serial: release-gate-coverage-prep
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" release-gate-cov-dbt-serial-run
 
-coverage-combine-report:
+release-gate-cov-dbt-serial-run:
+	$(RUN_IN_REPO) COVERAGE_FILE="$(COVERAGE_DATA_DIR)/dbt-serial" "$(PYTHON)" -m pytest tests/integration/duckdb --ignore=tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n 0 -m "not performance and not slow" $(COV_ARGS) $(PYTEST_DURATION_ARGS)
+
+coverage-combine-report: release-gate-cov-unit release-gate-cov-dagster-jobs release-gate-cov-dagster-refresh release-gate-cov-dbt-incremental release-gate-cov-dbt-serial
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" coverage-combine-report-run
+
+coverage-combine-report-run:
 	$(RUN_IN_REPO) "$(PYTHON)" -m coverage combine \
 		"$(COVERAGE_DATA_DIR)/unit" \
 		"$(COVERAGE_DATA_DIR)/dagster-jobs" \
@@ -174,10 +182,8 @@ coverage-combine-report:
 		"$(COVERAGE_DATA_DIR)/dbt-serial"
 	$(MAKE) coverage-report
 
-release-gate-dbt-quality:
-	$(MAKE) -j3 release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon
-	# -j1: inherited MAKEFLAGS -jN would otherwise race costguard ahead of the manifest.
-	$(MAKE) -j1 ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_BUILD_RUNTIME)" dbt-build-ci costguard-scan
+release-gate-dbt-quality: release-gate-costguard-scan
+	@:
 
 release-gate-dbt-unit:
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_UNIT_RUNTIME)" dbt-unit
@@ -188,39 +194,38 @@ release-gate-dbt-freshness:
 release-gate-dbt-polygon:
 	$(MAKE) dbt-polygon-settlement-ci
 
+release-gate-dbt-build: release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_BUILD_RUNTIME)" dbt-build-ci
+
+release-gate-costguard-scan: release-gate-dbt-build
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_BUILD_RUNTIME)" costguard-scan
+
 release-gate-mutation:
-	$(MAKE) -j1 ODDSFOX_RUNTIME_ROOT="$(RELEASE_MUTATION_RUNTIME)" mutation-ci
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_MUTATION_RUNTIME)" mutation-ci
 
-release-gate-static-docs-container:
-	$(MAKE) -j3 ODDSFOX_RUNTIME_ROOT="$(RELEASE_STATIC_RUNTIME)" \
-		python-lint \
-		dbt-lint \
-		release-gate-static-checks
-	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_STATIC_RUNTIME)" docs-build docs-test container-smoke
+release-gate-static-checks:
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_STATIC_RUNTIME)" check-repository package-smoke contract-http
 
-# Prerequisite-only: keep the caller's ODDSFOX_RUNTIME_ROOT (no nested make).
-release-gate-static-checks: check-secrets check-distribution check-terminology package-smoke contract-http
+release-gate-python-lint:
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_STATIC_RUNTIME)" python-lint
 
-container-smoke: runtime-dirs
-	@mkdir -p "$(ODDSFOX_RUNTIME_ROOT)/docker-cache"
-	docker buildx build --load --tag "$(IMAGE)" --build-arg "VCS_REF=$(VCS_REF)" --cache-from=type=local,src="$(ODDSFOX_RUNTIME_ROOT)/docker-cache" --cache-to=type=local,dest="$(ODDSFOX_RUNTIME_ROOT)/docker-cache",mode=max .
-	$(MAKE) container-smoke-run
+release-gate-dbt-lint:
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_STATIC_RUNTIME)" dbt-lint
+
+release-gate-docs-build:
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_STATIC_RUNTIME)" docs-build
+
+release-gate-docs-test: release-gate-docs-build
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_STATIC_RUNTIME)" docs-test
+
+release-gate-static-docs: release-gate-static-checks release-gate-python-lint release-gate-dbt-lint release-gate-docs-test
+	@:
 
 gate-timing:
 	$(RUN_IN_REPO) "$(PYTHON)" scripts/gate_timing.py $(GATE_TIMING_ARGS)
 
-container-smoke-run:
-	docker run --rm \
-		--read-only \
-		--cap-drop ALL \
-		--security-opt no-new-privileges:true \
-		--tmpfs /tmp:rw,noexec,nosuid,size=64m,uid=10001,gid=10001 \
-		--tmpfs /runtime/warehouse:rw,noexec,nosuid,size=128m,uid=10001,gid=10001 \
-		"$(IMAGE)" \
-		python -c "from pathlib import Path; from oddsfox_pipeline.config import settings; root = Path('/opt/oddsfox-pipeline'); seeds = ('polymarket_wc2026_event_membership_overrides.csv', 'polymarket_wc2026_polygon_settlement_markets.csv', 'wc2026_base_camps_teams.csv', 'wc2026_schedule_matches.csv', 'wc2026_third_place_options.csv', 'wc2026_tournament_classification.csv', 'wc2026_venues.csv'); assert settings.DBT_PROJECT_DIR.is_dir(); assert (root / 'LICENSE').is_file(); assert (root / 'THIRD_PARTY_NOTICES.md').is_file(); assert all(len((root / 'dbt' / 'seeds' / name).read_text().splitlines()) == 1 for name in seeds); assert not (root / 'config' / 'polygon-settlement-resolution-attestation.yml').exists(); print(settings.DBT_PROJECT_DIR)"
-
 package-smoke:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_package_distribution.py -q -n 0
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/package/test_package_distribution.py -q -n 0
 
 duckdb-ui:
 	duckdb "$(REPO_ROOT)/$(DUCKDB_NAME)" -ui
@@ -251,6 +256,11 @@ dbt-build-ci: runtime-dirs
 	$(RUN_IN_REPO) $(DBT_BUILD_ENV) $(MAKE) dbt-build
 
 dbt-polygon-settlement-ci: polygon-runtime-dirs
+	$(RUN_IN_REPO) rm -f "$(POLYGON_UNIT_DUCKDB_PATH)" "$(POLYGON_UNIT_DUCKDB_PATH).wal" "$(POLYGON_UNIT_DUCKDB_PATH)-wal" "$(POLYGON_UNIT_DUCKDB_PATH)-shm"
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_UNIT_ENV) "$(PYTHON)" scripts/bootstrap_dbt_ci_duckdb.py
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main seed --select tag:polygon_settlement --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main run --empty --select tag:polygon_settlement --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main test --select "test_type:unit,tag:polygon_settlement" --project-dir dbt --profiles-dir dbt/profiles
 	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/test_polygon_settlement_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
 
 dbt-parse: dbt-prepare
@@ -363,7 +373,7 @@ docs-build:
 	$(RUN_IN_REPO) NO_MKDOCS_2_WARNING=true "$(PYTHON)" -m mkdocs build --strict
 
 docs-test:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_docs_structure.py tests/test_docs_render.py -q -n 0 $(PYTEST_DURATION_ARGS)
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/docs -q -n 0 $(PYTEST_DURATION_ARGS)
 
 docs-check: docs-build docs-test
 
@@ -375,9 +385,7 @@ format:
 lint:
 	$(MAKE) python-lint
 	$(MAKE) dbt-lint
-	$(MAKE) check-secrets
-	$(MAKE) check-distribution
-	$(MAKE) check-terminology
+	$(MAKE) check-repository
 
 python-lint:
 	$(RUN_IN_REPO) ruff format --check src tests
@@ -387,24 +395,27 @@ dbt-lint: dbt-prepare
 	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
 	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m sqlfluff lint dbt/models dbt/tests -p 0
 
+check-repository: dbt-prepare
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository -q -n 0 -m "repo_check" $(PYTEST_DURATION_ARGS)
+
 check-secrets:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_secrets_not_committed.py -q -n 0
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository/test_secrets_not_committed.py -q -n 0
 
 check-distribution:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_distribution_policy.py -q -n 0
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository/test_distribution_policy.py -q -n 0
 
 check-terminology:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/test_terminology_policy.py -q -n 0
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository/test_terminology_policy.py -q -n 0
 
 test: dbt-prepare
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests --ignore=tests/integration --ignore=tests/dbt --ignore=tests/contract -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(PYTEST_DURATION_ARGS)
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests $(PYTEST_UNIT_IGNORES) -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(PYTEST_DURATION_ARGS)
 
 coverage-erase:
 	$(RUN_IN_REPO) "$(PYTHON)" -m coverage erase
 
 test-cov: coverage-erase dbt-prepare
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests --ignore=tests/integration --ignore=tests/dbt --ignore=tests/contract -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
-	# ponytail: tests/conftest.py auto-marks tests/integration/* as integration;
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests $(PYTEST_UNIT_IGNORES) -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
+	# tests/conftest.py auto-marks tests/integration/* as integration;
 	# run ingestion integration serially here so CI coverage matches make coverage.
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/ingestion -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
 
@@ -430,13 +441,13 @@ dagster-jobs-smoke-cov:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster/test_registered_jobs_smoke.py -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
 
 dagster-refresh-cov:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster/test_refresh_job_smoke.py -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster/test_scope_refresh_e2e.py tests/integration/dagster/test_polymarket_writer_recovery.py tests/integration/dagster/test_scoped_job_dbt_wiring.py -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
 
 integration-dbt-parallel:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n $(DBT_TEST_WORKERS) -m "not performance and not slow" $(PYTEST_DURATION_ARGS)
 
 integration-dbt-serial:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb tests/dbt --ignore=tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n 0 -m "not performance and not slow" $(PYTEST_DURATION_ARGS)
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb --ignore=tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n 0 -m "not performance and not slow" $(PYTEST_DURATION_ARGS)
 
 integration-dbt:
 	$(MAKE) integration-dbt-parallel
@@ -446,7 +457,7 @@ integration-dbt-cov-parallel:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n $(DBT_TEST_WORKERS) -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
 
 integration-dbt-cov-serial:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb tests/dbt --ignore=tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb --ignore=tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
 
 integration-dbt-cov:
 	$(MAKE) integration-dbt-cov-parallel

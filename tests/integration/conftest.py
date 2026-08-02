@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from tests.integration.dbt_cli import isolated_dbt_env
@@ -14,6 +15,22 @@ def _public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
         "oddsfox_pipeline.resources.outbound_url.socket.getaddrinfo",
         lambda *a, **k: [(None, None, None, None, ("93.184.216.34", 443))],
     )
+
+
+@pytest.fixture
+def reset_connection_globals():
+    """Reset DuckDB connection module globals between tests that mutate them."""
+    import oddsfox_pipeline.storage.duckdb.connection as connection
+
+    connection.reset_duckdb_connection_state()
+    yield
+    connection.reset_duckdb_connection_state()
+
+
+@pytest.fixture
+def no_sleep():
+    with patch("time.sleep", lambda *_a, **_k: None):
+        yield
 
 
 @pytest.fixture

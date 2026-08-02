@@ -490,18 +490,22 @@ def _validate_committed_seed(
     return load_polygon_resolution_attestation(manifest=manifest).as_mapping()
 
 
-def _validate_rows(
-    mart_rows: Sequence[Mapping[str, Any]],
+def _expected_minutes_by_proposition(
     market_rows: Sequence[Mapping[str, Any]],
-    quality_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, int]:
+    return {
+        str(row["proposition_id"]): 150 if int(row["fifa_match_id"]) <= 72 else 210
+        for row in market_rows
+    }
+
+
+def _validate_market_sidecar_inventory(
+    market_rows: Sequence[Mapping[str, Any]],
     provenance: Mapping[str, Any],
-) -> dict[str, Any]:
-    failures: list[str] = []
-    if len(mart_rows) != EXPECTED_MART_ROWS:
-        failures.append(f"mart rows={len(mart_rows)}, expected {EXPECTED_MART_ROWS}")
+    failures: list[str],
+) -> tuple[set[int], set[str]]:
     if len(market_rows) != EXPECTED_MARKETS:
         failures.append(f"markets={len(market_rows)}, expected {EXPECTED_MARKETS}")
-
     match_ids = {int(row["fifa_match_id"]) for row in market_rows}
     if match_ids != set(range(1, EXPECTED_MATCHES + 1)):
         failures.append("market sidecar must contain FIFA match IDs 1..104")
@@ -530,78 +534,103 @@ def _validate_rows(
         }
     ):
         failures.append("market sidecar proposition inventory is invalid")
+    return match_ids, token_ids
 
-    expected_minutes = {
-        str(row["proposition_id"]): 150 if int(row["fifa_match_id"]) <= 72 else 210
-        for row in market_rows
-    }
+
+def _validate_mart_row_contract(
+    row: Mapping[str, Any],
+    market: Mapping[str, Any],
+    *,
+    grain: set[tuple[str, str]],
+    axes: dict[str, set[int]],
+    failures: list[str],
+) -> bool:
+    """Validate one mart row. Returns False when the caller should stop scanning."""
+    statuses = {"both_observed", "yes_only", "no_only", "no_fills"}
+    proposition_id = str(row["proposition_id"])
+    minute = int(row["elapsed_window_minute"])
+    if proposition_id not in axes:
+        failures.append(f"unknown mart proposition_id={proposition_id!r}")
+        return False
+    identity_pairs = (
+        (row["fifa_match_id"], market["fifa_match_id"]),
+        (row["stage"], market["stage"]),
+        (row["group_name"], market["group_label"]),
+        (row["home_team"], market["home_team"]),
+        (row["away_team"], market["away_team"]),
+        (row["proposition_type"], market["proposition_type"]),
+        (row["yes_represents"], market["yes_represents"]),
+        (row["no_represents"], market["no_represents"]),
+        (row["scheduled_kickoff_at_utc"], market["kickoff_at_utc"]),
+        (row["analysis_window_start_at_utc"], market["window_start_at_utc"]),
+        (row["analysis_window_end_at_utc"], market["window_end_at_utc"]),
+    )
+    if any(
+        _format_value(left) != _format_value(right) for left, right in identity_pairs
+    ):
+        failures.append(
+            f"mart identity differs from sidecar for proposition_id={proposition_id!r}"
+        )
+        return False
+    axes[proposition_id].add(minute)
+    grain_key = (proposition_id, _format_value(row["settlement_minute_utc"]))
+    if grain_key in grain:
+        failures.append(f"duplicate mart grain={grain_key!r}")
+        return False
+    grain.add(grain_key)
+    if row["minute_status"] not in statuses:
+        failures.append(f"invalid minute_status={row['minute_status']!r}")
+        return False
+    if not all(_audit_side_values_are_valid(row, side) for side in ("yes", "no")):
+        failures.append(f"invalid audit mart values for grain={grain_key!r}")
+        return False
+    yes_observed = _as_bool(row["yes_observed"])
+    no_observed = _as_bool(row["no_observed"])
+    expected_status = (
+        "both_observed"
+        if yes_observed and no_observed
+        else "yes_only"
+        if yes_observed
+        else "no_only"
+        if no_observed
+        else "no_fills"
+    )
+    if (
+        type(row["minute_complete"]) is not bool
+        or row["minute_status"] != expected_status
+        or row["minute_complete"] != (yes_observed and no_observed)
+    ):
+        failures.append(f"invalid minute state for grain={grain_key!r}")
+        return False
+    expected_timestamp = _utc_datetime(market["window_start_at_utc"]) + timedelta(
+        minutes=minute
+    )
+    if _utc_datetime(row["settlement_minute_utc"]) != expected_timestamp:
+        failures.append(f"invalid settlement timestamp for grain={grain_key!r}")
+        return False
+    return True
+
+
+def _validate_mart_global_inventory(
+    mart_rows: Sequence[Mapping[str, Any]],
+    market_rows: Sequence[Mapping[str, Any]],
+    failures: list[str],
+) -> None:
+    if len(mart_rows) != EXPECTED_MART_ROWS:
+        failures.append(f"mart rows={len(mart_rows)}, expected {EXPECTED_MART_ROWS}")
+    expected_minutes = _expected_minutes_by_proposition(market_rows)
     axes: dict[str, set[int]] = {key: set() for key in expected_minutes}
     markets_by_proposition = {str(row["proposition_id"]): row for row in market_rows}
     grain: set[tuple[str, str]] = set()
-    statuses = {"both_observed", "yes_only", "no_only", "no_fills"}
     for row in mart_rows:
         proposition_id = str(row["proposition_id"])
-        minute = int(row["elapsed_window_minute"])
-        if proposition_id not in axes:
+        market = markets_by_proposition.get(proposition_id)
+        if market is None:
             failures.append(f"unknown mart proposition_id={proposition_id!r}")
             break
-        market = markets_by_proposition[proposition_id]
-        identity_pairs = (
-            (row["fifa_match_id"], market["fifa_match_id"]),
-            (row["stage"], market["stage"]),
-            (row["group_name"], market["group_label"]),
-            (row["home_team"], market["home_team"]),
-            (row["away_team"], market["away_team"]),
-            (row["proposition_type"], market["proposition_type"]),
-            (row["yes_represents"], market["yes_represents"]),
-            (row["no_represents"], market["no_represents"]),
-            (row["scheduled_kickoff_at_utc"], market["kickoff_at_utc"]),
-            (row["analysis_window_start_at_utc"], market["window_start_at_utc"]),
-            (row["analysis_window_end_at_utc"], market["window_end_at_utc"]),
-        )
-        if any(
-            _format_value(left) != _format_value(right)
-            for left, right in identity_pairs
+        if not _validate_mart_row_contract(
+            row, market, grain=grain, axes=axes, failures=failures
         ):
-            failures.append(
-                f"mart identity differs from sidecar for proposition_id={proposition_id!r}"
-            )
-            break
-        axes[proposition_id].add(minute)
-        grain_key = (proposition_id, _format_value(row["settlement_minute_utc"]))
-        if grain_key in grain:
-            failures.append(f"duplicate mart grain={grain_key!r}")
-            break
-        grain.add(grain_key)
-        if row["minute_status"] not in statuses:
-            failures.append(f"invalid minute_status={row['minute_status']!r}")
-            break
-        if not all(_audit_side_values_are_valid(row, side) for side in ("yes", "no")):
-            failures.append(f"invalid audit mart values for grain={grain_key!r}")
-            break
-        yes_observed = _as_bool(row["yes_observed"])
-        no_observed = _as_bool(row["no_observed"])
-        expected_status = (
-            "both_observed"
-            if yes_observed and no_observed
-            else "yes_only"
-            if yes_observed
-            else "no_only"
-            if no_observed
-            else "no_fills"
-        )
-        if (
-            type(row["minute_complete"]) is not bool
-            or row["minute_status"] != expected_status
-            or row["minute_complete"] != (yes_observed and no_observed)
-        ):
-            failures.append(f"invalid minute state for grain={grain_key!r}")
-            break
-        expected_timestamp = _utc_datetime(market["window_start_at_utc"]) + timedelta(
-            minutes=minute
-        )
-        if _utc_datetime(row["settlement_minute_utc"]) != expected_timestamp:
-            failures.append(f"invalid settlement timestamp for grain={grain_key!r}")
             break
     for proposition_id, minute_count in expected_minutes.items():
         if axes[proposition_id] != set(range(minute_count)):
@@ -610,9 +639,16 @@ def _validate_rows(
             )
             break
 
+
+def _validate_quality_summary_row(
+    quality_rows: Sequence[Mapping[str, Any]],
+    provenance: Mapping[str, Any],
+    failures: list[str],
+) -> None:
     if len(quality_rows) != 1:
         failures.append(f"quality summary rows={len(quality_rows)}, expected 1")
-    elif not _as_bool(quality_rows[0]["publication_ready"]):
+        return
+    if not _as_bool(quality_rows[0]["publication_ready"]):
         failures.append("quality summary is not publication-ready")
     elif str(quality_rows[0]["scan_id"]) != str(provenance["scan_id"]):
         failures.append("quality summary scan_id does not match provenance")
@@ -623,6 +659,20 @@ def _validate_rows(
         or str(quality_rows[0]["blocking_issue_keys"] or "").strip()
     ):
         failures.append("quality summary contains blocking issues")
+
+
+def _validate_rows(
+    mart_rows: Sequence[Mapping[str, Any]],
+    market_rows: Sequence[Mapping[str, Any]],
+    quality_rows: Sequence[Mapping[str, Any]],
+    provenance: Mapping[str, Any],
+) -> dict[str, Any]:
+    failures: list[str] = []
+    match_ids, token_ids = _validate_market_sidecar_inventory(
+        market_rows, provenance, failures
+    )
+    _validate_mart_global_inventory(mart_rows, market_rows, failures)
+    _validate_quality_summary_row(quality_rows, provenance, failures)
 
     if failures:
         raise ValueError("Invalid Polygon settlement release: " + "; ".join(failures))

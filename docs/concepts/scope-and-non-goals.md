@@ -9,8 +9,8 @@ For the operator checklist, see
 
 ## What This Repository Ships
 
-- Source code, dbt models, Dagster jobs, operator scripts, documentation, and
-  signed software container images.
+- Source code, dbt models, Dagster jobs, operator scripts, and documentation
+  for local macOS-first operation.
 - Three fixed `run_scope.py` market scopes in `v0.1.x`:
   `polymarket:wc2026`, `polymarket:us_midterms_2026`, and `kalshi:wc2026`.
 - Supporting FIFA fixture/results ingestion used to validate real-team scope on
@@ -20,8 +20,7 @@ For the operator checklist, see
 
 ## What It Does Not Ship Or Operate
 
-- No bundled production datasets or operator data in the canonical repository
-  or newly published images.
+- No bundled production datasets or operator data in the canonical repository.
 - No hosted continuous live ingestion, hosted production pipeline, or hosted
   data service operated by Hypertrial.
 - No trade execution, strategy, or order admission runtime (those live in other

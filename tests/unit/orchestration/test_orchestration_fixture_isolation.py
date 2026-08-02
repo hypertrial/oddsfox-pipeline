@@ -17,6 +17,15 @@ def test_mocked_orchestration_test_does_not_create_duckdb(tmp_path: Path, monkey
     assert not db_path.exists()
 
 
+def test_orchestration_isolated_settings_reloads_without_schemas(
+    orchestration_isolated_settings, tmp_path: Path
+):
+    db_path = tmp_path / "orchestration.duckdb"
+    assert orchestration_isolated_settings is not None
+    # Reload points settings at the tmp path but does not create schemas.
+    assert not db_path.exists()
+
+
 def test_orchestration_duckdb_fixture_initializes_schemas(orchestration_duckdb):
     with orchestration_duckdb.get_connection() as conn:
         schemas = {

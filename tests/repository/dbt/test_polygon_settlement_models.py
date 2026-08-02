@@ -1,0 +1,229 @@
+import subprocess
+from pathlib import Path
+
+import pytest
+import yaml
+
+pytestmark = pytest.mark.repo_check
+
+DBT_ROOT = Path(__file__).resolve().parents[3] / "dbt"
+REPO_ROOT = DBT_ROOT.parent
+MODEL_ROOT = DBT_ROOT / "models" / "polymarket_wc2026"
+
+MODEL_FILES = {
+    "staging/stg_polymarket_wc2026_polygon_settlement_markets.sql",
+    "staging/stg_polymarket_wc2026_polygon_settlement_fills.sql",
+    "staging/stg_polymarket_wc2026_polygon_settlement_scan_runs.sql",
+    "staging/stg_polymarket_wc2026_polygon_settlement_scan_chunks.sql",
+    "intermediate/int_polymarket_wc2026_polygon_settlement_market_universe.sql",
+    "intermediate/int_polymarket_wc2026_polygon_settlement_token_minute_odds.sql",
+    "intermediate/int_polymarket_wc2026_polygon_settlement_minute_odds_candidate.sql",
+    "intermediate/int_polymarket_wc2026_polygon_settlement_publication_gate.sql",
+    "intermediate/int_polymarket_wc2026_polygon_settlement_seed_quality_summary.sql",
+    "intermediate/int_polymarket_wc2026_polygon_settlement_latest_published_scan.sql",
+    "intermediate/int_polymarket_wc2026_polygon_settlement_scan_quality_summary.sql",
+    "intermediate/int_polymarket_wc2026_polygon_settlement_raw_quality_summary.sql",
+    "intermediate/int_polymarket_wc2026_polygon_settlement_minute_quality_summary.sql",
+    "observability/polymarket_wc2026_polygon_settlement_token_coverage.sql",
+    "observability/polymarket_wc2026_polygon_settlement_quality_issues.sql",
+    "observability/polymarket_wc2026_polygon_settlement_data_quality.sql",
+    "marts/polymarket_wc2026_polygon_settlement_minute_odds.sql",
+}
+
+EXPECTED_BLOCKERS = {
+    "seed_inventory",
+    "seed_stage_distribution",
+    "seed_proposition_shape",
+    "seed_unique_ids",
+    "seed_windows",
+    "seed_evidence",
+    "scan_missing",
+    "scan_manifest",
+    "scan_integrity",
+    "scan_chunks",
+    "raw_empty",
+    "raw_scan_mismatch",
+    "raw_duplicates",
+    "raw_normalization_pairs",
+    "raw_mapping",
+    "raw_values",
+    "raw_chunk_coverage",
+    "minute_inventory",
+    "minute_axis",
+    "minute_values",
+    "aggregate_reconciliation",
+    "quality_errors",
+}
+
+
+def test_polygon_settlement_graph_is_tagged_and_source_isolated():
+    sql = []
+    for relative_path in MODEL_FILES:
+        text = (MODEL_ROOT / relative_path).read_text(encoding="utf-8").lower()
+        assert "polygon_settlement" in text.partition("}}")[0]
+        sql.append(text)
+
+    graph_sql = "\n".join(sql)
+    assert "stg_polymarket_wc2026_markets" not in graph_sql
+    assert "match_minute_odds_history" not in graph_sql
+    assert "clob_token" not in graph_sql
+    assert "international_results" not in graph_sql
+    assert "openfootball_wc2026" not in graph_sql
+
+
+def test_polygon_settlement_contract_is_dense_half_open_and_fail_closed():
+    candidate = (
+        MODEL_ROOT
+        / "intermediate"
+        / "int_polymarket_wc2026_polygon_settlement_minute_odds_candidate.sql"
+    ).read_text(encoding="utf-8")
+    gate = (
+        MODEL_ROOT
+        / "observability"
+        / "polymarket_wc2026_polygon_settlement_data_quality.sql"
+    ).read_text(encoding="utf-8")
+    seed_summary = (
+        MODEL_ROOT
+        / "intermediate"
+        / "int_polymarket_wc2026_polygon_settlement_seed_quality_summary.sql"
+    ).read_text(encoding="utf-8")
+    scan_summary = (
+        MODEL_ROOT
+        / "intermediate"
+        / "int_polymarket_wc2026_polygon_settlement_scan_quality_summary.sql"
+    ).read_text(encoding="utf-8")
+    mart = (
+        MODEL_ROOT / "marts" / "polymarket_wc2026_polygon_settlement_minute_odds.sql"
+    ).read_text(encoding="utf-8")
+    quality_graph = "\n".join((gate, seed_summary, scan_summary))
+
+    assert "range(0, universe.window_minutes)" in candidate
+    assert {"both_observed", "yes_only", "no_only", "no_fills"} <= set(
+        candidate.split("'")[1::2]
+    )
+    assert "39120 as expected_minute_rows" in gate
+    assert "case when raw_fill_rows = 0 then 'raw_empty' end" in gate
+    assert "blocking_issue_keys is null as publication_ready" in gate
+    assert "bd46a148289f9930da66c140d4d7d2325e95d387" in quality_graph
+    assert "stage = 'group_stage'" in quality_graph
+    assert "market_structure <> 'neg_risk'" in quality_graph
+    assert "stage <> 'group_stage'" in quality_graph
+    assert "market_structure <> 'standard'" in quality_graph
+    assert "gap_or_overlap_count" in quality_graph
+    for blocker in EXPECTED_BLOCKERS:
+        assert f"'{blocker}'" in gate
+    assert "candidate.yes_open_price as yes_open" in mart
+    assert "candidate.no_close_price as no_close" in mart
+
+
+def test_polygon_settlement_dbt_unit_tests_cover_every_blocker_key():
+    docs = yaml.safe_load((MODEL_ROOT / "polygon_settlement.yml").read_text())
+    unit_names = {test["name"] for test in docs.get("unit_tests", [])}
+    missing = {
+        f"test_polygon_settlement_blocker_{blocker}"
+        for blocker in EXPECTED_BLOCKERS
+        if f"test_polygon_settlement_blocker_{blocker}" not in unit_names
+    }
+    assert not missing, sorted(missing)
+    pair_tests = {
+        name
+        for name in unit_names
+        if name.startswith("test_polygon_settlement_raw_pair_")
+    }
+    assert len(pair_tests) == 7
+
+
+def test_polygon_settlement_mart_documents_audit_only_export_omissions():
+    docs = yaml.safe_load((MODEL_ROOT / "polygon_settlement.yml").read_text())
+    mart = next(
+        model
+        for model in docs["models"]
+        if model["name"] == "polymarket_wc2026_polygon_settlement_minute_odds"
+    )
+    columns = {column["name"]: column for column in mart["columns"]}
+    audit_only = {
+        "settlement_minute_epoch",
+        "condition_id",
+        "yes_token_id",
+        "no_token_id",
+        "market_structure",
+        "exchange_address",
+        "manifest_sha256",
+        "manifest_version",
+    }
+
+    assert len(columns) == 48
+    assert audit_only <= columns.keys()
+    assert all(
+        str(column.get("description", "")).strip() for column in columns.values()
+    )
+    assert all(
+        "omitted from the sanitized export" in columns[name]["description"]
+        for name in audit_only
+    )
+
+
+def test_polygon_settlement_seed_and_sources_are_tagged():
+    project = yaml.safe_load((DBT_ROOT / "dbt_project.yml").read_text())
+    seed_config = project["seeds"]["oddsfox"][
+        "polymarket_wc2026_polygon_settlement_markets"
+    ]
+    assert "polygon_settlement" in seed_config["+tags"]
+
+    sources = yaml.safe_load(
+        (DBT_ROOT / "models" / "sources" / "polymarket_wc2026_sources.yml").read_text()
+    )["sources"]
+    polygon_tables = {
+        table["name"]: table
+        for source in sources
+        for table in source["tables"]
+        if table["name"].startswith("polygon_settlement_")
+    }
+    assert set(polygon_tables) == {
+        "polygon_settlement_fills",
+        "polygon_settlement_scan_runs",
+        "polygon_settlement_scan_chunks",
+        "polygon_settlement_fill_stage",
+    }
+    assert all(
+        "polygon_settlement" in table["config"]["tags"]
+        for table in polygon_tables.values()
+    )
+
+
+def test_polygon_settlement_graph_has_an_isolated_release_gate():
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    integration = (
+        REPO_ROOT / "tests" / "integration" / "test_polygon_settlement_dbt.py"
+    ).read_text(encoding="utf-8")
+
+    ordinary_build = makefile.split("\ndbt-build dbt-test:", 1)[1].split("\n\n", 1)[0]
+    # Anchor on a newline so release-gate-dbt-unit: does not match first.
+    ordinary_unit = makefile.split("\ndbt-unit:", 1)[1].split("\n\n", 1)[0]
+    dedicated_build = makefile.split("\ndbt-polygon-settlement-ci:", 1)[1].split(
+        "\n\n", 1
+    )[0]
+    release_gate = subprocess.run(
+        ["make", "-n", "release-gate-core"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+    assert "--exclude tag:polygon_settlement" in ordinary_build
+    assert ordinary_unit.count("--exclude tag:polygon_settlement") == 3
+    assert "tests/integration/test_polygon_settlement_dbt.py" in release_gate
+    assert "tests/integration/test_polygon_settlement_dbt.py" in dedicated_build
+    assert "test_type:unit,tag:polygon_settlement" in dedicated_build
+    assert '["build", "--full-refresh", "--select", "tag:polygon_settlement"]' in (
+        integration
+    )
+    assert "def test_polygon_settlement_graph_builds_exact_dense_mart" in integration
+    assert (
+        "def test_polygon_settlement_scan_missing_fails_publication_gate" in integration
+    )
+    assert (
+        "def test_polygon_settlement_raw_pair_failure_fails_publication_gate"
+        in integration
+    )

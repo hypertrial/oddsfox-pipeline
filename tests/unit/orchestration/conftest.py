@@ -51,16 +51,12 @@ def _stub_sync_odds(**kwargs):
 
 
 @pytest.fixture(autouse=True)
-def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_globals):
+def orchestration_test_guards(request, monkeypatch, reset_connection_globals):
     """Keep orchestration unit tests off real wall-clock sleeps and blocking dbt polls."""
     del reset_connection_globals
     if request.node.get_closest_marker("facade") is not None:
         yield
         return
-
-    # Cheap path isolation only — do not bootstrap schemas unless a test opts in.
-    db_path = tmp_path / "orchestration.duckdb"
-    connection = reload_settings_and_connection(monkeypatch, db_path)
 
     clock = _FakeClock()
     for module in (
@@ -96,6 +92,13 @@ def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_g
     with patch("time.sleep", lambda *_a, **_k: None):
         yield
 
+
+@pytest.fixture
+def orchestration_isolated_settings(monkeypatch, tmp_path):
+    """Opt-in settings/connection reload for tests that mutate DUCKDB_* env."""
+    db_path = tmp_path / "orchestration.duckdb"
+    connection = reload_settings_and_connection(monkeypatch, db_path)
+    yield connection
     connection.reset_duckdb_connection_state()
 
 
@@ -106,17 +109,3 @@ def orchestration_duckdb(monkeypatch, tmp_path):
     connection = initialize_isolated_duckdb(monkeypatch, db_path)
     yield connection
     connection.reset_duckdb_connection_state()
-
-
-@pytest.fixture
-def reset_connection_globals():
-    import oddsfox_pipeline.storage.duckdb.connection as connection
-
-    connection.reset_duckdb_connection_state()
-    yield
-    connection.reset_duckdb_connection_state()
-
-
-def pytest_collection_modifyitems(items):
-    for item in items:
-        item.add_marker(pytest.mark.orchestration)

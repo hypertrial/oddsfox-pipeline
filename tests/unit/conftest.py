@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+# Force a per-worker disposable DuckDB path before production modules latch
+# settings. Make exports DUCKDB_NAME=oddsfox.duckdb by default; unit tests must
+# never share that warehouse under xdist. Function-scoped fixtures still reload
+# settings when they intentionally mutate env.
+import os as _os
+import tempfile as _tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,6 +15,15 @@ import pytest
 import requests
 
 from oddsfox_pipeline.resources.outbound_url import clear_outbound_url_host_cache
+
+_worker = _os.environ.get("PYTEST_XDIST_WORKER", "gw0")
+_unit_db = _os.path.join(
+    _os.environ.get("TMPDIR", _tempfile.gettempdir()),
+    f"oddsfox-unit-{_worker}.duckdb",
+)
+_os.environ["DUCKDB_NAME"] = _unit_db
+_os.environ["DUCKDB_PATH"] = _unit_db
+
 
 _NETWORK_DISABLED_MSG = (
     "Real outbound HTTP is disabled in unit tests. "

@@ -86,8 +86,8 @@ submit the material and that it meets the data and IP hygiene rules above.
 | Change | Gate |
 | --- | --- |
 | Docs / MkDocs only | `uv run make docs-check` |
-| Ordinary PR | `uv run make ci-fast` (parallel lanes; use `ci-fast-core` to diagnose sequentially) |
-| Dependency, Docker, Dagster, dbt, data-quality, or pre-release | `uv run make release-gate` (parallel lanes; use `release-gate-core` to diagnose sequentially) |
+| Ordinary PR | `uv run make ci-fast` (`GATE_JOBS` DAG; use `ci-fast-core` for `-j1`) |
+| Dependency, Dagster, dbt, data-quality, or pre-release | `uv run make release-gate` (`GATE_JOBS` DAG; use `release-gate-core` for `-j1`) |
 | Live network acceptance | Local-only smokes; never add to GitHub Actions |
 
 The canonical command tables, Costguard install, and layout guardrails live in
@@ -100,7 +100,8 @@ for a clean strict mutation run over the five curated deterministic modules.
 Automatic CI verifies the Python 3.10 support floor and requires package and
 ordinary-test compatibility on Python 3.13. Release integration tests compare
 every incremental odds model with a full refresh and exercise repeat-run and
-writer-recovery behavior without live network calls.
+writer-recovery behavior without live network calls. Repository policy checks
+live under `tests/repository/` (`make check-repository`).
 
 ## Versioning expectations
 

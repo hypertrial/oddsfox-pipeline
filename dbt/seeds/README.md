@@ -16,8 +16,8 @@ The following files intentionally contain one header row and no records:
 - `wc2026_tournament_classification.csv`
 - `wc2026_venues.csv`
 
-Operators may populate these paths locally with data they are entitled to use,
-or mount populated files over the paths in a container. The Polygon candidate
+Operators may populate these paths locally with data they are entitled to use.
+The Polygon candidate
 generator writes below ignored `artifacts/`; review its output before copying a
 manifest to the seed path and supplying the matching local resolution
 attestation. The source and authoring steps for the two WC2026 minute marts are

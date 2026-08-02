@@ -14,6 +14,12 @@ from unittest.mock import MagicMock
 
 import duckdb
 import pytest
+from tests.support.polygon_settlement_release_fixtures import (
+    _build_full_release_db,
+    minimal_market_row,
+    minimal_mart_row,
+    minimal_quality_row,
+)
 from tests.unit.ingestion.test_polygon_seed import complete_seed_rows
 
 from oddsfox_pipeline.ingestion.polymarket.polygon_seed import SEED_COLUMNS
@@ -29,168 +35,22 @@ from oddsfox_pipeline.publishing.polygon_settlement import (
 )
 
 
+@pytest.fixture(scope="module")
+def full_release_template(tmp_path_factory):
+    path = tmp_path_factory.mktemp("polygon-release") / "template.duckdb"
+    _build_full_release_db(path)
+    return path
+
+
 @pytest.fixture
-def release_connection(monkeypatch) -> duckdb.DuckDBPyConnection:
-    conn = duckdb.connect(":memory:")
-    conn.execute("create schema polymarket_wc2026_staging")
-    conn.execute("create schema polymarket_wc2026_marts")
-    conn.execute("create schema polymarket_wc2026_observability")
-    conn.execute(
-        """
-        create table polymarket_wc2026_staging.stg_polymarket_wc2026_polygon_settlement_markets as
-        with markets as (
-            select
-                i,
-                case when i <= 216 then cast(((i - 1) // 3) + 1 as integer)
-                     else cast(i - 144 as integer) end as fifa_match_id
-            from range(1, 249) as source(i)
-        )
-        select
-            'prop_' || lpad(cast(i as varchar), 3, '0') as proposition_id,
-            fifa_match_id,
-            case
-                when fifa_match_id <= 72 then 'group_stage'
-                when fifa_match_id <= 88 then 'round_of_32'
-                when fifa_match_id <= 96 then 'round_of_16'
-                when fifa_match_id <= 100 then 'quarterfinal'
-                when fifa_match_id <= 102 then 'semifinal'
-                when fifa_match_id = 103 then 'third_place'
-                else 'final'
-            end as stage,
-            case when fifa_match_id <= 72 then 'A' else null end as group_name,
-            'Home ' || fifa_match_id as home_team,
-            'Away ' || fifa_match_id as away_team,
-            timestamp '2026-06-11 12:00:00' + fifa_match_id * interval '1 day'
-                as scheduled_kickoff_at_utc,
-            timestamp '2026-06-11 12:00:00' + fifa_match_id * interval '1 day'
-                as analysis_window_start_at_utc,
-            timestamp '2026-06-11 12:00:00' + fifa_match_id * interval '1 day'
-                + case when fifa_match_id <= 72 then interval '150 minutes'
-                       else interval '210 minutes' end as analysis_window_end_at_utc,
-            case when fifa_match_id <= 72 then
-                case (i - 1) % 3 when 0 then 'home_win' when 1 then 'draw'
-                    else 'away_win' end
-            when fifa_match_id <= 102 then 'home_advances'
-            when fifa_match_id = 103 then 'home_win_third_place'
-            else 'home_wins_final' end as proposition_type,
-            'Yes meaning ' || i as yes_represents,
-            'No meaning ' || i as no_represents,
-            '0x' || lpad(to_hex(i), 64, '0') as condition_id,
-            cast(i * 2 as varchar) as yes_token_id,
-            cast(i * 2 + 1 as varchar) as no_token_id,
-            case when i % 2 = 0 then 'standard' else 'neg_risk' end
-                as market_structure,
-            case when i % 2 = 0
-                then '0xE111180000d2663C0091e4f400237545B87B996B'
-                else '0xe2222d279d744050d28e00520010520000310F59'
-            end as exchange_address,
-            repeat('a', 40) as openfootball_revision,
-            case when fifa_match_id <= 72 then '2026--usa/cup.txt'
-                 else '2026--usa/cup_finals.txt' end as openfootball_path,
-            '1-2' as openfootball_source_lines,
-            repeat('b', 64) as openfootball_line_hash,
-            '0x' || repeat('1', 64) as condition_init_tx_hash,
-            i as condition_init_log_index,
-            '0x' || repeat('2', 64) as question_init_tx_hash,
-            i + 1 as question_init_log_index,
-            repeat('c', 64) as ancillary_data_sha256,
-            100000 + i as token_verification_block_number,
-            '0x' || repeat('3', 64) as token_verification_block_hash,
-            repeat('a', 64) as manifest_sha256,
-            '1.0.0' as manifest_version,
-            timestamp '2026-07-22 00:00:00' as reviewed_at_utc
-        from markets
-        """
-    )
-    conn.execute(
-        """
-        create table polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds as
-        with markets as (
-            select *
-            from polymarket_wc2026_staging.stg_polymarket_wc2026_polygon_settlement_markets
-        )
-        select
-            fifa_match_id,
-            stage,
-            group_name,
-            home_team,
-            away_team,
-            proposition_id,
-            proposition_type,
-            yes_represents,
-            no_represents,
-            scheduled_kickoff_at_utc,
-            analysis_window_start_at_utc,
-            analysis_window_end_at_utc,
-            analysis_window_start_at_utc + minute_index * interval '1 minute'
-                as settlement_minute_utc,
-            cast(minute_index as integer) as elapsed_window_minute,
-            cast(0.4 as decimal(38,18)) as yes_open,
-            cast(0.5 as decimal(38,18)) as yes_high,
-            cast(0.3 as decimal(38,18)) as yes_low,
-            cast(0.45 as decimal(38,18)) as yes_close,
-            cast(0.44 as decimal(38,18)) as yes_vwap,
-            1::bigint as yes_normalized_fill_count,
-            0::bigint as yes_derived_fill_count,
-            cast(10 as decimal(38,6)) as yes_share_volume,
-            cast(4.4 as decimal(38,6)) as yes_gross_collateral_volume,
-            analysis_window_start_at_utc + minute_index * interval '1 minute'
-                as yes_first_settlement_at_utc,
-            analysis_window_start_at_utc + minute_index * interval '1 minute'
-                as yes_last_settlement_at_utc,
-            true as yes_observed,
-            cast(0.6 as decimal(38,18)) as no_open,
-            cast(0.7 as decimal(38,18)) as no_high,
-            cast(0.5 as decimal(38,18)) as no_low,
-            cast(0.55 as decimal(38,18)) as no_close,
-            cast(0.56 as decimal(38,18)) as no_vwap,
-            1::bigint as no_normalized_fill_count,
-            0::bigint as no_derived_fill_count,
-            cast(10 as decimal(38,6)) as no_share_volume,
-            cast(5.6 as decimal(38,6)) as no_gross_collateral_volume,
-            analysis_window_start_at_utc + minute_index * interval '1 minute'
-                as no_first_settlement_at_utc,
-            analysis_window_start_at_utc + minute_index * interval '1 minute'
-                as no_last_settlement_at_utc,
-            true as no_observed,
-            true as minute_complete,
-            'both_observed' as minute_status
-        from markets
-        cross join lateral range(
-            0,
-            case when fifa_match_id <= 72 then 150 else 210 end
-        ) as minutes(minute_index)
-        """
-    )
-    conn.execute(
-        """
-        create table polymarket_wc2026_observability.polymarket_wc2026_polygon_settlement_data_quality as
-        select
-            'scan-1' as scan_id,
-            'published' as scan_status,
-            true as publication_ready,
-            '' as blocking_issue_keys,
-            0::bigint as warning_issue_count,
-            0::bigint as error_issue_count
-        """
-    )
-    conn.execute(
-        """
-        create table polymarket_wc2026_observability.polymarket_wc2026_polygon_settlement_quality_issues (
-            issue_key varchar,
-            severity varchar,
-            issue_type varchar,
-            proposition_id varchar,
-            fifa_match_id integer,
-            token_id varchar,
-            settlement_minute_utc timestamp,
-            measured_value double,
-            threshold_value double,
-            issue_detail varchar,
-            observed_at timestamp
-        )
-        """
-    )
+def release_connection(full_release_template, monkeypatch, tmp_path):
+    import shutil
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    db_path = tmp_path / "release.duckdb"
+    shutil.copy2(full_release_template, db_path)
+    conn = duckdb.connect(str(db_path))
     seed_rows = publishing._read_market_rows(conn)
     monkeypatch.setattr(
         publishing,
@@ -443,72 +303,51 @@ def test_builds_complete_immutable_internal_audit_bundle(
 
 
 @pytest.mark.parametrize(
-    "verification_status",
-    ["not_requested", "matched", "mismatched", "error"],
+    ("verification_status", "secondary_origin"),
+    [
+        ("not_requested", None),
+        ("matched", "https://verify.example"),
+        ("mismatched", "https://verify.example"),
+        ("error", "https://rpc.example"),
+    ],
 )
 def test_release_reconciles_current_verification_status_and_warning(
-    release_connection: duckdb.DuckDBPyConnection,
     provenance: dict,
-    tmp_path: Path,
     verification_status: str,
+    secondary_origin: str | None,
 ) -> None:
-    release_connection.execute(
-        """
-        insert into polymarket_wc2026_observability.polymarket_wc2026_polygon_settlement_quality_issues
-        values (
-            'secondary_verification:scan-1', 'warn', 'verification',
-            null, null, null, null, null, null,
-            'stale verification warning (not_requested).',
-            timestamp '2026-07-22 00:00:00'
-        )
-        """
-    )
     provenance["verification_status"] = verification_status
-    if verification_status != "not_requested":
+    if secondary_origin is not None:
         provenance["verification_rpc_provider_label"] = "secondary"
-        provenance["verification_rpc_provider_origin"] = (
-            "https://rpc.example"
-            if verification_status == "error"
-            else "https://verify.example"
-        )
+        provenance["verification_rpc_provider_origin"] = secondary_origin
 
-    build_polygon_settlement_audit_release(
-        release_connection,
-        tmp_path,
-        PolygonSettlementAuditSpec("1.0.0"),
-        provenance=provenance,
-        generator_commit="f" * 40,
-    )
-    release = tmp_path / "releases" / "1.0.0"
-    provenance_json = json.loads(
-        (release / "PROVENANCE.json").read_text(encoding="utf-8")
-    )
-    quality_json = json.loads(
-        (release / "QUALITY_REPORT.json").read_text(encoding="utf-8")
+    effective = publishing._effective_release_provenance(provenance)
+    assert effective["verification_status"] == verification_status
+
+    quality, issues = publishing._reconcile_verification_quality(
+        [{"warning_issue_count": 0, "error_issue_count": 0}],
+        [
+            {
+                "issue_key": "secondary_verification:scan-1",
+                "severity": "warn",
+                "issue_type": "verification",
+                "issue_detail": "stale verification warning (not_requested).",
+            }
+        ],
+        effective,
     )
     verification_issues = [
-        issue
-        for issue in quality_json["issues"]
-        if issue["issue_type"] == "verification"
+        issue for issue in issues if issue["issue_type"] == "verification"
     ]
-
-    assert provenance_json["verification_status"] == verification_status
-    assert "rpc_provider_terms" not in provenance_json
-    assert quality_json["verification_status"] == verification_status
     if verification_status == "matched":
         assert verification_issues == []
-        assert quality_json["warehouse_gate"]["warning_issue_count"] == 0
+        assert quality[0]["warning_issue_count"] == 0
     else:
         assert len(verification_issues) == 1
         assert verification_status in verification_issues[0]["issue_detail"]
-        assert quality_json["warehouse_gate"]["warning_issue_count"] == 1
+        assert quality[0]["warning_issue_count"] == 1
     if verification_status == "error":
         assert "non-independent" in verification_issues[0]["issue_detail"]
-    if verification_status != "not_requested":
-        assert provenance_json["verification_rpc_provider_label"] == "secondary"
-        assert provenance_json["verification_rpc_provider_origin"].startswith(
-            "https://"
-        )
 
 
 def test_verification_reconciliation_downgrades_same_source_match(
@@ -551,22 +390,21 @@ def test_release_refuses_overwrite_and_preserves_existing_bundle(
     provenance: dict,
     tmp_path: Path,
 ) -> None:
-    spec = PolygonSettlementAuditSpec("1.0.0")
-    kwargs = {
-        "provenance": provenance,
-        "generator_commit": "f" * 40,
-    }
-    build_polygon_settlement_audit_release(release_connection, tmp_path, spec, **kwargs)
-    original = (tmp_path / "releases" / "1.0.0" / "CHECKSUMS.sha256").read_bytes()
+    release_dir = tmp_path / "releases" / "1.0.0"
+    release_dir.mkdir(parents=True)
+    sentinel = release_dir / "CHECKSUMS.sha256"
+    sentinel.write_bytes(b"keep-me")
 
     with pytest.raises(FileExistsError, match="release already exists"):
         build_polygon_settlement_audit_release(
-            release_connection, tmp_path, spec, **kwargs
+            release_connection,
+            tmp_path,
+            PolygonSettlementAuditSpec("1.0.0"),
+            provenance=provenance,
+            generator_commit="f" * 40,
         )
 
-    assert (
-        tmp_path / "releases" / "1.0.0" / "CHECKSUMS.sha256"
-    ).read_bytes() == original
+    assert sentinel.read_bytes() == b"keep-me"
 
 
 def test_release_refuses_dangling_version_symlink(
@@ -720,23 +558,48 @@ def _warehouse_release_rows(conn: duckdb.DuckDBPyConnection):
     return mart, markets, quality
 
 
+def _complete_market_sidecar() -> list[dict]:
+    """248 synthetic sidecar markets covering the production inventory."""
+    markets: list[dict] = []
+    for fifa_match_id in range(1, 105):
+        if fifa_match_id <= 72:
+            types = ("home_win", "draw", "away_win")
+            stage = "group_stage"
+        elif fifa_match_id <= 102:
+            types = ("home_advances",)
+            stage = "round_of_32"
+        elif fifa_match_id == 103:
+            types = ("home_win_third_place",)
+            stage = "third_place"
+        else:
+            types = ("home_wins_final",)
+            stage = "final"
+        for proposition_type in types:
+            markets.append(
+                minimal_market_row(
+                    proposition_id=f"prop_{len(markets) + 1:03d}",
+                    fifa_match_id=fifa_match_id,
+                    proposition_type=proposition_type,
+                    stage=stage,
+                )
+            )
+    assert len(markets) == 248
+    return markets
+
+
+def _assert_failures(failures: list[str]) -> None:
+    assert failures, "expected validation failures"
+
+
 def test_release_row_validation_rejects_every_public_contract_break(
-    release_connection: duckdb.DuckDBPyConnection,
     provenance: dict,
 ) -> None:
-    mart, markets, quality = _warehouse_release_rows(release_connection)
+    markets = _complete_market_sidecar()
+    quality = [minimal_quality_row()]
 
-    def rejects(
-        *,
-        mart_rows=mart,
-        market_rows=markets,
-        quality_rows=quality,
-    ) -> None:
-        with pytest.raises(ValueError, match="Invalid Polygon settlement release"):
-            publishing._validate_rows(mart_rows, market_rows, quality_rows, provenance)
-
-    rejects(mart_rows=mart[:-1])
-    rejects(market_rows=markets[:-1])
+    failures: list[str] = []
+    publishing._validate_market_sidecar_inventory(markets[:-1], provenance, failures)
+    _assert_failures(failures)
 
     for column, value in (
         ("fifa_match_id", 0),
@@ -747,51 +610,117 @@ def test_release_row_validation_rejects_every_public_contract_break(
     ):
         changed = [dict(row) for row in markets]
         changed[0][column] = value
-        rejects(market_rows=changed)
+        failures = []
+        publishing._validate_market_sidecar_inventory(changed, provenance, failures)
+        _assert_failures(failures)
 
-    changed_mart = list(mart)
-    changed_mart[0] = {**mart[0], "proposition_id": "unknown"}
-    rejects(mart_rows=changed_mart)
-    changed_mart[0] = {**mart[0], "home_team": "Different"}
-    rejects(mart_rows=changed_mart)
-    changed_mart[0] = {
-        **mart[0],
-        "settlement_minute_utc": mart[1]["settlement_minute_utc"],
-    }
-    rejects(mart_rows=changed_mart)
-    changed_mart[0] = {**mart[0], "minute_status": "invalid"}
-    rejects(mart_rows=changed_mart)
-    changed_mart[0] = {**mart[0], "minute_complete": False}
-    rejects(mart_rows=changed_mart)
-    shifted_timestamp = mart[0]["settlement_minute_utc"] + publishing.timedelta(
-        seconds=30
+    market = markets[0]
+    mart_row = minimal_mart_row(market)
+    grain: set[tuple[str, str]] = set()
+    axes = {market["proposition_id"]: set()}
+
+    failures = []
+    publishing._validate_mart_row_contract(
+        {**mart_row, "proposition_id": "unknown"},
+        market,
+        grain=grain,
+        axes=axes,
+        failures=failures,
     )
-    changed_mart[0] = {
-        **mart[0],
-        "settlement_minute_utc": shifted_timestamp,
-        "yes_first_settlement_at_utc": shifted_timestamp,
-        "yes_last_settlement_at_utc": shifted_timestamp,
-        "no_first_settlement_at_utc": shifted_timestamp,
-        "no_last_settlement_at_utc": shifted_timestamp,
-    }
-    rejects(mart_rows=changed_mart)
+    _assert_failures(failures)
 
-    changed_mart = list(mart)
-    changed_mart[1] = {
-        **mart[1],
-        "settlement_minute_utc": mart[0]["settlement_minute_utc"],
-    }
-    rejects(mart_rows=changed_mart)
+    grain = set()
+    axes = {market["proposition_id"]: set()}
+    failures = []
+    publishing._validate_mart_row_contract(
+        {**mart_row, "home_team": "Different"},
+        market,
+        grain=grain,
+        axes=axes,
+        failures=failures,
+    )
+    _assert_failures(failures)
 
-    rejects(quality_rows=[])
+    grain = {
+        (
+            market["proposition_id"],
+            publishing._format_value(mart_row["settlement_minute_utc"]),
+        )
+    }
+    axes = {market["proposition_id"]: set()}
+    failures = []
+    publishing._validate_mart_row_contract(
+        mart_row,
+        market,
+        grain=grain,
+        axes=axes,
+        failures=failures,
+    )
+    _assert_failures(failures)
+
+    grain = set()
+    axes = {market["proposition_id"]: set()}
+    failures = []
+    publishing._validate_mart_row_contract(
+        {**mart_row, "minute_status": "invalid"},
+        market,
+        grain=grain,
+        axes=axes,
+        failures=failures,
+    )
+    _assert_failures(failures)
+
+    grain = set()
+    axes = {market["proposition_id"]: set()}
+    failures = []
+    publishing._validate_mart_row_contract(
+        {**mart_row, "minute_complete": False},
+        market,
+        grain=grain,
+        axes=axes,
+        failures=failures,
+    )
+    _assert_failures(failures)
+
+    shifted = mart_row["settlement_minute_utc"] + publishing.timedelta(seconds=30)
+    grain = set()
+    axes = {market["proposition_id"]: set()}
+    failures = []
+    publishing._validate_mart_row_contract(
+        {
+            **mart_row,
+            "settlement_minute_utc": shifted,
+            "yes_first_settlement_at_utc": shifted,
+            "yes_last_settlement_at_utc": shifted,
+            "no_first_settlement_at_utc": shifted,
+            "no_last_settlement_at_utc": shifted,
+        },
+        market,
+        grain=grain,
+        axes=axes,
+        failures=failures,
+    )
+    _assert_failures(failures)
+
+    # Axis coverage failure without materializing 39,120 rows.
+    failures = []
+    publishing._validate_mart_global_inventory([mart_row], [market], failures)
+    _assert_failures(failures)
+
+    failures = []
+    publishing._validate_quality_summary_row([], provenance, failures)
+    _assert_failures(failures)
     for column, value in (
         ("scan_id", "different"),
         ("scan_status", "failed"),
         ("error_issue_count", 1),
         ("blocking_issue_keys", "blocking"),
     ):
-        changed_quality = [{**quality[0], column: value}]
-        rejects(quality_rows=changed_quality)
+        failures = []
+        publishing._validate_quality_summary_row(
+            [{**quality[0], column: value}], provenance, failures
+        )
+        _assert_failures(failures)
 
 
 @pytest.mark.parametrize(
@@ -836,66 +765,62 @@ def test_release_row_validation_rejects_every_public_contract_break(
     ),
 )
 def test_release_row_validation_rejects_corrupt_public_mart_values(
-    release_connection: duckdb.DuckDBPyConnection,
-    provenance: dict,
     changes: dict,
 ) -> None:
-    mart, markets, quality = _warehouse_release_rows(release_connection)
-    changed = list(mart)
-    changed[0] = {**mart[0], **changes}
+    market = minimal_market_row()
+    row = {**minimal_mart_row(market), **changes}
+    failures: list[str] = []
+    publishing._validate_mart_row_contract(
+        row,
+        market,
+        grain=set(),
+        axes={market["proposition_id"]: set()},
+        failures=failures,
+    )
+    assert any("invalid audit mart values" in item for item in failures)
 
-    with pytest.raises(ValueError, match="invalid audit mart values"):
-        publishing._validate_rows(changed, markets, quality, provenance)
 
-
-def test_release_row_validation_accepts_all_four_minute_states(
-    release_connection: duckdb.DuckDBPyConnection,
-    provenance: dict,
-) -> None:
-    mart, markets, quality = _warehouse_release_rows(release_connection)
-    changed = list(mart)
+def test_release_row_validation_accepts_all_four_minute_states() -> None:
+    market = minimal_market_row()
     states = (
         (True, True, True, "both_observed"),
         (True, False, False, "yes_only"),
         (False, True, False, "no_only"),
         (False, False, False, "no_fills"),
     )
+    empty_minutes = 0
     for index, (yes, no, complete, status) in enumerate(states):
-        row = {
-            **mart[index],
-            "yes_observed": yes,
-            "no_observed": no,
-            "minute_complete": complete,
-            "minute_status": status,
-        }
-        for side, observed in (("yes", yes), ("no", no)):
-            if observed:
-                continue
-            row.update(
-                {
-                    f"{side}_{field}": None
-                    for field in (
-                        "open",
-                        "high",
-                        "low",
-                        "close",
-                        "vwap",
-                        "first_settlement_at_utc",
-                        "last_settlement_at_utc",
-                    )
-                }
-            )
-            row.update(
-                {
-                    f"{side}_normalized_fill_count": 0,
-                    f"{side}_derived_fill_count": 0,
-                    f"{side}_share_volume": Decimal("0"),
-                    f"{side}_gross_collateral_volume": Decimal("0"),
-                }
-            )
-        changed[index] = row
-    summary = publishing._validate_rows(changed, markets, quality, provenance)
-    assert summary["empty_minutes"] == 1
+        row = minimal_mart_row(
+            market,
+            elapsed_window_minute=index,
+            minute_status=status,
+            yes_observed=yes,
+            no_observed=no,
+        )
+        assert row["minute_complete"] is complete
+        failures: list[str] = []
+        publishing._validate_mart_row_contract(
+            row,
+            market,
+            grain=set(),
+            axes={market["proposition_id"]: set()},
+            failures=failures,
+        )
+        assert failures == []
+        if not (yes or no):
+            empty_minutes += 1
+    assert empty_minutes == 1
+
+
+def test_release_row_validation_accepts_complete_warehouse(
+    release_connection: duckdb.DuckDBPyConnection,
+    provenance: dict,
+) -> None:
+    mart, markets, quality = _warehouse_release_rows(release_connection)
+    summary = publishing._validate_rows(mart, markets, quality, provenance)
+    assert summary["rows"] == publishing.EXPECTED_MART_ROWS
+    assert summary["markets"] == publishing.EXPECTED_MARKETS
+    assert summary["matches"] == publishing.EXPECTED_MATCHES
 
 
 def test_provenance_validation_rejects_incomplete_or_unsafe_values(

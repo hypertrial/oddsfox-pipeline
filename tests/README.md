@@ -5,11 +5,18 @@ ships WC2026 and US midterms 2026 Polymarket ingestion, marts, and orchestration
 
 See [OddsFox Pipeline docs](../docs/index.md) for setup and runbook commands.
 
-- `unit/`: mocked config, ingestion, storage, and orchestration tests.
-- `integration/`: DuckDB/dbt/Dagster smoke tests using temp databases.
-- `dbt/`: dbt project structure checks.
+Ownership (paths) and execution properties (markers) are separate:
+
+- `unit/`: mocked config, ingestion, storage, orchestration, publishing, and scripts.
+- `integration/`: DuckDB/dbt/Dagster smoke tests using disposable databases.
+- `repository/`: repository policy checks (Make, workflows, naming, distribution,
+  terminology, secrets, static dbt project structure).
+- `docs/`: documentation structure and rendered-page checks.
+- `package/`: package distribution smoke.
 - `contract/`: replay-only HTTP contract tests using checked-in VCR cassettes.
-- top-level tests: repository policy checks such as secret scanning.
+
+Markers retained for execution filtering: `integration`, `contract`, `slow`,
+`performance`, `repo_check`, and `facade`.
 
 Useful commands:
 
@@ -31,37 +38,44 @@ make integration-dagster
 make contract-http
 make test
 make coverage
-make check-secrets
+make check-repository
 ```
 
 The ordinary `make test` suite uses xdist and excludes `tests/integration`,
-`tests/dbt`, and `tests/contract`; those paths retain dedicated targets.
-`make test` / `make test-cov` first run `dbt-prepare` so xdist workers reuse one
-shared dbt manifest under `DBT_TARGET_PATH`. `make integration-dbt` splits
-isolated incremental cases (`DBT_TEST_WORKERS`, default 4) from the remaining
-serial DuckDB/dbt suite, which includes the golden marts. Standalone
-`make golden-dbt` remains available but is not duplicated in the release gate.
-The full local release gate accumulates coverage with `make test-cov`,
-`make dagster-jobs-smoke-cov`, `make dagster-refresh-cov`,
-`make integration-dbt-cov`, and `make coverage-report`, alongside the dbt,
-freshness, data-quality, and focused mutation targets. `make
-integration-dagster-cov` wraps both split Dagster coverage targets, while `make
-coverage` is the one-shot equivalent. Local `ci-fast` / `release-gate` launch
-isolated parallel lanes; use `ci-fast-core` / `release-gate-core` for sequential
-diagnosis. GitHub's automatic `tests` worker runs the parallel fast suite and
-serial `make contract-http` while independent static/docs and dbt-lint workers
-run in parallel. A required Python 3.13 worker repeats package smoke and the
-ordinary suite while Python 3.10 remains the supported floor and full-release
+`tests/contract`, `tests/repository`, `tests/docs`, and `tests/package`; those
+paths retain dedicated targets. `make check-repository` runs the `repo_check`
+suite (and depends on `dbt-prepare` where naming/static dbt checks need the
+manifest). `make test` / `make test-cov` first run `dbt-prepare` so xdist
+workers reuse one shared dbt manifest under `DBT_TARGET_PATH`.
+`make integration-dbt` splits isolated incremental cases (`DBT_TEST_WORKERS`,
+default 2) from the remaining serial DuckDB/dbt suite, which includes the golden
+marts. Standalone `make golden-dbt` remains available but is not duplicated in
+the release gate.
+
+Local `ci-fast` / `release-gate` use one Make jobserver (`GATE_JOBS`, default 4)
+over a prerequisite DAG. Use `ci-fast-core` / `release-gate-core` for a true
+`-j1` sequential diagnosis of the same graph. Coverage shards write distinct
+`COVERAGE_FILE`s under the release coverage runtime and combine once; subprocess
+pools are capped with `RELEASE_PYTEST_WORKERS`, `DBT_TEST_WORKERS`, and
+`MUTMUT_MAX_CHILDREN`. GitHub's automatic `tests` worker runs the parallel fast
+suite and serial `make contract-http` while independent static/docs and dbt-lint
+workers run in parallel. A required Python 3.13 worker repeats package smoke and
+the ordinary suite while Python 3.10 remains the supported floor and full-release
 runtime. The `contract` marker remains excluded from `make test` and
 `make test-cov`.
 
-`make dagster-jobs-smoke` runs every registered public Dagster job headlessly
-with temp DuckDB state and mocked external APIs. The local coverage gate splits
-that registered-job smoke from the deeper seeded Dagster refresh path without
-enabling xdist on DuckDB/Dagster fixtures. Together with the other coverage
-commands, they enforce 100% branch coverage for `src/oddsfox_pipeline` except
-the warehouse profiling operator helpers under `storage/duckdb/profile/`, which
-are covered by smoke tests instead.
+Dagster integration is layered:
+
+1. `make dagster-jobs-smoke` — every registered public job with mocked externals.
+2. Wiring tests — recording/fake dbt resource asserts select/exclude for shipped
+   scoped jobs.
+3. One real disposable-DuckDB/dbt end-to-end materialization per shipped scope,
+   plus focused writer recovery. Incremental/full-refresh equivalence and golden
+   mart semantics stay in the dbt integration suite.
+
+Together with the other coverage commands, they enforce 100% branch coverage for
+`src/oddsfox_pipeline` except the warehouse profiling operator helpers under
+`storage/duckdb/profile/`, which are covered by smoke tests instead.
 
 `make data-quality` rebuilds disposable dbt state and runs the dbt-native model
 and data tests. `make mutation` resumes cached focused Mutmut work; `make
@@ -73,10 +87,7 @@ committed.
 
 The dbt integration suite requires incremental/full-refresh equivalence for
 every incremental odds model, including late, null-refresh, new-key, uniqueness,
-and retention cases. Seeded Dagster integration tests replay the WC2026
-Polymarket, US midterms Polymarket, and Kalshi refresh paths twice and compare
-stable business state. The Polymarket path also injects a second-flush
-transaction failure and requires replay to match a clean uninterrupted run.
+and retention cases.
 
 When `.env` sets `DUCKDB_PATH`, use `isolate_duckdb_test_env()` from
 `tests/unit/storage/duckdb_storage_test_support.py` so tests do not write to the

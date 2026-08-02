@@ -354,6 +354,26 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         "int_polymarket_wc2026_polygon_settlement_publication_gate",
     ),
     (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_polygon_settlement_seed_quality_summary",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_polygon_settlement_latest_published_scan",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_polygon_settlement_scan_quality_summary",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_polygon_settlement_raw_quality_summary",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_polygon_settlement_minute_quality_summary",
+    ),
+    (
         POLYMARKET_WC2026_MARTS_SCHEMA,
         "polymarket_wc2026_match_minute_odds",
     ),

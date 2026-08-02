@@ -74,30 +74,31 @@ Run the automatic code-safety gate before ordinary pushes:
 uv run make ci-fast
 ```
 
-Run `uv run make release-gate` before releases and after dependency, Docker,
-Dagster, dbt, or data-quality changes. It runs the lint, contract, docs,
-100%-coverage and integration surfaces, focused mutation testing, Costguard,
-and a non-root container smoke without repeating the ordinary test pass before
-coverage. Local `ci-fast` and `release-gate` launch isolated parallel lanes that
-mirror GitHub's worker topology; `release-gate` also parallelizes coverage
-shards and dbt-quality sub-lanes, and caps Mutmut via `MUTMUT_MAX_CHILDREN`.
-Use `ci-fast-core` / `release-gate-core` for sequential diagnosis. GitHub parallelizes the equivalent automatic surface
-across `static-docs`, `tests`, `dbt`, and a Python 3.13 package/test
-compatibility worker, then reports the stable `fast-gate` aggregate. Python 3.10
-remains the supported floor and full-release runtime. The manual
-`Manual Full Validation` workflow parallelizes coverage, dbt/data quality,
-focused mutation, and static/docs/container validation behind the stable
-`full-gate` aggregate;
-optional signed multi-arch publication still depends on that aggregate. For
-narrower local runs, `make test`, `make integration-dagster`, `make
-integration-dbt`, `make data-quality`, `make mutation`, and `make coverage`
-still work.
+Run `uv run make release-gate` before releases and after dependency, Dagster,
+dbt, or data-quality changes. It runs the lint, contract, docs,
+100%-coverage and integration surfaces, focused mutation testing, and Costguard
+without repeating the ordinary test pass before coverage. Local `ci-fast` and
+`release-gate` launch isolated parallel lanes that mirror GitHub's worker
+topology via one Make jobserver (`GATE_JOBS`) over a prerequisite DAG;
+`release-gate` also parallelizes coverage shards and dbt-quality sub-lanes, and
+caps Mutmut via `MUTMUT_MAX_CHILDREN`. Use `ci-fast-core` / `release-gate-core`
+for a true `-j1` sequential diagnosis of the same graph. GitHub parallelizes
+the equivalent automatic surface across `static-docs`, `tests`, `dbt`, and a
+Python 3.13 package/test compatibility worker, then reports the stable
+`fast-gate` aggregate. Python 3.10 remains the supported floor and full-release
+runtime. The manual `Manual Full Validation` workflow parallelizes coverage,
+dbt/data quality, focused mutation, and static/docs validation behind the
+stable `full-gate` aggregate. OddsFox Pipeline is macOS-first and does not ship
+or gate on Docker images. For narrower local runs, `make test`, `make
+integration-dagster`, `make integration-dbt`, `make data-quality`, `make
+mutation`, and `make coverage` still work.
 
 `dbt-build-ci` bootstraps a disposable DuckDB database under the active
 `ODDSFOX_RUNTIME_ROOT` before running the ordinary dbt graph, which excludes
 `tag:polygon_settlement` and `tag:pmxt_order_book`.
-`dbt-polygon-settlement-ci` separately builds that graph against complete
-synthetic replay fixtures and asserts the 39,120-row mart contract.
+`dbt-polygon-settlement-ci` runs Polygon-tagged dbt unit tests (every hard
+blocker key and normalization-pair branch) then a slim integration suite that
+keeps the 39,120-row mart contract and representative publication-gate failures.
 `data-quality` is the safe dbt-only wrapper that rebuilds the disposable
 database before validation. `mutation` resumes focused Mutmut work, while
 `mutation-ci` starts from an empty mutation cache and enforces zero unresolved
@@ -126,7 +127,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make unit-orchestration` | Orchestration/Dagster unit tests |
 | `make dagster-jobs-smoke` | Headless smoke for every registered public Dagster job with mocked externals |
 | `make dagster-jobs-smoke-cov` | Coverage version of registered public Dagster job smoke |
-| `make dagster-refresh-cov` | Coverage for deeper seeded Dagster refresh-path smoke tests |
+| `make dagster-refresh-cov` | Coverage for scoped Dagster E2E, writer recovery, and dbt wiring |
 | `make test-cov` | Unit tests with coverage accumulation (`-n auto`) |
 | `make integration-dbt` | DuckDB + dbt integration smoke |
 | `make integration-dagster` | Dagster integration smoke |
@@ -139,6 +140,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make dbt-source-freshness-ci` | Seed fresh temp source rows and run dbt source freshness |
 | `make coverage-report` | Coverage report gate (`--fail-under=100`) |
 | `make check-secrets` | Repo policy check for tracked secret leakage |
+| `make check-repository` | Ownership suite for Make/workflow/naming/distribution/terminology/secrets/static dbt checks |
 | `make check-terminology` | Enforce [terminology](docs/reference/terminology.md); fail on retired vocabulary and identifier regressions |
 | `make runtime-dirs` | Create SSD-local temp, cache, dbt, Python, DuckDB-extension, and browser directories below `.cache/runtime` |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |

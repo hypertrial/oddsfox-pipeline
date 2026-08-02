@@ -524,11 +524,8 @@ def _seed_published_fixture(db_path: Path) -> None:
         ).fetchone() == (0,)
 
 
-def test_polygon_settlement_graph_builds_exact_dense_mart(
-    tmp_path: Path,
-    monkeypatch,
-    dbt_profiles_dir: Path,
-) -> None:
+def _prepare_polygon_dbt_project(tmp_path: Path, monkeypatch, dbt_profiles_dir: Path):
+    """Seed a disposable DuckDB and build the Polygon settlement graph once."""
     dbt_root = tmp_path / "dbt"
     shutil.copytree(DBT_ROOT, dbt_root)
     seed_path, attestation_path = write_synthetic_distribution_inputs(dbt_root)
@@ -574,7 +571,17 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
+    return dbt_root, db_path, env, committed_manifest
 
+
+def test_polygon_settlement_graph_builds_exact_dense_mart(
+    tmp_path: Path,
+    monkeypatch,
+    dbt_profiles_dir: Path,
+) -> None:
+    dbt_root, db_path, env, committed_manifest = _prepare_polygon_dbt_project(
+        tmp_path, monkeypatch, dbt_profiles_dir
+    )
     with duckdb.connect(str(db_path), read_only=True) as conn:
         _validate_committed_seed(
             _read_market_rows(conn),
@@ -697,17 +704,25 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
         } <= warnings
         assert "verification" not in warnings
 
+
+def test_polygon_settlement_scan_missing_fails_publication_gate(
+    tmp_path: Path,
+    monkeypatch,
+    dbt_profiles_dir: Path,
+) -> None:
+    dbt_root, db_path, env, _committed = _prepare_polygon_dbt_project(
+        tmp_path, monkeypatch, dbt_profiles_dir
+    )
     with duckdb.connect(str(db_path)) as conn:
-        conn.execute(
-            f"update {OPS_RUNS} set verification_status = 'mismatched' "
-            "where scan_id = ?",
-            [SCAN_ID],
-        )
+        conn.execute(f"delete from {OPS_RUNS}")
     _run_dbt(
         [
             "run",
             "--select",
-            "polymarket_wc2026_polygon_settlement_quality_issues",
+            "stg_polymarket_wc2026_polygon_settlement_scan_runs",
+            "int_polymarket_wc2026_polygon_settlement_latest_published_scan",
+            "int_polymarket_wc2026_polygon_settlement_scan_quality_summary",
+            "int_polymarket_wc2026_polygon_settlement_raw_quality_summary",
             "polymarket_wc2026_polygon_settlement_data_quality",
         ],
         project_dir=dbt_root,
@@ -715,428 +730,54 @@ def test_polygon_settlement_graph_builds_exact_dense_mart(
         env=env,
     )
     with duckdb.connect(str(db_path)) as conn:
-        verification_warning = conn.execute(
-            f"""
-            select count(*)
-            from {QUALITY_ISSUES_RELATION}
-            where severity = 'warn' and issue_type = 'verification'
-            """
+        publication_ready, blocker_keys = conn.execute(
+            f"select publication_ready, blocking_issue_keys from {QUALITY_RELATION}"
         ).fetchone()
-        assert verification_warning == (1,)
-        assert conn.execute(
-            f"select publication_ready from {QUALITY_RELATION}"
-        ).fetchone() == (True,)
-        conn.execute(
-            f"update {OPS_RUNS} set verification_status = 'matched' where scan_id = ?",
-            [SCAN_ID],
-        )
-    _run_dbt(
-        [
-            "run",
-            "--select",
-            "polymarket_wc2026_polygon_settlement_quality_issues",
-            "polymarket_wc2026_polygon_settlement_data_quality",
-        ],
-        project_dir=dbt_root,
-        profiles_dir=dbt_profiles_dir,
-        env=env,
-    )
+        assert publication_ready is False
+        assert "scan_missing" in blocker_keys.split(",")
+        with pytest.raises(duckdb.Error, match="scan_missing"):
+            conn.execute(f"select publication_ready from {PUBLICATION_GATE_RELATION}")
 
-    duplicate_scan_id = "0-fixture-duplicate-current-scan"
+
+def test_polygon_settlement_raw_pair_failure_fails_publication_gate(
+    tmp_path: Path,
+    monkeypatch,
+    dbt_profiles_dir: Path,
+) -> None:
+    dbt_root, db_path, env, _committed = _prepare_polygon_dbt_project(
+        tmp_path, monkeypatch, dbt_profiles_dir
+    )
     with duckdb.connect(str(db_path)) as conn:
         conn.execute(
             f"""
-            insert into {OPS_RUNS} by name
-            select * replace (? as scan_id)
-            from {OPS_RUNS}
-            where scan_id = ?
-            """,
-            [duplicate_scan_id, SCAN_ID],
-        )
-
-    _run_dbt(
-        [
-            "run",
-            "--select",
-            "polymarket_wc2026_polygon_settlement_data_quality",
-        ],
-        project_dir=dbt_root,
-        profiles_dir=dbt_profiles_dir,
-        env=env,
-    )
-    with duckdb.connect(str(db_path)) as conn:
-        duplicate_scan_quality = conn.execute(
-            f"""
-            select published_scan_count, publication_ready, blocking_issue_keys
-            from {QUALITY_RELATION}
-            """
-        ).fetchone()
-        assert duplicate_scan_quality == (2, False, "scan_missing")
-        conn.execute(f"delete from {OPS_RUNS} where scan_id = ?", [duplicate_scan_id])
-
-        conn.execute(f"create table polygon_pair_baseline as select * from {RAW_FILLS}")
-
-    pair_mutations = {
-        "missing derived ordinal": f"""
             delete from {RAW_FILLS}
             where normalized_leg_ordinal = 1
-        """,
-        "non-complementary token and outcome": f"""
-            update {RAW_FILLS}
-            set token_id = source_token_id, outcome_side = 'yes'
-            where normalized_leg_ordinal = 1
-        """,
-        "unequal shares": f"""
-            update {RAW_FILLS}
-            set
-                share_volume = 200.000000,
-                gross_collateral_volume = 193.000000,
-                price = 0.965000000000000000
-            where normalized_leg_ordinal = 1
-        """,
-        "non-conserving collateral": f"""
-            update {RAW_FILLS}
-            set
-                gross_collateral_volume = 92.000000,
-                price = 0.920000000000000000
-            where normalized_leg_ordinal = 1
-        """,
-        "disagreeing locator": f"""
-            update {RAW_FILLS}
-            set block_hash = '0x{("a" * 64)}'
-            where normalized_leg_ordinal = 1
-        """,
-        "disagreeing kind": f"""
-            update {RAW_FILLS}
-            set normalization_kind = 'merge'
-            where normalized_leg_ordinal = 1
-        """,
-        "disagreeing segment hash": f"""
-            update {RAW_FILLS}
-            set segment_sha256 = '{("b" * 64)}'
-            where normalized_leg_ordinal = 1
-        """,
-    }
-    for mutation_name, mutation_sql in pair_mutations.items():
-        with duckdb.connect(str(db_path)) as conn:
-            conn.execute(f"delete from {RAW_FILLS}")
-            conn.execute(
-                f"insert into {RAW_FILLS} by name select * from polygon_pair_baseline"
-            )
-            conn.execute(mutation_sql)
-
-        _run_dbt(
-            [
-                "run",
-                "--select",
-                "polymarket_wc2026_polygon_settlement_data_quality",
-            ],
-            project_dir=dbt_root,
-            profiles_dir=dbt_profiles_dir,
-            env=env,
-        )
-        with duckdb.connect(str(db_path)) as conn:
-            pair_quality = conn.execute(
-                f"""
-                select
-                    invalid_normalization_pair_grains,
-                    publication_ready,
-                    blocking_issue_keys
-                from {QUALITY_RELATION}
-                """
-            ).fetchone()
-            assert pair_quality is not None, mutation_name
-            assert pair_quality[0] > 0, mutation_name
-            assert pair_quality[1] is False, mutation_name
-            assert "raw_normalization_pairs" in pair_quality[2], mutation_name
-            with pytest.raises(duckdb.Error, match="raw_normalization_pairs"):
-                conn.execute(
-                    f"select publication_ready from {PUBLICATION_GATE_RELATION}"
-                )
-
-    with duckdb.connect(str(db_path)) as conn:
-        conn.execute(f"delete from {RAW_FILLS}")
-        conn.execute(
-            f"insert into {RAW_FILLS} by name select * from polygon_pair_baseline"
-        )
-        conn.execute("drop table polygon_pair_baseline")
-
-    _run_dbt(
-        [
-            "run",
-            "--select",
-            "polymarket_wc2026_polygon_settlement_data_quality",
-        ],
-        project_dir=dbt_root,
-        profiles_dir=dbt_profiles_dir,
-        env=env,
-    )
-    with duckdb.connect(str(db_path), read_only=True) as conn:
-        restored_quality = conn.execute(
-            f"""
-            select invalid_normalization_pair_grains, publication_ready
-            from {QUALITY_RELATION}
-            """
-        ).fetchone()
-        assert restored_quality == (0, True)
-        assert conn.execute(f"select count(*) from {MART_RELATION}").fetchone() == (
-            39120,
-        )
-
-    baseline_relations = {
-        UNIVERSE_RELATION: "polygon_quality_baseline_universe",
-        CANDIDATE_RELATION: "polygon_quality_baseline_candidate",
-        RAW_FILLS: "polygon_quality_baseline_fills",
-        OPS_RUNS: "polygon_quality_baseline_runs",
-        OPS_CHUNKS: "polygon_quality_baseline_chunks",
-        QUALITY_ISSUES_RELATION: "polygon_quality_baseline_issues",
-    }
-    with duckdb.connect(str(db_path)) as conn:
-        for relation, baseline in baseline_relations.items():
-            conn.execute(f"create table {baseline} as select * from {relation}")
-
-    def restore_quality_inputs() -> None:
-        with duckdb.connect(str(db_path)) as restore_conn:
-            for relation, baseline in baseline_relations.items():
-                restore_conn.execute(f"delete from {relation}")
-                restore_conn.execute(
-                    f"insert into {relation} by name select * from {baseline}"
-                )
-
-    blocker_mutations = {
-        "seed_inventory": f"""
-            delete from {UNIVERSE_RELATION}
-            where proposition_id = (
-                select min(proposition_id) from {UNIVERSE_RELATION}
-            )
-        """,
-        "seed_stage_distribution": f"""
-            update {UNIVERSE_RELATION}
-            set stage = 'final'
-            where fifa_match_id = 1
-        """,
-        "seed_proposition_shape": f"""
-            update {UNIVERSE_RELATION}
-            set proposition_type = 'home_advances'
-            where proposition_id = (
-                select min(proposition_id) from {UNIVERSE_RELATION}
-            )
-        """,
-        "seed_unique_ids": f"""
-            update {UNIVERSE_RELATION}
-            set no_token_id = yes_token_id
-            where proposition_id = (
-                select min(proposition_id) from {UNIVERSE_RELATION}
-            )
-        """,
-        "seed_windows": f"""
-            update {UNIVERSE_RELATION}
-            set analysis_window_end_at_utc =
-                    analysis_window_end_at_utc + interval '1 minute',
-                window_minutes = window_minutes + 1
-            where proposition_id = (
-                select min(proposition_id) from {UNIVERSE_RELATION}
-            )
-        """,
-        "seed_evidence": f"""
-            update {UNIVERSE_RELATION}
-            set openfootball_revision = 'invalid'
-            where proposition_id = (
-                select min(proposition_id) from {UNIVERSE_RELATION}
-            )
-        """,
-        "scan_missing": f"delete from {OPS_RUNS}",
-        "scan_manifest": f"""
-            update {OPS_RUNS}
-            set manifest_sha256 = '{"0" * 64}'
-        """,
-        "scan_integrity": f"""
-            update {OPS_RUNS}
-            set normalizer_version = 'invalid-normalizer'
-        """,
-        "scan_chunks": f"""
-            delete from {OPS_CHUNKS}
-            where exchange_address = (
-                select min(exchange_address) from {OPS_CHUNKS}
-            )
-        """,
-        "raw_empty": f"delete from {RAW_FILLS}",
-        "raw_scan_mismatch": f"""
-            update {RAW_FILLS}
-            set scan_id = 'foreign-scan'
-            where transaction_hash = (
-                select min(transaction_hash) from {RAW_FILLS}
-            )
-        """,
-        "raw_mapping": f"""
-            update {RAW_FILLS}
-            set proposition_id = 'unknown-proposition'
-            where transaction_hash = (
-                select min(transaction_hash) from {RAW_FILLS}
-            )
-        """,
-        "raw_values": f"""
-            update {RAW_FILLS}
-            set source_maker_amount = '1'
-            where not is_derived
-        """,
-        "raw_chunk_coverage": f"""
-            update {RAW_FILLS}
-            set chunk_from_block = 101
-            where transaction_hash = (
-                select min(transaction_hash) from {RAW_FILLS}
-            )
-        """,
-        "minute_inventory": f"""
-            delete from {CANDIDATE_RELATION}
-            where proposition_id = (
-                select min(proposition_id) from {CANDIDATE_RELATION}
-            )
-            and elapsed_window_minute = 0
-        """,
-        "minute_axis": f"""
-            update {CANDIDATE_RELATION}
-            set elapsed_window_minute = 999
-            where proposition_id = (
-                select min(proposition_id) from {CANDIDATE_RELATION}
-            )
-            and elapsed_window_minute = 0
-        """,
-        "minute_values": f"""
-            update {CANDIDATE_RELATION}
-            set minute_complete = false
-            where minute_status = 'both_observed'
-        """,
-        "aggregate_reconciliation": f"""
-            update {CANDIDATE_RELATION}
-            set yes_normalized_fill_count = yes_normalized_fill_count + 1
-            where minute_status = 'yes_only'
-        """,
-        "quality_errors": f"""
-            update {QUALITY_ISSUES_RELATION}
-            set severity = 'error'
-            where issue_key = (
-                select min(issue_key) from {QUALITY_ISSUES_RELATION}
-            )
-        """,
-    }
-    for blocker, mutation_sql in blocker_mutations.items():
-        restore_quality_inputs()
-        with duckdb.connect(str(db_path)) as conn:
-            conn.execute(mutation_sql)
-        _run_dbt(
-            [
-                "run",
-                "--select",
-                "polymarket_wc2026_polygon_settlement_data_quality",
-            ],
-            project_dir=dbt_root,
-            profiles_dir=dbt_profiles_dir,
-            env=env,
-        )
-        with duckdb.connect(str(db_path)) as conn:
-            publication_ready, blocker_keys = conn.execute(
-                f"select publication_ready, blocking_issue_keys from {QUALITY_RELATION}"
-            ).fetchone()
-            assert publication_ready is False, blocker
-            assert blocker in blocker_keys.split(","), (blocker, blocker_keys)
-            with pytest.raises(duckdb.Error, match=blocker):
-                conn.execute(
-                    f"select publication_ready from {PUBLICATION_GATE_RELATION}"
-                )
-
-    restore_quality_inputs()
-    with duckdb.connect(str(db_path)) as conn:
-        conn.execute(f"drop view {STG_FILLS_RELATION}")
-        conn.execute(
-            f"""
-            create table {STG_FILLS_RELATION} as
-            select * from {RAW_FILLS}
-            union all
-            select * from (
-                select * from {RAW_FILLS}
-                order by transaction_hash, passive_log_index,
-                    normalized_leg_ordinal
-                limit 1
-            ) as duplicate
             """
         )
-    _run_dbt(
-        [
-            "run",
-            "--select",
-            "polymarket_wc2026_polygon_settlement_data_quality",
-        ],
-        project_dir=dbt_root,
-        profiles_dir=dbt_profiles_dir,
-        env=env,
-    )
-    with duckdb.connect(str(db_path)) as conn:
-        duplicate_quality = conn.execute(
-            f"select duplicate_fill_grains, publication_ready, "
-            f"blocking_issue_keys from {QUALITY_RELATION}"
-        ).fetchone()
-        assert duplicate_quality[0] > 0
-        assert duplicate_quality[1] is False
-        assert "raw_duplicates" in duplicate_quality[2].split(",")
-
-    # Restore the source-backed staging view after the deliberate duplicate
-    # relation, then prove every named hard blocker has executable coverage.
     _run_dbt(
         [
             "run",
             "--select",
             "stg_polymarket_wc2026_polygon_settlement_fills",
-        ],
-        project_dir=dbt_root,
-        profiles_dir=dbt_profiles_dir,
-        env=env,
-    )
-    expected_blockers = {
-        "seed_inventory",
-        "seed_stage_distribution",
-        "seed_proposition_shape",
-        "seed_unique_ids",
-        "seed_windows",
-        "seed_evidence",
-        "scan_missing",
-        "scan_manifest",
-        "scan_integrity",
-        "scan_chunks",
-        "raw_empty",
-        "raw_scan_mismatch",
-        "raw_duplicates",
-        "raw_normalization_pairs",
-        "raw_mapping",
-        "raw_values",
-        "raw_chunk_coverage",
-        "minute_inventory",
-        "minute_axis",
-        "minute_values",
-        "aggregate_reconciliation",
-        "quality_errors",
-    }
-    assert (
-        set(blocker_mutations)
-        | {
-            "raw_duplicates",
-            "raw_normalization_pairs",
-        }
-        == expected_blockers
-    )
-
-    restore_quality_inputs()
-    _run_dbt(
-        [
-            "run",
-            "--select",
+            "int_polymarket_wc2026_polygon_settlement_raw_quality_summary",
             "polymarket_wc2026_polygon_settlement_data_quality",
         ],
         project_dir=dbt_root,
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
-    with duckdb.connect(str(db_path), read_only=True) as conn:
-        assert conn.execute(
-            f"select publication_ready from {QUALITY_RELATION}"
-        ).fetchone() == (True,)
+    with duckdb.connect(str(db_path)) as conn:
+        pair_quality = conn.execute(
+            f"""
+            select
+                invalid_normalization_pair_grains,
+                publication_ready,
+                blocking_issue_keys
+            from {QUALITY_RELATION}
+            """
+        ).fetchone()
+        assert pair_quality[0] > 0
+        assert pair_quality[1] is False
+        assert "raw_normalization_pairs" in pair_quality[2]
+        with pytest.raises(duckdb.Error, match="raw_normalization_pairs"):
+            conn.execute(f"select publication_ready from {PUBLICATION_GATE_RELATION}")
