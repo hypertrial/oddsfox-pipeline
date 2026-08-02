@@ -16,7 +16,15 @@ Ownership (paths) and execution properties (markers) are separate:
 - `contract/`: replay-only HTTP contract tests using checked-in VCR cassettes.
 
 Markers retained for execution filtering: `integration`, `contract`, `slow`,
-`performance`, `repo_check`, and `facade`.
+`performance`, `repo_check`, `facade`, and `polygon`.
+
+`polygon` is auto-applied to any test file whose path contains `polygon`; do not
+hand-add it to new tests. `make test-dev` may append `and not polygon` when the
+branch diff (vs `origin/main`) touches no Polygon paths or shared infra.
+
+`HYPOTHESIS_PROFILE` selects the Hypothesis example budget (`default`: 100,
+`dev`: 15). `make test-dev` sets `HYPOTHESIS_PROFILE=dev`; other targets leave
+the default profile.
 
 Useful commands:
 
@@ -37,6 +45,7 @@ make integration-dbt
 make integration-dagster
 make contract-http
 make test
+make test-dev
 make coverage
 make check-repository
 ```

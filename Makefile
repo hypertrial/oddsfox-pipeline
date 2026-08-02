@@ -1,4 +1,4 @@
-.PHONY: ci-fast ci-fast-core ci-fast-goal ci-fast-static-docs ci-fast-tests ci-fast-dbt release-gate release-gate-core release-gate-goal release-gate-coverage release-gate-coverage-prep release-gate-cov-unit release-gate-cov-unit-run release-gate-cov-dagster-jobs release-gate-cov-dagster-jobs-run release-gate-cov-dagster-refresh release-gate-cov-dagster-refresh-run release-gate-cov-dbt-incremental release-gate-cov-dbt-incremental-run release-gate-cov-dbt-serial release-gate-cov-dbt-serial-run coverage-combine-report coverage-combine-report-run release-gate-dbt-quality release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-dbt-build release-gate-costguard-scan release-gate-mutation release-gate-static-docs release-gate-static-checks release-gate-python-lint release-gate-dbt-lint release-gate-docs-build release-gate-docs-test package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-lint dbt-prepare dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality mutation mutation-ci contract-http live-smoke match-minute-live-smoke match-order-book-live-smoke market-portrait-live-backfill polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate export-wc2026-elo-freezes costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint python-lint test test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-parallel integration-dbt-serial integration-dbt-cov integration-dbt-cov-parallel integration-dbt-cov-serial integration-dagster integration-dagster-cov check-repository check-distribution check-secrets check-terminology compact-warehouse prune-odds-history gate-timing
+.PHONY: ci-fast ci-fast-core ci-fast-goal ci-fast-static-docs ci-fast-tests ci-fast-dbt release-gate release-gate-core release-gate-goal release-gate-coverage release-gate-coverage-prep release-gate-cov-unit release-gate-cov-unit-run release-gate-cov-dagster-jobs release-gate-cov-dagster-jobs-run release-gate-cov-dagster-refresh release-gate-cov-dagster-refresh-run release-gate-cov-dbt-incremental release-gate-cov-dbt-incremental-run release-gate-cov-dbt-serial release-gate-cov-dbt-serial-run coverage-combine-report coverage-combine-report-run release-gate-dbt-quality release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-dbt-build release-gate-costguard-scan release-gate-mutation release-gate-static-docs release-gate-static-checks release-gate-python-lint release-gate-dbt-lint release-gate-docs-build release-gate-docs-test package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-lint dbt-prepare dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality mutation mutation-ci contract-http live-smoke match-minute-live-smoke match-order-book-live-smoke market-portrait-live-backfill polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate export-wc2026-elo-freezes costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint python-lint test test-dev test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-parallel integration-dbt-serial integration-dbt-cov integration-dbt-cov-parallel integration-dbt-cov-serial integration-dagster integration-dagster-cov check-repository check-distribution check-secrets check-terminology compact-warehouse prune-odds-history gate-timing
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -246,9 +246,9 @@ dbt-build dbt-test:
 	$(RUN_IN_REPO) "$(PYTHON)" -m dbt.cli.main build --exclude tag:polygon_settlement tag:pmxt_order_book --project-dir dbt --profiles-dir dbt/profiles
 
 dbt-prepare: runtime-dirs
-	# Serialize deps: parallel gate lanes share dbt/dbt_packages.
-	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -c "import fcntl, subprocess, sys; from pathlib import Path; lock = Path(r'$(DBT_DEPS_LOCK)'); lock.parent.mkdir(parents=True, exist_ok=True); fh = lock.open('w'); fcntl.flock(fh, fcntl.LOCK_EX); subprocess.check_call([sys.executable, '-m', 'dbt.cli.main', 'deps', '--quiet', '--project-dir', 'dbt', '--profiles-dir', 'dbt/profiles']); fh.close()"
-	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m dbt.cli.main parse --quiet --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" scripts/dev_loop.py dbt-prepare \
+		--target-path "$(ODDSFOX_RUNTIME_DBT_TARGET)" \
+		--deps-lock "$(DBT_DEPS_LOCK)"
 
 dbt-build-ci: runtime-dirs
 	$(RUN_IN_REPO) rm -f "$(DBT_BUILD_DUCKDB_PATH)" "$(DBT_BUILD_DUCKDB_PATH).wal" "$(DBT_BUILD_DUCKDB_PATH)-wal" "$(DBT_BUILD_DUCKDB_PATH)-shm"
@@ -406,6 +406,14 @@ check-distribution:
 
 check-terminology:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository/test_terminology_policy.py tests/repository/test_naming_policy.py -q -n 0
+
+TEST_DEV_PYTEST_ARGS ?=
+
+# Dev-only fast loop; see AGENTS.md (not a CI gate substitute).
+test-dev: dbt-prepare
+	$(RUN_IN_REPO) area_expr="$$("$(PYTHON)" scripts/dev_loop.py polygon-marker)"; \
+		HYPOTHESIS_PROFILE=dev "$(PYTHON)" -m pytest tests $(PYTEST_UNIT_IGNORES) -q -n auto \
+		-m "$(PYTEST_FAST_MARKERS) $$area_expr" $(TEST_DEV_PYTEST_ARGS) $(PYTEST_DURATION_ARGS)
 
 test: dbt-prepare
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests $(PYTEST_UNIT_IGNORES) -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(PYTEST_DURATION_ARGS)

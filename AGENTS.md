@@ -36,6 +36,12 @@ Cursor loads [Ponytail](https://github.com/DietrichGebert/ponytail) from [`.curs
 
 Other agents should read this `AGENTS.md` at the repo root.
 
+**Repo change review:** for in-session audits and ordinary dev validation, run
+`make test-dev` (not `ci-fast`, not `release-gate`). Reserve `ci-fast` for
+explicit pre-push checks and `release-gate` for major-version publish prep only.
+Add focused Make targets (for example `make check-terminology`) when the diff
+touches those surfaces.
+
 **Terminology:** [docs/reference/terminology.md](docs/reference/terminology.md)
 is the normative **34-term** vocabulary (pipeline, job/run, scope, catalog,
 registry, working set, contract, grain language, and related terms). Machine
@@ -134,6 +140,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make dagster-jobs-smoke-cov` | Coverage version of registered public job smoke |
 | `make dagster-refresh-cov` | Coverage for scoped Dagster E2E, writer recovery, and dbt wiring |
 | `make test-cov` | Unit tests with coverage accumulation (`-n auto`) |
+| `make test-dev` | Dev-only fast loop: skips dbt deps/parse when unchanged, skips Polygon-settlement tests when untouched, reduced Hypothesis budget — not a CI gate substitute |
 | `make integration-dbt` | DuckDB + dbt integration smoke |
 | `make integration-dagster` | Dagster integration smoke |
 | `make integration-dbt-cov` | DuckDB + dbt integration with coverage append |

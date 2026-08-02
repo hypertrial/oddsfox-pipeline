@@ -273,6 +273,12 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
     assert "bootstrap_dbt_ci_duckdb.py" in _target_recipe(makefile, "dbt-build-ci")
     assert "bootstrap_dbt_ci_duckdb.py" in _target_recipe(makefile, "dbt-unit")
     assert "dbt-prepare:" in makefile
+    dbt_prepare = _target_recipe(makefile, "dbt-prepare")
+    assert "scripts/dev_loop.py dbt-prepare" in dbt_prepare
+    assert "DBT_DEPS_LOCK" in dbt_prepare
+    test_dev = _target_recipe(makefile, "test-dev")
+    assert "scripts/dev_loop.py polygon-marker" in test_dev
+    assert "HYPOTHESIS_PROFILE=dev" in test_dev
     assert "ODDSFOX_RUNTIME_ROOT=" in _target_recipe(makefile, "ci-fast-tests")
     assert "tests/repository" in _target_recipe(makefile, "check-repository")
     terminology = _target_recipe(makefile, "check-terminology")
@@ -283,8 +289,6 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
     assert (
         "DBT_BUILD_DUCKDB_PATH := $(ODDSFOX_RUNTIME_ROOT)/dbt_build.duckdb" in makefile
     )
-    assert "fcntl.flock" in _target_recipe(makefile, "dbt-prepare")
-    assert "dbt-deps.lock" in makefile
 
     assert "dbt.cli.main parse" not in _target_recipe(makefile, "format")
     assert "sqlfluff fix" in _target_recipe(makefile, "format")

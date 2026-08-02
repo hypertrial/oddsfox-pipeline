@@ -137,6 +137,7 @@ markers = [
   "performance: long-running benchmarks",
   "slow: expensive checks excluded from normal unit runs",
   "repo_check: repository policy checks; run via make check-repository",
+  "polygon: tests scoped to the isolated Polygon settlement historical pipeline (auto-tagged by path; deselected in the dev-fast loop only when nothing Polygon-related changed)",
 ]
 
 [tool.coverage.run]
