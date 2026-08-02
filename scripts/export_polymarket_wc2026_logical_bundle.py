@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import subprocess
 import sys
 import tempfile
 from datetime import date, datetime, time, timezone
@@ -33,6 +32,11 @@ from oddsfox_pipeline.ingestion.openfootball.schedule_fixtures import (  # noqa:
     FIFA_SCHEDULE_URL,
     OPENFOOTBALL_FILES,
     OPENFOOTBALL_REVISION,
+)
+from oddsfox_pipeline.publishing._bundle_io import (  # noqa: E402
+    current_clean_commit,
+    git_head_sha,
+    sha256_file,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (  # noqa: E402
     polymarket_ops_tbl,
@@ -482,35 +486,17 @@ def _validate_parquet_physical_schema(
         )
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+_sha256 = sha256_file
 
 
 def _repo_sha(*, require_clean: bool = True) -> str:
-    if require_clean:
-        status = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=all"],
-            cwd=REPO_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        if status.stdout.strip():
-            raise RuntimeError(
-                "Refusing to publish logical-v1 from a dirty pipeline worktree"
-            )
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=REPO_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
+    if not require_clean:
+        return git_head_sha(REPO_ROOT)
+    return current_clean_commit(
+        REPO_ROOT,
+        untracked_files="all",
+        dirty_error="Refusing to publish logical-v1 from a dirty pipeline worktree",
     )
-    return result.stdout.strip()
 
 
 def _relation_columns(
@@ -1237,13 +1223,13 @@ def export_polymarket_wc2026_logical_bundle(
                 ]
             )
             files[filename] = {
-                "sha256": _sha256(target),
+                "sha256": sha256_file(target),
                 "rows": rows,
                 "bytes": target.stat().st_size,
             }
 
         seed_inputs = {
-            "dbt/seeds/polymarket_wc2026_logical_contract.csv": _sha256(
+            "dbt/seeds/polymarket_wc2026_logical_contract.csv": sha256_file(
                 REPO_ROOT / "dbt/seeds/polymarket_wc2026_logical_contract.csv"
             ),
         }

@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import csv
-import hashlib
 import json
 import re
 import shutil
-import subprocess
 import tempfile
 from collections import Counter
 from dataclasses import dataclass
@@ -20,6 +18,15 @@ from urllib.parse import urlsplit
 import duckdb
 
 from oddsfox_pipeline.config.settings_warehouse import BASE_DIR
+from oddsfox_pipeline.publishing._bundle_io import (
+    COMMIT_RE,
+    SEMVER_RE,
+    current_clean_commit,
+    sha256_file,
+    validate_dataset_version,
+    write_checksums,
+    write_text,
+)
 from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (
     load_polygon_resolution_attestation,
 )
@@ -67,15 +74,8 @@ FIFA_SCHEDULE_SHA256: Final = (
     "165fb909253b746e6173a4443bdc3e5d786530f0684af6e85c1fd21fff252811"
 )
 
-_SEMVER_RE: Final = re.compile(
-    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-    r"(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
-    r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?"
-    r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
-)
 _SHA256_RE: Final = re.compile(r"^[0-9a-f]{64}$")
 _BLOCK_HASH_RE: Final = re.compile(r"^0x[0-9a-fA-F]{64}$")
-_COMMIT_RE: Final = re.compile(r"^[0-9a-f]{40}$")
 _VERIFICATION_STATUSES: Final = {
     "not_requested",
     "matched",
@@ -240,38 +240,10 @@ class PolygonSettlementAuditSpec:
         validate_dataset_version(self.dataset_version)
 
 
-def validate_dataset_version(value: str) -> str:
-    """Return a valid SemVer 2.0 version or raise a release-safe error."""
-    if not _SEMVER_RE.fullmatch(value):
-        raise ValueError(f"dataset_version must be SemVer 2.0, got {value!r}")
-    return value
-
 
 def current_generator_commit(repo_root: Path = BASE_DIR) -> str:
     """Return the exact tracked generator revision used for a release."""
-    try:
-        status = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=normal"],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        completed = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise RuntimeError("Could not resolve the generator Git commit") from exc
-    if status.stdout.strip():
-        raise RuntimeError("Dataset releases require a clean Git working tree")
-    commit = completed.stdout.strip().lower()
-    if not _COMMIT_RE.fullmatch(commit):
-        raise RuntimeError("Git returned an invalid generator commit")
-    return commit
+    return current_clean_commit(repo_root)
 
 
 def build_polygon_settlement_audit_release(
@@ -285,7 +257,7 @@ def build_polygon_settlement_audit_release(
     """Validate warehouse inputs and atomically build an internal audit bundle."""
     release_provenance = _effective_release_provenance(provenance)
     _validate_provenance(release_provenance)
-    if not _COMMIT_RE.fullmatch(generator_commit):
+    if not COMMIT_RE.fullmatch(generator_commit):
         raise ValueError("generator_commit must be a lowercase 40-character Git SHA")
 
     market_rows = _read_market_rows(conn)
@@ -358,7 +330,7 @@ def build_polygon_settlement_audit_release(
             quality_rows=quality_rows,
             issue_rows=issue_rows,
         )
-        _write_checksums(temporary_dir)
+        write_checksums(temporary_dir, file_names=set(AUDIT_BUNDLE_FILES))
         _validate_audit_bundle_files(temporary_dir)
         temporary_dir.rename(release_dir)
     except BaseException:
@@ -757,7 +729,7 @@ def _validate_provenance(provenance: Mapping[str, Any]) -> None:
         raise ValueError(f"provenance is missing required fields: {sorted(missing)}")
     if int(provenance["chain_id"]) != 137:
         raise ValueError("provenance chain_id must be 137")
-    if not _SEMVER_RE.fullmatch(str(provenance["seed_version"])):
+    if not SEMVER_RE.fullmatch(str(provenance["seed_version"])):
         raise ValueError("provenance seed_version must be SemVer 2.0")
     if str(provenance["verification_status"]) not in _VERIFICATION_STATUSES:
         raise ValueError("provenance verification_status is invalid")
@@ -900,7 +872,7 @@ def _write_audit_metadata(
     issue_rows: Sequence[Mapping[str, Any]],
 ) -> None:
     data_hashes = {
-        name: _sha256(directory / name) for name in (MAIN_CSV_NAME, MARKETS_CSV_NAME)
+        name: sha256_file(directory / name) for name in (MAIN_CSV_NAME, MARKETS_CSV_NAME)
     }
     audit_provenance = {
         key: provenance[key] for key in _PROVENANCE_KEYS if key != "block_ranges"
@@ -955,9 +927,9 @@ def _write_audit_metadata(
     )
     _write_json(directory / "schema.json", _schema_document())
     _write_sources(directory / "SOURCES.csv", market_rows, provenance)
-    _write_text(directory / "README.md", _readme(spec, summary))
-    _write_text(directory / "CHANGELOG.md", _changelog(spec))
-    _write_text(directory / "DO_NOT_PUBLISH.md", _do_not_publish())
+    write_text(directory / "README.md", _readme(spec, summary))
+    write_text(directory / "CHANGELOG.md", _changelog(spec))
+    write_text(directory / "DO_NOT_PUBLISH.md", _do_not_publish())
 
 
 def _write_sources(
@@ -1154,23 +1126,11 @@ def _write_csv(
 
 
 def _write_json(path: Path, value: Any) -> None:
-    _write_text(
+    write_text(
         path,
         json.dumps(_jsonable(value), indent=2, sort_keys=True, ensure_ascii=False)
         + "\n",
     )
-
-
-def _write_text(path: Path, text: str) -> None:
-    path.write_text(text.rstrip() + "\n", encoding="utf-8", newline="\n")
-
-
-def _write_checksums(directory: Path) -> None:
-    lines = [
-        f"{_sha256(directory / name)}  {name}"
-        for name in sorted(set(AUDIT_BUNDLE_FILES) - {"CHECKSUMS.sha256"})
-    ]
-    _write_text(directory / "CHECKSUMS.sha256", "\n".join(lines))
 
 
 def _validate_audit_bundle_files(directory: Path) -> None:
@@ -1188,13 +1148,6 @@ def _validate_audit_bundle_files(directory: Path) -> None:
     if (directory / "dataset-metadata.json").exists():  # pragma: no cover
         raise RuntimeError("dataset-metadata.json must not be in the audit bundle")
 
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _quote_identifier(value: str) -> str:

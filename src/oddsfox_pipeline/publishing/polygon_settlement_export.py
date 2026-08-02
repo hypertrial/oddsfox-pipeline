@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import csv
-import hashlib
 import json
 import os
 import re
 import shutil
 import stat
-import subprocess
 import tempfile
 from collections import Counter
 from decimal import ROUND_HALF_EVEN, Decimal, localcontext
@@ -19,6 +17,15 @@ from typing import Any, Final, Mapping, Sequence
 import duckdb
 
 from oddsfox_pipeline.config.settings_warehouse import BASE_DIR
+from oddsfox_pipeline.publishing._bundle_io import (
+    COMMIT_RE,
+    SEMVER_RE,
+    current_clean_commit,
+    sha256_file,
+    validate_dataset_version,
+    write_checksums,
+    write_text,
+)
 from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (
     load_polygon_resolution_attestation,
 )
@@ -117,14 +124,7 @@ EXPECTED_PROPOSITION_INVENTORY: Final = Counter(
         "home_wins_final": 1,
     }
 )
-_SEMVER_RE: Final = re.compile(
-    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-    r"(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
-    r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?"
-    r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
-)
 _SHA256_RE: Final = re.compile(r"^[0-9a-f]{64}$")
-_COMMIT_RE: Final = re.compile(r"^[0-9a-f]{40}$")
 _BLOCK_HASH_RE: Final = re.compile(r"^0x[0-9a-fA-F]{64}$")
 _NORMALIZER_RE: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
 _SOURCE_LABEL_RE: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._/-]{0,199}$")
@@ -231,7 +231,12 @@ def export_polygon_settlement_minute_odds(
         provenance = _read_json_object(snapshot_dir / "PROVENANCE.json")
         quality = _read_json_object(snapshot_dir / "QUALITY_REPORT.json")
         _validate_audit_quality(quality)
-        export_commit = _current_clean_commit(repo_root)
+        export_commit = current_clean_commit(
+            repo_root,
+            dirty_error="Sanitized exports require a clean Git working tree",
+            resolve_error="Could not resolve the export generator revision",
+            invalid_error="Git returned an invalid export generator revision",
+        )
         reviewed_resolution = load_polygon_resolution_attestation()
 
         csv_path = snapshot_dir / MAIN_CSV_NAME
@@ -263,7 +268,7 @@ def export_polygon_settlement_minute_odds(
         try:
             copied_csv = temporary_dir / MAIN_CSV_NAME
             shutil.copyfile(csv_path, copied_csv)
-            if _sha256(copied_csv) != audit_checksums[MAIN_CSV_NAME]:
+            if sha256_file(copied_csv) != audit_checksums[MAIN_CSV_NAME]:
                 raise RuntimeError("Sanitized CSV differs from the audit CSV")
 
             verification_state = str(provenance["verification_status"])
@@ -277,7 +282,7 @@ def export_polygon_settlement_minute_odds(
                 provenance=provenance,
                 analysis=analysis,
                 resolution=resolution,
-                audit_checksums_sha256=_sha256(snapshot_dir / "CHECKSUMS.sha256"),
+                audit_checksums_sha256=sha256_file(snapshot_dir / "CHECKSUMS.sha256"),
                 csv_sha256=audit_checksums[MAIN_CSV_NAME],
                 export_commit=export_commit,
             )
@@ -285,19 +290,19 @@ def export_polygon_settlement_minute_odds(
             _write_sources(temporary_dir / "SOURCES.csv", provenance)
             _write_json(temporary_dir / "MANIFEST.json", manifest)
             _write_json(temporary_dir / "QUALITY_SUMMARY.json", analysis)
-            _write_text(
+            write_text(
                 temporary_dir / "QUALITY_SUMMARY.md",
                 _quality_markdown(analysis),
             )
-            _write_text(
+            write_text(
                 temporary_dir / "README.md",
                 _readme(dataset_version, analysis),
             )
-            _write_text(
+            write_text(
                 temporary_dir / "CHANGELOG.md",
                 _changelog(dataset_version),
             )
-            _write_checksums(temporary_dir)
+            write_checksums(temporary_dir, file_names=set(EXPORT_FILES))
             _validate_export_files(temporary_dir)
             temporary_dir.rename(release_dir)
         except BaseException:
@@ -413,7 +418,7 @@ def _validate_checksum_manifest(
     if set(checksums) != expected_names:
         raise ValueError("Audit checksum manifest does not cover the exact bundle")
     for name, digest in checksums.items():
-        if _sha256(directory / name) != digest:
+        if sha256_file(directory / name) != digest:
             raise ValueError(f"Audit checksum mismatch for {name}")
     return checksums
 
@@ -442,11 +447,11 @@ def _validate_audit_provenance(
         raise ValueError("Audit provenance dataset_version differs from the CSV")
     if provenance.get("chain_id") != 137:
         raise ValueError("Audit provenance must identify Polygon chain ID 137")
-    if not _COMMIT_RE.fullmatch(str(provenance.get("generator_commit", ""))):
+    if not COMMIT_RE.fullmatch(str(provenance.get("generator_commit", ""))):
         raise ValueError("Audit provenance generator_commit is invalid")
     if not _SHA256_RE.fullmatch(str(provenance.get("seed_sha256", ""))):
         raise ValueError("Audit provenance seed_sha256 is invalid")
-    if not _SEMVER_RE.fullmatch(str(provenance.get("seed_version", ""))):
+    if not SEMVER_RE.fullmatch(str(provenance.get("seed_version", ""))):
         raise ValueError("Audit provenance seed_version is invalid")
     if not _NORMALIZER_RE.fullmatch(str(provenance.get("normalizer_version", ""))):
         raise ValueError("Audit provenance normalizer_version is invalid")
@@ -506,7 +511,7 @@ def _scan_csv(path: Path) -> tuple[str, int]:
             _scan_cells(row, row_number=row_number)
             row_version = row[indexes["dataset_version"]]
             if version is None:
-                version = _validate_dataset_version(row_version)
+                version = validate_dataset_version(row_version)
             elif row_version != version:
                 raise ValueError("CSV contains more than one dataset_version")
             for column in _BOOLEAN_COLUMNS:
@@ -1175,8 +1180,8 @@ def _write_sources(path: Path, provenance: Mapping[str, Any]) -> None:
         or not openfootball
         or not _SOURCE_LABEL_RE.fullmatch(str(fifa.get("revision", "")))
         or not _SHA256_RE.fullmatch(str(fifa.get("sha256", "")))
-        or any(not _COMMIT_RE.fullmatch(str(value)) for value in openfootball)
-        or any(not _COMMIT_RE.fullmatch(str(value)) for value in contract_revisions)
+        or any(not COMMIT_RE.fullmatch(str(value)) for value in openfootball)
+        or any(not COMMIT_RE.fullmatch(str(value)) for value in contract_revisions)
     ):
         raise ValueError("Audit source revisions are incomplete or invalid")
     rows = [
@@ -1353,41 +1358,6 @@ def _require_zero(
         raise ValueError(f"CSV contract failure: {label} ({count} rows)")
 
 
-def _current_clean_commit(repo_root: Path) -> str:
-    try:
-        status = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=normal"],
-            cwd=repo_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        commit = (
-            subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=repo_root,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            .stdout.strip()
-            .lower()
-        )
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise RuntimeError("Could not resolve the export generator revision") from exc
-    if status.stdout.strip():
-        raise RuntimeError("Sanitized exports require a clean Git working tree")
-    if not _COMMIT_RE.fullmatch(commit):
-        raise RuntimeError("Git returned an invalid export generator revision")
-    return commit
-
-
-def _validate_dataset_version(value: str) -> str:
-    if not _SEMVER_RE.fullmatch(value):
-        raise ValueError(f"dataset_version must be SemVer 2.0, got {value!r}")
-    return value
-
-
 def _read_json_object(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -1396,14 +1366,6 @@ def _read_json_object(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"Audit JSON must contain an object: {path.name}")
     return value
-
-
-def _write_checksums(directory: Path) -> None:
-    lines = [
-        f"{_sha256(directory / name)}  {name}"
-        for name in sorted(set(EXPORT_FILES) - {"CHECKSUMS.sha256"})
-    ]
-    _write_text(directory / "CHECKSUMS.sha256", "\n".join(lines))
 
 
 def _validate_export_files(directory: Path) -> None:
@@ -1433,22 +1395,10 @@ def _validate_export_files(directory: Path) -> None:
 
 
 def _write_json(path: Path, value: Any) -> None:
-    _write_text(
+    write_text(
         path,
         json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False),
     )
-
-
-def _write_text(path: Path, value: str) -> None:
-    path.write_text(value.rstrip() + "\n", encoding="utf-8", newline="\n")
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _decimal_text(value: Any, *, places: int) -> str:

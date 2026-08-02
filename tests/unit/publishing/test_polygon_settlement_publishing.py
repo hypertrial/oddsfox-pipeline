@@ -23,6 +23,7 @@ from tests.support.polygon_settlement_release_fixtures import (
 from tests.unit.ingestion.test_polygon_seed import complete_seed_rows
 
 from oddsfox_pipeline.ingestion.polymarket.polygon_seed import SEED_COLUMNS
+from oddsfox_pipeline.publishing import _bundle_io as bundle_io
 from oddsfox_pipeline.publishing import polygon_settlement as publishing
 from oddsfox_pipeline.publishing.polygon_settlement import (
     AUDIT_BUNDLE_FILES,
@@ -486,7 +487,7 @@ def test_generator_commit_requires_a_clean_repo(monkeypatch, tmp_path: Path) -> 
             SimpleNamespace(stdout="F" * 40 + "\n"),
         ]
     )
-    monkeypatch.setattr(publishing.subprocess, "run", lambda *_a, **_k: next(responses))
+    monkeypatch.setattr(bundle_io.subprocess, "run", lambda *_a, **_k: next(responses))
     assert current_generator_commit(tmp_path) == "f" * 40
 
     responses = iter(
@@ -495,12 +496,12 @@ def test_generator_commit_requires_a_clean_repo(monkeypatch, tmp_path: Path) -> 
             SimpleNamespace(stdout="f" * 40 + "\n"),
         ]
     )
-    monkeypatch.setattr(publishing.subprocess, "run", lambda *_a, **_k: next(responses))
+    monkeypatch.setattr(bundle_io.subprocess, "run", lambda *_a, **_k: next(responses))
     with pytest.raises(RuntimeError, match="clean Git working tree"):
         current_generator_commit(tmp_path)
 
     monkeypatch.setattr(
-        publishing.subprocess,
+        bundle_io.subprocess,
         "run",
         MagicMock(side_effect=subprocess.CalledProcessError(1, "git")),
     )
@@ -510,7 +511,7 @@ def test_generator_commit_requires_a_clean_repo(monkeypatch, tmp_path: Path) -> 
     responses = iter(
         [SimpleNamespace(stdout=""), SimpleNamespace(stdout="not-a-commit\n")]
     )
-    monkeypatch.setattr(publishing.subprocess, "run", lambda *_a, **_k: next(responses))
+    monkeypatch.setattr(bundle_io.subprocess, "run", lambda *_a, **_k: next(responses))
     with pytest.raises(RuntimeError, match="invalid generator commit"):
         current_generator_commit(tmp_path)
 

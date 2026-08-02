@@ -16,6 +16,7 @@ from tests.support.distribution_fixtures import write_synthetic_distribution_inp
 from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (
     load_polygon_resolution_attestation,
 )
+from oddsfox_pipeline.publishing import _bundle_io as bundle_io
 from oddsfox_pipeline.publishing import polygon_settlement_export as export
 
 
@@ -31,7 +32,9 @@ def _contract(monkeypatch) -> None:
         "EXPECTED_PROPOSITION_INVENTORY",
         Counter({"home_win": 1, "draw": 1, "away_win": 1}),
     )
-    monkeypatch.setattr(export, "_current_clean_commit", lambda _root: "b" * 40)
+    monkeypatch.setattr(
+        export, "current_clean_commit", lambda _root, **_: "b" * 40
+    )
 
 
 def _row(proposition_type: str, proposition_id: str, minute: int) -> dict[str, str]:
@@ -1042,37 +1045,37 @@ def test_git_revision_validation_covers_success_and_failures(
         [SimpleNamespace(stdout=""), SimpleNamespace(stdout="A" * 40 + "\n")]
     )
     monkeypatch.setattr(
-        export.subprocess, "run", lambda *_args, **_kwargs: next(responses)
+        bundle_io.subprocess, "run", lambda *_args, **_kwargs: next(responses)
     )
-    assert export._current_clean_commit(tmp_path) == "a" * 40
+    assert export.current_clean_commit(tmp_path) == "a" * 40
 
     responses = iter(
         [SimpleNamespace(stdout="dirty"), SimpleNamespace(stdout="a" * 40)]
     )
     monkeypatch.setattr(
-        export.subprocess, "run", lambda *_args, **_kwargs: next(responses)
+        bundle_io.subprocess, "run", lambda *_args, **_kwargs: next(responses)
     )
     with pytest.raises(RuntimeError, match="clean Git"):
-        export._current_clean_commit(tmp_path)
+        export.current_clean_commit(tmp_path)
 
     responses = iter([SimpleNamespace(stdout=""), SimpleNamespace(stdout="bad")])
     monkeypatch.setattr(
-        export.subprocess, "run", lambda *_args, **_kwargs: next(responses)
+        bundle_io.subprocess, "run", lambda *_args, **_kwargs: next(responses)
     )
-    with pytest.raises(RuntimeError, match="invalid export generator"):
-        export._current_clean_commit(tmp_path)
+    with pytest.raises(RuntimeError, match="invalid"):
+        export.current_clean_commit(tmp_path)
 
     def unavailable(*_args, **_kwargs):
         raise OSError("git unavailable")
 
-    monkeypatch.setattr(export.subprocess, "run", unavailable)
+    monkeypatch.setattr(bundle_io.subprocess, "run", unavailable)
     with pytest.raises(RuntimeError, match="Could not resolve"):
-        export._current_clean_commit(tmp_path)
+        export.current_clean_commit(tmp_path)
 
 
 def test_small_validation_helpers_cover_invalid_inputs(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="SemVer"):
-        export._validate_dataset_version("01.0.0")
+        export.validate_dataset_version("01.0.0")
 
     invalid_json = tmp_path / "invalid.json"
     invalid_json.write_text("{", encoding="utf-8")

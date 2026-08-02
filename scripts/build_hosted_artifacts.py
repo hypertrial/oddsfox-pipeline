@@ -22,6 +22,16 @@ from uuid import uuid4
 import duckdb
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from _bootstrap import ensure_src_on_path
+
+ensure_src_on_path()
+from oddsfox_pipeline.publishing._bundle_io import (  # noqa: E402
+    git_head_sha,
+    sha256_file,
+    validate_git_sha,
+)
+
 INPUT_CONTRACT = "polymarket-wc2026-logical-v1"
 INPUT_BUNDLE_RELATIVE = Path("input") / INPUT_CONTRACT
 GRAPH_RELATIVE = Path("graph")
@@ -791,22 +801,11 @@ def release_git_sha(repo: Path, explicit: str, *, label: str) -> str:
 
 
 def git_sha(repo: Path) -> str:
-    completed = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repo,
-        check=True,
-        capture_output=True,
-        text=True,
+    return git_head_sha(
+        repo,
+        resolve_error=f"Could not resolve Git SHA for {repo}",
+        invalid_error=f"invalid Git SHA for {repo}: invalid",
     )
-    value = completed.stdout.strip()
-    if len(value) != 40:
-        raise RuntimeError(f"invalid Git SHA for {repo}: {value!r}")
-    return value
-
-
-def validate_git_sha(value: str, *, label: str) -> None:
-    if re.fullmatch(r"[0-9a-f]{40}", value) is None:
-        raise RuntimeError(f"invalid {label} Git SHA: {value!r}")
 
 
 def load_json_object(path: Path, *, label: str) -> dict[str, object]:
@@ -849,14 +848,6 @@ def validate_inner_manifest_bindings(
         raise RuntimeError("graph manifest input schema does not match release")
     if graph_input.get("manifest_sha256") != input_manifest_sha256:
         raise RuntimeError("graph manifest input hash does not match input manifest")
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def file_hashes(root: Path) -> dict[str, str]:
