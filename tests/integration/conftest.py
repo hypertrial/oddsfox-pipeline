@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from tests.integration.dbt_cli import isolated_dbt_env
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +24,15 @@ def dbt_profiles_dir(tmp_path: Path) -> Path:
     return profiles_dir
 
 
-def write_dbt_profile(profiles_dir: Path, db_path: Path, *, threads: int = 2) -> None:
+@pytest.fixture
+def dbt_target_dir(tmp_path: Path) -> Path:
+    """Per-test dbt target directory for parallel-safe artifact isolation."""
+    path = tmp_path / "dbt-target"
+    path.mkdir()
+    return path
+
+
+def write_dbt_profile(profiles_dir: Path, db_path: Path, *, threads: int = 1) -> None:
     (profiles_dir / "profiles.yml").write_text(
         f"""
 oddsfox:
@@ -36,4 +45,20 @@ oddsfox:
   target: dev
 """.strip()
         + "\n"
+    )
+
+
+def dbt_subprocess_env(
+    *,
+    db_path: Path,
+    profiles_dir: Path,
+    target_dir: Path,
+    dbt_threads: int = 1,
+) -> dict[str, str]:
+    """Convenience wrapper around isolated_dbt_env for integration tests."""
+    return isolated_dbt_env(
+        db_path=db_path,
+        profiles_dir=profiles_dir,
+        target_dir=target_dir,
+        dbt_threads=dbt_threads,
     )

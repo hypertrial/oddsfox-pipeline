@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
-import sys
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -14,6 +12,7 @@ from pathlib import Path
 import duckdb
 import pytest
 from tests.integration.conftest import write_dbt_profile
+from tests.integration.dbt_cli import run_dbt
 from tests.support.distribution_fixtures import write_synthetic_distribution_inputs
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
@@ -83,24 +82,12 @@ def _run_dbt(
     profiles_dir: Path,
     env: dict[str, str],
 ) -> None:
-    command = [
-        sys.executable,
-        "-m",
-        "dbt.cli.main",
-        *args,
-        "--project-dir",
-        str(project_dir),
-        "--profiles-dir",
-        str(profiles_dir),
-    ]
-    completed = subprocess.run(
-        command,
-        cwd=REPO_ROOT,
+    run_dbt(
+        args,
+        project_dir=project_dir,
+        profiles_dir=profiles_dir,
         env=env,
-        capture_output=True,
-        text=True,
     )
-    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
 def _seed_published_fixture(db_path: Path) -> None:

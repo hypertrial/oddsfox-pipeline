@@ -6,7 +6,7 @@ operator setup, start with [Quickstart](../getting-started/index.md).
 ## Setup
 
 ```bash
-uv sync --extra dev
+uv sync --group dev
 cp .env.example .env
 ```
 

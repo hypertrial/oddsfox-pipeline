@@ -21,11 +21,18 @@ def _target_recipe(makefile: str, target: str) -> str:
 
 def _recursive_make_targets(recipe: str) -> list[str]:
     prefix = "$(MAKE) "
-    return [
-        line.strip().removeprefix(prefix).split()[0]
-        for line in recipe.splitlines()
-        if line.strip().startswith(prefix)
-    ]
+    targets: list[str] = []
+    for line in recipe.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith(prefix):
+            continue
+        tokens = stripped.removeprefix(prefix).split()
+        # Skip make flags such as -j3 / ODDSFOX_RUNTIME_ROOT=... assignments.
+        goal_tokens = [
+            token for token in tokens if not token.startswith("-") and "=" not in token
+        ]
+        targets.extend(goal_tokens)
+    return targets
 
 
 def _dagster_dev_shell_script() -> str:
@@ -125,6 +132,7 @@ def test_fast_and_coverage_tests_parallelize_only_the_safe_collection():
         assert "--ignore=tests/integration" in recipe
         assert "--ignore=tests/dbt" in recipe
         assert "--ignore=tests/contract" in recipe
+        assert "$(PYTEST_DURATION_ARGS)" in recipe
 
     for target in (
         "package-smoke",
@@ -135,11 +143,26 @@ def test_fast_and_coverage_tests_parallelize_only_the_safe_collection():
         "dagster-jobs-smoke",
         "dagster-jobs-smoke-cov",
         "dagster-refresh-cov",
-        "integration-dbt",
-        "integration-dbt-cov",
+        "integration-dbt-serial",
+        "integration-dbt-cov-serial",
         "integration-dagster",
     ):
         assert "-n 0" in _target_recipe(makefile, target), target
+
+    parallel = _target_recipe(makefile, "integration-dbt-parallel")
+    assert "-n $(DBT_TEST_WORKERS)" in parallel
+    assert "test_dbt_incremental_hourly_odds.py" in parallel
+    assert _recursive_make_targets(_target_recipe(makefile, "integration-dbt")) == [
+        "integration-dbt-parallel",
+        "integration-dbt-serial",
+    ]
+    assert _recursive_make_targets(_target_recipe(makefile, "integration-dbt-cov")) == [
+        "integration-dbt-cov-parallel",
+        "integration-dbt-cov-serial",
+    ]
+    assert "DBT_TEST_WORKERS ?=" in makefile
+    assert "unit-orchestration:" in makefile
+    assert "-n auto" in _target_recipe(makefile, "unit-orchestration")
 
 
 def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
@@ -152,11 +175,24 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
         "check-distribution",
         "check-terminology",
     ]
+    assert "-j3" in _target_recipe(makefile, "ci-fast")
     assert _recursive_make_targets(_target_recipe(makefile, "ci-fast")) == [
+        "ci-fast-static-docs",
+        "ci-fast-tests",
+        "ci-fast-dbt",
+    ]
+    assert _recursive_make_targets(_target_recipe(makefile, "ci-fast-core")) == [
         "lint",
         "test",
         "contract-http",
         "docs-build",
+    ]
+    assert "-j3" in _target_recipe(makefile, "release-gate")
+    assert _recursive_make_targets(_target_recipe(makefile, "release-gate")) == [
+        "release-gate-coverage",
+        "release-gate-dbt-quality",
+        "release-gate-static-docs-container",
+        "release-gate-mutation",
     ]
     assert _recursive_make_targets(_target_recipe(makefile, "release-gate-core")) == [
         "lint",
@@ -166,7 +202,6 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
         "dagster-refresh-cov",
         "integration-dbt-cov",
         "dbt-unit",
-        "golden-dbt",
         "dbt-source-freshness-ci",
         "coverage-report",
         "mutation-ci",
@@ -176,7 +211,37 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
         "dbt-polygon-settlement-ci",
         "dbt-build-ci",
         "costguard-scan",
+        "container-smoke",
     ]
+    assert "golden-dbt" not in _recursive_make_targets(
+        _target_recipe(makefile, "release-gate-core")
+    )
+    assert "golden-dbt" not in _target_recipe(makefile, "release-gate-dbt-quality")
+    serial_dbt = _target_recipe(makefile, "integration-dbt-serial")
+    assert "tests/integration/duckdb" in serial_dbt
+    assert "test_dbt_incremental_hourly_odds.py" in serial_dbt
+    assert (
+        "--ignore=tests/integration/duckdb/test_dbt_incremental_hourly_odds.py"
+        in serial_dbt
+    )
+    assert "bootstrap_dbt_ci_duckdb.py" in _target_recipe(makefile, "dbt-build-ci")
+    assert "bootstrap_dbt_ci_duckdb.py" in _target_recipe(makefile, "dbt-unit")
+    assert "dbt-prepare:" in makefile
+    assert "ODDSFOX_RUNTIME_ROOT=" in _target_recipe(makefile, "ci-fast-tests")
+    assert "ODDSFOX_RUNTIME_ROOT=" in _target_recipe(makefile, "release-gate-coverage")
+    for lane in (
+        "release-gate-coverage",
+        "release-gate-dbt-quality",
+        "release-gate-mutation",
+        "release-gate-static-docs-container",
+    ):
+        assert "-j1" in _target_recipe(makefile, lane), lane
+    assert "DBT_LINT_DUCKDB_PATH := $(ODDSFOX_RUNTIME_ROOT)/dbt_lint.duckdb" in makefile
+    assert (
+        "DBT_BUILD_DUCKDB_PATH := $(ODDSFOX_RUNTIME_ROOT)/dbt_build.duckdb" in makefile
+    )
+    assert "fcntl.flock" in _target_recipe(makefile, "dbt-prepare")
+    assert "dbt-deps.lock" in makefile
 
     assert "dbt.cli.main parse" not in _target_recipe(makefile, "format")
     assert "sqlfluff fix" in _target_recipe(makefile, "format")
@@ -203,7 +268,7 @@ def test_polygon_settlement_live_smoke_is_fail_closed_to_disposable_database():
     assert f'DUCKDB_PATH="{expected}"' in recipe
     assert f'TMPDIR="{runtime}/tmp"' in recipe
     assert f'XDG_CACHE_HOME="{runtime}/xdg"' in recipe
-    assert f'UV_CACHE_DIR="{REPO_ROOT}/.cache/uv"' in recipe
+    assert f'UV_CACHE_DIR="{REPO_ROOT}/.cache/runtime/uv"' in recipe
     assert f'DUCKDB_EXTENSION_DIRECTORY="{runtime}/duckdb-extensions"' in recipe
     assert f'DAGSTER_HOME="{runtime}/dagster"' in recipe
     assert f'DBT_TARGET_PATH="{runtime}/dbt-target"' in recipe
@@ -265,6 +330,14 @@ def test_runtime_and_temporary_storage_default_below_the_checkout():
     assert "export XDG_CACHE_HOME := $(ODDSFOX_RUNTIME_XDG)" in makefile
     assert "export UV_CACHE_DIR := $(ODDSFOX_RUNTIME_UV)" in makefile
     assert "export UV_PYTHON_INSTALL_DIR := $(ODDSFOX_RUNTIME_UV_PYTHON)" in makefile
+    assert "ODDSFOX_RUNTIME_UV := $(REPO_ROOT)/.cache/runtime/uv" in makefile
+    assert (
+        "ODDSFOX_RUNTIME_UV_PYTHON := $(REPO_ROOT)/.cache/runtime/uv-python" in makefile
+    )
+    assert (
+        "ODDSFOX_RUNTIME_PLAYWRIGHT := $(REPO_ROOT)/.cache/runtime/ms-playwright"
+        in makefile
+    )
     assert (
         "export PLAYWRIGHT_BROWSERS_PATH := $(ODDSFOX_RUNTIME_PLAYWRIGHT)" in makefile
     )

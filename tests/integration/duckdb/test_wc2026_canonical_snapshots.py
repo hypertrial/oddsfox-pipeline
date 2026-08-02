@@ -2,37 +2,12 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 import duckdb
 import pytest
-from tests.integration.conftest import write_dbt_profile
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DBT_ROOT = REPO_ROOT / "dbt"
-
-
-def _run_dbt(args: list[str], *, profiles_dir: Path, env: dict[str, str]) -> None:
-    proc = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "dbt.cli.main",
-            *args,
-            "--project-dir",
-            str(DBT_ROOT),
-            "--profiles-dir",
-            str(profiles_dir),
-        ],
-        cwd=REPO_ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0, proc.stdout + proc.stderr
+from tests.integration.conftest import dbt_subprocess_env, write_dbt_profile
+from tests.integration.dbt_cli import run_dbt as _run_dbt
 
 
 def _insert_ledger_rows(conn: duckdb.DuckDBPyConnection) -> None:
@@ -162,13 +137,16 @@ def _insert_canonical_rows(conn: duckdb.DuckDBPyConnection) -> None:
 def test_strategy_marts_use_only_latest_complete_canonical_snapshots(
     tmp_path: Path,
     dbt_profiles_dir: Path,
+    dbt_target_dir: Path,
 ) -> None:
     db_path = tmp_path / "canonical_snapshots.duckdb"
-    write_dbt_profile(dbt_profiles_dir, db_path)
-    env = os.environ.copy()
-    env["DUCKDB_PATH"] = str(db_path)
-    env["DUCKDB_NAME"] = str(db_path)
-    env["DBT_PROFILES_DIR"] = str(dbt_profiles_dir)
+    write_dbt_profile(dbt_profiles_dir, db_path, threads=1)
+    env = dbt_subprocess_env(
+        db_path=db_path,
+        profiles_dir=dbt_profiles_dir,
+        target_dir=dbt_target_dir,
+        dbt_threads=1,
+    )
 
     _run_dbt(
         ["seed", "--select", "wc2026_team_canonical_aliases"],

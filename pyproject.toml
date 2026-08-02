@@ -28,7 +28,50 @@ dependencies = [
 ]
 
 [tool.uv]
-cache-dir = ".cache/uv"
+cache-dir = ".cache/runtime/uv"
+# Contributors get the aggregate `dev` group by default; CI workers pass
+# `--no-default-groups` and only the groups each job needs.
+default-groups = ["dev"]
+
+[dependency-groups]
+test = [
+  "hypothesis>=6.156.6",
+  "pytest>=8.0.0",
+  "pytest-xdist>=3.5.0",
+  "vcrpy>=6.0.0",
+]
+coverage = [
+  {include-group = "test"},
+  "pytest-cov>=5.0.0",
+]
+python-lint = [
+  "ruff>=0.15.21",
+]
+dbt-lint = [
+  "sqlfluff>=4.2.2",
+  "sqlfluff-templater-dbt>=3.0.0",
+]
+docs = [
+  "mkdocs>=1.6.0",
+  "mkdocs-material>=9.5.0",
+]
+docs-render = [
+  {include-group = "docs"},
+  "playwright>=1.55.0,<2",
+]
+mutation = [
+  {include-group = "test"},
+  "mutmut==3.6.0",
+]
+dev = [
+  {include-group = "coverage"},
+  {include-group = "python-lint"},
+  {include-group = "dbt-lint"},
+  {include-group = "docs-render"},
+  {include-group = "mutation"},
+  "dagster-dg-cli>=1.13.0",
+  "pip-audit>=2.10.1",
+]
 
 [project.optional-dependencies]
 dev = [

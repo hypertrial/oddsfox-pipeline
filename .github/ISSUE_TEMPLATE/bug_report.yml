@@ -20,7 +20,7 @@ body:
       label: Reproduction
       description: Commands, inputs, and the smallest steps that reproduce the issue.
       placeholder: |
-        1. uv sync --extra dev
+        1. uv sync --group dev
         2. uv run make ...
         3. See error ...
     validations:

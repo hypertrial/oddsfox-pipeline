@@ -36,7 +36,7 @@ Hypertrial-owned MIT software. No hosted service or bundled production data.
 **Start in the repository**
 
 ```bash
-uv sync --extra dev
+uv sync --group dev
 ```
 
 </div>

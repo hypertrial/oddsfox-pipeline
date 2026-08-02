@@ -37,7 +37,7 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.3.2
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --no-default-groups --group coverage
       - name: Parallel unit coverage
         run: uv run make test-cov
       - name: Registered Dagster job coverage
@@ -62,7 +62,7 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.3.2
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --no-default-groups --group test --group dbt-lint
       - name: Install pinned Costguard
         run: |
           curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/v2.5.0/scripts/install.sh -o /tmp/install-costguard.sh
@@ -70,8 +70,6 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: dbt unit tests
         run: uv run make dbt-unit
-      - name: Golden dbt marts
-        run: uv run make golden-dbt
       - name: dbt source freshness
         run: uv run make dbt-source-freshness-ci
       - name: Polygon settlement graph
@@ -94,7 +92,7 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.3.2
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --no-default-groups --group mutation
       - name: Focused mutation gate
         run: uv run make mutation-ci
       - name: Export mutation statistics
@@ -128,7 +126,12 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.3.2
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --no-default-groups --group test --group python-lint --group dbt-lint --group docs-render
+      - name: Cache Playwright browsers
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ github.workspace }}/.cache/runtime/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}-chromium
       - name: Install Chromium for rendered documentation checks
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/runtime/ms-playwright

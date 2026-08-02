@@ -31,7 +31,7 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.3.2
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --no-default-groups --group test --group python-lint --group docs
       - name: Python lint
         run: uv run make python-lint
       - name: Secret policy
@@ -56,7 +56,7 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.3.2
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --no-default-groups --group test
       - name: Parallel fast tests
         run: uv run make test
       - name: Replay-only HTTP contracts
@@ -75,7 +75,7 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.3.2
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --no-default-groups --group dbt-lint
       - name: Fail-closed dbt lint
         run: uv run make dbt-lint
 
@@ -92,7 +92,7 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.3.2
         with:
           enable-cache: true
-      - run: uv sync --frozen --extra dev
+      - run: uv sync --frozen --no-default-groups --group test
       - name: Package smoke
         run: uv run make package-smoke
       - name: Python 3.13 tests

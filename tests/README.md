@@ -35,14 +35,20 @@ make check-secrets
 ```
 
 The ordinary `make test` suite uses xdist and excludes `tests/integration`,
-`tests/dbt`, and `tests/contract`; those paths retain dedicated serial targets.
+`tests/dbt`, and `tests/contract`; those paths retain dedicated targets.
+`make test` / `make test-cov` first run `dbt-prepare` so xdist workers reuse one
+shared dbt manifest under `DBT_TARGET_PATH`. `make integration-dbt` splits
+isolated incremental cases (`DBT_TEST_WORKERS`, default 2) from the remaining
+serial DuckDB/dbt suite, which includes the golden marts. Standalone
+`make golden-dbt` remains available but is not duplicated in the release gate.
 The full local release gate accumulates coverage with `make test-cov`,
 `make dagster-jobs-smoke-cov`, `make dagster-refresh-cov`,
 `make integration-dbt-cov`, and `make coverage-report`, alongside the dbt,
-freshness, golden, data-quality, and focused mutation targets. `make
+freshness, data-quality, and focused mutation targets. `make
 integration-dagster-cov` wraps both split Dagster coverage targets, while `make
-coverage` is the one-shot equivalent. Local gates invoke these commands
-sequentially. GitHub's automatic `tests` worker runs the parallel fast suite and
+coverage` is the one-shot equivalent. Local `ci-fast` / `release-gate` launch
+isolated parallel lanes; use `ci-fast-core` / `release-gate-core` for sequential
+diagnosis. GitHub's automatic `tests` worker runs the parallel fast suite and
 serial `make contract-http` while independent static/docs and dbt-lint workers
 run in parallel. A required Python 3.13 worker repeats package smoke and the
 ordinary suite while Python 3.10 remains the supported floor and full-release

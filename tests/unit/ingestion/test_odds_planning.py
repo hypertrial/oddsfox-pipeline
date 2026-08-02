@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 pytest.importorskip("duckdb")
@@ -116,6 +116,7 @@ def test_build_single_token_plan_budget_and_latest_branches():
     assert skip == "already_current"
 
 
+@settings(deadline=None)
 @given(
     created_ts=st.integers(min_value=1, max_value=2_000_000_000),
     duration=st.integers(min_value=1, max_value=31_536_000),

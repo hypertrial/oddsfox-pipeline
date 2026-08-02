@@ -11,24 +11,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _bootstrap import ensure_src_on_path
+from bootstrap_dbt_ci_duckdb import bootstrap_dbt_ci_duckdb
 
 ensure_src_on_path()
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.naming import SCOPE_US_MIDTERMS_2026, SCOPE_WC2026
-from oddsfox_pipeline.storage.duckdb.connection import init_duck_db
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     international_results_wc2026_raw_tbl,
     kalshi_ops_tbl,
     kalshi_raw_tbl,
     polymarket_ops_tbl,
     polymarket_raw_tbl,
-)
-from oddsfox_pipeline.storage.duckdb.schemas.kalshi import (
-    create_all_kalshi_test_raw_tables,
-)
-from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
-    create_all_scope_test_markets_tables,
 )
 
 FRESHNESS_SOURCE_TABLES: frozenset[tuple[str, str]] = frozenset(
@@ -266,12 +260,9 @@ def _seed_kalshi(conn, now: datetime) -> None:
 
 def main() -> None:
     now = datetime.now(timezone.utc)
-    connection.reset_duckdb_connection_state()
-    init_duck_db()
+    bootstrap_dbt_ci_duckdb()
     conn = connection.get_persistent_connection()
     try:
-        create_all_scope_test_markets_tables(conn)
-        create_all_kalshi_test_raw_tables(conn)
         _seed_international_results(conn, now)
         _seed_polymarket_scope(conn, scope_name=SCOPE_WC2026, now=now)
         _seed_polymarket_scope(conn, scope_name=SCOPE_US_MIDTERMS_2026, now=now)

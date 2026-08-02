@@ -4,54 +4,26 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import subprocess
-import sys
 from decimal import Decimal
 from pathlib import Path
 
 import duckdb
-from tests.integration.conftest import write_dbt_profile
+from tests.integration.conftest import dbt_subprocess_env, write_dbt_profile
+from tests.integration.dbt_cli import run_dbt
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.ingestion.polymarket.match_order_book import (
     load_order_book_manifest,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DBT_ROOT = REPO_ROOT / "dbt"
-
-
-def _invoke_dbt(
-    args: list[str], *, profiles_dir: Path, env: dict[str, str]
-) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "dbt.cli.main",
-            *args,
-            "--project-dir",
-            str(DBT_ROOT),
-            "--profiles-dir",
-            str(profiles_dir),
-        ],
-        cwd=REPO_ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-
 
 def _run_dbt(args: list[str], *, profiles_dir: Path, env: dict[str, str]) -> None:
-    proc = _invoke_dbt(args, profiles_dir=profiles_dir, env=env)
-    assert proc.returncode == 0, proc.stdout + proc.stderr
+    run_dbt(args, profiles_dir=profiles_dir, env=env)
 
 
 def _run_dbt_fails(args: list[str], *, profiles_dir: Path, env: dict[str, str]) -> str:
-    proc = _invoke_dbt(args, profiles_dir=profiles_dir, env=env)
-    assert proc.returncode != 0, proc.stdout + proc.stderr
-    return proc.stdout + proc.stderr
+    completed = run_dbt(args, profiles_dir=profiles_dir, env=env, expect_fail=True)
+    return completed.stdout + completed.stderr
 
 
 def _seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
@@ -247,7 +219,7 @@ def _seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
 
 
 def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
-    tmp_path, monkeypatch, dbt_profiles_dir
+    tmp_path, monkeypatch, dbt_profiles_dir, dbt_target_dir
 ):
     db_path = tmp_path / "order_book.duckdb"
     monkeypatch.setenv("DUCKDB_PATH", str(db_path))
@@ -257,10 +229,13 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
     with duckdb.connect(str(db_path)) as conn:
         _seed_order_book_contract(conn)
 
-    write_dbt_profile(dbt_profiles_dir, db_path)
-    env = os.environ.copy()
-    env["DUCKDB_PATH"] = str(db_path)
-    env["DUCKDB_NAME"] = str(db_path)
+    write_dbt_profile(dbt_profiles_dir, db_path, threads=1)
+    env = dbt_subprocess_env(
+        db_path=db_path,
+        profiles_dir=dbt_profiles_dir,
+        target_dir=dbt_target_dir,
+        dbt_threads=1,
+    )
     _run_dbt(
         [
             "build",
@@ -359,7 +334,7 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
 
 
 def test_order_book_graph_blocks_malformed_optional_numerics(
-    tmp_path, monkeypatch, dbt_profiles_dir
+    tmp_path, monkeypatch, dbt_profiles_dir, dbt_target_dir
 ):
     db_path = tmp_path / "order_book_invalid_optional.duckdb"
     monkeypatch.setenv("DUCKDB_PATH", str(db_path))
@@ -369,10 +344,13 @@ def test_order_book_graph_blocks_malformed_optional_numerics(
     with duckdb.connect(str(db_path)) as conn:
         _seed_order_book_contract(conn)
 
-    write_dbt_profile(dbt_profiles_dir, db_path)
-    env = os.environ.copy()
-    env["DUCKDB_PATH"] = str(db_path)
-    env["DUCKDB_NAME"] = str(db_path)
+    write_dbt_profile(dbt_profiles_dir, db_path, threads=1)
+    env = dbt_subprocess_env(
+        db_path=db_path,
+        profiles_dir=dbt_profiles_dir,
+        target_dir=dbt_target_dir,
+        dbt_threads=1,
+    )
     _run_dbt(
         [
             "build",

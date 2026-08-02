@@ -9,7 +9,7 @@ real-team scope validation.
 ## Development setup
 
 ```bash
-uv sync --extra dev
+uv sync --group dev
 cp .env.example .env
 ```
 
@@ -86,8 +86,8 @@ submit the material and that it meets the data and IP hygiene rules above.
 | Change | Gate |
 | --- | --- |
 | Docs / MkDocs only | `uv run make docs-check` |
-| Ordinary PR | `uv run make ci-fast` |
-| Dependency, Docker, Dagster, dbt, data-quality, or pre-release | `uv run make release-gate` |
+| Ordinary PR | `uv run make ci-fast` (parallel lanes; use `ci-fast-core` to diagnose sequentially) |
+| Dependency, Docker, Dagster, dbt, data-quality, or pre-release | `uv run make release-gate` (parallel lanes; use `release-gate-core` to diagnose sequentially) |
 | Live network acceptance | Local-only smokes; never add to GitHub Actions |
 
 The canonical command tables, Costguard install, and layout guardrails live in

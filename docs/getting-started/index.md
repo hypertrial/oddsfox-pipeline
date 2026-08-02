@@ -9,7 +9,7 @@ models are healthy.
 From the repository root:
 
 ```bash
-uv sync --extra dev
+uv sync --group dev
 cp .env.example .env
 ```
 

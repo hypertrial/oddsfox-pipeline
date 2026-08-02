@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 
 from dagster_dbt import DbtProject
 from dagster_dbt.dbt_project import DagsterDbtProjectPreparer
@@ -12,6 +14,17 @@ from oddsfox_pipeline.config.settings import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_dbt_target_path() -> Path:
+    """Align Dagster manifest prep with Make/dbt ``DBT_TARGET_PATH`` when set."""
+    raw = os.getenv("DBT_TARGET_PATH")
+    if not raw:
+        return Path("target")
+    path = Path(raw).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    return (DBT_PROJECT_DIR / path).resolve()
 
 
 class OddsfoxDbtProjectPreparer(DagsterDbtProjectPreparer):
@@ -79,6 +92,7 @@ DBT_PROJECT = DbtProject(
     profiles_dir=DBT_PROFILES_DIR,
     profile="oddsfox",
     target="dev",
+    target_path=resolve_dbt_target_path(),
     prepare_project_cli_args=[
         "parse",
         "--quiet",
@@ -96,4 +110,5 @@ __all__ = [
     "DBT_PROJECT",
     "OddsfoxDbtProjectPreparer",
     "prepare_dbt_project",
+    "resolve_dbt_target_path",
 ]

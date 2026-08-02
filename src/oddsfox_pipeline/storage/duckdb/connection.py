@@ -63,6 +63,23 @@ def _reset_path_scoped_caches() -> None:
     from oddsfox_pipeline.storage.duckdb.dlt_batch import reset_dlt_batch_pipelines
 
     reset_dlt_batch_pipelines()
+    reset_orchestration_dlt_pipeline_caches()
+
+
+def reset_orchestration_dlt_pipeline_caches() -> None:
+    """Clear path-keyed Polymarket/Kalshi dlt pipeline caches after env swaps."""
+    import sys
+
+    for module_name in (
+        "oddsfox_pipeline.orchestration.polymarket_asset_helpers",
+        "oddsfox_pipeline.orchestration.kalshi_asset_helpers",
+    ):
+        module = sys.modules.get(module_name)
+        if module is None:
+            continue
+        cache = getattr(module, "_DLT_PIPELINE_BY_PATH", None)
+        if cache is not None:
+            cache.clear()
 
 
 def reset_duckdb_connection_state() -> None:

@@ -17,7 +17,7 @@ Stack: **Dagster** (orchestration), **dlt** (market landing), **dbt** +
 ## Setup
 
 ```bash
-uv sync --extra dev
+uv sync --group dev
 cp .env.example .env
 ```
 
@@ -78,21 +78,24 @@ Run `uv run make release-gate` before releases and after dependency, Docker,
 Dagster, dbt, or data-quality changes. It runs the lint, contract, docs,
 100%-coverage and integration surfaces, focused mutation testing, Costguard,
 and a non-root container smoke without repeating the ordinary test pass before
-coverage. Local gates run their Make targets sequentially. GitHub parallelizes
-the equivalent automatic surface across `static-docs`, `tests`, `dbt`, and a
-Python 3.13 package/test compatibility worker, then reports the stable
-`fast-gate` aggregate. Python 3.10 remains the supported floor and full-release
-runtime. The manual `Manual Full Validation` workflow parallelizes coverage,
-dbt/data quality, focused mutation, and static/docs/container validation behind
-the stable `full-gate` aggregate;
+coverage. Local `ci-fast` and `release-gate` launch isolated parallel lanes that
+mirror GitHub's worker topology; `release-gate` finishes mutation after the
+other three lanes so Mutmut is not CPU-starved. Use `ci-fast-core` /
+`release-gate-core` for sequential diagnosis. GitHub parallelizes the equivalent automatic surface
+across `static-docs`, `tests`, `dbt`, and a Python 3.13 package/test
+compatibility worker, then reports the stable `fast-gate` aggregate. Python 3.10
+remains the supported floor and full-release runtime. The manual
+`Manual Full Validation` workflow parallelizes coverage, dbt/data quality,
+focused mutation, and static/docs/container validation behind the stable
+`full-gate` aggregate;
 optional signed multi-arch publication still depends on that aggregate. For
 narrower local runs, `make test`, `make integration-dagster`, `make
 integration-dbt`, `make data-quality`, `make mutation`, and `make coverage`
 still work.
 
-`dbt-build-ci` bootstraps a disposable DuckDB database under `.cache/` before
-running the ordinary dbt graph, which excludes `tag:polygon_settlement` and
-`tag:pmxt_order_book`.
+`dbt-build-ci` bootstraps a disposable DuckDB database under the active
+`ODDSFOX_RUNTIME_ROOT` before running the ordinary dbt graph, which excludes
+`tag:polygon_settlement` and `tag:pmxt_order_book`.
 `dbt-polygon-settlement-ci` separately builds that graph against complete
 synthetic replay fixtures and asserts the 39,120-row mart contract.
 `data-quality` is the safe dbt-only wrapper that rebuilds the disposable
@@ -130,7 +133,9 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make integration-dbt-cov` | DuckDB + dbt integration with coverage append |
 | `make integration-dagster-cov` | Local wrapper for both split Dagster coverage targets |
 | `make dbt-unit` | dbt unit tests for high-risk SQL branches |
-| `make golden-dbt` | Exact-output dbt mart regression fixtures |
+| `make golden-dbt` | Standalone exact-output dbt mart fixtures (also covered by `integration-dbt`) |
+| `make dbt-prepare` | Shared dbt deps/parse into `DBT_TARGET_PATH` before xdist test imports |
+| `make gate-timing` | Opt-in gate timing JSON under `.cache/runtime/benchmarks/` |
 | `make dbt-source-freshness-ci` | Seed fresh temp source rows and run dbt source freshness |
 | `make coverage-report` | Coverage report gate (`--fail-under=100`) |
 | `make check-secrets` | Repo policy check for tracked secret leakage |

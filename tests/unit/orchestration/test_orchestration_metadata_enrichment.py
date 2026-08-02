@@ -13,14 +13,17 @@ from tests.unit.orchestration.orchestration_test_support import (
 )
 
 
-def test_metadata_enrichment_asset_invokes_progress_callback():
+def test_metadata_enrichment_asset_invokes_progress_callback(monkeypatch):
     from dagster import materialize
 
+    from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
     from oddsfox_pipeline.orchestration.assets import (
         polymarket_wc2026_raw_market_metadata_enrichment,
     )
 
     op_key = polymarket_wc2026_raw_market_metadata_enrichment.op.name
+    monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
+    monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
 
     def combined(**kw):
         cb = kw.get("progress_callback")
@@ -54,14 +57,17 @@ def test_metadata_enrichment_asset_invokes_progress_callback():
         )
 
 
-def test_metadata_enrichment_config_branches():
+def test_metadata_enrichment_config_branches(monkeypatch):
     from dagster import materialize
 
+    from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
     from oddsfox_pipeline.orchestration.assets import (
         polymarket_wc2026_raw_market_metadata_enrichment,
     )
 
     op_key = polymarket_wc2026_raw_market_metadata_enrichment.op.name
+    monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
+    monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
     cfg = {
         "batch_size": 20,
         "force": False,
@@ -106,14 +112,19 @@ def test_metadata_enrichment_config_branches():
         )
 
 
-def test_metadata_enrichment_forwards_event_slug_fallback_and_gamma_kwargs():
+def test_metadata_enrichment_forwards_event_slug_fallback_and_gamma_kwargs(
+    monkeypatch,
+):
     from dagster import materialize
 
+    from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
     from oddsfox_pipeline.orchestration.assets import (
         polymarket_wc2026_raw_market_metadata_enrichment,
     )
 
     op_key = polymarket_wc2026_raw_market_metadata_enrichment.op.name
+    monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
+    monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
     captured = {}
 
     def capture_metadata(**kw):
@@ -199,6 +210,7 @@ def test_metadata_enrichment_guardrail_poll_checks_and_raises_worker_errors(
     from dagster import materialize
 
     from oddsfox_pipeline.orchestration import assets as assets_mod
+    from oddsfox_pipeline.orchestration import assets_polymarket as polymarket_assets
     from oddsfox_pipeline.orchestration.assets import (
         polymarket_wc2026_raw_market_metadata_enrichment,
     )
@@ -207,6 +219,8 @@ def test_metadata_enrichment_guardrail_poll_checks_and_raises_worker_errors(
     check_calls = {"count": 0}
     clock = _FakeClock()
     _patch_guardrail_clock(monkeypatch, assets_mod, clock)
+    monkeypatch.setattr(polymarket_assets, "snapshot_raw_layer", lambda **_kwargs: {})
+    monkeypatch.setattr(polymarket_assets, "delta_raw_layer", lambda _pre, _post: {})
     real_check = polymarket_ops_mod.ProgressGuardrail.check
 
     def counting_check(self, *args, **kwargs):

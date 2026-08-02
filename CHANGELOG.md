@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Local `ci-fast` and `release-gate` now launch isolated parallel lanes that
+  mirror GitHub worker topology; use `ci-fast-core` / `release-gate-core` for
+  sequential diagnosis. Local `release-gate` runs coverage/dbt/static first
+  (`-j3`), then mutation alone to avoid Mutmut timeouts under laptop
+  contention. Disposable dbt DuckDB files live under each lane's
+  `ODDSFOX_RUNTIME_ROOT`, and `dbt-prepare` serializes `dbt deps` so parallel
+  lanes do not race `dbt/dbt_packages`. PR CI and Manual Full Validation install
+  narrower uv dependency groups per worker (`--no-default-groups`) while keeping
+  full Python 3.10 and 3.13 suites.
+- Orchestration unit tests no longer bootstrap DuckDB on every autouse guard;
+  opt in with `orchestration_duckdb` / `duck`. Shared dbt manifest preparation
+  (`make dbt-prepare`) aligns Dagster and Make on `DBT_TARGET_PATH`, and
+  incremental dbt integration cases run with bounded xdist workers.
+- Golden mart fixtures remain available via `make golden-dbt` but are no longer
+  duplicated in the release / Manual Full `dbt-quality` sequence because
+  `integration-dbt-cov` already executes them.
+
+### Added
+
+- `scripts/bootstrap_dbt_ci_duckdb.py`, `scripts/gate_timing.py`, Playwright
+  browser caching in Manual Full Validation, and unified uv cache path
+  `.cache/runtime/uv`.
+
 ## [0.1.13] - 2026-08-02
 
 ### Added

@@ -14,6 +14,10 @@ from tests.unit.orchestration.orchestration_test_support import (
     _FakeClock,
     _ImmediateThread,
 )
+from tests.unit.storage.duckdb_storage_test_support import (
+    initialize_isolated_duckdb,
+    reload_settings_and_connection,
+)
 
 
 def _patch_progress_guardrail_module(monkeypatch, module, clock: _FakeClock) -> None:
@@ -54,19 +58,9 @@ def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_g
         yield
         return
 
+    # Cheap path isolation only — do not bootstrap schemas unless a test opts in.
     db_path = tmp_path / "orchestration.duckdb"
-    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
-    monkeypatch.delenv("DUCKDB_PATH", raising=False)
-
-    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
-
-    reload_all_settings_modules()
-    monkeypatch.delenv("DUCKDB_PATH", raising=False)
-
-    import oddsfox_pipeline.storage.duckdb.connection as connection
-
-    connection.reset_duckdb_connection_state()
-    connection.ensure_duck_db()
+    connection = reload_settings_and_connection(monkeypatch, db_path)
 
     clock = _FakeClock()
     for module in (
@@ -102,6 +96,15 @@ def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_g
     with patch("time.sleep", lambda *_a, **_k: None):
         yield
 
+    connection.reset_duckdb_connection_state()
+
+
+@pytest.fixture
+def orchestration_duckdb(monkeypatch, tmp_path):
+    """Opt-in real DuckDB bootstrap for orchestration tests that touch storage."""
+    db_path = tmp_path / "orchestration.duckdb"
+    connection = initialize_isolated_duckdb(monkeypatch, db_path)
+    yield connection
     connection.reset_duckdb_connection_state()
 
 

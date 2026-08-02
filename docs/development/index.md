@@ -20,9 +20,15 @@ orchestration. For a short contributor map, start with
 ## Local Setup
 
 ```bash
-uv sync --extra dev
+uv sync --group dev
 cp .env.example .env
 ```
+
+`uv sync --group dev` (the uv default group) installs the aggregate contributor
+toolset. CI workers pass `--no-default-groups` and only the groups each job
+needs (`test`, `coverage`, `python-lint`, `dbt-lint`, `docs`, `docs-render`,
+`mutation`). `uv sync --extra dev` remains available as a compatibility alias
+of the same toolset.
 
 Keep schedules disabled for local development unless intentionally testing live
 ingestion:
@@ -56,6 +62,16 @@ saved documentation, stylesheet, or configuration change; no restart is needed.
 | Dependency, Docker, Dagster, dbt, or data-quality changes; pre-release | `uv run make release-gate` |
 | Live network acceptance (local only) | `live-smoke`, `match-minute-live-smoke`, or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
 
+`ci-fast` and `release-gate` run isolated parallel lanes that mirror GitHub's
+worker topology. Use `ci-fast-core` / `release-gate-core` when you need a
+sequential diagnostic pass. Local `release-gate` runs coverage, dbt-quality, and
+static/docs/container first (`-j3`), then mutation alone so Mutmut is not
+starved by the other lanes. Each lane overrides `ODDSFOX_RUNTIME_ROOT` so
+disposable dbt DuckDB files and dbt target dirs do not collide; `dbt-prepare`
+serializes `dbt deps` across lanes. Override `DBT_TEST_WORKERS` (default `2`)
+to bound parallel incremental dbt cases. Capture cold/warm timings with
+`uv run make gate-timing GATE_TIMING_ARGS='--label warm unit-orchestration test'`.
+
 The canonical Make target tables, Costguard install, coverage rules, and
 no-legacy policy live in
 [AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md).
@@ -68,11 +84,13 @@ with full refresh for all five incremental odds models, replay each shipped
 refresh path twice, and verify recovery after a transactional Polymarket writer
 failure.
 
-All Make child processes use `.cache/runtime/` for temporary files, uv/XDG and
-browser caches, Python bytecode, and dbt output. Polygon and local mart rebuild
-targets also use SSD-local DuckDB extension directories. Put the checkout on
-the intended SSD and export the same parent-process paths before the first
-`uv` command. The
+All Make child processes use `.cache/runtime/` for temporary files, Python
+bytecode, and dbt output. Parallel gate lanes isolate tmp/XDG/dbt/DuckDB state
+under per-lane `ODDSFOX_RUNTIME_ROOT` dirs, while uv and Playwright browser
+caches stay shared at `.cache/runtime/uv` and `.cache/runtime/ms-playwright`.
+Polygon and local mart rebuild targets also use SSD-local DuckDB extension
+directories. Put the checkout on the intended SSD and export the same
+parent-process paths before the first `uv` command. The
 [local mart recreation guide](../guides/recreate-local-marts.md) documents the
 complete setup and the offline full-refresh proof for both minute marts.
 
@@ -188,7 +206,9 @@ when settings reload from disk. See
 | `uv run make integration-dagster-cov` | Local wrapper for both split Dagster coverage targets. |
 | `uv run make integration-dbt-cov` | DuckDB + dbt integration with coverage append. |
 | `uv run make dbt-unit` | dbt unit tests for classifier and mart edge-case SQL. |
-| `uv run make golden-dbt` | Exact-output public mart regression fixtures. |
+| `uv run make golden-dbt` | Standalone exact-output public mart fixtures (also run by `integration-dbt`). |
+| `uv run make dbt-prepare` | Shared dbt deps/parse into the active `DBT_TARGET_PATH`. |
+| `uv run make gate-timing` | Opt-in JSON timings under `.cache/runtime/benchmarks/`. |
 | `uv run make dbt-source-freshness-ci` | Seed temp source rows and run dbt source freshness. |
 | `uv run make coverage-report` | Coverage report gate (`--fail-under=100`). |
 | `uv run make check-secrets` | Repo policy check for tracked secret leakage. |

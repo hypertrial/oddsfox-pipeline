@@ -2347,6 +2347,64 @@ dev = [
     { name = "vcrpy" },
 ]
 
+[package.dev-dependencies]
+coverage = [
+    { name = "hypothesis" },
+    { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pytest-cov" },
+    { name = "pytest-xdist" },
+    { name = "vcrpy" },
+]
+dbt-lint = [
+    { name = "sqlfluff" },
+    { name = "sqlfluff-templater-dbt" },
+]
+dev = [
+    { name = "dagster-dg-cli" },
+    { name = "hypothesis" },
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+    { name = "mutmut" },
+    { name = "pip-audit" },
+    { name = "playwright" },
+    { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pytest-cov" },
+    { name = "pytest-xdist" },
+    { name = "ruff" },
+    { name = "sqlfluff" },
+    { name = "sqlfluff-templater-dbt" },
+    { name = "vcrpy" },
+]
+docs = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+]
+docs-render = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+    { name = "playwright" },
+]
+mutation = [
+    { name = "hypothesis" },
+    { name = "mutmut" },
+    { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pytest-xdist" },
+    { name = "vcrpy" },
+]
+python-lint = [
+    { name = "ruff" },
+]
+test = [
+    { name = "hypothesis" },
+    { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pytest-xdist" },
+    { name = "vcrpy" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "dagster", specifier = ">=1.13.13" },
@@ -2379,6 +2437,58 @@ requires-dist = [
     { name = "vcrpy", marker = "extra == 'dev'", specifier = ">=6.0.0" },
 ]
 provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+coverage = [
+    { name = "hypothesis", specifier = ">=6.156.6" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-cov", specifier = ">=5.0.0" },
+    { name = "pytest-xdist", specifier = ">=3.5.0" },
+    { name = "vcrpy", specifier = ">=6.0.0" },
+]
+dbt-lint = [
+    { name = "sqlfluff", specifier = ">=4.2.2" },
+    { name = "sqlfluff-templater-dbt", specifier = ">=3.0.0" },
+]
+dev = [
+    { name = "dagster-dg-cli", specifier = ">=1.13.0" },
+    { name = "hypothesis", specifier = ">=6.156.6" },
+    { name = "mkdocs", specifier = ">=1.6.0" },
+    { name = "mkdocs-material", specifier = ">=9.5.0" },
+    { name = "mutmut", specifier = "==3.6.0" },
+    { name = "pip-audit", specifier = ">=2.10.1" },
+    { name = "playwright", specifier = ">=1.55.0,<2" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-cov", specifier = ">=5.0.0" },
+    { name = "pytest-xdist", specifier = ">=3.5.0" },
+    { name = "ruff", specifier = ">=0.15.21" },
+    { name = "sqlfluff", specifier = ">=4.2.2" },
+    { name = "sqlfluff-templater-dbt", specifier = ">=3.0.0" },
+    { name = "vcrpy", specifier = ">=6.0.0" },
+]
+docs = [
+    { name = "mkdocs", specifier = ">=1.6.0" },
+    { name = "mkdocs-material", specifier = ">=9.5.0" },
+]
+docs-render = [
+    { name = "mkdocs", specifier = ">=1.6.0" },
+    { name = "mkdocs-material", specifier = ">=9.5.0" },
+    { name = "playwright", specifier = ">=1.55.0,<2" },
+]
+mutation = [
+    { name = "hypothesis", specifier = ">=6.156.6" },
+    { name = "mutmut", specifier = "==3.6.0" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-xdist", specifier = ">=3.5.0" },
+    { name = "vcrpy", specifier = ">=6.0.0" },
+]
+python-lint = [{ name = "ruff", specifier = ">=0.15.21" }]
+test = [
+    { name = "hypothesis", specifier = ">=6.156.6" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-xdist", specifier = ">=3.5.0" },
+    { name = "vcrpy", specifier = ">=6.0.0" },
+]
 
 [[package]]
 name = "orderly-set"

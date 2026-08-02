@@ -39,14 +39,29 @@ def isolate_duckdb_test_env(monkeypatch, db_path: str | Path) -> None:
     monkeypatch.delenv("DUCKDB_PATH", raising=False)
 
 
-@pytest.fixture
-def duck(monkeypatch, tmp_path):
-    isolate_duckdb_test_env(monkeypatch, tmp_path / "unit.duckdb")
+def reload_settings_and_connection(monkeypatch, db_path: str | Path):
+    """Reload settings + connection for an isolated DuckDB path and reset caches."""
+    isolate_duckdb_test_env(monkeypatch, db_path)
     import oddsfox_pipeline.storage.duckdb.connection as connection
 
     connection.reset_duckdb_connection_state()
-    importlib.reload(connection)
-    connection.ensure_duck_db()
+    connection = importlib.reload(connection)
+    return connection
+
+
+def initialize_isolated_duckdb(
+    monkeypatch, db_path: str | Path, *, ensure: bool = True
+):
+    """Canonical isolated DuckDB bootstrap used by storage and orchestration fixtures."""
+    connection = reload_settings_and_connection(monkeypatch, db_path)
+    if ensure:
+        connection.ensure_duck_db()
+    return connection
+
+
+@pytest.fixture
+def duck(monkeypatch, tmp_path):
+    connection = initialize_isolated_duckdb(monkeypatch, tmp_path / "unit.duckdb")
     with get_connection() as conn:
         create_test_markets_table(conn)
     yield connection

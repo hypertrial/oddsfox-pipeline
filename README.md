@@ -37,7 +37,7 @@ vocabulary.
 Browse the docs site locally:
 
 ```bash
-uv sync --extra dev
+uv sync --group dev
 uv run make docs-serve
 ```
 

@@ -31,7 +31,7 @@ definitions live in the [Glossary](../concepts/glossary.md).
     Ask an operator to run a scope, or run one yourself:
 
     ```bash
-    uv sync --extra dev
+    uv sync --group dev
     cp .env.example .env
     uv run python scripts/run_scope.py polymarket:wc2026 --step full
     ```

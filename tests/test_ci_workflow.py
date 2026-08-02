@@ -32,7 +32,17 @@ def _assert_pinned_actions(workflow: dict) -> None:
                 assert re.search(r"@[0-9a-f]{40}$", action), action
 
 
-def _assert_python_worker(job: dict, timeout: int) -> None:
+def _uv_sync_command(job: dict) -> str:
+    sync_commands = [
+        step["run"]
+        for step in job["steps"]
+        if isinstance(step.get("run"), str) and step["run"].startswith("uv sync ")
+    ]
+    assert len(sync_commands) == 1, sync_commands
+    return sync_commands[0]
+
+
+def _assert_python_worker(job: dict, timeout: int, *, sync_command: str) -> None:
     assert job["timeout-minutes"] == timeout
     assert [step["uses"] for step in job["steps"] if "uses" in step][:3] == [
         "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
@@ -45,7 +55,9 @@ def _assert_python_worker(job: dict, timeout: int) -> None:
         if step.get("uses", "").startswith("actions/checkout")
     )
     assert checkout["with"]["persist-credentials"] is False
-    assert "uv sync --frozen --extra dev" in [step.get("run") for step in job["steps"]]
+    assert _uv_sync_command(job) == sync_command
+    assert "--extra dev" not in sync_command
+    assert "--no-default-groups" in sync_command
 
 
 def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
@@ -66,8 +78,28 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
         "python-compat",
         "fast-gate",
     }
-    for worker in ("static-docs", "tests", "dbt", "python-compat"):
-        _assert_python_worker(automatic["jobs"][worker], 8)
+    assert _uv_sync_command(automatic["jobs"]["static-docs"]) == (
+        "uv sync --frozen --no-default-groups --group test --group python-lint --group docs"
+    )
+    assert _uv_sync_command(automatic["jobs"]["tests"]) == (
+        "uv sync --frozen --no-default-groups --group test"
+    )
+    assert _uv_sync_command(automatic["jobs"]["dbt"]) == (
+        "uv sync --frozen --no-default-groups --group dbt-lint"
+    )
+    assert _uv_sync_command(automatic["jobs"]["python-compat"]) == (
+        "uv sync --frozen --no-default-groups --group test"
+    )
+    for worker, sync_command in (
+        (
+            "static-docs",
+            "uv sync --frozen --no-default-groups --group test --group python-lint --group docs",
+        ),
+        ("tests", "uv sync --frozen --no-default-groups --group test"),
+        ("dbt", "uv sync --frozen --no-default-groups --group dbt-lint"),
+        ("python-compat", "uv sync --frozen --no-default-groups --group test"),
+    ):
+        _assert_python_worker(automatic["jobs"][worker], 8, sync_command=sync_command)
     assert all(
         next(
             step["with"]["python-version"]
@@ -128,8 +160,19 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
     }
     assert manual["permissions"] == {"contents": "read"}
     assert {key: manual["env"][key] for key in SCHEDULE_FLAGS} == SCHEDULE_FLAGS
-    for worker in ("coverage", "dbt-quality", "mutation", "static-docs-container"):
-        _assert_python_worker(manual["jobs"][worker], 45)
+    for worker, sync_command in (
+        ("coverage", "uv sync --frozen --no-default-groups --group coverage"),
+        (
+            "dbt-quality",
+            "uv sync --frozen --no-default-groups --group test --group dbt-lint",
+        ),
+        ("mutation", "uv sync --frozen --no-default-groups --group mutation"),
+        (
+            "static-docs-container",
+            "uv sync --frozen --no-default-groups --group test --group python-lint --group dbt-lint --group docs-render",
+        ),
+    ):
+        _assert_python_worker(manual["jobs"][worker], 45, sync_command=sync_command)
     assert _make_targets(manual["jobs"]["coverage"]) == [
         "test-cov",
         "dagster-jobs-smoke-cov",
@@ -139,12 +182,23 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
     ]
     assert _make_targets(manual["jobs"]["dbt-quality"]) == [
         "dbt-unit",
-        "golden-dbt",
         "dbt-source-freshness-ci",
         "dbt-polygon-settlement-ci",
         "dbt-build-ci",
         "costguard-scan",
     ]
+    assert "golden-dbt" not in _make_targets(manual["jobs"]["dbt-quality"])
+    playwright_cache = next(
+        step
+        for step in manual["jobs"]["static-docs-container"]["steps"]
+        if step.get("name") == "Cache Playwright browsers"
+    )
+    assert playwright_cache["uses"].startswith("actions/cache@")
+    assert (
+        playwright_cache["with"]["path"]
+        == "${{ github.workspace }}/.cache/runtime/ms-playwright"
+    )
+    assert "hashFiles('uv.lock')" in playwright_cache["with"]["key"]
     assert _make_targets(manual["jobs"]["mutation"]) == ["mutation-ci"]
     mutation_export = manual["jobs"]["mutation"]["steps"][-2]
     assert mutation_export == {

@@ -85,7 +85,7 @@ and child-process caches below the same SSD-backed checkout.
 ### Install the project
 
 ```bash
-uv sync --extra dev
+uv sync --group dev
 uv run make runtime-dirs
 cp .env.example .env
 ```

@@ -57,6 +57,12 @@ Run them through `uv run python` so they use the repo environment.
   `--dry-run`.
 - `repair_polymarket_wc2026_token_sync_ledger.py`: rebuild a corrupted token sync ledger.
 - `count_polymarket_wc2026_gamma_tag_events.py`: count Gamma events for WC2026 tags.
+- `bootstrap_dbt_ci_duckdb.py`: shared disposable DuckDB bootstrap for
+  `dbt-build-ci` / `dbt-unit` (and the base layer of source-freshness seeding).
+- `gate_timing.py`: opt-in Make-target timing harness that writes ignored JSON
+  under `.cache/runtime/benchmarks/`. Prefer `make gate-timing`.
+- `seed_dbt_source_freshness.py`: seed freshness-source rows on top of the shared
+  CI bootstrap, then used by `make dbt-source-freshness-ci`.
 
 Makefile shortcuts (stop Dagster and other writers first):
 
@@ -64,6 +70,8 @@ Makefile shortcuts (stop Dagster and other writers first):
 make prune-odds-history          # default 365-day retention; add --dry-run via script directly
 make compact-warehouse           # reclaim dead space after rebuilds or pruning
 make runtime-dirs                # create SSD-local temp and cache directories
+make dbt-prepare                 # shared dbt deps/parse into DBT_TARGET_PATH
+make gate-timing                 # opt-in cold/warm gate timing JSON
 make match-minute-inputs-validate # require a complete local 104-match schedule
 make polygon-settlement-seed-validate # operator-local seed + resolution attestation
 make dbt-polygon-settlement-ci    # replay-only; no RPC credentials
@@ -111,7 +119,7 @@ The target keeps its resumable v4 warehouse under
 is required. Its DuckDB/WAL/spill, Dagster state, dbt target/logs, Python temp
 files, XDG cache, and child-process uv cache are rooted below
 `.cache/polygon_settlement/` (including DuckDB extensions; the project uv cache
-is `.cache/uv`). Providers with a lower `eth_getLogs` range ceiling can start
+is `.cache/runtime/uv`). Providers with a lower `eth_getLogs` range ceiling can start
 with smaller leaves without discarding the checkpoint, for example:
 
 ```bash

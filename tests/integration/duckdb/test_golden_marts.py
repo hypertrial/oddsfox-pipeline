@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import csv
-import os
-import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import duckdb
-from tests.integration.conftest import write_dbt_profile
+from tests.integration.conftest import dbt_subprocess_env, write_dbt_profile
+from tests.integration.dbt_cli import run_dbt as _run_dbt
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.naming import SCOPE_US_MIDTERMS_2026, SCOPE_WC2026
@@ -31,33 +29,11 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DBT_ROOT = REPO_ROOT / "dbt"
 GOLDEN_ROOT = REPO_ROOT / "tests" / "fixtures" / "golden"
 ODDS_HOUR = datetime(2099, 1, 1, 10, tzinfo=timezone.utc)
 ODDS_HOUR_EPOCH = int(ODDS_HOUR.timestamp())
 MATCH_ODDS_HOUR = datetime(2026, 7, 14, 16, tzinfo=timezone.utc)
 MATCH_ODDS_HOUR_EPOCH = int(MATCH_ODDS_HOUR.timestamp())
-
-
-def _run_dbt(args: list[str], *, profiles_dir: Path, env: dict[str, str]) -> None:
-    cmd = [
-        sys.executable,
-        "-m",
-        "dbt.cli.main",
-        *args,
-        "--project-dir",
-        str(DBT_ROOT),
-        "--profiles-dir",
-        str(profiles_dir),
-    ]
-    proc = subprocess.run(
-        cmd,
-        cwd=REPO_ROOT,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
 def _expected(name: str) -> list[dict[str, str]]:
@@ -477,11 +453,13 @@ def _seed_wc2026_match_odds(conn: duckdb.DuckDBPyConnection) -> None:
     )
 
 
-def test_public_marts_match_golden_rows(tmp_path: Path, monkeypatch, dbt_profiles_dir):
+def test_public_marts_match_golden_rows(
+    tmp_path: Path, monkeypatch, dbt_profiles_dir, dbt_target_dir
+):
     db_path = tmp_path / "golden.duckdb"
     monkeypatch.setenv("DUCKDB_PATH", str(db_path))
     monkeypatch.setenv("DUCKDB_NAME", str(db_path))
-    write_dbt_profile(dbt_profiles_dir, db_path)
+    write_dbt_profile(dbt_profiles_dir, db_path, threads=1)
     connection.reset_duckdb_connection_state()
     init_duck_db()
 
@@ -510,9 +488,12 @@ def test_public_marts_match_golden_rows(tmp_path: Path, monkeypatch, dbt_profile
         _seed_kalshi(conn)
         _seed_wc2026_match_odds(conn)
 
-    env = os.environ.copy()
-    env["DUCKDB_PATH"] = str(db_path)
-    env["DUCKDB_NAME"] = str(db_path)
+    env = dbt_subprocess_env(
+        db_path=db_path,
+        profiles_dir=dbt_profiles_dir,
+        target_dir=dbt_target_dir,
+        dbt_threads=1,
+    )
     _run_dbt(["seed"], profiles_dir=dbt_profiles_dir, env=env)
     _run_dbt(
         [
