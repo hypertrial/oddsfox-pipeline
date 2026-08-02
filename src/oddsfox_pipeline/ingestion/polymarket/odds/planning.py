@@ -140,55 +140,11 @@ def iter_token_plans_paged(
     ),
     token_sync_scheduler_state_cls: type = TokenSyncSchedulerState,
 ):
-    cutoff_dt = parse_cutoff_date(options.clob_cutoff_date)
-    overlap_seconds = max(0, int(options.overlap_minutes * 60))
-    recent_seconds = max(0, int(options.skip_recent_minutes * 60))
-    history_backfill = int(options.history_backfill_days) > 0
-    history_backfill_floor_ts = (
-        now_ts - int(options.history_backfill_days) * 86400
-        if history_backfill
-        else None
-    )
-    due_only = options.due_only
-    planning_state = PlanningState()
-    invalid_tokens: Dict[str, str] = {}
-    seen_tokens: set[str] = set()
-    empty_token_skip_budgets = options.empty_token_skip_budgets or {}
-    cutoff_created_at = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
-    effective_ended_grace = options.ended_market_grace_days
-    if due_only and count_due_market_token_exclusions_fn is not None:
-        exclusion_counts = count_due_market_token_exclusions_fn(
-            cutoff_created_at=cutoff_created_at,
-            market_scope=options.market_scope,
-            ended_market_grace_days=effective_ended_grace,
-            min_volume=options.min_volume,
-            max_volume=options.max_volume,
-        )
-        planning_state.scope_skip = int(exclusion_counts.get("scope_skip") or 0)
-        planning_state.ended_market_skip = int(
-            exclusion_counts.get("ended_market_skip") or 0
-        )
-    row_pages = (
-        iter_due_market_tokens_fn(
-            page_size=options.market_page_size,
-            cutoff_created_at=cutoff_created_at,
-            market_scope=options.market_scope,
-            ended_market_grace_days=effective_ended_grace,
-            min_volume=options.min_volume,
-            max_volume=options.max_volume,
-        )
-        if due_only
-        else iter_markets_with_tokens_fn(
-            page_size=options.market_page_size,
-            cutoff_created_at=cutoff_created_at,
-            json_array_only=True,
-            market_scope=options.market_scope,
-            ended_market_grace_days=effective_ended_grace,
-            min_volume=options.min_volume,
-            max_volume=options.max_volume,
-        )
-    )
-    for page_rows in row_pages:
+    def prepare_page_rows(
+        page_rows: object,
+    ) -> tuple[
+        List[Tuple[str, bool, int, List[str]]], set[str], Dict[str, str], List[TokenPlan]
+    ]:
         prepared_rows: List[Tuple[str, bool, int, List[str]]] = []
         page_token_ids: set[str] = set()
         page_invalid_tokens: Dict[str, str] = {}
@@ -234,7 +190,8 @@ def iter_token_plans_paged(
                 )
                 page_token_ids.update(clean_tokens)
         if not prepared_rows:
-            continue
+            return prepared_rows, page_token_ids, page_invalid_tokens, page_plans
+
         token_ids = list(page_token_ids)
         snapshot = (
             get_token_sync_snapshot_fn(
@@ -308,6 +265,62 @@ def iter_token_plans_paged(
             page_plans.sort(
                 key=lambda plan: (plan.end_ts - plan.start_ts, plan.created_at_ts)
             )
+        return prepared_rows, page_token_ids, page_invalid_tokens, page_plans
+
+    cutoff_dt = parse_cutoff_date(options.clob_cutoff_date)
+    overlap_seconds = max(0, int(options.overlap_minutes * 60))
+    recent_seconds = max(0, int(options.skip_recent_minutes * 60))
+    history_backfill = int(options.history_backfill_days) > 0
+    history_backfill_floor_ts = (
+        now_ts - int(options.history_backfill_days) * 86400
+        if history_backfill
+        else None
+    )
+    due_only = options.due_only
+    planning_state = PlanningState()
+    invalid_tokens: Dict[str, str] = {}
+    seen_tokens: set[str] = set()
+    empty_token_skip_budgets = options.empty_token_skip_budgets or {}
+    cutoff_created_at = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
+    effective_ended_grace = options.ended_market_grace_days
+    if due_only and count_due_market_token_exclusions_fn is not None:
+        exclusion_counts = count_due_market_token_exclusions_fn(
+            cutoff_created_at=cutoff_created_at,
+            market_scope=options.market_scope,
+            ended_market_grace_days=effective_ended_grace,
+            min_volume=options.min_volume,
+            max_volume=options.max_volume,
+        )
+        planning_state.scope_skip = int(exclusion_counts.get("scope_skip") or 0)
+        planning_state.ended_market_skip = int(
+            exclusion_counts.get("ended_market_skip") or 0
+        )
+    row_pages = (
+        iter_due_market_tokens_fn(
+            page_size=options.market_page_size,
+            cutoff_created_at=cutoff_created_at,
+            market_scope=options.market_scope,
+            ended_market_grace_days=effective_ended_grace,
+            min_volume=options.min_volume,
+            max_volume=options.max_volume,
+        )
+        if due_only
+        else iter_markets_with_tokens_fn(
+            page_size=options.market_page_size,
+            cutoff_created_at=cutoff_created_at,
+            json_array_only=True,
+            market_scope=options.market_scope,
+            ended_market_grace_days=effective_ended_grace,
+            min_volume=options.min_volume,
+            max_volume=options.max_volume,
+        )
+    )
+    for page_rows in row_pages:
+        prepared_rows, _, page_invalid_tokens, page_plans = prepare_page_rows(
+            page_rows
+        )
+        if not prepared_rows:
+            continue
         for token_plan in page_plans:
             yield token_plan
         if on_invalid_tokens_batch and page_invalid_tokens:
