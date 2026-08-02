@@ -6,14 +6,12 @@ from unittest.mock import MagicMock, patch
 
 from tests.unit.ingestion.backfill_test_support import (
     bf_events_fallback,
+    bf_extract,
     bf_gamma,
 )
 
-from oddsfox_pipeline.ingestion.polymarket.markets import backfill as bf
-
 
 def test_process_market_chunks_with_records_and_on_saved(no_sleep_tqdm, monkeypatch):
-    monkeypatch.setattr(bf, "ensure_duck_db", lambda: None)
     saved_ids = []
 
     def on_saved(mid):
@@ -21,13 +19,13 @@ def test_process_market_chunks_with_records_and_on_saved(no_sleep_tqdm, monkeypa
 
     client = MagicMock()
     client.get.return_value = [{"id": "1", "clobTokenIds": ["x"]}]
-    processed, saved, _api = bf._process_market_chunks(
+    processed, saved, _api = bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1"],
         batch_size=1,
         desc="t",
         include_events=False,
-        extract_record=bf._extract_tokens_record,
+        extract_record=bf_extract._extract_tokens_record,
         save_batch=lambda x: None,
         on_record_saved=on_saved,
     )
@@ -39,7 +37,6 @@ def test_process_market_chunks_with_records_and_on_saved(no_sleep_tqdm, monkeypa
 def test_process_market_chunks_save_failure_no_false_progress(
     no_sleep_tqdm, monkeypatch
 ):
-    monkeypatch.setattr(bf, "ensure_duck_db", lambda: None)
     saved_ids = []
 
     def on_saved(mid):
@@ -51,13 +48,13 @@ def test_process_market_chunks_save_failure_no_false_progress(
     def failing_save(_rows):
         raise RuntimeError("save failed")
 
-    processed, saved, _api = bf._process_market_chunks(
+    processed, saved, _api = bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1"],
         batch_size=1,
         desc="t",
         include_events=False,
-        extract_record=bf._extract_slug_record,
+        extract_record=bf_extract._extract_slug_record,
         save_batch=failing_save,
         on_record_saved=on_saved,
     )
@@ -67,16 +64,15 @@ def test_process_market_chunks_save_failure_no_false_progress(
 
 
 def test_process_market_chunks_record_none_without_callback(no_sleep_tqdm, monkeypatch):
-    monkeypatch.setattr(bf, "ensure_duck_db", lambda: None)
     client = MagicMock()
     client.get.return_value = [{"id": "1", "slug": ""}]
-    processed, saved, _api = bf._process_market_chunks(
+    processed, saved, _api = bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1"],
         batch_size=1,
         desc="t",
         include_events=False,
-        extract_record=bf._extract_slug_record,
+        extract_record=bf_extract._extract_slug_record,
         save_batch=lambda x: (_ for _ in ()).throw(RuntimeError("should not save")),
     )
     assert processed == 1
@@ -86,17 +82,16 @@ def test_process_market_chunks_record_none_without_callback(no_sleep_tqdm, monke
 def test_process_market_chunks_record_saved_without_on_saved(
     no_sleep_tqdm, monkeypatch
 ):
-    monkeypatch.setattr(bf, "ensure_duck_db", lambda: None)
     saved_batches = []
     client = MagicMock()
     client.get.return_value = [{"id": "1", "slug": "slug-1"}]
-    processed, saved, _api = bf._process_market_chunks(
+    processed, saved, _api = bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1"],
         batch_size=1,
         desc="t",
         include_events=False,
-        extract_record=bf._extract_slug_record,
+        extract_record=bf_extract._extract_slug_record,
         save_batch=lambda rows: saved_batches.extend(rows),
     )
     assert processed == 1
@@ -109,27 +104,26 @@ def test_process_market_chunks_count_errors_request_exception(
 ):
     import requests
 
-    monkeypatch.setattr(bf, "ensure_duck_db", lambda: None)
     client = MagicMock()
     client.get.side_effect = requests.RequestException("gamma down")
-    processed, saved, _api = bf._process_market_chunks(
+    processed, saved, _api = bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1"],
         batch_size=1,
         desc="t",
         include_events=False,
-        extract_record=bf._extract_tokens_record,
+        extract_record=bf_extract._extract_tokens_record,
         save_batch=lambda x: None,
         count_errors_as_processed=True,
     )
     assert processed >= 1
-    processed2, _, _ = bf._process_market_chunks(
+    processed2, _, _ = bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1"],
         batch_size=1,
         desc="t",
         include_events=False,
-        extract_record=bf._extract_tokens_record,
+        extract_record=bf_extract._extract_tokens_record,
         save_batch=lambda x: None,
         count_errors_as_processed=False,
     )
@@ -137,16 +131,15 @@ def test_process_market_chunks_count_errors_request_exception(
 
 
 def test_process_market_chunks_count_errors(no_sleep_tqdm, monkeypatch):
-    monkeypatch.setattr(bf, "ensure_duck_db", lambda: None)
     client = MagicMock()
     client.get.side_effect = RuntimeError("api")
-    processed, saved, _api = bf._process_market_chunks(
+    processed, saved, _api = bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1", "2"],
         batch_size=2,
         desc="t",
         include_events=False,
-        extract_record=bf._extract_tokens_record,
+        extract_record=bf_extract._extract_tokens_record,
         save_batch=lambda x: None,
         count_errors_as_processed=True,
     )
@@ -155,7 +148,7 @@ def test_process_market_chunks_count_errors(no_sleep_tqdm, monkeypatch):
 
 def test_fill_from_events_empty_remaining():
     c = MagicMock()
-    saved, meta = bf._fill_from_events_endpoint(c, set())
+    saved, meta = bf_events_fallback._fill_from_events_endpoint(c, set())
     assert saved == 0
     assert meta["events_fallback_pages"] == 0
 
@@ -173,7 +166,7 @@ def test_fill_from_events_pagination(no_sleep_tqdm, monkeypatch):
     ]
     remaining = {"99"}
     with patch.object(bf_events_fallback, "save_event_slugs_batch", lambda x: None):
-        n, meta = bf._fill_from_events_endpoint(c, remaining)
+        n, meta = bf_events_fallback._fill_from_events_endpoint(c, remaining)
     assert n >= 1
     assert meta["events_fallback_truncated"] is False
 
@@ -186,7 +179,7 @@ def test_fill_from_events_skip_bad_slug(no_sleep_tqdm, monkeypatch):
         [],
     ]
     with patch.object(bf_events_fallback, "save_event_slugs_batch", lambda x: None):
-        bf._fill_from_events_endpoint(c, {"1"})
+        bf_events_fallback._fill_from_events_endpoint(c, {"1"})
 
 
 def test_fill_from_events_unmatched_market_keeps_remaining(no_sleep_tqdm):
@@ -194,7 +187,7 @@ def test_fill_from_events_unmatched_market_keeps_remaining(no_sleep_tqdm):
     c.get.side_effect = [[{"slug": "s", "markets": [{"id": "other"}]}], []]
     remaining = {"1"}
     with patch.object(bf_events_fallback, "save_event_slugs_batch", lambda x: None):
-        saved, meta = bf._fill_from_events_endpoint(c, remaining)
+        saved, meta = bf_events_fallback._fill_from_events_endpoint(c, remaining)
     assert saved == 0
     assert remaining == {"1"}
     assert meta["events_fallback_remaining_ids"] == 1
@@ -202,25 +195,23 @@ def test_fill_from_events_unmatched_market_keeps_remaining(no_sleep_tqdm):
 
 def test_process_market_chunks_missing_returned_market(no_sleep_tqdm, monkeypatch):
     """Market id in chunk but not in API response — no record, still processed."""
-    monkeypatch.setattr(bf, "ensure_duck_db", lambda: None)
     client = MagicMock()
     client.get.return_value = [{"id": "other", "clobTokenIds": ["x"]}]
-    processed, saved, _api = bf._process_market_chunks(
+    processed, saved, _api = bf_gamma._process_market_chunks(
         client=client,
         market_ids=["wanted"],
         batch_size=1,
         desc="t",
         include_events=False,
-        extract_record=bf._extract_tokens_record,
+        extract_record=bf_extract._extract_tokens_record,
         save_batch=lambda x: None,
     )
     assert processed >= 1
 
 
 def test_process_market_chunks_progress_callback(monkeypatch):
-    monkeypatch.setattr(bf, "ensure_duck_db", lambda: None)
     monkeypatch.setattr(
-        bf,
+        bf_gamma,
         "tqdm",
         lambda *a, **k: MagicMock(__enter__=lambda s: s, __exit__=lambda *x: None),
     )
@@ -231,13 +222,13 @@ def test_process_market_chunks_progress_callback(monkeypatch):
 
     client = MagicMock()
     client.get.return_value = [{"id": "1", "slug": "s"}]
-    bf._process_market_chunks(
+    bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1"],
         batch_size=1,
         desc="t",
         include_events=False,
-        extract_record=bf._extract_slug_record,
+        extract_record=bf_extract._extract_slug_record,
         save_batch=lambda x: None,
         progress_phase="test_phase",
         progress_callback=cb,
@@ -255,7 +246,9 @@ def test_fill_from_events_max_pages_truncates():
     }
     remaining = {"9", "orphan"}
     with patch.object(bf_events_fallback, "save_event_slugs_batch", lambda x: None):
-        saved, meta = bf._fill_from_events_endpoint(c, remaining, max_pages=1)
+        saved, meta = bf_events_fallback._fill_from_events_endpoint(
+            c, remaining, max_pages=1
+        )
     assert saved >= 0
     assert meta["events_fallback_pages"] == 1
     assert meta["events_fallback_truncated"] is True
@@ -270,7 +263,7 @@ def test_fill_from_events_no_progress_truncates():
     }
     remaining = {"target"}
     with patch.object(bf_events_fallback, "save_event_slugs_batch", lambda x: None):
-        saved, meta = bf._fill_from_events_endpoint(
+        saved, meta = bf_events_fallback._fill_from_events_endpoint(
             c,
             remaining,
             max_pages=None,
@@ -293,13 +286,13 @@ def test_process_market_chunks_disables_tqdm_when_stderr_not_tty(monkeypatch):
     monkeypatch.setattr(bf_gamma, "tqdm", fake_tqdm)
     client = MagicMock()
     client.get.return_value = []
-    bf._process_market_chunks(
+    bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1"],
         batch_size=1,
         desc="t",
         include_events=False,
-        extract_record=bf._extract_slug_record,
+        extract_record=bf_extract._extract_slug_record,
         save_batch=lambda x: None,
     )
     assert kwargs_seen[0]["disable"] is True
@@ -312,7 +305,7 @@ def test_fill_from_events_progress_callback():
         {"events": [{"slug": "s", "markets": [{"id": "1"}]}], "next_cursor": None}
     ]
     with patch.object(bf_events_fallback, "save_event_slugs_batch", lambda x: None):
-        bf._fill_from_events_endpoint(
+        bf_events_fallback._fill_from_events_endpoint(
             c,
             {"1"},
             progress_callback=lambda ph, pl: calls.append((ph, pl)),
@@ -325,7 +318,7 @@ def test_fill_from_events_progress_callback():
 def test_fill_from_events_empty_keyset_page_stops():
     c = MagicMock()
     c.get.return_value = {"events": [], "next_cursor": "unused"}
-    saved, meta = bf._fill_from_events_endpoint(c, {"target"})
+    saved, meta = bf_events_fallback._fill_from_events_endpoint(c, {"target"})
     assert saved == 0
     assert meta["events_fallback_pages"] == 1
     assert meta["events_fallback_truncated"] is False
@@ -347,7 +340,7 @@ def test_fill_from_events_uses_keyset_cursor():
     with patch.object(
         bf_events_fallback, "save_event_slugs_batch", lambda x: calls.append(x)
     ):
-        saved, meta = bf._fill_from_events_endpoint(c, {"target"})
+        saved, meta = bf_events_fallback._fill_from_events_endpoint(c, {"target"})
     assert saved == 1
     assert meta["events_fallback_pages"] == 2
     first_params = c.get.call_args_list[0].kwargs["params"]

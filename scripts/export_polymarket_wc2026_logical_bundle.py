@@ -486,9 +486,6 @@ def _validate_parquet_physical_schema(
         )
 
 
-_sha256 = sha256_file
-
-
 def _repo_sha(*, require_clean: bool = True) -> str:
     if not require_clean:
         return git_head_sha(REPO_ROOT)

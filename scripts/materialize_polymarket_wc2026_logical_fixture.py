@@ -13,6 +13,9 @@ from typing import Any, Final
 import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _bootstrap import ensure_src_on_path
+
+ensure_src_on_path()
 from export_polymarket_wc2026_logical_bundle import (  # noqa: E402
     BUNDLE_FILES,
     EXPECTED_COLUMNS,
@@ -25,12 +28,12 @@ from export_polymarket_wc2026_logical_bundle import (  # noqa: E402
     TOPOLOGY_COLUMNS,
     _canonical_sha256,
     _relation_fingerprint,
-    _sha256,
     _typed_projection,
     _validate_bundle_relationships,
     _validate_parquet_physical_schema,
     physical_type,
 )
+from oddsfox_pipeline.publishing._bundle_io import sha256_file  # noqa: E402
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 DEFAULT_SPEC: Final[Path] = (
@@ -533,7 +536,7 @@ def materialize_fixture(
             )
             _validate_parquet_physical_schema(conn, target, filename)
             files[filename] = {
-                "sha256": _sha256(target),
+                "sha256": sha256_file(target),
                 "rows": len(rows_by_file[filename]),
                 "bytes": target.stat().st_size,
             }
@@ -586,7 +589,7 @@ def materialize_fixture(
         "scope_count": len(scopes),
     }
     seed_hashes = {
-        path: _sha256(REPO_ROOT / path)
+        path: sha256_file(REPO_ROOT / path)
         for path in ("dbt/seeds/polymarket_wc2026_logical_contract.csv",)
     }
     scan_hashes = {

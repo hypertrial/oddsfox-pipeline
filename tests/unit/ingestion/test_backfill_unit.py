@@ -5,6 +5,8 @@ import pytest
 import requests
 from tests.unit.ingestion.backfill_test_support import (
     bf_events_fallback,
+    bf_extract,
+    bf_gamma,
     bf_metadata,
     patch_ensure_duck_db,
 )
@@ -12,8 +14,6 @@ from tests.unit.storage.duckdb_storage_test_support import (
     T_MT,
     _insert_minimal_market,
 )
-
-from oddsfox_pipeline.ingestion.polymarket.markets import backfill as bf
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     upsert_registry_rows,
@@ -26,10 +26,6 @@ def no_tqdm(monkeypatch):
         del args, kwargs
         return MagicMock(__enter__=lambda s: s, __exit__=lambda *x: None)
 
-    monkeypatch.setattr(
-        "oddsfox_pipeline.ingestion.polymarket.markets.backfill.tqdm",
-        fake_tqdm,
-    )
     monkeypatch.setattr(
         "oddsfox_pipeline.ingestion.polymarket.markets.backfill.metadata.tqdm",
         fake_tqdm,
@@ -45,27 +41,31 @@ def duck_ready(monkeypatch):
 
 
 def test_chunk_helpers():
-    assert bf._chunk_market_ids(["a", "b", "c"], 2) == [["a", "b"], ["c"]]
+    assert bf_gamma._chunk_market_ids(["a", "b", "c"], 2) == [["a", "b"], ["c"]]
     mc = MagicMock()
     mc.get.return_value = []
-    bf._fetch_markets_batch(mc, ["1"], include_events=True)
+    bf_gamma._fetch_markets_batch(mc, ["1"], include_events=True)
     mc.get.assert_called()
-    assert bf._extract_tokens_record("1", {"clobTokenIds": ["x"]}) == (
+    assert bf_extract._extract_tokens_record("1", {"clobTokenIds": ["x"]}) == (
         "1",
         json.dumps(["x"]),
     )
-    assert bf._extract_tokens_record("1", {"clobTokenIds": "not-json"}) is None
-    assert bf._extract_slug_record("1", {"slug": "s"}) == ("s", "1")
-    assert bf._extract_event_slug_record("1", {"events": [{"slug": "e"}]}) == ("e", "1")
+    assert bf_extract._extract_tokens_record("1", {"clobTokenIds": "not-json"}) is None
+    assert bf_extract._extract_slug_record("1", {"slug": "s"}) == ("s", "1")
+    assert bf_extract._extract_event_slug_record("1", {"events": [{"slug": "e"}]}) == (
+        "e",
+        "1",
+    )
     assert (
-        bf._extract_end_date_record("1", {"endDate": "2020-01-01"})[0] == "2020-01-01"
+        bf_extract._extract_end_date_record("1", {"endDate": "2020-01-01"})[0]
+        == "2020-01-01"
     )
 
 
 def test_process_market_chunks_error_and_empty(no_tqdm, duck_ready, monkeypatch):
     client = MagicMock()
     client.get.return_value = []
-    processed, saved, _api = bf._process_market_chunks(
+    processed, saved, _api = bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1"],
         batch_size=1,
@@ -82,7 +82,7 @@ def test_process_market_chunks_exception_branch(no_tqdm, duck_ready, monkeypatch
     client = MagicMock()
     client.get.side_effect = RuntimeError("x")
 
-    processed, saved, _api = bf._process_market_chunks(
+    processed, saved, _api = bf_gamma._process_market_chunks(
         client=client,
         market_ids=["1"],
         batch_size=1,
@@ -105,13 +105,13 @@ def test_fill_from_events_endpoint(no_tqdm, duck_ready, monkeypatch):
             "next_cursor": None,
         },
     ]
-    n, meta = bf._fill_from_events_endpoint(client, {"5"})
+    n, meta = bf_events_fallback._fill_from_events_endpoint(client, {"5"})
     assert n == 1
     assert meta["events_fallback_truncated"] is False
 
 
 def test_enrich_market_metadata_no_fields_enabled():
-    out = bf.enrich_market_metadata(
+    out = bf_metadata.enrich_market_metadata(
         include_tokens=False,
         include_slugs=False,
         include_event_slugs=False,
@@ -126,7 +126,7 @@ def test_enrich_market_metadata_no_fields_enabled():
 
 def test_enrich_market_metadata_fully_checked_skip(monkeypatch):
     monkeypatch.setattr(bf_metadata, "get_backfill_fully_checked", lambda key: True)
-    out = bf.enrich_market_metadata(force=False)
+    out = bf_metadata.enrich_market_metadata(force=False)
     assert out["skipped"] is True
     assert out["reason"] == "fully_checked"
     assert out["errors"] == 0
@@ -147,7 +147,7 @@ def test_enrich_market_metadata_empty_eligible_sets_ledger(
         "set_backfill_fully_checked",
         lambda key, val: checked.append((key, val)),
     )
-    out = bf.enrich_market_metadata(max_markets=None)
+    out = bf_metadata.enrich_market_metadata(max_markets=None)
     assert out["eligible"] == 0
     assert out["errors"] == 0
     assert out["failed_batches"] == []
@@ -155,7 +155,7 @@ def test_enrich_market_metadata_empty_eligible_sets_ledger(
     assert ("tokens", True) in checked
 
     checked.clear()
-    out_capped = bf.enrich_market_metadata(max_markets=10)
+    out_capped = bf_metadata.enrich_market_metadata(max_markets=10)
     assert out_capped["eligible"] == 0
     assert checked == []
 
@@ -217,7 +217,7 @@ def test_enrich_market_metadata_fetches_once_and_saves_all_fields(
         lambda key, value: fully_checked.append((key, value)),
     )
 
-    out = bf.enrich_market_metadata(batch_size=50, max_markets=None)
+    out = bf_metadata.enrich_market_metadata(batch_size=50, max_markets=None)
 
     assert fetch_calls == [(client, ("1",), True)]
     assert out["api_requests"] == 1
@@ -278,7 +278,7 @@ def test_backfill_creates_token_row_for_zero_volume_event_child(
         ],
     )
 
-    summary = bf.enrich_market_metadata(
+    summary = bf_metadata.enrich_market_metadata(
         force=True,
         include_tokens=True,
         include_slugs=False,
@@ -341,7 +341,7 @@ def test_enrich_market_metadata_records_unresolved_event_slug_cooldown(
         ),
     )
 
-    out = bf.enrich_market_metadata(
+    out = bf_metadata.enrich_market_metadata(
         include_tokens=False,
         include_slugs=False,
         include_end_dates=False,
@@ -376,7 +376,7 @@ def test_enrich_market_metadata_skips_missing_market_rows(
         bf_metadata, "save_slugs_batch", lambda rows, scope_name=None: None
     )
     monkeypatch.setattr(bf_metadata, "set_backfill_fully_checked", lambda *a: None)
-    out = bf.enrich_market_metadata(batch_size=50, include_slugs=False)
+    out = bf_metadata.enrich_market_metadata(batch_size=50, include_slugs=False)
     assert out["processed"] == 2
 
 
@@ -404,7 +404,7 @@ def test_enrich_market_metadata_max_markets_clears_ledger(
         "set_backfill_fully_checked",
         lambda key, val: flags.append((key, val)),
     )
-    bf.enrich_market_metadata(batch_size=50, max_markets=5)
+    bf_metadata.enrich_market_metadata(batch_size=50, max_markets=5)
     assert ("tokens", False) in flags
 
 
@@ -426,7 +426,7 @@ def test_enrich_market_metadata_partial_field_extraction(
         ],
     )
     monkeypatch.setattr(bf_metadata, "set_backfill_fully_checked", lambda *a: None)
-    out = bf.enrich_market_metadata(
+    out = bf_metadata.enrich_market_metadata(
         include_tokens=True,
         include_slugs=True,
         include_event_slugs=False,
@@ -455,7 +455,7 @@ def test_enrich_market_metadata_partial_field_extraction(
     monkeypatch.setattr(
         bf_metadata, "save_tokens_batch", lambda rows, scope_name=None: None
     )
-    bf.enrich_market_metadata(
+    bf_metadata.enrich_market_metadata(
         include_tokens=True,
         include_slugs=True,
         include_event_slugs=False,
@@ -471,7 +471,7 @@ def test_enrich_market_metadata_slugs_only_ledger(monkeypatch, duck_ready, no_tq
         bf_metadata, "get_markets_missing_any_metadata", lambda **kwargs: []
     )
     monkeypatch.setattr(bf_metadata, "set_backfill_fully_checked", lambda *a: None)
-    out = bf.enrich_market_metadata(
+    out = bf_metadata.enrich_market_metadata(
         include_tokens=False,
         include_slugs=True,
         include_event_slugs=False,
@@ -500,7 +500,7 @@ def test_enrich_market_metadata_batch_errors(monkeypatch, duck_ready, no_tqdm):
         "set_backfill_fully_checked",
         lambda *a: checked.append(a),
     )
-    out = bf.enrich_market_metadata(batch_size=50, include_tokens=True)
+    out = bf_metadata.enrich_market_metadata(batch_size=50, include_tokens=True)
     assert out["processed"] == 0
     assert out["errors"] == 1
     assert out["has_errors"] is True
@@ -519,7 +519,7 @@ def test_enrich_market_metadata_batch_errors(monkeypatch, duck_ready, no_tqdm):
         raise RuntimeError("unexpected")
 
     monkeypatch.setattr(bf_metadata, "_fetch_markets_batch", boom_generic)
-    out2 = bf.enrich_market_metadata(batch_size=50, include_tokens=True)
+    out2 = bf_metadata.enrich_market_metadata(batch_size=50, include_tokens=True)
     assert out2["processed"] == 0
     assert out2["errors"] == 1
     assert out2["failed_batches"][0]["error_type"] == "RuntimeError"
@@ -554,7 +554,7 @@ def test_enrich_market_metadata_progress_callbacks(monkeypatch, duck_ready, no_t
     )
     monkeypatch.setattr(bf_metadata, "set_backfill_fully_checked", lambda *a: None)
 
-    bf.enrich_market_metadata(
+    bf_metadata.enrich_market_metadata(
         include_event_slugs=True,
         progress_callback=lambda phase, payload: progress_events.append(
             (phase, payload)

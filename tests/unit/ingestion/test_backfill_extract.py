@@ -5,50 +5,50 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock
 
-from tests.unit.ingestion.backfill_test_support import bf_gamma
-
-from oddsfox_pipeline.ingestion.polymarket.markets import backfill as bf
+from tests.unit.ingestion.backfill_test_support import bf_extract, bf_gamma
 
 
 def test_extract_tokens_json_string_success():
     raw = json.dumps(["a", "b"])
-    assert bf._extract_tokens_record("1", {"clobTokenIds": raw}) == ("1", raw)
+    assert bf_extract._extract_tokens_record("1", {"clobTokenIds": raw}) == ("1", raw)
 
 
 def test_extract_tokens_invalid_list_type():
-    assert bf._extract_tokens_record("1", {"clobTokenIds": 123}) is None
+    assert bf_extract._extract_tokens_record("1", {"clobTokenIds": 123}) is None
 
 
 def test_extract_tokens_invalid_json_and_empty_list():
-    assert bf._extract_tokens_record("1", {"clobTokenIds": "{bad"}) is None
-    assert bf._extract_tokens_record("1", {"clobTokenIds": []}) is None
+    assert bf_extract._extract_tokens_record("1", {"clobTokenIds": "{bad"}) is None
+    assert bf_extract._extract_tokens_record("1", {"clobTokenIds": []}) is None
 
 
 def test_extract_event_slug_non_list_events():
-    assert bf._extract_event_slug_record("1", {"events": "x"}) is None
+    assert bf_extract._extract_event_slug_record("1", {"events": "x"}) is None
 
 
 def test_extract_event_slug_bad_first_event():
-    assert bf._extract_event_slug_record("1", {"events": [123]}) is None
+    assert bf_extract._extract_event_slug_record("1", {"events": [123]}) is None
 
 
 def test_extract_end_date_iso_alt():
     assert (
-        bf._extract_end_date_record("1", {"endDateIso": "2020-01-01"})[0]
+        bf_extract._extract_end_date_record("1", {"endDateIso": "2020-01-01"})[0]
         == "2020-01-01"
     )
 
 
 def test_extract_end_date_missing():
-    assert bf._extract_end_date_record("1", {}) is None
+    assert bf_extract._extract_end_date_record("1", {}) is None
 
 
 def test_extract_slug_empty():
-    assert bf._extract_slug_record("1", {"slug": ""}) is None
+    assert bf_extract._extract_slug_record("1", {"slug": ""}) is None
 
 
 def test_extract_event_slug_empty_slug():
-    assert bf._extract_event_slug_record("1", {"events": [{"slug": ""}]}) is None
+    assert (
+        bf_extract._extract_event_slug_record("1", {"events": [{"slug": ""}]}) is None
+    )
 
 
 def test_iter_gamma_events_keyset_stops_on_empty_events_page():
@@ -297,7 +297,7 @@ def test_gamma_client_forwards_requests_per_second(monkeypatch):
         return MagicMock()
 
     monkeypatch.setattr(bf_gamma, "APIClient", ctor)
-    bf._gamma_client(12.5)
+    bf_gamma._gamma_client(12.5)
     assert captured[0]["requests_per_second"] == 12.5
-    bf._gamma_client(None)
+    bf_gamma._gamma_client(None)
     assert captured[1]["requests_per_second"] is None

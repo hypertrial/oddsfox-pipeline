@@ -6,6 +6,9 @@ from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
     _events_fallback as bf_events_fallback,
 )
 from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
+    _extract as bf_extract,
+)
+from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
     _gamma as bf_gamma,
 )
 from oddsfox_pipeline.ingestion.polymarket.markets.backfill import (
@@ -26,6 +29,7 @@ def patch_ensure_duck_db(monkeypatch) -> None:
 __all__ = [
     "METADATA_ENTRYPOINT_MODULES",
     "bf_events_fallback",
+    "bf_extract",
     "bf_gamma",
     "bf_metadata",
     "patch_ensure_duck_db",
