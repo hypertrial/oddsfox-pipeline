@@ -584,24 +584,24 @@ def build_story(
             }
         )
     annotations = []
+    minute_band_index = {
+        (str(row["period"]), row["match_minute"], row["stoppage_minute"]): index
+        for index, row in enumerate(minute_rows)
+        if row["period"] != "PENS"
+    }
     for event in events:
-        band = next(
-            (
-                row
-                for row in minute_rows
-                if row["period"] == event.period
-                and (
-                    event.period == "PENS"
-                    or (
-                        row["match_minute"] == event.match_minute
-                        and row["stoppage_minute"] == event.stoppage_minute
-                    )
-                )
-            ),
-            None,
-        )
-        if band is None:
-            raise ValueError(f"event {event.event_id} falls outside its period")
+        if event.period == "PENS":
+            band = next(row for row in minute_rows if row["period"] == "PENS")
+        else:
+            try:
+                band_index = minute_band_index[
+                    (event.period, event.match_minute, event.stoppage_minute)
+                ]
+            except KeyError as exc:
+                raise ValueError(
+                    f"event {event.event_id} falls outside its period"
+                ) from exc
+            band = minute_rows[band_index]
         annotations.append(
             {
                 **asdict(event),
@@ -725,18 +725,22 @@ def _reactions(
     )
 
     def before(
-        rows: Sequence[dict[str, Any]], boundary: int, period_start: int | None
+        rows: Sequence[dict[str, Any]],
+        timestamps: Sequence[int],
+        boundary: int,
+        period_start: int | None,
     ) -> dict[str, Any] | None:
-        timestamps = [int(row["timestamp_ms"]) for row in rows]
         index = bisect.bisect_left(timestamps, boundary) - 1
         if index < 0 or (period_start is not None and timestamps[index] < period_start):
             return None
         return {field: rows[index][field] for field in projected_fields}
 
     def after(
-        rows: Sequence[dict[str, Any]], boundary: int, period_end: int
+        rows: Sequence[dict[str, Any]],
+        timestamps: Sequence[int],
+        boundary: int,
+        period_end: int,
     ) -> dict[str, Any] | None:
-        timestamps = [int(row["timestamp_ms"]) for row in rows]
         index = bisect.bisect_left(timestamps, boundary)
         if index >= len(rows) or timestamps[index] > period_end:
             return None
@@ -745,8 +749,15 @@ def _reactions(
     by_role: dict[str, list[dict[str, Any]]] = {}
     for metric in metrics:
         by_role.setdefault(str(metric["role"]), []).append(metric)
-    for rows in by_role.values():
+    timestamps_by_role: dict[str, list[int]] = {}
+    for role, rows in by_role.items():
         rows.sort(key=lambda row: (int(row["timestamp_ms"]), row["event_sequence"]))
+        timestamps_by_role[role] = [int(row["timestamp_ms"]) for row in rows]
+    minute_band_index = {
+        (str(row["period"]), row["match_minute"], row["stoppage_minute"]): index
+        for index, row in enumerate(minute_rows)
+        if row["period"] != "PENS"
+    }
     period_end_by_name = {
         str(row["period"]): max(
             _story_timestamp_floor_ms(candidate["source_end"])
@@ -769,14 +780,14 @@ def _reactions(
     for annotation in annotations:
         if annotation["is_penalty_shootout"]:
             continue
-        band = next(
-            row
-            for row in minute_rows
-            if row["period"] == annotation["period"]
-            and row["match_minute"] == annotation["match_minute"]
-            and row["stoppage_minute"] == annotation["stoppage_minute"]
-        )
-        band_index = minute_rows.index(band)
+        band_index = minute_band_index[
+            (
+                str(annotation["period"]),
+                annotation["match_minute"],
+                annotation["stoppage_minute"],
+            )
+        ]
+        band = minute_rows[band_index]
         start = _story_timestamp_ceil_ms(band["source_start"])
         end = _story_timestamp_ceil_ms(band["source_end"])
         following_end = (
@@ -792,6 +803,7 @@ def _reactions(
             else period_start_by_name[str(band["period"])]
         )
         for role, rows in sorted(by_role.items()):
+            role_timestamps = timestamps_by_role[role]
             reactions.append(
                 {
                     "event_id": annotation["event_id"],
@@ -801,15 +813,15 @@ def _reactions(
                     "primary": {
                         "source_start_ms": start,
                         "source_end_ms": end,
-                        "before": before(rows, start, period_start),
-                        "after": after(rows, end, period_end),
+                        "before": before(rows, role_timestamps, start, period_start),
+                        "after": after(rows, role_timestamps, end, period_end),
                     },
                     "extended": {
                         "source_start_ms": start,
                         "source_end_ms": following_end,
-                        "before": before(rows, start, period_start),
+                        "before": before(rows, role_timestamps, start, period_start),
                         "after": (
-                            after(rows, following_end, period_end)
+                            after(rows, role_timestamps, following_end, period_end)
                             if following_end is not None
                             else None
                         ),
@@ -1190,6 +1202,10 @@ def _fetch_rows(
     state_by_role = {
         role: [state for state in states if state["role"] == role] for role in roles
     }
+    state_timestamps_by_role = {
+        role: [int(state["timestamp_ms"]) for state in state_by_role[role]]
+        for role in roles
+    }
     for row in rows:
         trade = {
             "trade_id": str(row[0]),
@@ -1204,12 +1220,8 @@ def _fetch_rows(
         if trade["role"] not in state_by_role:
             raise ValueError(f"trade has unknown landscape role: {trade['role']}")
         books = state_by_role[trade["role"]]
-        index = (
-            bisect.bisect_right(
-                [state["timestamp_ms"] for state in books], trade["timestamp_ms"]
-            )
-            - 1
-        )
+        timestamps = state_timestamps_by_role[trade["role"]]
+        index = bisect.bisect_right(timestamps, trade["timestamp_ms"]) - 1
         side = "unknown"
         if index >= 0:
             book = books[index]
