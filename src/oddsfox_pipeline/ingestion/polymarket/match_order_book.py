@@ -170,13 +170,10 @@ def _manifest_payload(manifest: MatchOrderBookManifest) -> dict[str, Any]:
     }
 
 
-def load_order_book_manifest(
-    path: Path | None = None,
-) -> MatchOrderBookManifest:
-    manifest_path = path or default_order_book_targets_path()
-    payload = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+def _read_order_book_manifest_payload(path: Path) -> dict[str, Any]:
+    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     if not isinstance(payload, dict):
-        raise ValueError(f"Invalid order-book manifest root in {manifest_path}")
+        raise ValueError(f"Invalid order-book manifest root in {path}")
     declared_hash = payload.get("content_sha256")
     if declared_hash is not None:
         unhashed = {
@@ -193,119 +190,122 @@ def load_order_book_manifest(
     raw_targets = payload.get("targets")
     if not isinstance(raw_targets, list) or not raw_targets:
         raise ValueError("order-book manifest targets must be a non-empty list")
+    return {"version": version, "targets": raw_targets}
 
-    targets: list[MatchOrderBookTarget] = []
-    seen_markets: set[str] = set()
-    seen_conditions: set[str] = set()
-    seen_tokens: set[str] = set()
-    for raw_target in raw_targets:
-        if not isinstance(raw_target, dict):
-            raise ValueError("each order-book target must be a mapping")
-        fifa_match_id = raw_target.get("fifa_match_id")
-        if (
-            isinstance(fifa_match_id, bool)
-            or not isinstance(fifa_match_id, int)
-            or not 1 <= fifa_match_id <= 104
-        ):
-            raise ValueError("fifa_match_id must identify a WC2026 match")
-        event_id = _required_text(raw_target, "event_id")
-        market_id = _required_text(raw_target, "market_id")
-        condition_id = _required_text(raw_target, "condition_id").lower()
-        event_slug = _required_text(raw_target, "event_slug").lower()
-        market_slug = _required_text(raw_target, "market_slug").lower()
-        market_type = _required_text(raw_target, "market_type")
-        if fifa_match_id <= 72 and market_type != "moneyline":
-            raise ValueError("group order-book targets must be moneyline markets")
-        if fifa_match_id >= 73 and market_type != "soccer_team_to_advance":
-            raise ValueError(
-                "knockout order-book targets must be soccer_team_to_advance"
-            )
-        if not _NUMERIC_ID_RE.fullmatch(event_id):
-            raise ValueError(f"Invalid event_id {event_id!r}")
-        if not _NUMERIC_ID_RE.fullmatch(market_id):
-            raise ValueError(f"Invalid market_id {market_id!r}")
-        if not _HEX_32_RE.fullmatch(condition_id):
-            raise ValueError(f"Invalid condition_id {condition_id!r}")
-        if not _SLUG_RE.fullmatch(event_slug) or not _SLUG_RE.fullmatch(market_slug):
-            raise ValueError("event_slug and market_slug must be lowercase slugs")
-        start = _utc_datetime(
-            raw_target.get("accepting_orders_at"), field="accepting_orders_at"
+
+def _parse_order_book_outcome(
+    raw_outcome: Any,
+    *,
+    raw_target: dict[str, Any],
+    seen_tokens: set[str],
+) -> MatchOrderBookOutcome:
+    if not isinstance(raw_outcome, dict):
+        raise ValueError("each outcome must be a mapping")
+    label = _required_text(raw_outcome, "label")
+    token_id = _required_text(raw_outcome, "clob_token_id")
+    if not _NUMERIC_ID_RE.fullmatch(token_id):
+        raise ValueError(f"Invalid clob_token_id for {label!r}")
+    if token_id in seen_tokens:
+        raise ValueError(f"Duplicate clob_token_id {token_id}")
+    seen_tokens.add(token_id)
+    role = str(raw_outcome.get("role") or "").strip()
+    if not role:
+        if label.casefold() == _required_text(raw_target, "home_team").casefold():
+            role = "home"
+        elif label.casefold() == _required_text(raw_target, "away_team").casefold():
+            role = "away"
+    if role not in {"home", "away", "home_win", "draw", "away_win"}:
+        raise ValueError(f"Invalid landscape role {role!r}")
+    return MatchOrderBookOutcome(label=label, clob_token_id=token_id, role=role)
+
+
+def _parse_order_book_target(
+    raw_target: Any,
+    *,
+    seen_markets: set[str],
+    seen_conditions: set[str],
+    seen_tokens: set[str],
+    targets: list[MatchOrderBookTarget],
+) -> MatchOrderBookTarget:
+    if not isinstance(raw_target, dict):
+        raise ValueError("each order-book target must be a mapping")
+    fifa_match_id = raw_target.get("fifa_match_id")
+    if (
+        isinstance(fifa_match_id, bool)
+        or not isinstance(fifa_match_id, int)
+        or not 1 <= fifa_match_id <= 104
+    ):
+        raise ValueError("fifa_match_id must identify a WC2026 match")
+    event_id = _required_text(raw_target, "event_id")
+    market_id = _required_text(raw_target, "market_id")
+    condition_id = _required_text(raw_target, "condition_id").lower()
+    event_slug = _required_text(raw_target, "event_slug").lower()
+    market_slug = _required_text(raw_target, "market_slug").lower()
+    market_type = _required_text(raw_target, "market_type")
+    if fifa_match_id <= 72 and market_type != "moneyline":
+        raise ValueError("group order-book targets must be moneyline markets")
+    if fifa_match_id >= 73 and market_type != "soccer_team_to_advance":
+        raise ValueError("knockout order-book targets must be soccer_team_to_advance")
+    if not _NUMERIC_ID_RE.fullmatch(event_id):
+        raise ValueError(f"Invalid event_id {event_id!r}")
+    if not _NUMERIC_ID_RE.fullmatch(market_id):
+        raise ValueError(f"Invalid market_id {market_id!r}")
+    if not _HEX_32_RE.fullmatch(condition_id):
+        raise ValueError(f"Invalid condition_id {condition_id!r}")
+    if not _SLUG_RE.fullmatch(event_slug) or not _SLUG_RE.fullmatch(market_slug):
+        raise ValueError("event_slug and market_slug must be lowercase slugs")
+    start = _utc_datetime(
+        raw_target.get("accepting_orders_at"), field="accepting_orders_at"
+    )
+    end = _utc_datetime(raw_target.get("closed_at"), field="closed_at")
+    if start >= end:
+        raise ValueError("accepting_orders_at must precede closed_at")
+
+    raw_outcomes = raw_target.get("outcomes")
+    if not isinstance(raw_outcomes, list) or not raw_outcomes:
+        expected = "exactly two outcomes" if fifa_match_id >= 73 else "a Yes outcome"
+        raise ValueError(f"each order-book target must have {expected}")
+    outcomes = [
+        _parse_order_book_outcome(
+            raw_outcome,
+            raw_target=raw_target,
+            seen_tokens=seen_tokens,
         )
-        end = _utc_datetime(raw_target.get("closed_at"), field="closed_at")
-        if start >= end:
-            raise ValueError("accepting_orders_at must precede closed_at")
+        for raw_outcome in raw_outcomes
+    ]
+    if len({outcome.label.casefold() for outcome in outcomes}) != len(outcomes):
+        raise ValueError("outcome labels must be distinct")
 
-        raw_outcomes = raw_target.get("outcomes")
-        if not isinstance(raw_outcomes, list) or not raw_outcomes:
-            expected = (
-                "exactly two outcomes" if fifa_match_id >= 73 else "a Yes outcome"
-            )
-            raise ValueError(f"each order-book target must have {expected}")
-        outcomes: list[MatchOrderBookOutcome] = []
-        for raw_outcome in raw_outcomes:
-            if not isinstance(raw_outcome, dict):
-                raise ValueError("each outcome must be a mapping")
-            label = _required_text(raw_outcome, "label")
-            token_id = _required_text(raw_outcome, "clob_token_id")
-            if not _NUMERIC_ID_RE.fullmatch(token_id):
-                raise ValueError(f"Invalid clob_token_id for {label!r}")
-            if token_id in seen_tokens:
-                raise ValueError(f"Duplicate clob_token_id {token_id}")
-            seen_tokens.add(token_id)
-            role = str(raw_outcome.get("role") or "").strip()
-            if not role:
-                if (
-                    label.casefold()
-                    == _required_text(raw_target, "home_team").casefold()
-                ):
-                    role = "home"
-                elif (
-                    label.casefold()
-                    == _required_text(raw_target, "away_team").casefold()
-                ):
-                    role = "away"
-            if role not in {"home", "away", "home_win", "draw", "away_win"}:
-                raise ValueError(f"Invalid landscape role {role!r}")
-            outcomes.append(
-                MatchOrderBookOutcome(
-                    label=label,
-                    clob_token_id=token_id,
-                    role=role,
-                )
-            )
-        if len({outcome.label.casefold() for outcome in outcomes}) != len(outcomes):
-            raise ValueError("outcome labels must be distinct")
+    for value, seen, label in (
+        (market_id, seen_markets, "market_id"),
+        (condition_id, seen_conditions, "condition_id"),
+    ):
+        if value in seen:
+            raise ValueError(f"Duplicate {label} {value}")
+        seen.add(value)
+    target = MatchOrderBookTarget(
+        fifa_match_id=fifa_match_id,
+        stage=_required_text(raw_target, "stage"),
+        home_team=_required_text(raw_target, "home_team"),
+        away_team=_required_text(raw_target, "away_team"),
+        event_id=event_id,
+        event_slug=event_slug,
+        market_id=market_id,
+        market_slug=market_slug,
+        market_type=market_type,
+        condition_id=condition_id,
+        accepting_orders_at=start,
+        closed_at=end,
+        outcomes=tuple(outcomes),
+    )
+    if fifa_match_id >= 73 and any(
+        existing.fifa_match_id == fifa_match_id for existing in targets
+    ):
+        raise ValueError(f"Duplicate fifa_match_id {fifa_match_id}")
+    return target
 
-        for value, seen, label in (
-            (market_id, seen_markets, "market_id"),
-            (condition_id, seen_conditions, "condition_id"),
-        ):
-            if value in seen:
-                raise ValueError(f"Duplicate {label} {value}")
-            seen.add(value)
-        targets.append(
-            MatchOrderBookTarget(
-                fifa_match_id=fifa_match_id,
-                stage=_required_text(raw_target, "stage"),
-                home_team=_required_text(raw_target, "home_team"),
-                away_team=_required_text(raw_target, "away_team"),
-                event_id=event_id,
-                event_slug=event_slug,
-                market_id=market_id,
-                market_slug=market_slug,
-                market_type=market_type,
-                condition_id=condition_id,
-                accepting_orders_at=start,
-                closed_at=end,
-                outcomes=tuple(outcomes),
-            )
-        )
-        if (
-            fifa_match_id >= 73
-            and sum(target.fifa_match_id == fifa_match_id for target in targets) > 1
-        ):
-            raise ValueError(f"Duplicate fifa_match_id {fifa_match_id}")
 
+def _validate_order_book_manifest_targets(targets: list[MatchOrderBookTarget]) -> None:
     match_ids = {target.fifa_match_id for target in targets}
     identities = {
         (target.stage, target.home_team, target.away_team) for target in targets
@@ -332,6 +332,31 @@ def load_order_book_manifest(
         raise ValueError(
             "knockout target must select the named home and away outcome tokens"
         )
+
+
+def load_order_book_manifest(
+    path: Path | None = None,
+) -> MatchOrderBookManifest:
+    manifest_path = path or default_order_book_targets_path()
+    payload = _read_order_book_manifest_payload(manifest_path)
+    version = int(payload["version"])
+    raw_targets = payload["targets"]
+
+    targets: list[MatchOrderBookTarget] = []
+    seen_markets: set[str] = set()
+    seen_conditions: set[str] = set()
+    seen_tokens: set[str] = set()
+    for raw_target in raw_targets:
+        targets.append(
+            _parse_order_book_target(
+                raw_target,
+                seen_markets=seen_markets,
+                seen_conditions=seen_conditions,
+                seen_tokens=seen_tokens,
+                targets=targets,
+            )
+        )
+    _validate_order_book_manifest_targets(targets)
 
     provisional = MatchOrderBookManifest(
         version=version, targets=tuple(targets), sha256=""
