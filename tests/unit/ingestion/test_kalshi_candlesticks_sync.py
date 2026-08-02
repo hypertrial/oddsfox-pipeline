@@ -128,6 +128,31 @@ def test_sync_hourly_candlesticks_counts_empty_markets(monkeypatch, duck):
     assert metrics["rows_written"] == 0
 
 
+def test_sync_hourly_candlesticks_issues_one_fetch_per_market(monkeypatch, duck):
+    _seed_market(duck, market_ticker="KXWC-MKT1")
+    _seed_market(duck, market_ticker="KXWC-MKT2")
+    fetch_calls: list[str] = []
+    monkeypatch.setattr(
+        candlesticks_sync,
+        "fetch_hourly_candlesticks",
+        lambda *_args, **kwargs: fetch_calls.append(kwargs["market_ticker"]) or [],
+    )
+    monkeypatch.setattr(
+        candlesticks_sync,
+        "_utc_now",
+        lambda: datetime(2026, 1, 2, tzinfo=timezone.utc),
+    )
+
+    metrics = candlesticks_sync.sync_hourly_candlesticks(
+        scope_name="wc2026",
+        force=True,
+        client_factory=lambda: MagicMock(),
+    )
+
+    assert sorted(fetch_calls) == ["KXWC-MKT1", "KXWC-MKT2"]
+    assert metrics["markets_total"] == 2
+
+
 def test_sync_hourly_candlesticks_skips_open_time_when_missing(monkeypatch, duck):
     _seed_market(duck, market_ticker="KXWC-NO-OPEN", open_time=None)
     monkeypatch.setattr(

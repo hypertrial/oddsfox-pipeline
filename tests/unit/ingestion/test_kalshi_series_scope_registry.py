@@ -65,3 +65,39 @@ def test_refresh_registry_and_collect_filters_and_upserts(monkeypatch, duck):
     assert result.summary["registry_upserted"] == 1
     assert result.summary["markets_collected"] == 1
     assert progress
+
+
+def test_refresh_registry_and_collect_reports_api_request_count(monkeypatch, duck):
+    cfg = KalshiMarketScopeConfig(
+        scope_name="wc2026",
+        series_tickers=("KXWC",),
+        excluded_market_suffixes={"KXWC": ()},
+    )
+    client = MagicMock()
+    request_counts = {"events": 0, "markets": 0}
+
+    def fake_events(_client, series_ticker, *, progress_callback=None):
+        request_counts["events"] += 1
+        return [
+            {"event_ticker": "KXWC-EVT1"},
+            {"event_ticker": "KXWC-EVT2"},
+        ]
+
+    def fake_markets(_client, event_ticker, *, progress_callback=None):
+        request_counts["markets"] += 1
+        return [
+            {
+                "ticker": f"{event_ticker}-MKT",
+                "event_ticker": event_ticker,
+            }
+        ]
+
+    monkeypatch.setattr(series_registry, "fetch_events_for_series", fake_events)
+    monkeypatch.setattr(series_registry, "fetch_markets_for_event", fake_markets)
+
+    result = series_registry.refresh_registry_and_collect(client, config=cfg)
+
+    assert request_counts == {"events": 1, "markets": 2}
+    assert result.summary["api_requests"] == 3
+    assert result.summary["events_collected"] == 2
+    assert result.summary["markets_collected"] == 2
