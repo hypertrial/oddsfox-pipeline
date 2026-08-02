@@ -9,6 +9,9 @@ from tests.unit.storage.duckdb_storage_test_support import (
 )
 
 import oddsfox_pipeline.storage.duckdb.markets as markets
+from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
+from oddsfox_pipeline.ingestion.polymarket.odds.support import OddsSyncOptions
+from oddsfox_pipeline.orchestration.config import HourlyOddsSyncConfig
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     upsert_registry_rows,
@@ -265,3 +268,56 @@ def test_iter_due_market_tokens_skips_ended_markets_after_grace(duck):
         ended_market_grace_days=7,
     )
     assert counts["ended_market_skip"] == 1
+
+
+def test_wc2026_hourly_planning_keeps_zero_volume_ended_event_child(duck):
+    token_id = "1234567890abcdef1234567890abcdef12"
+    _seed_markets(
+        duck,
+        [
+            (
+                "zero_volume_child",
+                "World Cup event child",
+                "sports",
+                "d",
+                "[]",
+                0.0,
+                True,
+                True,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                "2026-06-12 00:00:00",
+                "world-cup-child",
+                "world-cup-event",
+                "event-eligible",
+            )
+        ],
+        [("zero_volume_child", f'["{token_id}"]')],
+    )
+    config = HourlyOddsSyncConfig()
+    options = OddsSyncOptions(
+        clob_cutoff_date=config.clob_cutoff,
+        fidelity=config.fidelity,
+        force=config.force,
+        rebuild_history=config.rebuild_history,
+        overlap_minutes=config.overlap_minutes,
+        skip_recent_minutes=config.skip_recent_minutes,
+        market_page_size=config.market_page_size,
+        reconcile_ledger=config.reconcile_ledger,
+        short_range_first=config.short_range_first,
+        market_scope="wc2026",
+        ended_market_grace_days=config.ended_market_grace_days,
+        min_volume=config.min_volume,
+        max_volume=config.max_volume,
+        history_backfill_days=config.history_backfill_days,
+        empty_token_skip_runs=config.empty_skip_runs,
+    )
+
+    plans = list(
+        odds_sync.iter_token_plans_paged(now_ts=1_900_000_000, options=options)
+    )
+
+    assert [(plan.market_id, plan.token_id) for plan in plans] == [
+        ("zero_volume_child", token_id)
+    ]
+    assert plans[0].start_ts == 1_704_153_600

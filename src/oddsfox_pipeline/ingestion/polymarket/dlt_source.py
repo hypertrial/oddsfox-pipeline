@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Iterable
 
 import dlt
@@ -29,6 +30,7 @@ _MARKET_COLUMNS = {
     "question": {"data_type": "text"},
     "category": {"data_type": "text"},
     "description": {"data_type": "text"},
+    "market_resolution_source": {"data_type": "text"},
     "outcomes": {"data_type": "text"},
     "volume": {"data_type": "double"},
     "active": {"data_type": "bool"},
@@ -48,11 +50,16 @@ _MARKET_COLUMNS = {
     "sports_market_type": {"data_type": "text"},
     "game_start_time": {"data_type": "timestamp", "timezone": False},
     "group_item_title": {"data_type": "text"},
+    "group_item_threshold": {"data_type": "text"},
+    "line": {"data_type": "double"},
     "tags": {"data_type": "text"},
     "clob_token_ids": {"data_type": "text"},
     "is_resolved": {"data_type": "bool"},
     "winning_outcome": {"data_type": "text"},
     "winning_clob_token_id": {"data_type": "text"},
+    "neg_risk_market_id": {"data_type": "text"},
+    "neg_risk_request_id": {"data_type": "text"},
+    "neg_risk_other": {"data_type": "bool"},
 }
 
 
@@ -80,10 +87,19 @@ def collect_raw_markets(
 
 def normalize_market_payloads_for_dlt(
     markets: Iterable[dict[str, Any]],
+    *,
+    observed_at: Any | None = None,
 ) -> list[dict[str, Any]]:
     df = process_markets_dataframe(list(markets))
     market_rows, _ = prepare_batch_for_db(df)
-    return market_records_to_dicts(market_rows)
+    rows = market_records_to_dicts(market_rows)
+    for row in rows:
+        volume = row["volume"]
+        if not math.isfinite(volume) or volume < 0:
+            row["volume"] = None
+        if observed_at is not None:
+            row["scraped_at"] = observed_at
+    return rows
 
 
 def polymarket_markets_source(

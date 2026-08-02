@@ -4,7 +4,7 @@ models:
   - name: int_kalshi_wc2026_market_hourly_odds
     description: >
       Incremental hourly OHLC fact for Kalshi WC2026 markets in the trailing
-      contract window.
+      pipeline policy window.
     tests:
       - no_duplicate_grain:
           arguments:

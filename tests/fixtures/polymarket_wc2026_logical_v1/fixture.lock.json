@@ -1,0 +1,16 @@
+{
+  "fixture_version": "1",
+  "row_counts": {
+    "entities.parquet": 15,
+    "events.parquet": 4,
+    "market_events.parquet": 13,
+    "markets.parquet": 12,
+    "proposition_entities.parquet": 86,
+    "propositions.parquet": 21,
+    "scopes.parquet": 11
+  },
+  "schema_version": "polymarket-wc2026-logical-v1",
+  "semantic_fingerprint": "3b415626e71018e0660e39a1d43a054b087af05c83b19f327ce551cbdca75a2b",
+  "source_sha256": "47cc8e9dcb72acd1fa4761ad5cb57b46458b783460a54ac5f8326d0c89daf5a5",
+  "topology_fingerprint": "37f0ea51b8a0676a3aceea1999caa9a177fc074bc28ddf186fcbeddbfa6508b2"
+}

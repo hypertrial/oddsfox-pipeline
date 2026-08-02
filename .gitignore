@@ -201,6 +201,7 @@ data/
 !tests/fixtures/**/*.csv
 *.json
 !vercel.json
+!tests/fixtures/polymarket_wc2026_logical_v1/*.json
 *.feather
 *.pkl
 *.pickle

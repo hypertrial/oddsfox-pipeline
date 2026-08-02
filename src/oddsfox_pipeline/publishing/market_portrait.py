@@ -40,7 +40,7 @@ class MatchFacts:
     first_extra_half_ended_at: datetime | None = None
     second_extra_half_started_at: datetime | None = None
     second_extra_half_ended_at: datetime | None = None
-    game_ended_at: datetime | None = None
+    match_ended_at: datetime | None = None
     home_score: int | None = None
     away_score: int | None = None
     penalty_home_score: int | None = None
@@ -228,12 +228,12 @@ def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
             raise ValueError("full-time to extra-time break is implausible")
         if not timedelta(0) <= extra_time_break <= timedelta(minutes=15):
             raise ValueError("extra-time break is implausible")
-    if facts.game_ended_at is not None:
-        game_ended_at = _utc(facts.game_ended_at, "game_ended_at")
-        if game_ended_at + timedelta(microseconds=2) < final_period_end:
-            raise ValueError("game_ended_at precedes the final period boundary")
-        if game_ended_at - final_period_end > timedelta(minutes=45):
-            raise ValueError("game_ended_at is implausibly late")
+    if facts.match_ended_at is not None:
+        match_ended_at = _utc(facts.match_ended_at, "match_ended_at")
+        if match_ended_at + timedelta(microseconds=2) < final_period_end:
+            raise ValueError("match_ended_at precedes the final period boundary")
+        if match_ended_at - final_period_end > timedelta(minutes=45):
+            raise ValueError("match_ended_at is implausibly late")
     orders = [event.event_order for event in events]
     if orders != sorted(orders) or len(orders) != len(set(orders)):
         raise ValueError("football event order must be unique and monotonic")
@@ -257,11 +257,11 @@ def _validate_facts(facts: MatchFacts, events: Sequence[FootballEvent]) -> None:
         elif event.match_minute is None:
             raise ValueError("non-penalty events require a football minute")
     if any(event.period == "PENS" for event in events) and (
-        facts.game_ended_at is None
-        or _utc(facts.game_ended_at, "game_ended_at") <= final_period_end
+        facts.match_ended_at is None
+        or _utc(facts.match_ended_at, "match_ended_at") <= final_period_end
     ):
         raise ValueError(
-            "penalties require an actual game_ended_at after the final period"
+            "penalties require an actual match_ended_at after the final period"
         )
 
 
@@ -467,10 +467,10 @@ def build_story(
     ]
     first_half_start = _utc(facts.first_half_started_at, "first_half")
     final_whistle = _utc(
-        facts.game_ended_at
+        facts.match_ended_at
         or facts.second_extra_half_ended_at
         or facts.second_half_ended_at,
-        "game_ended_at",
+        "match_ended_at",
     )
     market_start = (
         datetime.fromtimestamp(min(source_timestamps) / 1_000, tz=timezone.utc)
@@ -553,8 +553,8 @@ def build_story(
             "penalties",
         )
         source_end = (
-            _utc(facts.game_ended_at, "game_ended_at")
-            if facts.game_ended_at
+            _utc(facts.match_ended_at, "match_ended_at")
+            if facts.match_ended_at
             else source_start
         )
         minute_rows.append(
@@ -1275,7 +1275,7 @@ def _validate_export_alignment(
         )
     timing_rows = connection.execute(
         """
-        SELECT DISTINCT scheduled_kickoff_at_utc, game_started_at_utc
+        SELECT DISTINCT scheduled_kickoff_at_utc, match_started_at_utc
         FROM polymarket_wc2026_intermediate
             .int_polymarket_wc2026_match_market_universe
         WHERE fifa_match_id=?
@@ -1289,7 +1289,7 @@ def _validate_export_alignment(
             "validated match universe must provide one consistent match timing"
         )
     scheduled = _as_utc(timing_rows[0][0], "scheduled_kickoff_at_utc")
-    market_start = _as_utc(timing_rows[0][1], "game_started_at_utc")
+    market_start = _as_utc(timing_rows[0][1], "match_started_at_utc")
     kickoff = _utc(facts.kickoff_at_utc, "kickoff_at_utc")
     if abs((kickoff - scheduled).total_seconds()) > 60:
         raise ValueError(
@@ -1321,10 +1321,10 @@ def _validate_export_alignment(
     if set(windows) != roles:
         raise ValueError("PMXT root scan windows do not cover every portrait role")
     final_whistle = _utc(
-        facts.game_ended_at
+        facts.match_ended_at
         or facts.second_extra_half_ended_at
         or facts.second_half_ended_at,
-        "game_ended_at",
+        "match_ended_at",
     )
     football_start_ms = int(first_half.timestamp() * 1_000)
     football_end_ms = int(final_whistle.timestamp() * 1_000)
@@ -1396,7 +1396,7 @@ def build_market_portrait_bundle(
             "end": _iso(
                 max(
                     [
-                        match_facts.game_ended_at
+                        match_facts.match_ended_at
                         or match_facts.second_extra_half_ended_at
                         or match_facts.second_half_ended_at
                     ]

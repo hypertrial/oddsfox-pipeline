@@ -89,6 +89,7 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
         "python-lint",
         "check-secrets",
         "check-distribution",
+        "check-terminology",
         "docs-build",
     ]
     assert _make_targets(automatic["jobs"]["tests"]) == ["test", "contract-http"]
@@ -168,6 +169,7 @@ def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
         "dbt-lint",
         "check-secrets",
         "check-distribution",
+        "check-terminology",
         "package-smoke",
         "contract-http",
         "docs-build",

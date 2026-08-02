@@ -110,7 +110,7 @@ unit_tests:
   - name: test_kalshi_stage_markets_current_price_status_edges
     model: kalshi_wc2026_stage_markets
     given:
-      - input: ref('kalshi_wc2026_contract')
+      - input: ref('kalshi_wc2026_pipeline_policy')
         rows:
           - {scope_name: "wc2026", live_freshness_hours: 12}
       - input: ref('kalshi_wc2026_stage_market_hourly_odds')

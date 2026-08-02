@@ -1,16 +1,16 @@
 version: 2
 
 models:
-  - name: polymarket_us_midterms_2026_sync_run_observability
+  - name: polymarket_us_midterms_2026_ingestion_run_observability
     description: >
-      One row per relevant pipeline run event with typed observability metrics for odds sync planning, execution,
+      One row per relevant ingestion run event with typed observability metrics for odds sync planning, execution,
       and pre-run token coverage context.
       Rows still reflect whatever the ingestion task wrote into ``metrics_json``; planning-context counters such as
       ``ledger_fully_checked_tokens`` and ratios like ``fully_checked_vs_market_tokens_ratio`` can read as zero when
       the emitter omits those fields rather than implying the warehouse suppressed them.
     columns:
       - name: run_id
-        description: UUID primary key for the underlying pipeline run event.
+        description: UUID primary key for the underlying ingestion run event.
         tests: [not_null, unique]
       - name: task_name
         description: Pipeline task that emitted the observability metrics row.

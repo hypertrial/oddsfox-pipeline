@@ -17,9 +17,9 @@ from oddsfox_pipeline.ingestion.polymarket.market_scope import (
 from oddsfox_pipeline.ingestion.polymarket.markets import (
     backfill_end_dates,
     backfill_event_slugs,
-    backfill_market_metadata,
     backfill_slugs,
     backfill_tokens,
+    enrich_market_metadata,
     sync_markets,
 )
 from oddsfox_pipeline.ingestion.polymarket.markets.fetch import build_client
@@ -72,7 +72,7 @@ __all__ = [
     "Thread",
     "backfill_end_dates",
     "backfill_event_slugs",
-    "backfill_market_metadata",
+    "enrich_market_metadata",
     "backfill_slugs",
     "backfill_tokens",
     "delta_dbt_models",

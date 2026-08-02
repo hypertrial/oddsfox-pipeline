@@ -6,8 +6,8 @@ with mapped_tokens as (
         market_id,
         'yes' as token_side,
         yes_clob_token_id as clob_token_id,
-        game_started_at_utc,
-        game_finished_at_utc
+        match_started_at_utc,
+        match_finished_at_utc
     from {{ ref('int_polymarket_wc2026_match_market_universe') }}
 
     union all
@@ -17,8 +17,8 @@ with mapped_tokens as (
         market_id,
         'no' as token_side,
         no_clob_token_id as clob_token_id,
-        game_started_at_utc,
-        game_finished_at_utc
+        match_started_at_utc,
+        match_finished_at_utc
     from {{ ref('int_polymarket_wc2026_match_market_universe') }}
 ),
 
@@ -77,14 +77,14 @@ select
     history.max_observation_gap_seconds,
     date_diff(
         'minute',
-        date_trunc('minute', tokens.game_started_at_utc),
-        date_trunc('minute', tokens.game_finished_at_utc)
+        date_trunc('minute', tokens.match_started_at_utc),
+        date_trunc('minute', tokens.match_finished_at_utc)
     ) + 1 as expected_minute_buckets,
     coalesce(history.raw_observation_count, 0) as raw_observation_count,
     coalesce(history.observed_minute_buckets, 0) as observed_minute_buckets,
-    history.first_observation_epoch - epoch(tokens.game_started_at_utc)
+    history.first_observation_epoch - epoch(tokens.match_started_at_utc)
         as first_observation_offset_seconds,
-    epoch(tokens.game_finished_at_utc) - history.last_observation_epoch
+    epoch(tokens.match_finished_at_utc) - history.last_observation_epoch
         as last_observation_offset_seconds,
     coalesce(history.distinct_price_count, 0) as distinct_price_count,
     coalesce(
@@ -92,8 +92,8 @@ select
         / nullif(
             date_diff(
                 'minute',
-                date_trunc('minute', tokens.game_started_at_utc),
-                date_trunc('minute', tokens.game_finished_at_utc)
+                date_trunc('minute', tokens.match_started_at_utc),
+                date_trunc('minute', tokens.match_finished_at_utc)
             ) + 1,
             0
         ),
@@ -102,11 +102,11 @@ select
     coalesce(history.max_observation_gap_seconds > 120, false)
         as cadence_gap_warning,
     coalesce(
-        history.first_observation_epoch - epoch(tokens.game_started_at_utc) > 120,
+        history.first_observation_epoch - epoch(tokens.match_started_at_utc) > 120,
         false
     ) as first_boundary_offset_warning,
     coalesce(
-        epoch(tokens.game_finished_at_utc) - history.last_observation_epoch > 120,
+        epoch(tokens.match_finished_at_utc) - history.last_observation_epoch > 120,
         false
     ) as last_boundary_offset_warning,
     coalesce(history.distinct_price_count = 1, false) as constant_price_warning

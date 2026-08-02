@@ -1,6 +1,6 @@
 with contract as (
     select results_freshness_hours
-    from {{ ref('polymarket_wc2026_contract') }}
+    from {{ ref('polymarket_wc2026_pipeline_policy') }}
     where scope_name = 'wc2026'
 ),
 
@@ -44,7 +44,7 @@ stale_source as (
         'international_results_source_stale' as issue_key,
         current_timestamp as observed_at
     from source_freshness
-    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    -- costguard: allow cross-join, WC2026 pipeline policy seed has one row.
     cross join contract
     where
         source_freshness.latest_source_loaded_at is null

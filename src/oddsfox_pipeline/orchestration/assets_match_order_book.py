@@ -11,7 +11,7 @@ from oddsfox_pipeline.ingestion.polymarket.match_order_book import (
 )
 from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_POLYMARKET, asset_key
 from oddsfox_pipeline.orchestration.assets_openfootball import (
-    OPENFOOTBALL_WC2026_RAW_KNOCKOUT_FIXTURES,
+    OPENFOOTBALL_WC2026_RAW_SCHEDULE_FIXTURES,
 )
 from oddsfox_pipeline.orchestration.config import MatchOrderBookBackfillConfig
 from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
@@ -48,7 +48,7 @@ def _sync_match_order_book(
     specs=[
         AssetSpec(
             key=POLYMARKET_WC2026_RAW_MATCH_ORDER_BOOK_SNAPSHOTS,
-            deps=[OPENFOOTBALL_WC2026_RAW_KNOCKOUT_FIXTURES],
+            deps=[OPENFOOTBALL_WC2026_RAW_SCHEDULE_FIXTURES],
         )
     ],
     group_name="ingestion",

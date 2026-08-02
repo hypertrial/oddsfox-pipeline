@@ -1,4 +1,4 @@
-"""Polymarket metadata backfill: backfill_market_metadata."""
+"""Polymarket metadata enrichment: enrich_market_metadata."""
 
 import logging
 import sys
@@ -50,7 +50,7 @@ def _error_metadata(failed_batches: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def backfill_market_metadata(
+def enrich_market_metadata(
     batch_size: int = 50,
     max_markets: int = None,
     force: bool = False,
@@ -69,12 +69,12 @@ def backfill_market_metadata(
     event_slug_fallback_progress_every_pages: int = 25,
     event_slug_unresolved_retry_hours: int = 168,
 ) -> Dict[str, Any]:
-    """Backfill requested market metadata with a single Gamma pass per market."""
+    """Enrich requested market metadata with a single Gamma pass per market."""
     t0 = time.monotonic()
     if not any([include_tokens, include_slugs, include_event_slugs, include_end_dates]):
         failed_batches: list[dict[str, Any]] = []
         return {
-            "task": "backfill_market_metadata",
+            "task": "enrich_market_metadata",
             "skipped": True,
             "reason": "no_fields_enabled",
             "duration_seconds": _duration_since(t0),
@@ -94,7 +94,7 @@ def backfill_market_metadata(
     if not force and all(get_backfill_fully_checked(k) for k in ledger_keys):
         failed_batches = []
         return {
-            "task": "backfill_market_metadata",
+            "task": "enrich_market_metadata",
             "skipped": True,
             "reason": "fully_checked",
             "duration_seconds": _duration_since(t0),
@@ -118,7 +118,7 @@ def backfill_market_metadata(
             if max_markets is None:
                 set_backfill_fully_checked(key, True)
         return {
-            "task": "backfill_market_metadata",
+            "task": "enrich_market_metadata",
             "skipped": False,
             "eligible": 0,
             "processed": 0,
@@ -136,7 +136,7 @@ def backfill_market_metadata(
 
     if progress_callback:
         progress_callback(
-            "backfill_market_metadata",
+            "enrich_market_metadata",
             {
                 "stage": "start",
                 "eligible": total_markets,
@@ -163,7 +163,7 @@ def backfill_market_metadata(
     use_tqdm = sys.stderr.isatty()
 
     with tqdm(
-        total=total_markets, desc="Backfilling market metadata", disable=not use_tqdm
+        total=total_markets, desc="Enriching market metadata", disable=not use_tqdm
     ) as pbar:
         for batch_idx, chunk in enumerate(chunks, start=1):
             token_rows: list[tuple[str, str]] = []
@@ -213,7 +213,7 @@ def backfill_market_metadata(
                     save_end_dates_batch(end_date_rows, scope_name=market_scope)
                     saved["end_dates"] += len(end_date_rows)
             except (GammaRequestError, OSError) as exc:
-                logger.error("Error during combined metadata backfill batch: %s", exc)
+                logger.error("Error during combined metadata enrichment batch: %s", exc)
                 failed_batches.append(
                     {
                         "batch_index": batch_idx,
@@ -224,7 +224,7 @@ def backfill_market_metadata(
                 )
                 pbar.update(len(chunk))
             except Exception as exc:
-                logger.error("Error during combined metadata backfill batch: %s", exc)
+                logger.error("Error during combined metadata enrichment batch: %s", exc)
                 failed_batches.append(
                     {
                         "batch_index": batch_idx,
@@ -239,7 +239,7 @@ def backfill_market_metadata(
                 batch_idx % progress_every_n_batches == 0 or batch_idx == total_batches
             ):
                 progress_callback(
-                    "backfill_market_metadata",
+                    "enrich_market_metadata",
                     {
                         "batch_index": batch_idx,
                         "batches_total": total_batches,
@@ -254,7 +254,7 @@ def backfill_market_metadata(
     if include_event_slugs and remaining_event_slug_ids:
         if progress_callback:
             progress_callback(
-                "backfill_market_metadata",
+                "enrich_market_metadata",
                 {
                     "stage": "events_fallback_start",
                     "remaining_before_fallback": len(remaining_event_slug_ids),
@@ -270,7 +270,7 @@ def backfill_market_metadata(
             max_pages_without_progress=event_slug_fallback_max_pages_without_progress,
             progress_callback=progress_callback,
             progress_every_pages=event_slug_fallback_progress_every_pages,
-            progress_phase="backfill_market_metadata_events_fallback",
+            progress_phase="enrich_market_metadata_events_fallback",
         )
         saved["event_slugs"] += extra_saved
         api_requests += int(events_fb_meta.get("events_fallback_pages", 0) or 0)
@@ -296,7 +296,7 @@ def backfill_market_metadata(
 
     if progress_callback:
         progress_callback(
-            "backfill_market_metadata",
+            "enrich_market_metadata",
             {
                 "stage": "complete",
                 "eligible": total_markets,
@@ -311,7 +311,7 @@ def backfill_market_metadata(
         )
 
     return {
-        "task": "backfill_market_metadata",
+        "task": "enrich_market_metadata",
         "skipped": False,
         "eligible": total_markets,
         "processed": processed,

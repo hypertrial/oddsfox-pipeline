@@ -11,9 +11,9 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
 )
 
 
-def test_append_kalshi_pipeline_run_event_stage(duck):
+def test_append_kalshi_ingestion_run_event_stage(duck):
     with duck.get_connection() as conn:
-        kalshi_dlt_batch.append_kalshi_pipeline_run_event_stage(
+        kalshi_dlt_batch.append_kalshi_ingestion_run_event_stage(
             {
                 "run_id": "run-1",
                 "task_name": "sync_kalshi_candlesticks",
@@ -25,7 +25,7 @@ def test_append_kalshi_pipeline_run_event_stage(duck):
         row = conn.execute(
             f"""
             SELECT task_name, metrics_json
-            FROM {kalshi_ops_tbl("wc2026", "pipeline_run_events")}
+            FROM {kalshi_ops_tbl("wc2026", "ingestion_run_events")}
             WHERE run_id = 'run-1'
             """
         ).fetchone()

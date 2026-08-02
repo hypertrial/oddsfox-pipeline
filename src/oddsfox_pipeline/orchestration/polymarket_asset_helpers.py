@@ -431,13 +431,13 @@ def _materialize_market_scope_registry(
     return MaterializeResult(metadata=raw_metadata)
 
 
-def _materialize_metadata_backfill(
+def _materialize_metadata_enrichment(
     context: AssetExecutionContext,
     config: Any,
     *,
     asset_name: str,
     scope_name: str,
-    backfill_market_metadata_fn: Callable[..., dict[str, Any]],
+    enrich_market_metadata_fn: Callable[..., dict[str, Any]],
     delete_orphan_market_tokens_fn: Callable[..., int],
     snapshot_raw_layer_fn: Callable[..., dict[str, Any]] = snapshot_raw_layer,
     delta_raw_layer_fn: Callable[
@@ -470,8 +470,8 @@ def _materialize_metadata_backfill(
     backfill_summaries = [
         _run_with_guardrail_thread(
             guardrail,
-            "backfill_market_metadata",
-            lambda: backfill_market_metadata_fn(
+            "enrich_market_metadata",
+            lambda: enrich_market_metadata_fn(
                 batch_size=config.batch_size,
                 max_markets=config.max_markets,
                 force=config.force,
@@ -494,7 +494,7 @@ def _materialize_metadata_backfill(
     orphan_market_tokens_removed = delete_orphan_market_tokens_fn(scope_name=scope_name)
     if orphan_market_tokens_removed:
         context.log.info(
-            "Removed %s orphan market_tokens row(s) (market_id not in markets) after metadata backfill",
+            "Removed %s orphan market_tokens row(s) (market_id not in markets) after metadata enrichment",
             orphan_market_tokens_removed,
         )
     post = snapshot_raw_layer_fn(level=config.raw_snapshot_level)
@@ -546,7 +546,7 @@ __all__ = [
     "_DLT_PIPELINE_BY_PATH",
     "_build_odds_sync_kwargs",
     "_materialize_market_scope_registry",
-    "_materialize_metadata_backfill",
+    "_materialize_metadata_enrichment",
     "_materialize_odds_sync",
     "_materialize_raw_markets_snapshot",
     "_odds_sync_metadata",

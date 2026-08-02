@@ -4,19 +4,19 @@ with selected_tokens as (
     select
         market_id,
         yes_clob_token_id as clob_token_id,
-        game_started_at_utc,
-        game_finished_at_utc
+        match_started_at_utc,
+        match_finished_at_utc
     from {{ ref('int_polymarket_wc2026_match_market_universe') }}
     union all
     select
         market_id,
         no_clob_token_id as clob_token_id,
-        game_started_at_utc,
-        game_finished_at_utc
+        match_started_at_utc,
+        match_finished_at_utc
     from {{ ref('int_polymarket_wc2026_match_market_universe') }}
 ),
 
-in_game as (
+in_match as (
     select
         h.clob_token_id,
         h.odds_timestamp_epoch,
@@ -29,8 +29,8 @@ in_game as (
             h.market_id = t.market_id
             and h.clob_token_id = t.clob_token_id
     where
-        h.odds_timestamp_utc >= t.game_started_at_utc
-        and h.odds_timestamp_utc <= t.game_finished_at_utc
+        h.odds_timestamp_utc >= t.match_started_at_utc
+        and h.odds_timestamp_utc <= t.match_finished_at_utc
 ),
 
 ranked as (
@@ -44,7 +44,7 @@ ranked as (
             partition by clob_token_id, odds_minute_utc
             order by odds_timestamp_epoch desc, price desc
         ) as close_rank
-    from in_game
+    from in_match
 )
 
 select

@@ -31,7 +31,7 @@ def _facts(**changes):
         "first_half_ended_at": start + timedelta(minutes=48),
         "second_half_started_at": start + timedelta(minutes=63),
         "second_half_ended_at": start + timedelta(minutes=112),
-        "game_ended_at": start + timedelta(minutes=112),
+        "match_ended_at": start + timedelta(minutes=112),
         "source_provenance_sha256": "a" * 64,
     }
     values.update(changes)
@@ -46,7 +46,7 @@ def _add_alignment_contract(connection, roles=("home", "away")):
             .int_polymarket_wc2026_match_market_universe (
             fifa_match_id BIGINT,
             scheduled_kickoff_at_utc TIMESTAMPTZ,
-            game_started_at_utc TIMESTAMPTZ,
+            match_started_at_utc TIMESTAMPTZ,
             fixture_mapping_count BIGINT,
             primary_mapping_count BIGINT
         )
@@ -69,7 +69,7 @@ def _add_alignment_contract(connection, roles=("home", "away")):
         """
     )
     start = int((_facts().kickoff_at_utc - timedelta(days=1)).timestamp() * 1_000)
-    end = int((_facts().game_ended_at + timedelta(days=1)).timestamp() * 1_000)
+    end = int((_facts().match_ended_at + timedelta(days=1)).timestamp() * 1_000)
     for role in roles:
         connection.execute(
             """
@@ -177,7 +177,7 @@ def test_story_uses_actual_periods_and_penalties_have_no_reaction():
         first_extra_half_ended_at=datetime(2026, 6, 1, 20, 25, tzinfo=UTC),
         second_extra_half_started_at=datetime(2026, 6, 1, 20, 30, tzinfo=UTC),
         second_extra_half_ended_at=datetime(2026, 6, 1, 20, 47, tzinfo=UTC),
-        game_ended_at=datetime(2026, 6, 1, 20, 55, tzinfo=UTC),
+        match_ended_at=datetime(2026, 6, 1, 20, 55, tzinfo=UTC),
         home_score=1,
         away_score=0,
     )
@@ -318,7 +318,7 @@ def test_story_uses_exact_sixty_second_bands_and_infers_both_stoppages():
             first_half_ended_at=first_end,
             second_half_started_at=second_start,
             second_half_ended_at=second_end,
-            game_ended_at=second_end,
+            match_ended_at=second_end,
         ),
         [],
         [],
@@ -368,7 +368,7 @@ def test_story_stoppage_inference_has_one_millisecond_tolerance(excess, expected
             first_half_ended_at=first_end,
             second_half_started_at=second_start,
             second_half_ended_at=second_end,
-            game_ended_at=second_end,
+            match_ended_at=second_end,
         ),
         [],
         [],
@@ -390,7 +390,7 @@ def test_story_clamps_only_the_final_band_and_rejects_empty_event_band():
         first_half_ended_at=first_end,
         second_half_started_at=second_start,
         second_half_ended_at=second_end,
-        game_ended_at=second_end,
+        match_ended_at=second_end,
     )
 
     story = build_story(facts, [], [], [], RenderProfile())
@@ -611,7 +611,7 @@ def test_story_allows_declared_game_end_micro_epsilon_inversion(
     inversion_microseconds,
 ):
     facts = _facts(
-        game_ended_at=_facts().second_half_ended_at
+        match_ended_at=_facts().second_half_ended_at
         - timedelta(microseconds=inversion_microseconds)
     )
 
@@ -633,7 +633,7 @@ def test_landscape_roles_are_canonical_for_both_portrait_layouts():
     with pytest.raises(ValueError, match="invalid portrait role inventory"):
         subject._landscape_roles([{"role": "draw"}])
     assert (
-        build_story(_facts(game_ended_at=None), [], [], [], RenderProfile())[
+        build_story(_facts(match_ended_at=None), [], [], [], RenderProfile())[
             "duration_seconds"
         ]
         == 45
@@ -682,7 +682,7 @@ def test_landscape_roles_are_canonical_for_both_portrait_layouts():
             _facts(
                 second_half_started_at=datetime(2026, 6, 1, 19, 20, tzinfo=UTC),
                 second_half_ended_at=datetime(2026, 6, 1, 20, 10, tzinfo=UTC),
-                game_ended_at=datetime(2026, 6, 1, 20, 10, tzinfo=UTC),
+                match_ended_at=datetime(2026, 6, 1, 20, 10, tzinfo=UTC),
             ),
             [],
             "halftime duration is implausible",
@@ -693,7 +693,7 @@ def test_landscape_roles_are_canonical_for_both_portrait_layouts():
                 first_extra_half_ended_at=datetime(2026, 6, 1, 20, 45, tzinfo=UTC),
                 second_extra_half_started_at=datetime(2026, 6, 1, 20, 48, tzinfo=UTC),
                 second_extra_half_ended_at=datetime(2026, 6, 1, 21, 3, tzinfo=UTC),
-                game_ended_at=datetime(2026, 6, 1, 21, 3, tzinfo=UTC),
+                match_ended_at=datetime(2026, 6, 1, 21, 3, tzinfo=UTC),
             ),
             [],
             "full-time to extra-time break is implausible",
@@ -704,27 +704,27 @@ def test_landscape_roles_are_canonical_for_both_portrait_layouts():
                 first_extra_half_ended_at=datetime(2026, 6, 1, 20, 15, tzinfo=UTC),
                 second_extra_half_started_at=datetime(2026, 6, 1, 20, 35, tzinfo=UTC),
                 second_extra_half_ended_at=datetime(2026, 6, 1, 20, 50, tzinfo=UTC),
-                game_ended_at=datetime(2026, 6, 1, 20, 50, tzinfo=UTC),
+                match_ended_at=datetime(2026, 6, 1, 20, 50, tzinfo=UTC),
             ),
             [],
             "extra-time break is implausible",
         ),
         (
-            _facts(game_ended_at=datetime(2026, 6, 1, 19, 30, tzinfo=UTC)),
+            _facts(match_ended_at=datetime(2026, 6, 1, 19, 30, tzinfo=UTC)),
             [],
             "precedes the final period boundary",
         ),
         (
             _facts(
-                game_ended_at=_facts().second_half_ended_at - timedelta(microseconds=3)
+                match_ended_at=_facts().second_half_ended_at - timedelta(microseconds=3)
             ),
             [],
             "precedes the final period boundary",
         ),
         (
-            _facts(game_ended_at=datetime(2026, 6, 1, 20, 38, tzinfo=UTC)),
+            _facts(match_ended_at=datetime(2026, 6, 1, 20, 38, tzinfo=UTC)),
             [],
-            "game_ended_at is implausibly late",
+            "match_ended_at is implausibly late",
         ),
         (
             _facts(),
@@ -740,7 +740,7 @@ def test_landscape_roles_are_canonical_for_both_portrait_layouts():
                     is_penalty_shootout=True,
                 )
             ],
-            "penalties require an actual game_ended_at after the final period",
+            "penalties require an actual match_ended_at after the final period",
         ),
         (
             _facts(),
@@ -944,7 +944,7 @@ def test_reactions_round_micro_epsilon_boundaries_by_predicate_direction():
         first_half_ended_at=first_end,
         second_half_started_at=second_start,
         second_half_ended_at=second_end,
-        game_ended_at=second_end,
+        match_ended_at=second_end,
     )
     epoch = datetime(1970, 1, 1, tzinfo=UTC)
 
@@ -1087,7 +1087,7 @@ def test_extra_time_adds_15_seconds_without_a_shootout():
         first_extra_half_ended_at=datetime(2026, 6, 1, 20, 25, tzinfo=UTC),
         second_extra_half_started_at=datetime(2026, 6, 1, 20, 30, tzinfo=UTC),
         second_extra_half_ended_at=datetime(2026, 6, 1, 20, 47, tzinfo=UTC),
-        game_ended_at=datetime(2026, 6, 1, 20, 47, tzinfo=UTC),
+        match_ended_at=datetime(2026, 6, 1, 20, 47, tzinfo=UTC),
     )
 
     story = build_story(facts, [], [], [], RenderProfile())
@@ -1222,7 +1222,7 @@ def test_bundle_is_content_addressed_byte_stable_and_infers_aggressor(tmp_path):
     }
     assert manifest["source_bounds"] == {
         "start": _facts().first_half_started_at.isoformat().replace("+00:00", "Z"),
-        "end": _facts().game_ended_at.isoformat().replace("+00:00", "Z"),
+        "end": _facts().match_ended_at.isoformat().replace("+00:00", "Z"),
     }
     assert manifest["source_facts"]["sanitization"].endswith("micro-epsilon-v1")
     assert manifest["pmxt"]["order_book_aggregate_sha256"] == "c" * 64
@@ -1265,7 +1265,7 @@ def test_bundle_rejects_shifted_timeline_and_market_window_undercoverage(tmp_pat
         first_half_ended_at=_facts().first_half_ended_at + two_hours,
         second_half_started_at=_facts().second_half_started_at + two_hours,
         second_half_ended_at=_facts().second_half_ended_at + two_hours,
-        game_ended_at=_facts().game_ended_at + two_hours,
+        match_ended_at=_facts().match_ended_at + two_hours,
     )
     with pytest.raises(ValueError, match="validated match universe"):
         build_market_portrait_bundle(
@@ -1282,7 +1282,7 @@ def test_bundle_rejects_shifted_timeline_and_market_window_undercoverage(tmp_pat
         UPDATE polymarket_wc2026_ops.match_order_book_scan_windows
         SET window_end_ms=?
         """,
-        [int(_facts().game_ended_at.timestamp() * 1_000)],
+        [int(_facts().match_ended_at.timestamp() * 1_000)],
     )
     with pytest.raises(ValueError, match="does not cover the football timeline"):
         build_market_portrait_bundle(
@@ -1332,7 +1332,7 @@ def test_bundle_requires_complete_timing_and_root_window_contracts(tmp_path):
         """
         UPDATE polymarket_wc2026_intermediate
             .int_polymarket_wc2026_match_market_universe
-        SET game_started_at_utc=game_started_at_utc + INTERVAL 2 HOUR
+        SET match_started_at_utc=match_started_at_utc + INTERVAL 2 HOUR
         """
     )
     with pytest.raises(ValueError, match="validated market start"):

@@ -71,7 +71,7 @@ sources:
             description: UTC timestamp when this candlestick row was last written by ingestion.
 
   - name: kalshi_wc2026_ops
-    description: Kalshi operational DuckDB tables (scope registry, candlestick ledger, run events).
+    description: Kalshi operational DuckDB tables (scope registry, candlestick ledger, ingestion run events).
     schema: kalshi_wc2026_ops
     tables:
       - name: market_scope_registry
@@ -118,7 +118,7 @@ sources:
             description: UTC timestamp when this market next becomes eligible for routine syncing.
           - name: empty_run_streak
             description: Count of consecutive routine syncs that completed with no rows and no errors.
-      - name: pipeline_run_events
+      - name: ingestion_run_events
         description: Append-only operational audit log for Kalshi ingestion run metrics.
         meta:
           dagster:
@@ -129,7 +129,7 @@ sources:
           error_after: {count: 96, period: hour}
         columns:
           - name: run_id
-            description: UUID primary key for the recorded pipeline run event.
+            description: UUID primary key for the recorded ingestion run event.
             tests: [not_null, unique]
           - name: task_name
             description: Pipeline task that emitted the run metrics payload.

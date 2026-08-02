@@ -19,6 +19,7 @@
     { "source": "/data-dictionary", "destination": "/reference/data-dictionary/", "permanent": true },
     { "source": "/scripts", "destination": "/reference/scripts/", "permanent": true },
     { "source": "/naming", "destination": "/reference/naming/", "permanent": true },
+    { "source": "/terminology", "destination": "/reference/terminology/", "permanent": true },
     { "source": "/system-overview", "destination": "/concepts/system-overview/", "permanent": true },
     { "source": "/architecture", "destination": "/concepts/architecture/", "permanent": true },
     { "source": "/community", "destination": "/development/community/", "permanent": true },

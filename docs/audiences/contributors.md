@@ -61,4 +61,6 @@ and [dbt/README.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/dbt
 
 v0.1.x intentionally has no warehouse migrations, no runtime scope selector, and
 an isolated Polygon path. Read [Design decisions](../concepts/decisions.md)
-before proposing compatibility shims.
+before proposing compatibility shims. Use [Terminology](../reference/terminology.md)
+for product vocabulary (pipeline, logical atlas, public marts vs strategy
+contract `wc2026.v1`).

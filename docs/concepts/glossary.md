@@ -1,6 +1,7 @@
 # Glossary
 
-Short definitions for analyst and operator terms used across the docs.
+Short analyst and operator shortcuts. Normative definitions live in
+[Terminology](../reference/terminology.md).
 
 ## Analyst Semantics
 
@@ -21,8 +22,9 @@ purpose.
 `stale_live`, `missing_live`, `historical_closed`, `historical_resolved`, or
 `inactive`.
 
-**grain** — What one row uniquely represents (for example one token-hour or one
-FIFA match-hour).
+**temporal grain** — What one row uniquely represents (for example one
+token-hour or one FIFA match-minute). See
+[Terminology](../reference/terminology.md#grain-and-cadence).
 
 **null policy** — How missing observations appear. For match and settlement
 minute marts, dense empty slots usually keep null prices with no forward-fill or
@@ -33,13 +35,22 @@ have usable closes for that row's comparison.
 
 ## Operator And Integration Terms
 
-**scope** — A fixed shipped source and market graph such as
-`polymarket:wc2026`. Dagster asset configs do not accept arbitrary runtime scope
-selectors in `v0.1.x`.
+**pipeline** — A coherent source-to-output data path such as the Polymarket
+WC2026 match-minute odds pipeline. See
+[Terminology](../reference/terminology.md#orchestration-ladder).
 
-**wc2026.v1** — The public WC2026 analytics contract exposed primarily through
-`wc2026_marts` (and related documented marts). Downstream tools should depend on
-these public surfaces, not raw or intermediate schemas.
+**scope** — A fixed shipped product slice such as `polymarket:wc2026`. Dagster
+asset configs do not accept arbitrary runtime scope selectors in `v0.1.x`. See
+[Terminology](../reference/terminology.md#identity).
+
+**wc2026.v1** — The private strategy clean-data contract exposed through
+`wc2026_marts` relation aliases. Ordinary public-mart consumers start with
+[Data contracts](../reference/data-contracts.md). See
+[Terminology](../reference/terminology.md#contract).
+
+**logical atlas** — Static WC2026 inventory product exported as
+`polymarket-wc2026-logical-v1`. See
+[Terminology](../reference/terminology.md#logical-atlas-chain).
 
 **asset key** — Dagster asset identity, written source-first (for example
 `polymarket/wc2026/raw/markets`).
@@ -48,15 +59,16 @@ these public surfaces, not raw or intermediate schemas.
 Complete operator rows stay local and untracked.
 
 **attestation** — Operator-reviewed resolution or evidence file required by some
-advanced flows (notably Polygon settlement). Not committed to the canonical
+advanced pipelines (notably Polygon settlement). Not committed to the canonical
 repo.
 
 **observability schema** — `*_observability` relations for freshness, coverage,
-sync runs, and data-quality findings used before trusting prices.
+ingestion runs, and data-quality findings used before trusting prices.
 
 ## See Also
 
+- [Terminology](../reference/terminology.md)
+- [Naming](../reference/naming.md)
 - [Data dictionary](../reference/data-dictionary.md)
 - [Data contracts](../reference/data-contracts.md)
 - [Strategy contracts](../reference/strategy-contracts.md)
-- [Naming](../reference/naming.md)

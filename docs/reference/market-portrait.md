@@ -63,7 +63,7 @@ kickoff against the validated match universe and verifies that each required
 role's published root scan window strictly contains the complete football
 timeline. Scheduled kickoff is a validation anchor and is never substituted
 for missing actual boundaries. The declared deterministic sanitizer can move
-equal raw timestamps independently by one microsecond, so `game_ended_at` may
+equal raw timestamps independently by one microsecond, so `match_ended_at` may
 precede the final period boundary by at most two microseconds; any larger
 inversion blocks publication.
 

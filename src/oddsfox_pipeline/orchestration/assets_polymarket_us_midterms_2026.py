@@ -23,7 +23,7 @@ from oddsfox_pipeline.orchestration.config import (
     HourlyOddsSyncConfig,
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
-    MetadataBackfillConfig,
+    MetadataEnrichmentConfig,
 )
 from oddsfox_pipeline.orchestration.snapshot_helpers import (
     _snapshot_refreshed_scope_name,
@@ -57,7 +57,7 @@ POLYMARKET_US_MIDTERMS_2026_OPS_MARKET_SCOPE_REGISTRY = asset_key(
     SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "ops", "market_scope_registry"
 )
 POLYMARKET_US_MIDTERMS_2026_RAW_MARKET_METADATA_BACKFILL = asset_key(
-    SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "raw", "market_metadata_backfill"
+    SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "raw", "market_metadata_enrichment"
 )
 POLYMARKET_US_MIDTERMS_2026_RAW_TOKEN_ODDS_HISTORY_HOURLY = asset_key(
     SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "raw", "token_odds_history_hourly"
@@ -170,7 +170,7 @@ def polymarket_us_midterms_2026_ops_market_scope_registry(
 
 
 @multi_asset(
-    name="polymarket_us_midterms_2026_raw_market_metadata_backfill",
+    name="polymarket_us_midterms_2026_raw_market_metadata_enrichment",
     specs=[
         AssetSpec(
             key=POLYMARKET_US_MIDTERMS_2026_RAW_MARKET_METADATA_BACKFILL,
@@ -179,16 +179,16 @@ def polymarket_us_midterms_2026_ops_market_scope_registry(
     ],
     group_name="ingestion",
 )
-def polymarket_us_midterms_2026_raw_market_metadata_backfill(
+def polymarket_us_midterms_2026_raw_market_metadata_enrichment(
     context: AssetExecutionContext,
-    config: MetadataBackfillConfig,
+    config: MetadataEnrichmentConfig,
 ) -> MaterializeResult:
-    return asset_helpers._materialize_metadata_backfill(
+    return asset_helpers._materialize_metadata_enrichment(
         context,
         config,
-        asset_name="polymarket_us_midterms_2026_raw_market_metadata_backfill",
+        asset_name="polymarket_us_midterms_2026_raw_market_metadata_enrichment",
         scope_name=POLYMARKET_US_MIDTERMS_2026_SCOPE_NAME,
-        backfill_market_metadata_fn=ops.backfill_market_metadata,
+        enrich_market_metadata_fn=ops.enrich_market_metadata,
         delete_orphan_market_tokens_fn=ops.delete_orphan_market_tokens,
         snapshot_raw_layer_fn=snapshot_raw_layer,
         delta_raw_layer_fn=delta_raw_layer,
@@ -232,7 +232,7 @@ __all__ = [
     "POLYMARKET_US_MIDTERMS_2026_RAW_MARKETS",
     "POLYMARKET_US_MIDTERMS_2026_RAW_MARKETS_SNAPSHOT",
     "POLYMARKET_US_MIDTERMS_2026_RAW_TOKEN_ODDS_HISTORY_HOURLY",
-    "polymarket_us_midterms_2026_raw_market_metadata_backfill",
+    "polymarket_us_midterms_2026_raw_market_metadata_enrichment",
     "polymarket_us_midterms_2026_raw_markets",
     "polymarket_us_midterms_2026_raw_markets_snapshot",
     "polymarket_us_midterms_2026_raw_token_odds_history_hourly",

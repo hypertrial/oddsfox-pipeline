@@ -13,11 +13,10 @@ from oddsfox_pipeline.config.settings import (
     POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_DAYS,
     POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_HOURS,
     POLYMARKET_US_MIDTERMS_2026_MIN_VOLUME_USD,
-    POLYMARKET_WC2026_HOURLY_WINDOW_DAYS,
     POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
     POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
 )
-from oddsfox_pipeline.orchestration.scope_registry import (
+from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
     POLYMARKET_US_MIDTERMS_2026_SCOPE,
     POLYMARKET_WC2026_SCOPE,
@@ -110,7 +109,7 @@ class MarketScopeRegistryConfig(GuardrailConfig):
         return v
 
 
-class MetadataBackfillConfig(GuardrailConfig):
+class MetadataEnrichmentConfig(GuardrailConfig):
     batch_size: int = Field(default=50, ge=1, le=200)
     max_markets: int | None = None
     force: bool = False
@@ -178,19 +177,24 @@ class OddsSyncConfig(GuardrailConfig):
 
 
 class HourlyOddsSyncConfig(OddsSyncConfig):
+    """WC2026 hourly odds defaults collect from market creation.
+
+    The 30-day pipeline-policy window remains a dbt presentation bound. Raw
+    history is retained from market creation so later temporal pipelines can
+    widen their query window without re-fetching. Child markets of admitted
+    events are not filtered by market-grain volume or ended-market grace.
+    """
+
     fidelity: int = Field(default=60, ge=MIN_ODDS_FIDELITY_MINUTES)
     force: bool = True
     skip_recent_minutes: int = 1
     overlap_minutes: int = 60
     window_hours: int = POLYMARKET_WC2026_HOURLY_WINDOW_HOURS
-    history_backfill_days: int = Field(
-        default=POLYMARKET_WC2026_HOURLY_WINDOW_DAYS,
-        ge=0,
-    )
+    history_backfill_days: int = Field(default=0, ge=0)
     routine_interval_hours: int = Field(default=1, ge=1)
-    min_volume: float | None = Field(default=POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD)
+    min_volume: float | None = None
     max_volume: float | None = None
-    ended_market_grace_days: int | None = Field(default=7, ge=0)
+    ended_market_grace_days: int | None = None
 
 
 class MatchMinuteOddsSyncConfig(GuardrailConfig):
@@ -239,9 +243,37 @@ class DbtBuildConfig(GuardrailConfig):
     )
     full_refresh: bool = False
     dbt_select: str | None = None
-    dbt_exclude: str | None = "tag:polygon_settlement tag:pmxt_order_book"
+    dbt_exclude: str | None = (
+        "tag:polygon_settlement tag:pmxt_order_book tag:wc2026_logical_atlas"
+    )
     fetch_dbt_metadata: bool = False
     expected_duckdb_path: str | None = None
+
+
+class LogicalAtlasBundleConfig(Config):
+    """Optional filesystem publication for the logical-v1 Dagster asset."""
+
+    output_dir: str | None = None
+
+    @field_validator("output_dir")
+    @classmethod
+    def _validate_output_dir(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("output_dir must not be blank")
+        return value
+
+
+class ReviewedMembershipConfig(Config):
+    """Operator-local reviewed event-membership input."""
+
+    reviewed_membership_path: str | None = None
+
+    @field_validator("reviewed_membership_path")
+    @classmethod
+    def _validate_reviewed_membership_path(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("reviewed_membership_path must not be blank")
+        return value
 
 
 def polymarket_us_midterms_2026_full_refresh_events_run_config() -> dict:
@@ -254,7 +286,7 @@ def polymarket_us_midterms_2026_full_refresh_events_run_config() -> dict:
         force_refresh=True,
         max_pages_without_progress=None,
     )
-    metadata_cfg = MetadataBackfillConfig()
+    metadata_cfg = MetadataEnrichmentConfig()
     return {
         "ops": {
             "polymarket_us_midterms_2026_raw_markets": {
@@ -263,7 +295,7 @@ def polymarket_us_midterms_2026_full_refresh_events_run_config() -> dict:
             "polymarket_us_midterms_2026_ops_market_scope_registry": {
                 "config": registry_cfg.model_dump()
             },
-            "polymarket_us_midterms_2026_raw_market_metadata_backfill": {
+            "polymarket_us_midterms_2026_raw_market_metadata_enrichment": {
                 "config": metadata_cfg.model_dump()
             },
         }
@@ -301,6 +333,38 @@ def polymarket_wc2026_dbt_build_run_config() -> dict:
     return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}
 
 
+def polymarket_wc2026_logical_atlas_run_config(
+    *, reviewed_membership_path: str | None = None
+) -> dict:
+    """Refresh only the raw event catalog and logical-atlas dbt graph."""
+    registry_cfg = MarketScopeRegistryConfig(
+        force_refresh=True,
+        max_pages_without_progress=None,
+        keyset_volume_min=None,
+    )
+    dbt_cfg = DbtBuildConfig(
+        full_refresh=True,
+        dbt_select="+tag:wc2026_logical_atlas",
+        dbt_exclude="tag:polygon_settlement tag:pmxt_order_book",
+    )
+    return {
+        "ops": {
+            "polymarket_wc2026_raw_reviewed_event_membership": {
+                "config": ReviewedMembershipConfig(
+                    reviewed_membership_path=reviewed_membership_path
+                ).model_dump()
+            },
+            "polymarket_wc2026_raw_event_catalog": {
+                "config": registry_cfg.model_dump()
+            },
+            "oddsfox_dbt": {"config": dbt_cfg.model_dump()},
+            "polymarket_wc2026_release_logical_bundle": {
+                "config": LogicalAtlasBundleConfig().model_dump()
+            },
+        }
+    }
+
+
 def polymarket_us_midterms_2026_dbt_build_run_config() -> dict:
     dbt_cfg = DbtBuildConfig(
         full_refresh=True,
@@ -320,14 +384,15 @@ def polymarket_wc2026_full_refresh_events_run_config() -> dict:
         force_refresh=True,
         max_pages_without_progress=None,
     )
-    metadata_cfg = MetadataBackfillConfig()
+    # Re-evaluate missing metadata on each full registry refresh.
+    metadata_cfg = MetadataEnrichmentConfig(force=True)
     return {
         "ops": {
             "polymarket_wc2026_raw_markets": {"config": markets_cfg.model_dump()},
             "polymarket_wc2026_ops_market_scope_registry": {
                 "config": registry_cfg.model_dump()
             },
-            "polymarket_wc2026_raw_market_metadata_backfill": {
+            "polymarket_wc2026_raw_market_metadata_enrichment": {
                 "config": metadata_cfg.model_dump()
             },
         }
@@ -369,8 +434,8 @@ def polymarket_wc2026_match_minute_odds_run_config() -> dict:
             "polymarket_wc2026_ops_market_scope_registry": {
                 "config": registry.model_dump()
             },
-            "polymarket_wc2026_raw_market_metadata_backfill": {
-                "config": MetadataBackfillConfig().model_dump()
+            "polymarket_wc2026_raw_market_metadata_enrichment": {
+                "config": MetadataEnrichmentConfig().model_dump()
             },
             "polymarket_wc2026_raw_match_token_odds_history_minute": {
                 "config": MatchMinuteOddsSyncConfig().model_dump()
@@ -538,8 +603,8 @@ def wc2026_knockout_match_odds_full_pipeline_run_config() -> dict:
             "polymarket_wc2026_ops_market_scope_registry": {
                 "config": polymarket_registry.model_dump()
             },
-            "polymarket_wc2026_raw_market_metadata_backfill": {
-                "config": MetadataBackfillConfig().model_dump()
+            "polymarket_wc2026_raw_market_metadata_enrichment": {
+                "config": MetadataEnrichmentConfig().model_dump()
             },
             "polymarket_wc2026_raw_token_odds_history_hourly": {
                 "config": polymarket_odds.model_dump()

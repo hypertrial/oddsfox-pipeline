@@ -1,4 +1,4 @@
-"""Record extractors for Polymarket /markets backfill payloads."""
+"""Record extractors for Polymarket /markets metadata enrichment payloads."""
 
 from __future__ import annotations
 

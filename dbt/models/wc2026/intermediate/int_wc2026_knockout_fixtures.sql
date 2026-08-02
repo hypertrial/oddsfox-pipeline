@@ -14,5 +14,5 @@ select
     source_loaded_at,
     not regexp_matches(home_team, '^[WL][0-9]+$')
     and not regexp_matches(away_team, '^[WL][0-9]+$') as teams_resolved
-from {{ ref('stg_openfootball_wc2026_knockout_fixtures') }}
-where fifa_match_id <> 103
+from {{ ref('stg_openfootball_wc2026_schedule_fixtures') }}
+where fifa_match_id between 73 and 104 and fifa_match_id <> 103

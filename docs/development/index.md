@@ -148,11 +148,11 @@ making the static surfaces explicit and letting the guard tests catch drift:
 
 1. Add the source discovery seed entry, for example in the Polymarket or Kalshi
    `market_scopes.yml`.
-2. Add a `ScopeSpec` in `oddsfox_pipeline.orchestration.scope_registry` with the
+2. Add a `ScopeSpec` in `oddsfox_pipeline.orchestration.shipped_scopes` with the
    source/scope ref, namespace alias, fixed Dagster jobs, and dbt selector.
 3. Add explicit Dagster assets/jobs in the source module; keep asset keys and op
    names source-first and scope-first.
-4. Add dbt source YAML, model folder tags, and a contract seed when the scope
+4. Add dbt source YAML, model folder tags, and a pipeline policy seed when the scope
    ships analytics.
 5. Update the quickstart, scope guide, orchestration reference, scripts, and
    this checklist when operator behavior changes.
@@ -194,7 +194,7 @@ when settings reload from disk. See
 | `uv run make check-secrets` | Repo policy check for tracked secret leakage. |
 | `uv run make runtime-dirs` | Create SSD-local runtime, temporary, and cache directories. |
 | `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
-| `uv run make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement graph against replay fixtures. |
+| `uv run make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement dbt graph against replay fixtures. |
 | `uv run make data-quality` | Safe local dbt build-and-test wrapper against disposable state. |
 | `uv run make mutation` | Resume focused mutation testing for five curated modules and enforce exported Mutmut statistics. |
 | `uv run make mutation-ci` | Start from a clean mutation cache and run the deterministic zero-unresolved-mutant gate. |

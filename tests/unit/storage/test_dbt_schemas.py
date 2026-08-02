@@ -18,6 +18,10 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         == dbt_schemas.DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026
     )
     assert (
+        dbt_schemas.resolve_source_slug({"name": "stg_polymarket_catalog_markets"})
+        == dbt_schemas.DBT_SOURCE_POLYMARKET_CATALOG
+    )
+    assert (
         dbt_schemas.resolve_source_slug({"name": "polymarket_wc2026_knockout_markets"})
         == dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026
     )
@@ -39,10 +43,10 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
     )
     assert (
         dbt_schemas.shorten_model_name(
-            "polymarket_wc2026_sync_run_observability",
+            "polymarket_wc2026_ingestion_run_observability",
             dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
         )
-        == "sync_run_observability"
+        == "ingestion_run_observability"
     )
     assert (
         dbt_schemas.shorten_model_name(
@@ -69,6 +73,13 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         dbt_schemas.shorten_model_name(
             "custom_model",
             dbt_schemas.DBT_SOURCE_WC2026,
+        )
+        == "custom_model"
+    )
+    assert (
+        dbt_schemas.shorten_model_name(
+            "custom_model",
+            dbt_schemas.DBT_SOURCE_POLYMARKET_CATALOG,
         )
         == "custom_model"
     )
@@ -134,9 +145,11 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
     ) == AssetKey(["polymarket", "wc2026", "marts", "knockout_token_hourly_odds"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
-        "polymarket_wc2026_sync_run_observability",
+        "polymarket_wc2026_ingestion_run_observability",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
-    ) == AssetKey(["polymarket", "wc2026", "observability", "sync_run_observability"])
+    ) == AssetKey(
+        ["polymarket", "wc2026", "observability", "ingestion_run_observability"]
+    )
     assert dbt_schemas.dbt_model_asset_key_for_name(
         "polymarket_wc2026_knockout_stage_coverage",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
@@ -156,10 +169,15 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         ["polymarket", "us_midterms_2026", "marts", "market_token_hourly_odds"]
     )
     assert dbt_schemas.dbt_model_asset_key_for_name(
-        "polymarket_us_midterms_2026_sync_run_observability",
+        "polymarket_us_midterms_2026_ingestion_run_observability",
         dbt_schemas.DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026,
     ) == AssetKey(
-        ["polymarket", "us_midterms_2026", "observability", "sync_run_observability"]
+        [
+            "polymarket",
+            "us_midterms_2026",
+            "observability",
+            "ingestion_run_observability",
+        ]
     )
     assert (
         dbt_schemas.shorten_model_name(
@@ -218,4 +236,4 @@ def test_expected_dbt_relations_cover_models_and_seeds():
     missing = (model_names | seed_names) - expected_names
 
     assert not missing
-    assert "kalshi_wc2026_sync_run_observability" in expected_names
+    assert "kalshi_wc2026_ingestion_run_observability" in expected_names

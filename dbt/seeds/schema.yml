@@ -1,8 +1,73 @@
 version: 2
 
 seeds:
-  - name: polymarket_wc2026_contract
-    description: Internal WC2026 contract constants shared by dbt models/tests and Python parity tests.
+  - name: polymarket_wc2026_logical_contract
+    description: Versioned event-volume and membership policy for the logical bundle.
+    columns:
+      - name: policy_version
+        tests:
+          - not_null
+          - unique
+          - accepted_values:
+              arguments:
+                values: [wc2026-finals-sporting-v1]
+      - name: contract_name
+        tests:
+          - not_null
+          - unique
+          - accepted_values:
+              arguments:
+                values: [polymarket-wc2026-logical-v1]
+      - name: contract_version
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['1']
+      - name: event_volume_min_usd
+        tests: [not_null]
+      - name: required_event_tag
+        tests: [not_null]
+      - name: taxonomy_version
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [wc2026-logical-taxonomy-v1]
+      - name: recall_event_tag
+        tests: [not_null]
+      - name: fixture_series_slug
+        tests: [not_null]
+  - name: polymarket_wc2026_event_membership_overrides
+    description: Reviewed event-grain decisions for ambiguous or non-sporting WC2026 candidates.
+    columns:
+      - name: event_id
+        tests: [not_null, unique]
+      - name: membership_status
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [included, excluded]
+      - name: tournament_part
+        tests: [not_null]
+      - name: membership_basis
+        tests: [not_null]
+      - name: reason
+        tests: [not_null]
+      - name: reviewed_by
+        tests: [not_null]
+      - name: reviewed_at_utc
+        tests: [not_null]
+      - name: membership_class
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [sporting, qualification, administrative, culture_mentions, pre_tournament_participation, other_adjacent]
+
+  - name: polymarket_wc2026_pipeline_policy
+    description: Internal WC2026 pipeline policy constants shared by dbt models/tests and Python parity tests.
     columns:
       - name: scope_name
         description: Fixed scope name for the WC2026 Polymarket pipeline.
@@ -76,8 +141,8 @@ seeds:
       - name: reviewed_at_utc
         tests: [not_null]
 
-  - name: polymarket_us_midterms_2026_contract
-    description: Internal US midterms 2026 contract constants shared by dbt models/tests.
+  - name: polymarket_us_midterms_2026_pipeline_policy
+    description: Internal US midterms 2026 pipeline policy constants shared by dbt models/tests.
     columns:
       - name: scope_name
         description: Fixed scope name for the US midterms 2026 Polymarket pipeline.
@@ -101,8 +166,8 @@ seeds:
         description: Reserved coverage threshold for future observability checks.
         tests: [not_null]
 
-  - name: kalshi_wc2026_contract
-    description: Internal Kalshi WC2026 contract constants shared by dbt models/tests and Python parity tests.
+  - name: kalshi_wc2026_pipeline_policy
+    description: Internal Kalshi WC2026 pipeline policy constants shared by dbt models/tests and Python parity tests.
     columns:
       - name: scope_name
         description: Fixed scope name for the Kalshi WC2026 pipeline.

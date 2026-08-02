@@ -1457,6 +1457,9 @@ def test_gap_and_range_work_helpers_cover_resume_boundaries() -> None:
 def test_stored_target_range_parser_rejects_bad_json_and_typed_values() -> None:
     with pytest.raises(RuntimeError, match="malformed"):
         polygon_settlement_module._parse_target_ranges("{")
+    for raw in ("{}", "[]"):
+        with pytest.raises(RuntimeError, match="malformed"):
+            polygon_settlement_module._parse_target_ranges(raw)
 
     valid = {
         "exchange_address": STANDARD_V2_EXCHANGE,
@@ -1466,6 +1469,7 @@ def test_stored_target_range_parser_rejects_bad_json_and_typed_values() -> None:
         "to_block_hash": "0x" + "2" * 64,
     }
     malformed = (
+        [None],
         [valid],
         [{**valid, "exchange_address": "0x" + "9" * 40}],
         [{**valid, "from_block": True}],

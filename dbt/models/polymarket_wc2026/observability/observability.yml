@@ -41,7 +41,7 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ['pair_price', 'minute_completeness', 'cadence', 'timing', 'spine', 'price', 'ohlc', 'fetch', 'history', 'provenance']
+                values: ['pair_price', 'minute_completeness', 'observation_gap', 'timing', 'spine', 'price', 'ohlc', 'fetch', 'history', 'provenance']
       - name: issue_detail
         tests: [not_null]
       - name: observed_at
@@ -151,7 +151,7 @@ models:
         description: Maximum trailing-window hourly row count across scoped tokens in this bucket.
         tests: [not_null]
       - name: hourly_completeness_ratio
-        description: Observed hourly rows divided by expected rows from the WC2026 contract window.
+        description: Observed hourly rows divided by expected rows from the WC2026 pipeline policy window.
         tests: [not_null]
       - name: latest_hour_utc
         description: Latest hourly odds bucket available for this bucket.
@@ -205,16 +205,16 @@ models:
         description: dbt build timestamp when this finding was produced.
         tests: [not_null]
 
-  - name: polymarket_wc2026_sync_run_observability
+  - name: polymarket_wc2026_ingestion_run_observability
     description: >
-      One row per relevant pipeline run event with typed observability metrics for odds sync planning, execution,
+      One row per relevant ingestion run event with typed observability metrics for odds sync planning, execution,
       and pre-run token coverage context.
       Rows still reflect whatever the ingestion task wrote into ``metrics_json``; planning-context counters such as
       ``ledger_fully_checked_tokens`` and ratios like ``fully_checked_vs_market_tokens_ratio`` can read as zero when
       the emitter omits those fields rather than implying the warehouse suppressed them.
     columns:
       - name: run_id
-        description: UUID primary key for the underlying pipeline run event.
+        description: UUID primary key for the underlying ingestion run event.
         tests: [not_null, unique]
       - name: task_name
         description: Pipeline task that emitted the observability metrics row.
@@ -338,7 +338,7 @@ unit_tests:
     given:
       - input: ref('int_polymarket_wc2026_match_market_universe')
         rows:
-          - {fifa_match_id: 1, market_id: market-1, yes_clob_token_id: yes-1, no_clob_token_id: no-1, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:05:00'}
+          - {fifa_match_id: 1, market_id: market-1, yes_clob_token_id: yes-1, no_clob_token_id: no-1, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:05:00'}
       - input: ref('stg_polymarket_wc2026_match_minute_fetch_audit')
         rows:
           - {fetch_run_id: run-1, clob_token_id: yes-1, fetch_status: success, raw_published: true, source_row_count: 2, in_game_row_count: 2, fetch_finished_at: '2026-07-21 12:00:00'}
@@ -359,24 +359,24 @@ unit_tests:
     given:
       - input: ref('int_polymarket_wc2026_match_market_universe')
         rows:
-          - {fifa_match_id: 1, market_id: market-1, stage: group_stage, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', game_started_at_utc: '2026-07-01 13:00:00', game_finished_at_utc: '2026-07-01 15:30:00', results_source_revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, results_source_payload_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb}
-          - {fifa_match_id: 104, market_id: market-2, stage: final, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', game_started_at_utc: '2026-07-01 13:00:01', game_finished_at_utc: '2026-07-01 16:30:02', results_source_revision: bad, results_source_payload_sha256: bad}
+          - {fifa_match_id: 1, market_id: market-1, stage: group_stage, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', match_started_at_utc: '2026-07-01 13:00:00', match_finished_at_utc: '2026-07-01 15:30:00', results_source_revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, results_source_payload_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb}
+          - {fifa_match_id: 104, market_id: market-2, stage: final, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', match_started_at_utc: '2026-07-01 13:00:01', match_finished_at_utc: '2026-07-01 16:30:02', results_source_revision: bad, results_source_payload_sha256: bad}
       - input: ref('int_polymarket_wc2026_match_minute_odds_candidate')
         rows:
-          - {fifa_match_id: 1, market_id: market-boundary, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 1, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', yes_no_close_deviation: 0.05, pair_price_anomaly: false, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-pair, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 2, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', yes_no_close_deviation: 0.0501, pair_price_anomaly: true, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-gap, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 3, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: interior_incomplete}
-          - {fifa_match_id: 1, market_id: market-price, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 4, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete, yes_observed: true, yes_open_price: 1.1, yes_high_price: 1.1, yes_low_price: 1.1, yes_close_price: 1.1, yes_average_price: 1.1}
-          - {fifa_match_id: 1, market_id: market-ohlc, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 5, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete, yes_observed: true, yes_open_price: 0.5, yes_high_price: 0.4, yes_low_price: 0.6, yes_close_price: 0.5, yes_average_price: 0.5}
-          - {fifa_match_id: 1, market_id: market-axis-null, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 6, elapsed_window_minute: null, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-axis-negative, odds_minute_utc: '2026-07-01 11:59:00', odds_minute_epoch: 7, elapsed_window_minute: -1, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-axis-gap, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 8, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-axis-gap, odds_minute_utc: '2026-07-01 12:02:00', odds_minute_epoch: 9, elapsed_window_minute: 2, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-axis-duplicate, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 10, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-axis-duplicate, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 11, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-axis-utc, odds_minute_utc: '2026-07-01 12:01:00', odds_minute_epoch: 12, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:01:00', pair_price_anomaly: false, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-axis-final, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 13, elapsed_window_minute: 0, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
-          - {fifa_match_id: 1, market_id: market-axis-final, odds_minute_utc: '2026-07-01 12:01:00', odds_minute_epoch: 14, elapsed_window_minute: 1, game_started_at_utc: '2026-07-01 12:00:00', game_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-boundary, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 1, elapsed_window_minute: 0, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:00:00', yes_no_close_deviation: 0.05, pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-pair, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 2, elapsed_window_minute: 0, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:00:00', yes_no_close_deviation: 0.0501, pair_price_anomaly: true, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-gap, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 3, elapsed_window_minute: 0, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: interior_incomplete}
+          - {fifa_match_id: 1, market_id: market-price, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 4, elapsed_window_minute: 0, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete, yes_observed: true, yes_open_price: 1.1, yes_high_price: 1.1, yes_low_price: 1.1, yes_close_price: 1.1, yes_average_price: 1.1}
+          - {fifa_match_id: 1, market_id: market-ohlc, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 5, elapsed_window_minute: 0, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete, yes_observed: true, yes_open_price: 0.5, yes_high_price: 0.4, yes_low_price: 0.6, yes_close_price: 0.5, yes_average_price: 0.5}
+          - {fifa_match_id: 1, market_id: market-axis-null, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 6, elapsed_window_minute: null, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-negative, odds_minute_utc: '2026-07-01 11:59:00', odds_minute_epoch: 7, elapsed_window_minute: -1, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-gap, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 8, elapsed_window_minute: 0, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-gap, odds_minute_utc: '2026-07-01 12:02:00', odds_minute_epoch: 9, elapsed_window_minute: 2, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-duplicate, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 10, elapsed_window_minute: 0, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-duplicate, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 11, elapsed_window_minute: 0, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:00:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-utc, odds_minute_utc: '2026-07-01 12:01:00', odds_minute_epoch: 12, elapsed_window_minute: 0, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:01:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-final, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 13, elapsed_window_minute: 0, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
+          - {fifa_match_id: 1, market_id: market-axis-final, odds_minute_utc: '2026-07-01 12:01:00', odds_minute_epoch: 14, elapsed_window_minute: 1, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:02:00', pair_price_anomaly: false, minute_status: complete}
       - input: ref('polymarket_wc2026_match_minute_token_coverage')
         rows:
           - {fifa_match_id: 1, market_id: market-1, clob_token_id: token-warning, latest_fetch_run_id: run-1, latest_fetch_status: success, latest_fetch_raw_published: true, raw_observation_count: 2, max_observation_gap_seconds: 121, first_observation_offset_seconds: 121, last_observation_offset_seconds: 121, distinct_price_count: 1, cadence_gap_warning: true, first_boundary_offset_warning: true, last_boundary_offset_warning: true, constant_price_warning: true}
@@ -385,12 +385,12 @@ unit_tests:
       rows:
         - {issue_key: 'pair_price_anomaly:market-pair:2', severity: warn, issue_type: pair_price}
         - {issue_key: 'interior_incomplete:market-gap:3', severity: warn, issue_type: minute_completeness}
-        - {issue_key: 'cadence_gap:token-warning', severity: warn, issue_type: cadence}
-        - {issue_key: 'first_boundary_offset:token-warning', severity: warn, issue_type: cadence}
-        - {issue_key: 'last_boundary_offset:token-warning', severity: warn, issue_type: cadence}
-        - {issue_key: 'constant_price:token-warning', severity: warn, issue_type: cadence}
+        - {issue_key: 'cadence_gap:token-warning', severity: warn, issue_type: observation_gap}
+        - {issue_key: 'first_boundary_offset:token-warning', severity: warn, issue_type: observation_gap}
+        - {issue_key: 'last_boundary_offset:token-warning', severity: warn, issue_type: observation_gap}
+        - {issue_key: 'constant_price:token-warning', severity: warn, issue_type: observation_gap}
         - {issue_key: 'kickoff_shift:104', severity: warn, issue_type: timing}
-        - {issue_key: 'game_window:104', severity: warn, issue_type: timing}
+        - {issue_key: 'match_window:104', severity: warn, issue_type: timing}
         - {issue_key: 'elapsed_axis:market-axis-null', severity: error, issue_type: spine}
         - {issue_key: 'elapsed_axis:market-axis-negative', severity: error, issue_type: spine}
         - {issue_key: 'elapsed_axis:market-axis-gap', severity: error, issue_type: spine}
@@ -459,7 +459,7 @@ unit_tests:
           - {market_id: market-1, is_closed: true, sports_market_type: moneyline}
       - input: ref('int_polymarket_wc2026_match_market_universe')
         rows:
-          - {fifa_match_id: 1, market_id: market-1, stage: group_stage, yes_clob_token_id: shared-token, no_clob_token_id: shared-token, fixture_mapping_count: 2, primary_mapping_count: 1, game_started_at_utc: null, game_finished_at_utc: null}
+          - {fifa_match_id: 1, market_id: market-1, stage: group_stage, yes_clob_token_id: shared-token, no_clob_token_id: shared-token, fixture_mapping_count: 2, primary_mapping_count: 1, match_started_at_utc: null, match_finished_at_utc: null}
       - input: ref('int_polymarket_wc2026_match_token_minute_odds')
         rows: []
       - input: ref('int_polymarket_wc2026_match_minute_odds_candidate')
@@ -476,4 +476,4 @@ unit_tests:
         rows: []
     expect:
       rows:
-        - {mapped_tokens: 1, ambiguous_mappings: 1, missing_timing: 1, invalid_price_rows: 1, invalid_ohlc_rows: 1, blocking_issue_keys: 'game_count,fifa_id_coverage,market_count,group_market_count,knockout_market_count,token_count,token_history,fetch_audit,international_results_game_count,international_results_mart_coverage,international_results_source_coverage,international_results_provenance,ambiguous_mapping,missing_timing,invalid_price,invalid_ohlc'}
+        - {mapped_tokens: 1, ambiguous_mappings: 1, missing_timing: 1, invalid_price_rows: 1, invalid_ohlc_rows: 1, blocking_issue_keys: 'match_count,fifa_id_coverage,market_count,group_market_count,knockout_market_count,token_count,token_history,fetch_audit,international_results_match_count,international_results_mart_coverage,international_results_source_coverage,international_results_provenance,ambiguous_mapping,missing_timing,invalid_price,invalid_ohlc'}

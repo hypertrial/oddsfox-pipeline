@@ -1,4 +1,4 @@
-"""Polymarket metadata backfill: backfill_slugs."""
+"""Polymarket metadata enrichment: backfill_slugs."""
 
 import logging
 import time
@@ -35,7 +35,7 @@ def backfill_slugs(
     gamma_requests_per_second: float | None = None,
 ) -> Dict[str, Any]:
     """
-    Backfill slugs for markets that don't have them yet.
+    Enrich slugs for markets that don't have them yet.
     Uses ID filtering to fetch specific markets efficiently.
 
     Args:
@@ -45,7 +45,9 @@ def backfill_slugs(
     """
     t0 = time.monotonic()
     if not force and get_backfill_fully_checked("slugs"):
-        logger.debug("Slug backfill previously marked complete. Use --force to rerun.")
+        logger.debug(
+            "Slug enrichment previously marked complete. Use --force to rerun."
+        )
         return {
             "task": "backfill_slugs",
             "skipped": True,
@@ -54,7 +56,7 @@ def backfill_slugs(
             "api_requests": 0,
         }
 
-    logger.info("Starting slug backfill for existing markets")
+    logger.info("Starting slug enrichment for existing markets")
 
     ensure_duck_db()
 
@@ -63,7 +65,7 @@ def backfill_slugs(
     total_markets = len(market_ids)
 
     if total_markets == 0:
-        logger.debug("All markets already have slugs. Nothing to backfill.")
+        logger.debug("All markets already have slugs. Nothing to enrich.")
         if max_markets is None:
             set_backfill_fully_checked("slugs", True)
         return {
@@ -77,7 +79,7 @@ def backfill_slugs(
             "api_requests": 0,
         }
 
-    logger.info(f"Found {total_markets} markets without slugs. Starting backfill...")
+    logger.info(f"Found {total_markets} markets without slugs. Starting enrichment...")
     if progress_callback:
         progress_callback(
             "backfill_slugs",
@@ -96,7 +98,7 @@ def backfill_slugs(
             client=client,
             market_ids=market_ids,
             batch_size=batch_size,
-            desc="Backfilling slugs",
+            desc="Enriching slugs",
             include_events=True,
             extract_record=_extract_slug_record,
             save_batch=save_slugs_batch,
@@ -107,7 +109,7 @@ def backfill_slugs(
     finally:
         completed_all = processed >= total_markets
         logger.info(
-            f"Backfill complete. Processed {processed} markets, saved slugs for {saved} markets."
+            f"Enrichment complete. Processed {processed} markets, saved slugs for {saved} markets."
         )
         mark_complete = max_markets is None and completed_all
         set_backfill_fully_checked("slugs", mark_complete)

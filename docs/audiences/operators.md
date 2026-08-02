@@ -15,10 +15,10 @@ Schedules stay disabled until manual jobs and dbt builds are healthy.
 
 ## Credentials And Inputs
 
-| Scope or flow | Network / credentials | Operator-local inputs |
+| Scope or pipeline | Network / credentials | Operator-local inputs |
 | --- | --- | --- |
-| `polymarket:wc2026` | Public Gamma/CLOB; CLOB auth optional unless a live flow requires it | `.env` only for the ordinary full run |
-| `polymarket:us_midterms_2026` | Public Gamma/CLOB; auth optional for public flows | `.env` only |
+| `polymarket:wc2026` | Public Gamma/CLOB; CLOB auth optional unless a live job requires it | `.env` only for the ordinary full run |
+| `polymarket:us_midterms_2026` | Public Gamma/CLOB; auth optional for public pipelines | `.env` only |
 | `kalshi:wc2026` | Public trade API; no API credentials | `.env` only |
 | FIFA / international results | Public CSV feeds pulled by WC2026 jobs | `.env` only |
 | Match-minute mart recreation | Live APIs or a completed raw warehouse | Populated schedule overlay at the documented seed path (tracked file is a header-only shell) |

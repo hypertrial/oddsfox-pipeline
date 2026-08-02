@@ -15,6 +15,7 @@ MARKET_RECORD_COLUMNS = (
     "question",
     "category",
     "description",
+    "market_resolution_source",
     "outcomes",
     "volume",
     "active",
@@ -34,11 +35,16 @@ MARKET_RECORD_COLUMNS = (
     "sports_market_type",
     "game_start_time",
     "group_item_title",
+    "group_item_threshold",
+    "line",
     "tags",
     "clob_token_ids",
     "is_resolved",
     "winning_outcome",
     "winning_clob_token_id",
+    "neg_risk_market_id",
+    "neg_risk_request_id",
+    "neg_risk_other",
 )
 
 
@@ -89,6 +95,7 @@ def prepare_batch_for_db(df: pl.DataFrame) -> Tuple[List[Tuple], List[Tuple]]:
                 row.get("question", ""),
                 row.get("category", ""),
                 row.get("description", ""),
+                row.get("market_resolution_source"),
                 row.get("outcomes_str", ""),
                 float(volume) if volume is not None else 0.0,
                 bool(active) if active is not None else None,
@@ -108,11 +115,16 @@ def prepare_batch_for_db(df: pl.DataFrame) -> Tuple[List[Tuple], List[Tuple]]:
                 row.get("sports_market_type"),
                 row.get("game_start_time"),
                 row.get("group_item_title"),
+                row.get("group_item_threshold"),
+                row.get("line"),
                 row.get("tags_str"),
                 row.get("clob_token_ids"),
                 bool(is_resolved) if is_resolved is not None else None,
                 row.get("winning_outcome"),
                 row.get("winning_clob_token_id"),
+                row.get("neg_risk_market_id"),
+                row.get("neg_risk_request_id"),
+                row.get("neg_risk_other"),
             )
         )
 

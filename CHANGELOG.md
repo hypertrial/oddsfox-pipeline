@@ -7,8 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-08-02
+
 ### Added
 
+- The manifest-bound `polymarket-wc2026-logical-v1` event, market, membership,
+  proposition, entity, and scope bundle for the local WC2026 Logical Market
+  Atlas. Event admission uses Polymarket's source-reported lifetime event volume
+  with a reviewed final-tournament membership policy and sticky eligibility.
+- Append-only Polymarket event, tag, and event-market snapshots; reviewed
+  membership decisions; bundle quality checks; and atomic paired Pipeline/Graph
+  release publication with exact source revisions and file hashes. Builds are
+  shadow-only; activation additionally requires Graph's manifest-bound browser
+  smoke receipt and validates it under the activation lock before repointing
+  `current`. Content-sealed pre-atlas rollback releases remain activatable
+  without fabricating unavailable historical code revisions.
+- Logical market membership is derived from each event's latest complete
+  catalog observation, so source corrections and zero-child removals do not
+  leave stale relationships in the served logical atlas while raw history remains
+  append-only.
 - Public Polymarket market catalog marts `polymarket_wc2026_markets` and
   `polymarket_us_midterms_2026_markets`: one row per platform-wide Gamma market
   with volume at or above $100,000 USD (`/markets/keyset` catalog sync; no
@@ -20,6 +37,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/export_polymarket_markets.py` to export those catalog marts to parquet
   under `artifacts/polymarket_markets_exports/` with fail-closed grain, volume-floor,
   timing, and outcomes/CLOB JSON checks.
+
+### Changed
+
+- Breaking terminology cutover (no aliases): canonical vocabulary in
+  `docs/reference/terminology.md` — product-path **pipeline** (not flow);
+  **logical atlas / logical bundle / logical contract** (not graph odds/export);
+  public marts as the supported query API; **`wc2026.v1` is the private strategy
+  clean-data contract only**; minute-grain / match-minute (not minutely);
+  ingestion-run observability (not sync-run); schedule fixtures for OpenFootball
+  1–104; market scope registry refresh / step `market_registry`; metadata
+  enrichment; pipeline policy for threshold seeds. Identifier renames:
+  `shipped_scopes`; `*_market_scope_registry_refresh`; ScopeStep
+  `market_registry`; `membership_class`; `market_metadata_enrichment`;
+  `ingestion_run_events` / `*_ingestion_run_observability`; match-minute
+  `observation_gap`. Delete `oddsfox.duckdb*` and rebuild before using the new
+  layout.
+
+- Breaking: logical-atlas identifiers rename `graph_*` eligibility/usability
+  fields and models to `logical_*` (`int_polymarket_wc2026_logical_markets`,
+  `polymarket_wc2026_logical_contract`, `logical_usable`,
+  `event_logical_eligible`, tag `wc2026_logical_atlas`). No compatibility
+  aliases.
+
+- Breaking: the WC2026 release path now exports the logical-v1 bundle and
+  invokes `oddsfox-graph discover --input-profile polymarket-wc2026-logical-v1`.
+  The prior hourly graph mart/export is removed. Recreate local DuckDB
+  warehouses before running the new full-pipeline job.
 
 ## [0.1.12] - 2026-07-29
 
@@ -599,7 +643,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: lint, tests, docs build, dbt parse, and dbt build.
 - Schedules disabled by default; opt-in via `.env` for live ingestion.
 
-[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.12...HEAD
+[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.13...HEAD
+[0.1.13]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.9...v0.1.10

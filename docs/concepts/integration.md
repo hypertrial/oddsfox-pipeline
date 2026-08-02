@@ -7,17 +7,19 @@ not cover private strategy internals or order execution.
 
 | Consume | Notes |
 | --- | --- |
-| Public `*_marts` relations | Primary analytics contract; start with [Data contracts](../reference/data-contracts.md) and the [Data dictionary](../reference/data-dictionary.md). |
+| Public `*_marts` relations | Supported query API; start with [Data contracts](../reference/data-contracts.md) and the [Data dictionary](../reference/data-dictionary.md). |
 | Cross-platform knockout match mart | `wc2026_marts.wc2026_knockout_match_hourly_odds` and related public WC2026 analytics metadata. |
-| Graph export parquet | Offline input for `oddsfox-graph`; produce with `scripts/export_polymarket_wc2026_graph_hourly_odds.py` (see [Scripts](../reference/scripts.md)). |
+| WC2026 logical-v1 bundle | Seven-file static logical input for `oddsfox-graph`; produce with `scripts/export_polymarket_wc2026_logical_bundle.py` and validate `manifest.json` (see the [logical-atlas runbook](../guides/build-wc2026-logical-atlas.md)). |
 | `*_observability` | Optional trust and freshness checks before analysis. |
-| Strategy / raw.v1 consumers only | Private canonical snapshots and the strategy clean-data set; see [Strategy contracts](../reference/strategy-contracts.md). |
+| Strategy / raw.v1 consumers only | Private canonical snapshots and the strategy clean-data set (`wc2026.v1`); see [Strategy contracts](../reference/strategy-contracts.md). |
+
+Vocabulary: [Terminology](../reference/terminology.md).
 
 ## Do Not Treat As APIs
 
 - `*_raw`, `*_ops`, staging, and intermediate schemas
 - Operator-local Polygon audit bundles or technical exports as substitutes for
-  `wc2026.v1`
+  the strategy contract `wc2026.v1`
 - Dagster UI state or local script side effects
 
 ## Versioning Expectations
@@ -30,9 +32,9 @@ semver stability for warehouse layouts.
 
 ## Execution Boundary
 
-Pipeline and graph outputs are not execution inputs unless a separate control
-plane converts them into an admitted explicit intent for `oddsfox-execution`.
-This repository never contains strategy or execution code.
+Pipeline and logical-atlas outputs are not execution inputs unless a separate
+control plane converts them into an admitted explicit intent for
+`oddsfox-execution`. This repository never contains strategy or execution code.
 
 See [System overview](system-overview.md) for repository roles.
 

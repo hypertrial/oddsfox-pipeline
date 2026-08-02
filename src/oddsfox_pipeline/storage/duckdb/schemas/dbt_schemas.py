@@ -94,15 +94,15 @@ POLYMARKET_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "polymarket_wc2026_polygon_settlement_token_coverage",
     "polymarket_wc2026_knockout_stage_coverage",
     "polymarket_wc2026_knockout_data_quality",
-    "polymarket_wc2026_sync_run_observability",
+    "polymarket_wc2026_ingestion_run_observability",
 )
 KALSHI_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "kalshi_wc2026_stage_coverage",
     "kalshi_wc2026_data_quality",
-    "kalshi_wc2026_sync_run_observability",
+    "kalshi_wc2026_ingestion_run_observability",
 )
 POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
-    "polymarket_us_midterms_2026_sync_run_observability",
+    "polymarket_us_midterms_2026_ingestion_run_observability",
 )
 INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "international_results_wc2026_data_quality",
@@ -136,7 +136,7 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
 DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         OPENFOOTBALL_WC2026_STAGING_SCHEMA,
-        "stg_openfootball_wc2026_knockout_fixtures",
+        "stg_openfootball_wc2026_schedule_fixtures",
     ),
     (WC2026_INTERMEDIATE_SCHEMA, "int_wc2026_knockout_fixtures"),
     (WC2026_MARTS_SCHEMA, "wc2026_knockout_match_hourly_odds"),
@@ -206,6 +206,20 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_markets"),
     (
         POLYMARKET_WC2026_STAGING_SCHEMA,
+        "stg_polymarket_wc2026_event_snapshots",
+    ),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_event_tags"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_event_markets"),
+    (
+        POLYMARKET_WC2026_STAGING_SCHEMA,
+        "stg_polymarket_wc2026_event_market_payload_snapshots",
+    ),
+    (
+        POLYMARKET_WC2026_STAGING_SCHEMA,
+        "stg_polymarket_wc2026_event_market_payload_latest",
+    ),
+    (
+        POLYMARKET_WC2026_STAGING_SCHEMA,
         "stg_polymarket_wc2026_match_minute_odds_history",
     ),
     (
@@ -219,7 +233,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_market_tokens"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_odds_daily"),
-    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_pipeline_run_events"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_ingestion_run_events"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_sync_ledger"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_token_sync_skips"),
     (
@@ -242,8 +256,41 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         POLYMARKET_WC2026_STAGING_SCHEMA,
         "polymarket_wc2026_polygon_settlement_markets",
     ),
-    (POLYMARKET_WC2026_STAGING_SCHEMA, "polymarket_wc2026_contract"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "polymarket_wc2026_pipeline_policy"),
+    (POLYMARKET_WC2026_STAGING_SCHEMA, "polymarket_wc2026_logical_contract"),
+    (
+        POLYMARKET_WC2026_STAGING_SCHEMA,
+        "polymarket_wc2026_event_membership_overrides",
+    ),
     (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_markets"),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_event_latest",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_event_membership",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_fixture_events",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_logical_market_events",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_logical_markets",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_logical_player_teams",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_logical_team_identities",
+    ),
     (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_token_universe"),
     (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_market_tokens"),
     (
@@ -327,13 +374,28 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         "polymarket_wc2026_polygon_settlement_minute_odds",
     ),
     (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_markets"),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_logical_scopes"),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_logical_entities"),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_logical_events"),
+    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_logical_markets"),
+    (
+        POLYMARKET_WC2026_MARTS_SCHEMA,
+        "polymarket_wc2026_logical_market_events",
+    ),
+    (
+        POLYMARKET_WC2026_MARTS_SCHEMA,
+        "polymarket_wc2026_logical_propositions",
+    ),
+    (
+        POLYMARKET_WC2026_MARTS_SCHEMA,
+        "polymarket_wc2026_logical_proposition_entities",
+    ),
     (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_market_tokens"),
     (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_knockout_markets"),
     (
         POLYMARKET_WC2026_MARTS_SCHEMA,
         "polymarket_wc2026_knockout_token_hourly_odds",
     ),
-    (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_graph_token_hourly_odds"),
     (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
         "polymarket_wc2026_knockout_stage_coverage",
@@ -376,7 +438,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
-        "polymarket_wc2026_sync_run_observability",
+        "polymarket_wc2026_ingestion_run_observability",
     ),
     (
         POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
@@ -396,7 +458,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_pipeline_run_events",
+        "stg_polymarket_us_midterms_2026_ingestion_run_events",
     ),
     (
         POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
@@ -408,7 +470,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "polymarket_us_midterms_2026_contract",
+        "polymarket_us_midterms_2026_pipeline_policy",
     ),
     (
         POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
@@ -436,7 +498,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA,
-        "polymarket_us_midterms_2026_sync_run_observability",
+        "polymarket_us_midterms_2026_ingestion_run_observability",
     ),
     (KALSHI_WC2026_STAGING_SCHEMA, "stg_kalshi_wc2026_events"),
     (KALSHI_WC2026_STAGING_SCHEMA, "stg_kalshi_wc2026_markets"),
@@ -444,7 +506,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         KALSHI_WC2026_STAGING_SCHEMA,
         "stg_kalshi_wc2026_market_candlesticks_hourly",
     ),
-    (KALSHI_WC2026_STAGING_SCHEMA, "kalshi_wc2026_contract"),
+    (KALSHI_WC2026_STAGING_SCHEMA, "kalshi_wc2026_pipeline_policy"),
     (KALSHI_WC2026_INTERMEDIATE_SCHEMA, "int_kalshi_wc2026_markets"),
     (KALSHI_WC2026_INTERMEDIATE_SCHEMA, "int_kalshi_wc2026_market_hourly_odds"),
     (
@@ -474,7 +536,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (KALSHI_WC2026_OBSERVABILITY_SCHEMA, "kalshi_wc2026_data_quality"),
     (
         KALSHI_WC2026_OBSERVABILITY_SCHEMA,
-        "kalshi_wc2026_sync_run_observability",
+        "kalshi_wc2026_ingestion_run_observability",
     ),
 )
 

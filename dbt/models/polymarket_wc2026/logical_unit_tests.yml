@@ -1,0 +1,1084 @@
+version: 2
+
+unit_tests:
+  - name: test_wc2026_event_eligibility_is_exact_and_sticky
+    model: int_polymarket_wc2026_event_latest
+    given:
+      - input: ref('stg_polymarket_wc2026_event_snapshots')
+        format: sql
+        rows: |
+          select 'event-edge' as event_id, 99999.99::double as event_volume_usd_lifetime_reported,
+            timestamp '2026-01-01' as created_at,
+            timestamp '2026-06-01' as observed_at,
+            timestamp '2026-06-01' as source_updated_at
+          union all
+          select 'event-edge', 100000.0, timestamp '2026-01-01',
+            timestamp '2026-06-02', timestamp '2026-06-02'
+          union all
+          select 'event-corrected', 120000.0, timestamp '2026-02-01',
+            timestamp '2026-06-01', timestamp '2026-06-01'
+          union all
+          select 'event-corrected', 90000.0, timestamp '2026-02-01',
+            timestamp '2026-06-03', timestamp '2026-06-03'
+          union all
+          select 'event-below', 99999.999, timestamp '2026-03-01',
+            timestamp '2026-06-04', timestamp '2026-06-04'
+          union all
+          select 'event-sparse', 120000.0, timestamp '2026-04-01',
+            timestamp '2026-06-01', timestamp '2026-06-01'
+          union all
+          select 'event-sparse', 130000.0, null::timestamp,
+            timestamp '2026-06-05', timestamp '2026-06-05'
+          union all
+          select 'event-missing-created', 150000.0, null::timestamp,
+            timestamp '2026-06-06', timestamp '2026-06-06'
+      - input: ref('polymarket_wc2026_logical_contract')
+        format: sql
+        rows: |
+          select 100000.0::double as event_volume_min_usd
+    expect:
+      rows:
+        - {event_id: event-below, created_at: '2026-03-01 00:00:00', currently_eligible: false, ever_eligible: false, first_eligible_observed_at: null, eligibility_effective_from: null, event_volume_min_usd: 100000.0}
+        - {event_id: event-corrected, created_at: '2026-02-01 00:00:00', currently_eligible: false, ever_eligible: true, first_eligible_observed_at: '2026-06-01 00:00:00', eligibility_effective_from: '2026-02-01 00:00:00', event_volume_min_usd: 100000.0}
+        - {event_id: event-edge, created_at: '2026-01-01 00:00:00', currently_eligible: true, ever_eligible: true, first_eligible_observed_at: '2026-06-02 00:00:00', eligibility_effective_from: '2026-01-01 00:00:00', event_volume_min_usd: 100000.0}
+        - {event_id: event-missing-created, created_at: null, currently_eligible: true, ever_eligible: true, first_eligible_observed_at: '2026-06-06 00:00:00', eligibility_effective_from: null, event_volume_min_usd: 100000.0}
+        - {event_id: event-sparse, created_at: '2026-04-01 00:00:00', currently_eligible: true, ever_eligible: true, first_eligible_observed_at: '2026-06-01 00:00:00', eligibility_effective_from: '2026-04-01 00:00:00', event_volume_min_usd: 100000.0}
+
+  - name: test_wc2026_membership_review_matrix
+    model: int_polymarket_wc2026_event_membership
+    given:
+      - input: ref('int_polymarket_wc2026_event_latest')
+        format: sql
+        rows: |
+          select 'reviewed-in' as event_id, 'World Cup winner' as event_title,
+            'world-cup-winner' as event_slug, 'sporting' as event_description,
+            '["2026-fifa-world-cup"]' as tags_json, '[]' as series_slugs_json,
+            true as ever_eligible, timestamp '2026-01-01' as created_at
+          union all
+          select 'reviewed-out', 'Announcer mentions a politician',
+            'world-cup-mentions', 'culture', '["2026-fifa-world-cup"]', '[]', true,
+            timestamp '2026-01-01'
+          union all
+          select 'fixture-auto', 'USA vs Paraguay', 'fifwc-usa-par',
+            'fixture', '["2026-fifa-world-cup"]', '["soccer-fifwc"]', true,
+            timestamp '2026-01-01'
+          union all
+          select 'unreviewed', 'World Cup adjacent question', 'wc-adjacent',
+            'unknown', '["fifa-world-cup"]', '[]', true, timestamp '2026-01-01'
+          union all
+          select 'related-only', 'Related soccer event', 'related-soccer',
+            'recall candidate', '["soccer"]', '[]', true, timestamp '2026-01-01'
+          union all
+          select 'reviewed-no-created', 'World Cup special', 'world-cup-special',
+            'sporting', '["2026-fifa-world-cup"]', '[]', true, null::timestamp
+      - input: ref('int_polymarket_wc2026_fixture_events')
+        format: sql
+        rows: |
+          select 'fixture-auto' as event_id, 1 as fifa_match_id,
+            'group_stage' as fixture_stage, 'A' as group_label,
+            'exact_event_slug' as fixture_mapping_basis
+      - input: source('polymarket_wc2026_raw', 'reviewed_event_membership')
+        format: sql
+        rows: |
+          select 'reviewed-in' as event_id, 'included' as membership_status,
+            'sporting' as membership_class, 'tournament_wide' as tournament_part,
+            'reviewed_inclusion' as membership_basis, 'sporting outcome' as reason,
+            'reviewer' as reviewed_by, '2026-08-02T00:00:00Z' as reviewed_at_utc
+          union all
+          select 'reviewed-out', 'excluded', 'culture_mentions', 'tournament_wide',
+            'reviewed_exclusion', 'not a sporting outcome', 'reviewer',
+            '2026-08-02T00:00:00Z'
+          union all
+          select 'reviewed-no-created', 'included', 'sporting', 'tournament_wide',
+            'reviewed_inclusion', 'sporting outcome', 'reviewer',
+            '2026-08-02T00:00:00Z'
+      - input: ref('polymarket_wc2026_logical_contract')
+        format: sql
+        rows: |
+          select '2026-fifa-world-cup' as required_event_tag,
+            'wc2026-finals-sporting-v1' as policy_version,
+            'polymarket-wc2026-logical-v1' as contract_name,
+            '1' as contract_version
+    expect:
+      rows:
+        - {event_id: fixture-auto, membership_status: included, membership_class: sporting, tournament_part: group_stage, scope_id: 'scope:wc2026:fixture:1', is_logical_event: true}
+        - {event_id: reviewed-in, membership_status: included, membership_class: sporting, tournament_part: tournament_wide, scope_id: 'scope:wc2026:tournament_wide', is_logical_event: true}
+        - {event_id: reviewed-no-created, membership_status: included, membership_class: sporting, tournament_part: tournament_wide, scope_id: 'scope:wc2026:tournament_wide', is_logical_event: true}
+        - {event_id: reviewed-out, membership_status: excluded, membership_class: culture_mentions, tournament_part: null, scope_id: null, is_logical_event: false}
+        - {event_id: unreviewed, membership_status: review_required, membership_class: other_adjacent, tournament_part: null, scope_id: null, is_logical_event: false}
+        - {event_id: related-only, membership_status: review_required, membership_class: sporting_candidate, tournament_part: null, scope_id: null, is_logical_event: false}
+
+  - name: test_wc2026_logical_events_preserve_standalone_audit_candidates
+    model: polymarket_wc2026_logical_events
+    given:
+      - input: ref('int_polymarket_wc2026_event_membership')
+        format: sql
+        rows: |
+          select 'excluded-event' as event_id, 'excluded' as event_slug,
+            'Excluded candidate' as event_title, '' as event_description,
+            null::varchar as resolution_source, '[]' as tags_json,
+            '[]' as series_slugs_json, '["related_2026_tag_recall"]' as candidate_sources_json,
+            150000.0::double as event_volume_usd_lifetime_reported,
+            timestamp '2026-08-02' as observed_at,
+            timestamp '2026-08-01' as first_seen_at,
+            timestamp '2026-08-01' as first_eligible_observed_at,
+            timestamp '2026-01-01' as eligibility_effective_from,
+            true as ever_eligible, true as currently_eligible,
+            false as volume_unknown, timestamp '2026-01-01' as created_at,
+            true as is_active, false as is_closed, false as is_archived,
+            false as neg_risk, null::varchar as neg_risk_market_id,
+            false as show_all_outcomes, null::timestamp as event_start_at,
+            null::timestamp as start_at, null::timestamp as end_at,
+            null::timestamp as finished_at, null::varchar as game_id,
+            null::integer as fifa_match_id, null::varchar as fixture_group_label,
+            null::varchar as fixture_mapping_basis, 'excluded' as membership_status,
+            'other_adjacent' as membership_class, null::varchar as tournament_part,
+            null::varchar as scope_id, 'reviewed_exclusion' as membership_basis,
+            'Adjacent event' as membership_reason, 'policy-v1' as membership_policy_version,
+            false as is_logical_event
+          union all
+          select 'unknown-volume', 'unknown-volume', 'Unknown-volume candidate', '',
+            null, '[]', '[]', '["related_2026_tag_recall"]', null,
+            timestamp '2026-08-02', timestamp '2026-08-01', null,
+            null, false, false, true, timestamp '2026-01-01', true, false,
+            false, false, null, false, null, null, null, null, null, null,
+            null, null, 'review_required', 'sporting_candidate', null, null,
+            'unreviewed_candidate', 'Needs review', 'policy-v1', false
+      - input: ref('int_polymarket_wc2026_logical_market_events')
+        format: sql
+        rows: |
+          select null::varchar as event_id, null::varchar as market_id where false
+      - input: ref('int_polymarket_wc2026_logical_markets')
+        format: sql
+        rows: |
+          select null::varchar as market_id, false as logical_usable,
+            null::varchar as market_neg_risk_market_id where false
+    expect:
+      rows:
+        - {event_id: excluded-event, membership_status: excluded, volume_unknown: false, event_logical_eligible: false}
+        - {event_id: unknown-volume, membership_status: review_required, volume_unknown: true, event_logical_eligible: false}
+
+  - name: test_wc2026_multi_event_market_has_one_deterministic_primary
+    model: int_polymarket_wc2026_logical_market_events
+    given:
+      - input: ref('stg_polymarket_wc2026_event_snapshots')
+        format: sql
+        rows: |
+          select 'event-general' as event_id, timestamp '2026-08-02' as observed_at
+          union all
+          select 'event-fixture', timestamp '2026-08-02'
+      - input: ref('stg_polymarket_wc2026_event_markets')
+        format: sql
+        rows: |
+          select 'event-general' as event_id, 'market-shared' as market_id,
+            0 as source_ordinal, true as is_enclosing_event,
+            timestamp '2026-08-02' as observed_at
+          union all
+          select 'event-fixture', 'market-shared', 1, false,
+            timestamp '2026-08-02'
+          union all
+          select 'event-general', 'market-removed-later', 4, false,
+            timestamp '2026-07-01'
+          union all
+          select 'event-general', 'market-current', 2, false,
+            timestamp '2026-08-02'
+      - input: ref('int_polymarket_wc2026_event_membership')
+        format: sql
+        rows: |
+          select 'event-general' as event_id, timestamp '2026-01-01' as created_at,
+            true as is_logical_event, 'included' as membership_status,
+            true as ever_eligible, false as volume_unknown
+          union all
+          select 'event-fixture', timestamp '2026-02-01', true, 'included',
+            true, false
+      - input: ref('int_polymarket_wc2026_fixture_events')
+        format: sql
+        rows: |
+          select 'event-fixture' as event_id, 1 as fifa_match_id,
+            'exact_event_slug' as fixture_mapping_basis
+    expect:
+      rows:
+        - {event_id: event-fixture, market_id: market-shared, source_ordinal: 1, fifa_match_id: 1, is_primary_qualifying_event: true}
+        - {event_id: event-general, market_id: market-shared, source_ordinal: 0, fifa_match_id: null, is_primary_qualifying_event: false}
+        - {event_id: event-general, market_id: market-current, source_ordinal: 2, fifa_match_id: null, is_primary_qualifying_event: true}
+
+  - name: test_wc2026_logical_team_identities_are_unique_alias_lookups
+    model: int_polymarket_wc2026_logical_team_identities
+    given:
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        format: sql
+        rows: |
+          select 'United States' as home_team, 'Cape Verde' as away_team
+          union all select 'united states', 'cabo verde'
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select 'usa' as variant_match_key,
+            'united states' as canonical_match_key
+          union all select 'united states', 'united states'
+          union all select 'cpv', 'cabo verde'
+          union all select 'cape verde', 'cabo verde'
+          union all select 'cabo verde', 'cabo verde'
+          union all select 'italy', 'italy'
+    expect:
+      rows:
+        - {team_name: United States, source_match_key: usa, team_match_key: usa, canonical_match_key: united states, canonical_team_id: 152649df347ee2891a9eacc883e07d17}
+        - {team_name: United States, source_match_key: united states, team_match_key: united states, canonical_match_key: united states, canonical_team_id: 152649df347ee2891a9eacc883e07d17}
+        - {team_name: Cape Verde, source_match_key: cpv, team_match_key: cpv, canonical_match_key: cabo verde, canonical_team_id: 346874cd7c9ecf2a4ec7b97e958655f1}
+        - {team_name: Cape Verde, source_match_key: cape verde, team_match_key: cape verde, canonical_match_key: cabo verde, canonical_team_id: 346874cd7c9ecf2a4ec7b97e958655f1}
+        - {team_name: Cape Verde, source_match_key: cabo verde, team_match_key: cabo verde, canonical_match_key: cabo verde, canonical_team_id: 346874cd7c9ecf2a4ec7b97e958655f1}
+        - {team_name: italy, source_match_key: italy, team_match_key: italy, canonical_match_key: italy, canonical_team_id: bab4ac375adad13f5693f24fceab7903}
+
+  - name: test_wc2026_proposition_entities_include_fixture_group_and_stage_context
+    model: polymarket_wc2026_logical_proposition_entities
+    given:
+      - input: ref('polymarket_wc2026_logical_propositions')
+        format: sql
+        rows: |
+          select 'prop-player' as source_proposition_id,
+            'player:endrick' as predicate_subject_entity_id,
+            'metric:goals' as predicate_object, 'market-player' as market_id,
+            'records_statistic' as predicate
+          union all
+          select 'prop-result', 'fixture:5', 'team:brazil',
+            'market-result', 'wins_match'
+      - input: ref('polymarket_wc2026_logical_markets')
+        format: sql
+        rows: |
+          select 'market-player' as market_id, 5 as fifa_match_id,
+            'group_stage' as tournament_part,
+            'Endrick: 1+ goals' as group_item_title
+          union all
+          select 'market-result', 5, 'group_stage', 'Match result'
+      - input: ref('polymarket_wc2026_logical_entities')
+        format: sql
+        rows: |
+          select 'fixture:5' as entity_id, 'a' as group_label,
+            null::varchar as home_team_entity_id,
+            null::varchar as away_team_entity_id
+      - input: ref('int_polymarket_wc2026_logical_player_teams')
+        format: sql
+        rows: |
+          select null::varchar as player_entity_id,
+            null::varchar as canonical_team_entity_id where false
+      - input: ref('int_polymarket_wc2026_logical_team_identities')
+        format: sql
+        rows: |
+          select null::varchar as team_match_key,
+            null::varchar as canonical_team_id where false
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select null::varchar as variant_match_key,
+            null::varchar as canonical_match_key where false
+    expect:
+      rows:
+        - {source_proposition_id: prop-player, entity_id: 'player:endrick', entity_role: subject}
+        - {source_proposition_id: prop-player, entity_id: 'fixture:5', entity_role: referenced}
+        - {source_proposition_id: prop-player, entity_id: 'group:a', entity_role: referenced}
+        - {source_proposition_id: prop-player, entity_id: 'stage:group_stage', entity_role: referenced}
+        - {source_proposition_id: prop-result, entity_id: 'fixture:5', entity_role: subject}
+        - {source_proposition_id: prop-result, entity_id: 'team:brazil', entity_role: referenced}
+        - {source_proposition_id: prop-result, entity_id: 'fixture:5', entity_role: referenced}
+        - {source_proposition_id: prop-result, entity_id: 'group:a', entity_role: referenced}
+        - {source_proposition_id: prop-result, entity_id: 'stage:group_stage', entity_role: referenced}
+
+  - name: test_wc2026_logical_market_family_and_child_scope
+    model: int_polymarket_wc2026_logical_markets
+    given:
+      - input: ref('stg_polymarket_wc2026_event_market_payload_latest')
+        format: sql
+        rows: |
+          select
+            'm-stage' as market_id, 'c-stage' as condition_id,
+            'usa-reach-final' as slug,
+            'Will USA reach the World Cup final?' as question,
+            '' as description, null::varchar as market_resolution_source,
+            '["Yes","No"]' as outcomes, '["stage-y","stage-n"]' as clob_token_ids,
+            '[]' as tags, 1000.0 as volume, true as is_active,
+            false as is_closed, false as is_resolved,
+            null::varchar as winning_outcome,
+            null::varchar as winning_clob_token_id,
+            null::varchar as sports_market_type,
+            null::varchar as group_item_title,
+            null::varchar as group_item_threshold, null::double as line,
+            null::timestamp as game_start_time,
+            null::timestamp as event_start_time,
+            timestamp '2026-01-01' as created_at,
+            timestamp '2026-07-19' as end_date,
+            null::varchar as neg_risk_market_id,
+            null::varchar as neg_risk_request_id,
+            null::boolean as neg_risk_other
+          union all
+          select
+            'm-stat', 'c-stat', 'world-cup-total-goals',
+            'How many total goals will be scored at the 2026 FIFA World Cup?',
+            '', null, '["Over","Under"]', '["stat-o","stat-u"]',
+            '[]', 1000.0, true, false, false, null, null, null, null, null,
+            null, null, null, timestamp '2026-01-01', timestamp '2026-07-19',
+            null, null, null
+          union all
+          select
+            'm-player', 'c-player', 'messi-goals',
+            'Will Lionel Messi score a goal?', '', null,
+            '["Yes","No"]', '["player-y","player-n"]', '[]', 1000.0,
+            true, false, false, null, null, 'soccer_player_goals',
+            'Lionel Messi', null, null, null, null, timestamp '2026-01-01',
+            timestamp '2026-07-19', null, null, null
+      - input: ref('int_polymarket_wc2026_logical_market_events')
+        format: sql
+        rows: |
+          select 'm-stage' as market_id, 'event-multi' as event_id,
+            true as is_primary_qualifying_event, null::integer as fifa_match_id
+          union all select 'm-stat', 'event-multi', true, null::integer
+          union all select 'm-player', 'event-multi', true, null::integer
+      - input: ref('int_polymarket_wc2026_event_membership')
+        format: sql
+        rows: |
+          select 'event-multi' as event_id,
+            '2026 FIFA World Cup multi-market event' as event_title,
+            'wc2026-multi' as event_slug,
+            'Tournament markets.' as event_description,
+            'Official FIFA results' as resolution_source,
+            'scope:wc2026:tournament_wide' as scope_id,
+            'tournament_wide' as tournament_part, null::varchar as game_id,
+            null::integer as fifa_match_id, false as neg_risk,
+            null::varchar as neg_risk_market_id, true as show_all_outcomes,
+            'wc2026-finals-sporting-v1' as membership_policy_version,
+            null::varchar as fixture_group_label,
+            null::varchar as fixture_stage
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        format: sql
+        rows: |
+          select 'A' as group_label, 'USA' as home_team,
+            'Paraguay' as away_team
+      - input: ref('int_polymarket_wc2026_logical_team_identities')
+        format: sql
+        rows: |
+          select 'usa' as team_match_key, 'usa-id' as canonical_team_id
+          union all select 'paraguay', 'paraguay-id'
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select null::varchar as variant_match_key,
+            null::varchar as canonical_match_key where false
+    expect:
+      rows:
+        - {market_id: m-stage, market_family: stage_reach, tournament_part: final, scope_id: 'scope:wc2026:final', target_stage_key: final}
+        - {market_id: m-stat, market_family: tournament_statistic, tournament_part: tournament_wide, scope_id: 'scope:wc2026:tournament_wide', target_stage_key: null}
+        - {market_id: m-player, market_family: player_prop, tournament_part: tournament_wide, scope_id: 'scope:wc2026:tournament_wide', target_stage_key: null}
+
+  - name: test_wc2026_real_player_ladders_and_award_subjects_normalize
+    model: int_polymarket_wc2026_logical_markets
+    given:
+      - input: ref('stg_polymarket_wc2026_event_market_payload_latest')
+        format: sql
+        rows: |
+          select
+            '2486760' as market_id, 'c-endrick-1' as condition_id,
+            'endrick-1-plus-goals' as slug,
+            'Endrick: 1+ goals' as question, '' as description,
+            null::varchar as market_resolution_source,
+            '["Yes","No"]' as outcomes, '["e1-y","e1-n"]' as clob_token_ids,
+            '[]' as tags, 1000.0 as volume, true as is_active,
+            false as is_closed, false as is_resolved,
+            null::varchar as winning_outcome,
+            null::varchar as winning_clob_token_id,
+            'soccer_player_goals' as sports_market_type,
+            'Endrick: 1+ goals' as group_item_title,
+            '0' as group_item_threshold, 0.5::double as line,
+            null::timestamp as game_start_time,
+            null::timestamp as event_start_time,
+            timestamp '2026-01-01' as created_at,
+            timestamp '2026-06-14' as end_date,
+            null::varchar as neg_risk_market_id,
+            null::varchar as neg_risk_request_id,
+            null::boolean as neg_risk_other
+          union all
+          select '2486766', 'c-endrick-2', 'endrick-2-plus-goals',
+            'Endrick: 2+ goals', '', null, '["Yes","No"]',
+            '["e2-y","e2-n"]', '[]', 1000.0, true, false, false, null,
+            null, 'soccer_player_goals', 'Endrick: 2+ goals', '1', 1.5,
+            null, null, timestamp '2026-01-01', timestamp '2026-06-14',
+            null, null, null
+          union all
+          select '2486768', 'c-endrick-3', 'endrick-3-plus-goals',
+            'Endrick: 3+ goals', '', null, '["Yes","No"]',
+            '["e3-y","e3-n"]', '[]', 1000.0, true, false, false, null,
+            null, 'soccer_player_goals', 'Endrick: 3+ goals', '2', 2.5,
+            null, null, timestamp '2026-01-01', timestamp '2026-06-14',
+            null, null, null
+          union all
+          select '2420524', 'c-lamine-award', 'lamine-young-player',
+            'Will Lamine Yamal win the Young Player Award at the 2026 FIFA World Cup?',
+            '', null, '["Yes","No"]', '["ly-y","ly-n"]', '[]', 1000.0,
+            true, false, false, null, null, null, 'Lamine Yamal', null, null,
+            null, null, timestamp '2026-01-01', timestamp '2026-07-19',
+            null, null, null
+          union all
+          select 'placeholder-award', 'c-placeholder', 'player-q-young-player',
+            'Will Player Q win the Young Player Award at the 2026 FIFA World Cup?',
+            '', null, '["Yes","No"]', '["pq-y","pq-n"]', '[]', 1000.0,
+            true, false, false, null, null, null, 'Player Q', null, null,
+            null, null, timestamp '2026-01-01', timestamp '2026-07-19',
+            null, null, null
+      - input: ref('int_polymarket_wc2026_logical_market_events')
+        format: sql
+        rows: |
+          select '2486760' as market_id, '578178' as event_id,
+            true as is_primary_qualifying_event, 5 as fifa_match_id
+          union all select '2486766', '578178', true, 5
+          union all select '2486768', '578178', true, 5
+          union all select '2420524', '552329', true, null::integer
+          union all select 'placeholder-award', '552329', true, null::integer
+      - input: ref('int_polymarket_wc2026_event_membership')
+        format: sql
+        rows: |
+          select '578178' as event_id,
+            'Brazil vs. Morocco - Player Props' as event_title,
+            'brazil-morocco-player-props' as event_slug,
+            'Official FIFA result.' as event_description,
+            'Official FIFA result' as resolution_source,
+            'scope:wc2026:fixture:5' as scope_id,
+            'group_stage' as tournament_part, null::varchar as game_id,
+            5 as fifa_match_id, false as neg_risk,
+            null::varchar as neg_risk_market_id, true as show_all_outcomes,
+            'wc2026-finals-sporting-v1' as membership_policy_version,
+            'A' as fixture_group_label, 'group_stage' as fixture_stage
+          union all
+          select '552329', 'World Cup: Young Player Award Winner',
+            'world-cup-young-player-award-winner', 'Official FIFA award.',
+            'Official FIFA award', 'scope:wc2026:award:young_player',
+            'awards', null, null, false, null, true,
+            'wc2026-finals-sporting-v1', null, null
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        format: sql
+        rows: |
+          select null::varchar as group_label, null::varchar as home_team,
+            null::varchar as away_team where false
+      - input: ref('int_polymarket_wc2026_logical_team_identities')
+        format: sql
+        rows: |
+          select null::varchar as team_match_key,
+            null::varchar as canonical_team_id where false
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select null::varchar as variant_match_key,
+            null::varchar as canonical_match_key where false
+    expect:
+      rows:
+        - {market_id: '2486760', market_family: player_prop, canonical_award_id: null, player_subject_label: Endrick, normalized_threshold: 1.0, threshold_source: group_item_title_plus, tournament_part: group_stage, scope_id: 'scope:wc2026:fixture:5', logical_usable: true}
+        - {market_id: '2486766', market_family: player_prop, canonical_award_id: null, player_subject_label: Endrick, normalized_threshold: 2.0, threshold_source: group_item_title_plus, tournament_part: group_stage, scope_id: 'scope:wc2026:fixture:5', logical_usable: true}
+        - {market_id: '2486768', market_family: player_prop, canonical_award_id: null, player_subject_label: Endrick, normalized_threshold: 3.0, threshold_source: group_item_title_plus, tournament_part: group_stage, scope_id: 'scope:wc2026:fixture:5', logical_usable: true}
+        - {market_id: '2420524', market_family: award_winner, canonical_award_id: young_player, player_subject_label: Lamine Yamal, normalized_threshold: null, threshold_source: null, tournament_part: awards, scope_id: 'scope:wc2026:award:young_player', logical_usable: true}
+        - {market_id: placeholder-award, market_family: award_winner, canonical_award_id: young_player, player_subject_label: null, normalized_threshold: null, threshold_source: null, tournament_part: awards, scope_id: 'scope:wc2026:award:young_player', logical_usable: true}
+
+  - name: test_wc2026_global_qualification_market_uses_team_group_scope
+    model: int_polymarket_wc2026_logical_markets
+    given:
+      - input: ref('stg_polymarket_wc2026_event_market_payload_latest')
+        format: sql
+        rows: |
+          select 'm-qualify' as market_id, 'c-qualify' as condition_id,
+            'usa-qualify' as slug, 'Will USA qualify from its group?' as question,
+            '' as description, null::varchar as market_resolution_source,
+            '["Yes","No"]' as outcomes, '["q-y","q-n"]' as clob_token_ids,
+            '[]' as tags, 0.0 as volume, true as is_active,
+            false as is_closed, false as is_resolved,
+            null::varchar as winning_outcome,
+            null::varchar as winning_clob_token_id,
+            null::varchar as sports_market_type, 'USA' as group_item_title,
+            null::varchar as group_item_threshold, null::double as line,
+            null::timestamp as game_start_time,
+            null::timestamp as event_start_time,
+            timestamp '2026-01-01' as created_at,
+            timestamp '2026-07-19' as end_date,
+            null::varchar as neg_risk_market_id,
+            null::varchar as neg_risk_request_id,
+            null::boolean as neg_risk_other
+      - input: ref('int_polymarket_wc2026_logical_market_events')
+        format: sql
+        rows: |
+          select 'm-qualify' as market_id, 'event-qualify' as event_id,
+            true as is_primary_qualifying_event, null::integer as fifa_match_id
+      - input: ref('int_polymarket_wc2026_event_membership')
+        format: sql
+        rows: |
+          select 'event-qualify' as event_id,
+            'Team to advance to Knockout Stages' as event_title,
+            'team-advance-knockout' as event_slug, '' as event_description,
+            'Official FIFA results' as resolution_source,
+            'scope:wc2026:group_stage' as scope_id,
+            'group_stage' as tournament_part, null::varchar as game_id,
+            null::integer as fifa_match_id, true as neg_risk,
+            'neg-risk:qualify' as neg_risk_market_id,
+            true as show_all_outcomes,
+            'wc2026-finals-sporting-v1' as membership_policy_version,
+            null::varchar as fixture_group_label,
+            null::varchar as fixture_stage
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        format: sql
+        rows: |
+          select 'A' as group_label, 'USA' as home_team,
+            'Paraguay' as away_team
+      - input: ref('int_polymarket_wc2026_logical_team_identities')
+        format: sql
+        rows: |
+          select 'usa' as team_match_key, 'usa-id' as canonical_team_id
+          union all select 'paraguay', 'paraguay-id'
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select null::varchar as variant_match_key,
+            null::varchar as canonical_match_key where false
+    expect:
+      rows:
+        - market_id: m-qualify
+          market_family: group_qualification
+          tournament_part: group_stage
+          scope_id: scope:wc2026:group:a
+          resolution_scope: group:a
+
+  - name: test_wc2026_malformed_and_tokenless_markets_remain_auditable
+    model: int_polymarket_wc2026_logical_markets
+    given:
+      - input: ref('stg_polymarket_wc2026_event_market_payload_latest')
+        format: sql
+        rows: |
+          select 'm-tokenless' as market_id, 'c-tokenless' as condition_id,
+            'tokenless' as slug, 'Match winner?' as question, '' as description,
+            null::varchar as market_resolution_source, '["Yes","No"]' as outcomes,
+            null::varchar as clob_token_ids, '[]' as tags, 0.0 as volume,
+            true as is_active, false as is_closed, false as is_resolved,
+            null::varchar as winning_outcome,
+            null::varchar as winning_clob_token_id,
+            'moneyline' as sports_market_type, 'USA' as group_item_title,
+            null::varchar as group_item_threshold, null::double as line,
+            null::timestamp as game_start_time,
+            null::timestamp as event_start_time,
+            timestamp '2026-01-01' as created_at,
+            timestamp '2026-07-19' as end_date,
+            null::varchar as neg_risk_market_id,
+            null::varchar as neg_risk_request_id,
+            null::boolean as neg_risk_other
+          union all
+          select 'm-malformed', 'c-malformed', 'malformed', 'Match winner?', '',
+            null, 'not-json', '["x","y"]', '[]', 0.0, true, false, false,
+            null, null, 'moneyline', 'USA', null, null, null, null,
+            timestamp '2026-01-01', timestamp '2026-07-19', null, null, null
+          union all
+          select 'm-empty-token', 'c-empty-token', 'empty-token',
+            'Match winner?', '', null, '["Yes","No"]', '["x",""]', '[]',
+            0.0, true, false, false, null, null, 'moneyline', 'USA', null,
+            null, null, null, timestamp '2026-01-01', timestamp '2026-07-19',
+            null, null, null
+          union all
+          select 'm-missing-question', 'c-missing-question', 'missing-question',
+            '   ', '', null, '["Yes","No"]', '["mq-y","mq-n"]', '[]',
+            0.0, true, false, false, null, null, 'moneyline', 'USA', null,
+            null, null, null, timestamp '2026-01-01', timestamp '2026-07-19',
+            null, null, null
+      - input: ref('int_polymarket_wc2026_logical_market_events')
+        format: sql
+        rows: |
+          select 'm-tokenless' as market_id, 'event-audit' as event_id,
+            true as is_primary_qualifying_event, null::integer as fifa_match_id
+          union all select 'm-malformed', 'event-audit', true, null::integer
+          union all select 'm-empty-token', 'event-audit', true, null::integer
+          union all select 'm-missing-question', 'event-audit', true, null::integer
+      - input: ref('int_polymarket_wc2026_event_membership')
+        format: sql
+        rows: |
+          select 'event-audit' as event_id, 'USA markets' as event_title,
+            'usa-markets' as event_slug, '' as event_description,
+            'Official FIFA results' as resolution_source,
+            'scope:wc2026:tournament_wide' as scope_id,
+            'tournament_wide' as tournament_part, null::varchar as game_id,
+            null::integer as fifa_match_id, false as neg_risk,
+            null::varchar as neg_risk_market_id, true as show_all_outcomes,
+            'wc2026-finals-sporting-v1' as membership_policy_version,
+            null::varchar as fixture_group_label,
+            null::varchar as fixture_stage
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        format: sql
+        rows: |
+          select null::varchar as group_label, null::varchar as home_team,
+            null::varchar as away_team where false
+      - input: ref('int_polymarket_wc2026_logical_team_identities')
+        format: sql
+        rows: |
+          select null::varchar as team_match_key,
+            null::varchar as canonical_team_id where false
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select null::varchar as variant_match_key,
+            null::varchar as canonical_match_key where false
+    expect:
+      rows:
+        - {market_id: m-tokenless, outcomes_usable: true, tokens_usable: false, logical_usable: false, quarantine_reason: invalid_token_ids_json}
+        - {market_id: m-malformed, outcomes_usable: false, tokens_usable: false, logical_usable: false, quarantine_reason: invalid_outcomes_json}
+        - {market_id: m-empty-token, outcomes_usable: true, tokens_usable: false, logical_usable: false, quarantine_reason: empty_token_id}
+        - {market_id: m-missing-question, outcomes_usable: true, tokens_usable: true, logical_usable: false, quarantine_reason: missing_question}
+
+  - name: test_wc2026_quarantined_parseable_outcomes_preserve_proposition_grain
+    model: polymarket_wc2026_logical_propositions
+    given:
+      - input: ref('int_polymarket_wc2026_logical_markets')
+        format: sql
+        rows: |
+          select
+            'm-audit' as market_id, 'c-audit' as condition_id,
+            '["Yes","","Maybe"]'::json as parsed_outcomes,
+            '["tok-y","","tok-m"]'::json as parsed_clob_token_ids,
+            false as outcomes_usable, false as tokens_usable,
+            'unclassified' as market_family,
+            null::varchar as group_item_title,
+            null::varchar as stage_subject_label,
+            null::varchar as question, 'Audit event' as event_title,
+            null::integer as fifa_match_id, null::varchar as canonical_award_id,
+            null::varchar as target_stage_key,
+            null::integer as target_stage_rank, 'audit-market' as market_slug,
+            null::double as normalized_threshold,
+            null::varchar as threshold_source, 'event-audit' as primary_event_id,
+            'tournament_wide' as tournament_part,
+            'scope:wc2026:tournament_wide' as scope_id,
+            'tournament:fifa_world_cup_2026' as resolution_scope,
+            'tournament' as resolution_period, 'unspecified' as void_semantics,
+            false as logical_usable, null::varchar as player_subject_label,
+            null::varchar as sports_market_type, 'categorical' as outcome_format,
+            false as neg_risk, null::varchar as neg_risk_market_id,
+            null::varchar as market_neg_risk_market_id
+      - input: ref('int_polymarket_wc2026_logical_team_identities')
+        format: sql
+        rows: |
+          select null::varchar as team_match_key,
+            null::varchar as canonical_team_id where false
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select null::varchar as variant_match_key,
+            null::varchar as canonical_match_key where false
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        format: sql
+        rows: |
+          select null::varchar as group_label, null::varchar as home_team,
+            null::varchar as away_team where false
+      - input: ref('polymarket_wc2026_logical_events')
+        format: sql
+        rows: |
+          select 'event-audit' as event_id,
+            null::varchar as event_constraint_group_id
+    expect:
+      rows:
+        - {source_proposition_id: 'polymarket:condition:c-audit:outcome:0', outcome_index: 0, outcome_label: 'Yes', clob_token_id: tok-y, statement: 'Polymarket market m-audit [Yes]', logical_usable: false, semantic_usable: false}
+        - {source_proposition_id: 'polymarket:condition:c-audit:outcome:1', outcome_index: 1, outcome_label: '', clob_token_id: null, statement: 'Polymarket market m-audit [outcome 1]', logical_usable: false, semantic_usable: false}
+        - {source_proposition_id: 'polymarket:condition:c-audit:outcome:2', outcome_index: 2, outcome_label: 'Maybe', clob_token_id: tok-m, statement: 'Polymarket market m-audit [Maybe]', logical_usable: false, semantic_usable: false}
+
+  - name: test_wc2026_logical_score_result_polarity_and_constraint_partitioning
+    model: polymarket_wc2026_logical_propositions
+    given:
+      - input: ref('int_polymarket_wc2026_logical_markets')
+        format: sql
+        rows: |
+          select
+            'm-result' as market_id, 'c-result' as condition_id,
+            '["USA","Draw","Paraguay"]'::json as parsed_outcomes,
+            '["r-us","r-draw","r-py"]'::json as parsed_clob_token_ids,
+            true as outcomes_usable, true as tokens_usable,
+            'match_result' as market_family, 'Match result' as group_item_title,
+            null::varchar as stage_subject_label,
+            'USA vs Paraguay match result' as question,
+            'USA vs Paraguay' as event_title, 1 as fifa_match_id,
+            null::varchar as canonical_award_id,
+            null::varchar as target_stage_key, null::integer as target_stage_rank,
+            'usa-paraguay-result' as market_slug,
+            null::double as normalized_threshold,
+            null::varchar as threshold_source,
+            'event-fixture' as primary_event_id,
+            'group_stage' as tournament_part,
+            'scope:wc2026:fixture:1' as scope_id,
+            'fixture:1' as resolution_scope,
+            'regulation_90_plus_stoppage' as resolution_period,
+            'unspecified' as void_semantics, true as logical_usable,
+            null::varchar as player_subject_label,
+            null::varchar as sports_market_type,
+            'categorical' as outcome_format,
+            false as neg_risk, null::varchar as neg_risk_market_id,
+            null::varchar as market_neg_risk_market_id
+          union all
+          select
+            'm-score-cat', 'c-score-cat', '["0-0","0-1"]'::json,
+            '["sc-00","sc-01"]'::json, true, true, 'exact_score',
+            'Correct score', null, 'Correct score?', 'USA vs Paraguay', 1,
+            null, null, null, 'score-cat', null, null, 'event-fixture',
+            'group_stage', 'scope:wc2026:fixture:1', 'fixture:1',
+            'regulation_90_plus_stoppage', 'unspecified', true,
+            null, null, 'categorical', false, null, null
+          union all
+          select
+            'm-score-bin', 'c-score-bin', '["Yes","No"]'::json,
+            '["sb-y","sb-n"]'::json, true, true, 'exact_score',
+            'USA 2-1 Paraguay', null, 'Will USA win 2-1?', 'USA vs Paraguay', 1,
+            null, null, null, 'score-bin', null, null, 'event-fixture',
+            'group_stage', 'scope:wc2026:fixture:1', 'fixture:1',
+            'regulation_90_plus_stoppage', 'unspecified', true,
+            null, null, 'binary_yes_no', false, null, null
+          union all
+          select
+            'm-advance', 'c-advance', '["USA","Paraguay"]'::json,
+            '["a-us","a-py"]'::json, true, true, 'team_to_advance',
+            null, null, 'Who will advance?', 'USA vs Paraguay', 1,
+            null, null, null, 'advance', null, null, 'event-fixture',
+            'group_stage', 'scope:wc2026:fixture:1', 'fixture:1',
+            'full_match_including_extra_time_and_penalties', 'unspecified', true,
+            null, null, 'categorical', false, null, null
+      - input: ref('int_polymarket_wc2026_logical_team_identities')
+        format: sql
+        rows: |
+          select 'usa' as team_match_key, 'usa-id' as canonical_team_id
+          union all select 'paraguay', 'paraguay-id'
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select null::varchar as variant_match_key,
+            null::varchar as canonical_match_key where false
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        format: sql
+        rows: |
+          select 'A' as group_label, 'USA' as home_team,
+            'Paraguay' as away_team
+      - input: ref('polymarket_wc2026_logical_events')
+        format: sql
+        rows: |
+          select 'event-fixture' as event_id,
+            'polymarket:event:event-fixture:positive-outcomes'
+              as event_constraint_group_id
+    expect:
+      rows:
+        - source_proposition_id: polymarket:condition:c-result:outcome:0
+          outcome_label: USA
+          polarity: positive
+          predicate_subject_entity_id: fixture:1
+          predicate_object: team:usa-id
+          event_constraint_group_id: null
+          event_constraint_kind: null
+          event_constraint_complete: false
+          score_home: null
+          score_away: null
+        - source_proposition_id: polymarket:condition:c-result:outcome:1
+          outcome_label: Draw
+          polarity: positive
+          predicate_subject_entity_id: fixture:1
+          predicate_object: result:draw
+          event_constraint_group_id: null
+          event_constraint_kind: null
+          event_constraint_complete: false
+          score_home: null
+          score_away: null
+        - source_proposition_id: polymarket:condition:c-result:outcome:2
+          outcome_label: Paraguay
+          polarity: positive
+          predicate_subject_entity_id: fixture:1
+          predicate_object: team:paraguay-id
+          event_constraint_group_id: null
+          event_constraint_kind: null
+          event_constraint_complete: false
+          score_home: null
+          score_away: null
+        - source_proposition_id: polymarket:condition:c-score-cat:outcome:0
+          outcome_label: '0-0'
+          polarity: positive
+          predicate_subject_entity_id: fixture:1
+          predicate_object: score:0-0
+          event_constraint_group_id: null
+          event_constraint_kind: null
+          event_constraint_complete: false
+          score_home: 0
+          score_away: 0
+        - source_proposition_id: polymarket:condition:c-score-cat:outcome:1
+          outcome_label: '0-1'
+          polarity: positive
+          predicate_subject_entity_id: fixture:1
+          predicate_object: score:0-1
+          event_constraint_group_id: null
+          event_constraint_kind: null
+          event_constraint_complete: false
+          score_home: 0
+          score_away: 1
+        - source_proposition_id: polymarket:condition:c-score-bin:outcome:0
+          outcome_label: "Yes"
+          polarity: positive
+          predicate_subject_entity_id: fixture:1
+          predicate_object: score:2-1
+          event_constraint_group_id: null
+          event_constraint_kind: null
+          event_constraint_complete: false
+          score_home: 2
+          score_away: 1
+        - source_proposition_id: polymarket:condition:c-score-bin:outcome:1
+          outcome_label: "No"
+          polarity: negative
+          predicate_subject_entity_id: fixture:1
+          predicate_object: score:2-1
+          event_constraint_group_id: null
+          event_constraint_kind: null
+          event_constraint_complete: false
+          score_home: 2
+          score_away: 1
+        - source_proposition_id: polymarket:condition:c-advance:outcome:0
+          outcome_label: USA
+          polarity: positive
+          predicate_subject_entity_id: team:usa-id
+          predicate_object: fixture:1
+          event_constraint_group_id: null
+          event_constraint_kind: null
+          event_constraint_complete: false
+          score_home: null
+          score_away: null
+        - source_proposition_id: polymarket:condition:c-advance:outcome:1
+          outcome_label: Paraguay
+          polarity: positive
+          predicate_subject_entity_id: team:paraguay-id
+          predicate_object: fixture:1
+          event_constraint_group_id: null
+          event_constraint_kind: null
+          event_constraint_complete: false
+          score_home: null
+          score_away: null
+
+  - name: test_wc2026_categorical_stage_elimination_targets_each_outcome
+    model: polymarket_wc2026_logical_propositions
+    given:
+      - input: ref('int_polymarket_wc2026_logical_markets')
+        format: sql
+        rows: |
+          select 'm-elimination' as market_id, 'c-elimination' as condition_id,
+            '["Group Stage","Champion"]'::json as parsed_outcomes,
+            '["elim-group","elim-champion"]'::json as parsed_clob_token_ids,
+            true as outcomes_usable, true as tokens_usable,
+            'stage_elimination' as market_family,
+            null::varchar as group_item_title, 'USA' as stage_subject_label,
+            'At what stage will USA be eliminated?' as question,
+            'USA stage of elimination' as event_title,
+            null::integer as fifa_match_id, null::varchar as canonical_award_id,
+            null::varchar as target_stage_key,
+            null::integer as target_stage_rank,
+            'usa-stage-elimination' as market_slug,
+            null::double as normalized_threshold,
+            null::varchar as threshold_source,
+            'event-elimination' as primary_event_id,
+            'tournament_wide' as tournament_part,
+            'scope:wc2026:tournament_wide' as scope_id,
+            'tournament:fifa_world_cup_2026' as resolution_scope,
+            'tournament' as resolution_period,
+            'unspecified' as void_semantics, true as logical_usable,
+            null::varchar as player_subject_label,
+            null::varchar as sports_market_type,
+            'categorical' as outcome_format,
+            false as neg_risk, null::varchar as neg_risk_market_id,
+            null::varchar as market_neg_risk_market_id
+      - input: ref('int_polymarket_wc2026_logical_team_identities')
+        format: sql
+        rows: |
+          select 'usa' as team_match_key, 'usa-id' as canonical_team_id
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select null::varchar as variant_match_key,
+            null::varchar as canonical_match_key where false
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        format: sql
+        rows: |
+          select null::varchar as group_label, null::varchar as home_team,
+            null::varchar as away_team where false
+      - input: ref('polymarket_wc2026_logical_events')
+        format: sql
+        rows: |
+          select 'event-elimination' as event_id,
+            null::varchar as event_constraint_group_id
+    expect:
+      rows:
+        - source_proposition_id: polymarket:condition:c-elimination:outcome:0
+          outcome_label: Group Stage
+          polarity: positive
+          predicate: eliminated_at_stage
+          predicate_subject_entity_id: team:usa-id
+          predicate_object: stage:group_stage
+          predicate_stage_rank: 1
+          target_stage_key: group_stage
+          tournament_part: tournament_wide
+          scope_id: scope:wc2026:tournament_wide
+        - source_proposition_id: polymarket:condition:c-elimination:outcome:1
+          outcome_label: Champion
+          polarity: positive
+          predicate: wins_tournament
+          predicate_subject_entity_id: team:usa-id
+          predicate_object: tournament:fifa_world_cup_2026
+          predicate_stage_rank: 7
+          target_stage_key: winner
+          tournament_part: tournament_wide
+          scope_id: scope:wc2026:tournament_wide
+
+  - name: test_wc2026_event_negrisk_fallback_groups_real_binary_positive_outcomes
+    model: polymarket_wc2026_logical_propositions
+    given:
+      - input: ref('int_polymarket_wc2026_logical_markets')
+        format: sql
+        rows: |
+          select 'm-winner' as market_id, 'c-winner' as condition_id,
+            '["Yes","No"]'::json as parsed_outcomes,
+            '["winner-y","winner-n"]'::json as parsed_clob_token_ids,
+            true as outcomes_usable, true as tokens_usable,
+            'tournament_winner' as market_family, 'Italy' as group_item_title,
+            null::varchar as stage_subject_label,
+            null::varchar as player_subject_label,
+            'Will Italy win the 2026 FIFA World Cup?' as question,
+            '2026 FIFA World Cup Winner' as event_title,
+            null::integer as fifa_match_id, null::varchar as canonical_award_id,
+            null::varchar as target_stage_key, null::integer as target_stage_rank,
+            'italy-world-cup-winner' as market_slug,
+            null::double as normalized_threshold, null::varchar as threshold_source,
+            '30615' as primary_event_id, 'tournament_wide' as tournament_part,
+            'scope:wc2026:tournament_wide' as scope_id,
+            'tournament:fifa_world_cup_2026' as resolution_scope,
+            'tournament' as resolution_period, 'unspecified' as void_semantics,
+            true as logical_usable, null::varchar as sports_market_type,
+            'binary_yes_no' as outcome_format, true as neg_risk,
+            '30615' as neg_risk_market_id,
+            null::varchar as market_neg_risk_market_id
+          union all
+          select 'm-furthest', 'c-furthest', '["Yes","No"]'::json,
+            '["furthest-y","furthest-n"]'::json, true, true,
+            'tournament_statistic', 'Argentina', null, null,
+            'Will Argentina be the furthest advancing CONMEBOL nation?',
+            'Furthest Advancing CONMEBOL Nation', null, null, null, null,
+            'argentina-furthest', null, null, 'furthest-event',
+            'tournament_wide', 'scope:wc2026:tournament_wide',
+            'tournament:fifa_world_cup_2026', 'tournament', 'unspecified',
+            true, null, 'binary_yes_no', true, 'furthest-set', null
+      - input: ref('int_polymarket_wc2026_logical_team_identities')
+        format: sql
+        rows: |
+          select 'italy' as team_match_key, 'italy-id' as canonical_team_id
+          union all select 'argentina', 'argentina-id'
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select null::varchar as variant_match_key,
+            null::varchar as canonical_match_key where false
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        format: sql
+        rows: |
+          select null::varchar as group_label, null::varchar as home_team,
+            null::varchar as away_team where false
+      - input: ref('polymarket_wc2026_logical_events')
+        format: sql
+        rows: |
+          select '30615' as event_id
+          union all select 'furthest-event'
+    expect:
+      rows:
+        - {source_proposition_id: 'polymarket:condition:c-winner:outcome:0', polarity: positive, predicate: wins_tournament, predicate_subject_entity_id: 'team:italy-id', predicate_object: 'tournament:fifa_world_cup_2026', event_constraint_group_id: 'polymarket:neg-risk-market:30615:positive-outcomes:fa426c2cb9a5e3767ac492439eafe12e', event_constraint_kind: at_most_one, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-winner:outcome:1', polarity: negative, predicate: wins_tournament, predicate_subject_entity_id: 'team:italy-id', predicate_object: 'tournament:fifa_world_cup_2026', event_constraint_group_id: null, event_constraint_kind: null, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-furthest:outcome:0', polarity: positive, predicate: furthest_advancing_nation, predicate_subject_entity_id: 'team:argentina-id', predicate_object: 'tournament:fifa_world_cup_2026', event_constraint_group_id: 'polymarket:neg-risk-market:furthest-set:positive-outcomes:fa426c2cb9a5e3767ac492439eafe12e', event_constraint_kind: at_most_one, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-furthest:outcome:1', polarity: negative, predicate: furthest_advancing_nation, predicate_subject_entity_id: 'team:argentina-id', predicate_object: 'tournament:fifa_world_cup_2026', event_constraint_group_id: null, event_constraint_kind: null, semantic_usable: true}
+
+  - name: test_wc2026_player_ladder_intervals_and_award_placeholder_semantics
+    model: polymarket_wc2026_logical_propositions
+    given:
+      - input: ref('int_polymarket_wc2026_logical_markets')
+        format: sql
+        rows: |
+          select '2486760' as market_id, 'c-endrick-1' as condition_id,
+            '["Yes","No"]'::json as parsed_outcomes,
+            '["e1-y","e1-n"]'::json as parsed_clob_token_ids,
+            true as outcomes_usable, true as tokens_usable,
+            'player_prop' as market_family,
+            'Endrick: 1+ goals' as group_item_title,
+            null::varchar as stage_subject_label, 'Endrick' as player_subject_label,
+            'Endrick: 1+ goals' as question,
+            'Brazil vs. Morocco - Player Props' as event_title,
+            5 as fifa_match_id, null::varchar as canonical_award_id,
+            null::varchar as target_stage_key, null::integer as target_stage_rank,
+            'endrick-1-plus-goals' as market_slug, 1.0::double as normalized_threshold,
+            'group_item_title_plus' as threshold_source,
+            '578178' as primary_event_id, 'group_stage' as tournament_part,
+            'scope:wc2026:fixture:5' as scope_id, 'fixture:5' as resolution_scope,
+            'regulation_90_plus_stoppage' as resolution_period,
+            'unspecified' as void_semantics, true as logical_usable,
+            'soccer_player_goals' as sports_market_type,
+            'binary_yes_no' as outcome_format, false as neg_risk,
+            null::varchar as neg_risk_market_id,
+            null::varchar as market_neg_risk_market_id
+          union all
+          select '2486766', 'c-endrick-2', '["Yes","No"]'::json,
+            '["e2-y","e2-n"]'::json, true, true, 'player_prop',
+            'Endrick: 2+ goals', null, 'Endrick', 'Endrick: 2+ goals',
+            'Brazil vs. Morocco - Player Props', 5, null, null, null,
+            'endrick-2-plus-goals', 2.0, 'group_item_title_plus', '578178',
+            'group_stage', 'scope:wc2026:fixture:5', 'fixture:5',
+            'regulation_90_plus_stoppage', 'unspecified', true,
+            'soccer_player_goals', 'binary_yes_no', false, null, null
+          union all
+          select '2486768', 'c-endrick-3', '["Yes","No"]'::json,
+            '["e3-y","e3-n"]'::json, true, true, 'player_prop',
+            'Endrick: 3+ goals', null, 'Endrick', 'Endrick: 3+ goals',
+            'Brazil vs. Morocco - Player Props', 5, null, null, null,
+            'endrick-3-plus-goals', 3.0, 'group_item_title_plus', '578178',
+            'group_stage', 'scope:wc2026:fixture:5', 'fixture:5',
+            'regulation_90_plus_stoppage', 'unspecified', true,
+            'soccer_player_goals', 'binary_yes_no', false, null, null
+          union all
+          select '2420524', 'c-lamine-award', '["Yes","No"]'::json,
+            '["ly-y","ly-n"]'::json, true, true, 'award_winner',
+            'Lamine Yamal', null, 'Lamine Yamal',
+            'Will Lamine Yamal win the Young Player Award at the 2026 FIFA World Cup?',
+            'World Cup: Young Player Award Winner', null, 'young_player',
+            null, null, 'lamine-young-player', null, null, '552329', 'awards',
+            'scope:wc2026:award:young_player',
+            'tournament:fifa_world_cup_2026', 'tournament', 'unspecified',
+            true, null, 'binary_yes_no', false, null, null
+          union all
+          select 'placeholder-award', 'c-placeholder', '["Yes","No"]'::json,
+            '["pq-y","pq-n"]'::json, true, true, 'award_winner',
+            'Player Q', null, null,
+            'Will Player Q win the Young Player Award at the 2026 FIFA World Cup?',
+            'World Cup: Young Player Award Winner', null, 'young_player',
+            null, null, 'player-q-young-player', null, null, '552329', 'awards',
+            'scope:wc2026:award:young_player',
+            'tournament:fifa_world_cup_2026', 'tournament', 'unspecified',
+            true, null, 'binary_yes_no', false, null, null
+      - input: ref('int_polymarket_wc2026_logical_team_identities')
+        format: sql
+        rows: |
+          select null::varchar as team_match_key,
+            null::varchar as canonical_team_id where false
+      - input: ref('wc2026_team_canonical_aliases')
+        format: sql
+        rows: |
+          select null::varchar as variant_match_key,
+            null::varchar as canonical_match_key where false
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        format: sql
+        rows: |
+          select null::varchar as group_label, null::varchar as home_team,
+            null::varchar as away_team where false
+      - input: ref('polymarket_wc2026_logical_events')
+        format: sql
+        rows: |
+          select '578178' as event_id
+          union all select '552329'
+    expect:
+      rows:
+        - {source_proposition_id: 'polymarket:condition:c-endrick-1:outcome:0', predicate: records_statistic, predicate_subject_entity_id: 'player:e850f2d5a822fd4a7036faedae2600d2', predicate_object: 'metric:goals', operator: gte, interval_lower: 1.0, interval_upper: null, lower_inclusive: true, upper_inclusive: null, threshold_value: 1.0, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-endrick-1:outcome:1', predicate: records_statistic, predicate_subject_entity_id: 'player:e850f2d5a822fd4a7036faedae2600d2', predicate_object: 'metric:goals', operator: lt, interval_lower: null, interval_upper: 1.0, lower_inclusive: null, upper_inclusive: false, threshold_value: 1.0, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-endrick-2:outcome:0', predicate: records_statistic, predicate_subject_entity_id: 'player:e850f2d5a822fd4a7036faedae2600d2', predicate_object: 'metric:goals', operator: gte, interval_lower: 2.0, interval_upper: null, lower_inclusive: true, upper_inclusive: null, threshold_value: 2.0, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-endrick-2:outcome:1', predicate: records_statistic, predicate_subject_entity_id: 'player:e850f2d5a822fd4a7036faedae2600d2', predicate_object: 'metric:goals', operator: lt, interval_lower: null, interval_upper: 2.0, lower_inclusive: null, upper_inclusive: false, threshold_value: 2.0, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-endrick-3:outcome:0', predicate: records_statistic, predicate_subject_entity_id: 'player:e850f2d5a822fd4a7036faedae2600d2', predicate_object: 'metric:goals', operator: gte, interval_lower: 3.0, interval_upper: null, lower_inclusive: true, upper_inclusive: null, threshold_value: 3.0, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-endrick-3:outcome:1', predicate: records_statistic, predicate_subject_entity_id: 'player:e850f2d5a822fd4a7036faedae2600d2', predicate_object: 'metric:goals', operator: lt, interval_lower: null, interval_upper: 3.0, lower_inclusive: null, upper_inclusive: false, threshold_value: 3.0, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-lamine-award:outcome:0', predicate: wins_award, predicate_subject_entity_id: 'player:eeae9dbd1aa6760f6ccad500a14f1d84', predicate_object: 'award:young_player', operator: null, interval_lower: null, interval_upper: null, lower_inclusive: null, upper_inclusive: null, threshold_value: null, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-lamine-award:outcome:1', predicate: wins_award, predicate_subject_entity_id: 'player:eeae9dbd1aa6760f6ccad500a14f1d84', predicate_object: 'award:young_player', operator: null, interval_lower: null, interval_upper: null, lower_inclusive: null, upper_inclusive: null, threshold_value: null, semantic_usable: true}
+        - {source_proposition_id: 'polymarket:condition:c-placeholder:outcome:0', predicate: null, predicate_subject_entity_id: null, predicate_object: 'award:young_player', operator: null, interval_lower: null, interval_upper: null, lower_inclusive: null, upper_inclusive: null, threshold_value: null, semantic_usable: false}
+        - {source_proposition_id: 'polymarket:condition:c-placeholder:outcome:1', predicate: null, predicate_subject_entity_id: null, predicate_object: 'award:young_player', operator: null, interval_lower: null, interval_upper: null, lower_inclusive: null, upper_inclusive: null, threshold_value: null, semantic_usable: false}

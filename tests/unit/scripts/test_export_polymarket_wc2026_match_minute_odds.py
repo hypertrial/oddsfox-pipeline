@@ -65,9 +65,9 @@ def test_export_and_summarize_match_minute_odds(tmp_path: Path) -> None:
                     as yes_no_close_deviation,
                 timestamp '2026-06-11 18:55:00' as scheduled_kickoff_at_utc,
                 timestamp '2026-06-11 19:00:00'
-                    + market_number * interval '1 minute' as game_started_at_utc,
+                    + market_number * interval '1 minute' as match_started_at_utc,
                 timestamp '2026-06-11 19:00:00'
-                    + market_number * interval '1 minute' as game_finished_at_utc,
+                    + market_number * interval '1 minute' as match_finished_at_utc,
                 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
                     as results_source_revision,
                 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -147,8 +147,8 @@ def test_invalid_export_preserves_previous_file(tmp_path: Path) -> None:
                 false as pair_price_anomaly,
                 0.0 as yes_no_close_deviation,
                 timestamp '2026-06-11 18:55:00' as scheduled_kickoff_at_utc,
-                timestamp '2026-06-11 19:00:00' as game_started_at_utc,
-                timestamp '2026-06-11 20:40:00' as game_finished_at_utc,
+                timestamp '2026-06-11 19:00:00' as match_started_at_utc,
+                timestamp '2026-06-11 20:40:00' as match_finished_at_utc,
                 'bad' as results_source_revision,
                 'bad' as results_source_payload_sha256,
                 timestamp '2026-07-21 10:00:00' as results_source_loaded_at

@@ -16,6 +16,26 @@ def reset_schema_globals():
     connection.reset_duckdb_connection_state()
 
 
+def test_add_column_if_missing_only_alters_new_columns():
+    with duckdb.connect(":memory:") as conn:
+        conn.execute("create table test_table (existing integer)")
+        polymarket_schema._add_column_if_missing(
+            conn,
+            "test_table",
+            "added",
+            "added varchar",
+        )
+        polymarket_schema._add_column_if_missing(
+            conn,
+            "test_table",
+            "added",
+            "added varchar",
+        )
+        columns = [row[0] for row in conn.execute("describe test_table").fetchall()]
+
+    assert columns == ["existing", "added"]
+
+
 def test_active_duckdb_path_absolute_env(monkeypatch, tmp_path, isolated_env):
     db = tmp_path / "abs.duckdb"
     monkeypatch.setenv("DUCKDB_NAME", str(db))

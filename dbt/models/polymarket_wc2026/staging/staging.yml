@@ -1,5 +1,26 @@
 version: 2
 models:
+- name: stg_polymarket_wc2026_event_market_payload_snapshots
+  description: >
+    Append-only child-market payloads captured with each converged event-catalog
+    observation; logical models select the latest payload per market.
+  tests:
+  - no_duplicate_grain:
+      arguments:
+        grain_columns: [market_id, observed_at]
+  columns:
+  - name: market_id
+    description: Polymarket child-market identifier.
+    tests: [not_null]
+  - name: observed_at
+    description: Shared event-catalog observation timestamp.
+    tests: [not_null]
+- name: stg_polymarket_wc2026_event_market_payload_latest
+  description: Latest event-catalog payload per child market for the current logical atlas.
+  columns:
+  - name: market_id
+    description: Polymarket child-market identifier.
+    tests: [not_null, unique]
 - name: stg_polymarket_wc2026_markets
   description: Normalized market metadata from raw Gamma API landing with stable snake_case
     field names.
@@ -202,11 +223,11 @@ models:
   - name: created_at
     description: UTC timestamp when this skip row was first inserted (unchanged on
       reason updates).
-- name: stg_polymarket_wc2026_pipeline_run_events
-  description: Parsed operational run-event payloads emitted by ingestion into `polymarket_wc2026_ops.pipeline_run_events`.
+- name: stg_polymarket_wc2026_ingestion_run_events
+  description: Parsed operational run-event payloads emitted by ingestion into `polymarket_wc2026_ops.ingestion_run_events`.
   columns:
   - name: run_id
-    description: UUID primary key for the pipeline run event.
+    description: UUID primary key for the ingestion run event.
     tests:
     - not_null
     - unique

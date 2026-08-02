@@ -15,9 +15,9 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     get_connection,
     polymarket_wc2026_ops_tbl,
 )
-from oddsfox_pipeline.storage.duckdb.dlt_batch import append_pipeline_run_event_stage
+from oddsfox_pipeline.storage.duckdb.dlt_batch import append_ingestion_run_event_stage
 from oddsfox_pipeline.storage.duckdb.kalshi_dlt_batch import (
-    append_kalshi_pipeline_run_event_stage,
+    append_kalshi_ingestion_run_event_stage,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     kalshi_ops_tbl,
@@ -101,7 +101,7 @@ def set_backfill_progress(task: str, processed: int):
     _metadata_set(f"{_BACKFILL_KEY_PREFIX}{task}:progress", str(int(processed)))
 
 
-def append_pipeline_run_event(
+def append_ingestion_run_event(
     task_name: str,
     metrics: dict[str, Any],
     *,
@@ -110,7 +110,7 @@ def append_pipeline_run_event(
     source: OpsSource = "polymarket",
 ) -> str:
     """
-    Append one row to the append-only pipeline_run_events table for queryable audit history.
+    Append one row to the append-only ingestion_run_events table for queryable audit history.
 
     Returns:
         run_id: UUID string primary key for this event.
@@ -128,11 +128,11 @@ def append_pipeline_run_event(
     }
     with get_connection() as conn:
         if source == "kalshi":
-            append_kalshi_pipeline_run_event_stage(
+            append_kalshi_ingestion_run_event_stage(
                 row, conn, scope_name=scope_name or _default_scope(source)
             )
         else:
-            append_pipeline_run_event_stage(row, conn, scope_name=scope_name)
+            append_ingestion_run_event_stage(row, conn, scope_name=scope_name)
     return run_id
 
 
@@ -154,14 +154,14 @@ def save_sync_run_metrics(
     payload["timestamp"] = now_iso
 
     try:
-        append_pipeline_run_event(
+        append_ingestion_run_event(
             task, payload, recorded_at=recorded, scope_name=scope_name, source=source
         )
     except Exception as exc:
-        payload["pipeline_run_event_append_failed"] = True
-        payload["pipeline_run_event_append_error"] = f"{exc.__class__.__name__}: {exc}"
+        payload["ingestion_run_event_append_failed"] = True
+        payload["ingestion_run_event_append_error"] = f"{exc.__class__.__name__}: {exc}"
         logger.warning(
-            "pipeline_run_events append failed (continuing with scrape_metadata): %s",
+            "ingestion_run_events append failed (continuing with scrape_metadata): %s",
             exc,
         )
 
@@ -293,7 +293,7 @@ def set_market_scope_discovery_fully_checked(
 __all__ = [
     "_metadata_get",
     "_metadata_set",
-    "append_pipeline_run_event",
+    "append_ingestion_run_event",
     "get_backfill_fully_checked",
     "set_backfill_fully_checked",
     "get_backfill_progress",

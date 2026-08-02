@@ -36,7 +36,7 @@ See [Choose a scope](../getting-started/choose-a-scope.md).
 
 ## Polygon Settlement Isolation
 
-The Polygon settlement-history flow uses an operator-local manifest, finalized
+The Polygon settlement-history pipeline uses an operator-local manifest, finalized
 Polygon V2 logs, and its own unscheduled job and dbt tag. It must not call
 Gamma, CLOB, the Polymarket UI, international-results, or OpenFootball at
 runtime. Ordinary WC2026 odds pipelines do not depend on it.

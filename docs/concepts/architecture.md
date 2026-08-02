@@ -5,8 +5,8 @@ DuckDB warehouse and is coordinated by Dagster jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
 v0.1.x adapters support WC2026 Polymarket knockout marts, Kalshi WC2026 stage
 and group-winner marts, US midterms 2026 generic market odds, historical
-international-results ingestion, and the stable `wc2026.v1` strategy-input
-contract.
+international-results ingestion, public analytics marts as the supported query
+API, and the private `wc2026.v1` strategy clean-data contract.
 
 US midterms 2026 is a parallel Polymarket namespace: targeted Gamma discovery
 for Balance of Power, Senate control, and House control event slugs, with raw/ops
@@ -19,13 +19,13 @@ publishes local marts, and Dagster orchestrates the steps. Operators supply and
 control the data in a local or self-managed warehouse; OddsFox Pipeline does not
 host datasets.
 
-The WC2026 Polygon settlement flow is deliberately source-specific rather than
-part of that generic API shape. A complete operator-local manifest supplies fixture,
-proposition, and token semantics; finalized Polygon V2 logs supply historical
-economic settlement legs. It has no runtime Gamma/CLOB, Polymarket UI,
+The WC2026 Polygon settlement pipeline is deliberately source-specific rather
+than part of that generic API shape. A complete operator-local manifest supplies
+fixture, proposition, and token semantics; finalized Polygon V2 logs supply
+historical economic settlement legs. It has no runtime Gamma/CLOB, Polymarket UI,
 international-results, or OpenFootball dependency.
 
-## System Flow
+## System path
 
 Current WC2026 implementation:
 
@@ -112,7 +112,7 @@ flowchart TD
     knockout_hourly --> stage_coverage
     knockout_markets --> data_quality["polymarket_wc2026_knockout_data_quality"]
     stage_coverage --> data_quality
-    ops --> observability["polymarket_wc2026_sync_run_observability"]
+    ops --> observability["polymarket_wc2026_ingestion_run_observability"]
     matches --> results_dq["international_results_wc2026_data_quality"]
 ```
 
@@ -175,7 +175,7 @@ result or determine rights in operator inputs or outputs.
 
 - `polymarket_wc2026_full_pipeline` is the one-click full manual WC2026 pipeline.
 - `polymarket_us_midterms_2026_full_pipeline` is the one-click full manual US
-  midterms pipeline (`tag:us_midterms_2026` dbt selection only).
+  midterms pipeline (`+tag:us_midterms_2026` dbt selection only).
 - `international_results_wc2026_match_results_ingest` refreshes fixture/results
   and also runs inside the WC2026 full pipeline.
 - `international_results_historical_ingest` refreshes public 2006+ matches,

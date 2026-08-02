@@ -1,6 +1,6 @@
 with contract as (
     select *
-    from {{ ref('polymarket_wc2026_contract') }}
+    from {{ ref('polymarket_wc2026_pipeline_policy') }}
     where scope_name = 'wc2026'
 ),
 
@@ -128,7 +128,7 @@ stale_live_odds as (
         1 as issue_count,
         current_timestamp as observed_at
     from snapshot as s
-    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    -- costguard: allow cross-join, WC2026 pipeline policy seed has one row.
     cross join contract
     where
         s.current_price_status = 'stale_live'

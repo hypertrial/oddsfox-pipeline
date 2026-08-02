@@ -7,7 +7,7 @@
 | Query an existing warehouse | [Analysts](../audiences/analysts.md) |
 | Run or maintain the pipeline | [Operators](../audiences/operators.md) |
 | Change code or dbt | [Contributors](../audiences/contributors.md) |
-| Consume marts / graph parquet downstream | [Integrators](../audiences/integrators.md) |
+| Consume marts / logical-v1 bundle downstream | [Integrators](../audiences/integrators.md) |
 
 ## Is there a hosted OddsFox Pipeline dataset or API?
 
@@ -47,7 +47,7 @@ for trading.
 ## Do I need API keys?
 
 Kalshi WC2026 uses the public trade API with no credentials. Polymarket public
-flows work without CLOB credentials unless a selected live flow explicitly
+pipelines work without CLOB credentials unless a selected live job explicitly
 requires authentication. Polygon settlement needs a finalized-capable JSON-RPC
 endpoint and is optional.
 
@@ -67,13 +67,13 @@ See [Enable schedules](../guides/enable-schedules.md).
 
 ## Is Polygon settlement required for WC2026 analysis?
 
-No. It is an isolated advanced historical flow with its own job and dbt tag.
+No. It is an isolated advanced historical pipeline with its own job and dbt tag.
 Ordinary Polymarket/Kalshi WC2026 marts do not depend on it.
 
 ## How do pipeline outputs relate to trading?
 
-Pipeline marts and graph parquet are analytics outputs. Order execution is a
-separate concern in `oddsfox-execution`. See
+Pipeline marts and the logical-v1 bundle are analytics outputs. Order execution
+is a separate concern in `oddsfox-execution`. See
 [System overview](system-overview.md) and [Integration](integration.md).
 
 ## Are strategy and execution open source in this repo?

@@ -7,6 +7,7 @@ from dagster import AssetKey, DefaultScheduleStatus, build_schedule_context
 from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    polymarket_wc2026_logical_atlas_run_config,
     polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
@@ -69,13 +70,14 @@ def test_definitions_expose_v010_jobs_only():
         "kalshi_wc2026_dbt_build",
         "kalshi_wc2026_full_pipeline",
         "kalshi_wc2026_hourly_odds_ingest",
-        "kalshi_wc2026_market_registry_refresh",
+        "kalshi_wc2026_market_scope_registry_refresh",
         "polymarket_us_midterms_2026_dbt_build",
         "polymarket_us_midterms_2026_full_pipeline",
         "polymarket_us_midterms_2026_hourly_odds_ingest",
-        "polymarket_us_midterms_2026_market_registry_refresh",
+        "polymarket_us_midterms_2026_market_scope_registry_refresh",
         "polymarket_wc2026_hourly_odds_ingest",
-        "polymarket_wc2026_market_registry_refresh",
+        "polymarket_wc2026_logical_atlas",
+        "polymarket_wc2026_market_scope_registry_refresh",
         "polymarket_wc2026_match_minute_odds_backfill",
         "polymarket_wc2026_match_order_book_backfill",
         "polymarket_wc2026_market_portrait_backfill",
@@ -101,8 +103,8 @@ def test_definitions_expose_v010_asset_keys():
         ("international_results", "wc2026", "marts", "matches"),
         ("international_results", "wc2026", "marts", "team_status"),
         ("international_results", "wc2026", "observability", "data_quality"),
-        ("openfootball", "wc2026", "raw", "knockout_fixtures"),
-        ("openfootball", "wc2026", "staging", "knockout_fixtures"),
+        ("openfootball", "wc2026", "raw", "schedule_fixtures"),
+        ("openfootball", "wc2026", "staging", "schedule_fixtures"),
         ("wc2026", "intermediate", "knockout_fixtures"),
         ("wc2026", "marts", "knockout_match_hourly_odds"),
         ("wc2026", "observability", "knockout_match_odds_coverage"),
@@ -113,6 +115,10 @@ def test_definitions_expose_v010_asset_keys():
         ("wc2026", "raw", "private_match_events"),
         ("wc2026", "raw", "wikipedia_squads"),
         ("wc2026", "ops", "raw_snapshot_ledger"),
+        ("polymarket", "wc2026", "raw", "event_snapshots"),
+        ("polymarket", "wc2026", "raw", "event_market_memberships"),
+        ("polymarket", "wc2026", "intermediate", "event_membership"),
+        ("polymarket", "wc2026", "release", "logical_bundle"),
         ("kalshi", "wc2026", "raw", "events"),
         ("kalshi", "wc2026", "raw", "markets"),
         ("kalshi", "wc2026", "raw", "markets_snapshot"),
@@ -127,24 +133,24 @@ def test_definitions_expose_v010_asset_keys():
         ("kalshi", "wc2026", "intermediate", "match_hourly_odds"),
         ("kalshi", "wc2026", "intermediate", "stage_classification"),
         ("kalshi", "wc2026", "intermediate", "group_winner_classification"),
-        ("kalshi", "wc2026", "marts", "contract"),
+        ("kalshi", "wc2026", "marts", "pipeline_policy"),
         ("kalshi", "wc2026", "marts", "stage_markets"),
         ("kalshi", "wc2026", "marts", "stage_market_hourly_odds"),
         ("kalshi", "wc2026", "marts", "group_winner_markets"),
         ("kalshi", "wc2026", "marts", "group_winner_market_hourly_odds"),
-        ("kalshi", "wc2026", "observability", "sync_run_observability"),
+        ("kalshi", "wc2026", "observability", "ingestion_run_observability"),
         ("kalshi", "wc2026", "observability", "stage_coverage"),
         ("kalshi", "wc2026", "observability", "data_quality"),
         ("polymarket", "us_midterms_2026", "raw", "markets"),
         ("polymarket", "us_midterms_2026", "raw", "markets_snapshot"),
         ("polymarket", "us_midterms_2026", "ops", "market_scope_registry"),
-        ("polymarket", "us_midterms_2026", "raw", "market_metadata_backfill"),
+        ("polymarket", "us_midterms_2026", "raw", "market_metadata_enrichment"),
         ("polymarket", "us_midterms_2026", "raw", "token_odds_history_hourly"),
         ("polymarket", "us_midterms_2026", "staging", "markets"),
         ("polymarket", "us_midterms_2026", "staging", "market_tokens"),
         ("polymarket", "us_midterms_2026", "staging", "odds"),
         ("polymarket", "us_midterms_2026", "staging", "odds_daily"),
-        ("polymarket", "us_midterms_2026", "staging", "pipeline_run_events"),
+        ("polymarket", "us_midterms_2026", "staging", "ingestion_run_events"),
         ("polymarket", "us_midterms_2026", "staging", "sync_ledger"),
         ("polymarket", "us_midterms_2026", "staging", "token_sync_skips"),
         ("polymarket", "us_midterms_2026", "intermediate", "markets"),
@@ -153,13 +159,18 @@ def test_definitions_expose_v010_asset_keys():
         ("polymarket", "us_midterms_2026", "intermediate", "token_hourly_odds"),
         ("polymarket", "us_midterms_2026", "marts", "markets"),
         ("polymarket", "us_midterms_2026", "marts", "market_token_hourly_odds"),
-        ("polymarket", "us_midterms_2026", "observability", "sync_run_observability"),
+        (
+            "polymarket",
+            "us_midterms_2026",
+            "observability",
+            "ingestion_run_observability",
+        ),
         ("polymarket", "catalog", "raw", "markets"),
         ("polymarket", "catalog", "staging", "markets"),
         ("polymarket", "wc2026", "raw", "markets"),
         ("polymarket", "wc2026", "raw", "markets_snapshot"),
         ("polymarket", "wc2026", "ops", "market_scope_registry"),
-        ("polymarket", "wc2026", "raw", "market_metadata_backfill"),
+        ("polymarket", "wc2026", "raw", "market_metadata_enrichment"),
         ("polymarket", "wc2026", "raw", "token_odds_history_hourly"),
         ("polymarket", "wc2026", "raw", "match_order_book_snapshots"),
         ("polymarket", "wc2026", "raw", "polygon_settlement_fills"),
@@ -169,7 +180,7 @@ def test_definitions_expose_v010_asset_keys():
         ("polymarket", "wc2026", "staging", "market_tokens"),
         ("polymarket", "wc2026", "staging", "odds"),
         ("polymarket", "wc2026", "staging", "odds_daily"),
-        ("polymarket", "wc2026", "staging", "pipeline_run_events"),
+        ("polymarket", "wc2026", "staging", "ingestion_run_events"),
         ("polymarket", "wc2026", "staging", "sync_ledger"),
         ("polymarket", "wc2026", "staging", "token_sync_skips"),
         ("polymarket", "wc2026", "intermediate", "markets"),
@@ -202,7 +213,7 @@ def test_definitions_expose_v010_asset_keys():
         ("polymarket", "wc2026", "marts", "knockout_market_tokens"),
         ("polymarket", "wc2026", "marts", "knockout_markets"),
         ("polymarket", "wc2026", "marts", "knockout_token_hourly_odds"),
-        ("polymarket", "wc2026", "observability", "sync_run_observability"),
+        ("polymarket", "wc2026", "observability", "ingestion_run_observability"),
     }
 
     asset_keys = {tuple(key.path) for key in defs.resolve_all_asset_keys()}
@@ -407,9 +418,10 @@ def test_hourly_schedule_targets_hourly_job_and_config():
     assert cfg["fidelity"] == 60
     assert cfg["overlap_minutes"] == 60
     assert cfg["window_hours"] == 720
-    assert cfg["history_backfill_days"] == 30
-    assert cfg["min_volume"] == 5000.0
+    assert cfg["history_backfill_days"] == 0
+    assert cfg["min_volume"] is None
     assert cfg["max_volume"] is None
+    assert cfg["ended_market_grace_days"] is None
 
 
 def test_hourly_schedule_enabled_by_env(monkeypatch):
@@ -457,7 +469,9 @@ def test_combined_schedule_is_atomic_stopped_and_uses_unfiltered_prices():
     dbt_config = run_config["ops"]["oddsfox_dbt"]["config"]
     assert dbt_config["full_refresh"] is False
     assert dbt_config["dbt_select"] == "+tag:cross_domain"
-    assert dbt_config["dbt_exclude"] == ("tag:polygon_settlement tag:pmxt_order_book")
+    assert dbt_config["dbt_exclude"] == (
+        "tag:polygon_settlement tag:pmxt_order_book tag:wc2026_logical_atlas"
+    )
 
 
 def test_combined_hourly_schedule_can_be_enabled(monkeypatch):
@@ -475,7 +489,109 @@ def test_midterms_full_pipeline_excludes_wc2026_and_results_assets():
 
     assert not any(key[:2] == ("international_results", "wc2026") for key in selected)
     assert not any(key[:2] == ("polymarket", "wc2026") for key in selected)
-    assert all(key[:2] == ("polymarket", "us_midterms_2026") for key in selected)
+    assert all(
+        key[:2]
+        in {
+            ("polymarket", "us_midterms_2026"),
+            ("polymarket", "catalog"),
+        }
+        for key in selected
+    )
+
+
+def test_wc2026_market_scope_registry_refresh_excludes_logical_catalog_crawl():
+    selected = {
+        tuple(key.path)
+        for key in defs.resolve_job_def(
+            "polymarket_wc2026_market_scope_registry_refresh"
+        ).asset_layer.selected_asset_keys
+    }
+
+    assert ("polymarket", "wc2026", "raw", "markets") in selected
+    assert ("polymarket", "wc2026", "ops", "market_scope_registry") in selected
+    assert (
+        not {
+            ("polymarket", "wc2026", "raw", "event_catalog"),
+            ("polymarket", "wc2026", "raw", "event_snapshots"),
+            ("polymarket", "wc2026", "raw", "event_market_memberships"),
+            ("polymarket", "wc2026", "raw", "reviewed_event_membership"),
+        }
+        & selected
+    )
+    assert (
+        "polymarket_wc2026_raw_event_catalog"
+        not in polymarket_wc2026_full_refresh_events_run_config()["ops"]
+    )
+
+
+def test_logical_atlas_job_has_explicit_producer_assets_and_no_odds_dependency():
+    selected = {
+        tuple(key.path)
+        for key in defs.resolve_job_def(
+            "polymarket_wc2026_logical_atlas"
+        ).asset_layer.selected_asset_keys
+    }
+    required = {
+        ("polymarket", "wc2026", "raw", "event_snapshots"),
+        ("polymarket", "wc2026", "raw", "event_market_memberships"),
+        ("polymarket", "wc2026", "intermediate", "event_membership"),
+        ("polymarket", "wc2026", "release", "logical_bundle"),
+    }
+    assert required <= selected
+    assert not any("odds" in part for key in selected for part in key)
+    assert (
+        "polymarket",
+        "wc2026",
+        "raw",
+        "market_metadata_enrichment",
+    ) not in selected
+    assert not any("order_book" in part for key in selected for part in key)
+    assert not any("polygon_settlement" in part for key in selected for part in key)
+
+    config = polymarket_wc2026_logical_atlas_run_config()["ops"]
+    assert "polymarket_wc2026_raw_token_odds_history_hourly" not in config
+    assert "polymarket_wc2026_raw_market_metadata_enrichment" not in config
+    assert config["oddsfox_dbt"]["config"]["dbt_select"] == (
+        "+tag:wc2026_logical_atlas"
+    )
+    assert config["polymarket_wc2026_release_logical_bundle"]["config"] == {
+        "output_dir": None
+    }
+
+
+def test_wc2026_full_pipeline_includes_logical_bundle_cutover_path():
+    selected = {
+        tuple(key.path)
+        for key in defs.resolve_job_def(
+            "polymarket_wc2026_full_pipeline"
+        ).asset_layer.selected_asset_keys
+    }
+    assert ("polymarket", "wc2026", "release", "logical_bundle") in selected
+    assert ("polymarket", "wc2026", "raw", "event_snapshots") in selected
+    assert (
+        "polymarket",
+        "wc2026",
+        "ops",
+        "market_scope_registry",
+    ) in selected
+    assert (
+        "polymarket",
+        "wc2026",
+        "raw",
+        "market_metadata_enrichment",
+    ) in selected
+    assert (
+        "polymarket",
+        "wc2026",
+        "raw",
+        "token_odds_history_hourly",
+    ) in selected
+
+    config = polymarket_wc2026_full_refresh_events_run_config()["ops"]
+    assert (
+        config["polymarket_wc2026_raw_market_metadata_enrichment"]["config"]["force"]
+        is True
+    )
 
 
 def test_scoped_dbt_jobs_select_only_their_expected_scope_assets():
@@ -499,7 +615,14 @@ def test_scoped_dbt_jobs_select_only_their_expected_scope_assets():
     }
 
     assert midterms
-    assert all(key[:2] == ("polymarket", "us_midterms_2026") for key in midterms)
+    assert all(
+        key[:2]
+        in {
+            ("polymarket", "us_midterms_2026"),
+            ("polymarket", "catalog"),
+        }
+        for key in midterms
+    )
 
     assert kalshi
     assert any(key[:2] == ("international_results", "wc2026") for key in kalshi)
@@ -540,7 +663,7 @@ def test_combined_job_selects_both_sources_fixture_and_cross_domain_models():
         ).asset_layer.selected_asset_keys
     }
 
-    assert ("openfootball", "wc2026", "raw", "knockout_fixtures") in selected
+    assert ("openfootball", "wc2026", "raw", "schedule_fixtures") in selected
     assert any(key[:2] == ("polymarket", "wc2026") for key in selected)
     assert any(key[:2] == ("kalshi", "wc2026") for key in selected)
     assert (
@@ -571,7 +694,7 @@ def test_combined_job_leaves_indirect_dbt_checks_to_buildable_selection():
 
 def test_combined_job_refreshes_fixture_before_both_vendor_registry_paths():
     graph = defs.resolve_asset_graph()
-    fixture = AssetKey(["openfootball", "wc2026", "raw", "knockout_fixtures"])
+    fixture = AssetKey(["openfootball", "wc2026", "raw", "schedule_fixtures"])
 
     for vendor_asset in (
         AssetKey(["polymarket", "wc2026", "raw", "markets"]),

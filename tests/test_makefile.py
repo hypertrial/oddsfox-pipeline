@@ -150,6 +150,7 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
         "dbt-lint",
         "check-secrets",
         "check-distribution",
+        "check-terminology",
     ]
     assert _recursive_make_targets(_target_recipe(makefile, "ci-fast")) == [
         "lint",

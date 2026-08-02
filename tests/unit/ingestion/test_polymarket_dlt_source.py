@@ -1,3 +1,5 @@
+import pytest
+
 from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
     collect_raw_markets,
     normalize_market_payloads_for_dlt,
@@ -22,6 +24,7 @@ def test_polymarket_markets_source_yields_prefetched_rows():
             "question": "Who will win?",
             "category": "Sports",
             "description": "Winner market",
+            "market_resolution_source": None,
             "outcomes": '["Yes", "No"]',
             "volume": 100.0,
             "active": True,
@@ -46,6 +49,9 @@ def test_polymarket_markets_source_yields_prefetched_rows():
             "is_resolved": False,
             "winning_outcome": None,
             "winning_clob_token_id": None,
+            "neg_risk_market_id": None,
+            "neg_risk_request_id": None,
+            "neg_risk_other": None,
         }
     ]
     resource = polymarket_markets_source(rows=rows).resources["markets"]
@@ -63,6 +69,9 @@ def test_markets_resource_has_frozen_columns_and_types_contract():
     assert resource.columns["condition_id"]["data_type"] == "text"
     assert resource.columns["is_resolved"]["data_type"] == "bool"
     assert resource.columns["event_finished_time"]["data_type"] == "timestamp"
+    assert resource.columns["neg_risk_market_id"]["data_type"] == "text"
+    assert resource.columns["neg_risk_request_id"]["data_type"] == "text"
+    assert resource.columns["neg_risk_other"]["data_type"] == "bool"
 
 
 def test_parent_event_timing_survives_normalization():
@@ -89,6 +98,41 @@ def test_parent_event_timing_survives_normalization():
     assert row["event_ended"] is True
 
 
+def test_event_catalog_normalization_uses_canonical_observation_time():
+    observed_at = "2026-08-02T10:05:00+00:00"
+    [row] = normalize_market_payloads_for_dlt(
+        [
+            {
+                "id": "market-observed",
+                "question": "Will the market resolve Yes?",
+                "outcomes": ["Yes", "No"],
+                "clobTokenIds": ["yes", "no"],
+            }
+        ],
+        observed_at=observed_at,
+    )
+
+    assert row["scraped_at"] == observed_at
+
+
+@pytest.mark.parametrize("volume", [-1.0, float("nan"), float("inf"), float("-inf")])
+def test_event_catalog_normalization_treats_invalid_market_volume_as_unknown(
+    volume: float,
+):
+    [row] = normalize_market_payloads_for_dlt(
+        [
+            {
+                "id": "market-invalid-volume",
+                "volumeNum": volume,
+                "outcomes": ["Yes", "No"],
+                "clobTokenIds": ["yes", "no"],
+            }
+        ]
+    )
+
+    assert row["volume"] is None
+
+
 def test_normalize_market_payloads_for_dlt_matches_raw_market_contract():
     rows = normalize_market_payloads_for_dlt(
         [
@@ -109,6 +153,9 @@ def test_normalize_market_payloads_for_dlt_matches_raw_market_contract():
                 "groupItemTitle": "World Cup",
                 "tags": [{"slug": "fifa-world-cup"}],
                 "resolved": False,
+                "negRiskMarketID": "neg-risk-set-1",
+                "negRiskRequestID": "neg-risk-request-1",
+                "negRiskOther": False,
                 "clobTokenIds": ["tok_yes", "tok_no"],
                 "slug": "2026-fifa-world-cup-winner",
                 "events": [{"id": 99, "slug": "2026-fifa-world-cup-winner"}],
@@ -122,6 +169,7 @@ def test_normalize_market_payloads_for_dlt_matches_raw_market_contract():
             "question": "Who will win the 2026 FIFA World Cup?",
             "category": "Sports",
             "description": "Winner market",
+            "market_resolution_source": None,
             "outcomes": '["Yes", "No"]',
             "volume": 12345.67,
             "active": True,
@@ -141,11 +189,16 @@ def test_normalize_market_payloads_for_dlt_matches_raw_market_contract():
             "sports_market_type": "winner",
             "game_start_time": rows[0]["game_start_time"],
             "group_item_title": "World Cup",
+            "group_item_threshold": None,
+            "line": None,
             "tags": '[{"slug": "fifa-world-cup"}]',
             "clob_token_ids": '["tok_yes", "tok_no"]',
             "is_resolved": False,
             "winning_outcome": None,
             "winning_clob_token_id": None,
+            "neg_risk_market_id": "neg-risk-set-1",
+            "neg_risk_request_id": "neg-risk-request-1",
+            "neg_risk_other": False,
         }
     ]
 

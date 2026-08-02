@@ -30,7 +30,7 @@ sources:
           (staging expands this into one row per token). Hence market_id is unique at this raw grain.
         meta:
           dagster:
-            asset_key: [polymarket, us_midterms_2026, raw, market_metadata_backfill]
+            asset_key: [polymarket, us_midterms_2026, raw, market_metadata_enrichment]
         loaded_at_field: updated_at
         freshness:
           warn_after: {count: 18, period: hour}
@@ -91,7 +91,7 @@ sources:
             description: UTC timestamp when this aggregate row was last rebuilt by ingestion.
 
   - name: polymarket_us_midterms_2026_ops
-    description: Polymarket operational DuckDB tables (sync ledger, skips, run events) written by Python ingestion.
+    description: Polymarket operational DuckDB tables (sync ledger, skips, ingestion run events) written by Python ingestion.
     schema: polymarket_us_midterms_2026_ops
     tables:
       - name: token_sync_ledger
@@ -153,7 +153,7 @@ sources:
             description: How the row was discovered (events_api or seed).
           - name: refreshed_at
             description: UTC timestamp when this registry row was last upserted.
-      - name: pipeline_run_events
+      - name: ingestion_run_events
         description: Append-only operational audit log for ingestion and repair run metrics.
         meta:
           dagster:
@@ -164,7 +164,7 @@ sources:
           error_after: {count: 96, period: hour}
         columns:
           - name: run_id
-            description: UUID primary key for the recorded pipeline run event.
+            description: UUID primary key for the recorded ingestion run event.
             tests: [not_null, unique]
           - name: task_name
             description: Pipeline task that emitted the run metrics payload.

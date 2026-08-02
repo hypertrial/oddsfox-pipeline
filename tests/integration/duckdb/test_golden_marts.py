@@ -284,11 +284,12 @@ def _seed_kalshi(conn: duckdb.DuckDBPyConnection) -> None:
 def _seed_wc2026_match_odds(conn: duckdb.DuckDBPyConnection) -> None:
     conn.executemany(
         f"""
-        insert into {openfootball_wc2026_raw_tbl("knockout_fixtures")}
+        insert into {openfootball_wc2026_raw_tbl("schedule_fixtures")}
         (
             fifa_match_id,
             stage_key,
             stage_rank,
+            group_label,
             kickoff_at_utc,
             home_team,
             away_team,
@@ -299,7 +300,7 @@ def _seed_wc2026_match_odds(conn: duckdb.DuckDBPyConnection) -> None:
             source_line_hash,
             source_loaded_at
         )
-        values (?, ?, ?, ?, ?, ?, 'Test Venue', 'scheduled',
+        values (?, ?, ?, null, ?, ?, ?, 'Test Venue', 'scheduled',
             'https://example.com/cup_finals.txt', ?, ?, timestamp '2026-07-13 00:00:00')
         """,
         [

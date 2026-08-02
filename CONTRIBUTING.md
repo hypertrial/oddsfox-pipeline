@@ -31,7 +31,8 @@ KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
 See the [Quickstart](docs/getting-started/index.md) and
-[Configuration reference](docs/reference/configuration.md) for full operator setup.
+[Configuration reference](docs/reference/configuration.md) for full operator
+setup. Use [Terminology](docs/reference/terminology.md) for product vocabulary.
 
 ## Source adapter contributions
 

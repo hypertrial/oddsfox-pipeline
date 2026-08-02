@@ -1,7 +1,7 @@
 -- costguard: disable-file=SQLCOST007
 -- costguard: disable-file=SQLCOST012
 -- Window ordering defines OHLC open/close prices; SQLCOST012 is a false
--- positive on the close_rank expression after removing the one-row contract join.
+-- positive on the close_rank expression after removing the one-row pipeline policy join.
 {{
     config(
         materialized='incremental',
@@ -13,7 +13,7 @@
             where odds_hour_utc < current_timestamp - (
                 (
                     select hourly_window_days
-                    from {{ ref('polymarket_wc2026_contract') }}
+                    from {{ ref('polymarket_wc2026_pipeline_policy') }}
                     where scope_name = 'wc2026'
                 ) * interval '1 day'
             )
@@ -22,7 +22,7 @@
 }}
 
 {{ polymarket_token_hourly_odds_sql(
-    ref('polymarket_wc2026_contract'),
+    ref('polymarket_wc2026_pipeline_policy'),
     ref('stg_polymarket_wc2026_odds'),
     'wc2026',
 ) }}

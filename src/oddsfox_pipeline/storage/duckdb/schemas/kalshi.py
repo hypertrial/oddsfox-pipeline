@@ -85,7 +85,7 @@ def bootstrap_kalshi_tables(
 
     ``{scope}_raw.events`` and ``{scope}_raw.markets`` are owned by dlt landing.
     """
-    pre = kalshi_ops_tbl(scope_name, "pipeline_run_events")
+    pre = kalshi_ops_tbl(scope_name, "ingestion_run_events")
     srm = kalshi_ops_tbl(scope_name, "sync_run_metrics")
     scope_reg = kalshi_ops_tbl(scope_name, "market_scope_registry")
     led = kalshi_ops_tbl(scope_name, "candlestick_sync_ledger")
@@ -216,13 +216,13 @@ def create_all_kalshi_test_raw_tables(conn: duckdb.DuckDBPyConnection) -> None:
         create_test_kalshi_raw_tables(conn, scope_name=scope_name)
 
 
-def seed_test_kalshi_pipeline_run_event(conn: duckdb.DuckDBPyConnection) -> None:
+def seed_test_kalshi_ingestion_run_event(conn: duckdb.DuckDBPyConnection) -> None:
     """Healthy sync_kalshi_candlesticks fixture for dbt observability tests."""
     import json
     import uuid
     from datetime import datetime, timezone
 
-    pre = kalshi_ops_tbl(SCOPE_WC2026, "pipeline_run_events")
+    pre = kalshi_ops_tbl(SCOPE_WC2026, "ingestion_run_events")
     recorded_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     metrics = {
         "scope_name": "wc2026",
@@ -256,5 +256,5 @@ __all__ = [
     "create_test_kalshi_raw_tables",
     "ensure_all_kalshi_indexes",
     "ensure_kalshi_indexes",
-    "seed_test_kalshi_pipeline_run_event",
+    "seed_test_kalshi_ingestion_run_event",
 ]

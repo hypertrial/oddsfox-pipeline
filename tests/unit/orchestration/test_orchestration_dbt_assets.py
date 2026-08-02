@@ -47,7 +47,7 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "polymarket",
         "wc2026",
         "raw",
-        "market_metadata_backfill",
+        "market_metadata_enrichment",
     ]
     assert tables[("polymarket_wc2026_raw", "odds_history")] == [
         "polymarket",
@@ -96,7 +96,7 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "raw",
         "token_odds_history_hourly",
     ]
-    assert tables[("polymarket_wc2026_ops", "pipeline_run_events")] == [
+    assert tables[("polymarket_wc2026_ops", "ingestion_run_events")] == [
         "polymarket",
         "wc2026",
         "raw",
@@ -120,11 +120,11 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "raw",
         "snapshot",
     ]
-    assert tables[("openfootball_wc2026_raw", "knockout_fixtures")] == [
+    assert tables[("openfootball_wc2026_raw", "schedule_fixtures")] == [
         "openfootball",
         "wc2026",
         "raw",
-        "knockout_fixtures",
+        "schedule_fixtures",
     ]
 
 
@@ -182,10 +182,10 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
     stg_fixtures_parents = {
         key.to_user_string()
         for key in graph.get(
-            AssetKey(["openfootball", "wc2026", "staging", "knockout_fixtures"])
+            AssetKey(["openfootball", "wc2026", "staging", "schedule_fixtures"])
         ).parent_keys
     }
-    assert "openfootball/wc2026/raw/knockout_fixtures" in stg_fixtures_parents
+    assert "openfootball/wc2026/raw/schedule_fixtures" in stg_fixtures_parents
 
     stg_order_book_parents = {
         key.to_user_string()
@@ -615,7 +615,7 @@ def test_stream_dbt_build_appends_full_refresh_flag():
             "build",
             "--full-refresh",
             "--exclude",
-            "tag:polygon_settlement tag:pmxt_order_book",
+            "tag:polygon_settlement tag:pmxt_order_book tag:wc2026_logical_atlas",
         ]
     ]
 
@@ -755,7 +755,11 @@ def test_stream_dbt_build_keeps_polygon_graph_opt_in_for_subset():
     )
 
     assert captured_args == [
-        ["build", "--exclude", "tag:polygon_settlement tag:pmxt_order_book"]
+        [
+            "build",
+            "--exclude",
+            "tag:polygon_settlement tag:pmxt_order_book tag:wc2026_logical_atlas",
+        ]
     ]
 
 

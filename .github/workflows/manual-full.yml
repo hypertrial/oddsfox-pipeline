@@ -141,6 +141,8 @@ jobs:
         run: uv run make check-secrets
       - name: Distribution policy
         run: uv run make check-distribution
+      - name: Terminology policy
+        run: uv run make check-terminology
       - name: Package distribution smoke
         run: uv run make package-smoke
       - name: Replay-only HTTP contracts

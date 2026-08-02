@@ -83,8 +83,8 @@ def summarize_parquet(
                 max(
                     date_diff(
                         'minute',
-                        date_trunc('minute', game_started_at_utc),
-                        date_trunc('minute', game_finished_at_utc)
+                        date_trunc('minute', match_started_at_utc),
+                        date_trunc('minute', match_finished_at_utc)
                     )
                 ) as expected_final_elapsed_minute,
                 count(*) filter (
@@ -93,7 +93,7 @@ def summarize_parquet(
                         or elapsed_window_minute < 0
                         or elapsed_window_minute <> date_diff(
                             'minute',
-                            date_trunc('minute', game_started_at_utc),
+                            date_trunc('minute', match_started_at_utc),
                             odds_minute_utc
                         )
                 ) as invalid_row_count
@@ -176,8 +176,8 @@ def summarize_parquet(
             count(*) filter (
                 where
                     scheduled_kickoff_at_utc is null
-                    or game_started_at_utc is null
-                    or game_finished_at_utc is null
+                    or match_started_at_utc is null
+                    or match_finished_at_utc is null
             ) as missing_timing_rows
         from mart
         """,

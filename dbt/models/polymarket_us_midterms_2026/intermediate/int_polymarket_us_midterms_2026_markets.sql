@@ -36,7 +36,7 @@ registry as (
 
 contract as (
     select knockout_min_volume_usd
-    from {{ ref('polymarket_us_midterms_2026_contract') }}
+    from {{ ref('polymarket_us_midterms_2026_pipeline_policy') }}
     where scope_name = 'us_midterms_2026'
 )
 
@@ -68,6 +68,6 @@ select
 from markets
 inner join registry
     on markets.market_id = registry.market_id
--- costguard: allow cross-join, WC2026 contract seed has one row.
+-- costguard: allow cross-join, WC2026 pipeline policy seed has one row.
 cross join contract
 where coalesce(markets.volume, 0) >= contract.knockout_min_volume_usd

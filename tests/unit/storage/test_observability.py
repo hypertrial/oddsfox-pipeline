@@ -14,7 +14,7 @@ from oddsfox_pipeline.storage.duckdb.observability import (
 from oddsfox_pipeline.storage.duckdb.schemas.kalshi import create_test_kalshi_raw_tables
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     create_test_markets_table,
-    seed_test_pipeline_run_event,
+    seed_test_ingestion_run_event,
 )
 
 
@@ -89,7 +89,7 @@ def test_snapshot_raw_layer_counts_kalshi_tables(tmp_path, monkeypatch, isolated
     assert "events_rows" not in snapshot
 
 
-def test_seed_test_pipeline_run_event_inserts_sync_odds_row(tmp_path, monkeypatch):
+def test_seed_test_ingestion_run_event_inserts_sync_odds_row(tmp_path, monkeypatch):
     import oddsfox_pipeline.storage.duckdb.connection as conn_mod
 
     db_path = tmp_path / "seed.duckdb"
@@ -99,11 +99,11 @@ def test_seed_test_pipeline_run_event_inserts_sync_odds_row(tmp_path, monkeypatc
     init_duck_db()
 
     with duckdb.connect(str(db_path)) as conn:
-        seed_test_pipeline_run_event(conn)
+        seed_test_ingestion_run_event(conn)
         row = conn.execute(
             """
             select task_name, metrics_json
-            from polymarket_wc2026_ops.pipeline_run_events
+            from polymarket_wc2026_ops.ingestion_run_events
             """
         ).fetchone()
 

@@ -142,7 +142,7 @@ unit_tests:
           - {match_id: result-round, match_date: '2026-07-14', home_team: Brazil, away_team: Portugal}
           - {match_id: result-third, match_date: '2026-07-18', home_team: Spain, away_team: Argentina}
           - {match_id: result-final, match_date: '2026-07-19', home_team: France, away_team: Germany}
-      - input: ref('stg_openfootball_wc2026_knockout_fixtures')
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
         rows:
           - {fifa_match_id: 101, stage_key: semifinal, home_team: Brazil, away_team: Portugal, kickoff_at_utc: '2026-07-14 19:00:00'}
           - {fifa_match_id: 103, stage_key: third_place, home_team: Spain, away_team: Argentina, kickoff_at_utc: '2026-07-18 19:00:00'}
@@ -163,7 +163,7 @@ unit_tests:
     given:
       - input: ref('int_polymarket_wc2026_match_market_universe')
         rows:
-          - {market_id: market-1, yes_clob_token_id: yes-1, no_clob_token_id: no-1, game_started_at_utc: '2026-07-01 12:00:30', game_finished_at_utc: '2026-07-01 12:02:35'}
+          - {market_id: market-1, yes_clob_token_id: yes-1, no_clob_token_id: no-1, match_started_at_utc: '2026-07-01 12:00:30', match_finished_at_utc: '2026-07-01 12:02:35'}
       - input: ref('stg_polymarket_wc2026_match_minute_odds_history')
         rows:
           - {market_id: market-1, clob_token_id: yes-1, odds_timestamp_epoch: 1782907229, odds_timestamp_utc: '2026-07-01 12:00:29', price: 0.1}
@@ -181,7 +181,7 @@ unit_tests:
     given:
       - input: ref('int_polymarket_wc2026_match_market_universe')
         rows:
-          - {fifa_match_id: 104, market_id: market-1, condition_id: condition-1, selected_market_event_id: more-1, selected_market_event_slug: more-1, primary_timing_event_id: primary-1, primary_timing_event_slug: primary-1, stage: final, group_label: null, home_team: Spain, away_team: Argentina, game_started_at_utc: '2026-07-01 12:00:30', game_finished_at_utc: '2026-07-01 12:02:35', sports_market_type: soccer_team_to_advance, proposition_type: home_wins_final, question: Team to Advance, yes_represents: Spain wins, no_represents: Argentina wins, yes_team_name: Spain, no_team_name: Argentina, yes_clob_token_id: yes-1, no_clob_token_id: no-1}
+          - {fifa_match_id: 104, market_id: market-1, condition_id: condition-1, selected_market_event_id: more-1, selected_market_event_slug: more-1, primary_timing_event_id: primary-1, primary_timing_event_slug: primary-1, stage: final, group_label: null, home_team: Spain, away_team: Argentina, match_started_at_utc: '2026-07-01 12:00:30', match_finished_at_utc: '2026-07-01 12:02:35', sports_market_type: soccer_team_to_advance, proposition_type: home_wins_final, question: Team to Advance, yes_represents: Spain wins, no_represents: Argentina wins, yes_team_name: Spain, no_team_name: Argentina, yes_clob_token_id: yes-1, no_clob_token_id: no-1}
       - input: ref('int_polymarket_wc2026_match_token_minute_odds')
         rows:
           - {clob_token_id: yes-1, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 1782907200, open_price: 0.4, high_price: 0.4, low_price: 0.4, close_price: 0.4, average_price: 0.4, observed_points: 1, first_observed_at: '2026-07-01 12:00:30', last_observed_at: '2026-07-01 12:00:30'}
@@ -197,7 +197,7 @@ unit_tests:
     given:
       - input: ref('int_polymarket_wc2026_match_market_universe')
         rows:
-          - {fifa_match_id: 1, market_id: market-1, condition_id: condition-1, selected_market_event_id: event-1, selected_market_event_slug: event-1, primary_timing_event_id: event-1, primary_timing_event_slug: event-1, stage: group_stage, home_team: Japan, away_team: Sweden, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', game_started_at_utc: '2026-07-01 12:00:05', game_finished_at_utc: '2026-07-01 12:00:55', sports_market_type: moneyline, proposition_type: home_win, question: Japan win?, yes_represents: Japan wins, no_represents: Japan does not win, yes_team_name: Japan, yes_clob_token_id: yes-1, no_clob_token_id: no-1}
+          - {fifa_match_id: 1, market_id: market-1, condition_id: condition-1, selected_market_event_id: event-1, selected_market_event_slug: event-1, primary_timing_event_id: event-1, primary_timing_event_slug: event-1, stage: group_stage, home_team: Japan, away_team: Sweden, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', match_started_at_utc: '2026-07-01 12:00:05', match_finished_at_utc: '2026-07-01 12:00:55', sports_market_type: moneyline, proposition_type: home_win, question: Japan win?, yes_represents: Japan wins, no_represents: Japan does not win, yes_team_name: Japan, yes_clob_token_id: yes-1, no_clob_token_id: no-1}
       - input: ref('int_polymarket_wc2026_match_token_minute_odds')
         rows:
           - {clob_token_id: yes-1, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 1782907200, open_price: 0.57, high_price: 0.57, low_price: 0.57, close_price: 0.57, average_price: 0.57, observed_points: 1, first_observed_at: '2026-07-01 12:00:05', last_observed_at: '2026-07-01 12:00:05'}

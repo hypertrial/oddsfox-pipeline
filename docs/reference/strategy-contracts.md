@@ -2,8 +2,9 @@
 
 Use this page when consuming private canonical snapshots (`oddsfox.raw.v1`) or
 the strategy clean-data relation set under `wc2026.v1`. Ordinary public mart
-queries, graph parquet, and open-source integrator work should start with
-[Data contracts](data-contracts.md) instead.
+queries, the logical-v1 bundle, and open-source integrator work should start
+with [Data contracts](data-contracts.md) instead. `wc2026.v1` is not the public
+analytics contract; public marts are the supported query API.
 
 ## Canonical raw snapshots
 

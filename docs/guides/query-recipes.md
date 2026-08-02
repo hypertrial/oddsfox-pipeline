@@ -275,7 +275,7 @@ Latest Polymarket WC2026 ingestion telemetry:
 
 ```sql
 select *
-from polymarket_wc2026_observability.polymarket_wc2026_sync_run_observability
+from polymarket_wc2026_observability.polymarket_wc2026_ingestion_run_observability
 order by recorded_at desc
 limit 20;
 ```
@@ -284,7 +284,7 @@ Latest Kalshi ingestion telemetry:
 
 ```sql
 select *
-from kalshi_wc2026_observability.kalshi_wc2026_sync_run_observability
+from kalshi_wc2026_observability.kalshi_wc2026_ingestion_run_observability
 order by recorded_at desc
 limit 20;
 ```

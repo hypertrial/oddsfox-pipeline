@@ -81,8 +81,8 @@ Change adapters, dbt marts, orchestration, or docs with the right quality gate.
 
 ### Integrate downstream
 
-Consume `wc2026.v1` marts and graph parquet without treating pipeline output as
-execution.
+Consume public marts and the logical-v1 bundle without treating pipeline output
+as execution. Strategy consumers use private `wc2026.v1` separately.
 
 [Integrators hub](audiences/integrators.md)
 

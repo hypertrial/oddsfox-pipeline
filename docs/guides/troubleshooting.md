@@ -76,17 +76,17 @@ Then rerun the quickstart.
 
 - Lower `MARKETS_REQUESTS_PER_SECOND` or `ODDS_REQUESTS_PER_SECOND`.
 - Re-run the failed Dagster job; token sync state is ledgered.
-- Check `polymarket_wc2026_ops.pipeline_run_events` and
+- Check `polymarket_wc2026_ops.ingestion_run_events` and
   `polymarket_wc2026_ops.sync_run_metrics` for WC2026 run payloads.
-- Check `polymarket_us_midterms_2026_ops.pipeline_run_events` and
+- Check `polymarket_us_midterms_2026_ops.ingestion_run_events` and
   `polymarket_us_midterms_2026_ops.sync_run_metrics` for US midterms run payloads.
-- If the latest sync metrics include `pipeline_run_event_append_failed`, the
+- If the latest sync metrics include `ingestion_run_event_append_failed`, the
   ingestion run continued but the append-only telemetry event failed to land;
-  inspect `pipeline_run_event_append_error` and rerun after fixing storage.
+  inspect `ingestion_run_event_append_error` and rerun after fixing storage.
 
 ## Polygon Settlement RPC Failures
 
-The manual Polygon flow requires both `POLYGON_RPC_URL` and
+The manual Polygon pipeline requires both `POLYGON_RPC_URL` and
 `POLYGON_RPC_PROVIDER_LABEL`. The primary endpoint must report chain ID 137 and
 support the `finalized` block tag. Seed authoring additionally requires archive
 history for event-block verification.
@@ -205,23 +205,23 @@ Fix:
 2. Unset `DUCKDB_PATH` and rely on `DUCKDB_NAME=oddsfox.duckdb` so the path
    resolves relative to the repo root.
 
-## Midterms Metadata Backfill Uses Wrong Markets
+## Midterms Metadata Enrichment Uses Wrong Markets
 
-Symptom: `polymarket/us_midterms_2026/raw/market_metadata_backfill` queries WC2026
+Symptom: `polymarket/us_midterms_2026/raw/market_metadata_enrichment` queries WC2026
 markets or returns zero due markets.
 
 Cause: an older build exited `active_polymarket_scope` before scoped queries ran.
 
 Fix: pull the latest code, reset a polluted warehouse if needed (`rm oddsfox.duckdb*`),
-and rerun the midterms registry refresh job.
+and rerun the midterms market scope registry refresh job.
 
 ## Empty Midterms Observability
 
-Symptom: `polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_sync_run_observability`
+Symptom: `polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_ingestion_run_observability`
 has zero rows after a successful midterms run.
 
-Cause: an older build wrote `pipeline_run_events` to the WC2026 ops schema.
+Cause: an older build wrote `ingestion_run_events` to the WC2026 ops schema.
 
 Fix: pull the latest code and rerun `polymarket_us_midterms_2026_hourly_odds_ingest`
 or the full midterms pipeline. Confirm rows land in
-`polymarket_us_midterms_2026_ops.pipeline_run_events`.
+`polymarket_us_midterms_2026_ops.ingestion_run_events`.

@@ -36,7 +36,7 @@ WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED=false
 ```
 
 Kalshi uses the public trade API. Polymarket CLOB credentials are optional
-unless the selected live flow explicitly requires authentication.
+unless the selected live job explicitly requires authentication.
 
 ## Validate the project
 
@@ -60,14 +60,14 @@ uv run make dbt-build
 ```
 
 The ordinary build intentionally excludes the manual
-`tag:polygon_settlement` and `tag:pmxt_order_book` graphs, so no Polygon RPC or
+`tag:polygon_settlement` and `tag:pmxt_order_book` dbt graphs, so no Polygon RPC or
 PMXT configuration is needed for quickstart.
 
 !!! note "Advanced: Polygon settlement history"
 
-    Polygon settlement is an optional isolated historical flow, not part of this
-    first run. Validate it offline with `uv run make dbt-polygon-settlement-ci`,
-    or follow
+    Polygon settlement is an optional isolated historical pipeline, not part of
+    this first run. Validate it offline with
+    `uv run make dbt-polygon-settlement-ci`, or follow
     [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md)
     when you explicitly want that dataset.
 

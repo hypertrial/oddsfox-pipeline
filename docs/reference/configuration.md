@@ -33,7 +33,7 @@ matching ignored
 only a placeholder attestation example. See `dbt/seeds/README.md` for the
 repository seed policy.
 
-dbt parse and the ordinary graph remain valid with empty shells. Models that
+dbt parse and the ordinary dbt graph remain valid with empty shells. Models that
 depend on these inputs are empty, and Polygon readiness fails closed until the
 complete local manifest and attestation are present.
 
@@ -49,7 +49,7 @@ complete local manifest and attestation are present.
   `tests/unit/storage/duckdb_storage_test_support.py` to clear `DUCKDB_PATH`
   before and after reload.
 - US midterms hourly jobs default to the same trailing 30-day window and volume
-  floor as WC2026, aligned with `dbt/seeds/polymarket_us_midterms_2026_contract.csv`.
+  floor as WC2026, aligned with `dbt/seeds/polymarket_us_midterms_2026_pipeline_policy.csv`.
 
 ## API Pacing
 
@@ -94,13 +94,13 @@ targets live in
 `src/oddsfox_pipeline/ingestion/polymarket/seeds/order_book_targets.yml`.
 The initial manifest contains only FIFA match 95, Argentina–Egypt.
 
-The flow is backfill-only. It has no schedule flag and is excluded from
+The pipeline is backfill-only. It has no schedule flag and is excluded from
 ordinary dbt and full-pipeline jobs with `tag:pmxt_order_book`. See
 [Recreate the PMXT order-book mart](../guides/recreate-match-order-book-mart.md).
 
 ## WC2026 Polygon settlement history
 
-The independent Polygon flow has no schedule and does not reuse Gamma/CLOB
+The independent Polygon pipeline has no schedule and does not reuse Gamma/CLOB
 configuration.
 
 - `POLYGON_RPC_URL` (required for live backfill and seed authoring): Polygon
@@ -123,7 +123,7 @@ override those four tuning values. Log chunks adapt within 250–20,000 blocks
 and receipt batches within 5–50 transactions. Polygon chain ID 137, finalized
 head semantics, contract addresses, event layouts, window lengths, and the
 `polygon-v2-settlement-v4` normalizer are code-fixed invariants. There are no
-tuning env vars for this flow.
+tuning env vars for this pipeline.
 
 All Polygon live-smoke runtime state is rooted below the repository's
 `.cache/polygon_settlement/`: the v4 warehouse under `benchmarks/v4/`, Dagster
@@ -152,6 +152,12 @@ configuration.
 scope source. The packaged seed contains `wc2026` and `us_midterms_2026`, and
 the shipped Dagster jobs, assets, and dbt graphs are fixed per scope in v0.1.x.
 
+`ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH` must name the absolute path to the
+operator-reviewed logical-atlas membership CSV when running
+`polymarket_wc2026_logical_atlas` or the full pipeline. The same path can be
+supplied as the focused job's `reviewed_membership_path` op config. The tracked
+dbt membership seed is only a header-only schema shell.
+
 Polymarket scope helper code accepts any slug-like scope that exists in the
 seed file, which keeps tests and future adapter work seed-backed instead of
 hard-coded. That does not add a runtime scope selector.
@@ -176,9 +182,10 @@ overrides.
 The seed file `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml`
 is the default scope source.
 
-Shared dbt contract values such as the knockout volume floor, trailing hourly
-window, and freshness windows live in `dbt/seeds/polymarket_wc2026_contract.csv`
-and `dbt/seeds/polymarket_us_midterms_2026_contract.csv`.
+Shared dbt pipeline policy values such as the knockout volume floor, trailing
+hourly window, and freshness windows live in
+`dbt/seeds/polymarket_wc2026_pipeline_policy.csv` and
+`dbt/seeds/polymarket_us_midterms_2026_pipeline_policy.csv`.
 Python defaults are checked against those seeds in unit tests.
 
 The packaged WC2026 event prefixes include `fifwc-` so exact match events are
@@ -197,10 +204,10 @@ Kalshi uses the public HTTPS trade API at `external-api.kalshi.com`. No API key,
 secret, or passphrase is required for local docs, dbt, or mocked tests.
 
 `src/oddsfox_pipeline/ingestion/kalshi/seeds/market_scopes.yml` is the scope
-source for the fixed `wc2026` Kalshi graph. Shared contract values such as the
-trailing hourly window and freshness windows live in
-`dbt/seeds/kalshi_wc2026_contract.csv`; Python defaults are checked against that
-seed in unit tests.
+source for the fixed `wc2026` Kalshi dbt graph. Shared pipeline policy values such as
+the trailing hourly window and freshness windows live in
+`dbt/seeds/kalshi_wc2026_pipeline_policy.csv`; Python defaults are checked against
+that seed in unit tests.
 
 The packaged Kalshi series include `KXWCADVANCE`. Only the two team-advance
 binary markets under a recognized event are eligible for the neutral match
@@ -217,7 +224,7 @@ Dagster hourly odds config uses history-oriented option names:
 - `window_hours`: maximum CLOB fetch window per request. Hourly/full-pipeline jobs
   default this to `720` (30 days), aligned with the default backfill window.
 
-The old minutely-oriented names are not accepted in v0.1.x.
+The old minute-grain schedule-oriented names are not accepted in v0.1.x.
 
 ## Schedules
 

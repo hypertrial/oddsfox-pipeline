@@ -12,7 +12,7 @@ from oddsfox_pipeline.orchestration import (
 from oddsfox_pipeline.orchestration import config as orch_config
 from oddsfox_pipeline.orchestration.assets import (
     polymarket_us_midterms_2026_ops_market_scope_registry,
-    polymarket_us_midterms_2026_raw_market_metadata_backfill,
+    polymarket_us_midterms_2026_raw_market_metadata_enrichment,
     polymarket_us_midterms_2026_raw_markets,
     polymarket_us_midterms_2026_raw_markets_snapshot,
     polymarket_us_midterms_2026_raw_token_odds_history_hourly,
@@ -250,51 +250,51 @@ def test_midterms_dlt_asset_skips_pending_package_drop_when_clean(monkeypatch):
     pipeline.drop_pending_packages.assert_not_called()
 
 
-def test_midterms_metadata_backfill_no_orphan_cleanup_log(monkeypatch):
+def test_midterms_metadata_enrichment_no_orphan_cleanup_log(monkeypatch):
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
     monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
     monkeypatch.setattr(
         assets_mod.ops,
-        "backfill_market_metadata",
-        lambda **_kwargs: {"task": "backfill_market_metadata", "saved": {}},
+        "enrich_market_metadata",
+        lambda **_kwargs: {"task": "enrich_market_metadata", "saved": {}},
     )
     monkeypatch.setattr(
         assets_mod.ops, "delete_orphan_market_tokens", lambda **_kwargs: 0
     )
 
     ctx = MagicMock()
-    fn = polymarket_us_midterms_2026_raw_market_metadata_backfill.op.compute_fn.decorated_fn
-    result = fn(ctx, orch_config.MetadataBackfillConfig())
+    fn = polymarket_us_midterms_2026_raw_market_metadata_enrichment.op.compute_fn.decorated_fn
+    result = fn(ctx, orch_config.MetadataEnrichmentConfig())
 
     assert result.metadata["orphan_market_tokens_removed"].value == 0
     joined = " ".join(str(c) for c in ctx.log.info.call_args_list)
     assert "orphan market_tokens" not in joined
 
 
-def test_midterms_metadata_backfill_progress_and_orphans(monkeypatch):
+def test_midterms_metadata_enrichment_progress_and_orphans(monkeypatch):
     captured = {}
 
-    def backfill_market_metadata(**kwargs):
+    def enrich_market_metadata(**kwargs):
         kwargs["progress_callback"]("batch", {"batch": 1})
         captured.update(kwargs)
-        return {"task": "backfill_market_metadata", "saved": {}}
+        return {"task": "enrich_market_metadata", "saved": {}}
 
     monkeypatch.setattr(assets_mod, "snapshot_raw_layer", lambda **_kwargs: {})
     monkeypatch.setattr(assets_mod, "delta_raw_layer", lambda _pre, _post: {})
     monkeypatch.setattr(
-        assets_mod.ops, "backfill_market_metadata", backfill_market_metadata
+        assets_mod.ops, "enrich_market_metadata", enrich_market_metadata
     )
     monkeypatch.setattr(
         assets_mod.ops, "delete_orphan_market_tokens", lambda **_kwargs: 2
     )
 
     ctx = MagicMock()
-    fn = polymarket_us_midterms_2026_raw_market_metadata_backfill.op.compute_fn.decorated_fn
-    result = fn(ctx, orch_config.MetadataBackfillConfig())
+    fn = polymarket_us_midterms_2026_raw_market_metadata_enrichment.op.compute_fn.decorated_fn
+    result = fn(ctx, orch_config.MetadataEnrichmentConfig())
 
     assert captured["market_scope"] == "us_midterms_2026"
     assert result.metadata["backfill_summaries"].value[0]["task"] == (
-        "backfill_market_metadata"
+        "enrich_market_metadata"
     )
     assert result.metadata["orphan_market_tokens_removed"].value == 2
     joined = " ".join(str(c) for c in ctx.log.info.call_args_list)

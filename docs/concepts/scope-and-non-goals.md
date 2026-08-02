@@ -15,7 +15,7 @@ For the operator checklist, see
   `polymarket:wc2026`, `polymarket:us_midterms_2026`, and `kalshi:wc2026`.
 - Supporting FIFA fixture/results ingestion used to validate real-team scope on
   WC2026 market graphs.
-- An optional, isolated Polygon settlement-history flow with its own
+- An optional, isolated Polygon settlement-history pipeline with its own
   unscheduled job and dbt tag (not a `run_scope.py` scope).
 
 ## What It Does Not Ship Or Operate

@@ -1,4 +1,4 @@
-"""Polymarket metadata backfill: backfill_end_dates."""
+"""Polymarket metadata enrichment: backfill_end_dates."""
 
 import logging
 import time
@@ -35,12 +35,12 @@ def backfill_end_dates(
     gamma_requests_per_second: float | None = None,
 ) -> Dict[str, Any]:
     """
-    Backfill end_date for markets missing it using the Gamma API.
+    Enrich end_date for markets missing it using the Gamma API.
     """
     t0 = time.monotonic()
     if not force and get_backfill_fully_checked("end_dates"):
         logger.debug(
-            "end_date backfill previously marked complete. Use --force to rerun."
+            "end_date enrichment previously marked complete. Use --force to rerun."
         )
         return {
             "task": "backfill_end_dates",
@@ -50,14 +50,14 @@ def backfill_end_dates(
             "api_requests": 0,
         }
 
-    logger.info("Starting end_date backfill for existing markets")
+    logger.info("Starting end_date enrichment for existing markets")
     ensure_duck_db()
 
     market_ids = get_markets_without_end_date(limit=max_markets)
     total_markets = len(market_ids)
 
     if total_markets == 0:
-        logger.debug("All markets already have end_date. Nothing to backfill.")
+        logger.debug("All markets already have end_date. Nothing to enrich.")
         if max_markets is None:
             set_backfill_fully_checked("end_dates", True)
         return {
@@ -71,7 +71,9 @@ def backfill_end_dates(
             "api_requests": 0,
         }
 
-    logger.info(f"Found {total_markets} markets without end_date. Starting backfill...")
+    logger.info(
+        f"Found {total_markets} markets without end_date. Starting enrichment..."
+    )
     if progress_callback:
         progress_callback(
             "backfill_end_dates",
@@ -87,7 +89,7 @@ def backfill_end_dates(
         client=client,
         market_ids=market_ids,
         batch_size=batch_size,
-        desc="Backfilling end_date",
+        desc="Enriching end_date",
         include_events=False,
         extract_record=_extract_end_date_record,
         save_batch=save_end_dates_batch,
@@ -99,7 +101,7 @@ def backfill_end_dates(
 
     completed_all = processed >= total_markets
     logger.info(
-        f"Backfill complete. Processed {processed} markets, saved end_date for {saved} markets."
+        f"Enrichment complete. Processed {processed} markets, saved end_date for {saved} markets."
     )
     if max_markets is None:
         set_backfill_fully_checked("end_dates", completed_all)

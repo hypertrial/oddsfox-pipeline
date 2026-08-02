@@ -120,8 +120,8 @@ def test_gamma_events_keyset_shared_pagination_params(monkeypatch, tmp_path):
     assert wc_calls[0].get("limit") == fb_calls[0].get("limit") == 500
     assert wc_calls[0].get("closed") is False
     assert wc_calls[0].get("volume_min") == 5000
-    assert wc_calls[1].get("next_cursor") == "c2"
-    assert fb_calls[1].get("next_cursor") == "c2"
+    assert wc_calls[1].get("after_cursor") == "c2"
+    assert fb_calls[1].get("after_cursor") == "c2"
     assert "closed" not in fb_calls[0]
 
 
@@ -175,6 +175,51 @@ def test_fetch_gamma_event_by_slug_reraises_transport_errors(monkeypatch):
     )
     with pytest.raises(requests.ConnectionError):
         fetch_gamma_event_by_slug(client, "some-slug")
+
+
+def test_fetch_gamma_event_by_id_handles_missing_and_valid_payloads():
+    from oddsfox_pipeline.ingestion.polymarket.errors import GammaRequestError
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
+        fetch_gamma_event_by_id,
+    )
+
+    client = MagicMock()
+    assert fetch_gamma_event_by_id(client, "  ") is None
+
+    response = MagicMock(status_code=404)
+    client.get.side_effect = GammaRequestError("missing", response=response)
+    assert fetch_gamma_event_by_id(client, "123") is None
+
+    client.get.side_effect = None
+    client.get.return_value = {"slug": "empty"}
+    assert fetch_gamma_event_by_id(client, "123") is None
+
+    client.get.return_value = {"id": "123"}
+    assert fetch_gamma_event_by_id(client, "123") == {"id": "123"}
+
+
+def test_fetch_gamma_event_by_id_reraises_request_errors(monkeypatch):
+    import requests
+
+    from oddsfox_pipeline.ingestion.polymarket.errors import GammaRequestError
+    from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
+        fetch_gamma_event_by_id,
+    )
+
+    client = MagicMock()
+    client.get.side_effect = GammaRequestError(
+        "server error",
+        response=MagicMock(status_code=500),
+    )
+    with pytest.raises(GammaRequestError):
+        fetch_gamma_event_by_id(client, "123")
+
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.polymarket.gamma_events.gamma_get",
+        lambda *_a, **_k: (_ for _ in ()).throw(requests.ConnectionError("down")),
+    )
+    with pytest.raises(requests.ConnectionError):
+        fetch_gamma_event_by_id(client, "123")
 
 
 def test_gamma_market_id_filter_and_resilient_fetch():

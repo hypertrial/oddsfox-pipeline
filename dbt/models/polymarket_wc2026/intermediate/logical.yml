@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: int_polymarket_wc2026_logical_team_identities
+    description: >-
+      Unique source-label lookup keys mapped to stable canonical World Cup team
+      identities. Multiple aliases may share one canonical team identifier.
+    columns:
+      - name: team_match_key
+        tests: [not_null, unique]
+      - name: canonical_match_key
+        tests: [not_null]
+      - name: canonical_team_id
+        tests: [not_null]

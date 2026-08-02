@@ -1,6 +1,9 @@
 # Naming
 
 OddsFox Pipeline names source-specific surfaces from source to scope to subject.
+Semantic vocabulary lives in [Terminology](terminology.md). This page covers
+identifier construction only.
+
 Current canonical tuples are:
 
 - `source`: `polymarket`, `scope`: `wc2026`, `namespace`: `polymarket_wc2026`
@@ -8,9 +11,11 @@ Current canonical tuples are:
 - `source`: `international_results`, `scope`: `wc2026`, `namespace`: `international_results_wc2026`
 - `source`: `kalshi`, `scope`: `wc2026`, `namespace`: `kalshi_wc2026`
 
-Flat names use `<source>_<scope>_<subject>[_<cadence>]`. Use flat names for
-Dagster jobs, schedules, op names, Python functions, env vars, scripts, dbt
-relations, and DuckDB schemas.
+Flat names use `<source>_<scope>_<subject>[_<temporal_grain_or_cadence>]`.
+Use flat names for Dagster jobs, schedules, op names, Python functions, env
+vars, scripts, dbt relations, and DuckDB schemas. Prefer temporal grain in
+relation names and schedule cadence only in job/schedule names when the
+cadence is the operating mode.
 
 Dagster asset keys are hierarchical so the asset graph remains readable as
 more sources and scopes are added:

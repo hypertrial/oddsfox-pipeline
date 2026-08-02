@@ -9,7 +9,7 @@ import duckdb
 
 from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
-    PIPELINE_RUN_EVENT_COLUMNS,
+    INGESTION_RUN_EVENT_COLUMNS,
     load_stage_rows,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
@@ -47,19 +47,19 @@ def _with_row_order(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     return [{**row, "row_order": idx} for idx, row in enumerate(rows)]
 
 
-def append_kalshi_pipeline_run_event_stage(
+def append_kalshi_ingestion_run_event_stage(
     row: dict[str, Any],
     conn: duckdb.DuckDBPyConnection,
     *,
     scope_name: str = SCOPE_WC2026,
 ) -> None:
     ops_schema = kalshi_ops_schema(scope_name)
-    target = kalshi_ops_tbl(scope_name, "pipeline_run_events")
+    target = kalshi_ops_tbl(scope_name, "ingestion_run_events")
     stage = load_stage_rows(
         schema=ops_schema,
-        stage_table="stage_kalshi_pipeline_run_events_v1",
+        stage_table="stage_kalshi_ingestion_run_events_v1",
         rows=[row],
-        columns=PIPELINE_RUN_EVENT_COLUMNS,
+        columns=INGESTION_RUN_EVENT_COLUMNS,
     )
     conn.execute(
         f"""
@@ -185,7 +185,7 @@ def load_kalshi_candlesticks_stage(
 __all__ = [
     "KALSHI_CANDLESTICK_COLUMNS",
     "KALSHI_MARKET_SCOPE_REGISTRY_COLUMNS",
-    "append_kalshi_pipeline_run_event_stage",
+    "append_kalshi_ingestion_run_event_stage",
     "load_kalshi_candlesticks_stage",
     "load_kalshi_market_scope_registry_stage",
 ]

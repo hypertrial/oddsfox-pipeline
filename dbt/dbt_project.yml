@@ -56,8 +56,6 @@ models:
           +materialized: view
         polymarket_wc2026_knockout_token_hourly_odds:
           +materialized: view
-        polymarket_wc2026_graph_token_hourly_odds:
-          +materialized: view
       observability:
         +schema: polymarket_wc2026_observability
         +materialized: table
@@ -159,10 +157,35 @@ seeds:
       +schema: international_results_wc2026_staging
       +tags: ["staging", "wc2026", "international_results"]
       +quote_columns: false
-    polymarket_wc2026_contract:
+    polymarket_wc2026_pipeline_policy:
       +schema: polymarket_wc2026_staging
       +tags: ["staging", "wc2026", "polymarket"]
       +quote_columns: false
+    polymarket_wc2026_logical_contract:
+      +schema: polymarket_wc2026_staging
+      +tags: ["staging", "wc2026", "polymarket", "wc2026_logical_atlas"]
+      +quote_columns: false
+      +column_types:
+        policy_version: varchar
+        contract_name: varchar
+        contract_version: varchar
+        taxonomy_version: varchar
+        required_event_tag: varchar
+        recall_event_tag: varchar
+        fixture_series_slug: varchar
+        event_volume_min_usd: double
+        event_volume_comparison: varchar
+        eligibility_mode: varchar
+        eligibility_history: varchar
+        child_market_volume_floor_usd: double
+        temporal_odds: boolean
+    polymarket_wc2026_event_membership_overrides:
+      +schema: polymarket_wc2026_staging
+      +tags: ["staging", "wc2026", "polymarket", "wc2026_logical_atlas"]
+      +quote_columns: false
+      +column_types:
+        event_id: varchar
+        reviewed_at_utc: varchar
     polymarket_wc2026_polygon_settlement_markets:
       +schema: polymarket_wc2026_staging
       +tags: ["staging", "wc2026", "polymarket", "polygon_settlement"]
@@ -199,11 +222,11 @@ seeds:
         manifest_sha256: varchar
         manifest_version: varchar
         reviewed_at_utc: varchar
-    polymarket_us_midterms_2026_contract:
+    polymarket_us_midterms_2026_pipeline_policy:
       +schema: polymarket_us_midterms_2026_staging
       +tags: ["staging", "us_midterms_2026", "polymarket"]
       +quote_columns: false
-    kalshi_wc2026_contract:
+    kalshi_wc2026_pipeline_policy:
       +schema: kalshi_wc2026_staging
       +tags: ["staging", "wc2026", "kalshi"]
       +quote_columns: false

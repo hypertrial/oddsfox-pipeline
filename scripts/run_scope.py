@@ -15,7 +15,7 @@ from _bootstrap import ensure_src_on_path
 
 REPO_ROOT = ensure_src_on_path()
 
-from oddsfox_pipeline.orchestration.scope_registry import (  # noqa: E402
+from oddsfox_pipeline.orchestration.shipped_scopes import (  # noqa: E402
     SCOPE_STEPS,
     ScopeSpec,
     ScopeStep,

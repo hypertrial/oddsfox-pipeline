@@ -19,6 +19,27 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     polymarket_wc2026_ops_tbl,
 )
 
+
+def _add_column_if_missing(
+    conn: duckdb.DuckDBPyConnection,
+    table: str,
+    column_name: str,
+    column_definition: str,
+) -> None:
+    """Add a migration column without rewriting an existing defaulted column.
+
+    DuckDB currently reapplies the supplied default to every existing row when
+    ``ADD COLUMN IF NOT EXISTS`` names a column that is already present.  Check
+    the live schema first so repeat bootstraps remain data preserving.
+    """
+    columns = {
+        str(description[0]).casefold()
+        for description in conn.execute(f"SELECT * FROM {table} LIMIT 0").description
+    }
+    if column_name.casefold() not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column_definition}")
+
+
 logger = logging.getLogger(__name__)
 
 _POLYMARKET_SCOPES = (SCOPE_WC2026, SCOPE_US_MIDTERMS_2026)
@@ -45,6 +66,25 @@ def ensure_polymarket_indexes(
         f"CREATE INDEX IF NOT EXISTS idx_{scope_name}_token_odds_daily_date ON {tod}(odds_date_utc)",
         f"CREATE INDEX IF NOT EXISTS idx_{scope_name}_token_skip_reason ON {sk}(clobTokenId)",
     ]
+    if scope_name == SCOPE_WC2026:
+        event_snapshots = polymarket_raw_tbl(scope_name, "event_snapshots")
+        event_tags = polymarket_raw_tbl(scope_name, "event_tag_snapshots")
+        event_markets = polymarket_raw_tbl(scope_name, "event_market_snapshots")
+        event_market_payloads = polymarket_raw_tbl(
+            scope_name, "event_market_payload_snapshots"
+        )
+        index_statements.extend(
+            [
+                "CREATE INDEX IF NOT EXISTS idx_wc2026_event_snapshots_observed "
+                f"ON {event_snapshots}(event_id, observed_at)",
+                "CREATE INDEX IF NOT EXISTS idx_wc2026_event_tags_slug "
+                f"ON {event_tags}(tag_slug, event_id)",
+                "CREATE INDEX IF NOT EXISTS idx_wc2026_event_markets_market "
+                f"ON {event_markets}(market_id, event_id)",
+                "CREATE INDEX IF NOT EXISTS idx_wc2026_event_market_payloads_observed "
+                f"ON {event_market_payloads}(market_id, observed_at)",
+            ]
+        )
     if scope_name == SCOPE_WC2026:
         polygon_fills = polymarket_raw_tbl(scope_name, "polygon_settlement_fills")
         polygon_chunks = polymarket_ops_tbl(
@@ -100,9 +140,18 @@ def bootstrap_polymarket_tables(
     led = polymarket_ops_tbl(scope_name, "token_sync_ledger")
     skip = polymarket_ops_tbl(scope_name, "token_sync_skips")
     mmu = polymarket_ops_tbl(scope_name, "market_metadata_unresolved")
-    pre = polymarket_ops_tbl(scope_name, "pipeline_run_events")
+    pre = polymarket_ops_tbl(scope_name, "ingestion_run_events")
     srm = polymarket_ops_tbl(scope_name, "sync_run_metrics")
     scope_reg = polymarket_ops_tbl(scope_name, "market_scope_registry")
+    event_snapshots = polymarket_raw_tbl(scope_name, "event_snapshots")
+    event_tag_snapshots = polymarket_raw_tbl(scope_name, "event_tag_snapshots")
+    event_market_snapshots = polymarket_raw_tbl(scope_name, "event_market_snapshots")
+    event_market_payload_snapshots = polymarket_raw_tbl(
+        scope_name, "event_market_payload_snapshots"
+    )
+    reviewed_event_membership = polymarket_raw_tbl(
+        scope_name, "reviewed_event_membership"
+    )
     match_minute_audit = polymarket_ops_tbl(scope_name, "match_minute_odds_fetch_audit")
     conn.execute(
         f"""
@@ -122,6 +171,161 @@ def bootstrap_polymarket_tables(
         """
     )
     conn.execute(f"ALTER TABLE {mt} ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP")
+    if scope_name == SCOPE_WC2026:
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {event_snapshots} (
+                event_id TEXT,
+                event_slug TEXT,
+                event_title TEXT,
+                event_subtitle TEXT,
+                event_description TEXT,
+                resolution_source TEXT,
+                event_volume_usd_lifetime_reported DOUBLE,
+                volume_24h_usd DOUBLE,
+                volume_1w_usd DOUBLE,
+                volume_1m_usd DOUBLE,
+                volume_1y_usd DOUBLE,
+                liquidity_usd DOUBLE,
+                open_interest_usd DOUBLE,
+                is_active BOOLEAN,
+                is_closed BOOLEAN,
+                is_archived BOOLEAN,
+                created_at TIMESTAMP,
+                source_updated_at TIMESTAMP,
+                start_at TIMESTAMP,
+                end_at TIMESTAMP,
+                closed_at TIMESTAMP,
+                event_start_at TIMESTAMP,
+                finished_at TIMESTAMP,
+                game_id TEXT,
+                parent_event_id TEXT,
+                neg_risk BOOLEAN,
+                enable_neg_risk BOOLEAN,
+                neg_risk_market_id TEXT,
+                show_all_outcomes BOOLEAN,
+                tags_json TEXT NOT NULL,
+                series_slugs_json TEXT NOT NULL,
+                candidate_sources_json TEXT NOT NULL,
+                source_market_count BIGINT NOT NULL,
+                observed_at TIMESTAMP NOT NULL,
+                source_endpoint TEXT NOT NULL,
+                PRIMARY KEY (event_id, observed_at)
+            )
+            """
+        )
+        _add_column_if_missing(
+            conn,
+            event_snapshots,
+            "candidate_sources_json",
+            "candidate_sources_json TEXT DEFAULT '[]'",
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {event_tag_snapshots} (
+                event_id TEXT,
+                tag_key TEXT,
+                tag_id TEXT,
+                tag_slug TEXT,
+                tag_label TEXT,
+                observed_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (event_id, tag_key, observed_at)
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {event_market_snapshots} (
+                event_id TEXT,
+                market_id TEXT,
+                source_ordinal BIGINT NOT NULL,
+                is_enclosing_event BOOLEAN NOT NULL,
+                observed_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (event_id, market_id, observed_at)
+            )
+            """
+        )
+        _add_column_if_missing(
+            conn,
+            event_market_snapshots,
+            "source_ordinal",
+            "source_ordinal BIGINT DEFAULT 0",
+        )
+        _add_column_if_missing(
+            conn,
+            event_market_snapshots,
+            "is_enclosing_event",
+            "is_enclosing_event BOOLEAN DEFAULT FALSE",
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {event_market_payload_snapshots} (
+                market_id TEXT NOT NULL,
+                question TEXT,
+                category TEXT,
+                description TEXT,
+                market_resolution_source TEXT,
+                outcomes TEXT,
+                volume DOUBLE,
+                active BOOLEAN,
+                closed BOOLEAN,
+                created_at TIMESTAMP,
+                scraped_at TIMESTAMP,
+                end_date TIMESTAMP,
+                slug TEXT,
+                event_slug TEXT,
+                event_id TEXT,
+                event_title TEXT,
+                event_start_time TIMESTAMP,
+                event_finished_time TIMESTAMP,
+                event_game_id TEXT,
+                event_ended BOOLEAN,
+                condition_id TEXT,
+                sports_market_type TEXT,
+                game_start_time TIMESTAMP,
+                group_item_title TEXT,
+                group_item_threshold TEXT,
+                line DOUBLE,
+                tags TEXT,
+                clob_token_ids TEXT,
+                is_resolved BOOLEAN,
+                winning_outcome TEXT,
+                winning_clob_token_id TEXT,
+                neg_risk_market_id TEXT,
+                neg_risk_request_id TEXT,
+                neg_risk_other BOOLEAN,
+                observed_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (market_id, observed_at)
+            )
+            """
+        )
+        for column_definition in (
+            "neg_risk_market_id TEXT",
+            "neg_risk_request_id TEXT",
+            "neg_risk_other BOOLEAN",
+        ):
+            conn.execute(
+                f"ALTER TABLE {event_market_payload_snapshots} "
+                f"ADD COLUMN IF NOT EXISTS {column_definition}"
+            )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {reviewed_event_membership} (
+                event_id TEXT PRIMARY KEY,
+                membership_status TEXT NOT NULL,
+                membership_class TEXT NOT NULL,
+                tournament_part TEXT NOT NULL,
+                membership_basis TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                reviewed_by TEXT NOT NULL,
+                reviewed_at_utc TIMESTAMP NOT NULL,
+                source_sha256 TEXT NOT NULL CHECK (
+                    regexp_full_match(source_sha256, '[0-9a-f]{{64}}')
+                ),
+                loaded_at TIMESTAMP NOT NULL
+            )
+            """
+        )
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {oh} (
@@ -621,8 +825,11 @@ def bootstrap_polymarket_tables(
         f"ALTER TABLE {led} ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMP"
     )
     conn.execute(f"ALTER TABLE {led} ADD COLUMN IF NOT EXISTS next_check_at TIMESTAMP")
-    conn.execute(
-        f"ALTER TABLE {led} ADD COLUMN IF NOT EXISTS empty_run_streak INTEGER DEFAULT 0"
+    _add_column_if_missing(
+        conn,
+        led,
+        "empty_run_streak",
+        "empty_run_streak INTEGER DEFAULT 0",
     )
     conn.execute(
         f"""
@@ -696,6 +903,7 @@ _MARKETS_TEST_DDL: str = """
     question TEXT,
     category TEXT,
     description TEXT,
+    market_resolution_source TEXT,
     outcomes TEXT,
     volume DOUBLE,
     active BOOLEAN,
@@ -715,11 +923,16 @@ _MARKETS_TEST_DDL: str = """
     sports_market_type TEXT,
     game_start_time TIMESTAMP,
     group_item_title TEXT,
+    group_item_threshold TEXT,
+    line DOUBLE,
     tags TEXT,
     clob_token_ids TEXT,
     is_resolved BOOLEAN,
     winning_outcome TEXT,
-    winning_clob_token_id TEXT
+    winning_clob_token_id TEXT,
+    neg_risk_market_id TEXT,
+    neg_risk_request_id TEXT,
+    neg_risk_other BOOLEAN
 """
 
 
@@ -746,9 +959,9 @@ def create_all_scope_test_markets_tables(conn: duckdb.DuckDBPyConnection) -> Non
     create_test_catalog_markets_table(conn)
 
 
-def seed_test_pipeline_run_event(conn: duckdb.DuckDBPyConnection) -> None:
+def seed_test_ingestion_run_event(conn: duckdb.DuckDBPyConnection) -> None:
     """Healthy sync_odds fixture for dbt observability tests in local CI."""
-    pre = polymarket_wc2026_ops_tbl("pipeline_run_events")
+    pre = polymarket_wc2026_ops_tbl("ingestion_run_events")
     recorded_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
     metrics = {
         "noop": False,
@@ -794,5 +1007,5 @@ __all__ = [
     "create_test_markets_table",
     "ensure_all_polymarket_indexes",
     "ensure_polymarket_indexes",
-    "seed_test_pipeline_run_event",
+    "seed_test_ingestion_run_event",
 ]

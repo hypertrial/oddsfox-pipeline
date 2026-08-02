@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,10 +11,12 @@ from oddsfox_pipeline.orchestration import config as orch_config
 from oddsfox_pipeline.orchestration import polymarket_asset_helpers as helpers_mod
 from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_ops_market_scope_registry,
+    polymarket_wc2026_raw_event_catalog,
     polymarket_wc2026_raw_markets,
     polymarket_wc2026_raw_markets_snapshot,
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
+from oddsfox_pipeline.storage.duckdb.dlt_batch import EVENT_SNAPSHOT_COLUMNS
 
 
 def test_get_polymarket_dlt_pipeline_uses_path_cache(monkeypatch):
@@ -145,6 +148,256 @@ def test_raw_markets_snapshot_is_local_only(monkeypatch):
         "duckdb_raw_delta",
         "run_summary",
     }
+
+
+def test_event_catalog_never_widens_legacy_odds_registry(monkeypatch):
+    batch = SimpleNamespace(
+        event_snapshots=(
+            {
+                "event_id": "event-eligible",
+                "event_slug": "world-cup-event",
+                "event_volume_usd_lifetime_reported": 120_000.0,
+            },
+        ),
+        event_tag_snapshots=(),
+        event_market_snapshots=(
+            {
+                "event_id": "event-eligible",
+                "market_id": "market-zero-volume",
+            },
+        ),
+        market_payloads=(
+            {
+                "id": "market-zero-volume",
+                "volumeNum": 0,
+                "clobTokenIds": ["token-yes", "token-no"],
+            },
+        ),
+        summary={"observed_at": "2026-08-02T00:00:00Z"},
+    )
+    merged = {}
+    conn = MagicMock()
+
+    @contextmanager
+    def connection():
+        yield conn
+
+    monkeypatch.setattr(assets_mod, "collect_wc2026_event_catalog", lambda **_: batch)
+    monkeypatch.setattr(
+        assets_mod,
+        "normalize_market_payloads_for_dlt",
+        lambda rows, *, observed_at: [
+            {
+                "id": rows[0]["id"],
+                "volume": 0.0,
+                "clob_token_ids": '["token-yes","token-no"]',
+                "scraped_at": observed_at,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        assets_mod,
+        "merge_event_catalog_batch",
+        lambda **kwargs: merged.update(kwargs),
+    )
+    monkeypatch.setattr(assets_mod, "get_connection", connection)
+    monkeypatch.setattr(assets_mod, "ensure_polymarket_indexes", lambda *_a, **_k: None)
+    monkeypatch.setattr(assets_mod, "save_sync_run_metrics", lambda *_a, **_k: None)
+
+    fn = polymarket_wc2026_raw_event_catalog.op.compute_fn.decorated_fn
+    results = list(fn(MagicMock(), orch_config.MarketScopeRegistryConfig()))
+
+    assert len(results) == 3
+    assert merged["market_rows"][0]["volume"] == 0.0
+    assert merged["market_rows"][0]["scraped_at"] == batch.summary["observed_at"]
+    assert not hasattr(assets_mod, "upsert_registry_rows")
+
+
+def test_reviewed_membership_allows_only_empty_warehouse_bootstrap(monkeypatch, duck):
+    monkeypatch.delenv("ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH", raising=False)
+    monkeypatch.setattr(assets_mod, "get_connection", duck.get_connection)
+    fn = assets_mod.polymarket_wc2026_raw_reviewed_event_membership.op.compute_fn.decorated_fn
+
+    result = fn(MagicMock(), orch_config.ReviewedMembershipConfig())
+
+    assert result.metadata["rows"] == 0
+    assert result.metadata["bootstrap_only"] is True
+
+    with duck.get_connection() as conn:
+        conn.execute(
+            """
+            insert into polymarket_wc2026_raw.reviewed_event_membership (
+                event_id, membership_status, membership_class, tournament_part,
+                membership_basis, reason, reviewed_by, reviewed_at_utc,
+                source_sha256, loaded_at
+            ) values (
+                '1', 'excluded', 'other_adjacent', 'pre_tournament',
+                'reviewed_exclusion', 'Not a finals market', 'analyst',
+                timestamp '2026-08-02', repeat('a', 64), current_timestamp
+            )
+            """
+        )
+
+    with pytest.raises(RuntimeError, match="refusing to reuse"):
+        fn(MagicMock(), orch_config.ReviewedMembershipConfig())
+
+
+def test_event_catalog_asset_replay_uses_one_canonical_observation_time(
+    monkeypatch, duck
+):
+    observed_at = "2026-08-02T10:05:00+00:00"
+    event = {column: None for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"}
+    event.update(
+        event_id="event-replay",
+        event_slug="event-replay",
+        event_title="World Cup replay event",
+        event_volume_usd_lifetime_reported=120_000.0,
+        tags_json='["2026-fifa-world-cup"]',
+        series_slugs_json="[]",
+        candidate_sources_json='["exact_2026_tag"]',
+        source_market_count=1,
+        observed_at=observed_at,
+        source_endpoint="/events/keyset",
+    )
+    batch = SimpleNamespace(
+        event_snapshots=(event,),
+        event_tag_snapshots=(),
+        event_market_snapshots=(
+            {
+                "event_id": "event-replay",
+                "market_id": "market-replay",
+                "source_ordinal": 0,
+                "is_enclosing_event": True,
+                "observed_at": observed_at,
+            },
+        ),
+        market_payloads=(
+            {
+                "id": "market-replay",
+                "question": "Will the replay market resolve Yes?",
+                "outcomes": ["Yes", "No"],
+                "clobTokenIds": ["yes", "no"],
+                "events": [{"id": "event-replay", "slug": "event-replay"}],
+            },
+        ),
+        summary={"observed_at": observed_at},
+    )
+    monkeypatch.setattr(assets_mod, "collect_wc2026_event_catalog", lambda **_: batch)
+    monkeypatch.setattr(assets_mod, "get_connection", duck.get_connection)
+    monkeypatch.setattr(assets_mod, "save_sync_run_metrics", lambda *_a, **_k: None)
+
+    fn = assets_mod.polymarket_wc2026_raw_event_catalog.op.compute_fn.decorated_fn
+    assert len(list(fn(MagicMock(), orch_config.MarketScopeRegistryConfig()))) == 3
+    assert len(list(fn(MagicMock(), orch_config.MarketScopeRegistryConfig()))) == 3
+
+    with duck.get_connection() as conn:
+        rows = conn.execute(
+            """
+            select market_id, scraped_at, observed_at
+            from polymarket_wc2026_raw.event_market_payload_snapshots
+            where market_id = 'market-replay'
+            """
+        ).fetchall()
+
+    assert len(rows) == 1
+    assert rows[0][1] == rows[0][2]
+
+
+def test_logical_bundle_asset_runs_strict_validation_when_not_publishing(
+    monkeypatch,
+):
+    result = MagicMock()
+    result.fetchone.return_value = (1,)
+    conn = MagicMock()
+    conn.execute.return_value = result
+
+    @contextmanager
+    def connection():
+        yield conn
+
+    run = MagicMock()
+    monkeypatch.setattr(assets_mod, "get_connection", connection)
+    monkeypatch.setattr(assets_mod, "active_duckdb_path", lambda: "/tmp/atlas.db")
+    monkeypatch.setattr(assets_mod.subprocess, "run", run)
+
+    fn = assets_mod.polymarket_wc2026_release_logical_bundle.op.compute_fn.decorated_fn
+    materialization = fn(MagicMock(), orch_config.LogicalAtlasBundleConfig())
+
+    command = run.call_args.args[0]
+    assert command[-1] == "--validate-only"
+    assert command[command.index("--duckdb-path") + 1] == "/tmp/atlas.db"
+    assert run.call_args.kwargs["check"] is True
+    assert materialization.metadata["publication_mode"] == "validated_only"
+
+
+def test_logical_bundle_asset_exports_to_configured_output(monkeypatch, tmp_path):
+    result = MagicMock()
+    result.fetchone.return_value = (1,)
+    conn = MagicMock()
+    conn.execute.return_value = result
+
+    @contextmanager
+    def connection():
+        yield conn
+
+    run = MagicMock()
+    monkeypatch.setattr(assets_mod, "get_connection", connection)
+    monkeypatch.setattr(assets_mod, "active_duckdb_path", lambda: "/tmp/atlas.db")
+    monkeypatch.setattr(assets_mod.subprocess, "run", run)
+
+    output_dir = tmp_path / "logical-bundle"
+    fn = assets_mod.polymarket_wc2026_release_logical_bundle.op.compute_fn.decorated_fn
+    materialization = fn(
+        MagicMock(),
+        orch_config.LogicalAtlasBundleConfig(output_dir=str(output_dir)),
+    )
+
+    command = run.call_args.args[0]
+    assert command[command.index("--output-dir") + 1] == str(output_dir.resolve())
+    assert materialization.metadata["publication_mode"] == "exported"
+    assert materialization.metadata["output_dir"] == str(output_dir.resolve())
+
+
+def test_logical_bundle_asset_rejects_empty_relations(monkeypatch):
+    result = MagicMock()
+    result.fetchone.return_value = (0,)
+    conn = MagicMock()
+    conn.execute.return_value = result
+
+    @contextmanager
+    def connection():
+        yield conn
+
+    monkeypatch.setattr(assets_mod, "get_connection", connection)
+    fn = assets_mod.polymarket_wc2026_release_logical_bundle.op.compute_fn.decorated_fn
+
+    with pytest.raises(RuntimeError, match="cannot be empty"):
+        fn(MagicMock(), orch_config.LogicalAtlasBundleConfig())
+
+
+def test_logical_bundle_asset_fails_closed_when_strict_validation_fails(
+    monkeypatch,
+):
+    result = MagicMock()
+    result.fetchone.return_value = (1,)
+    conn = MagicMock()
+    conn.execute.return_value = result
+
+    @contextmanager
+    def connection():
+        yield conn
+
+    monkeypatch.setattr(assets_mod, "get_connection", connection)
+    monkeypatch.setattr(assets_mod, "active_duckdb_path", lambda: "/tmp/atlas.db")
+    monkeypatch.setattr(
+        assets_mod.subprocess,
+        "run",
+        MagicMock(side_effect=assets_mod.subprocess.CalledProcessError(1, ["export"])),
+    )
+
+    fn = assets_mod.polymarket_wc2026_release_logical_bundle.op.compute_fn.decorated_fn
+    with pytest.raises(assets_mod.subprocess.CalledProcessError):
+        fn(MagicMock(), orch_config.LogicalAtlasBundleConfig())
 
 
 def test_market_scope_registry_skips_when_snapshot_already_refreshed(monkeypatch):

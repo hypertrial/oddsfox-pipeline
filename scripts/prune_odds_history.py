@@ -16,16 +16,29 @@ ensure_src_on_path()
 import duckdb  # noqa: E402
 
 from oddsfox_pipeline.config import settings  # noqa: E402
-from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_wc2026_raw_tbl  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.schemas.constants import (  # noqa: E402
+    polymarket_wc2026_raw_tbl,
+)
 
 _ODDS_HISTORY = polymarket_wc2026_raw_tbl("odds_history")
 _DEFAULT_RETENTION_DAYS = 365
+# Keep the tournament plus its 90-day acceptance interval forever. This table
+# is WC2026-scoped, so the timestamp range is also the scope boundary.
+_WC2026_PROTECTED_START_EPOCH = int(
+    datetime(2026, 6, 11, tzinfo=timezone.utc).timestamp()
+)
+_WC2026_PROTECTED_END_EPOCH = int(
+    datetime(2026, 10, 18, 23, 59, 59, tzinfo=timezone.utc).timestamp()
+)
 
 
-def _cutoff_epoch(retention_days: int) -> int:
+def _cutoff_epoch(retention_days: int, *, now: datetime | None = None) -> int:
     if retention_days <= 0:
         raise ValueError("retention_days must be > 0")
-    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    effective_now = now or datetime.now(timezone.utc)
+    if effective_now.tzinfo is None:
+        effective_now = effective_now.replace(tzinfo=timezone.utc)
+    cutoff = effective_now.astimezone(timezone.utc) - timedelta(days=retention_days)
     return int(cutoff.timestamp())
 
 
@@ -39,14 +52,21 @@ def prune_odds_history(
     retention_days: int,
     *,
     dry_run: bool = False,
+    now: datetime | None = None,
 ) -> dict[str, int]:
     """Delete odds_history rows older than retention_days. Returns counts."""
-    cutoff = _cutoff_epoch(retention_days)
+    cutoff = _cutoff_epoch(retention_days, now=now)
+    delete_predicate = "timestamp < ? and not (timestamp between ? and ?)"
+    parameters = [
+        cutoff,
+        _WC2026_PROTECTED_START_EPOCH,
+        _WC2026_PROTECTED_END_EPOCH,
+    ]
     total_before = _scalar_int(conn, f"SELECT COUNT(*) FROM {_ODDS_HISTORY}")
     to_delete = _scalar_int(
         conn,
-        f"SELECT COUNT(*) FROM {_ODDS_HISTORY} WHERE timestamp < ?",
-        cutoff,
+        f"SELECT COUNT(*) FROM {_ODDS_HISTORY} WHERE {delete_predicate}",
+        *parameters,
     )
     if dry_run:
         return {
@@ -57,8 +77,8 @@ def prune_odds_history(
         }
 
     conn.execute(
-        f"DELETE FROM {_ODDS_HISTORY} WHERE timestamp < ?",
-        [cutoff],
+        f"DELETE FROM {_ODDS_HISTORY} WHERE {delete_predicate}",
+        parameters,
     )
     conn.execute("CHECKPOINT")
     remaining = _scalar_int(conn, f"SELECT COUNT(*) FROM {_ODDS_HISTORY}")
@@ -116,7 +136,6 @@ def main() -> int:
         f"  total_before={summary['total_before']:,} "
         f"deleted={summary['deleted']:,} remaining={summary['remaining']:,}"
     )
-    # ponytail: hard delete only; no archive/undo beyond --dry-run and compact backup.
     return 0
 
 

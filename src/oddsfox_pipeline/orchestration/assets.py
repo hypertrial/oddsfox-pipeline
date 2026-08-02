@@ -15,7 +15,7 @@ from oddsfox_pipeline.orchestration.assets_match_trades import (
     polymarket_wc2026_raw_match_trades,
 )
 from oddsfox_pipeline.orchestration.assets_openfootball import (
-    openfootball_wc2026_raw_knockout_fixtures,
+    openfootball_wc2026_raw_schedule_fixtures,
 )
 from oddsfox_pipeline.orchestration.assets_polygon_settlement import (
     polymarket_wc2026_raw_polygon_settlement_fills,
@@ -24,15 +24,18 @@ from oddsfox_pipeline.orchestration.assets_polygon_settlement import (
 from oddsfox_pipeline.orchestration.assets_polymarket import (
     oddsfox_dbt,
     polymarket_wc2026_ops_market_scope_registry,
-    polymarket_wc2026_raw_market_metadata_backfill,
+    polymarket_wc2026_raw_event_catalog,
+    polymarket_wc2026_raw_market_metadata_enrichment,
     polymarket_wc2026_raw_markets,
     polymarket_wc2026_raw_markets_snapshot,
     polymarket_wc2026_raw_match_token_odds_history_minute,
+    polymarket_wc2026_raw_reviewed_event_membership,
     polymarket_wc2026_raw_token_odds_history_hourly,
+    polymarket_wc2026_release_logical_bundle,
 )
 from oddsfox_pipeline.orchestration.assets_polymarket_us_midterms_2026 import (
     polymarket_us_midterms_2026_ops_market_scope_registry,
-    polymarket_us_midterms_2026_raw_market_metadata_backfill,
+    polymarket_us_midterms_2026_raw_market_metadata_enrichment,
     polymarket_us_midterms_2026_raw_markets,
     polymarket_us_midterms_2026_raw_markets_snapshot,
     polymarket_us_midterms_2026_raw_token_odds_history_hourly,
@@ -54,14 +57,17 @@ __all__ = [
     "kalshi_wc2026_raw_market_candlesticks_hourly",
     "kalshi_wc2026_raw_markets",
     "kalshi_wc2026_raw_markets_snapshot",
-    "openfootball_wc2026_raw_knockout_fixtures",
+    "openfootball_wc2026_raw_schedule_fixtures",
     "polymarket_us_midterms_2026_ops_market_scope_registry",
-    "polymarket_us_midterms_2026_raw_market_metadata_backfill",
+    "polymarket_us_midterms_2026_raw_market_metadata_enrichment",
     "polymarket_us_midterms_2026_raw_markets",
     "polymarket_us_midterms_2026_raw_markets_snapshot",
     "polymarket_us_midterms_2026_raw_token_odds_history_hourly",
     "oddsfox_dbt",
-    "polymarket_wc2026_raw_market_metadata_backfill",
+    "polymarket_wc2026_raw_market_metadata_enrichment",
+    "polymarket_wc2026_raw_event_catalog",
+    "polymarket_wc2026_raw_reviewed_event_membership",
+    "polymarket_wc2026_release_logical_bundle",
     "polymarket_wc2026_raw_markets",
     "polymarket_wc2026_raw_markets_snapshot",
     "polymarket_wc2026_raw_match_token_odds_history_minute",

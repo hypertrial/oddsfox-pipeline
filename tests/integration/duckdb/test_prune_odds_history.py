@@ -83,3 +83,30 @@ def test_prune_odds_history_dry_run_leaves_rows_intact(tmp_path, monkeypatch) ->
     assert summary["deleted"] == 1
     assert summary["remaining"] == 2
     assert count == 2
+
+
+def test_prune_odds_history_permanently_preserves_tournament_acceptance_window(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "oddsfox.duckdb"
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    connection.reset_duckdb_connection_state()
+    init_duck_db()
+
+    with duckdb.connect(str(db_path)) as conn:
+        protected_epoch = int(datetime(2026, 7, 19, tzinfo=timezone.utc).timestamp())
+        ordinary_old_epoch = int(datetime(2026, 1, 1, tzinfo=timezone.utc).timestamp())
+        _insert_odds_row(conn, "token-protected", protected_epoch)
+        _insert_odds_row(conn, "token-old", ordinary_old_epoch)
+        summary = prune_odds_history(
+            conn,
+            retention_days=365,
+            now=datetime(2028, 8, 2, tzinfo=timezone.utc),
+        )
+        rows = conn.execute(
+            f"SELECT clobTokenId FROM {_ODDS_HISTORY} ORDER BY clobTokenId"
+        ).fetchall()
+
+    assert summary["deleted"] == 1
+    assert rows == [("token-protected",)]

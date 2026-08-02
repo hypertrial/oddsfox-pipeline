@@ -1,6 +1,6 @@
 with contract as (
     select *
-    from {{ ref('polymarket_wc2026_contract') }}
+    from {{ ref('polymarket_wc2026_pipeline_policy') }}
     where scope_name = 'wc2026'
 ),
 
@@ -22,7 +22,7 @@ raw_stage as (
         min(c.market_volume_usd) as raw_min_volume_usd,
         max(c.market_volume_usd) as raw_max_volume_usd
     from {{ ref('int_polymarket_wc2026_knockout_market_classification') }} as c
-    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    -- costguard: allow cross-join, WC2026 pipeline policy seed has one row.
     cross join contract
     group by 1, 2, 3, 4
 ),
@@ -69,7 +69,7 @@ scoped_stage as (
     from {{ ref('polymarket_wc2026_knockout_market_tokens') }} as k
     left join hourly_by_token as h
         on k.clob_token_id = h.clob_token_id
-    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    -- costguard: allow cross-join, WC2026 pipeline policy seed has one row.
     cross join contract
     group by 1, 2, 3, 4
 )

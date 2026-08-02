@@ -6,11 +6,11 @@ scope selectors.
 
 | Scope | Source | Public output | Credentials |
 | --- | --- | --- | --- |
-| `polymarket:wc2026` | Polymarket Gamma/CLOB plus FIFA results | Knockout snapshots, progression odds, graph odds, fixtures, and team status | Optional for public flows |
-| `polymarket:us_midterms_2026` | Polymarket Gamma/CLOB | Balance of Power, Senate control, and House control hourly odds | Optional for public flows |
+| `polymarket:wc2026` | Polymarket Gamma/CLOB plus FIFA results | Knockout snapshots, progression odds, logical atlas, schedule fixtures, and team status | Optional for public pipelines |
+| `polymarket:us_midterms_2026` | Polymarket Gamma/CLOB | Balance of Power, Senate control, and House control hourly odds | Optional for public pipelines |
 | `kalshi:wc2026` | Kalshi public trade API plus FIFA results | Stage-of-elimination and group-winner snapshots and hourly odds | None |
 
-The manual WC2026 Polygon settlement-history flow is not a fourth
+The manual WC2026 Polygon settlement-history pipeline is not a fourth
 `run_scope.py` scope. It is an isolated historical backfill that needs a
 complete operator-local market manifest at the tracked seed path (header-only
 in git), a configured Polygon JSON-RPC, and its own unscheduled job and dbt
@@ -32,7 +32,7 @@ tag. See
     ```
 
     This scope has no FIFA results or candidate/race validation layer. Its dbt
-    job builds only `tag:us_midterms_2026`.
+    job builds only `+tag:us_midterms_2026` and its shared catalog ancestors.
 
 === "Kalshi WC2026"
 
@@ -52,7 +52,7 @@ uv run python scripts/run_scope.py --list
 
 These fixed jobs are not chooser refs:
 
-| Flow | Guide |
+| Pipeline / job | Guide |
 | --- | --- |
 | Cross-platform knockout match odds (`wc2026_knockout_match_odds_full_pipeline`) | [Run cross-platform knockout](../guides/run-cross-platform-knockout.md) |
 | Isolated Polygon settlement history | [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md) |

@@ -61,6 +61,7 @@ def _events_params(
     limit: int,
     keyset_closed: bool | None,
     keyset_tag_slug: str | None,
+    keyset_series_id: str | None,
     keyset_related_tags: bool,
     keyset_volume_min: float | None,
 ) -> dict[str, Any]:
@@ -69,6 +70,8 @@ def _events_params(
         params["closed"] = keyset_closed
     if keyset_tag_slug is not None:
         params["tag_slug"] = keyset_tag_slug
+    if keyset_series_id is not None:
+        params["series_id"] = keyset_series_id
     if keyset_related_tags:
         params["related_tags"] = "true"
     if keyset_volume_min is not None:
@@ -83,6 +86,7 @@ def iter_gamma_events_keyset(
     fetch_limit: int = EVENTS_KEYSET_REQUEST_LIMIT,
     keyset_closed: bool | None = None,
     keyset_tag_slug: str | None = None,
+    keyset_series_id: str | None = None,
     keyset_related_tags: bool = False,
     keyset_volume_min: float | None = None,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
@@ -101,11 +105,14 @@ def iter_gamma_events_keyset(
             limit=fetch_limit,
             keyset_closed=keyset_closed,
             keyset_tag_slug=keyset_tag_slug,
+            keyset_series_id=keyset_series_id,
             keyset_related_tags=keyset_related_tags,
             keyset_volume_min=keyset_volume_min,
         )
         if cursor:
-            params["next_cursor"] = cursor
+            # Gamma returns ``next_cursor`` but accepts it on the next request
+            # under the documented ``after_cursor`` parameter.
+            params["after_cursor"] = cursor
         payload = gamma_get(client, "/events/keyset", params=params)
         if isinstance(payload, dict):
             events = payload.get("events") or []
@@ -165,6 +172,7 @@ def iter_gamma_events_keyset(
                         limit=offset_limit,
                         keyset_closed=keyset_closed,
                         keyset_tag_slug=keyset_tag_slug,
+                        keyset_series_id=keyset_series_id,
                         keyset_related_tags=keyset_related_tags,
                         keyset_volume_min=keyset_volume_min,
                     )
@@ -252,6 +260,8 @@ def iter_gamma_events_keyset(
                 payload_dict["keyset_closed"] = keyset_closed
             if keyset_tag_slug is not None:
                 payload_dict["keyset_tag_slug"] = keyset_tag_slug
+            if keyset_series_id is not None:
+                payload_dict["keyset_series_id"] = keyset_series_id
             if keyset_related_tags:
                 payload_dict["keyset_related_tags"] = True
             if keyset_volume_min is not None:
@@ -289,4 +299,25 @@ def fetch_gamma_event_by_slug(client: Any, slug: str) -> dict[str, Any] | None:
     if isinstance(payload, dict) and payload.get("id"):
         return payload
     logger.warning("Gamma event slug returned empty payload: %s", normalized)
+    return None
+
+
+def fetch_gamma_event_by_id(client: Any, event_id: str) -> dict[str, Any] | None:
+    """Fetch one Gamma event by ID; return None when missing (404)."""
+    normalized = event_id.strip()
+    if not normalized:
+        return None
+    try:
+        payload = gamma_get(client, f"/events/{normalized}")
+    except GammaRequestError as exc:
+        response = getattr(exc, "response", None)
+        if response is not None and response.status_code == 404:
+            logger.warning("Gamma event ID not found: %s", normalized)
+            return None
+        raise
+    except requests.RequestException:
+        raise
+    if isinstance(payload, dict) and payload.get("id"):
+        return payload
+    logger.warning("Gamma event ID returned empty payload: %s", normalized)
     return None

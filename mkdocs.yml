@@ -82,6 +82,7 @@ nav:
       - Choose a scope: getting-started/choose-a-scope.md
   - Guides:
       - Run a scope: guides/run-a-scope.md
+      - Build the WC2026 logical atlas: guides/build-wc2026-logical-atlas.md
       - Run cross-platform knockout: guides/run-cross-platform-knockout.md
       - Query the warehouse: guides/query-the-warehouse.md
       - Query recipes: guides/query-recipes.md
@@ -103,6 +104,7 @@ nav:
       - Strategy contracts: reference/strategy-contracts.md
       - Data dictionary: reference/data-dictionary.md
       - Scripts: reference/scripts.md
+      - Terminology: reference/terminology.md
       - Naming: reference/naming.md
   - Concepts:
       - System overview: concepts/system-overview.md

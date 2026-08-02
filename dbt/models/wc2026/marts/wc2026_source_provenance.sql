@@ -36,7 +36,7 @@ select
     md5(metrics_json) as manifest_sha256,
     recorded_at as loaded_at,
     'public_collector' as provenance_kind
-from {{ source('polymarket_wc2026_ops', 'pipeline_run_events') }}
+from {{ source('polymarket_wc2026_ops', 'ingestion_run_events') }}
 
 union all
 
@@ -49,4 +49,4 @@ select
     md5(metrics_json) as manifest_sha256,
     recorded_at as loaded_at,
     'public_collector' as provenance_kind
-from {{ source('kalshi_wc2026_ops', 'pipeline_run_events') }}
+from {{ source('kalshi_wc2026_ops', 'ingestion_run_events') }}

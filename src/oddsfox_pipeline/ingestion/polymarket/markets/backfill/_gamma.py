@@ -1,4 +1,4 @@
-"""Gamma /markets chunk helpers for Polymarket backfill."""
+"""Gamma /markets chunk helpers for Polymarket metadata enrichment."""
 
 from __future__ import annotations
 
@@ -107,12 +107,12 @@ def _process_market_chunks(
                                 on_record_saved(market_id)
 
             except (GammaRequestError, OSError) as exc:
-                logger.error(f"Error during backfill batch: {exc}")
+                logger.error(f"Error during metadata enrichment batch: {exc}")
                 if count_errors_as_processed:
                     processed += len(chunk)
                 pbar.update(len(chunk))
             except Exception as exc:
-                logger.error(f"Error during backfill batch: {exc}")
+                logger.error(f"Error during metadata enrichment batch: {exc}")
                 if count_errors_as_processed:
                     processed += len(chunk)
                 pbar.update(len(chunk))

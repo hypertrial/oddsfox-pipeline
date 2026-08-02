@@ -9,7 +9,7 @@
             where odds_hour_utc < current_timestamp - (
                 (
                     select hourly_window_days
-                    from {{ ref('kalshi_wc2026_contract') }}
+                    from {{ ref('kalshi_wc2026_pipeline_policy') }}
                     where scope_name = 'wc2026'
                 ) * interval '1 day'
             )
@@ -19,7 +19,7 @@
 
 with contract as (
     select hourly_window_days
-    from {{ ref('kalshi_wc2026_contract') }}
+    from {{ ref('kalshi_wc2026_pipeline_policy') }}
     where scope_name = 'wc2026'
 ),
 

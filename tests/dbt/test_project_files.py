@@ -1,10 +1,33 @@
+import hashlib
+import json
 import re
 from pathlib import Path
 
 import yaml
 from scripts.seed_dbt_source_freshness import FRESHNESS_SOURCE_TABLES
 
-from oddsfox_pipeline.orchestration.scope_registry import SHIPPED_SCOPE_SPECS
+from oddsfox_pipeline.orchestration.shipped_scopes import SHIPPED_SCOPE_SPECS
+
+
+def test_logical_fixture_inputs_are_packaged_and_lock_the_source():
+    repo_root = Path(__file__).resolve().parents[2]
+    fixture_root = repo_root / "tests/fixtures/polymarket_wc2026_logical_v1"
+    source = fixture_root / "source_fixture.v1.json"
+    lock = fixture_root / "fixture.lock.json"
+
+    assert source.is_file()
+    assert lock.is_file()
+    assert "!tests/fixtures/polymarket_wc2026_logical_v1/*.json" in (
+        repo_root / ".gitignore"
+    ).read_text(encoding="utf-8")
+
+    source_payload = json.loads(source.read_text(encoding="utf-8"))
+    lock_payload = json.loads(lock.read_text(encoding="utf-8"))
+    assert source_payload["schema_version"] == "polymarket-wc2026-logical-v1"
+    assert lock_payload["schema_version"] == source_payload["schema_version"]
+    assert (
+        lock_payload["source_sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
+    )
 
 
 def test_sqlfluff_dbt_templating_fails_closed():
@@ -64,7 +87,7 @@ def test_dbt_project_sources_are_wc2026_only():
     assert (
         dbt_root / "seeds" / "international_results_wc2026_team_aliases.csv"
     ).exists()
-    assert (dbt_root / "seeds" / "polymarket_wc2026_contract.csv").exists()
+    assert (dbt_root / "seeds" / "polymarket_wc2026_pipeline_policy.csv").exists()
     assert (dbt_root / "seeds" / "schema.yml").exists()
     assert (
         dbt_root
@@ -79,6 +102,7 @@ def test_dbt_project_sources_are_wc2026_only():
         "international_results_wc2026",
         "kalshi_wc2026",
         "openfootball_wc2026",
+        "polymarket_catalog",
         "polymarket_us_midterms_2026",
         "polymarket_wc2026",
         "sources",
@@ -102,7 +126,7 @@ def test_shipped_scope_specs_have_matching_dbt_project_entries():
     for spec in SHIPPED_SCOPE_SPECS:
         assert spec.namespace in models
         assert {spec.source, spec.scope} <= set(models[spec.namespace]["+tags"])
-        assert f"{spec.namespace}_contract" in seeds
+        assert f"{spec.namespace}_pipeline_policy" in seeds
         assert (dbt_root / "models" / spec.namespace).is_dir()
         assert (
             dbt_root / "models" / "sources" / f"{spec.namespace}_sources.yml"
@@ -129,7 +153,7 @@ def test_dbt_source_freshness_tables_are_seeded_for_ci():
     assert freshness_tables == FRESHNESS_SOURCE_TABLES
 
 
-def test_hourly_odds_materialization_shape():
+def test_hourly_odds_and_logical_atlas_materialization_shape():
     project = yaml.safe_load(
         (Path(__file__).resolve().parents[2] / "dbt" / "dbt_project.yml").read_text()
     )
@@ -143,9 +167,26 @@ def test_hourly_odds_materialization_shape():
     assert (
         marts["polymarket_wc2026_knockout_token_hourly_odds"]["+materialized"] == "view"
     )
-    assert marts["polymarket_wc2026_graph_token_hourly_odds"]["+materialized"] == "view"
+    assert "polymarket_wc2026_graph_token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_daily_odds" not in marts
+    marts_root = (
+        Path(__file__).resolve().parents[2]
+        / "dbt"
+        / "models"
+        / "polymarket_wc2026"
+        / "marts"
+    )
+    for suffix in (
+        "events",
+        "markets",
+        "market_events",
+        "propositions",
+        "entities",
+        "proposition_entities",
+        "scopes",
+    ):
+        assert (marts_root / f"polymarket_wc2026_logical_{suffix}.sql").is_file()
 
 
 def test_match_hourly_facts_are_incremental_cross_domain_models():
@@ -172,20 +213,23 @@ def test_match_hourly_facts_are_incremental_cross_domain_models():
     }
 
 
-def test_wc2026_contract_seed_is_configured_and_documented():
+def test_wc2026_pipeline_policy_seed_is_configured_and_documented():
     dbt_root = Path(__file__).resolve().parents[2] / "dbt"
     project = yaml.safe_load((dbt_root / "dbt_project.yml").read_text())
     seeds = project["seeds"]["oddsfox"]
     seed_docs = yaml.safe_load((dbt_root / "seeds" / "schema.yml").read_text())
     documented = {seed["name"] for seed in seed_docs["seeds"]}
 
-    assert seeds["polymarket_wc2026_contract"]["+schema"] == "polymarket_wc2026_staging"
-    assert "polymarket_wc2026_contract" in documented
     assert (
-        seeds["polymarket_us_midterms_2026_contract"]["+schema"]
+        seeds["polymarket_wc2026_pipeline_policy"]["+schema"]
+        == "polymarket_wc2026_staging"
+    )
+    assert "polymarket_wc2026_pipeline_policy" in documented
+    assert (
+        seeds["polymarket_us_midterms_2026_pipeline_policy"]["+schema"]
         == "polymarket_us_midterms_2026_staging"
     )
-    assert "polymarket_us_midterms_2026_contract" in documented
+    assert "polymarket_us_midterms_2026_pipeline_policy" in documented
 
 
 def test_us_midterms_2026_mart_materialization_shape():
@@ -272,24 +316,37 @@ def test_knockout_mart_semantic_columns_are_documented():
         "polymarket_wc2026_knockout_market_tokens",
         "polymarket_wc2026_knockout_markets",
         "polymarket_wc2026_knockout_token_hourly_odds",
-        "polymarket_wc2026_graph_token_hourly_odds",
     }
     for model in docs["models"]:
         if model["name"] not in expected_models:
             continue
         columns = {column["name"] for column in model["columns"]}
         assert "progression_outcome_label" in columns
-        if model["name"] == "polymarket_wc2026_graph_token_hourly_odds":
-            assert "price_represents" not in columns
-            assert "is_progression_token" in columns
-            assert "opposite_clob_token_id" in columns
-        else:
-            assert "price_represents" in columns
-            assert "is_active_team_live_market" in columns
+        assert "price_represents" in columns
+        assert "is_active_team_live_market" in columns
         if model["name"] == "polymarket_wc2026_knockout_markets":
             assert "is_actionable_live_market" in columns
         else:
             assert "is_actionable_live_market" not in columns
+
+
+def test_logical_atlas_marts_are_documented():
+    dbt_root = Path(__file__).resolve().parents[2] / "dbt"
+    docs = yaml.safe_load(
+        (
+            dbt_root / "models" / "polymarket_wc2026" / "marts" / "logical.yml"
+        ).read_text()
+    )
+    documented = {model["name"] for model in docs["models"]}
+    assert documented == {
+        "polymarket_wc2026_logical_events",
+        "polymarket_wc2026_logical_markets",
+        "polymarket_wc2026_logical_market_events",
+        "polymarket_wc2026_logical_propositions",
+        "polymarket_wc2026_logical_entities",
+        "polymarket_wc2026_logical_proposition_entities",
+        "polymarket_wc2026_logical_scopes",
+    }
 
 
 def test_multi_parent_singular_tests_have_dagster_asset_metadata():

@@ -1,4 +1,4 @@
-"""Polymarket metadata backfill: backfill_tokens."""
+"""Polymarket metadata enrichment: backfill_tokens."""
 
 import logging
 import time
@@ -35,7 +35,7 @@ def backfill_tokens(
     gamma_requests_per_second: float | None = None,
 ) -> Dict[str, Any]:
     """
-    Backfill tokens for markets that don't have them yet.
+    Enrich tokens for markets that don't have them yet.
     Uses ID filtering to fetch specific markets efficiently.
 
     Args:
@@ -45,7 +45,9 @@ def backfill_tokens(
     """
     t0 = time.monotonic()
     if not force and get_backfill_fully_checked("tokens"):
-        logger.debug("Token backfill previously marked complete. Use --force to rerun.")
+        logger.debug(
+            "Token enrichment previously marked complete. Use --force to rerun."
+        )
         return {
             "task": "backfill_tokens",
             "skipped": True,
@@ -54,7 +56,7 @@ def backfill_tokens(
             "api_requests": 0,
         }
 
-    logger.info("Starting token backfill for existing markets")
+    logger.info("Starting token enrichment for existing markets")
 
     ensure_duck_db()
 
@@ -63,7 +65,7 @@ def backfill_tokens(
     total_markets = len(market_ids)
 
     if total_markets == 0:
-        logger.debug("All markets already have tokens. Nothing to backfill.")
+        logger.debug("All markets already have tokens. Nothing to enrich.")
         if max_markets is None:
             set_backfill_fully_checked("tokens", True)
         return {
@@ -77,7 +79,7 @@ def backfill_tokens(
             "api_requests": 0,
         }
 
-    logger.info(f"Found {total_markets} markets without tokens. Starting backfill...")
+    logger.info(f"Found {total_markets} markets without tokens. Starting enrichment...")
     if progress_callback:
         progress_callback(
             "backfill_tokens",
@@ -96,7 +98,7 @@ def backfill_tokens(
             client=client,
             market_ids=market_ids,
             batch_size=batch_size,
-            desc="Backfilling tokens",
+            desc="Enriching tokens",
             include_events=True,
             extract_record=_extract_tokens_record,
             save_batch=save_tokens_batch,
@@ -107,7 +109,7 @@ def backfill_tokens(
     finally:
         completed_all = processed >= total_markets
         logger.info(
-            f"Backfill complete. Processed {processed} markets, saved tokens for {saved} markets."
+            f"Enrichment complete. Processed {processed} markets, saved tokens for {saved} markets."
         )
         mark_complete = max_markets is None and completed_all
         set_backfill_fully_checked("tokens", mark_complete)

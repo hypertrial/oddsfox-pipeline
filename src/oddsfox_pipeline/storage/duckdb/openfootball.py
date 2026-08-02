@@ -1,4 +1,4 @@
-"""Persistence for the OpenFootball WC2026 knockout fixture mirror."""
+"""Persistence for the OpenFootball WC2026 schedule fixture mirror."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ _COLUMNS = (
     "fifa_match_id",
     "stage_key",
     "stage_rank",
+    "group_label",
     "kickoff_at_utc",
     "home_team",
     "away_team",
@@ -30,11 +31,11 @@ _COLUMNS = (
 )
 
 
-def replace_knockout_fixtures(
+def replace_schedule_fixtures(
     rows: Sequence[Mapping[str, object]],
     conn: duckdb.DuckDBPyConnection | None = None,
 ) -> dict[str, int]:
-    table = openfootball_wc2026_raw_tbl("knockout_fixtures")
+    table = openfootball_wc2026_raw_tbl("schedule_fixtures")
     with _use_conn(conn) as active:
         bootstrap_openfootball_tables(active)
         active.execute("BEGIN TRANSACTION")
@@ -54,4 +55,4 @@ def replace_knockout_fixtures(
     return {"deleted_rows": int(deleted), "inserted_rows": len(rows)}
 
 
-__all__ = ["replace_knockout_fixtures"]
+__all__ = ["replace_schedule_fixtures"]

@@ -37,7 +37,7 @@ uv run python scripts/profile_warehouse.py
 ```
 
 For current analysis, inspect the matching `*_data_quality` and
-`*_sync_run_observability` relations before trusting stale or missing prices.
+`*_ingestion_run_observability` relations before trusting stale or missing prices.
 
 ## Recover a failed path
 
@@ -68,10 +68,10 @@ SELECT max(odds_hour_epoch) AS latest_hour
 FROM polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds;
 
 SELECT count(*) AS observability_rows
-FROM polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_sync_run_observability;
+FROM polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_ingestion_run_observability;
 ```
 
-Confirm `dbt build --select tag:us_midterms_2026` reports all selected models
+Confirm `dbt build --select +tag:us_midterms_2026` reports all selected models
 and tests passing.
 
 Next, use [Troubleshooting](troubleshooting.md) for a specific symptom or the

@@ -83,6 +83,11 @@ def test_iter_gamma_events_keyset_stops_on_non_advancing_cursor():
     assert pages[1][0] == []
     assert pages[1][1].truncated is False
     assert client.get.call_count == 2
+    first_params = client.get.call_args_list[0].kwargs["params"]
+    second_params = client.get.call_args_list[1].kwargs["params"]
+    assert "after_cursor" not in first_params
+    assert second_params["after_cursor"] == "stuck-cursor"
+    assert "next_cursor" not in second_params
 
 
 def test_iter_gamma_events_keyset_non_advancing_duplicate_data_is_eof():
@@ -247,21 +252,26 @@ def test_iter_gamma_events_keyset_tag_and_volume_filters():
         "events": [{"id": "1", "slug": "world-cup-winner"}],
         "next_cursor": None,
     }
+    progress = MagicMock()
     list(
         iter_gamma_events_keyset(
             client,
             max_pages=5,
             keyset_closed=False,
             keyset_tag_slug="fifa-world-cup",
+            keyset_series_id="series-1",
             keyset_related_tags=True,
             keyset_volume_min=5000,
+            progress_callback=progress,
         )
     )
     params = client.get.call_args.kwargs.get("params") or {}
     assert params.get("closed") is False
     assert params.get("tag_slug") == "fifa-world-cup"
+    assert params.get("series_id") == "series-1"
     assert params.get("related_tags") == "true"
     assert params.get("volume_min") == 5000
+    assert progress.call_args.args[1]["keyset_series_id"] == "series-1"
 
 
 def test_iter_gamma_events_keyset_related_tags_param():

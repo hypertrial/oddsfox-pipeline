@@ -22,6 +22,7 @@ REDIRECTS = {
     "/data-dictionary": "/reference/data-dictionary/",
     "/scripts": "/reference/scripts/",
     "/naming": "/reference/naming/",
+    "/terminology": "/reference/terminology/",
     "/system-overview": "/concepts/system-overview/",
     "/architecture": "/concepts/architecture/",
     "/community": "/development/community/",
@@ -210,7 +211,9 @@ def test_shipped_scopes_and_public_marts_remain_documented():
         "scripts/run_scope.py",
         "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets",
         "polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds",
-        "polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds",
+        "polymarket_wc2026_marts.polymarket_wc2026_logical_events",
+        "polymarket_wc2026_marts.polymarket_wc2026_logical_markets",
+        "polymarket_wc2026_marts.polymarket_wc2026_logical_propositions",
         "polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds",
         "polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds",
         "international_results_wc2026_marts.international_results_wc2026_matches",
@@ -287,9 +290,27 @@ def test_development_schedule_snippet_includes_knockout_flag():
 
 def test_integrators_hub_checklist_covers_graph_and_polygon_boundary():
     integrators = (DOCS_DIR / "audiences/integrators.md").read_text()
-    assert "export_polymarket_wc2026_graph_hourly_odds.py" in integrators
+    assert "export_polymarket_wc2026_logical_bundle.py" in integrators
+    assert "polymarket-wc2026-logical-v1" in integrators
     assert "not `wc2026.v1` signal inputs" in integrators
     assert "strategy-contracts.md" in integrators
+
+
+def test_terminology_reference_is_documented_and_linked():
+    terminology = (DOCS_DIR / "reference/terminology.md").read_text()
+    glossary = (DOCS_DIR / "concepts/glossary.md").read_text()
+    naming = (DOCS_DIR / "reference/naming.md").read_text()
+    readme = (REPO_ROOT / "README.md").read_text()
+    agents = (REPO_ROOT / "AGENTS.md").read_text()
+
+    assert "Pipeline" in terminology
+    assert "logical atlas" in terminology.lower()
+    assert "wc2026.v1" in terminology
+    assert "terminology.md" in glossary
+    assert "terminology.md" in naming
+    assert "reference/terminology.md" in readme or "Terminology" in readme
+    assert "docs/reference/terminology.md" in agents
+    assert "check-terminology" in agents
 
 
 def test_brand_assets_and_compact_styles_exist():

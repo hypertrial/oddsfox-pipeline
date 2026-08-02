@@ -34,16 +34,16 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
 FRESHNESS_SOURCE_TABLES: frozenset[tuple[str, str]] = frozenset(
     {
         ("international_results_wc2026_raw", "match_results"),
-        ("kalshi_wc2026_ops", "pipeline_run_events"),
+        ("kalshi_wc2026_ops", "ingestion_run_events"),
         ("kalshi_wc2026_raw", "events"),
         ("kalshi_wc2026_raw", "market_candlesticks_hourly"),
         ("kalshi_wc2026_raw", "markets"),
-        ("polymarket_us_midterms_2026_ops", "pipeline_run_events"),
+        ("polymarket_us_midterms_2026_ops", "ingestion_run_events"),
         ("polymarket_us_midterms_2026_raw", "market_tokens"),
         ("polymarket_us_midterms_2026_raw", "markets"),
         ("polymarket_us_midterms_2026_raw", "odds_history"),
         ("polymarket_us_midterms_2026_raw", "token_odds_daily"),
-        ("polymarket_wc2026_ops", "pipeline_run_events"),
+        ("polymarket_wc2026_ops", "ingestion_run_events"),
         ("polymarket_wc2026_raw", "market_tokens"),
         ("polymarket_wc2026_raw", "markets"),
         ("polymarket_wc2026_raw", "odds_history"),
@@ -105,7 +105,7 @@ def _seed_polymarket_scope(conn, *, scope_name: str, now: datetime) -> None:
     raw_tokens = polymarket_raw_tbl(scope_name, "market_tokens")
     raw_odds = polymarket_raw_tbl(scope_name, "odds_history")
     raw_daily = polymarket_raw_tbl(scope_name, "token_odds_daily")
-    ops_events = polymarket_ops_tbl(scope_name, "pipeline_run_events")
+    ops_events = polymarket_ops_tbl(scope_name, "ingestion_run_events")
     market_id = f"freshness-{scope_name}"
     token_id = f"freshness-{scope_name}-yes"
     conn.execute(
@@ -256,7 +256,7 @@ def _seed_kalshi(conn, now: datetime) -> None:
     )
     conn.execute(
         f"""
-        insert or replace into {kalshi_ops_tbl(SCOPE_WC2026, "pipeline_run_events")}
+        insert or replace into {kalshi_ops_tbl(SCOPE_WC2026, "ingestion_run_events")}
         (run_id, task_name, recorded_at, metrics_json)
         values (?, 'freshness', ?, ?)
         """,

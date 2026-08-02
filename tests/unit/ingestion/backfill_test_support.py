@@ -29,7 +29,7 @@ BACKFILL_ENTRYPOINT_MODULES = {
     "backfill_slugs": bf_slugs,
     "backfill_end_dates": bf_end_dates,
     "backfill_event_slugs": bf_event_slugs,
-    "backfill_market_metadata": bf_metadata,
+    "enrich_market_metadata": bf_metadata,
 }
 
 

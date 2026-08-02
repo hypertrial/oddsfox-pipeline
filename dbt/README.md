@@ -1,7 +1,7 @@
 # OddsFox Pipeline dbt Project
 
 This dbt project models Polymarket and Kalshi WC2026 data, FIFA-numbered
-knockout fixtures, FIFA World Cup fixture/results data, and US midterms odds in
+schedule fixtures, FIFA World Cup fixture/results data, and US midterms odds in
 DuckDB.
 
 See the operator docs for warehouse details:

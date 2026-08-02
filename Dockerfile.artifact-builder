@@ -1,7 +1,15 @@
 FROM python:3.11-slim
 
+ARG ODDSFOX_PIPELINE_GIT_SHA=""
+ARG ODDSFOX_GRAPH_GIT_SHA=""
+
 ENV PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    ODDSFOX_PIPELINE_GIT_SHA=${ODDSFOX_PIPELINE_GIT_SHA} \
+    ODDSFOX_GRAPH_GIT_SHA=${ODDSFOX_GRAPH_GIT_SHA} \
+    DUCKDB_PATH=/warehouse/oddsfox.duckdb \
+    DAGSTER_HOME=/state/dagster-home \
+    DLT_DATA_DIR=/state/dlt
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential git \
@@ -13,6 +21,12 @@ COPY oddsfox-graph /app/oddsfox-graph
 
 RUN python -m pip install --upgrade pip \
     && python -m pip install -e /app/oddsfox-pipeline -e /app/oddsfox-graph
+
+RUN test -n "${ODDSFOX_PIPELINE_GIT_SHA}" \
+    && test -n "${ODDSFOX_GRAPH_GIT_SHA}" \
+    && test -f /app/oddsfox-graph/oddsfox_graph/static/explorer/index.html
+
+VOLUME ["/artifacts", "/warehouse", "/state"]
 
 WORKDIR /app/oddsfox-pipeline
 ENTRYPOINT ["python", "scripts/build_hosted_artifacts.py", "--artifact-dir", "/artifacts", "--graph-repo", "/app/oddsfox-graph"]

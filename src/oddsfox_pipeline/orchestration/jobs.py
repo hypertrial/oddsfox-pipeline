@@ -31,13 +31,14 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
+    polymarket_wc2026_logical_atlas_run_config,
     polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
     wc2026_knockout_match_odds_full_pipeline_run_config,
 )
-from oddsfox_pipeline.orchestration.scope_registry import (
+from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
     POLYMARKET_US_MIDTERMS_2026_SCOPE,
     POLYMARKET_WC2026_SCOPE,
@@ -86,7 +87,7 @@ POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "markets"),
     asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "markets_snapshot"),
     asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "ops", "market_scope_registry"),
-    asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "market_metadata_backfill"),
+    asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "market_metadata_enrichment"),
 )
 
 POLYMARKET_WC2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
@@ -121,6 +122,12 @@ POLYMARKET_WC2026_DBT_SELECTION = build_dbt_asset_selection(
     [oddsfox_dbt],
     dbt_select=POLYMARKET_WC2026_SCOPE.dbt_select,
     dbt_exclude=POLYMARKET_WC2026_SCOPE.dbt_exclude,
+)
+
+POLYMARKET_WC2026_LOGICAL_ATLAS_DBT_SELECTION = build_dbt_asset_selection(
+    [oddsfox_dbt],
+    dbt_select="+tag:wc2026_logical_atlas",
+    dbt_exclude="tag:polygon_settlement tag:pmxt_order_book",
 )
 
 _POLYMARKET_WC2026_MATCH_MINUTE_DBT_GRAPH = build_dbt_asset_selection(
@@ -170,20 +177,44 @@ INTERNATIONAL_RESULTS_HISTORICAL_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_INTERNATIONAL_RESULTS, "historical", "raw", "snapshot"),
 )
 
-OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION = AssetSelection.assets(
-    asset_key(SOURCE_OPENFOOTBALL, SCOPE_WC2026, "raw", "knockout_fixtures"),
+OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION = AssetSelection.assets(
+    asset_key(SOURCE_OPENFOOTBALL, SCOPE_WC2026, "raw", "schedule_fixtures"),
+)
+
+POLYMARKET_WC2026_LOGICAL_ATLAS_SELECTION = (
+    AssetSelection.assets(
+        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "event_catalog"),
+        asset_key(
+            SOURCE_POLYMARKET,
+            SCOPE_WC2026,
+            "raw",
+            "reviewed_event_membership",
+        ),
+        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "event_snapshots"),
+        asset_key(
+            SOURCE_POLYMARKET,
+            SCOPE_WC2026,
+            "raw",
+            "event_market_memberships",
+        ),
+    )
+    | OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION
+    | POLYMARKET_WC2026_LOGICAL_ATLAS_DBT_SELECTION
+    | AssetSelection.assets(
+        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "release", "logical_bundle")
+    )
 )
 
 POLYMARKET_WC2026_MATCH_MINUTE_SELECTION = (
     INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION
-    | OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION
+    | OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION
     | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
     | POLYMARKET_WC2026_MATCH_MINUTE_RAW_SELECTION
     | POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION
 )
 
 POLYMARKET_WC2026_MATCH_ORDER_BOOK_SELECTION = (
-    OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION
+    OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION
     | POLYMARKET_WC2026_MATCH_ORDER_BOOK_RAW_SELECTION
     | POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_SELECTION
 )
@@ -197,6 +228,7 @@ POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
     | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
     | POLYMARKET_WC2026_HOURLY_ODDS_SELECTION
     | POLYMARKET_WC2026_DBT_SELECTION
+    | POLYMARKET_WC2026_LOGICAL_ATLAS_SELECTION
 )
 
 POLYMARKET_US_MIDTERMS_2026_MARKET_REGISTRY_SELECTION = AssetSelection.assets(
@@ -206,7 +238,7 @@ POLYMARKET_US_MIDTERMS_2026_MARKET_REGISTRY_SELECTION = AssetSelection.assets(
         SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "ops", "market_scope_registry"
     ),
     asset_key(
-        SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "raw", "market_metadata_backfill"
+        SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "raw", "market_metadata_enrichment"
     ),
 )
 
@@ -228,7 +260,7 @@ POLYMARKET_US_MIDTERMS_2026_FULL_PIPELINE_SELECTION = (
     | POLYMARKET_US_MIDTERMS_2026_DBT_SELECTION
 )
 
-polymarket_us_midterms_2026_market_registry_refresh = define_asset_job(
+polymarket_us_midterms_2026_market_scope_registry_refresh = define_asset_job(
     POLYMARKET_US_MIDTERMS_2026_SCOPE.registry_job_name,
     selection=POLYMARKET_US_MIDTERMS_2026_MARKET_REGISTRY_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
@@ -256,7 +288,7 @@ polymarket_us_midterms_2026_full_pipeline = define_asset_job(
     tags=_POLYMARKET_US_MIDTERMS_2026_TAGS,
 )
 
-polymarket_wc2026_market_registry_refresh = define_asset_job(
+polymarket_wc2026_market_scope_registry_refresh = define_asset_job(
     POLYMARKET_WC2026_SCOPE.registry_job_name,
     selection=POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
@@ -277,6 +309,14 @@ polymarket_wc2026_dbt_build = define_asset_job(
     selection=POLYMARKET_WC2026_DBT_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_dbt_build_run_config(),
+    tags=_POLYMARKET_WC2026_TAGS,
+)
+
+polymarket_wc2026_logical_atlas = define_asset_job(
+    "polymarket_wc2026_logical_atlas",
+    selection=POLYMARKET_WC2026_LOGICAL_ATLAS_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_wc2026_logical_atlas_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
 )
 
@@ -351,6 +391,7 @@ polymarket_wc2026_full_pipeline = define_asset_job(
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=_merge_run_configs(
         polymarket_wc2026_full_refresh_events_run_config(),
+        polymarket_wc2026_logical_atlas_run_config(),
         polymarket_wc2026_hourly_odds_run_config(),
         polymarket_wc2026_dbt_build_run_config(),
     ),
@@ -387,7 +428,7 @@ WC2026_KNOCKOUT_MATCH_ODDS_DBT_SELECTION = build_dbt_asset_selection(
 ).without_checks()
 
 WC2026_KNOCKOUT_MATCH_ODDS_FULL_PIPELINE_SELECTION = (
-    OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_SELECTION
+    OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION
     | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
     | POLYMARKET_WC2026_HOURLY_ODDS_SELECTION
     | KALSHI_WC2026_MARKET_REGISTRY_SELECTION
@@ -395,7 +436,7 @@ WC2026_KNOCKOUT_MATCH_ODDS_FULL_PIPELINE_SELECTION = (
     | WC2026_KNOCKOUT_MATCH_ODDS_DBT_SELECTION
 )
 
-kalshi_wc2026_market_registry_refresh = define_asset_job(
+kalshi_wc2026_market_scope_registry_refresh = define_asset_job(
     KALSHI_WC2026_SCOPE.registry_job_name,
     selection=KALSHI_WC2026_MARKET_REGISTRY_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,

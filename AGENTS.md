@@ -36,6 +36,14 @@ Cursor loads [Ponytail](https://github.com/DietrichGebert/ponytail) from [`.curs
 
 Other agents should read this `AGENTS.md` at the repo root.
 
+**Terminology:** [docs/reference/terminology.md](docs/reference/terminology.md)
+is the normative vocabulary for pipelines, jobs/runs, scopes, catalogs,
+registries, logical atlas, contracts, and grain language. Prefer those terms in
+new identifiers, docs, CLI help, metrics, and comments. Before finishing work
+that touches naming or prose, run `make check-terminology` (also part of
+`make lint` / `ci-fast`). Do not reintroduce retired first-party “flow,”
+“graph odds/export,” or other forbidden identifiers listed there.
+
 ## No legacy support (v0.1.x)
 
 OddsFox Pipeline is v0.1.x — too new for a supported legacy surface, migration path, or
@@ -126,6 +134,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make dbt-source-freshness-ci` | Seed fresh temp source rows and run dbt source freshness |
 | `make coverage-report` | Coverage report gate (`--fail-under=100`) |
 | `make check-secrets` | Repo policy check for tracked secret leakage |
+| `make check-terminology` | Enforce [terminology](docs/reference/terminology.md); fail on retired vocabulary and identifier regressions |
 | `make runtime-dirs` | Create SSD-local temp, cache, dbt, Python, DuckDB-extension, and browser directories below `.cache/runtime` |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
 | `make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement graph against replay fixtures |
@@ -207,45 +216,51 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 
 1. `polymarket/wc2026/raw/markets`
 2. `polymarket/wc2026/raw/markets_snapshot`
-3. `polymarket/wc2026/ops/market_scope_registry`
-4. `polymarket/wc2026/raw/market_metadata_backfill`
-5. `polymarket/wc2026/raw/token_odds_history_hourly`
-6. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
-7. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
-8. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
-9. `polymarket/us_midterms_2026/raw/markets`
-10. `polymarket/us_midterms_2026/raw/markets_snapshot`
-11. `polymarket/us_midterms_2026/ops/market_scope_registry`
-12. `polymarket/us_midterms_2026/raw/market_metadata_backfill`
-13. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
-14. `international_results/historical/raw/snapshot`
-15. `international_results/wc2026/raw/match_results`
-16. `openfootball/wc2026/raw/knockout_fixtures`
-17. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
-18. `kalshi/wc2026/raw/markets`
-19. `kalshi/wc2026/raw/markets_snapshot`
-20. `kalshi/wc2026/ops/market_scope_registry`
-21. `kalshi/wc2026/raw/market_candlesticks_hourly`
-22. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+3. `polymarket/wc2026/raw/reviewed_event_membership`
+4. `polymarket/wc2026/raw/event_catalog`
+5. `polymarket/wc2026/raw/event_snapshots`
+6. `polymarket/wc2026/raw/event_market_memberships`
+7. `polymarket/wc2026/ops/market_scope_registry`
+8. `polymarket/wc2026/raw/market_metadata_enrichment`
+9. `polymarket/wc2026/raw/token_odds_history_hourly`
+10. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
+11. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
+12. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
+13. `polymarket/us_midterms_2026/raw/markets`
+14. `polymarket/us_midterms_2026/raw/markets_snapshot`
+15. `polymarket/us_midterms_2026/ops/market_scope_registry`
+16. `polymarket/us_midterms_2026/raw/market_metadata_enrichment`
+17. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
+18. `international_results/historical/raw/snapshot`
+19. `international_results/wc2026/raw/match_results`
+20. `openfootball/wc2026/raw/schedule_fixtures`
+21. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
+22. `kalshi/wc2026/raw/markets`
+23. `kalshi/wc2026/raw/markets_snapshot`
+24. `kalshi/wc2026/ops/market_scope_registry`
+25. `kalshi/wc2026/raw/market_candlesticks_hourly`
+26. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
    `polymarket/us_midterms_2026/{staging,intermediate,marts,observability}/...`,
    `international_results/wc2026/{staging,intermediate,marts,observability}/...`,
    `kalshi/wc2026/{staging,intermediate,marts,observability}/...`,
    `openfootball/wc2026/staging/...`, and `wc2026/{intermediate,marts,observability}/...`
-23. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
+27. `polymarket/wc2026/release/logical_bundle`
+28. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
 
 Key jobs: `international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`,
-`polymarket_wc2026_market_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
+`polymarket_wc2026_market_scope_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
 `polymarket_wc2026_match_minute_odds_backfill`,
 `polymarket_wc2026_match_order_book_backfill`,
 `polymarket_wc2026_polygon_settlement_backfill`,
 `polymarket_wc2026_polygon_settlement_release`,
-`polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`,
-`polymarket_us_midterms_2026_market_registry_refresh`,
+`polymarket_wc2026_dbt_build`, `polymarket_wc2026_logical_atlas`,
+`polymarket_wc2026_full_pipeline`,
+`polymarket_us_midterms_2026_market_scope_registry_refresh`,
 `polymarket_us_midterms_2026_hourly_odds_ingest`,
 `polymarket_us_midterms_2026_dbt_build`,
 `polymarket_us_midterms_2026_full_pipeline`,
-`kalshi_wc2026_market_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
+`kalshi_wc2026_market_scope_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
 `kalshi_wc2026_dbt_build`, `kalshi_wc2026_full_pipeline`,
 `wc2026_knockout_match_odds_full_pipeline`.
 
@@ -274,9 +289,9 @@ no API credentials are required for local docs, dbt, or mocked tests.
 
 DuckDB is local-only runtime state. For read-only inspection prefer `scripts/profile_warehouse.py` over opening the warehouse read-write.
 
-**Polygon settlement isolation:** this historical flow uses an operator-local
+**Polygon settlement isolation:** this historical pipeline uses an operator-local
 `polymarket_wc2026_polygon_settlement_markets.csv` seed and finalized Polygon V2
-logs. The tracked seed is a header-only schema shell. The flow must not call
+logs. The tracked seed is a header-only schema shell. The pipeline must not call
 Gamma, CLOB, the Polymarket UI, international-results, or OpenFootball at
 runtime. Never log or persist RPC URLs, wallet addresses, order hashes,
 signatures, raw topics/data, calldata, or oracle prose. The optional second RPC
@@ -288,7 +303,7 @@ below `artifacts/polygon_settlement/exports/`. Neither path uploads data.
 **Distribution policy:** keep production data, generated exports, reviewed
 resolution attestations, databases, Parquet, and source documents untracked.
 Header-only external seed shells must remain empty in commits. Retained
-contract constants and aliases are executable project configuration; test
+pipeline policy constants and aliases are executable project configuration; test
 fixtures must be synthetic and documented in `tests/fixtures/README.md`.
 Third-party material keeps its original licence and must not be described as
 MIT-licensed project data. See `THIRD_PARTY_NOTICES.md`.
@@ -312,6 +327,7 @@ MIT-licensed project data. See `THIRD_PARTY_NOTICES.md`.
 ## Further reading
 
 - [OddsFox Pipeline docs](docs/index.md) — overview, audience hubs, runbooks
+- [Terminology](docs/reference/terminology.md) — normative repository vocabulary
 - [Contributors hub](docs/audiences/contributors.md) and
   [Integration](docs/concepts/integration.md) — human docs entry points
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contributor and release workflow

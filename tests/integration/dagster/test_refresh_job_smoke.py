@@ -17,6 +17,7 @@ from dagster_dbt import DbtCliResource
 import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.config.settings import resolve_dbt_executable
 from oddsfox_pipeline.ingestion.polymarket.markets.persistence import (
+    MARKET_RECORD_COLUMNS,
     prepare_batch_for_db,
 )
 from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
@@ -37,12 +38,12 @@ from oddsfox_pipeline.orchestration.assets import (
     kalshi_wc2026_raw_markets_snapshot,
     oddsfox_dbt,
     polymarket_us_midterms_2026_ops_market_scope_registry,
-    polymarket_us_midterms_2026_raw_market_metadata_backfill,
+    polymarket_us_midterms_2026_raw_market_metadata_enrichment,
     polymarket_us_midterms_2026_raw_markets,
     polymarket_us_midterms_2026_raw_markets_snapshot,
     polymarket_us_midterms_2026_raw_token_odds_history_hourly,
     polymarket_wc2026_ops_market_scope_registry,
-    polymarket_wc2026_raw_market_metadata_backfill,
+    polymarket_wc2026_raw_market_metadata_enrichment,
     polymarket_wc2026_raw_markets,
     polymarket_wc2026_raw_markets_snapshot,
     polymarket_wc2026_raw_token_odds_history_hourly,
@@ -118,23 +119,14 @@ def _seed_dlt_owned_markets(
     connection.ensure_duck_db()
     with connection.get_connection() as conn:
         create_all_scope_test_markets_tables(conn)
+        columns = ", ".join(f'"{column}"' for column in MARKET_RECORD_COLUMNS)
+        placeholders = ", ".join("?" for _column in MARKET_RECORD_COLUMNS)
         conn.executemany(
             f"""
             INSERT OR REPLACE INTO "{raw_schema}"."markets"
-                (
-                    id, question, category, description, outcomes, volume, active, closed,
-                        created_at, scraped_at, end_date, slug, event_slug, event_id,
-                        event_title, event_start_time, event_finished_time,
-                        event_game_id, event_ended,
-                        condition_id, sports_market_type, game_start_time, group_item_title,
-                        tags, clob_token_ids, is_resolved, winning_outcome,
-                        winning_clob_token_id
-                    )
-                    VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?
-                    )
-                """,
+                ({columns})
+            VALUES ({placeholders})
+            """,
             market_data,
         )
         conn.execute(
@@ -146,12 +138,12 @@ def _seed_dlt_owned_markets(
         )
 
 
-def _pipeline_run_counts(conn, *, ops_schema: str) -> dict[str, int]:
+def _ingestion_run_counts(conn, *, ops_schema: str) -> dict[str, int]:
     return dict(
         conn.execute(
             f"""
             select task_name, count(*)
-            from "{ops_schema}"."pipeline_run_events"
+            from "{ops_schema}"."ingestion_run_events"
             group by task_name
             order by task_name
             """
@@ -430,7 +422,7 @@ oddsfox:
             polymarket_wc2026_raw_markets,
             polymarket_wc2026_raw_markets_snapshot,
             polymarket_wc2026_ops_market_scope_registry,
-            polymarket_wc2026_raw_market_metadata_backfill,
+            polymarket_wc2026_raw_market_metadata_enrichment,
         ],
         resources={
             "dlt": noop_dlt,
@@ -547,7 +539,7 @@ def test_refresh_path_materializes(
     )
     with connection.get_connection() as conn:
         first_state = _polymarket_business_state(conn, scope_name="wc2026")
-        first_run_counts = _pipeline_run_counts(
+        first_run_counts = _ingestion_run_counts(
             conn, ops_schema="polymarket_wc2026_ops"
         )
         checks = (
@@ -589,7 +581,7 @@ def test_refresh_path_materializes(
     )
     with connection.get_connection() as conn:
         assert _polymarket_business_state(conn, scope_name="wc2026") == first_state
-        assert _pipeline_run_counts(conn, ops_schema="polymarket_wc2026_ops") == {
+        assert _ingestion_run_counts(conn, ops_schema="polymarket_wc2026_ops") == {
             task: count * 2 for task, count in first_run_counts.items()
         }
 
@@ -660,7 +652,7 @@ _MIDTERMS_RAW_SCHEMA = "polymarket_us_midterms_2026_raw"
 _MIDTERMS_VALID_TOKEN_YES = "m" * 33 + "01"
 _MIDTERMS_VALID_TOKEN_NO = "m" * 33 + "02"
 _MIDTERMS_JOBS = (
-    "polymarket_us_midterms_2026_market_registry_refresh",
+    "polymarket_us_midterms_2026_market_scope_registry_refresh",
     "polymarket_us_midterms_2026_hourly_odds_ingest",
     "polymarket_us_midterms_2026_dbt_build",
     "polymarket_us_midterms_2026_full_pipeline",
@@ -885,7 +877,7 @@ def _materialize_midterms_refresh_path(
             polymarket_us_midterms_2026_raw_markets,
             polymarket_us_midterms_2026_raw_markets_snapshot,
             polymarket_us_midterms_2026_ops_market_scope_registry,
-            polymarket_us_midterms_2026_raw_market_metadata_backfill,
+            polymarket_us_midterms_2026_raw_market_metadata_enrichment,
         ],
         resources={"dlt": noop_dlt},
         run_config={
@@ -965,7 +957,7 @@ def test_midterms_refresh_path_materializes(
     )
     with connection.get_connection() as conn:
         first_state = _polymarket_business_state(conn, scope_name=_MIDTERMS_SCOPE)
-        first_run_counts = _pipeline_run_counts(
+        first_run_counts = _ingestion_run_counts(
             conn, ops_schema="polymarket_us_midterms_2026_ops"
         )
         checks = {
@@ -1014,7 +1006,7 @@ def test_midterms_refresh_path_materializes(
         assert (
             _polymarket_business_state(conn, scope_name=_MIDTERMS_SCOPE) == first_state
         )
-        assert _pipeline_run_counts(
+        assert _ingestion_run_counts(
             conn, ops_schema="polymarket_us_midterms_2026_ops"
         ) == {task: count * 2 for task, count in first_run_counts.items()}
 
@@ -1077,7 +1069,7 @@ _KALSHI_EVENT_TICKER = "KXMENWORLDCUP-WINNER"
 _KALSHI_MARKET_TICKER = "KXMENWORLDCUP-WINNER-USA"
 _KALSHI_SERIES = "KXMENWORLDCUP"
 _KALSHI_JOBS = (
-    "kalshi_wc2026_market_registry_refresh",
+    "kalshi_wc2026_market_scope_registry_refresh",
     "kalshi_wc2026_hourly_odds_ingest",
     "kalshi_wc2026_dbt_build",
     "kalshi_wc2026_full_pipeline",
@@ -1376,6 +1368,8 @@ def _materialize_kalshi_refresh_path(
             str(profiles_dir),
             "--select",
             "+tag:kalshi",
+            "--exclude",
+            "tag:wc2026_logical_atlas",
         ],
         env=os.environ.copy(),
         check=False,
@@ -1399,7 +1393,7 @@ def test_kalshi_refresh_path_materializes(
     )
     with connection.get_connection() as conn:
         first_state = _kalshi_business_state(conn)
-        first_run_counts = _pipeline_run_counts(conn, ops_schema="kalshi_wc2026_ops")
+        first_run_counts = _ingestion_run_counts(conn, ops_schema="kalshi_wc2026_ops")
         checks = {
             "raw_markets": conn.execute(
                 f'select count(*) from "{_KALSHI_RAW_SCHEMA}"."markets"'
@@ -1430,7 +1424,7 @@ def test_kalshi_refresh_path_materializes(
     )
     with connection.get_connection() as conn:
         assert _kalshi_business_state(conn) == first_state
-        assert _pipeline_run_counts(conn, ops_schema="kalshi_wc2026_ops") == {
+        assert _ingestion_run_counts(conn, ops_schema="kalshi_wc2026_ops") == {
             task: count * 2 for task, count in first_run_counts.items()
         }
 

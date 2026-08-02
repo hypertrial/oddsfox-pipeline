@@ -1,0 +1,2 @@
+policy_version,contract_name,contract_version,taxonomy_version,required_event_tag,recall_event_tag,fixture_series_slug,event_volume_min_usd,event_volume_comparison,eligibility_mode,eligibility_history,child_market_volume_floor_usd,temporal_odds
+wc2026-finals-sporting-v1,polymarket-wc2026-logical-v1,1,wc2026-logical-taxonomy-v1,2026-fifa-world-cup,fifa-world-cup,soccer-fifwc,100000,greater_than_or_equal,ever_crossed,retroactive_from_event_creation,,false

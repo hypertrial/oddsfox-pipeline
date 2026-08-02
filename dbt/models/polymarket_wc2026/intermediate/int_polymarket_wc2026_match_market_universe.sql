@@ -70,8 +70,8 @@ advance_primary_candidates as (
         a.*,
         p.event_id as primary_timing_event_id,
         p.event_slug as primary_timing_event_slug,
-        p.event_start_time as game_started_at_utc,
-        p.event_finished_time as game_finished_at_utc,
+        p.event_start_time as match_started_at_utc,
+        p.event_finished_time as match_finished_at_utc,
         p.moneyline_market_count,
         count(*) over (partition by a.market_id) as primary_mapping_count
     from advance_markets as a
@@ -176,8 +176,8 @@ group_market_candidates as (
         m.event_slug as selected_market_event_slug,
         p.event_id as primary_timing_event_id,
         p.event_slug as primary_timing_event_slug,
-        p.event_start_time as game_started_at_utc,
-        p.event_finished_time as game_finished_at_utc,
+        p.event_start_time as match_started_at_utc,
+        p.event_finished_time as match_finished_at_utc,
         m.proposition_team_key,
         f.home_team_key,
         f.away_team_key,
@@ -215,8 +215,8 @@ group_markets as (
         selected_market_event_slug,
         primary_timing_event_id,
         primary_timing_event_slug,
-        game_started_at_utc,
-        game_finished_at_utc,
+        match_started_at_utc,
+        match_finished_at_utc,
         sports_market_type,
         case
             when proposition_team_key = home_team_key then 'home_win'
@@ -255,7 +255,7 @@ knockout_schedule_fixtures as (
         kickoff_at_utc,
         {{ canonical_team_match_key('home_team') }} as home_team_key,
         {{ canonical_team_match_key('away_team') }} as away_team_key
-    from {{ ref('stg_openfootball_wc2026_knockout_fixtures') }}
+    from {{ ref('stg_openfootball_wc2026_schedule_fixtures') }}
     where fifa_match_id between 73 and 104
 ),
 
@@ -306,7 +306,7 @@ knockout_candidates as (
             = least(f.home_team_key, f.away_team_key)
             and greatest(a.outcome_0_key, a.outcome_1_key)
             = greatest(f.home_team_key, f.away_team_key)
-            and abs(epoch(a.game_started_at_utc) - epoch(f.kickoff_at_utc)) <= 60
+            and abs(epoch(a.match_started_at_utc) - epoch(f.kickoff_at_utc)) <= 60
 ),
 
 knockout_markets as (
@@ -328,8 +328,8 @@ knockout_markets as (
         event_slug as selected_market_event_slug,
         primary_timing_event_id,
         primary_timing_event_slug,
-        game_started_at_utc,
-        game_finished_at_utc,
+        match_started_at_utc,
+        match_finished_at_utc,
         sports_market_type,
         question,
         home_team as yes_team_name,

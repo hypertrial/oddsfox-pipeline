@@ -47,8 +47,8 @@ def test_save_sync_run_metrics_zero_history_limit(duck):
     metadata.save_sync_run_metrics("zlim", {"x": 1}, history_limit=0)
 
 
-def test_append_pipeline_run_event_inserts_row(duck):
-    rid = metadata.append_pipeline_run_event("sync_odds", {"rows": 1})
+def test_append_ingestion_run_event_inserts_row(duck):
+    rid = metadata.append_ingestion_run_event("sync_odds", {"rows": 1})
     with metadata.get_connection() as conn:
         row = conn.execute(
             f"""
@@ -65,7 +65,7 @@ def test_append_pipeline_run_event_inserts_row(duck):
 
 
 def test_save_sync_run_metrics_scoped_to_us_midterms_2026(duck):
-    midterms_pre = polymarket_us_midterms_2026_ops_tbl("pipeline_run_events")
+    midterms_pre = polymarket_us_midterms_2026_ops_tbl("ingestion_run_events")
     metadata.save_sync_run_metrics(
         "sync_markets", {"total_fetched": 3}, scope_name="us_midterms_2026"
     )
@@ -101,12 +101,12 @@ def test_save_sync_run_metrics_pipeline_append_failure_continues(monkeypatch, du
     def boom(*_a, **_k):
         raise RuntimeError("simulated append failure")
 
-    monkeypatch.setattr(metadata, "append_pipeline_run_event", boom)
+    monkeypatch.setattr(metadata, "append_ingestion_run_event", boom)
     metadata.save_sync_run_metrics("append_fail", {"x": 1})
     saved = metadata.get_sync_run_metrics("append_fail")
     assert saved is not None
-    assert saved["pipeline_run_event_append_failed"] is True
-    assert saved["pipeline_run_event_append_error"] == (
+    assert saved["ingestion_run_event_append_failed"] is True
+    assert saved["ingestion_run_event_append_error"] == (
         "RuntimeError: simulated append failure"
     )
 
@@ -191,16 +191,16 @@ def test_get_sync_run_metrics_query_exception_falls_back(monkeypatch):
     assert metadata.get_sync_run_metrics("query_error") is None
 
 
-def test_append_pipeline_run_event_kalshi_source(duck):
+def test_append_ingestion_run_event_kalshi_source(duck):
     from oddsfox_pipeline.storage.duckdb.schemas.constants import kalshi_ops_tbl
 
-    run_id = metadata.append_pipeline_run_event(
+    run_id = metadata.append_ingestion_run_event(
         "sync_kalshi_candlesticks",
         {"rows_written": 2},
         source="kalshi",
         scope_name="wc2026",
     )
-    pre = kalshi_ops_tbl("wc2026", "pipeline_run_events")
+    pre = kalshi_ops_tbl("wc2026", "ingestion_run_events")
     with metadata.get_connection() as conn:
         row = conn.execute(
             f"SELECT task_name, metrics_json FROM {pre} WHERE run_id = ?",

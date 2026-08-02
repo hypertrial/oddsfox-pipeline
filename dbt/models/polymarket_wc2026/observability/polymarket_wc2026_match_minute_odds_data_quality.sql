@@ -37,7 +37,7 @@ mapped as (
             where fixture_mapping_count <> 1 or primary_mapping_count <> 1
         ) as ambiguous_mappings,
         count(*) filter (
-            where game_started_at_utc is null or game_finished_at_utc is null
+            where match_started_at_utc is null or match_finished_at_utc is null
         ) as missing_timing,
         count(distinct fifa_match_id) filter (
             where fifa_match_id between 1 and 104
@@ -54,8 +54,8 @@ mapped as (
         sum(
             date_diff(
                 'minute',
-                date_trunc('minute', game_started_at_utc),
-                date_trunc('minute', game_finished_at_utc)
+                date_trunc('minute', match_started_at_utc),
+                date_trunc('minute', match_finished_at_utc)
             ) + 1
         ) as expected_minute_rows
     from {{ ref('int_polymarket_wc2026_match_market_universe') }}
@@ -277,7 +277,7 @@ select
     nullif(
         concat_ws(
             ',',
-            case when relevant_source_markets > 0 and mapped_games <> expected_games then 'game_count' end,
+            case when relevant_source_markets > 0 and mapped_games <> expected_games then 'match_count' end,
             case when relevant_source_markets > 0 and fifa_id_coverage <> expected_games then 'fifa_id_coverage' end,
             case when relevant_source_markets > 0 and mapped_markets <> expected_markets then 'market_count' end,
             case
@@ -303,7 +303,7 @@ select
             end,
             case
                 when relevant_source_markets > 0 and international_results_games <> expected_games
-                    then 'international_results_game_count'
+                    then 'international_results_match_count'
             end,
             case
                 when

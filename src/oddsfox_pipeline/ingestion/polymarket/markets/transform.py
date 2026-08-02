@@ -73,6 +73,7 @@ def process_markets_dataframe(markets_list: List[Dict]) -> pl.DataFrame:
         "question",
         "category",
         "description",
+        "resolutionSource",
         "outcomes",
         "volumeNum",
         "active",
@@ -87,6 +88,9 @@ def process_markets_dataframe(markets_list: List[Dict]) -> pl.DataFrame:
         "game_start_time",
         "groupItemTitle",
         "group_item_title",
+        "groupItemThreshold",
+        "group_item_threshold",
+        "line",
         "tags",
         "resolved",
         "isResolved",
@@ -94,6 +98,12 @@ def process_markets_dataframe(markets_list: List[Dict]) -> pl.DataFrame:
         "winning_outcome",
         "winningClobTokenId",
         "winning_clob_token_id",
+        "negRiskMarketID",
+        "neg_risk_market_id",
+        "negRiskRequestID",
+        "neg_risk_request_id",
+        "negRiskOther",
+        "neg_risk_other",
         "clobTokenIds",
         "slug",
         "events",
@@ -148,18 +158,34 @@ def process_markets_dataframe(markets_list: List[Dict]) -> pl.DataFrame:
             pl.coalesce([pl.col("conditionId"), pl.col("condition_id")])
             .cast(pl.Utf8, strict=False)
             .alias("condition_id"),
+            pl.col("resolutionSource")
+            .cast(pl.Utf8, strict=False)
+            .alias("market_resolution_source"),
             pl.coalesce([pl.col("sportsMarketType"), pl.col("sports_market_type")])
             .cast(pl.Utf8, strict=False)
             .alias("sports_market_type"),
             pl.coalesce([pl.col("groupItemTitle"), pl.col("group_item_title")])
             .cast(pl.Utf8, strict=False)
             .alias("group_item_title"),
+            pl.coalesce([pl.col("groupItemThreshold"), pl.col("group_item_threshold")])
+            .cast(pl.Utf8, strict=False)
+            .alias("group_item_threshold"),
+            pl.col("line").cast(pl.Float64, strict=False).alias("line"),
             pl.coalesce([pl.col("winningOutcome"), pl.col("winning_outcome")])
             .cast(pl.Utf8, strict=False)
             .alias("winning_outcome"),
             pl.coalesce([pl.col("winningClobTokenId"), pl.col("winning_clob_token_id")])
             .cast(pl.Utf8, strict=False)
             .alias("winning_clob_token_id"),
+            pl.coalesce([pl.col("negRiskMarketID"), pl.col("neg_risk_market_id")])
+            .cast(pl.Utf8, strict=False)
+            .alias("neg_risk_market_id"),
+            pl.coalesce([pl.col("negRiskRequestID"), pl.col("neg_risk_request_id")])
+            .cast(pl.Utf8, strict=False)
+            .alias("neg_risk_request_id"),
+            pl.coalesce([pl.col("negRiskOther"), pl.col("neg_risk_other")])
+            .cast(pl.Boolean, strict=False)
+            .alias("neg_risk_other"),
             pl.coalesce([pl.col("resolved"), pl.col("isResolved")])
             .cast(pl.Boolean, strict=False)
             .alias("is_resolved"),

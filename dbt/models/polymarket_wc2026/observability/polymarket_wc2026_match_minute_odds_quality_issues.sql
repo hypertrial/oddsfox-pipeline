@@ -1,19 +1,19 @@
 {{ config(materialized='table', tags=['cross_domain']) }}
 -- noqa: disable=AL03
 
-with games as (
+with matches as (
     select distinct
         fifa_match_id,
         stage,
         scheduled_kickoff_at_utc,
-        game_started_at_utc,
-        game_finished_at_utc,
+        match_started_at_utc,
+        match_finished_at_utc,
         results_source_revision,
         results_source_payload_sha256,
-        date_diff('second', scheduled_kickoff_at_utc, game_started_at_utc) / 60.0
-            as game_start_delta_minutes,
-        date_diff('second', game_started_at_utc, game_finished_at_utc) / 60.0
-            as game_window_minutes
+        date_diff('second', scheduled_kickoff_at_utc, match_started_at_utc) / 60.0
+            as match_start_delta_minutes,
+        date_diff('second', match_started_at_utc, match_finished_at_utc) / 60.0
+            as match_window_minutes
     from {{ ref('int_polymarket_wc2026_match_market_universe') }}
 ),
 
@@ -56,7 +56,7 @@ token_warnings as (
     select
         'cadence_gap:' || clob_token_id as issue_key,
         'warn' as severity,
-        'cadence' as issue_type,
+        'observation_gap' as issue_type,
         fifa_match_id,
         market_id,
         clob_token_id,
@@ -73,14 +73,14 @@ token_warnings as (
     select
         'first_boundary_offset:' || clob_token_id,
         'warn',
-        'cadence',
+        'observation_gap',
         fifa_match_id,
         market_id,
         clob_token_id,
         cast(null as bigint),
         cast(first_observation_offset_seconds as double),
         120.0,
-        'First token observation is more than 120 seconds after game start.'
+        'First token observation is more than 120 seconds after match start.'
     from {{ ref('polymarket_wc2026_match_minute_token_coverage') }}
     where first_boundary_offset_warning
 
@@ -89,14 +89,14 @@ token_warnings as (
     select
         'last_boundary_offset:' || clob_token_id,
         'warn',
-        'cadence',
+        'observation_gap',
         fifa_match_id,
         market_id,
         clob_token_id,
         cast(null as bigint),
         cast(last_observation_offset_seconds as double),
         120.0,
-        'Last token observation is more than 120 seconds before game finish.'
+        'Last token observation is more than 120 seconds before match finish.'
     from {{ ref('polymarket_wc2026_match_minute_token_coverage') }}
     where last_boundary_offset_warning
 
@@ -105,7 +105,7 @@ token_warnings as (
     select
         'constant_price:' || clob_token_id,
         'warn',
-        'cadence',
+        'observation_gap',
         fifa_match_id,
         market_id,
         clob_token_id,
@@ -126,30 +126,30 @@ timing_warnings as (
         cast(null as varchar) as market_id,
         cast(null as varchar) as clob_token_id,
         cast(null as bigint) as odds_minute_epoch,
-        cast(abs(game_start_delta_minutes) as double) as measured_value,
+        cast(abs(match_start_delta_minutes) as double) as measured_value,
         60.0 as threshold_value,
         'Actual Gamma start differs from scheduled kickoff by more than 60 minutes.'
             as issue_detail
-    from games
-    where abs(game_start_delta_minutes) > 60
+    from matches
+    where abs(match_start_delta_minutes) > 60
 
     union all
 
     select
-        'game_window:' || fifa_match_id,
+        'match_window:' || fifa_match_id,
         'warn',
         'timing',
         fifa_match_id,
         cast(null as varchar),
         cast(null as varchar),
         cast(null as bigint),
-        cast(game_window_minutes as double),
+        cast(match_window_minutes as double),
         case when stage = 'group_stage' then 150.0 else 210.0 end,
-        'Actual Gamma game window exceeds the calibrated stage threshold.'
-    from games
+        'Actual Gamma match window exceeds the calibrated stage threshold.'
+    from matches
     where
-        (stage = 'group_stage' and game_window_minutes > 150)
-        or (stage <> 'group_stage' and game_window_minutes > 210)
+        (stage = 'group_stage' and match_window_minutes > 150)
+        or (stage <> 'group_stage' and match_window_minutes > 210)
 ),
 
 elapsed_axis_by_market as (
@@ -163,8 +163,8 @@ elapsed_axis_by_market as (
         max(
             date_diff(
                 'minute',
-                date_trunc('minute', game_started_at_utc),
-                date_trunc('minute', game_finished_at_utc)
+                date_trunc('minute', match_started_at_utc),
+                date_trunc('minute', match_finished_at_utc)
             )
         ) as expected_final_elapsed_minute,
         count(*) filter (
@@ -173,7 +173,7 @@ elapsed_axis_by_market as (
             or elapsed_window_minute < 0
             or elapsed_window_minute <> date_diff(
                 'minute',
-                date_trunc('minute', game_started_at_utc),
+                date_trunc('minute', match_started_at_utc),
                 odds_minute_utc
             )
         ) as invalid_row_count
@@ -347,7 +347,7 @@ structural_errors as (
         0.0,
         1.0,
         'Game is missing a valid immutable results revision or payload SHA-256.'
-    from games
+    from matches
     where
         not regexp_full_match(coalesce(results_source_revision, ''), '[0-9a-f]{40}')
         or not regexp_full_match(

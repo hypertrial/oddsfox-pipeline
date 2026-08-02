@@ -108,14 +108,14 @@ def _create_polymarket_inputs(
     if case.retention:
         conn.execute(
             f"""
-            create table "{staging}"."polymarket_{scope}_contract" (
+            create table "{staging}"."polymarket_{scope}_pipeline_policy" (
                 scope_name varchar,
                 hourly_window_days integer
             )
             """
         )
         conn.execute(
-            f'insert into "{staging}"."polymarket_{scope}_contract" values (?, 30)',
+            f'insert into "{staging}"."polymarket_{scope}_pipeline_policy" values (?, 30)',
             [scope],
         )
     else:
@@ -219,7 +219,7 @@ def _create_kalshi_inputs(
     if case.retention:
         conn.execute(
             """
-            create table "kalshi_wc2026_staging"."kalshi_wc2026_contract" (
+            create table "kalshi_wc2026_staging"."kalshi_wc2026_pipeline_policy" (
                 scope_name varchar,
                 hourly_window_days integer
             )
@@ -227,7 +227,7 @@ def _create_kalshi_inputs(
         )
         conn.execute(
             """
-            insert into "kalshi_wc2026_staging"."kalshi_wc2026_contract"
+            insert into "kalshi_wc2026_staging"."kalshi_wc2026_pipeline_policy"
             values ('wc2026', 30)
             """
         )

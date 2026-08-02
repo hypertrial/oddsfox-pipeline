@@ -14,7 +14,7 @@ uv run python scripts/run_scope.py polymarket_us_midterms_2026 --step odds --dry
 
 Supported refs are `polymarket:wc2026` (`polymarket_wc2026`),
 `polymarket:us_midterms_2026` (`polymarket_us_midterms_2026`), and
-`kalshi:wc2026` (`kalshi_wc2026`). Supported steps are `registry`, `odds`,
+`kalshi:wc2026` (`kalshi_wc2026`). Supported steps are `market_registry`, `odds`,
 `dbt`, and `full`.
 
 The command maps known refs to fixed jobs. It is not a runtime market-scope
@@ -26,7 +26,7 @@ selector and does not accept arbitrary dbt selectors.
 
     ```bash
     .venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j international_results_wc2026_match_results_ingest
-    uv run python scripts/run_scope.py polymarket:wc2026 --step registry
+    uv run python scripts/run_scope.py polymarket:wc2026 --step market_registry
     uv run python scripts/run_scope.py polymarket:wc2026 --step odds
     uv run python scripts/run_scope.py polymarket:wc2026 --step dbt
     ```
@@ -34,7 +34,7 @@ selector and does not accept arbitrary dbt selectors.
 === "Polymarket US midterms"
 
     ```bash
-    uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step registry
+    uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step market_registry
     uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step odds
     uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step dbt
     ```
@@ -43,7 +43,7 @@ selector and does not accept arbitrary dbt selectors.
 
     ```bash
     .venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j international_results_wc2026_match_results_ingest
-    uv run python scripts/run_scope.py kalshi:wc2026 --step registry
+    uv run python scripts/run_scope.py kalshi:wc2026 --step market_registry
     uv run python scripts/run_scope.py kalshi:wc2026 --step odds
     uv run python scripts/run_scope.py kalshi:wc2026 --step dbt
     ```
@@ -63,7 +63,7 @@ external sources and write to the selected warehouse.
 
 ## Run the isolated Polygon settlement history
 
-The Polygon settlement flow is not a `run_scope.py` step and is never scheduled.
+The Polygon settlement pipeline is not a `run_scope.py` step and is never scheduled.
 After configuring the required primary RPC URL and non-secret provider label,
 run its dedicated job:
 
@@ -85,12 +85,12 @@ SSD-local checkpoint by default; opt into a clean disposable scan with
 
 For the full seed-authoring and disposable-smoke path, see
 [Recreate Polygon settlement mart](recreate-polygon-settlement-mart.md).
-Next, [validate the run](validate-and-recover.md). The Polygon settlement flow
-remains manual-only.
+Next, [validate the run](validate-and-recover.md). The Polygon settlement
+pipeline remains manual-only.
 
 ## Run the isolated PMXT order-book history
 
-The PMXT flow is also outside `run_scope.py` and is never scheduled. Configure
+The PMXT pipeline is also outside `run_scope.py` and is never scheduled. Configure
 `PMXT_API_KEY`, then use the credit-consuming disposable/resumable acceptance
 target:
 

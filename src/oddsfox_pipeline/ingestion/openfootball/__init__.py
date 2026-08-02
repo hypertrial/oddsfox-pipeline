@@ -1,15 +1,15 @@
 """OpenFootball WC2026 fixture ingestion."""
 
-from oddsfox_pipeline.ingestion.openfootball.knockout_fixtures import (
-    OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_URL,
-    fetch_knockout_fixtures,
-    parse_knockout_fixtures,
-    sync_knockout_fixtures,
+from oddsfox_pipeline.ingestion.openfootball.schedule_fixtures import (
+    OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_URL,
+    fetch_schedule_fixtures,
+    parse_schedule_fixtures,
+    sync_schedule_fixtures,
 )
 
 __all__ = [
-    "OPENFOOTBALL_WC2026_KNOCKOUT_FIXTURES_URL",
-    "fetch_knockout_fixtures",
-    "parse_knockout_fixtures",
-    "sync_knockout_fixtures",
+    "OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_URL",
+    "fetch_schedule_fixtures",
+    "parse_schedule_fixtures",
+    "sync_schedule_fixtures",
 ]

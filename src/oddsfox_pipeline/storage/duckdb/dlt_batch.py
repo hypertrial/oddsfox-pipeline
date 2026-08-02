@@ -20,6 +20,9 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     polymarket_raw_schema,
     polymarket_raw_tbl,
 )
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
+    bootstrap_polymarket_tables,
+)
 
 DLT_STRICT_SCHEMA_CONTRACT = {
     "tables": "evolve",
@@ -29,7 +32,7 @@ DLT_STRICT_SCHEMA_CONTRACT = {
 
 _TAB_MARKET_TOKENS = polymarket_raw_tbl(SCOPE_WC2026, "market_tokens")
 _TAB_ODDS_HISTORY = polymarket_raw_tbl(SCOPE_WC2026, "odds_history")
-_TAB_PIPELINE_RUN_EVENTS = polymarket_ops_tbl(SCOPE_WC2026, "pipeline_run_events")
+_TAB_INGESTION_RUN_EVENTS = polymarket_ops_tbl(SCOPE_WC2026, "ingestion_run_events")
 _TAB_MARKET_SCOPE_REGISTRY = polymarket_ops_tbl(SCOPE_WC2026, "market_scope_registry")
 
 _PIPELINES: dict[tuple[str, str], dlt.Pipeline] = {}
@@ -92,7 +95,7 @@ MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS = {
     "ingested_at": {"data_type": "timestamp"},
 }
 
-PIPELINE_RUN_EVENT_COLUMNS = {
+INGESTION_RUN_EVENT_COLUMNS = {
     "run_id": {"data_type": "text"},
     "task_name": {"data_type": "text"},
     "recorded_at": {"data_type": "timestamp"},
@@ -106,6 +109,113 @@ MARKET_SCOPE_REGISTRY_COLUMNS = {
     "event_id": {"data_type": "text", "nullable": True},
     "source": {"data_type": "text"},
     "refreshed_at": {"data_type": "timestamp"},
+    "row_order": {"data_type": "bigint"},
+}
+
+EVENT_SNAPSHOT_COLUMNS = {
+    "event_id": {"data_type": "text"},
+    "event_slug": {"data_type": "text", "nullable": True},
+    "event_title": {"data_type": "text", "nullable": True},
+    "event_subtitle": {"data_type": "text", "nullable": True},
+    "event_description": {"data_type": "text", "nullable": True},
+    "resolution_source": {"data_type": "text", "nullable": True},
+    "event_volume_usd_lifetime_reported": {"data_type": "double", "nullable": True},
+    "volume_24h_usd": {"data_type": "double", "nullable": True},
+    "volume_1w_usd": {"data_type": "double", "nullable": True},
+    "volume_1m_usd": {"data_type": "double", "nullable": True},
+    "volume_1y_usd": {"data_type": "double", "nullable": True},
+    "liquidity_usd": {"data_type": "double", "nullable": True},
+    "open_interest_usd": {"data_type": "double", "nullable": True},
+    "is_active": {"data_type": "bool", "nullable": True},
+    "is_closed": {"data_type": "bool", "nullable": True},
+    "is_archived": {"data_type": "bool", "nullable": True},
+    "created_at": {"data_type": "timestamp", "nullable": True},
+    "source_updated_at": {"data_type": "timestamp", "nullable": True},
+    "start_at": {"data_type": "timestamp", "nullable": True},
+    "end_at": {"data_type": "timestamp", "nullable": True},
+    "closed_at": {"data_type": "timestamp", "nullable": True},
+    "event_start_at": {"data_type": "timestamp", "nullable": True},
+    "finished_at": {"data_type": "timestamp", "nullable": True},
+    "game_id": {"data_type": "text", "nullable": True},
+    "parent_event_id": {"data_type": "text", "nullable": True},
+    "neg_risk": {"data_type": "bool", "nullable": True},
+    "enable_neg_risk": {"data_type": "bool", "nullable": True},
+    "neg_risk_market_id": {"data_type": "text", "nullable": True},
+    "show_all_outcomes": {"data_type": "bool", "nullable": True},
+    "tags_json": {"data_type": "text"},
+    "series_slugs_json": {"data_type": "text"},
+    "candidate_sources_json": {"data_type": "text"},
+    "source_market_count": {"data_type": "bigint"},
+    "observed_at": {"data_type": "timestamp"},
+    "source_endpoint": {"data_type": "text"},
+    "row_order": {"data_type": "bigint"},
+}
+
+EVENT_TAG_SNAPSHOT_COLUMNS = {
+    "event_id": {"data_type": "text"},
+    "tag_key": {"data_type": "text"},
+    "tag_id": {"data_type": "text", "nullable": True},
+    "tag_slug": {"data_type": "text", "nullable": True},
+    "tag_label": {"data_type": "text", "nullable": True},
+    "observed_at": {"data_type": "timestamp"},
+    "row_order": {"data_type": "bigint"},
+}
+
+EVENT_MARKET_SNAPSHOT_COLUMNS = {
+    "event_id": {"data_type": "text"},
+    "market_id": {"data_type": "text"},
+    "source_ordinal": {"data_type": "bigint"},
+    "is_enclosing_event": {"data_type": "bool"},
+    "observed_at": {"data_type": "timestamp"},
+    "row_order": {"data_type": "bigint"},
+}
+
+EVENT_CATALOG_MARKET_COLUMNS = {
+    "id": {"data_type": "text"},
+    "question": {"data_type": "text"},
+    "category": {"data_type": "text", "nullable": True},
+    "description": {"data_type": "text", "nullable": True},
+    "market_resolution_source": {"data_type": "text", "nullable": True},
+    "outcomes": {"data_type": "text"},
+    "volume": {"data_type": "double"},
+    "active": {"data_type": "bool", "nullable": True},
+    "closed": {"data_type": "bool", "nullable": True},
+    "created_at": {"data_type": "timestamp", "nullable": True},
+    "scraped_at": {"data_type": "timestamp"},
+    "end_date": {"data_type": "timestamp", "nullable": True},
+    "slug": {"data_type": "text", "nullable": True},
+    "event_slug": {"data_type": "text", "nullable": True},
+    "event_id": {"data_type": "text", "nullable": True},
+    "event_title": {"data_type": "text", "nullable": True},
+    "event_start_time": {"data_type": "timestamp", "nullable": True},
+    "event_finished_time": {"data_type": "timestamp", "nullable": True},
+    "event_game_id": {"data_type": "text", "nullable": True},
+    "event_ended": {"data_type": "bool", "nullable": True},
+    "condition_id": {"data_type": "text", "nullable": True},
+    "sports_market_type": {"data_type": "text", "nullable": True},
+    "game_start_time": {"data_type": "timestamp", "nullable": True},
+    "group_item_title": {"data_type": "text", "nullable": True},
+    "group_item_threshold": {"data_type": "text", "nullable": True},
+    "line": {"data_type": "double", "nullable": True},
+    "tags": {"data_type": "text", "nullable": True},
+    "clob_token_ids": {"data_type": "text", "nullable": True},
+    "is_resolved": {"data_type": "bool", "nullable": True},
+    "winning_outcome": {"data_type": "text", "nullable": True},
+    "winning_clob_token_id": {"data_type": "text", "nullable": True},
+    "neg_risk_market_id": {"data_type": "text", "nullable": True},
+    "neg_risk_request_id": {"data_type": "text", "nullable": True},
+    "neg_risk_other": {"data_type": "bool", "nullable": True},
+    "row_order": {"data_type": "bigint"},
+}
+
+EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS = {
+    "market_id": EVENT_CATALOG_MARKET_COLUMNS["id"],
+    **{
+        column: contract
+        for column, contract in EVENT_CATALOG_MARKET_COLUMNS.items()
+        if column not in {"id", "row_order"}
+    },
+    "observed_at": {"data_type": "timestamp"},
     "row_order": {"data_type": "bigint"},
 }
 
@@ -227,12 +337,13 @@ def merge_odds_history_stage(
     *,
     scope_name: str | None = None,
 ) -> None:
+    """Append new source points without rewriting an observed token/timestamp."""
     target = polymarket_raw_tbl(
         scope_name or get_active_polymarket_scope(), "odds_history"
     )
     conn.execute(
         f"""
-        INSERT OR REPLACE INTO {target}
+        INSERT INTO {target}
         (clobTokenId, timestamp, price, ingested_at)
         SELECT clob_token_id, timestamp, price, ingested_at
         FROM (
@@ -248,6 +359,7 @@ def merge_odds_history_stage(
             FROM {stage}
         )
         WHERE rn = 1
+        ON CONFLICT DO NOTHING
         """
     )
 
@@ -408,7 +520,7 @@ def merge_match_order_book_snapshots(
     )
 
 
-def append_pipeline_run_event_stage(
+def append_ingestion_run_event_stage(
     row: dict[str, Any],
     conn: duckdb.DuckDBPyConnection,
     *,
@@ -416,12 +528,12 @@ def append_pipeline_run_event_stage(
 ) -> None:
     scope = scope_name or get_active_polymarket_scope()
     ops_schema = polymarket_ops_schema(scope)
-    target = polymarket_ops_tbl(scope, "pipeline_run_events")
+    target = polymarket_ops_tbl(scope, "ingestion_run_events")
     stage = load_stage_rows(
         schema=ops_schema,
-        stage_table="stage_pipeline_run_events_v1",
+        stage_table="stage_ingestion_run_events_v1",
         rows=[row],
-        columns=PIPELINE_RUN_EVENT_COLUMNS,
+        columns=INGESTION_RUN_EVENT_COLUMNS,
     )
     conn.execute(
         f"""
@@ -482,21 +594,404 @@ def load_market_scope_registry_stage(
     )
 
 
+def _assert_append_only_snapshot(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    stage: str,
+    target: str,
+    columns: tuple[str, ...],
+    key_columns: tuple[str, ...],
+    order_by: str,
+    label: str,
+) -> None:
+    """Reject a reused snapshot key unless every persisted value is identical."""
+    compared_columns = tuple(column for column in columns if column not in key_columns)
+    stage_key_match = " AND ".join(
+        f'a."{column}" IS NOT DISTINCT FROM b."{column}"' for column in key_columns
+    )
+    stage_value_diff = " OR ".join(
+        f'a."{column}" IS DISTINCT FROM b."{column}"' for column in compared_columns
+    )
+    staged_divergence = int(
+        conn.execute(
+            f"""
+            SELECT count(*)
+            FROM {stage} AS a
+            INNER JOIN {stage} AS b
+                ON {stage_key_match}
+                AND a.row_order < b.row_order
+            WHERE {stage_value_diff}
+            """
+        ).fetchone()[0]
+    )
+    if staged_divergence:
+        raise RuntimeError(f"Divergent append-only {label} rows share one snapshot key")
+
+    quoted_columns = ", ".join(f'"{column}"' for column in columns)
+    partition_by = ", ".join(f'"{column}"' for column in key_columns)
+    target_key_match = " AND ".join(
+        f'target."{column}" IS NOT DISTINCT FROM candidate."{column}"'
+        for column in key_columns
+    )
+    difference_counts = ", ".join(
+        "count(*) filter (where "
+        f'target."{column}" is distinct from candidate."{column}") '
+        f'as "{column}"'
+        for column in compared_columns
+    )
+    result = conn.execute(
+        f"""
+            WITH candidate AS (
+                SELECT {quoted_columns}
+                FROM {stage}
+                QUALIFY row_number() OVER (
+                    PARTITION BY {partition_by} ORDER BY {order_by}
+                ) = 1
+            )
+            SELECT {difference_counts}
+            FROM candidate
+            INNER JOIN {target} AS target
+                ON {target_key_match}
+            """
+    )
+    row = result.fetchone()
+    persisted_divergence = {
+        column[0]: int(count)
+        for column, count in zip(result.description, row, strict=True)
+        if count
+    }
+    if persisted_divergence:
+        raise RuntimeError(
+            f"Divergent append-only replay for {label} at an existing snapshot key: "
+            f"{persisted_divergence}"
+        )
+
+
+def _assert_exact_observation_replay(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    observed_at: Any,
+    events_target: str,
+    relations: tuple[
+        tuple[
+            str,
+            str | None,
+            str,
+            tuple[str, ...],
+            tuple[str, ...],
+            str,
+        ],
+        ...,
+    ],
+) -> None:
+    """Make reuse of a complete catalog observation exactly idempotent."""
+    persisted_event_count = int(
+        conn.execute(
+            f"SELECT count(*) FROM {events_target} WHERE observed_at = ?",
+            [observed_at],
+        ).fetchone()[0]
+    )
+    if persisted_event_count == 0:
+        return
+
+    for label, stage, target, columns, key_columns, order_by in relations:
+        quoted_columns = ", ".join(f'"{column}"' for column in columns)
+        if stage is None:
+            candidate_query = f"SELECT {quoted_columns} FROM {target} WHERE FALSE"
+        else:
+            partition_by = ", ".join(f'"{column}"' for column in key_columns)
+            candidate_query = f"""
+                SELECT {quoted_columns}
+                FROM {stage}
+                QUALIFY row_number() OVER (
+                    PARTITION BY {partition_by} ORDER BY {order_by}
+                ) = 1
+            """
+        difference_count = int(
+            conn.execute(
+                f"""
+                WITH candidate AS ({candidate_query}),
+                persisted AS (
+                    SELECT {quoted_columns}
+                    FROM {target}
+                    WHERE observed_at = ?
+                ),
+                differences AS (
+                    (SELECT * FROM candidate EXCEPT ALL SELECT * FROM persisted)
+                    UNION ALL
+                    (SELECT * FROM persisted EXCEPT ALL SELECT * FROM candidate)
+                )
+                SELECT count(*) FROM differences
+                """,
+                [observed_at],
+            ).fetchone()[0]
+        )
+        if difference_count:
+            raise RuntimeError(
+                "Divergent append-only replay for complete "
+                f"{label} relation at observed_at; differences={difference_count}"
+            )
+
+
+def merge_event_catalog_batch(
+    *,
+    event_rows: Sequence[dict[str, Any]],
+    tag_rows: Sequence[dict[str, Any]],
+    event_market_rows: Sequence[dict[str, Any]],
+    market_rows: Sequence[dict[str, Any]],
+    conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Stage and atomically append one complete WC2026 event catalog observation."""
+    if not event_rows:
+        raise ValueError("event_rows must not be empty")
+    raw_schema = polymarket_raw_schema(SCOPE_WC2026)
+    events_target = polymarket_raw_tbl(SCOPE_WC2026, "event_snapshots")
+    tags_target = polymarket_raw_tbl(SCOPE_WC2026, "event_tag_snapshots")
+    bridge_target = polymarket_raw_tbl(SCOPE_WC2026, "event_market_snapshots")
+    market_payloads_target = polymarket_raw_tbl(
+        SCOPE_WC2026, "event_market_payload_snapshots"
+    )
+    observed_at_values = {row.get("observed_at") for row in event_rows}
+    if None in observed_at_values or len(observed_at_values) != 1:
+        raise ValueError("event_rows must share one non-null observed_at")
+    observed_at = next(iter(observed_at_values))
+    for label, rows in (
+        ("tag_rows", tag_rows),
+        ("event_market_rows", event_market_rows),
+    ):
+        relation_observed_at_values = {row.get("observed_at") for row in rows}
+        if relation_observed_at_values and relation_observed_at_values != {observed_at}:
+            raise ValueError(f"{label} must share event_rows observed_at")
+    market_payload_rows: list[dict[str, Any]] = []
+    for row in market_rows:
+        market_id = str(row.get("id") or "").strip()
+        if not market_id:
+            raise ValueError("market_rows must contain non-empty id values")
+        market_payload_rows.append(
+            {
+                "market_id": market_id,
+                **{
+                    column: row.get(column)
+                    for column in EVENT_CATALOG_MARKET_COLUMNS
+                    if column not in {"id", "row_order"}
+                },
+                "observed_at": observed_at,
+            }
+        )
+
+    # Existing warehouses predate the dedicated payload snapshot table. Keep
+    # dlt-owned ``markets`` untouched and migrate only project-owned raw tables.
+    bootstrap_polymarket_tables(conn, scope_name=SCOPE_WC2026)
+
+    events_stage = load_stage_rows(
+        schema=raw_schema,
+        stage_table="stage_event_snapshots_v1",
+        rows=_with_row_order(event_rows),
+        columns=EVENT_SNAPSHOT_COLUMNS,
+    )
+    tags_stage = (
+        load_stage_rows(
+            schema=raw_schema,
+            stage_table="stage_event_tag_snapshots_v1",
+            rows=_with_row_order(tag_rows),
+            columns=EVENT_TAG_SNAPSHOT_COLUMNS,
+        )
+        if tag_rows
+        else None
+    )
+    bridge_stage = (
+        load_stage_rows(
+            schema=raw_schema,
+            stage_table="stage_event_market_snapshots_v1",
+            rows=_with_row_order(event_market_rows),
+            columns=EVENT_MARKET_SNAPSHOT_COLUMNS,
+        )
+        if event_market_rows
+        else None
+    )
+    market_payloads_stage = (
+        load_stage_rows(
+            schema=raw_schema,
+            stage_table="stage_event_market_payload_snapshots_v1",
+            rows=_with_row_order(market_payload_rows),
+            columns=EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS,
+        )
+        if market_payload_rows
+        else None
+    )
+
+    market_payload_columns = tuple(
+        column
+        for column in EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS
+        if column != "row_order"
+    )
+    event_columns = tuple(
+        column for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"
+    )
+    tag_columns = tuple(
+        column for column in EVENT_TAG_SNAPSHOT_COLUMNS if column != "row_order"
+    )
+    bridge_columns = tuple(
+        column for column in EVENT_MARKET_SNAPSHOT_COLUMNS if column != "row_order"
+    )
+    quoted_market_payload_columns = ", ".join(market_payload_columns)
+    quoted_event_columns = ", ".join(event_columns)
+    quoted_tag_columns = ", ".join(tag_columns)
+    quoted_bridge_columns = ", ".join(bridge_columns)
+    conn.execute("BEGIN TRANSACTION")
+    try:
+        _assert_append_only_snapshot(
+            conn,
+            stage=events_stage,
+            target=events_target,
+            columns=event_columns,
+            key_columns=("event_id", "observed_at"),
+            order_by="row_order DESC",
+            label="event snapshots",
+        )
+        if tags_stage is not None:
+            _assert_append_only_snapshot(
+                conn,
+                stage=tags_stage,
+                target=tags_target,
+                columns=tag_columns,
+                key_columns=("event_id", "tag_key", "observed_at"),
+                order_by="row_order DESC",
+                label="event tag snapshots",
+            )
+        if bridge_stage is not None:
+            _assert_append_only_snapshot(
+                conn,
+                stage=bridge_stage,
+                target=bridge_target,
+                columns=bridge_columns,
+                key_columns=("event_id", "market_id", "observed_at"),
+                order_by="row_order DESC",
+                label="event market snapshots",
+            )
+        if market_payloads_stage is not None:
+            _assert_append_only_snapshot(
+                conn,
+                stage=market_payloads_stage,
+                target=market_payloads_target,
+                columns=market_payload_columns,
+                key_columns=("market_id", "observed_at"),
+                order_by="scraped_at DESC, row_order DESC",
+                label="event market payload snapshots",
+            )
+        _assert_exact_observation_replay(
+            conn,
+            observed_at=observed_at,
+            events_target=events_target,
+            relations=(
+                (
+                    "event snapshots",
+                    events_stage,
+                    events_target,
+                    event_columns,
+                    ("event_id", "observed_at"),
+                    "row_order DESC",
+                ),
+                (
+                    "event tag snapshots",
+                    tags_stage,
+                    tags_target,
+                    tag_columns,
+                    ("event_id", "tag_key", "observed_at"),
+                    "row_order DESC",
+                ),
+                (
+                    "event market snapshots",
+                    bridge_stage,
+                    bridge_target,
+                    bridge_columns,
+                    ("event_id", "market_id", "observed_at"),
+                    "row_order DESC",
+                ),
+                (
+                    "event market payload snapshots",
+                    market_payloads_stage,
+                    market_payloads_target,
+                    market_payload_columns,
+                    ("market_id", "observed_at"),
+                    "scraped_at DESC, row_order DESC",
+                ),
+            ),
+        )
+        conn.execute(
+            f"""
+            INSERT INTO {events_target} ({quoted_event_columns})
+            SELECT {quoted_event_columns}
+            FROM {events_stage}
+            QUALIFY row_number() OVER (
+                PARTITION BY event_id, observed_at ORDER BY row_order DESC
+            ) = 1
+            ON CONFLICT (event_id, observed_at) DO NOTHING
+            """
+        )
+        if tags_stage is not None:
+            conn.execute(
+                f"""
+                INSERT INTO {tags_target} ({quoted_tag_columns})
+                SELECT {quoted_tag_columns}
+                FROM {tags_stage}
+                QUALIFY row_number() OVER (
+                    PARTITION BY event_id, tag_key, observed_at ORDER BY row_order DESC
+                ) = 1
+                ON CONFLICT (event_id, tag_key, observed_at) DO NOTHING
+                """
+            )
+        if bridge_stage is not None:
+            conn.execute(
+                f"""
+                INSERT INTO {bridge_target} ({quoted_bridge_columns})
+                SELECT {quoted_bridge_columns}
+                FROM {bridge_stage}
+                QUALIFY row_number() OVER (
+                    PARTITION BY event_id, market_id, observed_at ORDER BY row_order DESC
+                ) = 1
+                ON CONFLICT (event_id, market_id, observed_at) DO NOTHING
+                """
+            )
+        if market_payloads_stage is not None:
+            conn.execute(
+                f"""
+                INSERT INTO {market_payloads_target} ({quoted_market_payload_columns})
+                SELECT {quoted_market_payload_columns}
+                FROM {market_payloads_stage}
+                QUALIFY row_number() OVER (
+                    PARTITION BY market_id, observed_at
+                    ORDER BY scraped_at DESC, row_order DESC
+                ) = 1
+                ON CONFLICT (market_id, observed_at) DO NOTHING
+                """
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
 __all__ = [
     "DLT_STRICT_SCHEMA_CONTRACT",
     "MARKET_TOKEN_COLUMNS",
     "ODDS_HISTORY_COLUMNS",
-    "PIPELINE_RUN_EVENT_COLUMNS",
+    "INGESTION_RUN_EVENT_COLUMNS",
     "MARKET_SCOPE_REGISTRY_COLUMNS",
+    "EVENT_SNAPSHOT_COLUMNS",
+    "EVENT_TAG_SNAPSHOT_COLUMNS",
+    "EVENT_MARKET_SNAPSHOT_COLUMNS",
+    "EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS",
     "MATCH_MINUTE_ODDS_HISTORY_COLUMNS",
     "MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS",
-    "append_pipeline_run_event_stage",
+    "append_ingestion_run_event_stage",
     "load_market_tokens_stage",
     "load_odds_history_stage",
     "load_stage_rows",
     "load_market_scope_registry_stage",
     "load_match_minute_fetch_audit",
     "load_match_minute_odds_history_stage",
+    "merge_event_catalog_batch",
     "merge_match_order_book_snapshots",
     "merge_odds_history_stage",
     "prepare_odds_history_stage",

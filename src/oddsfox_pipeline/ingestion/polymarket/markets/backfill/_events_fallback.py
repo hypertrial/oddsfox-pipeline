@@ -1,4 +1,4 @@
-"""Unfiltered Gamma /events fallback for missing event_slug backfill."""
+"""Unfiltered Gamma /events fallback for missing event_slug enrichment."""
 
 from __future__ import annotations
 

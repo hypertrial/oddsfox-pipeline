@@ -60,8 +60,8 @@ def _seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
     scan_id = "published-scan"
     conn.execute(
         """
-        insert into openfootball_wc2026_raw.knockout_fixtures values (
-            95, 'round_of_16', 2, timestamp '2026-07-07 17:00:00',
+        insert into openfootball_wc2026_raw.schedule_fixtures values (
+            95, 'round_of_16', 2, null, timestamp '2026-07-07 17:00:00',
             'Argentina', 'Egypt', 'Test Venue', 'completed',
             'https://example.com/fixture', 95, 'fixture-hash',
             timestamp '2026-07-07 19:00:00'
@@ -267,7 +267,7 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
             "--select",
             "+tag:pmxt_order_book",
             "--exclude",
-            "tag:polygon_settlement",
+            "tag:polygon_settlement tag:wc2026_logical_atlas",
         ],
         profiles_dir=dbt_profiles_dir,
         env=env,
@@ -330,7 +330,7 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
     with duckdb.connect(str(db_path)) as conn:
         conn.execute(
             """
-            update openfootball_wc2026_raw.knockout_fixtures
+            update openfootball_wc2026_raw.schedule_fixtures
             set away_team = 'Morocco'
             where fifa_match_id = 95
             """
@@ -341,7 +341,7 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
             "--select",
             "+tag:pmxt_order_book",
             "--exclude",
-            "tag:polygon_settlement",
+            "tag:polygon_settlement tag:wc2026_logical_atlas",
         ],
         profiles_dir=dbt_profiles_dir,
         env=env,
@@ -379,7 +379,7 @@ def test_order_book_graph_blocks_malformed_optional_numerics(
             "--select",
             "+tag:pmxt_order_book",
             "--exclude",
-            "tag:polygon_settlement",
+            "tag:polygon_settlement tag:wc2026_logical_atlas",
         ],
         profiles_dir=dbt_profiles_dir,
         env=env,
@@ -403,7 +403,7 @@ def test_order_book_graph_blocks_malformed_optional_numerics(
             "--select",
             "+tag:pmxt_order_book",
             "--exclude",
-            "tag:polygon_settlement",
+            "tag:polygon_settlement tag:wc2026_logical_atlas",
         ],
         profiles_dir=dbt_profiles_dir,
         env=env,

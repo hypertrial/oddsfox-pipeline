@@ -89,8 +89,8 @@ def orchestration_test_guards(request, monkeypatch, tmp_path, reset_connection_g
     monkeypatch.setattr(polymarket_ops_mod, "sync_odds", _stub_sync_odds)
     monkeypatch.setattr(
         polymarket_ops_mod,
-        "backfill_market_metadata",
-        lambda **kwargs: {"task": "backfill_market_metadata", "skipped": True},
+        "enrich_market_metadata",
+        lambda **kwargs: {"task": "enrich_market_metadata", "skipped": True},
     )
     monkeypatch.setattr(
         pipeline_ops_mod,

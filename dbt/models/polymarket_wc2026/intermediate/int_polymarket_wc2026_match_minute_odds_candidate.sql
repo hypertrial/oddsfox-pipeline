@@ -7,15 +7,15 @@ with spine as (
         cast(epoch(minute_spine.odds_minute_utc) as bigint) as odds_minute_epoch,
         date_diff(
             'minute',
-            date_trunc('minute', u.game_started_at_utc),
+            date_trunc('minute', u.match_started_at_utc),
             minute_spine.odds_minute_utc
         ) as elapsed_window_minute
     from {{ ref('int_polymarket_wc2026_match_market_universe') }} as u
     -- costguard: allow cross-join, one bounded in-game minute range per market.
     cross join unnest(
         generate_series(
-            date_trunc('minute', u.game_started_at_utc),
-            date_trunc('minute', u.game_finished_at_utc),
+            date_trunc('minute', u.match_started_at_utc),
+            date_trunc('minute', u.match_finished_at_utc),
             interval '1 minute'
         )
     ) as minute_spine (odds_minute_utc)
@@ -42,8 +42,8 @@ joined as (
         s.results_source_payload_sha256,
         s.results_source_loaded_at,
         s.scheduled_kickoff_at_utc,
-        s.game_started_at_utc,
-        s.game_finished_at_utc,
+        s.match_started_at_utc,
+        s.match_finished_at_utc,
         s.sports_market_type,
         s.proposition_type,
         s.question,
@@ -87,24 +87,24 @@ joined as (
 select
     joined.*,
     date_diff(
-        'second', joined.scheduled_kickoff_at_utc, joined.game_started_at_utc
-    ) / 60.0 as game_start_delta_minutes,
+        'second', joined.scheduled_kickoff_at_utc, joined.match_started_at_utc
+    ) / 60.0 as match_start_delta_minutes,
     date_diff(
-        'second', joined.game_started_at_utc, joined.game_finished_at_utc
-    ) / 60.0 as game_window_minutes,
-    joined.odds_minute_utc = date_trunc('minute', joined.game_started_at_utc)
+        'second', joined.match_started_at_utc, joined.match_finished_at_utc
+    ) / 60.0 as match_window_minutes,
+    joined.odds_minute_utc = date_trunc('minute', joined.match_started_at_utc)
         as is_game_start_minute,
-    joined.odds_minute_utc = date_trunc('minute', joined.game_finished_at_utc)
+    joined.odds_minute_utc = date_trunc('minute', joined.match_finished_at_utc)
         as is_game_finish_minute,
     case
         when joined.minute_complete then 'complete'
         when
-            joined.odds_minute_utc = date_trunc('minute', joined.game_started_at_utc)
-            and joined.odds_minute_utc = date_trunc('minute', joined.game_finished_at_utc)
+            joined.odds_minute_utc = date_trunc('minute', joined.match_started_at_utc)
+            and joined.odds_minute_utc = date_trunc('minute', joined.match_finished_at_utc)
             then 'start_and_finish_boundary_incomplete'
-        when joined.odds_minute_utc = date_trunc('minute', joined.game_started_at_utc)
+        when joined.odds_minute_utc = date_trunc('minute', joined.match_started_at_utc)
             then 'start_boundary_incomplete'
-        when joined.odds_minute_utc = date_trunc('minute', joined.game_finished_at_utc)
+        when joined.odds_minute_utc = date_trunc('minute', joined.match_finished_at_utc)
             then 'finish_boundary_incomplete'
         else 'interior_incomplete'
     end as minute_status,

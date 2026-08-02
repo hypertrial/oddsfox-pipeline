@@ -36,6 +36,20 @@ def test_intermediate_wc2026_markets_owns_scope_logic():
     assert "market_scope_event_slugs" not in lowered
 
 
+def test_wc2026_fixture_mapping_uses_complete_event_catalog_payloads():
+    sql = (
+        DBT_ROOT
+        / "models"
+        / "polymarket_wc2026"
+        / "intermediate"
+        / "int_polymarket_wc2026_fixture_events.sql"
+    ).read_text()
+    lowered = sql.lower()
+
+    assert "{{ ref('stg_polymarket_wc2026_event_market_payload_latest') }}" in lowered
+    assert "{{ ref('stg_polymarket_wc2026_markets') }}" not in lowered
+
+
 def test_wc2026_hourly_fact_aggregates_canonical_odds_directly():
     sql = (
         DBT_ROOT
@@ -50,7 +64,7 @@ def test_wc2026_hourly_fact_aggregates_canonical_odds_directly():
 
     assert "polymarket_token_hourly_odds_sql(" in lowered
     assert "ref('stg_polymarket_wc2026_odds')" in lowered
-    assert "ref('polymarket_wc2026_contract')" in lowered
+    assert "ref('polymarket_wc2026_pipeline_policy')" in lowered
     assert "date_trunc('hour', o.odds_timestamp)" in lowered_macro
     assert "latest_ingested_at" in lowered_macro
     assert "is_incremental()" in lowered_macro
@@ -75,25 +89,21 @@ def test_wc2026_knockout_hourly_view_joins_current_metadata_to_hourly_fact():
     assert "selected_" not in lowered
 
 
-def test_wc2026_graph_hourly_view_keeps_binary_market_tokens():
+def test_wc2026_logical_propositions_use_classified_markets_and_entities():
     sql = (
         DBT_ROOT
         / "models"
         / "polymarket_wc2026"
         / "marts"
-        / "polymarket_wc2026_graph_token_hourly_odds.sql"
+        / "polymarket_wc2026_logical_propositions.sql"
     ).read_text()
     lowered = sql.lower()
 
-    assert "{{ ref('int_polymarket_wc2026_market_tokens') }}" in lowered
-    assert (
-        "{{ ref('int_polymarket_wc2026_knockout_market_classification') }}" in lowered
-    )
-    assert "{{ ref('int_polymarket_wc2026_token_hourly_odds') }}" in lowered
-    assert "is_progression_token" in lowered
-    assert "opposite_clob_token_id" in lowered
-    assert "lower(p.outcome_label) = 'yes'" in lowered
-    assert "lower(p.outcome_label) = 'no'" in lowered
+    assert "{{ ref('int_polymarket_wc2026_logical_markets') }}" in lowered
+    assert "{{ ref('int_polymarket_wc2026_logical_team_identities') }}" in lowered
+    assert "{{ ref('polymarket_wc2026_logical_events') }}" in lowered
+    assert "source_proposition_id" in lowered
+    assert "event_constraint_group_id" in lowered
 
 
 def test_wc2026_knockout_classifier_is_shared_intermediate():

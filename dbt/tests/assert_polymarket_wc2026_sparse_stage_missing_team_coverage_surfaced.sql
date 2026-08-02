@@ -12,7 +12,7 @@ with contract as (
     select
         knockout_min_volume_usd,
         round_of_32_min_raw_markets_ge_floor
-    from {{ ref('polymarket_wc2026_contract') }}
+    from {{ ref('polymarket_wc2026_pipeline_policy') }}
     where scope_name = 'wc2026'
 ),
 

@@ -99,7 +99,7 @@ group by
 {% endmacro %}
 
 
-{% macro polymarket_pipeline_run_events_sql(source_name) %}
+{% macro polymarket_ingestion_run_events_sql(source_name) %}
 select
     run_id,
     task_name,
@@ -240,11 +240,11 @@ select
             metrics_json, '$.planning_context.fully_checked_vs_market_tokens'
         ) as double
     ) as fully_checked_vs_market_tokens_ratio
-from {{ source(source_name, 'pipeline_run_events') }}
+from {{ source(source_name, 'ingestion_run_events') }}
 {% endmacro %}
 
 
-{% macro polymarket_sync_run_observability_sql(staging_ref) %}
+{% macro polymarket_ingestion_run_observability_sql(staging_ref) %}
 select
     run_id,
     task_name,

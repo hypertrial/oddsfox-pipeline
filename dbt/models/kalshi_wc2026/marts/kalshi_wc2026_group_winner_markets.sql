@@ -1,6 +1,6 @@
 with contract as (
     select live_freshness_hours
-    from {{ ref('kalshi_wc2026_contract') }}
+    from {{ ref('kalshi_wc2026_pipeline_policy') }}
     where scope_name = 'wc2026'
 ),
 
@@ -67,7 +67,7 @@ with_prices as (
     from {{ ref('int_kalshi_wc2026_group_winner_classification') }} as g
     left join current_market_prices as p
         on g.market_ticker = p.market_ticker
-    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    -- costguard: allow cross-join, WC2026 pipeline policy seed has one row.
     cross join contract
 )
 

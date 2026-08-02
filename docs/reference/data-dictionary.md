@@ -102,18 +102,17 @@ common mistakes.
 | Common joins | Join to hourly odds on `clob_token_id`; join to team status on `canonical_team_name`. |
 | Common mistakes | Expecting current prices here; use `polymarket_wc2026_knockout_markets` instead. |
 
-### `polymarket_wc2026_marts.polymarket_wc2026_graph_token_hourly_odds`
+### `polymarket_wc2026_marts.polymarket_wc2026_logical_*`
 
 | Field | Analyst Guidance |
 | --- | --- |
-| Intended use | Graph/export analysis that needs both Yes and No tokens for each real-team knockout market. |
-| Grain | One row per `market_id`, `clob_token_id`, `odds_hour_epoch`. |
-| Identifiers | `market_id`, `clob_token_id`, `opposite_clob_token_id`, `canonical_team_name`, `stage_key`. |
-| Time columns | `odds_hour_utc`, `odds_hour_epoch`, `first_observed_at`, `last_observed_at`. |
-| Price columns | `open_price`, `high_price`, `low_price`, `close_price`, `avg_price`. |
-| Recommended filters | Use `is_progression_token` when you only want the normalized progression side. |
-| Common joins | Join progression-only analysis back to `polymarket_wc2026_knockout_token_hourly_odds` on `clob_token_id` and `odds_hour_epoch`. |
-| Common mistakes | Using both tokens as independent progression probabilities; one is the opposite token. |
+| Intended use | Static World Cup market inventory and explicit logical relationships for `oddsfox-graph` and analyst audits. |
+| Relations | `logical_events`, `logical_markets`, `logical_market_events`, `logical_propositions`, `logical_entities`, `logical_proposition_entities`, and `logical_scopes`. |
+| Identifiers | Join markets to events through `(market_id, event_id)`, propositions to markets through `market_id`, and proposition/entity roles through `source_proposition_id` and `entity_id`. `referenced` roles always include mapped fixture, fixture group when present, and stage/tournament context, so these facets also include player props and ordinary match markets. |
+| Recommended filters | Filter markets by `market_family`, `tournament_part`, `scope_id`, `primary_event_id`, and `logical_usable`; filter propositions by `predicate`, `polarity`, and constraint fields. |
+| Quarantine | `logical_usable = false` and `quarantine_reason` retain malformed or tokenless markets for audit without creating unsupported logical claims. |
+| Price columns | None. The logical-v1 contract declares `temporal_odds=false`. The reserved future observation grain is `(logical_proposition_id, clob_token_id, observed_at)`; raw hourly history remains an independent legacy branch until a dedicated atlas observation producer exists. |
+| Common mistakes | Applying a child-market $100k floor. Admission is based on sticky cumulative event volume; every child of an admitted event is retained. |
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`
 
@@ -155,11 +154,11 @@ remain on the axis.
 | Null policy | Missing sides remain null; empty raw books emit no artificial mart level |
 | Common mistakes | Pairing the two token streams by timestamp, inferring fixed cadence, treating snapshots as order events, or synthesizing complementary prices |
 
-This is an optional, unscheduled historical flow. “Full order book” means all
+This is an optional, unscheduled historical pipeline. “Full order book” means all
 levels in every PMXT snapshot returned across demonstrably unsaturated ranges;
 it is not an order-event or fixed-interval feed.
 
-!!! note "Advanced historical flow"
+!!! note "Advanced historical pipeline"
 
     The Polygon settlement-minute mart is optional and isolated. Ordinary
     Polymarket WC2026 knockout and match-minute analysis does not require it.
@@ -170,7 +169,7 @@ it is not an order-event or fixed-interval feed.
 | --- | --- |
 | Grain | One row per `(proposition_id, settlement_minute_utc)` |
 | Coverage | FIFA match IDs 1–104; 216 group propositions × 150 minutes plus 32 knockout propositions × 210 minutes = 39,120 rows |
-| Intended use | Historical settlement-flow studies over fixed scheduled match windows |
+| Intended use | Historical settlement-pipeline studies over fixed scheduled match windows |
 | Timing | Finalized Polygon event-block timestamp bucket inside `[kickoff, window_end)` |
 | Prices | Oriented Yes/No OHLC and share-weighted VWAP, ordered by block, transaction, passive log, and normalized-leg ordinal |
 | Activity | Per side: normalized/derived economic-leg counts, share/collateral volume, first/last settlement timestamp, and observed flag |
@@ -179,7 +178,7 @@ it is not an order-event or fixed-interval feed.
 | Semantics | Use authored `proposition_type`, `yes_represents`, and `no_represents`; no match results are included |
 | Identity | Stable proposition and FIFA fixture fields; on-chain evidence identifiers remain in the seed/market sidecar, not the release's main CSV |
 | Common joins | Compare with the Gamma/CLOB mart on `condition_id` plus oriented Yes/No token IDs, then read authored Yes/No semantics |
-| Common mistakes | Joining flows on raw team strings or `(fifa_match_id, proposition_type)`; independent aliases and home/away order can differ |
+| Common mistakes | Joining pipelines on raw team strings or `(fifa_match_id, proposition_type)`; independent aliases and home/away order can differ |
 
 `elapsed_window_minute` is zero-based and bounded to `0..149` for group
 propositions or `0..209` for knockout propositions. It is a scheduled analysis
@@ -233,7 +232,7 @@ snapshot matches the manifest and has gap-free, exchange-specific finalized
 coverage. Those tables are internal audit evidence, not additional external
 data sources.
 
-This flow does **not** use the Polymarket Gamma API, CLOB API or price history,
+This pipeline does **not** use the Polymarket Gamma API, CLOB API or price history,
 the Polymarket website/UI, the repository's existing FIFA schedule seed,
 international-results, private match-event inputs, match results, or runtime
 OpenFootball requests.

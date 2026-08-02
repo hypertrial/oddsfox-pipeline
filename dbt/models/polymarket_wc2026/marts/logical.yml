@@ -1,0 +1,136 @@
+version: 2
+
+models:
+  - name: polymarket_wc2026_logical_events
+    description: Reviewed sticky-eligible WC2026 Polymarket events for logical-v1.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [event_id]
+    columns:
+      - name: event_id
+        tests: [not_null, unique]
+      - name: first_eligible_observed_at
+        description: First threshold crossing; null for an audit-only secondary event.
+      - name: eligibility_effective_from
+        description: Event creation time once eligible; null for an audit-only secondary event.
+      - name: membership_status
+        tests:
+          - accepted_values:
+              arguments:
+                values: [included, excluded, review_required]
+      - name: event_logical_eligible
+        tests: [not_null]
+      - name: tournament_part
+        tests:
+          - accepted_values:
+              arguments:
+                values: [tournament_wide, group_stage, round_of_32, round_of_16, quarterfinal, semifinal, third_place, final, awards]
+
+  - name: polymarket_wc2026_logical_markets
+    description: Every current child market from each admitted event's latest complete catalog observation, with independent usability and quarantine state.
+    columns:
+      - name: market_id
+        tests: [not_null, unique]
+      - name: primary_event_id
+        tests: [not_null]
+      - name: market_family
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [tournament_winner, stage_reach, stage_advance, stage_elimination, group_winner, group_qualification, match_result, team_to_advance, exact_score, total_goals, team_total, both_teams_to_score, spread_handicap, player_prop, award_winner, tournament_statistic, other_sporting, unclassified]
+      - name: subject_entity_ids
+        description: Sorted unique market-level team/player subjects provable without parsing outcomes.
+        tests: [not_null]
+      - name: participant_entity_ids
+        description: Sorted unique fixture or reviewed matchup team participants provable without parsing outcomes.
+        tests: [not_null]
+      - name: player_national_team_entity_ids
+        description: Sorted unique national teams from unambiguous player-feature mappings.
+        tests: [not_null]
+      - name: referenced_entity_ids
+        description: Sorted unique fixture, group, stage, award, and tournament context entities.
+        tests: [not_null]
+
+  - name: polymarket_wc2026_logical_market_events
+    description: Current qualifying memberships from each event's latest complete catalog observation, with one deterministic primary per market.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_id, event_id]
+    columns:
+      - name: market_id
+        tests: [not_null]
+      - name: event_id
+        tests: [not_null]
+      - name: source_ordinal
+        tests: [not_null]
+      - name: is_primary_qualifying_event
+        tests: [not_null]
+
+  - name: polymarket_wc2026_logical_propositions
+    description: One stable logical proposition per parseable source outcome.
+    columns:
+      - name: source_proposition_id
+        tests: [not_null, unique]
+      - name: market_id
+        tests: [not_null]
+      - name: outcome_index
+        tests: [not_null]
+      - name: outcome_label
+        description: Raw source outcome label; may be null or blank on an auditable quarantined market.
+      - name: statement
+        tests: [not_null]
+      - name: polarity
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [positive, negative, other]
+
+  - name: polymarket_wc2026_logical_entities
+    description: Canonical teams, players, fixtures, groups, stages, awards, and tournament entities.
+    columns:
+      - name: entity_id
+        tests: [not_null, unique]
+      - name: entity_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [team, player, fixture, group, stage, award, tournament]
+
+  - name: polymarket_wc2026_logical_proposition_entities
+    description: >-
+      Typed entity roles for logical propositions. Every proposition also has
+      referenced links to its mapped fixture, fixture group when present, and
+      canonical stage or tournament context so dashboard facets do not depend
+      on predicate shape.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [source_proposition_id, entity_id, entity_role]
+    columns:
+      - name: source_proposition_id
+        tests: [not_null]
+      - name: entity_id
+        tests: [not_null]
+      - name: entity_role
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [subject, participant, player_national_team, referenced]
+
+  - name: polymarket_wc2026_logical_scopes
+    description: Tournament, stage, group, and award scope hierarchy.
+    columns:
+      - name: scope_id
+        tests: [not_null, unique]
+      - name: scope_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [tournament, stage, group, fixture, award]

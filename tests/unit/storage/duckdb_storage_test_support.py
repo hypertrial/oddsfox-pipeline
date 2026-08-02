@@ -27,7 +27,7 @@ T_OH = polymarket_wc2026_raw_tbl("odds_history")
 T_TOD = polymarket_wc2026_raw_tbl("token_odds_daily")
 T_LED = polymarket_wc2026_ops_tbl("token_sync_ledger")
 T_SK = polymarket_wc2026_ops_tbl("token_sync_skips")
-T_PRE = polymarket_wc2026_ops_tbl("pipeline_run_events")
+T_PRE = polymarket_wc2026_ops_tbl("ingestion_run_events")
 T_UNR = polymarket_wc2026_ops_tbl("market_metadata_unresolved")
 
 

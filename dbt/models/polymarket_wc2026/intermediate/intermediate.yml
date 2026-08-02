@@ -4,7 +4,7 @@ models:
   - name: int_polymarket_wc2026_markets
     description: >
       WC2026 Polymarket markets admitted by polymarket_wc2026_ops.market_scope_registry
-      at or above the WC2026 contract volume floor (currently $5,000 USD;
+      at or above the WC2026 pipeline policy volume floor (currently $5,000 USD;
       re-evaluated each dbt build).
     tests:
       - no_duplicate_grain:
@@ -108,7 +108,7 @@ models:
   - name: int_polymarket_wc2026_token_hourly_odds
     description: >
       Incremental hourly OHLC price fact for Polymarket CLOB tokens in the
-      WC2026 trailing contract window. Public knockout marts join this fact to
+      WC2026 trailing pipeline policy window. Public knockout marts join this fact to
       current market/team metadata at query time.
     tests:
       - no_duplicate_grain:

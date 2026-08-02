@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -30,7 +31,7 @@ from oddsfox_pipeline.orchestration import (
     assets_polymarket_us_midterms_2026 as midterms_assets_mod,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
-from oddsfox_pipeline.orchestration.scope_registry import SCOPE_STEPS, iter_scope_specs
+from oddsfox_pipeline.orchestration.shipped_scopes import SCOPE_STEPS, iter_scope_specs
 
 _NON_SCOPE_JOB_NAMES = {
     "international_results_historical_ingest",
@@ -39,6 +40,7 @@ _NON_SCOPE_JOB_NAMES = {
     "polymarket_wc2026_match_minute_odds_backfill",
     "polymarket_wc2026_match_order_book_backfill",
     "polymarket_wc2026_market_portrait_backfill",
+    "polymarket_wc2026_logical_atlas",
     "polymarket_wc2026_polygon_settlement_backfill",
     "polymarket_wc2026_polygon_settlement_release",
 }
@@ -86,6 +88,10 @@ oddsfox:
     monkeypatch.setenv("DUCKDB_NAME", str(db_path))
     monkeypatch.setenv("DUCKDB_PATH", str(db_path))
     monkeypatch.setenv("DBT_PROFILES_DIR", str(profiles_dir))
+    monkeypatch.setenv(
+        "ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH",
+        str(tmp_path / "reviewed-membership.csv"),
+    )
 
     pipeline = MagicMock(has_pending_data=False)
     conn = MagicMock()
@@ -184,7 +190,7 @@ oddsfox:
     )
     monkeypatch.setattr(
         openfootball_assets_mod,
-        "sync_knockout_fixtures",
+        "sync_schedule_fixtures",
         lambda: dict(_EMPTY_RESULTS_SUMMARY),
     )
     monkeypatch.setattr(order_book_assets_mod, "get_connection", mock_connection)
@@ -230,8 +236,8 @@ oddsfox:
     )
     monkeypatch.setattr(
         assets_mod.ops,
-        "backfill_market_metadata",
-        lambda **_kwargs: {"task": "backfill_market_metadata", "skipped": True},
+        "enrich_market_metadata",
+        lambda **_kwargs: {"task": "enrich_market_metadata", "skipped": True},
     )
     monkeypatch.setattr(
         assets_mod.ops, "delete_orphan_market_tokens", lambda **_kwargs: 0
@@ -250,6 +256,31 @@ oddsfox:
             "tokens": 496,
             "rows": 496,
         },
+    )
+    monkeypatch.setattr(
+        assets_mod,
+        "replace_reviewed_membership",
+        lambda _path: {
+            "rows": 1,
+            "source_sha256": "d" * 64,
+            "reviewer_count": 1,
+        },
+    )
+    monkeypatch.setattr(
+        assets_mod,
+        "collect_wc2026_event_catalog",
+        lambda **_kwargs: SimpleNamespace(
+            event_snapshots=[],
+            event_tag_snapshots=[],
+            event_market_snapshots=[],
+            market_payloads=[],
+            summary={"observed_at": "2026-08-02T00:00:00+00:00"},
+        ),
+    )
+    monkeypatch.setattr(
+        assets_mod,
+        "merge_event_catalog_batch",
+        lambda **_kwargs: None,
     )
     monkeypatch.setattr(polygon_assets_mod, "get_connection", mock_connection)
     monkeypatch.setattr(

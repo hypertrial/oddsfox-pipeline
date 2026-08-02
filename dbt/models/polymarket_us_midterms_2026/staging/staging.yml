@@ -202,11 +202,11 @@ models:
   - name: created_at
     description: UTC timestamp when this skip row was first inserted (unchanged on
       reason updates).
-- name: stg_polymarket_us_midterms_2026_pipeline_run_events
-  description: Parsed operational run-event payloads emitted by ingestion into `polymarket_us_midterms_2026_ops.pipeline_run_events`.
+- name: stg_polymarket_us_midterms_2026_ingestion_run_events
+  description: Parsed operational run-event payloads emitted by ingestion into `polymarket_us_midterms_2026_ops.ingestion_run_events`.
   columns:
   - name: run_id
-    description: UUID primary key for the pipeline run event.
+    description: UUID primary key for the ingestion run event.
     tests:
     - not_null
     - unique

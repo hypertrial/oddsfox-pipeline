@@ -35,7 +35,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, ...]] = {
         "save_tokens_batch",
     ),
     "oddsfox_pipeline.storage.duckdb.metadata": (
-        "append_pipeline_run_event",
+        "append_ingestion_run_event",
         "get_backfill_fully_checked",
         "get_backfill_progress",
         "get_sync_run_metrics",
@@ -106,7 +106,7 @@ __all__ = [
     "set_backfill_progress",
     "save_sync_run_metrics",
     "get_sync_run_metrics",
-    "append_pipeline_run_event",
+    "append_ingestion_run_event",
     "get_all_market_ids",
     "get_market_count",
     "iter_markets_with_tokens",

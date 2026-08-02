@@ -8,8 +8,8 @@ with elapsed_axis_by_market as (
         max(
             date_diff(
                 'minute',
-                date_trunc('minute', game_started_at_utc),
-                date_trunc('minute', game_finished_at_utc)
+                date_trunc('minute', match_started_at_utc),
+                date_trunc('minute', match_finished_at_utc)
             )
         ) as expected_final_elapsed_minute,
         count(*) filter (
@@ -18,7 +18,7 @@ with elapsed_axis_by_market as (
             or elapsed_window_minute < 0
             or elapsed_window_minute <> date_diff(
                 'minute',
-                date_trunc('minute', game_started_at_utc),
+                date_trunc('minute', match_started_at_utc),
                 odds_minute_utc
             )
         ) as invalid_row_count

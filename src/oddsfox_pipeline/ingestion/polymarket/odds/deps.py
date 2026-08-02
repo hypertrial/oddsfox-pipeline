@@ -55,7 +55,7 @@ class EngineRuntime:
 
 @dataclass(frozen=True)
 class OddsSyncRuntime:
-    """Live callables and types passed through one odds-sync run."""
+    """Live callables and types passed through one odds sync."""
 
     planning: PlanningRuntime
     execution: ExecutionRuntime

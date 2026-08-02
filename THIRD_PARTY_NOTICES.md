@@ -10,7 +10,7 @@ license those contributions under MIT.
 Canonical source archives, Python packages, documentation, and newly published
 container images contain no bundled production datasets or operator data.
 
-Tracked CSV seed shells contain column headers only. Small contract constants,
+Tracked CSV seed shells contain column headers only. Small pipeline policy constants,
 aliases, and market-scope identifiers are executable project configuration.
 Fixtures under `tests/fixtures/` are synthetic, Hypertrial-authored test inputs
 unless a file-specific notice says otherwise.
@@ -63,6 +63,10 @@ The project references these independently governed upstream materials:
 - [OpenFootball World Cup](https://github.com/openfootball/worldcup/tree/bd46a148289f9930da66c140d4d7d2325e95d387)
   and [international_results](https://github.com/martj42/international_results)
   data sources under CC0-1.0;
+- the [FIFA World Cup 26 Match Schedule](https://digitalhub.fifa.com/asset/4b5d4417-3343-4732-9cdf-14b6662af407/FWC26-Match-Schedule_English.pdf),
+  revision `FWC26 Match Schedule_v31_16072026_EN`, used only as independently
+  governed authoring and review provenance for official match numbers. The
+  source PDF is not bundled, redistributed, or relicensed by this project;
 - [PMXT](https://www.pmxt.dev/docs/introduction), an independently governed
   hosted source used only when an operator runs the opt-in historical
   order-book backfill. PMXT output, credentials, quotas, and provider terms

@@ -352,5 +352,5 @@ def test_fill_from_events_uses_keyset_cursor():
     assert meta["events_fallback_pages"] == 2
     first_params = c.get.call_args_list[0].kwargs["params"]
     second_params = c.get.call_args_list[1].kwargs["params"]
-    assert "next_cursor" not in first_params
-    assert second_params["next_cursor"] == "cursor-2"
+    assert "after_cursor" not in first_params
+    assert second_params["after_cursor"] == "cursor-2"

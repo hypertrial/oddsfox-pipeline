@@ -170,7 +170,7 @@ def _writer_loop(*args, **kwargs):
 
 
 def default_odds_sync_runtime() -> OddsSyncRuntime:
-    """Return the default live-callable runtime for a Polymarket odds sync run."""
+    """Return the default live-callable runtime for a Polymarket odds sync."""
     return OddsSyncRuntime(
         planning=PlanningRuntime(
             iter_markets_with_tokens=iter_markets_with_tokens,

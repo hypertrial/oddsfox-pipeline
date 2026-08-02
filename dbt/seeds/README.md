@@ -2,7 +2,7 @@
 
 The repository distributes two kinds of dbt seeds:
 
-- Small Hypertrial-authored contract constants and aliases used as executable
+- Small Hypertrial-authored pipeline policy constants and aliases used as executable
   software configuration.
 - Header-only schema shells for operator-supplied reference and Polygon market
   data.

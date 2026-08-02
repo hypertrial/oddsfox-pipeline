@@ -1,4 +1,4 @@
-"""Polymarket market metadata backfill entrypoints."""
+"""Polymarket market metadata enrichment entrypoints."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ from ._gamma import (
 )
 from .end_dates import backfill_end_dates
 from .event_slugs import backfill_event_slugs
-from .metadata import backfill_market_metadata
+from .metadata import enrich_market_metadata
 from .slugs import backfill_slugs
 from .tokens import backfill_tokens
 
@@ -64,7 +64,7 @@ __all__ = [
     "ProgressCallback",
     "backfill_end_dates",
     "backfill_event_slugs",
-    "backfill_market_metadata",
+    "enrich_market_metadata",
     "backfill_slugs",
     "backfill_tokens",
     "ensure_duck_db",

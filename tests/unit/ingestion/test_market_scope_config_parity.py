@@ -30,7 +30,9 @@ SCOPE_SEED = (
     / "seeds"
     / "market_scopes.yml"
 )
-DBT_CONTRACT_SEED = REPO_ROOT / "dbt" / "seeds" / "polymarket_wc2026_contract.csv"
+DBT_PIPELINE_POLICY_SEED = (
+    REPO_ROOT / "dbt" / "seeds" / "polymarket_wc2026_pipeline_policy.csv"
+)
 
 
 def test_default_market_scope_matches_dbt_contract() -> None:
@@ -63,8 +65,8 @@ def test_market_scope_keyset_discovery_defaults(monkeypatch) -> None:
     assert volume_min == 5000.0
 
 
-def test_wc2026_contract_seed_matches_python_defaults() -> None:
-    with DBT_CONTRACT_SEED.open(newline="", encoding="utf-8") as fh:
+def test_wc2026_pipeline_policy_seed_matches_python_defaults() -> None:
+    with DBT_PIPELINE_POLICY_SEED.open(newline="", encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
     assert len(rows) == 1
     row = rows[0]
@@ -87,7 +89,12 @@ def test_wc2026_contract_seed_matches_python_defaults() -> None:
         f"{int(POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD)}"
     )
     assert expected_env in env_example
-    assert int(row["hourly_window_days"]) == hourly_cfg.history_backfill_days
+    # The 30-day pipeline policy is a dbt presentation window. Raw hourly history
+    # is collected from market creation so later temporal pipelines can widen
+    # their query window without re-fetching.
+    assert hourly_cfg.history_backfill_days == 0
+    assert hourly_cfg.min_volume is None
+    assert hourly_cfg.ended_market_grace_days is None
     assert int(row["hourly_window_hours"]) == hourly_cfg.window_hours
     assert int(row["hourly_window_days"]) == POLYMARKET_WC2026_HOURLY_WINDOW_DAYS
     assert int(row["hourly_window_hours"]) == POLYMARKET_WC2026_HOURLY_WINDOW_HOURS

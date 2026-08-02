@@ -16,11 +16,11 @@ def test_create_test_kalshi_raw_tables_and_seed_pipeline_event(duck):
     with duck.get_connection() as conn:
         kalshi_schema.create_test_kalshi_raw_tables(conn)
         kalshi_schema.create_all_kalshi_test_raw_tables(conn)
-        kalshi_schema.seed_test_kalshi_pipeline_run_event(conn)
+        kalshi_schema.seed_test_kalshi_ingestion_run_event(conn)
         row = conn.execute(
             f"""
             SELECT task_name
-            FROM {kalshi_ops_tbl("wc2026", "pipeline_run_events")}
+            FROM {kalshi_ops_tbl("wc2026", "ingestion_run_events")}
             WHERE task_name = 'sync_kalshi_candlesticks'
             """
         ).fetchone()

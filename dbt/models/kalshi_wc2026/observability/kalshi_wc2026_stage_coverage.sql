@@ -1,6 +1,6 @@
 with contract as (
     select *
-    from {{ ref('kalshi_wc2026_contract') }}
+    from {{ ref('kalshi_wc2026_pipeline_policy') }}
     where scope_name = 'wc2026'
 ),
 
@@ -57,7 +57,7 @@ scoped_stage as (
     from {{ ref('int_kalshi_wc2026_stage_classification') }} as s
     left join hourly_by_market as h
         on s.market_ticker = h.market_ticker
-    -- costguard: allow cross-join, WC2026 contract seed has one row.
+    -- costguard: allow cross-join, WC2026 pipeline policy seed has one row.
     cross join contract
     group by 1, 2, 3, 4
 )

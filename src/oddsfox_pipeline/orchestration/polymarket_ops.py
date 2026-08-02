@@ -12,7 +12,7 @@ ProgressGuardrail = _ops.ProgressGuardrail
 Thread = _ops.Thread
 backfill_end_dates = _ops.backfill_end_dates
 backfill_event_slugs = _ops.backfill_event_slugs
-backfill_market_metadata = _ops.backfill_market_metadata
+enrich_market_metadata = _ops.enrich_market_metadata
 backfill_slugs = _ops.backfill_slugs
 backfill_tokens = _ops.backfill_tokens
 delta_dbt_models = _ops.delta_dbt_models
@@ -34,7 +34,7 @@ __all__ = [
     "Thread",
     "backfill_end_dates",
     "backfill_event_slugs",
-    "backfill_market_metadata",
+    "enrich_market_metadata",
     "backfill_slugs",
     "backfill_tokens",
     "delta_dbt_models",

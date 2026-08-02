@@ -1,4 +1,4 @@
-"""Polymarket metadata backfill: backfill_event_slugs."""
+"""Polymarket metadata enrichment: backfill_event_slugs."""
 
 import logging
 import time
@@ -44,7 +44,7 @@ def backfill_event_slugs(
     event_slug_fallback_progress_every_pages: int = 25,
 ) -> Dict[str, Any]:
     """
-    Backfill event_slugs for markets that don't have them yet.
+    Enrich event_slugs for markets that don't have them yet.
     Uses ID filtering to fetch specific markets efficiently.
 
     Args:
@@ -55,7 +55,7 @@ def backfill_event_slugs(
     t0 = time.monotonic()
     if not force and get_backfill_fully_checked("event_slugs"):
         logger.debug(
-            "Event slug backfill previously marked complete. Use --force to rerun."
+            "Event slug enrichment previously marked complete. Use --force to rerun."
         )
         return {
             "task": "backfill_event_slugs",
@@ -68,7 +68,7 @@ def backfill_event_slugs(
             "events_fallback_remaining_ids": 0,
         }
 
-    logger.info("Starting event_slug backfill for existing markets")
+    logger.info("Starting event_slug enrichment for existing markets")
 
     ensure_duck_db()
 
@@ -92,7 +92,7 @@ def backfill_event_slugs(
     remaining_ids = set(str(mid) for mid in market_ids)
 
     if total_markets == 0:
-        logger.debug("All markets already have event_slugs. Nothing to backfill.")
+        logger.debug("All markets already have event_slugs. Nothing to enrich.")
         if max_markets is None:
             set_backfill_progress("event_slugs", 0)
             set_backfill_fully_checked("event_slugs", True)
@@ -112,7 +112,7 @@ def backfill_event_slugs(
         }
 
     logger.info(
-        f"Found {total_markets} markets without event_slugs. Starting backfill..."
+        f"Found {total_markets} markets without event_slugs. Starting enrichment..."
     )
     if progress_callback:
         progress_callback(
@@ -143,7 +143,7 @@ def backfill_event_slugs(
             client=client,
             market_ids=market_ids,
             batch_size=batch_size,
-            desc="Backfilling event_slugs",
+            desc="Enriching event_slugs",
             include_events=True,
             extract_record=_extract_event_slug_record,
             save_batch=save_event_slugs_batch,
@@ -187,7 +187,7 @@ def backfill_event_slugs(
         remaining_fb = int(events_fb_meta.get("events_fallback_remaining_ids", 0))
 
         logger.info(
-            "Backfill complete. Processed %s markets, saved event_slugs for %s markets.",
+            "Enrichment complete. Processed %s markets, saved event_slugs for %s markets.",
             processed,
             saved,
         )
@@ -199,7 +199,7 @@ def backfill_event_slugs(
                     set_backfill_fully_checked("event_slugs", True)
                 else:
                     logger.warning(
-                        "event_slug backfill reported no remaining in-memory IDs but "
+                        "event_slug enrichment reported no remaining in-memory IDs but "
                         "DuckDB still has markets without event_slug; not marking fully_checked."
                     )
                     set_backfill_progress("event_slugs", processed)
