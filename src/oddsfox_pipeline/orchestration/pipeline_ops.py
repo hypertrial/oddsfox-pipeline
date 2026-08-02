@@ -15,10 +15,6 @@ from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     resolve_keyset_tag_slugs,
 )
 from oddsfox_pipeline.ingestion.polymarket.markets import (
-    backfill_end_dates,
-    backfill_event_slugs,
-    backfill_slugs,
-    backfill_tokens,
     enrich_market_metadata,
     sync_markets,
 )
@@ -70,11 +66,7 @@ def sync_market_scope_registry(
 __all__ = [
     "ProgressGuardrail",
     "Thread",
-    "backfill_end_dates",
-    "backfill_event_slugs",
     "enrich_market_metadata",
-    "backfill_slugs",
-    "backfill_tokens",
     "delta_dbt_models",
     "delta_raw_layer",
     "delete_orphan_market_tokens",

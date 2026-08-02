@@ -30,11 +30,6 @@ DLT_STRICT_SCHEMA_CONTRACT = {
     "data_type": "freeze",
 }
 
-_TAB_MARKET_TOKENS = polymarket_raw_tbl(SCOPE_WC2026, "market_tokens")
-_TAB_ODDS_HISTORY = polymarket_raw_tbl(SCOPE_WC2026, "odds_history")
-_TAB_INGESTION_RUN_EVENTS = polymarket_ops_tbl(SCOPE_WC2026, "ingestion_run_events")
-_TAB_MARKET_SCOPE_REGISTRY = polymarket_ops_tbl(SCOPE_WC2026, "market_scope_registry")
-
 _PIPELINES: dict[tuple[str, str], dlt.Pipeline] = {}
 _BATCH_PIPELINE_RUN_ID = f"{os.getpid():x}"
 

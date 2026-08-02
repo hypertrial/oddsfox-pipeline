@@ -49,11 +49,7 @@ from ._gamma import (
     _gamma_client,
     _process_market_chunks,
 )
-from .end_dates import backfill_end_dates
-from .event_slugs import backfill_event_slugs
 from .metadata import enrich_market_metadata
-from .slugs import backfill_slugs
-from .tokens import backfill_tokens
 
 __all__ = [
     "APIClient",
@@ -62,11 +58,7 @@ __all__ = [
     "EVENTS_KEYSET_REQUEST_LIMIT",
     "GAMMA_EVENTS_KEYSET_EFFECTIVE_PAGE_SIZE",
     "ProgressCallback",
-    "backfill_end_dates",
-    "backfill_event_slugs",
     "enrich_market_metadata",
-    "backfill_slugs",
-    "backfill_tokens",
     "ensure_duck_db",
     "get_backfill_fully_checked",
     "get_backfill_progress",

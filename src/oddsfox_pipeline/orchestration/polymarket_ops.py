@@ -10,11 +10,7 @@ from oddsfox_pipeline.orchestration import pipeline_ops as _ops
 
 ProgressGuardrail = _ops.ProgressGuardrail
 Thread = _ops.Thread
-backfill_end_dates = _ops.backfill_end_dates
-backfill_event_slugs = _ops.backfill_event_slugs
 enrich_market_metadata = _ops.enrich_market_metadata
-backfill_slugs = _ops.backfill_slugs
-backfill_tokens = _ops.backfill_tokens
 delta_dbt_models = _ops.delta_dbt_models
 delta_raw_layer = _ops.delta_raw_layer
 delete_orphan_market_tokens = _ops.delete_orphan_market_tokens
@@ -32,11 +28,7 @@ sync_match_minute_odds_history = _ops.sync_match_minute_odds_history
 __all__ = [
     "ProgressGuardrail",
     "Thread",
-    "backfill_end_dates",
-    "backfill_event_slugs",
     "enrich_market_metadata",
-    "backfill_slugs",
-    "backfill_tokens",
     "delta_dbt_models",
     "delta_raw_layer",
     "delete_orphan_market_tokens",

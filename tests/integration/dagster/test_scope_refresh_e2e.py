@@ -402,23 +402,10 @@ oddsfox:
         fake_refresh_registry_and_collect_markets_targeted,
     )
 
-    def _skip_backfill(task_name: str):
-        def _skip(**kwargs):
-            del kwargs
-            return {"task": task_name, "skipped": True}
-
-        return _skip
-
-    for task in (
-        "backfill_tokens",
-        "backfill_slugs",
-        "backfill_event_slugs",
-        "backfill_end_dates",
-    ):
-        monkeypatch.setattr(
-            f"oddsfox_pipeline.orchestration.polymarket_ops.{task}",
-            _skip_backfill(task),
-        )
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.polymarket_ops.enrich_market_metadata",
+        lambda **kwargs: {"task": "enrich_market_metadata", "skipped": True},
+    )
     monkeypatch.setattr(
         "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
         fake_fetch_token_history_with_retry,
@@ -720,23 +707,10 @@ def _patch_midterms_refresh_externals(
         fake_refresh_registry_and_collect_markets_targeted,
     )
 
-    def _skip_backfill(task_name: str):
-        def _skip(**kwargs):
-            del kwargs
-            return {"task": task_name, "skipped": True}
-
-        return _skip
-
-    for task in (
-        "backfill_tokens",
-        "backfill_slugs",
-        "backfill_event_slugs",
-        "backfill_end_dates",
-    ):
-        monkeypatch.setattr(
-            f"oddsfox_pipeline.orchestration.polymarket_ops.{task}",
-            _skip_backfill(task),
-        )
+    monkeypatch.setattr(
+        "oddsfox_pipeline.orchestration.polymarket_ops.enrich_market_metadata",
+        lambda **kwargs: {"task": "enrich_market_metadata", "skipped": True},
+    )
     monkeypatch.setattr(
         "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
         fake_fetch_token_history_with_retry,
