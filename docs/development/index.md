@@ -58,8 +58,8 @@ saved documentation, stylesheet, or configuration change; no restart is needed.
 | Change | Gate |
 | --- | --- |
 | Docs, styles, or `mkdocs.yml` only | `uv run make docs-check` |
-| Ordinary code or test PR | `uv run make ci-fast` |
-| Dependency, Dagster, dbt, or data-quality changes; pre-release | `uv run make release-gate` |
+| Ordinary code or test PR (including dependency, Dagster, dbt, data-quality) | `uv run make ci-fast` |
+| Major-version publish only | `uv run make release-gate` |
 | Live network acceptance (local only) | `live-smoke`, `match-minute-live-smoke`, or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
 
 `ci-fast` and `release-gate` run isolated parallel lanes that mirror GitHub's
@@ -134,7 +134,7 @@ change.
 5. Add or update query guidance in
    [Query the warehouse](../guides/query-the-warehouse.md) when analysts need a
    new starting table.
-6. Run `dbt-unit` / `golden-dbt` as relevant, then `ci-fast` or `release-gate`.
+6. Run `dbt-unit` / `golden-dbt` as relevant, then `ci-fast`.
 
 ## dbt Materialization Debt
 

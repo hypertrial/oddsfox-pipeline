@@ -52,11 +52,12 @@ default 2) from the remaining serial DuckDB/dbt suite, which includes the golden
 marts. Standalone `make golden-dbt` remains available but is not duplicated in
 the release gate.
 
-Local `ci-fast` / `release-gate` use one Make jobserver (`GATE_JOBS`, default 4)
-over a prerequisite DAG. Use `ci-fast-core` / `release-gate-core` for a true
-`-j1` sequential diagnosis of the same graph. Coverage shards write distinct
-`COVERAGE_FILE`s under the release coverage runtime and combine once; subprocess
-pools are capped with `RELEASE_PYTEST_WORKERS`, `DBT_TEST_WORKERS`, and
+Ordinary work uses `ci-fast`. `release-gate` is for major-version publishes
+only. Both use one Make jobserver (`GATE_JOBS`, default 4) over a prerequisite
+DAG; use `ci-fast-core` / `release-gate-core` for a true `-j1` sequential
+diagnosis of the same graph. Coverage shards write distinct `COVERAGE_FILE`s
+under the release coverage runtime and combine once; subprocess pools are
+capped with `RELEASE_PYTEST_WORKERS`, `DBT_TEST_WORKERS`, and
 `MUTMUT_MAX_CHILDREN`. GitHub's automatic `tests` worker runs the parallel fast
 suite and serial `make contract-http` while independent static/docs and dbt-lint
 workers run in parallel. A required Python 3.13 worker repeats package smoke and

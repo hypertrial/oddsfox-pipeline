@@ -63,7 +63,7 @@ def _assert_python_worker(job: dict, timeout: int, *, sync_command: str) -> None
     assert "--no-default-groups" in sync_command
 
 
-def test_ci_workflows_keep_publication_manual_and_permissions_scoped():
+def test_ci_workflows_keep_permissions_scoped_and_macos_first():
     workflow_dir = REPO_ROOT / ".github" / "workflows"
     automatic_path = workflow_dir / "ci.yml"
     manual_path = workflow_dir / "manual-full.yml"

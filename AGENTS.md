@@ -74,8 +74,9 @@ Run the automatic code-safety gate before ordinary pushes:
 uv run make ci-fast
 ```
 
-Run `uv run make release-gate` before releases and after dependency, Dagster,
-dbt, or data-quality changes. It runs the lint, contract, docs,
+Run `uv run make release-gate` only before publishing a major version. Ordinary
+PRs and dependency, Dagster, dbt, or data-quality work use `ci-fast` (plus
+focused Make targets as needed). `release-gate` runs the lint, contract, docs,
 100%-coverage and integration surfaces, focused mutation testing, and Costguard
 without repeating the ordinary test pass before coverage. Local `ci-fast` and
 `release-gate` launch isolated parallel lanes that mirror GitHub's worker
@@ -86,7 +87,8 @@ for a true `-j1` sequential diagnosis of the same graph. GitHub parallelizes
 the equivalent automatic surface across `static-docs`, `tests`, `dbt`, and a
 Python 3.13 package/test compatibility worker, then reports the stable
 `fast-gate` aggregate. Python 3.10 remains the supported floor and full-release
-runtime. The manual `Manual Full Validation` workflow parallelizes coverage,
+runtime. The manual `Manual Full Validation` workflow is the GitHub equivalent
+of `release-gate` for a major-version publish: it parallelizes coverage,
 dbt/data quality, focused mutation, and static/docs validation behind the
 stable `full-gate` aggregate. OddsFox Pipeline is macOS-first and does not ship
 or gate on Docker images. For narrower local runs, `make test`, `make
@@ -328,7 +330,8 @@ MIT-licensed project data. See `THIRD_PARTY_NOTICES.md`.
 
 1. Branch from `main`.
 2. Keep changes focused; one concern per PR when possible.
-3. Ensure the quality gate passes locally.
+3. Ensure `uv run make ci-fast` passes locally (use `release-gate` only before
+   a major-version publish).
 4. Update docs in `docs/` when behavior, configuration, or project positioning changes.
 
 ## Further reading

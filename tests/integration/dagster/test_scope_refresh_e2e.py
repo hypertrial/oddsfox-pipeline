@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -25,9 +24,6 @@ from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
 )
 from oddsfox_pipeline.orchestration import (
     assets_kalshi_wc2026 as kalshi_assets_mod,
-)
-from oddsfox_pipeline.orchestration import (
-    assets_polymarket_us_midterms_2026 as midterms_assets_mod,
 )
 from oddsfox_pipeline.orchestration.assets import (
     DBT_PROJECT,
@@ -729,49 +725,6 @@ def _patch_midterms_refresh_externals(
     return market_page
 
 
-def _patch_midterms_job_externals(monkeypatch, market_page: list[dict]) -> None:
-    """Job configs force keyset discovery; stub collect + dlt for in-process runs."""
-    monkeypatch.setattr(
-        midterms_assets_mod,
-        "collect_market_scope_payload",
-        lambda **_kwargs: {
-            "market_rows": market_page,
-            "token_rows": [
-                (
-                    "m-midterms-1",
-                    f'["{_MIDTERMS_VALID_TOKEN_YES}", "{_MIDTERMS_VALID_TOKEN_NO}"]',
-                )
-            ],
-            "run_summary": {
-                "task": "sync_markets",
-                "total_fetched": len(market_page),
-                "scope_name": _MIDTERMS_SCOPE,
-            },
-        },
-    )
-    pipeline = MagicMock(has_pending_data=False)
-    conn = MagicMock()
-
-    @contextmanager
-    def connection_ctx():
-        yield conn
-
-    monkeypatch.setattr(
-        midterms_assets_mod.asset_helpers,
-        "get_polymarket_dlt_pipeline",
-        lambda **_kwargs: pipeline,
-    )
-    monkeypatch.setattr(midterms_assets_mod, "get_connection", connection_ctx)
-    monkeypatch.setattr(
-        midterms_assets_mod,
-        "ensure_polymarket_indexes",
-        lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(
-        midterms_assets_mod, "save_sync_run_metrics", lambda *_args, **_kwargs: None
-    )
-
-
 def _configure_midterms_smoke_env(monkeypatch, tmp_path: Path, db_name: str) -> Path:
     db_path = tmp_path / db_name
     profiles_dir = tmp_path / f"profiles-{db_name}"
@@ -1315,27 +1268,3 @@ def test_kalshi_refresh_path_materializes(
         assert _ingestion_run_counts(conn, ops_schema="kalshi_wc2026_ops") == {
             task: count * 2 for task, count in first_run_counts.items()
         }
-
-
-def _patch_kalshi_job_externals(monkeypatch) -> None:
-    _patch_kalshi_refresh_externals(monkeypatch)
-    pipeline = MagicMock(has_pending_data=False)
-
-    monkeypatch.setattr(
-        kalshi_assets_mod.asset_helpers,
-        "get_kalshi_dlt_pipeline",
-        lambda **_kwargs: pipeline,
-    )
-    monkeypatch.setattr(
-        kalshi_assets_mod, "ensure_kalshi_indexes", lambda *_args, **_kwargs: None
-    )
-    monkeypatch.setattr(
-        kalshi_assets_mod, "save_sync_run_metrics", lambda *_args, **_kwargs: None
-    )
-    monkeypatch.setattr(
-        kalshi_assets_mod.asset_helpers,
-        "materialize_kalshi_candlesticks_sync",
-        lambda context, config, **kwargs: kalshi_assets_mod.MaterializeResult(
-            metadata={"rows_written": kalshi_assets_mod.MetadataValue.int(1)}
-        ),
-    )

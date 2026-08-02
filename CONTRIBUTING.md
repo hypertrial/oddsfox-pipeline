@@ -86,8 +86,8 @@ submit the material and that it meets the data and IP hygiene rules above.
 | Change | Gate |
 | --- | --- |
 | Docs / MkDocs only | `uv run make docs-check` |
-| Ordinary PR | `uv run make ci-fast` (`GATE_JOBS` DAG; use `ci-fast-core` for `-j1`) |
-| Dependency, Dagster, dbt, data-quality, or pre-release | `uv run make release-gate` (`GATE_JOBS` DAG; use `release-gate-core` for `-j1`) |
+| Ordinary PR (including dependency, Dagster, dbt, data-quality) | `uv run make ci-fast` (`GATE_JOBS` DAG; use `ci-fast-core` for `-j1`) |
+| Major-version publish only | `uv run make release-gate` (`GATE_JOBS` DAG; use `release-gate-core` for `-j1`) |
 | Live network acceptance | Local-only smokes; never add to GitHub Actions |
 
 The canonical command tables, Costguard install, and layout guardrails live in
@@ -124,7 +124,8 @@ burden by default.
 4. Do not commit secrets, `.env`, operator seed rows, reviewed attestations,
    DuckDB files, parquet/CSV exports, source documents, or other local artifacts
    (see [`.gitignore`](.gitignore)).
-5. Ensure the quality gate passes locally.
+5. Ensure `uv run make ci-fast` passes locally (use `release-gate` only before
+   a major-version publish).
 
 For every proposed data-like file, complete the pull-request provenance
 checklist. State whether it is executable project configuration, a header-only

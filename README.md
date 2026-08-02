@@ -88,13 +88,12 @@ for the `oddsfox-graph` World Cup logical atlas; see the
 
 ```bash
 uv run make ci-fast
-uv run make release-gate
 ```
 
-Run `ci-fast` before ordinary pushes and `release-gate` before releases or after
-dependency, Dagster, dbt, or data-quality changes. The canonical gate
-tables and layout guardrails live in [AGENTS.md](AGENTS.md). See also
-[Development](docs/development/index.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+Run `ci-fast` before ordinary pushes. Run `release-gate` only before publishing
+a major version. The canonical gate tables and layout guardrails live in
+[AGENTS.md](AGENTS.md). See also [Development](docs/development/index.md) and
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation Website
 

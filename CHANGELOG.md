@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `release-gate` (and Manual Full Validation) is required only before publishing
+  a major version; ordinary PRs, including dependency/Dagster/dbt/data-quality
+  work, use `ci-fast` plus focused Make targets.
 - Local `ci-fast` and `release-gate` use one Make jobserver (`GATE_JOBS`) over a
   prerequisite DAG; `ci-fast-core` / `release-gate-core` run the same graph with
   `-j1`. Coverage shards write distinct `COVERAGE_FILE`s and combine once;

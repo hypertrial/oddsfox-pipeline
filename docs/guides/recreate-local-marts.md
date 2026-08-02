@@ -40,8 +40,6 @@ See [Operator responsibilities](../concepts/operator-responsibilities.md).
 | Both from public sources | Complete shared setup below, then both child guides |
 | Both from completed raw warehouses | Shared setup + inputs, then [completed-warehouse route](#alternative-rebuild-completed-raw-warehouses) |
 
-Docker and Colima are not required to create either mart.
-
 ## Shared setup (every route)
 
 ### Clone onto the SSD

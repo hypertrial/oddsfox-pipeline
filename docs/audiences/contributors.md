@@ -25,8 +25,8 @@ PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/runtime/ms-playwright" \
 | Change | Gate |
 | --- | --- |
 | Docs, styles, or `mkdocs.yml` only | `uv run make docs-check` |
-| Ordinary code or test PR | `uv run make ci-fast` |
-| Dependency, Dagster, dbt, or data-quality changes; pre-release | `uv run make release-gate` |
+| Ordinary code or test PR (including dependency, Dagster, dbt, data-quality) | `uv run make ci-fast` |
+| Major-version publish only | `uv run make release-gate` |
 | Live network acceptance (local only) | `live-smoke`, `match-minute-live-smoke`, or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
 
 The full command tables and layout guardrails live in
