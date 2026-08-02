@@ -28,9 +28,9 @@ models:
       - name: event_slug
         description: Event slug when present in source metadata.
 
-  - name: int_polymarket_us_midterms_2026_token_universe
+  - name: int_polymarket_us_midterms_2026_token_working_set
     description: >
-      Canonical token universe: one row per CLOB outcome token joined to market
+      Canonical token working set: one row per CLOB outcome token joined to market
       labels, state, and volume.
     columns:
       - name: clob_token_id
@@ -70,7 +70,7 @@ models:
 
   - name: int_polymarket_us_midterms_2026_market_tokens
     description: >
-      WC2026 token universe: one row per CLOB outcome token whose market
+      WC2026 token working set: one row per CLOB outcome token whose market
       belongs to int_polymarket_us_midterms_2026_markets.
     columns:
       - name: clob_token_id
@@ -80,7 +80,7 @@ models:
           - unique
           - relationships:
               arguments:
-                to: ref('int_polymarket_us_midterms_2026_token_universe')
+                to: ref('int_polymarket_us_midterms_2026_token_working_set')
                 field: clob_token_id
       - name: market_id
         description: WC2026 Polymarket market identifier for this token.

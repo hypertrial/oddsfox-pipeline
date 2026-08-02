@@ -5,7 +5,7 @@ with expected as (
 
 actual as (
     select fifa_match_id
-    from {{ ref('int_wc2026_knockout_fixtures') }}
+    from {{ ref('int_wc2026_advancement_fixtures') }}
 ),
 
 mismatches as (

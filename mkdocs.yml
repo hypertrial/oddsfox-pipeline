@@ -95,6 +95,7 @@ nav:
       - Validate and recover: guides/validate-and-recover.md
       - Troubleshooting: guides/troubleshooting.md
   - Reference:
+      - Terminology: reference/terminology.md
       - Configuration: reference/configuration.md
       - Orchestration: reference/orchestration.md
       - Warehouse: reference/warehouse.md
@@ -103,7 +104,6 @@ nav:
       - Strategy contracts: reference/strategy-contracts.md
       - Data dictionary: reference/data-dictionary.md
       - Scripts: reference/scripts.md
-      - Terminology: reference/terminology.md
       - Naming: reference/naming.md
   - Concepts:
       - System overview: concepts/system-overview.md

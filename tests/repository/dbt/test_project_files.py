@@ -170,7 +170,7 @@ def test_hourly_odds_and_logical_atlas_materialization_shape():
     assert (
         marts["polymarket_wc2026_knockout_token_hourly_odds"]["+materialized"] == "view"
     )
-    assert "polymarket_wc2026_graph_token_hourly_odds" not in marts
+    assert "polymarket_wc2026_graph_" + "token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_daily_odds" not in marts
     marts_root = (

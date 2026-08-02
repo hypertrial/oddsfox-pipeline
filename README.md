@@ -20,8 +20,8 @@ snapshots, builds dbt marts, and exports the logical-v1 bundle for offline use.
 Order execution belongs to `oddsfox-execution` and is not part of this runtime.
 
 Read the [System Overview](docs/concepts/system-overview.md) for repository
-boundaries and [Terminology](docs/reference/terminology.md) for canonical
-vocabulary.
+boundaries and [Terminology](docs/reference/terminology.md) for the compact
+34-term vocabulary (including **working set**).
 
 ## Start Here
 

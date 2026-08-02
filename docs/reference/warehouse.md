@@ -6,10 +6,10 @@ schemas and relation names are source-specific because adapters ship in parallel
 
 !!! note "Reference ladder"
 
-    Chooser → dictionary → public contracts → warehouse reference; do not treat
+    Chooser → dictionary → documented contracts → warehouse reference; do not treat
     staging/raw as APIs. This page is the physical/schema map for contributors.
     Analysts should start with
-    [Query the warehouse](../guides/query-the-warehouse.md). Public mart
+    [Query the warehouse](../guides/query-the-warehouse.md). Mart
     guarantees live in [Data contracts](data-contracts.md).
 
 If you are analyzing data rather than operating the pipeline, start with the
@@ -17,7 +17,12 @@ If you are analyzing data rather than operating the pipeline, start with the
 [Query recipes](../guides/query-recipes.md), and
 [Data dictionary](data-dictionary.md).
 
-## Raw Tables
+## Raw layer
+
+Raw schemas hold landed source payloads and append-only observation history
+before staging and marts. Prefer qualified names (`polymarket_wc2026_raw`,
+event-catalog snapshots, match-minute history). Private collector layout
+`oddsfox.raw.v1` is documented in [Strategy contracts](strategy-contracts.md).
 
 Schema: `polymarket_catalog_raw`
 
@@ -169,16 +174,16 @@ Schema: `polymarket_us_midterms_2026_ops`
 
 Schema: `polymarket_wc2026_intermediate`
 
-- `int_polymarket_wc2026_token_universe`: materialized canonical one-row-per-token
+- `int_polymarket_wc2026_token_working_set`: materialized canonical one-row-per-token
   join of market tokens to market labels, state, and volume.
 - `int_polymarket_wc2026_markets`: markets admitted by the fixed WC2026 scope;
   one row per `(scope_name, market_id)` with the knockout volume floor from the
   WC2026 pipeline policy seed.
-- `int_polymarket_wc2026_market_tokens`: WC2026 subset of the token universe.
+- `int_polymarket_wc2026_market_tokens`: WC2026 subset of the token working set.
 - `int_polymarket_wc2026_token_hourly_odds`: incremental hourly OHLC price fact
   for raw CLOB tokens in the WC2026 pipeline policy trailing window.
 - `int_polymarket_wc2026_knockout_market_classification`: shared real-team
-  knockout market classifier used by public knockout marts and observability.
+  knockout market classifier used by knockout marts and observability.
 - `int_polymarket_wc2026_match_advance_tokens`: exact team-to-advance outcomes
   mapped to official FIFA fixture sides without the progression volume floor.
 - `int_polymarket_wc2026_match_hourly_odds`: permanent incremental match-token
@@ -186,12 +191,12 @@ Schema: `polymarket_wc2026_intermediate`
 
 Schema: `polymarket_us_midterms_2026_intermediate`
 
-- `int_polymarket_us_midterms_2026_token_universe`: one-row-per-token join of
+- `int_polymarket_us_midterms_2026_token_working_set`: one-row-per-token join of
   market tokens to market labels, state, and volume.
 - `int_polymarket_us_midterms_2026_markets`: markets admitted by the fixed US
   midterms scope at or above the pipeline policy volume floor.
 - `int_polymarket_us_midterms_2026_market_tokens`: midterms subset of the token
-  universe.
+  working set.
 - `int_polymarket_us_midterms_2026_token_hourly_odds`: incremental hourly OHLC
   price fact for raw CLOB tokens in the pipeline policy trailing window.
 
@@ -201,7 +206,7 @@ Schema: `kalshi_wc2026_intermediate`
 - `int_kalshi_wc2026_market_hourly_odds`: incremental hourly OHLC fact from raw
   candlesticks in the pipeline policy trailing window.
 - `int_kalshi_wc2026_stage_classification` and
-  `int_kalshi_wc2026_group_winner_classification`: shared classifiers for public
+  `int_kalshi_wc2026_group_winner_classification`: shared classifiers for
   stage and group-winner marts.
 - `int_kalshi_wc2026_match_advance_markets`: exact `KXWCADVANCE` sides mapped to
   official FIFA fixtures.
@@ -210,7 +215,7 @@ Schema: `kalshi_wc2026_intermediate`
 
 Schema: `wc2026_intermediate`
 
-- `int_wc2026_knockout_fixtures`: the 31 advancement fixtures keyed by official
+- `int_wc2026_advancement_fixtures`: the 31 advancement fixtures keyed by official
   FIFA match number; excludes the third-place match.
 
 ## dbt Marts
@@ -253,7 +258,7 @@ Schema: `polymarket_wc2026_marts`
   time. Timing deltas, boundary flags/status, raw close sums/deviations, anomaly
   flags, source revision/hash/load time, and the matched international-results
   ID are included without changing the grain.
-- `polymarket_wc2026_knockout_market_tokens`: progression-side token universe for real WC2026 team knockout
+- `polymarket_wc2026_knockout_market_tokens`: progression-side token working set for real WC2026 team knockout
   markets at or above the WC2026 pipeline policy volume floor, plus derived `market_status`, source live flag,
   active-team live flag, and explicit price semantics.
 - `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for real-team progression-side
@@ -278,7 +283,7 @@ Schema: `polymarket_wc2026_marts`
 Schema: `international_results_wc2026_marts`
 
 - `international_results_wc2026_matches`: clean FIFA World Cup 2026 fixtures/results with stage mapping and tied-knockout advancer inference from later fixtures when possible.
-- `international_results_wc2026_team_status`: canonical team roster and current tournament status used to filter Polymarket public marts.
+- `international_results_wc2026_team_status`: canonical team roster and current tournament status used to filter Polymarket documented marts.
 
 Schema: `polymarket_us_midterms_2026_marts`
 

@@ -49,7 +49,7 @@ uv sync --group dev
 
 ### Analyze the data
 
-Open a local DuckDB warehouse, pick a public mart, and start from tested SQL
+Open a local DuckDB warehouse, pick a documented mart, and start from tested SQL
 and Python examples.
 
 [Analysts hub](audiences/analysts.md)
@@ -81,7 +81,7 @@ Change adapters, dbt marts, orchestration, or docs with the right quality gate.
 
 ### Integrate downstream
 
-Consume public marts and the logical-v1 bundle without treating pipeline output
+Consume documented marts and the logical-v1 bundle without treating pipeline output
 as execution. Strategy consumers use private `wc2026.v1` separately.
 
 [Integrators hub](audiences/integrators.md)

@@ -259,7 +259,7 @@ knockout_schedule_fixtures as (
     where fifa_match_id between 73 and 104
 ),
 
-knockout_fixtures as (
+advancement_fixtures as (
     select
         f.fifa_match_id,
         f.stage,
@@ -300,7 +300,7 @@ knockout_candidates as (
         f.results_source_loaded_at,
         count(*) over (partition by a.market_id) as fixture_mapping_count
     from advance_primary as a
-    inner join knockout_fixtures as f
+    inner join advancement_fixtures as f
         on
             least(a.outcome_0_key, a.outcome_1_key)
             = least(f.home_team_key, f.away_team_key)

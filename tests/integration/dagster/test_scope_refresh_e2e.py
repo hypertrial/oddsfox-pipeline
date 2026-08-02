@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -63,8 +64,12 @@ from oddsfox_pipeline.storage.duckdb.schemas.kalshi import (
     bootstrap_kalshi_tables,
     create_all_kalshi_test_raw_tables,
 )
+from oddsfox_pipeline.storage.duckdb.schemas.openfootball import (
+    seed_test_openfootball_schedule_fixtures,
+)
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     create_all_scope_test_markets_tables,
+    seed_test_ingestion_run_event,
 )
 
 _EMPTY_RESULTS_SUMMARY = {
@@ -298,7 +303,26 @@ oddsfox:
     connection.ensure_duck_db()
     with connection.get_connection() as conn:
         create_all_scope_test_markets_tables(conn)
+        seed_test_ingestion_run_event(conn)
         create_all_kalshi_test_raw_tables(conn)
+        seed_test_openfootball_schedule_fixtures(conn)
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "dbt.cli.main",
+            "seed",
+            "--exclude",
+            "tag:polygon_settlement",
+            "tag:pmxt_order_book",
+            "--project-dir",
+            str(DBT_PROJECT.project_dir),
+            "--profiles-dir",
+            str(profiles_dir),
+        ],
+        check=True,
+    )
 
     market_page = [
         {
@@ -507,7 +531,10 @@ oddsfox:
                         "config": {
                             "full_refresh": True,
                             "dbt_select": POLYMARKET_WC2026_SCOPE.dbt_select,
-                            "dbt_exclude": POLYMARKET_WC2026_SCOPE.dbt_exclude,
+                            "dbt_exclude": (
+                                f"{POLYMARKET_WC2026_SCOPE.dbt_exclude} "
+                                "tag:wc2026_logical_atlas"
+                            ),
                             "progress_log_interval_events": 1,
                             "progress_log_interval_seconds": 1,
                             "no_progress_soft_timeout_seconds": 120,

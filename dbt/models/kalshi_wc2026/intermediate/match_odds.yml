@@ -55,7 +55,7 @@ unit_tests:
       - input: ref('international_results_wc2026_team_aliases')
         rows:
           - {market_team_name: USA, canonical_team_name: United States}
-      - input: ref('int_wc2026_knockout_fixtures')
+      - input: ref('int_wc2026_advancement_fixtures')
         rows:
           - {fifa_match_id: 94, stage_key: round_of_16, stage_rank: 2, kickoff_at_utc: "2026-07-07 19:00:00", home_team: United States, away_team: Belgium, teams_resolved: true}
     expect:
@@ -74,7 +74,7 @@ unit_tests:
           - {market_ticker: two-spain, event_ticker: event-two, series_ticker: KXWCADVANCE, yes_sub_title: "Spain advances"}
       - input: ref('international_results_wc2026_team_aliases')
         rows: []
-      - input: ref('int_wc2026_knockout_fixtures')
+      - input: ref('int_wc2026_advancement_fixtures')
         rows:
           - {fifa_match_id: 101, stage_key: semifinal, stage_rank: 4, kickoff_at_utc: "2026-07-14 19:00:00", home_team: France, away_team: Spain, teams_resolved: true}
     expect:

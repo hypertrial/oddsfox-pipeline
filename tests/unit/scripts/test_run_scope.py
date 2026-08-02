@@ -106,7 +106,7 @@ def test_run_scope_fails_fast_by_default():
                     "polymarket:wc2026",
                     "kalshi:wc2026",
                     "--step",
-                    "market_registry",
+                    "market_scope_registry",
                 ]
             )
             == 7

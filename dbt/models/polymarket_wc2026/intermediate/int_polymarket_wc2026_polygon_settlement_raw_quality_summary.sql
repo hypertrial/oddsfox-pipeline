@@ -7,7 +7,7 @@ with latest_published_scan as (
 
 seed as (
     select *
-    from {{ ref('int_polymarket_wc2026_polygon_settlement_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_polygon_settlement_working_set') }}
 ),
 
 current_fills as (
@@ -140,32 +140,32 @@ fill_validation as (
         count(*) as raw_fill_rows,
         count(*) filter (
             where
-            universe.proposition_id is null
+            working_set.proposition_id is null
             or coalesce(fills.chain_id, -1) <> 137
             or fills.condition_id is null
-            or fills.condition_id <> universe.condition_id
+            or fills.condition_id <> working_set.condition_id
             or fills.exchange_address is null
-            or fills.exchange_address <> universe.exchange_address
+            or fills.exchange_address <> working_set.exchange_address
             or fills.token_id is null
             or coalesce(fills.outcome_side, '') not in ('yes', 'no')
             or (
-                fills.token_id = universe.yes_token_id
+                fills.token_id = working_set.yes_token_id
                 and fills.outcome_side <> 'yes'
             )
             or (
-                fills.token_id = universe.no_token_id
+                fills.token_id = working_set.no_token_id
                 and fills.outcome_side <> 'no'
             )
             or fills.token_id not in (
-                universe.yes_token_id, universe.no_token_id
+                working_set.yes_token_id, working_set.no_token_id
             )
             or coalesce(fills.order_side, '') not in ('BUY', 'SELL')
         ) as invalid_fill_mapping_rows,
         count(*) filter (
             where
             fills.block_timestamp is null
-            or fills.block_timestamp < universe.analysis_window_start_at_utc
-            or fills.block_timestamp >= universe.analysis_window_end_at_utc
+            or fills.block_timestamp < working_set.analysis_window_start_at_utc
+            or fills.block_timestamp >= working_set.analysis_window_end_at_utc
             or fills.price is null
             or fills.price not between 0 and 1
             or coalesce(fills.share_volume, 0) <= 0
@@ -251,7 +251,7 @@ fill_validation as (
         ) as invalid_fill_value_rows,
         count(*) filter (where chunks.scan_id is null) as unmatched_fill_chunks
     from priced_fills as fills
-    left join seed as universe on fills.proposition_id = universe.proposition_id
+    left join seed as working_set on fills.proposition_id = working_set.proposition_id
     left join
         {{ ref('stg_polymarket_wc2026_polygon_settlement_scan_chunks') }}
             as chunks

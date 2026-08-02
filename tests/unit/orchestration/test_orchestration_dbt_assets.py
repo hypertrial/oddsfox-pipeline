@@ -730,7 +730,7 @@ def test_stream_dbt_build_does_not_union_config_selectors_into_subset():
         )
     )
 
-    assert captured_args == [["build"]]
+    assert captured_args == [["build", "--exclude", "tag:unrelated"]]
 
 
 def test_stream_dbt_build_keeps_polygon_graph_opt_in_for_subset():

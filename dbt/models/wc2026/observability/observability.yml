@@ -89,7 +89,7 @@ unit_tests:
         rows: []
       - input: ref('wc2026_knockout_match_hourly_odds')
         rows: []
-      - input: ref('int_wc2026_knockout_fixtures')
+      - input: ref('int_wc2026_advancement_fixtures')
         rows: []
       - input: ref('wc2026_knockout_match_odds_coverage')
         rows:

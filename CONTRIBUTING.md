@@ -112,7 +112,7 @@ burden by default.
 - Update tests and docs with behavior changes; do not add backward-compat shims
   unless the PR explicitly scopes compat work.
 - Document breaking changes in [CHANGELOG.md](CHANGELOG.md) and
-  [Data contracts](docs/reference/data-contracts.md) when public marts or operator
+  [Data contracts](docs/reference/data-contracts.md) when documented marts or operator
   workflows change.
 - AI agents should follow the no-legacy policy in [AGENTS.md](AGENTS.md).
 

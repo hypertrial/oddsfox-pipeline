@@ -58,15 +58,15 @@ mapped as (
                 date_trunc('minute', match_finished_at_utc)
             ) + 1
         ) as expected_minute_rows
-    from {{ ref('int_polymarket_wc2026_match_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_match_working_set') }}
 ),
 
 mapped_token_ids as (
     select yes_clob_token_id as clob_token_id
-    from {{ ref('int_polymarket_wc2026_match_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_match_working_set') }}
     union all
     select no_clob_token_id as clob_token_id
-    from {{ ref('int_polymarket_wc2026_match_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_match_working_set') }}
 ),
 
 mapped_tokens as (

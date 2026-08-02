@@ -13,9 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   smoke Make targets, GHCR multi-arch publish/sign steps, and the Docker image
   guide. OddsFox Pipeline is macOS-first; distribution smoke stays on
   `make package-smoke`.
+- Retired first-party terminology identifiers and prose from the compact
+  cutover (see [Terminology](docs/reference/terminology.md) deprecated table):
+  `token_universe` / `match_market_universe` model names and “market/token/
+  validated universe” phrases, ScopeStep `market_registry`, `publish_current`,
+  `scope_class`, and related graph-export product names. Operators with older
+  warehouses delete `oddsfox.duckdb*` and rebuild.
 
 ### Changed
 
+- Compact terminology cutover: normative vocabulary is exactly **34** core
+  terms in `docs/reference/terminology.md`, gated by
+  `config/terminology_policy.toml` and `make check-terminology`. Breaking
+  renames include ScopeStep / job surface `market_scope_registry`, dbt
+  `*_working_set` models, `int_wc2026_advancement_fixtures`, and symlink
+  activation via `activate_current` (replacing `publish_current`).
 - `release-gate` (and Manual Full Validation) is required only before publishing
   a major version; ordinary PRs, including dependency/Dagster/dbt/data-quality
   work, use `ci-fast` plus focused Make targets.

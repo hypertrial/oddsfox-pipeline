@@ -1,6 +1,6 @@
 # Data Dictionary
 
-This page is the analyst-facing dictionary for public marts: grain, filters, and
+This page is the analyst-facing dictionary for documented marts: grain, filters, and
 common mistakes.
 
 !!! note "Reference ladder"
@@ -93,7 +93,7 @@ common mistakes.
 
 | Field | Analyst Guidance |
 | --- | --- |
-| Intended use | Token universe and classification for public WC2026 Polymarket progression marts. |
+| Intended use | token working set and classification for public WC2026 Polymarket progression marts. |
 | Grain | One row per `clob_token_id`. |
 | Identifiers | `market_id`, `clob_token_id`, `outcome_index`, `canonical_team_name`, `stage_key`. |
 | Time columns | Match/team status dates such as `next_match_date` and `latest_completed_match_date`. |
@@ -212,14 +212,14 @@ The internal transformation lineage is:
 ```text
 local manifest
   → stg_polymarket_wc2026_polygon_settlement_markets
-  → int_polymarket_wc2026_polygon_settlement_market_universe
+  → int_polymarket_wc2026_polygon_settlement_working_set
 
 finalized Polygon V2 logs/receipts/headers
   → polymarket_wc2026_raw.polygon_settlement_fills
   → stg_polymarket_wc2026_polygon_settlement_fills
   → int_polymarket_wc2026_polygon_settlement_token_minute_odds
 
-manifest universe + token-minute aggregates
+manifest working set + token-minute aggregates
   → int_polymarket_wc2026_polygon_settlement_minute_odds_candidate
   → int_polymarket_wc2026_polygon_settlement_publication_gate
   → polymarket_wc2026_polygon_settlement_minute_odds

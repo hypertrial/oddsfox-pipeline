@@ -142,7 +142,7 @@ cross-provider comparison. Operator recipe:
   and `raw/event_market_memberships` land reviewed membership and event-catalog
   inputs used by the logical atlas.
 - `ops/market_scope_registry` writes only when discovery did not already
-  refresh the registry.
+  refresh the market scope registry.
 - Metadata enrichment and hourly odds operate over the fixed WC2026 registry.
 - The match-minute asset writes a separate raw table and never reads or updates
   the hourly token-sync ledger. Any missing token history aborts before dbt. A
@@ -186,7 +186,7 @@ cross-provider comparison. Operator recipe:
 - `openfootball/wc2026/raw/schedule_fixtures` refreshes the dependency-free
   OpenFootball `cup.txt`/`cup_finals.txt` mirror of the FIFA schedule and
   retains all FIFA match numbers 1–104. Knockout consumers filter 73–104
-  explicitly (`int_wc2026_knockout_fixtures` and related models).
+  explicitly (`int_wc2026_advancement_fixtures` and related models).
 - The parser fails closed on invalid pinned file identity, exact bytes,
   reviewed group-fixture slice hashes, IDs, stages, groups, dates, UTC offsets,
   teams, or venues. Each stored fixture includes the final source line number
@@ -235,4 +235,4 @@ SQL finalizers because they preserve monotonic cursors, first-seen timestamps,
 scheduler state, and aggregate rebuild semantics.
 
 Next, see the [warehouse reference](warehouse.md) for relation ownership or
-[data contracts](data-contracts.md) for the public mart query surface.
+[data contracts](data-contracts.md) for the documented mart query surface.

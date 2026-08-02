@@ -92,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
                     release_id,
                     release_dir,
                 )
-            _publish_current_locked(artifact_dir, release_id)
+            _activate_current_locked(artifact_dir, release_id)
         print(f"Activated {release_dir}")
         print(f"Current -> {artifact_dir / 'current'}")
         return 0
@@ -163,7 +163,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Validate an existing release without changing current",
     )
     parser.add_argument(
-        "--no-publish",
+        "--no-activate",
         action="store_true",
         help="Deprecated compatibility flag; builds are always shadow releases",
     )
@@ -216,8 +216,8 @@ def run_forever(args: argparse.Namespace) -> None:
         _append_full_graph_args(command, args)
         if args.allow_empty_graph:
             command.append("--allow-empty-graph")
-        if args.no_publish:
-            command.append("--no-publish")
+        if args.no_activate:
+            command.append("--no-activate")
         subprocess.run(command, cwd=REPO_ROOT, check=True)
         time.sleep(args.interval_seconds)
 
@@ -669,14 +669,14 @@ def activation_lock(artifact_dir: Path) -> Iterator[None]:
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
-def publish_current(artifact_dir: Path, release_id: str) -> None:
+def activate_current(artifact_dir: Path, release_id: str) -> None:
     release_id = validate_release_id(release_id)
     artifact_dir = artifact_dir.resolve()
     with activation_lock(artifact_dir):
-        _publish_current_locked(artifact_dir, release_id)
+        _activate_current_locked(artifact_dir, release_id)
 
 
-def _publish_current_locked(artifact_dir: Path, release_id: str) -> None:
+def _activate_current_locked(artifact_dir: Path, release_id: str) -> None:
     """Replace current while the caller holds ``activation_lock``."""
     release_id = validate_release_id(release_id)
     artifact_dir = artifact_dir.resolve()

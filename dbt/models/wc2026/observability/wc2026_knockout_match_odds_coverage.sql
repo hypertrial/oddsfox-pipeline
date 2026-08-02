@@ -95,7 +95,7 @@ coverage as (
         coalesce(pm.is_active, false) as polymarket_market_active,
         coalesce(km.is_active, false) as kalshi_market_active
     from expected_fixtures as e
-    left join {{ ref('int_wc2026_knockout_fixtures') }} as f
+    left join {{ ref('int_wc2026_advancement_fixtures') }} as f
         on e.fifa_match_id = f.fifa_match_id
     left join polymarket_mapping as pm on e.fifa_match_id = pm.fifa_match_id
     left join polymarket_hours as ph on e.fifa_match_id = ph.fifa_match_id

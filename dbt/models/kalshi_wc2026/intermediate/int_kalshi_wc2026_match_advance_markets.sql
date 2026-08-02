@@ -62,7 +62,7 @@ mapped_events as (
             partition by f.fifa_match_id
         ) as events_per_fixture
     from event_pairs as p
-    inner join {{ ref('int_wc2026_knockout_fixtures') }} as f
+    inner join {{ ref('int_wc2026_advancement_fixtures') }} as f
         on
             p.team_a = least(f.home_team, f.away_team)
             and p.team_b = greatest(f.home_team, f.away_team)

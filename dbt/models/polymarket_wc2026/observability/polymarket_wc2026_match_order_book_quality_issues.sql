@@ -103,7 +103,7 @@ scan_contract as (
         or runs.manifest_sha256 != snapshots.manifest_sha256
 ),
 
-knockout_fixtures as (
+advancement_fixtures as (
     select *
     from {{ ref('stg_openfootball_wc2026_schedule_fixtures') }}
     where fifa_match_id between 73 and 104
@@ -112,7 +112,7 @@ knockout_fixtures as (
 fixture_contract as (
     select count(*) as issue_count
     from snapshots
-    left join knockout_fixtures as fixture
+    left join advancement_fixtures as fixture
         on snapshots.fifa_match_id = fixture.fifa_match_id
     where
         snapshots.fifa_match_id >= 73

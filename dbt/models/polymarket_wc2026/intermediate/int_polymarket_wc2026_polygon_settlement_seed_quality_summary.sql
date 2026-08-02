@@ -2,7 +2,7 @@
 
 with seed as (
     select *
-    from {{ ref('int_polymarket_wc2026_polygon_settlement_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_polygon_settlement_working_set') }}
 ),
 
 seed_tokens as (

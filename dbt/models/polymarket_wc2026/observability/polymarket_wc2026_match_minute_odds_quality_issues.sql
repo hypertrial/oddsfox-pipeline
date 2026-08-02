@@ -14,7 +14,7 @@ with matches as (
             as match_start_delta_minutes,
         date_diff('second', match_started_at_utc, match_finished_at_utc) / 60.0
             as match_window_minutes
-    from {{ ref('int_polymarket_wc2026_match_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_match_working_set') }}
 ),
 
 pair_price as (

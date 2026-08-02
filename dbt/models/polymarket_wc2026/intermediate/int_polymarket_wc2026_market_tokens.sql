@@ -19,7 +19,7 @@ select
     t.winning_outcome,
     t.winning_clob_token_id,
     t.market_volume_usd
-from {{ ref('int_polymarket_wc2026_token_universe') }} as t
+from {{ ref('int_polymarket_wc2026_token_working_set') }} as t
 where t.market_id in (
     select polymarket_wc2026_markets.market_id
     from {{ ref('int_polymarket_wc2026_markets') }} as polymarket_wc2026_markets

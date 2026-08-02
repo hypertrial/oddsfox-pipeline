@@ -33,7 +33,7 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('int_wc2026_knockout_fixtures')
+                to: ref('int_wc2026_advancement_fixtures')
                 field: fifa_match_id
       - name: stage_key
         description: FIFA knockout stage.
@@ -303,7 +303,7 @@ unit_tests:
   - name: test_wc2026_match_odds_dense_spine_does_not_fill_prices
     model: wc2026_knockout_match_hourly_odds
     given:
-      - input: ref('int_wc2026_knockout_fixtures')
+      - input: ref('int_wc2026_advancement_fixtures')
         rows:
           - {fifa_match_id: 101, stage_key: semifinal, stage_rank: 4, kickoff_at_utc: "2026-07-14 19:00:00", home_team: France, away_team: Spain, teams_resolved: true}
       - input: ref('int_polymarket_wc2026_match_advance_tokens')
@@ -331,7 +331,7 @@ unit_tests:
   - name: test_wc2026_final_advance_price_means_post_kickoff_champion
     model: wc2026_knockout_match_hourly_odds
     given:
-      - input: ref('int_wc2026_knockout_fixtures')
+      - input: ref('int_wc2026_advancement_fixtures')
         rows:
           - {fifa_match_id: 104, stage_key: final, stage_rank: 5, kickoff_at_utc: "2026-07-19 19:00:00", home_team: England, away_team: Argentina, teams_resolved: true}
       - input: ref('int_polymarket_wc2026_match_advance_tokens')

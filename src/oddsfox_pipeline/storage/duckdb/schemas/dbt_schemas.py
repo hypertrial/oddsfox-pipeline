@@ -138,7 +138,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         OPENFOOTBALL_WC2026_STAGING_SCHEMA,
         "stg_openfootball_wc2026_schedule_fixtures",
     ),
-    (WC2026_INTERMEDIATE_SCHEMA, "int_wc2026_knockout_fixtures"),
+    (WC2026_INTERMEDIATE_SCHEMA, "int_wc2026_advancement_fixtures"),
     (WC2026_MARTS_SCHEMA, "wc2026_knockout_match_hourly_odds"),
     (WC2026_STAGING_SCHEMA, "wc2026_schedule_matches"),
     (WC2026_STAGING_SCHEMA, "wc2026_third_place_options"),
@@ -291,7 +291,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
         "int_polymarket_wc2026_logical_team_identities",
     ),
-    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_token_universe"),
+    (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_token_working_set"),
     (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_market_tokens"),
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
@@ -311,7 +311,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_wc2026_match_market_universe",
+        "int_polymarket_wc2026_match_working_set",
     ),
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
@@ -339,7 +339,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_wc2026_polygon_settlement_market_universe",
+        "int_polymarket_wc2026_polygon_settlement_working_set",
     ),
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
@@ -498,7 +498,7 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_us_midterms_2026_token_universe",
+        "int_polymarket_us_midterms_2026_token_working_set",
     ),
     (
         POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,

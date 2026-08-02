@@ -48,9 +48,9 @@ QUALITY_ISSUES_RELATION = (
     '"polymarket_wc2026_observability".'
     '"polymarket_wc2026_polygon_settlement_quality_issues"'
 )
-UNIVERSE_RELATION = (
+WORKING_SET_RELATION = (
     '"polymarket_wc2026_intermediate".'
-    '"int_polymarket_wc2026_polygon_settlement_market_universe"'
+    '"int_polymarket_wc2026_polygon_settlement_working_set"'
 )
 CANDIDATE_RELATION = (
     '"polymarket_wc2026_intermediate".'

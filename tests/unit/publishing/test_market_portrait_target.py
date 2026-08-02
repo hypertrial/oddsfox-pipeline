@@ -34,7 +34,7 @@ def _connection():
     connection.execute("CREATE SCHEMA polymarket_wc2026_intermediate")
     connection.execute(
         """
-        CREATE TABLE polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe (
+        CREATE TABLE polymarket_wc2026_intermediate.int_polymarket_wc2026_match_working_set (
             fifa_match_id BIGINT, stage VARCHAR, home_team VARCHAR,
             away_team VARCHAR, market_id VARCHAR, proposition_type VARCHAR,
             yes_clob_token_id VARCHAR, no_clob_token_id VARCHAR,
@@ -78,7 +78,7 @@ def test_group_target_selects_only_three_literal_yes_books(tmp_path):
         no_token = str(2_000 + offset)
         connection.execute(
             """
-            INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
+            INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_working_set
             VALUES (1, 'group', 'Azure', 'Coral', ?, ?, ?, ?, 1, 1,
                     '100', 'event-100')
             """,
@@ -115,7 +115,7 @@ def test_knockout_target_maps_named_team_tokens():
     connection = _connection()
     connection.execute(
         """
-        INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
+        INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_working_set
         VALUES (95, 'round_of_16', 'Azure', 'Coral', '200', 'home_advances',
                 '3001', '3002', 1, 1, '100', 'event-100')
         """
@@ -141,12 +141,12 @@ def test_knockout_target_maps_named_team_tokens():
     ] == [("Azure", "home"), ("Coral", "away")]
 
 
-def test_target_generation_fails_before_gamma_when_universe_is_ambiguous():
+def test_target_generation_fails_before_gamma_when_working_set_is_ambiguous():
     connection = _connection()
     for market_id in ("200", "201"):
         connection.execute(
             """
-            INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
+            INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_working_set
             VALUES (95, 'round_of_16', 'Azure', 'Coral', ?, 'home_advances',
                     '3001', '3002', 1, 1, '100', 'event-100')
             """,
@@ -163,7 +163,7 @@ def _knockout_case():
     connection = _connection()
     connection.execute(
         """
-        INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
+        INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_working_set
         VALUES (95, 'round_of_16', 'Azure', 'Coral', '200', 'home_advances',
                 '3001', '3002', 1, 1, '100', 'event-100')
         """
@@ -176,8 +176,8 @@ def _knockout_case():
     )
 
 
-def test_target_generation_requires_validated_universe_rows():
-    with pytest.raises(ValueError, match="absent from the validated universe"):
+def test_target_generation_requires_validated_working_set_rows():
+    with pytest.raises(ValueError, match="absent from the validated working set"):
         generate_target_manifest(
             _connection(), fifa_match_id=1, gamma_client=GammaClient({})
         )
@@ -187,7 +187,7 @@ def test_group_target_rejects_missing_proposition_before_gamma():
     connection = _connection()
     connection.execute(
         """
-        INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
+        INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_working_set
         VALUES (1, 'group', 'Azure', 'Coral', '101', 'home_win',
                 '1001', '2001', 1, 1, '100', 'event-100')
         """
@@ -288,7 +288,7 @@ def test_group_target_rejects_inconsistent_identity_and_changed_yes_token():
         market_id = str(100 + offset)
         connection.execute(
             """
-            INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
+            INSERT INTO polymarket_wc2026_intermediate.int_polymarket_wc2026_match_working_set
             VALUES (1, 'group', 'Azure', ?, ?, ?, ?, ?, 1, 1,
                     '100', 'event-100')
             """,
@@ -313,7 +313,7 @@ def test_group_target_rejects_inconsistent_identity_and_changed_yes_token():
 
     connection.execute(
         """
-        UPDATE polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe
+        UPDATE polymarket_wc2026_intermediate.int_polymarket_wc2026_match_working_set
         SET away_team='Coral'
         """
     )

@@ -75,7 +75,7 @@ Then rerun the quickstart.
 ## API or Network Failures
 
 - Lower `MARKETS_REQUESTS_PER_SECOND` or `ODDS_REQUESTS_PER_SECOND`.
-- Re-run the failed Dagster job; token sync state is ledgered.
+- Re-run the failed job; token sync state is ledgered.
 - Check `polymarket_wc2026_ops.ingestion_run_events` and
   `polymarket_wc2026_ops.sync_run_metrics` for WC2026 run payloads.
 - Check `polymarket_us_midterms_2026_ops.ingestion_run_events` and
@@ -191,7 +191,7 @@ Fix:
 
 ## Warehouse Writes Land in a Different Checkout
 
-Symptom: Dagster jobs or dbt builds report success, but the repo-root
+Symptom: jobs or dbt builds report success, but the repo-root
 `oddsfox.duckdb` has no new schemas or row counts.
 
 Cause: `.env` sets an absolute `DUCKDB_PATH` pointing at another checkout or

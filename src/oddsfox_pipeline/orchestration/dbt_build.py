@@ -71,14 +71,10 @@ def stream_dbt_build(
             build_args.extend(["--select", config.dbt_select])
         if config.dbt_exclude:
             build_args.extend(["--exclude", config.dbt_exclude])
-    elif (
-        config.dbt_select is None
-        and config.dbt_exclude
-        == "tag:polygon_settlement tag:pmxt_order_book tag:wc2026_logical_atlas"
-    ):
-        # Dagster owns subset selection, but dedicated historical and
-        # operator-gated logical atlas models remain opt-in even when the whole
-        # dbt multi-asset is materialized.
+    elif config.dbt_exclude:
+        # Dagster owns subset selection; still honor configured excludes so
+        # scoped jobs and integration fixtures can opt out of polygon, logical
+        # atlas, and cross-domain graphs without widening the asset selection.
         build_args.extend(["--exclude", config.dbt_exclude])
     invocation = dbt.cli(build_args, context=context)
     sentinel = object()

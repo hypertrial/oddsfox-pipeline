@@ -16,7 +16,7 @@ selected_tokens as (
         yes_token_id as token_id,
         analysis_window_start_at_utc,
         analysis_window_end_at_utc
-    from {{ ref('int_polymarket_wc2026_polygon_settlement_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_polygon_settlement_working_set') }}
 
     union all
 
@@ -27,7 +27,7 @@ selected_tokens as (
         no_token_id as token_id,
         analysis_window_start_at_utc,
         analysis_window_end_at_utc
-    from {{ ref('int_polymarket_wc2026_polygon_settlement_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_polygon_settlement_working_set') }}
 ),
 
 in_window as (

@@ -1,6 +1,6 @@
 # Run a scope
 
-Use `scripts/run_scope.py` to preview or execute the fixed Dagster jobs for one
+Use `scripts/run_scope.py` to preview or execute the fixed jobs for one
 or more shipped scopes without navigating the Dagster UI. For the operator map,
 start with [Operators](../audiences/operators.md). Day-two cadence lives in
 [Day-two operations](day-two-operations.md).
@@ -14,7 +14,7 @@ uv run python scripts/run_scope.py polymarket_us_midterms_2026 --step odds --dry
 
 Supported refs are `polymarket:wc2026` (`polymarket_wc2026`),
 `polymarket:us_midterms_2026` (`polymarket_us_midterms_2026`), and
-`kalshi:wc2026` (`kalshi_wc2026`). Supported steps are `market_registry`, `odds`,
+`kalshi:wc2026` (`kalshi_wc2026`). Supported steps are `market_scope_registry`, `odds`,
 `dbt`, and `full`.
 
 The command maps known refs to fixed jobs. It is not a runtime market-scope
@@ -26,7 +26,7 @@ selector and does not accept arbitrary dbt selectors.
 
     ```bash
     .venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j international_results_wc2026_match_results_ingest
-    uv run python scripts/run_scope.py polymarket:wc2026 --step market_registry
+    uv run python scripts/run_scope.py polymarket:wc2026 --step market_scope_registry
     uv run python scripts/run_scope.py polymarket:wc2026 --step odds
     uv run python scripts/run_scope.py polymarket:wc2026 --step dbt
     ```
@@ -34,7 +34,7 @@ selector and does not accept arbitrary dbt selectors.
 === "Polymarket US midterms"
 
     ```bash
-    uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step market_registry
+    uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step market_scope_registry
     uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step odds
     uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step dbt
     ```
@@ -43,7 +43,7 @@ selector and does not accept arbitrary dbt selectors.
 
     ```bash
     .venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j international_results_wc2026_match_results_ingest
-    uv run python scripts/run_scope.py kalshi:wc2026 --step market_registry
+    uv run python scripts/run_scope.py kalshi:wc2026 --step market_scope_registry
     uv run python scripts/run_scope.py kalshi:wc2026 --step odds
     uv run python scripts/run_scope.py kalshi:wc2026 --step dbt
     ```

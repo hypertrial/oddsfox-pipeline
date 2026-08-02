@@ -2,7 +2,7 @@
 
 Use this guide to refresh the neutral WC2026 knockout match mart that compares
 Polymarket and Kalshi match-advance closes. This is **not** a
-`scripts/run_scope.py` ref. It is a fixed Dagster job outside the three shipped
+`scripts/run_scope.py` ref. It is a fixed job outside the three shipped
 scope chooser entries.
 
 ## Why a dedicated job

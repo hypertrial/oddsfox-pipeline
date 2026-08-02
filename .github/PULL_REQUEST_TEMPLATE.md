@@ -6,6 +6,11 @@ Describe the change and its user-visible effect.
 
 - [ ] I ran the relevant repository checks.
 - [ ] I updated affected documentation.
+- [ ] I reviewed naming and prose against
+      [docs/reference/terminology.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/docs/reference/terminology.md)
+      and
+      [config/terminology_policy.toml](https://github.com/hypertrial/oddsfox-pipeline/blob/main/config/terminology_policy.toml)
+      (or ran `make check-terminology`).
 
 ## Data and licence provenance
 

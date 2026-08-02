@@ -59,4 +59,4 @@ These fixed jobs are not chooser refs:
 | Match-minute and Polygon minute mart recreation | [Recreate local marts](../guides/recreate-local-marts.md) |
 
 Next, read [Run a scope](../guides/run-a-scope.md) for staged execution or
-[Data contracts](../reference/data-contracts.md) for the exact public marts.
+[Data contracts](../reference/data-contracts.md) for the exact documented marts.

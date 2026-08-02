@@ -5,7 +5,7 @@ pipeline health without turning routine gaps into full warehouse rebuilds.
 
 ## Run deterministic checks
 
-Verify every registered public Dagster job with mocked external APIs:
+Verify every registered public job with mocked external APIs:
 
 ```bash
 uv run make dagster-jobs-smoke

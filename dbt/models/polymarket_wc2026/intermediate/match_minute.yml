@@ -1,8 +1,8 @@
 version: 2
 
 models:
-  - name: int_polymarket_wc2026_match_market_universe
-    description: Strict 248-market WC2026 group-moneyline and knockout-advance universe mapped to FIFA match numbers.
+  - name: int_polymarket_wc2026_match_working_set
+    description: Strict 248-market WC2026 group-moneyline and knockout-advance working set mapped to FIFA match numbers.
     tests:
       - no_duplicate_grain:
           arguments:
@@ -113,8 +113,8 @@ models:
                 values: [true]
 
 unit_tests:
-  - name: test_match_market_universe_orients_group_knockout_third_place_and_final
-    model: int_polymarket_wc2026_match_market_universe
+  - name: test_match_working_set_orients_group_knockout_third_place_and_final
+    model: int_polymarket_wc2026_match_working_set
     given:
       - input: ref('stg_polymarket_wc2026_markets')
         rows:
@@ -161,7 +161,7 @@ unit_tests:
   - name: test_match_token_minute_ohlc_filters_exact_window_and_orders_jitter
     model: int_polymarket_wc2026_match_token_minute_odds
     given:
-      - input: ref('int_polymarket_wc2026_match_market_universe')
+      - input: ref('int_polymarket_wc2026_match_working_set')
         rows:
           - {market_id: market-1, yes_clob_token_id: yes-1, no_clob_token_id: no-1, match_started_at_utc: '2026-07-01 12:00:30', match_finished_at_utc: '2026-07-01 12:02:35'}
       - input: ref('stg_polymarket_wc2026_match_minute_odds_history')
@@ -179,7 +179,7 @@ unit_tests:
   - name: test_match_minute_candidate_keeps_dense_null_minutes_without_fill
     model: int_polymarket_wc2026_match_minute_odds_candidate
     given:
-      - input: ref('int_polymarket_wc2026_match_market_universe')
+      - input: ref('int_polymarket_wc2026_match_working_set')
         rows:
           - {fifa_match_id: 104, market_id: market-1, condition_id: condition-1, selected_market_event_id: more-1, selected_market_event_slug: more-1, primary_timing_event_id: primary-1, primary_timing_event_slug: primary-1, stage: final, group_label: null, home_team: Spain, away_team: Argentina, match_started_at_utc: '2026-07-01 12:00:30', match_finished_at_utc: '2026-07-01 12:02:35', sports_market_type: soccer_team_to_advance, proposition_type: home_wins_final, question: Team to Advance, yes_represents: Spain wins, no_represents: Argentina wins, yes_team_name: Spain, no_team_name: Argentina, yes_clob_token_id: yes-1, no_clob_token_id: no-1}
       - input: ref('int_polymarket_wc2026_match_token_minute_odds')
@@ -195,7 +195,7 @@ unit_tests:
   - name: test_match_minute_candidate_flags_raw_close_pair_deviation
     model: int_polymarket_wc2026_match_minute_odds_candidate
     given:
-      - input: ref('int_polymarket_wc2026_match_market_universe')
+      - input: ref('int_polymarket_wc2026_match_working_set')
         rows:
           - {fifa_match_id: 1, market_id: market-1, condition_id: condition-1, selected_market_event_id: event-1, selected_market_event_slug: event-1, primary_timing_event_id: event-1, primary_timing_event_slug: event-1, stage: group_stage, home_team: Japan, away_team: Sweden, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', match_started_at_utc: '2026-07-01 12:00:05', match_finished_at_utc: '2026-07-01 12:00:55', sports_market_type: moneyline, proposition_type: home_win, question: Japan win?, yes_represents: Japan wins, no_represents: Japan does not win, yes_team_name: Japan, yes_clob_token_id: yes-1, no_clob_token_id: no-1}
       - input: ref('int_polymarket_wc2026_match_token_minute_odds')

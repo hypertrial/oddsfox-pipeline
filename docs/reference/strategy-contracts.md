@@ -1,10 +1,11 @@
 # Strategy Contracts
 
 Use this page when consuming private canonical snapshots (`oddsfox.raw.v1`) or
-the strategy clean-data relation set under `wc2026.v1`. Ordinary public mart
+the strategy clean-data relation set under `wc2026.v1`. A **contract** is a
+named guarantee; see [Terminology](terminology.md#guarantee). Ordinary mart
 queries, the logical-v1 bundle, and open-source integrator work should start
-with [Data contracts](data-contracts.md) instead. `wc2026.v1` is not the public
-analytics contract; public marts are the supported query API.
+with [Data contracts](data-contracts.md) instead. `wc2026.v1` is not the
+analytics mart contract; documented marts are the supported query API.
 
 ## Canonical raw snapshots
 

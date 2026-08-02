@@ -275,6 +275,10 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
     assert "dbt-prepare:" in makefile
     assert "ODDSFOX_RUNTIME_ROOT=" in _target_recipe(makefile, "ci-fast-tests")
     assert "tests/repository" in _target_recipe(makefile, "check-repository")
+    terminology = _target_recipe(makefile, "check-terminology")
+    assert "tests/repository/test_terminology_policy.py" in terminology
+    assert "tests/repository/test_naming_policy.py" in terminology
+    assert "-q" in terminology and "-n 0" in terminology
     assert "DBT_LINT_DUCKDB_PATH := $(ODDSFOX_RUNTIME_ROOT)/dbt_lint.duckdb" in makefile
     assert (
         "DBT_BUILD_DUCKDB_PATH := $(ODDSFOX_RUNTIME_ROOT)/dbt_build.duckdb" in makefile

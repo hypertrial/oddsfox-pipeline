@@ -16,8 +16,8 @@ from oddsfox_pipeline.naming import (
     flat_name,
 )
 
-ScopeStep = Literal["market_registry", "odds", "dbt", "full"]
-SCOPE_STEPS: tuple[ScopeStep, ...] = ("market_registry", "odds", "dbt", "full")
+ScopeStep = Literal["market_scope_registry", "odds", "dbt", "full"]
+SCOPE_STEPS: tuple[ScopeStep, ...] = ("market_scope_registry", "odds", "dbt", "full")
 
 
 @dataclass(frozen=True)
@@ -52,7 +52,7 @@ class ScopeSpec:
 
     def job_for_step(self, step: ScopeStep) -> str:
         return {
-            "market_registry": self.registry_job_name,
+            "market_scope_registry": self.registry_job_name,
             "odds": self.odds_job_name,
             "dbt": self.dbt_job_name,
             "full": self.full_job_name,

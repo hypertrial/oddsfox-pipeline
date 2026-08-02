@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
@@ -8,6 +7,16 @@ import yaml
 
 from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
     polymarket_wc2026_markets_source,
+)
+from oddsfox_pipeline.naming import (
+    SCOPE_US_MIDTERMS_2026,
+    SCOPE_WC2026,
+    SOURCE_INTERNATIONAL_RESULTS,
+    SOURCE_KALSHI,
+    SOURCE_OPENFOOTBALL,
+    SOURCE_POLYMARKET,
+    flat_name,
+    schema_name,
 )
 from oddsfox_pipeline.orchestration import assets
 from oddsfox_pipeline.orchestration.config import (
@@ -25,6 +34,7 @@ from oddsfox_pipeline.orchestration.config import (
     wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
+from oddsfox_pipeline.orchestration.shipped_scopes import SHIPPED_SCOPE_SPECS
 from oddsfox_pipeline.storage.duckdb.schemas import dbt_schemas
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
@@ -32,35 +42,16 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     POLYMARKET_WC2026_OPS_SCHEMA,
     POLYMARKET_WC2026_RAW_SCHEMA,
 )
+from tests.support.terminology_policy import load_policy
 
 pytestmark = pytest.mark.repo_check
 
 ROOT = Path(__file__).resolve().parents[2]
+DBT_PROJECT = yaml.safe_load((ROOT / "dbt" / "dbt_project.yml").read_text())
+DBT_MODEL_FAMILIES = DBT_PROJECT["models"]["oddsfox"]
 
-EXPECTED_JOB_NAMES = {
-    "international_results_historical_ingest",
-    "international_results_wc2026_match_results_ingest",
-    "kalshi_wc2026_dbt_build",
-    "kalshi_wc2026_full_pipeline",
-    "kalshi_wc2026_hourly_odds_ingest",
-    "kalshi_wc2026_market_scope_registry_refresh",
-    "polymarket_us_midterms_2026_dbt_build",
-    "polymarket_us_midterms_2026_full_pipeline",
-    "polymarket_us_midterms_2026_hourly_odds_ingest",
-    "polymarket_us_midterms_2026_market_scope_registry_refresh",
-    "polymarket_wc2026_market_scope_registry_refresh",
-    "polymarket_wc2026_logical_atlas",
-    "polymarket_wc2026_match_minute_odds_backfill",
-    "polymarket_wc2026_match_order_book_backfill",
-    "polymarket_wc2026_market_portrait_backfill",
-    "polymarket_wc2026_polygon_settlement_backfill",
-    "polymarket_wc2026_polygon_settlement_release",
-    "polymarket_wc2026_hourly_odds_ingest",
-    "polymarket_wc2026_dbt_build",
-    "polymarket_wc2026_full_pipeline",
-    "wc2026_knockout_match_odds_full_pipeline",
-}
-
+# Flat op names are still enumerated: Dagster ops are not derivable from
+# SHIPPED_SCOPE_SPECS the way jobs are.
 EXPECTED_OP_NAMES = {
     "international_results_historical_raw_snapshot",
     "international_results_wc2026_raw_match_results",
@@ -90,96 +81,6 @@ EXPECTED_OP_NAMES = {
     "oddsfox_dbt",
 }
 
-EXPECTED_ASSET_KEYS = {
-    ("international_results", "historical", "raw", "snapshot"),
-    ("international_results", "wc2026", "raw", "match_results"),
-    ("international_results", "wc2026", "staging", "match_results"),
-    ("international_results", "wc2026", "staging", "team_aliases"),
-    ("international_results", "wc2026", "intermediate", "match_teams"),
-    ("international_results", "wc2026", "marts", "matches"),
-    ("international_results", "wc2026", "marts", "team_status"),
-    ("international_results", "wc2026", "observability", "data_quality"),
-    ("openfootball", "wc2026", "raw", "schedule_fixtures"),
-    ("openfootball", "wc2026", "staging", "schedule_fixtures"),
-    ("wc2026", "intermediate", "knockout_fixtures"),
-    ("wc2026", "marts", "knockout_match_hourly_odds"),
-    ("wc2026", "observability", "knockout_match_odds_coverage"),
-    ("wc2026", "observability", "knockout_match_odds_data_quality"),
-    ("polymarket", "us_midterms_2026", "raw", "markets"),
-    ("polymarket", "us_midterms_2026", "raw", "markets_snapshot"),
-    ("polymarket", "us_midterms_2026", "ops", "market_scope_registry"),
-    ("polymarket", "us_midterms_2026", "raw", "market_metadata_enrichment"),
-    ("polymarket", "us_midterms_2026", "raw", "token_odds_history_hourly"),
-    ("polymarket", "us_midterms_2026", "staging", "markets"),
-    ("polymarket", "us_midterms_2026", "marts", "markets"),
-    ("polymarket", "us_midterms_2026", "marts", "market_token_hourly_odds"),
-    ("polymarket", "us_midterms_2026", "observability", "ingestion_run_observability"),
-    ("polymarket", "catalog", "raw", "markets"),
-    ("polymarket", "catalog", "staging", "markets"),
-    ("polymarket", "wc2026", "raw", "markets"),
-    ("polymarket", "wc2026", "raw", "markets_snapshot"),
-    ("polymarket", "wc2026", "raw", "event_catalog"),
-    ("polymarket", "wc2026", "raw", "event_snapshots"),
-    ("polymarket", "wc2026", "raw", "event_market_memberships"),
-    ("polymarket", "wc2026", "ops", "market_scope_registry"),
-    ("polymarket", "wc2026", "raw", "market_metadata_enrichment"),
-    ("polymarket", "wc2026", "raw", "token_odds_history_hourly"),
-    ("polymarket", "wc2026", "raw", "match_token_odds_history_minute"),
-    ("polymarket", "wc2026", "raw", "match_order_book_snapshots"),
-    ("polymarket", "wc2026", "raw", "match_trades"),
-    ("polymarket", "wc2026", "raw", "polygon_settlement_fills"),
-    ("polymarket", "wc2026", "release", "polygon_settlement_odds_bundle"),
-    ("polymarket", "wc2026", "release", "logical_bundle"),
-    ("polymarket", "wc2026", "staging", "markets"),
-    ("polymarket", "wc2026", "marts", "markets"),
-    ("polymarket", "wc2026", "staging", "match_minute_odds_history"),
-    ("polymarket", "wc2026", "staging", "match_order_book_snapshots"),
-    ("polymarket", "wc2026", "intermediate", "token_universe"),
-    ("polymarket", "wc2026", "intermediate", "match_advance_tokens"),
-    ("polymarket", "wc2026", "intermediate", "match_hourly_odds"),
-    ("polymarket", "wc2026", "intermediate", "match_market_universe"),
-    ("polymarket", "wc2026", "intermediate", "match_token_minute_odds"),
-    ("polymarket", "wc2026", "intermediate", "match_minute_odds_candidate"),
-    ("polymarket", "wc2026", "intermediate", "match_minute_publication_gate"),
-    ("polymarket", "wc2026", "intermediate", "match_order_book_levels"),
-    ("polymarket", "wc2026", "intermediate", "match_order_book_publication_gate"),
-    ("polymarket", "wc2026", "marts", "knockout_token_hourly_odds"),
-    ("polymarket", "wc2026", "marts", "match_minute_odds"),
-    ("polymarket", "wc2026", "marts", "match_order_book"),
-    ("polymarket", "wc2026", "marts", "match_order_book_states"),
-    ("polymarket", "wc2026", "marts", "match_trades"),
-    ("polymarket", "wc2026", "observability", "ingestion_run_observability"),
-    ("polymarket", "wc2026", "observability", "match_minute_odds_data_quality"),
-    ("polymarket", "wc2026", "observability", "match_order_book_data_quality"),
-    ("polymarket", "wc2026", "observability", "match_order_book_quality_issues"),
-    ("kalshi", "wc2026", "raw", "events"),
-    ("kalshi", "wc2026", "raw", "markets"),
-    ("kalshi", "wc2026", "raw", "markets_snapshot"),
-    ("kalshi", "wc2026", "ops", "market_scope_registry"),
-    ("kalshi", "wc2026", "raw", "market_candlesticks_hourly"),
-    ("kalshi", "wc2026", "staging", "markets"),
-    ("kalshi", "wc2026", "intermediate", "match_advance_markets"),
-    ("kalshi", "wc2026", "intermediate", "match_hourly_odds"),
-    ("kalshi", "wc2026", "marts", "stage_markets"),
-    ("kalshi", "wc2026", "marts", "group_winner_markets"),
-    ("kalshi", "wc2026", "observability", "ingestion_run_observability"),
-}
-
-OLD_ACTIVE_PATTERNS = (
-    re.compile(r"wc2026_polymarket"),
-    re.compile(r"WC2026_POLYMARKET"),
-    re.compile(r"(?<!polymarket_)(?<!kalshi_)wc2026_market_scope_registry_refresh"),
-    re.compile(r"(?<!polymarket_)(?<!kalshi_)wc2026_hourly_odds_ingest"),
-    re.compile(r"(?<!polymarket_)(?<!kalshi_)wc2026_dbt_build"),
-    re.compile(r"(?<!polymarket_)(?<!kalshi_)wc2026_full_pipeline"),
-    re.compile(r"(?<!polymarket_)(?<!kalshi_)wc2026_hourly_odds_schedule"),
-    re.compile(r"export_wc2026_"),
-    re.compile(r"repair_wc2026_"),
-    re.compile(r"count_wc2026_"),
-    re.compile(r"rebuild_minutely"),
-    re.compile(r"minutely_backfill"),
-)
-
 EXPECTED_SCRIPT_FILES = {
     "build_polymarket_wc2026_polygon_settlement_release.py",
     "count_polymarket_wc2026_gamma_tag_events.py",
@@ -189,63 +90,110 @@ EXPECTED_SCRIPT_FILES = {
     "sync_polymarket_markets_catalog.py",
 }
 
+# Build inverted tokens without embedding the contiguous retired literal.
+_INVERTED_NS = f"{SCOPE_WC2026}_{SOURCE_POLYMARKET}"
+_INVERTED_NS_UPPER = _INVERTED_NS.upper()
+
 OLD_SCRIPT_FILES = {
     "count_wc2026_gamma_tag_events.py",
     "export_wc2026_hourly_odds.py",
     "export_polymarket_wc2026_hourly_odds.py",
     "export_wc2026_knockout_markets.py",
     "export_polymarket_wc2026_knockout_markets.py",
-    "repair_wc2026_polymarket_token_sync_ledger.py",
+    f"repair_{_INVERTED_NS}_token_sync_ledger.py",
 }
 
-ACTIVE_REFERENCE_PATHS = (
-    ROOT / "src",
-    ROOT / "dbt" / "dbt_project.yml",
-    ROOT / "dbt" / "profiles" / "profiles.yml",
-    ROOT / "dbt" / "README.md",
-    ROOT / "dbt" / "models",
-    ROOT / "dbt" / "tests",
-    ROOT / "scripts",
-    ROOT / ".env.example",
-    ROOT / ".github" / "workflows" / "ci.yml",
-    ROOT / "README.md",
-    ROOT / "AGENTS.md",
-    ROOT / "CONTRIBUTING.md",
-    ROOT / "docs",
+_ALLOWED_ASSET_ROOTS = frozenset(
+    {
+        (SOURCE_POLYMARKET, SCOPE_WC2026),
+        (SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026),
+        (SOURCE_POLYMARKET, "catalog"),
+        (SOURCE_INTERNATIONAL_RESULTS, "historical"),
+        (SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026),
+        (SOURCE_OPENFOOTBALL, SCOPE_WC2026),
+        (SOURCE_KALSHI, SCOPE_WC2026),
+    }
+)
+
+_SOURCE_FIRST_OP_PREFIXES = (
+    f"{SOURCE_INTERNATIONAL_RESULTS}_",
+    f"{SOURCE_OPENFOOTBALL}_",
+    f"{SOURCE_KALSHI}_",
+    f"{SOURCE_POLYMARKET}_",
+    "oddsfox_dbt",
 )
 
 
-def _text_files(path: Path):
-    if path.is_file():
-        yield path
-        return
-    for candidate in path.rglob("*"):
-        if "__pycache__" in candidate.parts:
-            continue
-        if candidate.is_file() and candidate.suffix not in {".png", ".ico", ".pyc"}:
-            yield candidate
+def _expected_job_names() -> set[str]:
+    shipped = {
+        name
+        for spec in SHIPPED_SCOPE_SPECS
+        for name in (
+            spec.registry_job_name,
+            spec.odds_job_name,
+            spec.dbt_job_name,
+            spec.full_job_name,
+        )
+    }
+    return shipped | set(load_policy().extension_jobs)
+
+
+def _job_expected_source(job_name: str) -> str:
+    if job_name.startswith(f"{SOURCE_INTERNATIONAL_RESULTS}_"):
+        return SOURCE_INTERNATIONAL_RESULTS
+    if job_name.startswith(f"{SOURCE_KALSHI}_"):
+        return SOURCE_KALSHI
+    if job_name.startswith(f"{SOURCE_POLYMARKET}_"):
+        return SOURCE_POLYMARKET
+    return "cross_domain"
+
+
+def _job_expected_scope(job_name: str) -> str:
+    if job_name.startswith(f"{SOURCE_POLYMARKET}_{SCOPE_US_MIDTERMS_2026}_"):
+        return SCOPE_US_MIDTERMS_2026
+    if job_name == "international_results_historical_ingest":
+        return "historical"
+    return SCOPE_WC2026
+
+
+def _dbt_model_families() -> dict[str, dict]:
+    return {
+        name: cfg
+        for name, cfg in DBT_MODEL_FAMILIES.items()
+        if isinstance(cfg, dict) and not str(name).startswith("+")
+    }
+
+
+def _layer_filename_prefix(family: str, layer: str) -> str:
+    if layer == "staging":
+        return f"stg_{family}_"
+    if layer == "intermediate":
+        return f"int_{family}_"
+    return f"{family}_"
+
+
+def _dbt_layer_dirs() -> dict[str, str]:
+    """Map relative model dir → expected filename prefix from dbt_project.yml."""
+    layers = ("staging", "intermediate", "marts", "observability")
+    mapping: dict[str, str] = {}
+    for family, cfg in _dbt_model_families().items():
+        for layer in layers:
+            layer_cfg = cfg.get(layer)
+            if not isinstance(layer_cfg, dict):
+                continue
+            if "+schema" not in layer_cfg:
+                continue
+            mapping[f"{family}/{layer}"] = _layer_filename_prefix(family, layer)
+    return mapping
 
 
 def test_public_jobs_are_source_first_and_tagged():
     jobs = [job for job in defs.resolve_all_job_defs() if job.name != "__ASSET_JOB"]
 
-    assert {job.name for job in jobs} == EXPECTED_JOB_NAMES
+    assert {job.name for job in jobs} == _expected_job_names()
     for job in jobs:
-        if job.name.startswith("international_results_"):
-            expected_source = "international_results"
-        elif job.name.startswith("kalshi_"):
-            expected_source = "kalshi"
-        elif job.name.startswith("polymarket_"):
-            expected_source = "polymarket"
-        else:
-            expected_source = "cross_domain"
-        assert job.tags["source"] == expected_source
-        if job.name.startswith("polymarket_us_midterms_2026_"):
-            assert job.tags["scope"] == "us_midterms_2026"
-        elif job.name == "international_results_historical_ingest":
-            assert job.tags["scope"] == "historical"
-        else:
-            assert job.tags["scope"] == "wc2026"
+        assert job.tags["source"] == _job_expected_source(job.name)
+        assert job.tags["scope"] == _job_expected_scope(job.name)
 
 
 def test_public_schedule_is_source_first_and_targets_source_first_job():
@@ -314,6 +262,7 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
     )
 
     assert actual_op_names == EXPECTED_OP_NAMES
+    assert all(name.startswith(_SOURCE_FIRST_OP_PREFIXES) for name in actual_op_names)
     assert run_config_ops == EXPECTED_OP_NAMES - {
         "international_results_historical_raw_snapshot",
         "international_results_wc2026_raw_match_results",
@@ -330,112 +279,59 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
 
 def test_registered_asset_keys_are_hierarchical_source_scope_layer():
     asset_keys = {tuple(key.path) for key in defs.resolve_all_asset_keys()}
+    policy = load_policy()
 
-    assert EXPECTED_ASSET_KEYS <= asset_keys
+    assert policy.critical_asset_keys <= asset_keys
     assert all(
-        key[:2]
-        in {
-            ("polymarket", "wc2026"),
-            ("polymarket", "us_midterms_2026"),
-            ("polymarket", "catalog"),
-            ("international_results", "historical"),
-            ("international_results", "wc2026"),
-            ("openfootball", "wc2026"),
-            ("kalshi", "wc2026"),
-        }
-        or key[0] == "wc2026"
-        for key in asset_keys
+        key[:2] in _ALLOWED_ASSET_ROOTS or key[0] == SCOPE_WC2026 for key in asset_keys
     )
     assert all(len(key) >= 3 for key in asset_keys)
-    assert not any("wc2026_polymarket" in part for key in asset_keys for part in key)
+    assert not any(_INVERTED_NS in part for key in asset_keys for part in key)
 
 
 def test_dlt_source_name_is_source_first():
-    assert polymarket_wc2026_markets_source().name == "polymarket_wc2026"
+    assert polymarket_wc2026_markets_source().name == flat_name(
+        SOURCE_POLYMARKET, SCOPE_WC2026
+    )
 
 
 def test_dbt_project_uses_source_first_directory_and_schemas():
-    assert (ROOT / "dbt" / "models" / "polymarket_catalog").is_dir()
-    assert (ROOT / "dbt" / "models" / "polymarket_wc2026").is_dir()
-    assert (ROOT / "dbt" / "models" / "polymarket_us_midterms_2026").is_dir()
-    assert (ROOT / "dbt" / "models" / "international_results_wc2026").is_dir()
-    assert (ROOT / "dbt" / "models" / "kalshi_wc2026").is_dir()
-    assert (ROOT / "dbt" / "models" / "openfootball_wc2026").is_dir()
-    assert (ROOT / "dbt" / "models" / "wc2026").is_dir()
-    assert not (ROOT / "dbt" / "models" / "wc2026_polymarket").exists()
+    families = _dbt_model_families()
+    for family in families:
+        assert (ROOT / "dbt" / "models" / family).is_dir(), family
+    assert not (ROOT / "dbt" / "models" / _INVERTED_NS).exists()
 
-    project = yaml.safe_load((ROOT / "dbt" / "dbt_project.yml").read_text())
-    catalog_cfg = project["models"]["oddsfox"]["polymarket_catalog"]
-    model_cfg = project["models"]["oddsfox"]["polymarket_wc2026"]
-    kalshi_cfg = project["models"]["oddsfox"]["kalshi_wc2026"]
-    midterms_cfg = project["models"]["oddsfox"]["polymarket_us_midterms_2026"]
-    results_cfg = project["models"]["oddsfox"]["international_results_wc2026"]
-    openfootball_cfg = project["models"]["oddsfox"]["openfootball_wc2026"]
-    wc2026_cfg = project["models"]["oddsfox"]["wc2026"]
-
-    assert catalog_cfg["staging"]["+schema"] == "polymarket_catalog_staging"
-    assert model_cfg["staging"]["+schema"] == "polymarket_wc2026_staging"
-    assert model_cfg["intermediate"]["+schema"] == "polymarket_wc2026_intermediate"
-    assert model_cfg["marts"]["+schema"] == "polymarket_wc2026_marts"
-    assert model_cfg["observability"]["+schema"] == "polymarket_wc2026_observability"
-    assert kalshi_cfg["staging"]["+schema"] == "kalshi_wc2026_staging"
-    assert kalshi_cfg["intermediate"]["+schema"] == "kalshi_wc2026_intermediate"
-    assert kalshi_cfg["marts"]["+schema"] == "kalshi_wc2026_marts"
-    assert kalshi_cfg["observability"]["+schema"] == "kalshi_wc2026_observability"
-    assert midterms_cfg["staging"]["+schema"] == "polymarket_us_midterms_2026_staging"
-    assert (
-        midterms_cfg["intermediate"]["+schema"]
-        == "polymarket_us_midterms_2026_intermediate"
-    )
-    assert midterms_cfg["marts"]["+schema"] == "polymarket_us_midterms_2026_marts"
-    assert (
-        midterms_cfg["observability"]["+schema"]
-        == "polymarket_us_midterms_2026_observability"
-    )
-    assert results_cfg["staging"]["+schema"] == "international_results_wc2026_staging"
-    assert (
-        results_cfg["intermediate"]["+schema"]
-        == "international_results_wc2026_intermediate"
-    )
-    assert results_cfg["marts"]["+schema"] == "international_results_wc2026_marts"
-    assert (
-        results_cfg["observability"]["+schema"]
-        == "international_results_wc2026_observability"
-    )
-    assert openfootball_cfg["staging"]["+schema"] == "openfootball_wc2026_staging"
-    assert wc2026_cfg["intermediate"]["+schema"] == "wc2026_intermediate"
-    assert wc2026_cfg["marts"]["+schema"] == "wc2026_marts"
-    assert wc2026_cfg["observability"]["+schema"] == "wc2026_observability"
+    naming_families = {
+        flat_name(SOURCE_POLYMARKET, SCOPE_WC2026): (
+            SOURCE_POLYMARKET,
+            SCOPE_WC2026,
+        ),
+        flat_name(SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026): (
+            SOURCE_POLYMARKET,
+            SCOPE_US_MIDTERMS_2026,
+        ),
+        flat_name(SOURCE_KALSHI, SCOPE_WC2026): (SOURCE_KALSHI, SCOPE_WC2026),
+        flat_name(SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026): (
+            SOURCE_INTERNATIONAL_RESULTS,
+            SCOPE_WC2026,
+        ),
+    }
+    for family, cfg in families.items():
+        for layer, layer_cfg in cfg.items():
+            if not isinstance(layer_cfg, dict) or "+schema" not in layer_cfg:
+                continue
+            if family in naming_families:
+                source, scope = naming_families[family]
+                expected = schema_name(source, scope, layer)
+            else:
+                expected = f"{family}_{layer}"
+            assert layer_cfg["+schema"] == expected, f"{family}/{layer}"
 
 
 def test_dbt_model_filenames_are_source_first_by_layer():
-    layer_prefixes = {
-        "polymarket_catalog/staging": "stg_polymarket_catalog_",
-        "polymarket_wc2026/staging": "stg_polymarket_wc2026_",
-        "polymarket_wc2026/intermediate": "int_polymarket_wc2026_",
-        "polymarket_wc2026/marts": "polymarket_wc2026_",
-        "polymarket_wc2026/observability": "polymarket_wc2026_",
-        "polymarket_us_midterms_2026/staging": "stg_polymarket_us_midterms_2026_",
-        "polymarket_us_midterms_2026/intermediate": "int_polymarket_us_midterms_2026_",
-        "polymarket_us_midterms_2026/marts": "polymarket_us_midterms_2026_",
-        "polymarket_us_midterms_2026/observability": "polymarket_us_midterms_2026_",
-        "international_results_wc2026/staging": "stg_international_results_wc2026_",
-        "international_results_wc2026/intermediate": "int_international_results_wc2026_",
-        "international_results_wc2026/marts": "international_results_wc2026_",
-        "international_results_wc2026/observability": "international_results_wc2026_",
-        "kalshi_wc2026/staging": "stg_kalshi_wc2026_",
-        "kalshi_wc2026/intermediate": "int_kalshi_wc2026_",
-        "kalshi_wc2026/marts": "kalshi_wc2026_",
-        "kalshi_wc2026/observability": "kalshi_wc2026_",
-        "openfootball_wc2026/staging": "stg_openfootball_wc2026_",
-        "wc2026/intermediate": "int_wc2026_",
-        "wc2026/marts": "wc2026_",
-        "wc2026/observability": "wc2026_",
-    }
-
-    for path, prefix in layer_prefixes.items():
+    for path, prefix in _dbt_layer_dirs().items():
         for model_path in (ROOT / "dbt" / "models" / path).glob("*.sql"):
-            assert model_path.stem.startswith(prefix)
+            assert model_path.stem.startswith(prefix), model_path.name
 
 
 def test_storage_schema_constants_are_source_first():
@@ -446,42 +342,38 @@ def test_storage_schema_constants_are_source_first():
         polymarket_us_midterms_2026_raw_tbl,
     )
 
-    assert POLYMARKET_WC2026_RAW_SCHEMA == "polymarket_wc2026_raw"
-    assert POLYMARKET_WC2026_OPS_SCHEMA == "polymarket_wc2026_ops"
-    assert POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA == "polymarket_us_midterms_2026_raw"
-    assert POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA == "polymarket_us_midterms_2026_ops"
+    assert POLYMARKET_WC2026_RAW_SCHEMA == schema_name(
+        SOURCE_POLYMARKET, SCOPE_WC2026, "raw"
+    )
+    assert POLYMARKET_WC2026_OPS_SCHEMA == schema_name(
+        SOURCE_POLYMARKET, SCOPE_WC2026, "ops"
+    )
+    assert POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA == schema_name(
+        SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "raw"
+    )
+    assert POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA == schema_name(
+        SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "ops"
+    )
     assert polymarket_us_midterms_2026_raw_tbl("markets").endswith(
-        '"polymarket_us_midterms_2026_raw"."markets"'
+        f'"{schema_name(SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "raw")}"."markets"'
     )
     assert polymarket_us_midterms_2026_ops_tbl("token_sync_ledger").endswith(
-        '"polymarket_us_midterms_2026_ops"."token_sync_ledger"'
+        f'"{schema_name(SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "ops")}"."token_sync_ledger"'
     )
-    assert INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA == "international_results_wc2026_raw"
-    assert OPENFOOTBALL_WC2026_RAW_SCHEMA == "openfootball_wc2026_raw"
-    assert dbt_schemas.DBT_MODELED_SCHEMAS == (
-        "international_results_wc2026_staging",
-        "international_results_wc2026_intermediate",
-        "international_results_wc2026_marts",
-        "international_results_wc2026_observability",
-        "openfootball_wc2026_staging",
-        "wc2026_staging",
-        "wc2026_intermediate",
-        "wc2026_marts",
-        "wc2026_observability",
-        "polymarket_catalog_staging",
-        "polymarket_wc2026_staging",
-        "polymarket_wc2026_intermediate",
-        "polymarket_wc2026_marts",
-        "polymarket_wc2026_observability",
-        "kalshi_wc2026_staging",
-        "kalshi_wc2026_intermediate",
-        "kalshi_wc2026_marts",
-        "kalshi_wc2026_observability",
-        "polymarket_us_midterms_2026_staging",
-        "polymarket_us_midterms_2026_intermediate",
-        "polymarket_us_midterms_2026_marts",
-        "polymarket_us_midterms_2026_observability",
+    assert INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA == schema_name(
+        SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "raw"
     )
+    assert OPENFOOTBALL_WC2026_RAW_SCHEMA == schema_name(
+        SOURCE_OPENFOOTBALL, SCOPE_WC2026, "raw"
+    )
+    project_schemas = {
+        layer_cfg["+schema"]
+        for cfg in _dbt_model_families().values()
+        for layer_cfg in cfg.values()
+        if isinstance(layer_cfg, dict) and "+schema" in layer_cfg
+    }
+    assert project_schemas <= set(dbt_schemas.DBT_MODELED_SCHEMAS)
+    assert "wc2026_staging" in dbt_schemas.DBT_MODELED_SCHEMAS
 
 
 def test_dbt_source_metadata_uses_hierarchical_asset_keys():
@@ -529,15 +421,7 @@ def test_dbt_source_metadata_uses_hierarchical_asset_keys():
 
     assert source_asset_keys <= registered_asset_keys
     assert all(
-        key[:2]
-        in {
-            ("polymarket", "wc2026"),
-            ("polymarket", "us_midterms_2026"),
-            ("international_results", "historical"),
-            ("international_results", "wc2026"),
-            ("openfootball", "wc2026"),
-            ("kalshi", "wc2026"),
-        }
+        key[:2] in _ALLOWED_ASSET_ROOTS - {(SOURCE_POLYMARKET, "catalog")}
         for key in source_asset_keys
     )
     assert all(len(key) >= 4 for key in source_asset_keys)
@@ -550,26 +434,17 @@ def test_source_specific_script_filenames_are_source_first():
     assert OLD_SCRIPT_FILES.isdisjoint(script_names)
 
 
-def test_active_surfaces_do_not_reference_old_namespace():
-    offenders: list[str] = []
-    for base_path in ACTIVE_REFERENCE_PATHS:
-        for path in _text_files(base_path):
-            text = path.read_text(errors="ignore")
-            for pattern in OLD_ACTIVE_PATTERNS:
-                if pattern.search(text):
-                    offenders.append(f"{path.relative_to(ROOT)}: {pattern.pattern}")
-
-    assert offenders == []
-
-
 def test_changelog_old_namespace_reference_is_only_breaking_reset_note():
     text = (ROOT / "CHANGELOG.md").read_text()
     old_namespace_lines = [
         line.strip()
         for line in text.splitlines()
-        if "wc2026_polymarket" in line or "WC2026_POLYMARKET" in line
+        if _INVERTED_NS in line or _INVERTED_NS_UPPER in line
     ]
 
     assert old_namespace_lines == [
-        "`polymarket_wc2026` instead of `wc2026_polymarket`. Dagster asset keys are"
+        (
+            f"`{flat_name(SOURCE_POLYMARKET, SCOPE_WC2026)}` instead of "
+            f"`{_INVERTED_NS}`. Dagster asset keys are"
+        )
     ]

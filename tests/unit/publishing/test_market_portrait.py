@@ -43,7 +43,7 @@ def _add_alignment_contract(connection, roles=("home", "away")):
     connection.execute(
         """
         CREATE TABLE polymarket_wc2026_intermediate
-            .int_polymarket_wc2026_match_market_universe (
+            .int_polymarket_wc2026_match_working_set (
             fifa_match_id BIGINT,
             scheduled_kickoff_at_utc TIMESTAMPTZ,
             match_started_at_utc TIMESTAMPTZ,
@@ -55,7 +55,7 @@ def _add_alignment_contract(connection, roles=("home", "away")):
     connection.execute(
         """
         INSERT INTO polymarket_wc2026_intermediate
-            .int_polymarket_wc2026_match_market_universe
+            .int_polymarket_wc2026_match_working_set
         VALUES (95, ?, ?, 1, 1)
         """,
         [_facts().kickoff_at_utc, _facts().kickoff_at_utc],
@@ -1267,7 +1267,7 @@ def test_bundle_rejects_shifted_timeline_and_market_window_undercoverage(tmp_pat
         second_half_ended_at=_facts().second_half_ended_at + two_hours,
         match_ended_at=_facts().match_ended_at + two_hours,
     )
-    with pytest.raises(ValueError, match="validated match universe"):
+    with pytest.raises(ValueError, match="validated match working set"):
         build_market_portrait_bundle(
             shifted,
             fifa_match_id=95,
@@ -1299,7 +1299,7 @@ def test_bundle_requires_complete_timing_and_root_window_contracts(tmp_path):
     missing_contract.execute(
         """
         DROP TABLE polymarket_wc2026_intermediate
-            .int_polymarket_wc2026_match_market_universe
+            .int_polymarket_wc2026_match_working_set
         """
     )
     with pytest.raises(ValueError, match="validated match timing"):
@@ -1315,7 +1315,7 @@ def test_bundle_requires_complete_timing_and_root_window_contracts(tmp_path):
     missing_timing.execute(
         """
         DELETE FROM polymarket_wc2026_intermediate
-            .int_polymarket_wc2026_match_market_universe
+            .int_polymarket_wc2026_match_working_set
         """
     )
     with pytest.raises(ValueError, match="one consistent match timing"):
@@ -1331,7 +1331,7 @@ def test_bundle_requires_complete_timing_and_root_window_contracts(tmp_path):
     mismatched_start.execute(
         """
         UPDATE polymarket_wc2026_intermediate
-            .int_polymarket_wc2026_match_market_universe
+            .int_polymarket_wc2026_match_working_set
         SET match_started_at_utc=match_started_at_utc + INTERVAL 2 HOUR
         """
     )

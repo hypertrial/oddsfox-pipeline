@@ -15,7 +15,7 @@ See the
 
 ```text
 Public sources and private canonical snapshots
-  -> oddsfox-pipeline: DuckDB warehouse (public marts + private wc2026.v1 strategy contract)
+  -> oddsfox-pipeline: DuckDB warehouse (documented marts + private wc2026.v1 strategy contract)
   -> oddsfox-pipeline: polymarket-wc2026-logical-v1 bundle
   -> oddsfox-graph: logical graph database, edge proofs, coverage, and dashboard
   -> oddsfox-strategy: versioned signal batches
@@ -55,7 +55,7 @@ for `oddsfox-execution`.
 | Repository | Role | Input | Output |
 | --- | --- | --- | --- |
 | private `oddsfox` | Superproject, private collectors, orchestration, policy, dispatch, deployment, and monitoring. | Private/public source changes and signal batches. | Canonical raw snapshots and effective intent plans. |
-| `oddsfox-pipeline` | Ingests operator-configured sources and validated canonical snapshots, then builds stable dbt marts. | Source APIs, finalized Polygon logs, operator-supplied CSV/TXT inputs, and `oddsfox.raw.v1`. | Local public DuckDB marts, private `wc2026.v1` strategy clean-data, telemetry, the seven-file `polymarket-wc2026-logical-v1` bundle, internal Polygon audit bundles, and optional allowlisted technical exports. |
+| `oddsfox-pipeline` | Ingests operator-configured sources and validated canonical snapshots, then builds stable dbt marts. | Source APIs, finalized Polygon logs, operator-supplied CSV/TXT inputs, and `oddsfox.raw.v1`. | Local DuckDB marts, private `wc2026.v1` strategy clean-data, telemetry, the seven-file `polymarket-wc2026-logical-v1` bundle, internal Polygon audit bundles, and optional allowlisted technical exports. |
 | private `oddsfox-strategy` | Runs WC2026 discovery, models, arbitrage, and allocation. | Read-only `wc2026.v1` strategy clean-data. | Immutable `oddsfox.signal.v1` batches. |
 | `oddsfox-graph` | Converts the versioned static logical bundle into analyst-facing graph artifacts and a filterable dashboard. | Pipeline `polymarket-wc2026-logical-v1` bundle. | Logical graph DuckDB, proposition/market edges and proofs, coverage reports, and dashboard assets. |
 | `oddsfox-execution` | Executes externally generated order intents under durable risk controls. | Authenticated strategy intents and current venue state. | Orders, trades, positions, audit events, and operator controls. |

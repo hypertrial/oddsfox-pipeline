@@ -2351,6 +2351,7 @@ coverage = [
     { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "vcrpy" },
 ]
 dbt-lint = [
@@ -2372,6 +2373,7 @@ dev = [
     { name = "ruff" },
     { name = "sqlfluff" },
     { name = "sqlfluff-templater-dbt" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "vcrpy" },
 ]
 docs = [
@@ -2389,6 +2391,7 @@ mutation = [
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pytest-xdist" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "vcrpy" },
 ]
 python-lint = [
@@ -2399,6 +2402,7 @@ test = [
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pytest-xdist" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "vcrpy" },
 ]
 
@@ -2441,6 +2445,7 @@ coverage = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "pytest-xdist", specifier = ">=3.5.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
     { name = "vcrpy", specifier = ">=6.0.0" },
 ]
 dbt-lint = [
@@ -2461,6 +2466,7 @@ dev = [
     { name = "ruff", specifier = ">=0.15.21" },
     { name = "sqlfluff", specifier = ">=4.2.2" },
     { name = "sqlfluff-templater-dbt", specifier = ">=3.0.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
     { name = "vcrpy", specifier = ">=6.0.0" },
 ]
 docs = [
@@ -2477,6 +2483,7 @@ mutation = [
     { name = "mutmut", specifier = "==3.6.0" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-xdist", specifier = ">=3.5.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
     { name = "vcrpy", specifier = ">=6.0.0" },
 ]
 python-lint = [{ name = "ruff", specifier = ">=0.15.21" }]
@@ -2484,6 +2491,7 @@ test = [
     { name = "hypothesis", specifier = ">=6.156.6" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-xdist", specifier = ">=3.5.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
     { name = "vcrpy", specifier = ">=6.0.0" },
 ]
 

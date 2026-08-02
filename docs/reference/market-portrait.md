@@ -13,7 +13,7 @@ implementation.
 
 ## Acquire an approved target
 
-Build the normal World Cup market universe, then create a review candidate:
+Build the normal World Cup market working set, then create a review candidate:
 
 ```bash
 python scripts/generate_polymarket_wc2026_market_portrait_target.py \
@@ -59,7 +59,7 @@ hash and record count.
 Timeline mapping requires actual start and end timestamps for every played
 period. `MatchFacts.kickoff_at_utc` and every period boundary must be
 timezone-aware and sanitized. Before story construction, export verifies the
-kickoff against the validated match universe and verifies that each required
+kickoff against the validated match working set and verifies that each required
 role's published root scan window strictly contains the complete football
 timeline. Scheduled kickoff is a validation anchor and is never substituted
 for missing actual boundaries. The declared deterministic sanitizer can move

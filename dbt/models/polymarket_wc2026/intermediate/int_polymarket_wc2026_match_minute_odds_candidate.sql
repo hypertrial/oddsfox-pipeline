@@ -10,7 +10,7 @@ with spine as (
             date_trunc('minute', u.match_started_at_utc),
             minute_spine.odds_minute_utc
         ) as elapsed_window_minute
-    from {{ ref('int_polymarket_wc2026_match_market_universe') }} as u
+    from {{ ref('int_polymarket_wc2026_match_working_set') }} as u
     -- costguard: allow cross-join, one bounded in-game minute range per market.
     cross join unnest(
         generate_series(

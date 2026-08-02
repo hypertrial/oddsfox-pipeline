@@ -1,9 +1,11 @@
 # Data Contracts
 
-This page is the formal **public** analytics contract: grains, scope rules, and
-guarantees for warehouse marts that notebooks, scripts, and open-source
-integrators should rely on. OddsFox Pipeline is a prediction-market pipeline;
-the current public marts are WC2026 Polymarket knockout odds outputs, Kalshi
+This page is the formal analytics **contract** for warehouse marts that
+notebooks, scripts, and open-source integrators should rely on: grains, scope
+rules, and guarantees. A **contract** is a named guarantee about a relation set,
+bundle, or collector format; see [Terminology](terminology.md#guarantee).
+OddsFox Pipeline is a prediction-market pipeline; the current documented marts
+are WC2026 Polymarket knockout odds outputs, Kalshi
 WC2026 stage and group-winner odds, US midterms 2026 generic market odds, the
 cross-platform knockout match mart, plus WC2026 FIFA fixtures/results used to
 validate WC2026 team scope. Model-level column docs and tests live in the dbt
@@ -11,18 +13,19 @@ project.
 
 !!! note "Reference ladder"
 
-    Chooser → dictionary → public contracts → warehouse reference; do not treat
+    Chooser → dictionary → documented contracts → warehouse reference; do not treat
     staging/raw as APIs. Start with
     [Query the warehouse](../guides/query-the-warehouse.md), then the
     [Data dictionary](data-dictionary.md). For private `oddsfox.raw.v1` snapshots
     and the strategy clean-data relation set, see
     [Strategy contracts](strategy-contracts.md).
 
-## Public Marts
+## Documented Marts
 
-“Public” here means a supported warehouse query contract. It does not mean that
-every relation is sanitized or intended for external distribution; the Polygon
-settlement mart has a separate allowlisted exporter.
+“Public” on this page historically meant a supported warehouse query contract.
+Prefer **mart** or **documented mart**. It does not mean that every relation is
+sanitized or intended for external distribution; the Polygon settlement mart
+has a separate allowlisted exporter.
 
 Schema: `wc2026_marts`
 
@@ -102,7 +105,7 @@ Schema: `polymarket_wc2026_marts`
 | Relation | Grain | Contract |
 | --- | --- | --- |
 | `polymarket_wc2026_markets` | One row per `market_id` | Platform-wide Polymarket market catalog: every Gamma market with reported volume at or above $100,000 USD from `scripts/sync_polymarket_markets_catalog.py` (`GET /markets/keyset` with `volume_num_min`; open + closed; no tag/registry filter), including reported USD `volume`. `start_time` is nulled when Gamma reports a start after `end_time`. Metadata only; not an odds mart. Distinct from `int_polymarket_wc2026_markets` ($5,000 registry-scoped intermediate) and from strategy `wc2026_venue_markets`. |
-| `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token universe for knockout-related markets at or above the WC2026 pipeline policy volume floor, including explicit price semantics. |
+| `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token working set for knockout-related markets at or above the WC2026 pipeline policy volume floor, including explicit price semantics. |
 | `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, result metadata, and price semantics. |
 | `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
 | `polymarket_wc2026_logical_events` | One row per `event_id` | Reviewed event admission, sticky event-volume eligibility, scope, fixture mapping, and constraint metadata. Included ever-eligible events require a source `event_created_at`; missing creation time fails publication rather than substituting `first_seen_at`. |
@@ -499,48 +502,48 @@ Schema: `kalshi_wc2026_marts`
 
 ## Current Scope Rules
 
-- Public US midterms 2026 marts expose only targeted Balance of Power, Senate
+- US midterms 2026 marts expose only targeted Balance of Power, Senate
   control, and House control markets from the `us_midterms_2026` registry at or
   above the pipeline policy volume floor ($5,000 USD by default).
 - **Balance of Power semantics:** each combo is an independent binary Yes/No
   market. Probabilities across combos do **not** sum to 1.0 (unlike mutually
   exclusive partitions).
 - **Volume floor exclusions:** zero-volume placeholder markets (for example
-  generic "Party A/B/C" rows) are intentionally excluded from public marts.
+  generic "Party A/B/C" rows) are intentionally excluded from documented marts.
 - **No office-type classification** in v0.1.x; join on `market_id` / `clob_token_id`
   and source question text.
 - Shared US midterms thresholds live in
   `dbt/seeds/polymarket_us_midterms_2026_pipeline_policy.csv`; there is no results or
   candidate validation layer for this scope in v0.1.x.
-- Public Kalshi WC2026 marts expose stage-of-elimination and group-winner markets
+- Kalshi WC2026 marts expose stage-of-elimination and group-winner markets
   from the fixed `wc2026` registry across the packaged Kalshi series tickers.
   Shared Kalshi thresholds live in `dbt/seeds/kalshi_wc2026_pipeline_policy.csv`.
 - The neutral match mart admits exact `soccer_team_to_advance` Polymarket
   markets and exact `KXWCADVANCE` Kalshi markets regardless of volume. The
   source-specific $5,000 progression-futures filter remains unchanged.
-- Public WC2026 marts expose only knockout-related markets from the WC2026 registry
+- WC2026 marts expose only knockout-related markets from the WC2026 registry
   at or above the WC2026 pipeline policy volume floor. The current floor is $5,000 USD,
   and markets crossing it on a later sync are admitted on the next dbt build.
 - Shared WC2026 thresholds live in `dbt/seeds/polymarket_wc2026_pipeline_policy.csv`;
   dbt models/tests read that seed and Python parity tests assert the Dagster
   defaults match it.
-- Public Polymarket knockout marts are additionally filtered to teams present in
+- Polymarket knockout marts are additionally filtered to teams present in
   `international_results_wc2026_team_status`, with a small alias seed for source
   naming differences such as `USA` -> `United States`. This removes non-team
-  aggregate futures and non-participants from the public odds surface.
+  aggregate futures and non-participants from the documented odds surface.
 - WC2026 match/result rows come from
   `https://raw.githubusercontent.com/martj42/international_results/refs/heads/master/results.csv`
   where `tournament = 'FIFA World Cup'` and `match_date` is between
   `2026-06-11` and `2026-07-19`.
 - `stage_key` values are `winner`, `final`, `semifinal`, `quarterfinal`,
   `round_of_16`, and `round_of_32`.
-- Public knockout odds are normalized to the progression side. Winner/reach markets
+- Knockout odds are normalized to the progression side. Winner/reach markets
   use the Yes token; elimination-framed markets use the No token. `price_represents`
   is fixed to `progression`, and `progression_outcome_label` states the normalized
   outcome represented by the price. For example, a Round-of-32 elimination market
   with `source_outcome_label = 'No'` exposes `not_eliminated_in_round_of_32`, so a
   high price means the team advanced past that round.
-- Public knockout marts keep historical closed/resolved rows. `is_live_market`
+- Knockout marts keep historical closed/resolved rows. `is_live_market`
   means the source market is active, open, and unresolved. `is_active_team_live_market`
   further requires the FIFA result mart to say the team is still alive. On
   `polymarket_wc2026_knockout_markets`, `is_actionable_live_market` is the safest
@@ -597,7 +600,7 @@ Schema: `kalshi_wc2026_marts`
   365 days; preserve a backup before shortening it.
 - `int_polymarket_wc2026_markets` is the canonical market-level WC2026 scope (grain:
   `scope_name`, `market_id`) with the WC2026 pipeline policy volume floor applied
-  ($5,000) and the scope registry. Public catalog marts `polymarket_wc2026_markets`
+  ($5,000) and the scope registry. Catalog marts `polymarket_wc2026_markets`
   and `polymarket_us_midterms_2026_markets` read the platform-wide catalog sync
   (`polymarket_catalog_raw.markets`, volume ≥ $100,000, no tag/registry filter)
   and do not replace that intermediate.
@@ -635,7 +638,7 @@ disposable fixture is healthy.
 
 ## Breaking change: source-first namespace reset
 
-Public mart, asset, job, script, and schema names now use the source-first
+Mart, asset, job, script, and schema names now use the source-first
 `polymarket_wc2026` namespace. Dagster asset keys are hierarchical under
 `polymarket/wc2026/...`; jobs, op config keys, scripts, dbt relations, and
 DuckDB schemas use flat `polymarket_wc2026_*` names.
@@ -650,5 +653,5 @@ migration; reset `oddsfox.duckdb*` before rebuilding an older warehouse.
 
 The knockout hourly time-series mart is a dbt view over a private incremental
 hourly fact. If an existing local DuckDB warehouse still has deleted broad
-public marts or old relation types, reset the warehouse or drop the affected dbt
+documented marts or old relation types, reset the warehouse or drop the affected dbt
 schemas before rebuilding.

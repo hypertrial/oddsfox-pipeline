@@ -48,7 +48,7 @@ invalid_fixtures as (
         fifa_match_id,
         cast(fifa_match_id as varchar) as source_identifier,
         'Fixture identity violates the FIFA knockout contract' as details
-    from {{ ref('int_wc2026_knockout_fixtures') }}
+    from {{ ref('int_wc2026_advancement_fixtures') }}
     where
         fifa_match_id = 103
         or home_team = away_team

@@ -159,7 +159,7 @@ def _args(tmp_path: Path, **overrides):
         "allow_empty_graph": False,
         "activate_release": "",
         "validate_release": "",
-        "no_publish": False,
+        "no_activate": False,
         "interval_seconds": 3600,
     }
     values.update(overrides)
@@ -177,16 +177,16 @@ def test_validate_release_requires_non_empty_graph(tmp_path: Path) -> None:
     builder.validate_release(release, allow_empty_graph=True)
 
 
-def test_publish_current_repoints_symlink(tmp_path: Path) -> None:
+def test_activate_current_repoints_symlink(tmp_path: Path) -> None:
     builder = _load_builder_module()
     artifact_dir = tmp_path / "artifacts"
     _write_release(artifact_dir / "releases" / "old")
     _write_release(artifact_dir / "releases" / "new")
 
-    builder.publish_current(artifact_dir, "old")
+    builder.activate_current(artifact_dir, "old")
     assert (artifact_dir / "current" / builder.RELEASE_MANIFEST_NAME).is_file()
 
-    builder.publish_current(artifact_dir, "new")
+    builder.activate_current(artifact_dir, "new")
     assert (artifact_dir / "current").resolve() == (
         artifact_dir / "releases" / "new"
     ).resolve()
@@ -196,13 +196,13 @@ def test_publish_current_repoints_symlink(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("release_id", ("../escape", "/absolute", ".", "bad/id"))
-def test_publish_current_rejects_unsafe_release_id(
+def test_activate_current_rejects_unsafe_release_id(
     tmp_path: Path, release_id: str
 ) -> None:
     builder = _load_builder_module()
 
     with pytest.raises(ValueError, match="invalid release ID"):
-        builder.publish_current(tmp_path / "artifacts", release_id)
+        builder.activate_current(tmp_path / "artifacts", release_id)
 
 
 def test_run_forever_carries_fixture_input_bundle(tmp_path: Path) -> None:
@@ -632,11 +632,11 @@ def test_main_activates_only_after_revalidating_existing_release(
     release = artifact_dir / "releases" / "shadow-1"
     _write_release(release)
     order: list[str] = []
-    publish_current_locked = builder._publish_current_locked
+    activate_current_locked = builder._activate_current_locked
 
     def publish(*args, **kwargs):
         order.append("publish")
-        return publish_current_locked(*args, **kwargs)
+        return activate_current_locked(*args, **kwargs)
 
     with (
         patch.object(
@@ -651,7 +651,7 @@ def test_main_activates_only_after_revalidating_existing_release(
                 order.append("browser") or {"passed": True, "validated": True}
             ),
         ),
-        patch.object(builder, "_publish_current_locked", side_effect=publish),
+        patch.object(builder, "_activate_current_locked", side_effect=publish),
     ):
         assert (
             builder.main(
@@ -681,7 +681,7 @@ def test_legacy_current_is_content_sealed_and_can_be_rolled_back(
     artifact_dir.mkdir(exist_ok=True)
     os.symlink(Path("releases") / "legacy", artifact_dir / "current")
 
-    builder.publish_current(artifact_dir, "atlas")
+    builder.activate_current(artifact_dir, "atlas")
 
     receipt = builder.rollback_receipt_path(artifact_dir, "legacy")
     assert receipt.is_file()
@@ -719,7 +719,7 @@ def test_validate_release_mode_never_repoints_current(tmp_path: Path) -> None:
     second = artifact_dir / "releases" / "second"
     _write_release(first)
     _write_release(second)
-    builder.publish_current(artifact_dir, "first")
+    builder.activate_current(artifact_dir, "first")
 
     with patch.object(
         builder,

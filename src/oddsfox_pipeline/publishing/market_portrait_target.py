@@ -12,7 +12,7 @@ import yaml
 
 from oddsfox_pipeline.ingestion.polymarket.markets.fetch import build_client
 
-UNIVERSE = "polymarket_wc2026_intermediate.int_polymarket_wc2026_match_market_universe"
+WORKING_SET = "polymarket_wc2026_intermediate.int_polymarket_wc2026_match_working_set"
 
 
 def _json_list(value: Any) -> list[str]:
@@ -34,7 +34,7 @@ def generate_target_manifest(
         SELECT stage, home_team, away_team, market_id, proposition_type,
                yes_clob_token_id, no_clob_token_id,
                selected_market_event_id, selected_market_event_slug
-        FROM {UNIVERSE}
+        FROM {WORKING_SET}
         WHERE fifa_match_id=?
           AND fixture_mapping_count=1
           AND primary_mapping_count=1
@@ -43,7 +43,9 @@ def generate_target_manifest(
         [fifa_match_id],
     ).fetchall()
     if not rows:
-        raise ValueError(f"match {fifa_match_id} is absent from the validated universe")
+        raise ValueError(
+            f"match {fifa_match_id} is absent from the validated working set"
+        )
     if fifa_match_id <= 72:
         by_type = {str(row[4]): row for row in rows}
         if set(by_type) != {"home_win", "draw", "away_win"} or len(rows) != 3:
@@ -61,7 +63,7 @@ def generate_target_manifest(
         selected = rows
     identities = {(str(row[0]), str(row[1]), str(row[2])) for row in selected}
     if len(identities) != 1:
-        raise ValueError("validated universe returned inconsistent match identity")
+        raise ValueError("validated working set returned inconsistent match identity")
     gamma = gamma_client or build_client()
     targets = []
     for row in selected:

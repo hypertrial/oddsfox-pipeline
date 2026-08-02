@@ -15,7 +15,7 @@ MODEL_FILES = {
     "staging/stg_polymarket_wc2026_polygon_settlement_fills.sql",
     "staging/stg_polymarket_wc2026_polygon_settlement_scan_runs.sql",
     "staging/stg_polymarket_wc2026_polygon_settlement_scan_chunks.sql",
-    "intermediate/int_polymarket_wc2026_polygon_settlement_market_universe.sql",
+    "intermediate/int_polymarket_wc2026_polygon_settlement_working_set.sql",
     "intermediate/int_polymarket_wc2026_polygon_settlement_token_minute_odds.sql",
     "intermediate/int_polymarket_wc2026_polygon_settlement_minute_odds_candidate.sql",
     "intermediate/int_polymarket_wc2026_polygon_settlement_publication_gate.sql",
@@ -97,7 +97,7 @@ def test_polygon_settlement_contract_is_dense_half_open_and_fail_closed():
     ).read_text(encoding="utf-8")
     quality_graph = "\n".join((gate, seed_summary, scan_summary))
 
-    assert "range(0, universe.window_minutes)" in candidate
+    assert "range(0, working_set.window_minutes)" in candidate
     assert {"both_observed", "yes_only", "no_only", "no_fills"} <= set(
         candidate.split("'")[1::2]
     )

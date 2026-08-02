@@ -6,6 +6,21 @@ local dashboard atomically. The logical bundle intentionally contains no odds. R
 hourly odds collection is an independent temporal-foundation branch for a
 future dashboard version.
 
+This page owns **logical atlas**, **logical marts**, **logical bundle**,
+**atlas node**, **membership class**, and the Pipeline↔`oddsfox-graph`
+handoff. Global vocabulary stays in [Terminology](../reference/terminology.md).
+
+## Logical atlas vocabulary
+
+| Term | Meaning |
+| --- | --- |
+| **Logical atlas** | Reviewed static WC2026 inventory product (events through scopes). |
+| **Logical marts** | The seven `polymarket_wc2026_logical_*` warehouse relations that feed export. |
+| **Logical bundle** | Versioned seven-Parquet + `manifest.json` package `polymarket-wc2026-logical-v1`. |
+| **Atlas node** | One row in the atlas hierarchy (tournament, stage, group, fixture, or award). Physical contract keeps relation `logical_scopes` / `polymarket_wc2026_logical_scopes` and column `scope_id`; those identifiers are frozen and are not the product **scope** term. |
+| **Membership class** | Review taxonomy for event admission (`sporting`, adjacent classes, and so on). Prefer this over the retired `scope class` label. |
+| **oddsfox-graph** | External product that builds releases from the logical bundle; not part of this repository’s ontology. |
+
 ## Contract and admission policy
 
 Admission is decided at the Polymarket **event** grain:
@@ -47,7 +62,7 @@ The versioned bundle contains exactly these seven Parquet files plus
 | `propositions.parquet` | One row per parseable source outcome |
 | `entities.parquet` | One row per canonical team, player, fixture, group, stage, award, or tournament entity |
 | `proposition_entities.parquet` | One row per proposition/entity/role mapping |
-| `scopes.parquet` | One row per tournament, stage, group, fixture, or award scope |
+| `scopes.parquet` | One row per atlas node (tournament, stage, group, fixture, or award); physical `scope_id` retained |
 
 The manifest pins the contract and taxonomy versions, producer Git SHA,
 threshold policy, scan-partition inventories, every input hash, every file
@@ -60,7 +75,7 @@ values are normalized to null and remain distinguishable from zero.
 
 ## Build the Pipeline bundle
 
-Run the focused Dagster job from a clean Pipeline checkout:
+Run the focused job from a clean Pipeline checkout:
 
 ```bash
 export DUCKDB_PATH="$PWD/.runtime/warehouse/oddsfox.duckdb"
@@ -128,7 +143,7 @@ order by event_volume_usd_lifetime_reported desc nulls last, event_id;
 For each candidate, inspect its resolution terms and all child markets. Add one
 row to the operator-local CSV named by
 `ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH`, with an `included` or `excluded`
-decision, scope class, tournament part, concise reason, non-placeholder
+decision, membership class, tournament part, concise reason, non-placeholder
 reviewer, and timezone-qualified review time. Included rows must be sporting
 and use one of the locked final-tournament parts. Do not edit the tracked
 header-only seed, and do not admit entertainment, political attendance,
@@ -152,10 +167,11 @@ Publication remains blocked until the review-completeness test is empty.
 
 The normal `polymarket_wc2026_full_pipeline` owns the independent legacy
 raw-odds branch. The logical event catalog does not register its children in
-that legacy market registry, and a routine
-`polymarket_wc2026_market_scope_registry_refresh` does not run the five-source logical
-catalog crawl. Supporting temporal odds for every atlas proposition will require
-a dedicated observation producer joined through proposition/token identity.
+that legacy market scope registry, and a routine
+`polymarket_wc2026_market_scope_registry_refresh` does not run the five-source
+logical event-catalog crawl. Supporting temporal odds for every atlas
+proposition will require a dedicated observation producer joined through
+proposition/token identity.
 
 `polymarket_wc2026_raw.odds_history` is append-only at
 `(clobTokenId, timestamp)`: a replay cannot overwrite a previously observed
@@ -226,10 +242,10 @@ but skips atlas-only acceptance and browser-receipt gates that the legacy format
 cannot satisfy; unavailable historical Git SHAs remain null rather than being
 invented.
 
-## Breaking cutover from the legacy graph export
+## Breaking cutover from the retired hourly export
 
-`polymarket-wc2026-logical-v1` replaces the retired one-file hourly graph
-export. Do not mix those schemas, manifests, graph databases, or release
+`polymarket-wc2026-logical-v1` replaces the retired one-file hourly export.
+Do not mix those schemas, manifests, Graph databases, or release
 directories.
 
 For a deployment created with Pipeline 0.1.12 or earlier:

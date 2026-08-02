@@ -146,7 +146,7 @@ select
     and kh.kalshi_away_advance_price is not null as both_sources_complete,
     s.odds_hour_utc < f.kickoff_at_utc as is_pre_kickoff
 from spine as s
-inner join {{ ref('int_wc2026_knockout_fixtures') }} as f
+inner join {{ ref('int_wc2026_advancement_fixtures') }} as f
     on s.fifa_match_id = f.fifa_match_id
 left join polymarket_mapping as pm
     on s.fifa_match_id = pm.fifa_match_id

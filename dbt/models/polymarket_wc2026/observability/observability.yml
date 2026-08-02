@@ -61,7 +61,7 @@ models:
         description: FIFA-numbered mart games with one matching international_results row.
         tests: [not_null]
       - name: international_results_mapped_source_games
-        description: Distinct international_results rows matched into the mart universe.
+        description: Distinct international_results rows matched into the mart working set.
         tests: [not_null]
       - name: international_results_mapping_issues
         description: FIFA-numbered games without exactly one international_results match.
@@ -336,7 +336,7 @@ unit_tests:
   - name: test_match_minute_token_coverage_calibrates_strict_cadence_thresholds
     model: polymarket_wc2026_match_minute_token_coverage
     given:
-      - input: ref('int_polymarket_wc2026_match_market_universe')
+      - input: ref('int_polymarket_wc2026_match_working_set')
         rows:
           - {fifa_match_id: 1, market_id: market-1, yes_clob_token_id: yes-1, no_clob_token_id: no-1, match_started_at_utc: '2026-07-01 12:00:00', match_finished_at_utc: '2026-07-01 12:05:00'}
       - input: ref('stg_polymarket_wc2026_match_minute_fetch_audit')
@@ -357,7 +357,7 @@ unit_tests:
   - name: test_match_minute_quality_issues_apply_warning_and_error_thresholds
     model: polymarket_wc2026_match_minute_odds_quality_issues
     given:
-      - input: ref('int_polymarket_wc2026_match_market_universe')
+      - input: ref('int_polymarket_wc2026_match_working_set')
         rows:
           - {fifa_match_id: 1, market_id: market-1, stage: group_stage, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', match_started_at_utc: '2026-07-01 13:00:00', match_finished_at_utc: '2026-07-01 15:30:00', results_source_revision: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, results_source_payload_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb}
           - {fifa_match_id: 104, market_id: market-2, stage: final, scheduled_kickoff_at_utc: '2026-07-01 12:00:00', match_started_at_utc: '2026-07-01 13:00:01', match_finished_at_utc: '2026-07-01 16:30:02', results_source_revision: bad, results_source_payload_sha256: bad}
@@ -408,7 +408,7 @@ unit_tests:
     given:
       - input: ref('stg_polymarket_wc2026_markets')
         rows: []
-      - input: ref('int_polymarket_wc2026_match_market_universe')
+      - input: ref('int_polymarket_wc2026_match_working_set')
         rows: []
       - input: ref('int_polymarket_wc2026_match_token_minute_odds')
         rows: []
@@ -432,7 +432,7 @@ unit_tests:
     given:
       - input: ref('stg_polymarket_wc2026_markets')
         rows: []
-      - input: ref('int_polymarket_wc2026_match_market_universe')
+      - input: ref('int_polymarket_wc2026_match_working_set')
         rows: []
       - input: ref('int_polymarket_wc2026_match_token_minute_odds')
         rows: []
@@ -457,7 +457,7 @@ unit_tests:
       - input: ref('stg_polymarket_wc2026_markets')
         rows:
           - {market_id: market-1, is_closed: true, sports_market_type: moneyline}
-      - input: ref('int_polymarket_wc2026_match_market_universe')
+      - input: ref('int_polymarket_wc2026_match_working_set')
         rows:
           - {fifa_match_id: 1, market_id: market-1, stage: group_stage, yes_clob_token_id: shared-token, no_clob_token_id: shared-token, fixture_mapping_count: 2, primary_mapping_count: 1, match_started_at_utc: null, match_finished_at_utc: null}
       - input: ref('int_polymarket_wc2026_match_token_minute_odds')

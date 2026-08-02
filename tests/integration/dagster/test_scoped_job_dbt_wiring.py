@@ -349,7 +349,7 @@ def test_scoped_job_dbt_wiring(
     assert shipped["dbt_select"] == expected["dbt_select"]
     assert shipped["dbt_exclude"] == expected["dbt_exclude"]
 
-    if step in {"market_registry", "odds"}:
+    if step in {"market_scope_registry", "odds"}:
         # Ingest jobs may still invoke oddsfox_dbt for dbt source checks attached to
         # raw assets, but must not apply the shipped scope model selection.
         for args in recorder.calls:

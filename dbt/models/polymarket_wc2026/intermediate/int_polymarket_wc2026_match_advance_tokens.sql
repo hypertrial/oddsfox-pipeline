@@ -17,7 +17,7 @@ eligible_tokens as (
         t.is_closed,
         t.is_resolved,
         coalesce(a.canonical_team_name, t.outcome_label) as canonical_team_name
-    from {{ ref('int_polymarket_wc2026_token_universe') }} as t
+    from {{ ref('int_polymarket_wc2026_token_working_set') }} as t
     inner join registry
         on t.market_id = registry.market_id
     left join {{ ref('international_results_wc2026_team_aliases') }} as a
@@ -52,7 +52,7 @@ mapped_markets as (
             partition by f.fifa_match_id
         ) as markets_per_fixture
     from market_pairs as p
-    inner join {{ ref('int_wc2026_knockout_fixtures') }} as f
+    inner join {{ ref('int_wc2026_advancement_fixtures') }} as f
         on
             p.team_a = least(f.home_team, f.away_team)
             and p.team_b = greatest(f.home_team, f.away_team)

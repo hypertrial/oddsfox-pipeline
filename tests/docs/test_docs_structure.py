@@ -300,16 +300,22 @@ def test_terminology_reference_is_documented_and_linked():
     terminology = (DOCS_DIR / "reference/terminology.md").read_text()
     glossary = (DOCS_DIR / "concepts/glossary.md").read_text()
     naming = (DOCS_DIR / "reference/naming.md").read_text()
+    atlas = (DOCS_DIR / "guides/build-wc2026-logical-atlas.md").read_text()
+    strategy = (DOCS_DIR / "reference/strategy-contracts.md").read_text()
     readme = (REPO_ROOT / "README.md").read_text()
     agents = (REPO_ROOT / "AGENTS.md").read_text()
 
     assert "Pipeline" in terminology
-    assert "logical atlas" in terminology.lower()
-    assert "wc2026.v1" in terminology
+    assert "working set" in terminology.lower()
+    assert "contract" in terminology.lower()
+    assert "34" in terminology
+    assert "logical atlas" in atlas.lower()
+    assert "wc2026.v1" in strategy
     assert "terminology.md" in glossary
     assert "terminology.md" in naming
     assert "reference/terminology.md" in readme or "Terminology" in readme
     assert "docs/reference/terminology.md" in agents
+    assert "terminology_policy.toml" in agents
     assert "check-terminology" in agents
 
 

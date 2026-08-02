@@ -37,12 +37,15 @@ Cursor loads [Ponytail](https://github.com/DietrichGebert/ponytail) from [`.curs
 Other agents should read this `AGENTS.md` at the repo root.
 
 **Terminology:** [docs/reference/terminology.md](docs/reference/terminology.md)
-is the normative vocabulary for pipelines, jobs/runs, scopes, catalogs,
-registries, logical atlas, contracts, and grain language. Prefer those terms in
-new identifiers, docs, CLI help, metrics, and comments. Before finishing work
-that touches naming or prose, run `make check-terminology` (also part of
+is the normative **34-term** vocabulary (pipeline, job/run, scope, catalog,
+registry, working set, contract, grain language, and related terms). Machine
+rules live in
+[`config/terminology_policy.toml`](config/terminology_policy.toml). Prefer those
+terms in new identifiers, docs, CLI help, metrics, and comments. Before finishing
+work that touches naming or prose, run `make check-terminology` (also part of
 `make lint` / `ci-fast`). Do not reintroduce retired first-party “flow,”
-“graph odds/export,” or other forbidden identifiers listed there.
+“graph odds/export,” universe phrases, or other forbidden identifiers listed
+there.
 
 ## No legacy support (v0.1.x)
 
@@ -127,8 +130,8 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make unit-core` | Config, resources, storage unit tests |
 | `make unit-ingest` | Ingestion unit tests |
 | `make unit-orchestration` | Orchestration/Dagster unit tests |
-| `make dagster-jobs-smoke` | Headless smoke for every registered public Dagster job with mocked externals |
-| `make dagster-jobs-smoke-cov` | Coverage version of registered public Dagster job smoke |
+| `make dagster-jobs-smoke` | Headless smoke for every registered public job with mocked externals |
+| `make dagster-jobs-smoke-cov` | Coverage version of registered public job smoke |
 | `make dagster-refresh-cov` | Coverage for scoped Dagster E2E, writer recovery, and dbt wiring |
 | `make test-cov` | Unit tests with coverage accumulation (`-n auto`) |
 | `make integration-dbt` | DuckDB + dbt integration smoke |

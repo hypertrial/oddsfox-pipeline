@@ -1,11 +1,11 @@
 # Architecture
 
 OddsFox Pipeline is intentionally local-first: every routine workflow writes to a local
-DuckDB warehouse and is coordinated by Dagster jobs that can be inspected before
+DuckDB warehouse and is coordinated by jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
 v0.1.x adapters support WC2026 Polymarket knockout marts, Kalshi WC2026 stage
 and group-winner marts, US midterms 2026 generic market odds, historical
-international-results ingestion, public analytics marts as the supported query
+international-results ingestion, analytics marts as the supported query
 API, and the private `wc2026.v1` strategy clean-data contract.
 
 US midterms 2026 is a parallel Polymarket namespace: targeted Gamma discovery
@@ -95,11 +95,11 @@ flowchart TD
     results_staging --> matches["international_results_wc2026_matches"]
     matches --> team_status["international_results_wc2026_team_status"]
     ops["polymarket_wc2026_ops"] --> staging
-    staging --> token_universe["int_polymarket_wc2026_token_universe"]
+    staging --> token_working_set["int_polymarket_wc2026_token_working_set"]
     staging --> wc2026_markets_int["int_polymarket_wc2026_markets"]
     staging --> odds["stg_polymarket_wc2026_odds"]
     ops --> wc2026_markets_int
-    token_universe --> wc2026_tokens["int_polymarket_wc2026_market_tokens"]
+    token_working_set --> wc2026_tokens["int_polymarket_wc2026_market_tokens"]
     wc2026_markets_int --> wc2026_tokens
     team_status --> knockout_tokens
     wc2026_tokens --> knockout_tokens["polymarket_wc2026_knockout_market_tokens"]
@@ -117,7 +117,7 @@ flowchart TD
 ```
 
 Text fallback: staging normalizes raw and ops tables, intermediates establish
-token universes and WC2026 market scope rows, FIFA result marts provide real
+token working sets and WC2026 market scope rows, FIFA result marts provide real
 team status, and Polymarket marts publish cleaned knockout progression-side
 token odds plus latest knockout snapshots. Observability models publish run
 metrics, stage coverage, result inference warnings, and DQ findings for

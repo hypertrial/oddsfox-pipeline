@@ -1,14 +1,15 @@
 # Glossary
 
 Short analyst and operator shortcuts. Normative definitions live in
-[Terminology](../reference/terminology.md).
+[Terminology](../reference/terminology.md). Identifier encodings live in
+[Naming](../reference/naming.md).
 
 ## Analyst Semantics
 
 **progression** — Price or label normalized to a team advancing or reaching a
 stage, not necessarily the venue's raw Yes token wording.
 
-**price_represents** — Column that states what price columns mean. For public
+**price_represents** — Column that states what price columns mean. For
 Polymarket WC2026 knockout marts, expect `progression`.
 
 **progression_outcome_label** — Human-readable progression outcome tied to the
@@ -24,7 +25,7 @@ purpose.
 
 **temporal grain** — What one row uniquely represents (for example one
 token-hour or one FIFA match-minute). See
-[Terminology](../reference/terminology.md#grain-and-cadence).
+[Terminology](../reference/terminology.md#observation).
 
 **null policy** — How missing observations appear. For match and settlement
 minute marts, dense empty slots usually keep null prices with no forward-fill or
@@ -37,20 +38,22 @@ have usable closes for that row's comparison.
 
 **pipeline** — A coherent source-to-output data path such as the Polymarket
 WC2026 match-minute odds pipeline. See
-[Terminology](../reference/terminology.md#orchestration-ladder).
+[Terminology](../reference/terminology.md#execution).
 
-**scope** — A fixed shipped product slice such as `polymarket:wc2026`. Dagster
-asset configs do not accept arbitrary runtime scope selectors in `v0.1.x`. See
-[Terminology](../reference/terminology.md#identity).
+**scope** — A fixed shipped product slice within a source, such as `wc2026`.
+Dagster asset configs do not accept arbitrary runtime scope selectors in
+`v0.1.x`. See [Terminology](../reference/terminology.md#identity).
 
-**wc2026.v1** — The private strategy clean-data contract exposed through
-`wc2026_marts` relation aliases. Ordinary public-mart consumers start with
-[Data contracts](../reference/data-contracts.md). See
-[Terminology](../reference/terminology.md#contract).
+**scope reference** — Chooser encoding `source:scope` such as
+`polymarket:wc2026`. See [Naming](../reference/naming.md).
+
+**wc2026.v1** — Private strategy clean-data contract. See
+[Strategy contracts](../reference/strategy-contracts.md). Ordinary mart
+consumers start with [Data contracts](../reference/data-contracts.md).
 
 **logical atlas** — Static WC2026 inventory product exported as
 `polymarket-wc2026-logical-v1`. See
-[Terminology](../reference/terminology.md#logical-atlas-chain).
+[Build the WC2026 logical atlas](../guides/build-wc2026-logical-atlas.md).
 
 **asset key** — Dagster asset identity, written source-first (for example
 `polymarket/wc2026/raw/markets`).

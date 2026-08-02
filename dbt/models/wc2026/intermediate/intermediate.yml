@@ -1,11 +1,11 @@
 version: 2
 
 models:
-  - name: int_wc2026_knockout_fixtures
+  - name: int_wc2026_advancement_fixtures
     description: The 31 advancement fixtures, excluding FIFA match 103.
     meta:
       dagster:
-        asset_key: [wc2026, intermediate, knockout_fixtures]
+        asset_key: [wc2026, intermediate, advancement_fixtures]
     tests:
       - no_duplicate_grain:
           arguments:

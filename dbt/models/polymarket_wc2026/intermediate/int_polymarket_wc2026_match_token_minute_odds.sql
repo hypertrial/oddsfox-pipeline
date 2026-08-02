@@ -6,14 +6,14 @@ with selected_tokens as (
         yes_clob_token_id as clob_token_id,
         match_started_at_utc,
         match_finished_at_utc
-    from {{ ref('int_polymarket_wc2026_match_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_match_working_set') }}
     union all
     select
         market_id,
         no_clob_token_id as clob_token_id,
         match_started_at_utc,
         match_finished_at_utc
-    from {{ ref('int_polymarket_wc2026_match_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_match_working_set') }}
 ),
 
 in_match as (

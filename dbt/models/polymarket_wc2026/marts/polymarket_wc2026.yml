@@ -149,7 +149,7 @@ models:
 
   - name: polymarket_wc2026_knockout_market_tokens
     description: >
-      WC2026 knockout progression-side token universe (scope=wc2026, at or
+      WC2026 knockout progression-side token working set (scope=wc2026, at or
       above the WC2026 pipeline policy volume floor, currently $5,000 USD).
       Winner/reach markets use the Yes token; elimination-framed markets use
       the No token.
@@ -406,7 +406,7 @@ models:
                   - not_eliminated_in_round_of_16
                   - not_eliminated_in_round_of_32
       - name: market_status
-        description: Derived market state propagated from the knockout token universe.
+        description: Derived market state propagated from the knockout token working set.
         tests:
           - not_null
           - accepted_values:

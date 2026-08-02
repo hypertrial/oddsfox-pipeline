@@ -2,16 +2,16 @@
 
 with spine as (
     select
-        universe.*,
+        working_set.*,
         minute_spine.elapsed_window_minute,
-        universe.analysis_window_start_at_utc
+        working_set.analysis_window_start_at_utc
         + minute_spine.elapsed_window_minute * interval '1 minute'
             as settlement_minute_utc
     from
-        {{ ref('int_polymarket_wc2026_polygon_settlement_market_universe') }}
-            as universe
+        {{ ref('int_polymarket_wc2026_polygon_settlement_working_set') }}
+            as working_set
     -- costguard: allow cross-join, exactly 150 or 210 bounded rows per proposition.
-    cross join range(0, universe.window_minutes)
+    cross join range(0, working_set.window_minutes)
         as minute_spine (elapsed_window_minute)
 ),
 

@@ -1,15 +1,38 @@
 # Naming
 
 OddsFox Pipeline names source-specific surfaces from source to scope to subject.
-Semantic vocabulary lives in [Terminology](terminology.md). This page covers
-identifier construction only.
+Semantic vocabulary lives in [Terminology](terminology.md). This page owns
+**scope reference**, **namespace**, and `*_pipeline_policy` seed naming — not
+the product meanings of scope, registry, or working set.
+
+## Scope vs scope reference vs namespace
+
+| Encoding | Form | Example | Where it appears |
+| --- | --- | --- | --- |
+| **Scope** | Product slice id inside a source | `wc2026` | Seed keys, asset path segment, ops `scope_name` |
+| **Scope reference** | Chooser `source:scope` | `polymarket:wc2026` | `scripts/run_scope.py`, CLI help, operator guides |
+| **Namespace** | Flat `source_scope` | `polymarket_wc2026` | Jobs, schedules, schemas, dbt models, env vars |
+
+Scope is the semantic term from [Terminology](terminology.md#identity). Scope
+reference and namespace are encodings of `(source, scope)` for tooling; they are
+not separate ontology terms.
 
 Current canonical tuples are:
 
-- `source`: `polymarket`, `scope`: `wc2026`, `namespace`: `polymarket_wc2026`
-- `source`: `polymarket`, `scope`: `us_midterms_2026`, `namespace`: `polymarket_us_midterms_2026`
-- `source`: `international_results`, `scope`: `wc2026`, `namespace`: `international_results_wc2026`
-- `source`: `kalshi`, `scope`: `wc2026`, `namespace`: `kalshi_wc2026`
+- `source`: `polymarket`, `scope`: `wc2026`, scope reference: `polymarket:wc2026`, `namespace`: `polymarket_wc2026`
+- `source`: `polymarket`, `scope`: `us_midterms_2026`, scope reference: `polymarket:us_midterms_2026`, `namespace`: `polymarket_us_midterms_2026`
+- `source`: `international_results`, `scope`: `wc2026`, scope reference: `international_results:wc2026`, `namespace`: `international_results_wc2026`
+- `source`: `kalshi`, `scope`: `wc2026`, scope reference: `kalshi:wc2026`, `namespace`: `kalshi_wc2026`
+
+## Pipeline policy seeds
+
+Shared volume floors, trailing windows, and freshness thresholds ship as dbt
+seeds named `<namespace>_pipeline_policy.csv` (for example
+`polymarket_wc2026_pipeline_policy.csv`,
+`polymarket_us_midterms_2026_pipeline_policy.csv`,
+`kalshi_wc2026_pipeline_policy.csv`). Those files are naming/configuration
+artifacts, not a global ontology term. Threshold meanings live in
+[Configuration](configuration.md).
 
 Flat names use `<source>_<scope>_<subject>[_<temporal_grain_or_cadence>]`.
 Use flat names for Dagster jobs, schedules, op names, Python functions, env

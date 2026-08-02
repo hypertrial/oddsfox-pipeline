@@ -405,7 +405,7 @@ check-distribution:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository/test_distribution_policy.py -q -n 0
 
 check-terminology:
-	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository/test_terminology_policy.py -q -n 0
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository/test_terminology_policy.py tests/repository/test_naming_policy.py -q -n 0
 
 test: dbt-prepare
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests $(PYTEST_UNIT_IGNORES) -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(PYTEST_DURATION_ARGS)

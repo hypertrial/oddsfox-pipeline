@@ -51,7 +51,7 @@ unit_tests:
         rows:
           - {scope_name: wc2026, market_id: advance-market}
           - {scope_name: wc2026, market_id: moneyline-market}
-      - input: ref('int_polymarket_wc2026_token_universe')
+      - input: ref('int_polymarket_wc2026_token_working_set')
         rows:
           - {market_id: advance-market, event_slug: fifwc-fra-esp, market_slug: advance, clob_token_id: spain-token, outcome_index: 0, outcome_label: Spain, sports_market_type: soccer_team_to_advance, game_start_time: "2026-07-14 19:00:00", is_active: true, is_closed: false, is_resolved: false}
           - {market_id: advance-market, event_slug: fifwc-fra-esp, market_slug: advance, clob_token_id: france-token, outcome_index: 1, outcome_label: France, sports_market_type: soccer_team_to_advance, game_start_time: "2026-07-14 19:00:00", is_active: true, is_closed: false, is_resolved: false}
@@ -59,7 +59,7 @@ unit_tests:
           - {market_id: moneyline-market, event_slug: fifwc-fra-esp, market_slug: moneyline, clob_token_id: moneyline-spain, outcome_index: 1, outcome_label: Spain, sports_market_type: moneyline, game_start_time: "2026-07-14 19:00:00", is_active: true, is_closed: false, is_resolved: false}
       - input: ref('international_results_wc2026_team_aliases')
         rows: []
-      - input: ref('int_wc2026_knockout_fixtures')
+      - input: ref('int_wc2026_advancement_fixtures')
         rows:
           - {fifa_match_id: 101, stage_key: semifinal, stage_rank: 4, kickoff_at_utc: "2026-07-14 19:00:00", home_team: France, away_team: Spain, teams_resolved: true}
     expect:
@@ -74,7 +74,7 @@ unit_tests:
         rows:
           - {scope_name: wc2026, market_id: market-one}
           - {scope_name: wc2026, market_id: market-two}
-      - input: ref('int_polymarket_wc2026_token_universe')
+      - input: ref('int_polymarket_wc2026_token_working_set')
         rows:
           - {market_id: market-one, event_slug: event-one, market_slug: one, clob_token_id: one-france, outcome_index: 0, outcome_label: France, sports_market_type: soccer_team_to_advance, is_active: true, is_closed: false, is_resolved: false}
           - {market_id: market-one, event_slug: event-one, market_slug: one, clob_token_id: one-spain, outcome_index: 1, outcome_label: Spain, sports_market_type: soccer_team_to_advance, is_active: true, is_closed: false, is_resolved: false}
@@ -82,7 +82,7 @@ unit_tests:
           - {market_id: market-two, event_slug: event-two, market_slug: two, clob_token_id: two-spain, outcome_index: 1, outcome_label: Spain, sports_market_type: soccer_team_to_advance, is_active: true, is_closed: false, is_resolved: false}
       - input: ref('international_results_wc2026_team_aliases')
         rows: []
-      - input: ref('int_wc2026_knockout_fixtures')
+      - input: ref('int_wc2026_advancement_fixtures')
         rows:
           - {fifa_match_id: 101, stage_key: semifinal, stage_rank: 4, kickoff_at_utc: "2026-07-14 19:00:00", home_team: France, away_team: Spain, teams_resolved: true}
     expect:

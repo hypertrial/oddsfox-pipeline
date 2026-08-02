@@ -1,0 +1,236 @@
+# Machine-readable terminology inventory and retirement rules.
+# Human definitions: docs/reference/terminology.md
+
+[meta]
+version = 1
+doc = "docs/reference/terminology.md"
+core_term_count = 34
+max_path_exceptions = 12
+max_retired_identifier_rules = 25
+max_retired_prose_rules = 12
+
+[scan]
+roots = [
+  "src/",
+  "dbt/models/",
+  "dbt/tests/",
+  "dbt/seeds/",
+  "dbt/macros/",
+  "dbt/dbt_project.yml",
+  "dbt/README.md",
+  "scripts/",
+  "docs/",
+  "tests/",
+  "config/",
+  ".env.example",
+  "README.md",
+  "AGENTS.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "THIRD_PARTY_NOTICES.md",
+  "mkdocs.yml",
+  "Makefile",
+  ".github/workflows/",
+  ".github/PULL_REQUEST_TEMPLATE.md",
+]
+suffixes = [".py", ".sql", ".md", ".yml", ".yaml", ".toml", ".csv", ".sh", ".txt"]
+exclude_prefixes = [
+  "uv.lock",
+  "dbt/target/",
+  "dbt/dbt_packages/",
+  "tests/fixtures/cassettes/",
+  "tests/fixtures/polymarket_wc2026_logical_v1/",
+  "tests/support/terminology_policy.py",
+  "tests/repository/test_terminology_policy.py",
+  "config/terminology_policy.toml",
+  "CHANGELOG.md",
+  "build/",
+  ".venv/",
+]
+exclude_parts = ["__pycache__", ".pytest_cache", ".mypy_cache", "node_modules"]
+
+[frozen]
+literals = [
+  "OddsFox Pipeline",
+  "oddsfox_pipeline",
+  "oddsfox-pipeline",
+  "oddsfox-graph",
+  "dlt.pipeline",
+  "dbt graph",
+  "asset graph",
+  "game_id",
+  "game_start_time",
+  "test fixture",
+  "sync_run_metrics",
+]
+
+[core_terms.execution]
+terms = ["pipeline", "job", "run", "schedule", "backfill"]
+
+[core_terms.identity]
+terms = ["source", "scope", "catalog", "registry", "working set"]
+
+[core_terms.observation]
+terms = ["grain", "cadence", "snapshot", "history", "latest"]
+
+[core_terms.storage]
+terms = ["relation", "mart", "artifact", "bundle", "release"]
+
+[core_terms.actions]
+terms = ["ingest", "refresh", "enrich", "build", "export", "activate"]
+
+[core_terms.domain]
+terms = ["event", "market", "outcome", "token", "proposition", "fixture", "match"]
+
+[core_terms.guarantee]
+terms = ["contract"]
+
+[local_owners]
+"scope reference" = "docs/reference/naming.md"
+"namespace" = "docs/reference/naming.md"
+"pipeline policy" = "docs/reference/naming.md"
+"API fidelity" = "docs/reference/configuration.md"
+"wc2026.v1" = "docs/reference/strategy-contracts.md"
+"oddsfox.raw.v1" = "docs/reference/strategy-contracts.md"
+"polymarket-wc2026-logical-v1" = "docs/guides/build-wc2026-logical-atlas.md"
+"logical atlas" = "docs/guides/build-wc2026-logical-atlas.md"
+"membership class" = "docs/guides/build-wc2026-logical-atlas.md"
+"atlas node" = "docs/guides/build-wc2026-logical-atlas.md"
+
+[structural]
+extension_jobs = [
+  "international_results_historical_ingest",
+  "international_results_wc2026_match_results_ingest",
+  "polymarket_wc2026_logical_atlas",
+  "polymarket_wc2026_match_minute_odds_backfill",
+  "polymarket_wc2026_match_order_book_backfill",
+  "polymarket_wc2026_market_portrait_backfill",
+  "polymarket_wc2026_polygon_settlement_backfill",
+  "polymarket_wc2026_polygon_settlement_release",
+  "wc2026_knockout_match_odds_full_pipeline",
+]
+critical_asset_keys = [
+  ["polymarket", "wc2026", "ops", "market_scope_registry"],
+  ["polymarket", "wc2026", "release", "logical_bundle"],
+  ["polymarket", "wc2026", "marts", "knockout_token_hourly_odds"],
+  ["polymarket", "wc2026", "marts", "match_minute_odds"],
+  ["kalshi", "wc2026", "ops", "market_scope_registry"],
+  ["kalshi", "wc2026", "marts", "stage_markets"],
+  ["wc2026", "marts", "knockout_match_hourly_odds"],
+  ["openfootball", "wc2026", "raw", "schedule_fixtures"],
+  ["international_results", "wc2026", "marts", "matches"],
+  ["polymarket", "catalog", "raw", "markets"],
+]
+
+# Identifier retirement: apply to all scanned files (code and docs).
+[[retired.identifier]]
+id = "retired_graph_export_product"
+pattern = '''\bgraph export\b|\bgraph_export\b|graph_token_hourly|graph_hourly'''
+prefer = "logical-v1 bundle / polymarket-wc2026-logical-v1"
+
+[[retired.identifier]]
+id = "ambiguous_graph_bundle"
+pattern = '''\bgraph bundle\b'''
+prefer = "logical-v1 bundle"
+
+[[retired.identifier]]
+id = "internal_graph_contract_identifier"
+pattern = '''\bgraph_contract\b|polymarket_wc2026_graph_contract'''
+prefer = "polymarket_wc2026_logical_contract"
+
+[[retired.identifier]]
+id = "intermediate_graph_model_names"
+pattern = '''int_polymarket_wc2026_graph_(markets|market_events)'''
+prefer = "int_polymarket_wc2026_logical_*"
+
+[[retired.identifier]]
+id = "retired_logical_eligibility_flags"
+pattern = '''\b(is_graph_event|event_graph_eligible|graph_usable|graph_usable_market_count|graph_market_count|graph_event_volume_min_usd)\b'''
+prefer = "is_logical_event / event_logical_eligible / logical_usable / logical_*"
+
+[[retired.identifier]]
+id = "retired_schedule_fixture_names"
+pattern = '''stg_openfootball_wc2026_knockout_fixtures|openfootball_wc2026_raw_knockout_fixtures|openfootball/wc2026/(raw|staging)/knockout_fixtures|ingestion/openfootball/knockout_fixtures\.py|int_wc2026_knockout_fixtures|assert_wc2026_knockout_fixture_set_complete'''
+prefer = "schedule_fixtures / int_wc2026_advancement_fixtures"
+
+[[retired.identifier]]
+id = "retired_scope_registry_module"
+pattern = '''orchestration/scope_registry\.py|from oddsfox_pipeline\.orchestration\.scope_registry|import oddsfox_pipeline\.orchestration\.scope_registry'''
+prefer = "shipped_scopes.py"
+
+[[retired.identifier]]
+id = "retired_job_suffix_market_registry_refresh"
+pattern = '''\b(?:polymarket_wc2026|polymarket_us_midterms_2026|kalshi_wc2026)_market_registry_refresh\b'''
+prefer = "*_market_scope_registry_refresh"
+
+[[retired.identifier]]
+id = "retired_cli_registry_step"
+pattern = '''ScopeStep\s*=\s*Literal\[[^\]]*"market_registry"[^\]]*\]|SCOPE_STEPS[^\n]*"market_registry"|--step\s+market_registry\b|"market_registry":\s*self\.registry_job_name|ScopeStep\s*=\s*Literal\[[^\]]*"registry"[^\]]*\]|--step\s+registry\b|"registry":\s*self\.registry_job_name'''
+prefer = 'ScopeStep "market_scope_registry"'
+
+[[retired.identifier]]
+id = "retired_membership_scope_class"
+pattern = '''\bscope_class\b'''
+prefer = "membership_class"
+
+[[retired.identifier]]
+id = "retired_metadata_backfill_asset"
+pattern = '''market_metadata_backfill|MetadataBackfillConfig|_materialize_metadata_backfill|\bbackfill_market_metadata\b'''
+prefer = "market_metadata_enrichment / MetadataEnrichmentConfig / enrich_market_metadata"
+
+[[retired.identifier]]
+id = "retired_pipeline_run_events"
+pattern = '''\bpipeline_run_events\b|append_pipeline_run_event|seed_test_(?:kalshi_)?pipeline_run_event|stg_\w+_pipeline_run_events|polymarket_pipeline_run_events_sql|pipeline_run_event_append_'''
+prefer = "ingestion_run_events"
+
+[[retired.identifier]]
+id = "retired_sync_run_observability"
+pattern = '''\w*_sync_run_observability\b|polymarket_sync_run_observability_sql|assert_mart_sync_run_observability_'''
+prefer = "*_ingestion_run_observability"
+
+[[retired.identifier]]
+id = "retired_threshold_contract_seeds"
+pattern = '''\b(?:polymarket_wc2026|polymarket_us_midterms_2026|kalshi_wc2026)_contract(?:\.csv)?\b|ref\(['\"](?:polymarket_wc2026|polymarket_us_midterms_2026|kalshi_wc2026)_contract['\"]\)'''
+prefer = "*_pipeline_policy"
+
+[[retired.identifier]]
+id = "retired_cadence_issue_type"
+pattern = '''issue_type\s*=\s*['\"]cadence['\"]'''
+prefer = "observation_gap"
+
+[[retired.identifier]]
+id = "retired_minutely_config"
+pattern = '''\bminutely\b|rebuild_minutely|minutely_backfill'''
+prefer = "minute-grain / match-minute"
+
+[[retired.identifier]]
+id = "inverted_namespace"
+pattern = '''(?<!polymarket_)(?<!kalshi_)wc2026_polymarket|WC2026_POLYMARKET'''
+prefer = "polymarket_wc2026"
+
+[[retired.identifier]]
+id = "retired_universe_models"
+pattern = '''\b(?:int_polymarket_wc2026_token_universe|int_polymarket_us_midterms_2026_token_universe|int_polymarket_wc2026_match_market_universe|int_polymarket_wc2026_polygon_settlement_market_universe|token_universe|match_market_universe|polygon_settlement_market_universe)\b'''
+prefer = "*_working_set"
+
+[[retired.identifier]]
+id = "retired_publish_current"
+pattern = '''\bpublish_current\b|\b_publish_current_locked\b|--no-publish\b|\bno_publish\b'''
+prefer = "activate_current / --no-activate"
+
+# Docs-only high-confidence prose denylist.
+[[retired.prose]]
+id = "retired_scope_class_phrase"
+pattern = '''\bscope class\b'''
+prefer = "membership class"
+
+[[retired.prose]]
+id = "retired_market_universe_phrase"
+pattern = '''\bmarket universe\b|\btoken universe\b|\bvalidated universe\b'''
+prefer = "working set"
+
+[[retired.prose]]
+id = "retired_dagster_job_phrase"
+pattern = '''\bDagster jobs?\b'''
+prefer = "job (qualify Dagster only when disambiguating tooling)"
+owner_allow = ["docs/reference/orchestration.md", "docs/reference/naming.md"]

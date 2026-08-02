@@ -129,7 +129,7 @@ models:
       - name: adaptive_split_count
         tests: [not_null]
 
-  - name: int_polymarket_wc2026_polygon_settlement_market_universe
+  - name: int_polymarket_wc2026_polygon_settlement_working_set
     description: The unfiltered 248-proposition manifest plus its scheduled half-open window length.
     config:
       tags: [polygon_settlement]
@@ -477,7 +477,7 @@ unit_tests:
       status: published
       raw_published: true
       published_at: '2026-08-01 00:00:00'
-  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+  - input: ref('int_polymarket_wc2026_polygon_settlement_working_set')
     rows:
     - proposition_id: p1
       condition_id: '0x01'
@@ -635,7 +635,7 @@ unit_tests:
 - name: test_polygon_settlement_candidate_keeps_dense_half_open_minutes
   model: int_polymarket_wc2026_polygon_settlement_minute_odds_candidate
   given:
-  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+  - input: ref('int_polymarket_wc2026_polygon_settlement_working_set')
     rows:
     - proposition_id: p1
       fifa_match_id: 1
@@ -1754,7 +1754,7 @@ unit_tests:
       raw_published: true
       published_at: '2026-08-01 00:00:00'
       finished_at: '2026-08-01 00:00:00'
-  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+  - input: ref('int_polymarket_wc2026_polygon_settlement_working_set')
     rows:
     - &id006
       proposition_id: p1
@@ -1845,7 +1845,7 @@ unit_tests:
   - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
     rows:
     - *id005
-  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+  - input: ref('int_polymarket_wc2026_polygon_settlement_working_set')
     rows:
     - *id006
   - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
@@ -1863,7 +1863,7 @@ unit_tests:
   - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
     rows:
     - *id005
-  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+  - input: ref('int_polymarket_wc2026_polygon_settlement_working_set')
     rows:
     - *id006
   - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
@@ -1911,7 +1911,7 @@ unit_tests:
   - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
     rows:
     - *id005
-  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+  - input: ref('int_polymarket_wc2026_polygon_settlement_working_set')
     rows:
     - *id006
   - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
@@ -1959,7 +1959,7 @@ unit_tests:
   - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
     rows:
     - *id005
-  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+  - input: ref('int_polymarket_wc2026_polygon_settlement_working_set')
     rows:
     - *id006
   - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
@@ -2007,7 +2007,7 @@ unit_tests:
   - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
     rows:
     - *id005
-  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+  - input: ref('int_polymarket_wc2026_polygon_settlement_working_set')
     rows:
     - *id006
   - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
@@ -2055,7 +2055,7 @@ unit_tests:
   - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
     rows:
     - *id005
-  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+  - input: ref('int_polymarket_wc2026_polygon_settlement_working_set')
     rows:
     - *id006
   - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')
@@ -2103,7 +2103,7 @@ unit_tests:
   - input: ref('int_polymarket_wc2026_polygon_settlement_latest_published_scan')
     rows:
     - *id005
-  - input: ref('int_polymarket_wc2026_polygon_settlement_market_universe')
+  - input: ref('int_polymarket_wc2026_polygon_settlement_working_set')
     rows:
     - *id006
   - input: ref('stg_polymarket_wc2026_polygon_settlement_fills')

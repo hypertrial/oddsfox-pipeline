@@ -119,7 +119,7 @@ change.
 5. Update configuration examples, [Choose a scope](../getting-started/choose-a-scope.md)
    or runbooks when operator behavior changes, and
    [Data contracts](../reference/data-contracts.md) / the
-   [Data dictionary](../reference/data-dictionary.md) when public marts change.
+   [Data dictionary](../reference/data-dictionary.md) when documented marts change.
 6. Run the gate tree above, then the broader targets listed in AGENTS.md.
 
 ## Add A Public Mart
@@ -141,7 +141,7 @@ change.
 Treat Costguard medium/low advisories as measurement prompts. Current measured
 debt includes:
 
-- `int_polymarket_wc2026_token_universe` is materialized as a table because profiling
+- `int_polymarket_wc2026_token_working_set` is materialized as a table because profiling
   showed it is reused heavily by WC2026 marts and the dbt build stayed
   neutral or faster after the change.
 - `int_polymarket_wc2026_market_tokens` is materialized as a table because it
@@ -149,7 +149,7 @@ debt includes:
   incremental-conversion question as `SQLCOST040`.
 - `int_polymarket_wc2026_token_hourly_odds` is an incremental private fact that
   reprocesses dirty hourly buckets from raw odds `ingested_at` overlap.
-- `SQLCOST040`: `int_polymarket_wc2026_token_universe` and
+- `SQLCOST040`: `int_polymarket_wc2026_token_working_set` and
   `int_polymarket_wc2026_market_tokens` still track remaining materialization
   questions. Keep collecting row-volume profiling before further conversions.
 - Low advisories may still flag `ORDER BY` without `LIMIT` in table-building
@@ -169,14 +169,14 @@ making the static surfaces explicit and letting the guard tests catch drift:
 1. Add the source discovery seed entry, for example in the Polymarket or Kalshi
    `market_scopes.yml`.
 2. Add a `ScopeSpec` in `oddsfox_pipeline.orchestration.shipped_scopes` with the
-   source/scope ref, namespace alias, fixed Dagster jobs, and dbt selector.
+   source/scope ref, namespace alias, fixed jobs, and dbt selector.
 3. Add explicit Dagster assets/jobs in the source module; keep asset keys and op
    names source-first and scope-first.
 4. Add dbt source YAML, model folder tags, and a pipeline policy seed when the scope
    ships analytics.
 5. Update the quickstart, scope guide, orchestration reference, scripts, and
    this checklist when operator behavior changes.
-6. Run the registry, dbt-structure, orchestration, and docs tests before the
+6. Run the market-scope registry, dbt-structure, orchestration, and docs tests before the
    broader quality gate.
 
 ## Local `.env` And Tests
@@ -199,8 +199,8 @@ when settings reload from disk. See
 | `uv run make unit-core` | Config, resource, and storage unit tests. |
 | `uv run make unit-ingest` | Polymarket ingestion and odds sync tests. |
 | `uv run make unit-orchestration` | Dagster asset, job, and schedule tests. |
-| `uv run make dagster-jobs-smoke` | Headless deterministic smoke for every registered public Dagster job. |
-| `uv run make dagster-jobs-smoke-cov` | Coverage version of registered public Dagster job smoke. |
+| `uv run make dagster-jobs-smoke` | Headless deterministic smoke for every registered public job. |
+| `uv run make dagster-jobs-smoke-cov` | Coverage version of registered public job smoke. |
 | `uv run make dagster-refresh-cov` | Coverage for scoped Dagster E2E, writer recovery, and dbt wiring. |
 | `uv run make check-repository` | Ownership suite for Make/workflow/naming/distribution/terminology/secrets/static dbt checks. |
 | `uv run make integration-dbt` | DuckDB and dbt smoke tests. |
@@ -209,7 +209,7 @@ when settings reload from disk. See
 | `uv run make integration-dagster-cov` | Local wrapper for both split Dagster coverage targets. |
 | `uv run make integration-dbt-cov` | DuckDB + dbt integration with coverage append. |
 | `uv run make dbt-unit` | dbt unit tests for classifier and mart edge-case SQL. |
-| `uv run make golden-dbt` | Standalone exact-output public mart fixtures (also run by `integration-dbt`). |
+| `uv run make golden-dbt` | Standalone exact-output mart fixtures (also run by `integration-dbt`). |
 | `uv run make dbt-prepare` | Shared dbt deps/parse into the active `DBT_TARGET_PATH`. |
 | `uv run make gate-timing` | Opt-in JSON timings under `.cache/runtime/benchmarks/`. |
 | `uv run make dbt-source-freshness-ci` | Seed temp source rows and run dbt source freshness. |

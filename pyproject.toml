@@ -34,10 +34,12 @@ cache-dir = ".cache/runtime/uv"
 default-groups = ["dev"]
 
 [dependency-groups]
+# tomli backs terminology policy loading on Python 3.10 (tomllib is 3.11+).
 test = [
   "hypothesis>=6.156.6",
   "pytest>=8.0.0",
   "pytest-xdist>=3.5.0",
+  "tomli>=2.0.0; python_version < '3.11'",
   "vcrpy>=6.0.0",
 ]
 coverage = [

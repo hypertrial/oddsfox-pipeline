@@ -141,6 +141,24 @@ manual Make targets. `POLYGON_AUDIT_OUTPUT_ROOT` defaults to
 artifacts and are ignored by Git. The software accepts no upload
 configuration.
 
+## API fidelity and pipeline policy thresholds
+
+Upstream observation buckets are configuration, not ontology terms:
+
+- Hourly CLOB odds jobs use `fidelity=60` (one observation bucket per minute of
+  wall clock inside each request window; the warehouse fact is still hourly).
+- Match-minute odds use fixed CLOB `fidelity=1` for exact game windows.
+- Kalshi hourly candlesticks align to the same hourly schedule cadence.
+
+Shared volume floors, trailing hourly windows, and freshness windows live in
+the `<namespace>_pipeline_policy.csv` seeds (see [Naming](naming.md)):
+
+- `dbt/seeds/polymarket_wc2026_pipeline_policy.csv`
+- `dbt/seeds/polymarket_us_midterms_2026_pipeline_policy.csv`
+- `dbt/seeds/kalshi_wc2026_pipeline_policy.csv`
+
+Python defaults are checked against those seeds in unit tests.
+
 ## Polymarket scopes
 
 | Preset | Focus |
@@ -150,7 +168,7 @@ configuration.
 
 `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml` is the
 scope source. The packaged seed contains `wc2026` and `us_midterms_2026`, and
-the shipped Dagster jobs, assets, and dbt graphs are fixed per scope in v0.1.x.
+the shipped jobs, assets, and dbt graphs are fixed per scope in v0.1.x.
 
 `ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH` must name the absolute path to the
 operator-reviewed logical-atlas membership CSV when running
@@ -173,20 +191,16 @@ overrides.
 - `POLYMARKET_WC2026_SCOPE_EVENT_TAGS`
 - `POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED`
 - `POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN`: minimum Gamma keyset volume filter (default
-  `5000`, aligned with the WC2026 knockout universe floor); shared by dlt and markets sync entrypoints.
+  `5000`, aligned with the WC2026 knockout pipeline-policy volume floor); shared by dlt and markets sync entrypoints.
 - `POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS`
 - `POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY`
 - `POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_ROUNDS`
 - `POLYMARKET_WC2026_SCOPE_TAG_CRAWL_MAX`
 
 The seed file `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml`
-is the default scope source.
-
-Shared dbt pipeline policy values such as the knockout volume floor, trailing
-hourly window, and freshness windows live in
-`dbt/seeds/polymarket_wc2026_pipeline_policy.csv` and
-`dbt/seeds/polymarket_us_midterms_2026_pipeline_policy.csv`.
-Python defaults are checked against those seeds in unit tests.
+is the default scope source. Pipeline-policy thresholds for this namespace are
+covered under
+[API fidelity and pipeline policy thresholds](#api-fidelity-and-pipeline-policy-thresholds).
 
 The packaged WC2026 event prefixes include `fifwc-` so exact match events are
 discovered deterministically alongside tag discovery. The combined match job

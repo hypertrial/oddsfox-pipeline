@@ -1249,7 +1249,7 @@ def _validate_export_alignment(
     required = {
         (
             "polymarket_wc2026_intermediate",
-            "int_polymarket_wc2026_match_market_universe",
+            "int_polymarket_wc2026_match_working_set",
         ),
         ("polymarket_wc2026_ops", "match_order_book_scan_windows"),
     }
@@ -1261,7 +1261,7 @@ def _validate_export_alignment(
             FROM information_schema.tables
             WHERE (
                 table_schema='polymarket_wc2026_intermediate'
-                AND table_name='int_polymarket_wc2026_match_market_universe'
+                AND table_name='int_polymarket_wc2026_match_working_set'
             ) OR (
                 table_schema='polymarket_wc2026_ops'
                 AND table_name='match_order_book_scan_windows'
@@ -1277,7 +1277,7 @@ def _validate_export_alignment(
         """
         SELECT DISTINCT scheduled_kickoff_at_utc, match_started_at_utc
         FROM polymarket_wc2026_intermediate
-            .int_polymarket_wc2026_match_market_universe
+            .int_polymarket_wc2026_match_working_set
         WHERE fifa_match_id=?
           AND fixture_mapping_count=1
           AND primary_mapping_count=1
@@ -1286,14 +1286,14 @@ def _validate_export_alignment(
     ).fetchall()
     if len(timing_rows) != 1 or any(value is None for value in timing_rows[0]):
         raise ValueError(
-            "validated match universe must provide one consistent match timing"
+            "validated match working set must provide one consistent match timing"
         )
     scheduled = _as_utc(timing_rows[0][0], "scheduled_kickoff_at_utc")
     market_start = _as_utc(timing_rows[0][1], "match_started_at_utc")
     kickoff = _utc(facts.kickoff_at_utc, "kickoff_at_utc")
     if abs((kickoff - scheduled).total_seconds()) > 60:
         raise ValueError(
-            "football kickoff does not agree with the validated match universe"
+            "football kickoff does not agree with the validated match working set"
         )
     first_half = _utc(facts.first_half_started_at, "first_half")
     market_delta = first_half - market_start

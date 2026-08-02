@@ -7,7 +7,7 @@ with mapped_tokens as (
         'yes' as token_side,
         yes_token_id as token_id,
         window_minutes as expected_minute_buckets
-    from {{ ref('int_polymarket_wc2026_polygon_settlement_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_polygon_settlement_working_set') }}
 
     union all
 
@@ -17,7 +17,7 @@ with mapped_tokens as (
         'no' as token_side,
         no_token_id as token_id,
         window_minutes as expected_minute_buckets
-    from {{ ref('int_polymarket_wc2026_polygon_settlement_market_universe') }}
+    from {{ ref('int_polymarket_wc2026_polygon_settlement_working_set') }}
 ),
 
 observed as (

@@ -163,7 +163,7 @@ group_fixtures as (
         and group_label between 'a' and 'l'
 ),
 
-knockout_fixtures as (
+advancement_fixtures as (
     select
         fifa_match_id,
         stage_key as fixture_stage,
@@ -189,7 +189,7 @@ knockout_fixtures as (
 official_fixtures as (
     select * from group_fixtures
     union all by name
-    select * from knockout_fixtures
+    select * from advancement_fixtures
 ),
 
 direct_candidates as (
