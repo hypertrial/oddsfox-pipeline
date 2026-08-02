@@ -326,7 +326,7 @@ def polymarket_us_midterms_2026_hourly_odds_run_config() -> dict:
 
 def polymarket_wc2026_dbt_build_run_config() -> dict:
     dbt_cfg = DbtBuildConfig(
-        full_refresh=True,
+        full_refresh=False,
         dbt_select=POLYMARKET_WC2026_SCOPE.dbt_select,
         dbt_exclude=POLYMARKET_WC2026_SCOPE.dbt_exclude,
     )
@@ -343,7 +343,7 @@ def polymarket_wc2026_logical_atlas_run_config(
         keyset_volume_min=None,
     )
     dbt_cfg = DbtBuildConfig(
-        full_refresh=True,
+        full_refresh=False,
         dbt_select="+tag:wc2026_logical_atlas",
         dbt_exclude="tag:polygon_settlement tag:pmxt_order_book",
     )
@@ -367,7 +367,7 @@ def polymarket_wc2026_logical_atlas_run_config(
 
 def polymarket_us_midterms_2026_dbt_build_run_config() -> dict:
     dbt_cfg = DbtBuildConfig(
-        full_refresh=True,
+        full_refresh=False,
         dbt_select=POLYMARKET_US_MIDTERMS_2026_SCOPE.dbt_select,
         dbt_exclude=POLYMARKET_US_MIDTERMS_2026_SCOPE.dbt_exclude,
     )
@@ -569,7 +569,7 @@ def kalshi_wc2026_hourly_odds_run_config() -> dict:
 
 def kalshi_wc2026_dbt_build_run_config() -> dict:
     dbt_cfg = DbtBuildConfig(
-        full_refresh=True,
+        full_refresh=False,
         dbt_select=KALSHI_WC2026_SCOPE.dbt_select,
         dbt_exclude=KALSHI_WC2026_SCOPE.dbt_exclude,
     )
