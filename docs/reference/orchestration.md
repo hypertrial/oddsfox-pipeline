@@ -86,6 +86,8 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   scope registry refresh, and metadata enrichment.
 - `polymarket_wc2026_hourly_odds_ingest`: trailing hourly token-odds refresh.
 - `polymarket_wc2026_dbt_build`: WC2026 and international-results dbt build.
+  Default run config uses incremental dbt (`full_refresh=False`); set
+  `full_refresh=True` in Dagster run config for a one-off full rebuild.
 - `polymarket_wc2026_logical_atlas`: builds logical marts and publishes the
   `polymarket/wc2026/release/logical_bundle` for the static WC2026 logical atlas
   (no odds). See
@@ -190,7 +192,9 @@ cross-provider comparison. Operator recipe:
   and `raw/event_market_memberships` land reviewed membership and event-catalog
   inputs used by the logical atlas.
 - `ops/market_scope_registry` writes only when discovery did not already
-  refresh the market scope registry.
+  refresh the market scope registry. When Dagster run config leaves
+  `max_pages_without_progress` unset, discovery and registry refresh apply the
+  scan helper's built-in guard (25 pages without progress).
 - Metadata enrichment and hourly odds operate over the fixed WC2026 registry.
 - The match-minute asset writes a separate raw table and never reads or updates
   the hourly token-sync ledger. Any missing token history aborts before dbt. A

@@ -227,6 +227,23 @@ The packaged Kalshi series include `KXWCADVANCE`. Only the two team-advance
 binary markets under a recognized event are eligible for the neutral match
 mart.
 
+## dbt build defaults
+
+Scoped dbt jobs (`polymarket_wc2026_dbt_build`,
+`polymarket_us_midterms_2026_dbt_build`, `kalshi_wc2026_dbt_build`, and
+`polymarket_wc2026_logical_atlas`) ship with `full_refresh=False` in their
+default Dagster run config. Routine runs therefore use dbt incremental
+materializations where defined. Override with `full_refresh=True` in Dagster run
+config when a one-off full rebuild is required.
+
+## Market scope page budget
+
+Polymarket market discovery and `ops/market_scope_registry` run configs expose
+`max_pages_without_progress`. When the field is omitted or explicitly `null` in
+Dagster run config, the orchestration layer passes the scan helper's built-in
+default of **25** pages without progress. Set a positive integer in run config
+to tighten or relax the guard for a one-off run.
+
 ## Odds History Run Config
 
 Dagster hourly odds config uses history-oriented option names:

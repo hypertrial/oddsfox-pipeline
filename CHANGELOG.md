@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Polymarket US midterms `ops/market_scope_registry` skip path now passes
+  `scope_name` into `get_sync_run_metrics`, so registry-skip metrics read the
+  correct scope instead of failing or mis-attributing.
+- `polymarket_wc2026_full_pipeline` (and other jobs using `_merge_run_configs`)
+  now unions `dbt_select` and `dbt_exclude` when combining `oddsfox_dbt` run
+  configs instead of last-write-wins over the whole op config.
+- In-process logical-bundle export reloads the script-backed exporter when its
+  source mtime changes, so long-lived Dagster workers pick up exporter updates
+  without restart.
+
 ### Removed
 
 - Docker packaging and publication: Dockerfile(s), `.dockerignore`, container
@@ -21,6 +33,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   warehouses delete `oddsfox.duckdb*` and rebuild.
 
 ### Changed
+
+- Routine scoped dbt jobs (`polymarket_wc2026_dbt_build`,
+  `polymarket_us_midterms_2026_dbt_build`, `kalshi_wc2026_dbt_build`, and
+  `polymarket_wc2026_logical_atlas`) default to incremental builds
+  (`full_refresh=False`). Set `full_refresh=True` in Dagster run config when a
+  one-off full rebuild is required.
+- Polymarket market-scope discovery and registry refresh now apply the scan
+  helper's built-in page-budget guard (25 pages without progress) when Dagster
+  run config leaves `max_pages_without_progress` unset, instead of disabling the
+  guard.
+- Kalshi market-scope registry refresh and hourly candlestick sync use bounded
+  concurrent fetch with the shared `KALSHI_REQUESTS_PER_SECOND` rate limiter.
+- `int_polymarket_wc2026_logical_markets` and
+  `int_polymarket_wc2026_fixture_events` materialize as tables; Polymarket
+  markets and token-working-set twin models share parameterized dbt macros.
+- Warehouse observability snapshots batch raw-table counts and scope dbt model
+  snapshots to the models selected by the active `dbt_select` /
+  `dbt_exclude`.
+- `release/logical_bundle` calls the exporter in-process instead of shelling
+  out to `scripts/export_polymarket_wc2026_logical_bundle.py` (the script
+  remains the CLI wrapper).
+- Removed unused single-field Polymarket metadata backfill entry points
+  (`backfill_tokens`, `backfill_slugs`, `backfill_end_dates`,
+  `backfill_event_slugs`); `enrich_market_metadata` is the sole path.
+- Consolidated Polymarket raw dlt column specs with DuckDB DDL, shared
+  publishing bundle I/O helpers, and orchestration raw-snapshot / dlt-cache
+  helpers; decomposed the highest-complexity ingestion, contracts, publishing,
+  and odds-planning functions without behavior change.
 
 - Pipeline clarity docs: [Pipeline registry](docs/reference/orchestration.md#pipeline-registry)
   with maturity tiers (production, mature composed/isolated, experimental);
