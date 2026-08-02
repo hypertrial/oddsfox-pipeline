@@ -1,3 +1,108 @@
+{% macro polymarket_markets_sql(markets_ref, registry_source, scope_name, policy_ref) %}
+with markets as (
+    select
+        market_id,
+        question,
+        category,
+        description,
+        outcomes,
+        volume,
+        is_active,
+        is_closed,
+        created_at,
+        scraped_at,
+        end_date,
+        slug,
+        event_slug,
+        event_id,
+        condition_id,
+        sports_market_type,
+        game_start_time,
+        group_item_title,
+        tags,
+        clob_token_ids,
+        is_resolved,
+        winning_outcome,
+        winning_clob_token_id
+    from {{ markets_ref }}
+),
+
+registry as (
+    select
+        market_id,
+        scope_name
+    from {{ registry_source }}
+    where lower(scope_name) = '{{ scope_name }}'
+),
+
+contract as (
+    select knockout_min_volume_usd
+    from {{ policy_ref }}
+    where scope_name = '{{ scope_name }}'
+)
+
+select
+    markets.market_id,
+    markets.question,
+    markets.category,
+    markets.description,
+    markets.outcomes,
+    markets.volume,
+    markets.is_active,
+    markets.is_closed,
+    markets.created_at,
+    markets.scraped_at,
+    markets.end_date,
+    markets.slug,
+    markets.event_slug,
+    markets.event_id,
+    markets.condition_id,
+    markets.sports_market_type,
+    markets.game_start_time,
+    markets.group_item_title,
+    markets.tags,
+    markets.clob_token_ids,
+    markets.is_resolved,
+    markets.winning_outcome,
+    markets.winning_clob_token_id,
+    registry.scope_name
+from markets
+inner join registry
+    on markets.market_id = registry.market_id
+-- costguard: allow cross-join, pipeline policy seed has one row.
+cross join contract
+where coalesce(markets.volume, 0) >= contract.knockout_min_volume_usd
+{% endmacro %}
+
+
+{% macro polymarket_token_working_set_sql(tokens_ref, markets_ref) %}
+select
+    t.market_id,
+    t.outcome_index,
+    t.clob_token_id,
+    t.updated_at as token_updated_at,
+    m.question,
+    m.event_slug,
+    m.slug as market_slug,
+    m.condition_id,
+    m.sports_market_type,
+    m.game_start_time,
+    m.group_item_title,
+    m.tags,
+    m.clob_token_ids,
+    m.is_resolved,
+    m.winning_outcome,
+    m.winning_clob_token_id,
+    m.is_active,
+    m.is_closed,
+    m.volume as market_volume_usd,
+    json_extract_string(m.outcomes, '$[' || t.outcome_index || ']') as outcome_label
+from {{ tokens_ref }} as t
+inner join {{ markets_ref }} as m
+    on t.market_id = m.market_id
+{% endmacro %}
+
+
 {% macro polymarket_token_hourly_odds_sql(contract_ref, odds_ref, scope_name) %}
 with contract as (
     select hourly_window_days
