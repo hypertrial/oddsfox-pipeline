@@ -11,6 +11,7 @@ from oddsfox_pipeline.ingestion.kalshi.client import (
     fetch_events_for_series,
     fetch_markets_for_event,
 )
+from oddsfox_pipeline.ingestion.kalshi.concurrent import map_bounded
 from oddsfox_pipeline.ingestion.kalshi.series_scope.config import (
     KalshiMarketScopeConfig,
     load_market_scope_config,
@@ -32,6 +33,14 @@ class KalshiCollectResult:
     summary: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class _EventCollection:
+    event: dict[str, Any]
+    markets: list[dict[str, Any]]
+    registry_rows: list[KalshiRegistryRow]
+    api_requests: int
+
+
 def _series_ticker_from_market(market: dict[str, Any]) -> str:
     ticker = str(market.get("ticker") or "")
     event_ticker = str(market.get("event_ticker") or "")
@@ -40,6 +49,54 @@ def _series_ticker_from_market(market: dict[str, Any]) -> str:
     if ticker and "-" in ticker:
         return ticker.split("-", 1)[0]
     return ""
+
+
+def _collect_event_markets(
+    client: object,
+    event: dict[str, Any],
+    *,
+    series_ticker: str,
+    cfg: KalshiMarketScopeConfig,
+    progress_callback: Callable[[str, dict[str, Any]], None] | None,
+) -> _EventCollection | None:
+    event_ticker = str(event.get("event_ticker") or "")
+    if not event_ticker:
+        return None
+    event_markets = fetch_markets_for_event(
+        client,
+        event_ticker,
+        progress_callback=progress_callback,
+    )
+    api_requests = max(1, len(event_markets) // 200 + 1)
+    markets: list[dict[str, Any]] = []
+    registry_rows: list[KalshiRegistryRow] = []
+    for market in event_markets:
+        market_ticker = str(market.get("ticker") or "")
+        if not market_ticker:
+            continue
+        series = _series_ticker_from_market(market) or series_ticker
+        if market_suffix_excluded(
+            cfg,
+            series_ticker=series,
+            market_ticker=market_ticker,
+        ):
+            continue
+        markets.append(market)
+        registry_rows.append(
+            KalshiRegistryRow(
+                scope_name=cfg.scope_name,
+                market_ticker=market_ticker,
+                event_ticker=event_ticker,
+                series_ticker=series,
+                source="series_api",
+            )
+        )
+    return _EventCollection(
+        event=event,
+        markets=markets,
+        registry_rows=registry_rows,
+        api_requests=api_requests,
+    )
 
 
 def refresh_registry_and_collect(
@@ -62,38 +119,23 @@ def refresh_registry_and_collect(
             progress_callback=progress_callback,
         )
         api_requests += max(1, len(series_events) // 200 + 1)
-        for event in series_events:
-            event_ticker = str(event.get("event_ticker") or "")
-            if not event_ticker:
-                continue
-            events.append(event)
-            event_markets = fetch_markets_for_event(
+        collected = map_bounded(
+            series_events,
+            lambda event: _collect_event_markets(
                 client,
-                event_ticker,
+                event,
+                series_ticker=series_ticker,
+                cfg=cfg,
                 progress_callback=progress_callback,
-            )
-            api_requests += max(1, len(event_markets) // 200 + 1)
-            for market in event_markets:
-                market_ticker = str(market.get("ticker") or "")
-                if not market_ticker:
-                    continue
-                series = _series_ticker_from_market(market) or series_ticker
-                if market_suffix_excluded(
-                    cfg,
-                    series_ticker=series,
-                    market_ticker=market_ticker,
-                ):
-                    continue
-                markets.append(market)
-                registry_rows.append(
-                    KalshiRegistryRow(
-                        scope_name=cfg.scope_name,
-                        market_ticker=market_ticker,
-                        event_ticker=event_ticker,
-                        series_ticker=series,
-                        source="series_api",
-                    )
-                )
+            ),
+        )
+        for item in collected:
+            if item is None:
+                continue
+            events.append(item.event)
+            markets.extend(item.markets)
+            registry_rows.extend(item.registry_rows)
+            api_requests += item.api_requests
 
     upserted = upsert_registry_rows(registry_rows)
     elapsed = time.monotonic() - t0
