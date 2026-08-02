@@ -510,7 +510,10 @@ def oddsfox_dbt(
     context: AssetExecutionContext, dbt: DbtCliResource, config: DbtBuildConfig
 ):
     pre_raw = snapshot_raw_layer(level=config.raw_snapshot_level)
-    pre_dbt = snapshot_dbt_models()
+    pre_dbt = snapshot_dbt_models(
+        dbt_select=config.dbt_select,
+        dbt_exclude=config.dbt_exclude,
+    )
 
     yield from ops.stream_dbt_build(
         asset_name="oddsfox_dbt",
@@ -520,7 +523,10 @@ def oddsfox_dbt(
     )
 
     post_raw = snapshot_raw_layer(level=config.raw_snapshot_level)
-    post_dbt = snapshot_dbt_models()
+    post_dbt = snapshot_dbt_models(
+        dbt_select=config.dbt_select,
+        dbt_exclude=config.dbt_exclude,
+    )
     context.log.info(
         "DuckDB delta after dbt build (raw tables): %s",
         delta_raw_layer(pre_raw, post_raw),

@@ -104,6 +104,78 @@ def _table_row_count(conn, table: str) -> tuple[bool, int | None]:
         return False, None
 
 
+def _sql_literal(value: str) -> str:
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def _batch_table_row_counts(
+    conn,
+    tables: tuple[tuple[str, str], ...],
+) -> dict[tuple[str, str], tuple[bool, int | None]]:
+    if not tables:
+        return {}
+    values_sql = ",\n".join(
+        f"({_sql_literal(schema)}, {_sql_literal(table)})"
+        for schema, table in tables
+    )
+    try:
+        exists_rows = conn.execute(
+            f"""
+            WITH wanted(schema_name, table_name) AS (
+                VALUES {values_sql}
+            )
+            SELECT
+                w.schema_name,
+                w.table_name,
+                (t.table_name IS NOT NULL) AS table_exists
+            FROM wanted AS w
+            LEFT JOIN information_schema.tables AS t
+                ON
+                    lower(t.table_schema) = lower(w.schema_name)
+                    AND lower(t.table_name) = lower(w.table_name)
+            """
+        ).fetchall()
+    except duckdb.Error:
+        return {
+            (schema, table): _table_row_count(conn, _qualified(schema, table))
+            for schema, table in tables
+        }
+    out: dict[tuple[str, str], tuple[bool, int | None]] = {}
+    existing: list[tuple[str, str]] = []
+    for schema, table, table_exists in exists_rows:
+        key = (str(schema), str(table))
+        if not table_exists:
+            out[key] = (False, None)
+        else:
+            existing.append(key)
+    if not existing:
+        return out
+    count_parts = [
+        f"SELECT {_sql_literal(schema)} AS schema_name, "
+        f"{_sql_literal(table)} AS table_name, "
+        f"COUNT(*)::BIGINT AS row_count "
+        f"FROM {_qualified(schema, table)}"
+        for schema, table in existing
+    ]
+    try:
+        for schema, table, row_count in conn.execute(
+            "\nUNION ALL\n".join(count_parts)
+        ).fetchall():
+            out[(str(schema), str(table))] = (True, int(row_count))
+    except duckdb.Error:
+        for schema, table in existing:
+            out[(schema, table)] = _table_row_count(
+                conn, _qualified(schema, table)
+            )
+    except (TypeError, ValueError) as exc:
+        logger.warning("unexpected value in _batch_table_row_counts: %s", exc)
+        for schema, table in existing:
+            out[(schema, table)] = _table_row_count(
+                conn, _qualified(schema, table)
+            )
+    return out
+
+
 def _dict_rows(conn, sql: str) -> dict[str, int] | None:
     try:
         rows = conn.execute(sql).fetchall()
@@ -137,8 +209,9 @@ def snapshot_raw_layer(conn=None, *, level: str = "full") -> dict[str, Any]:
     out: dict[str, Any] = {}
 
     def _fill(c) -> None:
+        counts = _batch_table_row_counts(c, _RAW_OPS_TABLES)
         for schema, table in _RAW_OPS_TABLES:
-            exists, n = _table_row_count(c, _qualified(schema, table))
+            exists, n = counts.get((schema, table), (False, None))
             qualified = f"{schema}.{table}"
             out[f"{qualified}_rows"] = n
             out[f"{qualified}_missing"] = not exists
@@ -237,25 +310,143 @@ def _qualified(schema: str, name: str) -> str:
     return f'"{schema}"."{name}"'
 
 
-def snapshot_dbt_models(conn=None) -> dict[str, Any]:
-    """Return row counts for modeled Polymarket dbt relations if they exist."""
+_CROSS_DOMAIN_MODELS: frozenset[str] = frozenset(
+    {
+        "int_polymarket_wc2026_match_hourly_odds",
+        "int_polymarket_wc2026_match_advance_tokens",
+        "int_kalshi_wc2026_match_hourly_odds",
+        "int_kalshi_wc2026_match_advance_markets",
+        "wc2026_knockout_match_hourly_odds",
+        "int_wc2026_advancement_fixtures",
+        "wc2026_knockout_match_odds_coverage",
+        "wc2026_knockout_match_odds_data_quality",
+    }
+)
+
+
+def _selector_groups(selector: str | None) -> tuple[frozenset[str], ...]:
+    if not selector:
+        return ()
+    groups: list[frozenset[str]] = []
+    for part in selector.split():
+        token = part.strip().lstrip("+")
+        if not token:
+            continue
+        and_tokens = frozenset(
+            piece.strip() for piece in token.split(",") if piece.strip()
+        )
+        if and_tokens:
+            groups.append(and_tokens)
+    return tuple(groups)
+
+
+def _infer_dbt_model_tags(schema: str, model: str) -> frozenset[str]:
+    tags: set[str] = set()
+    if schema.startswith("polymarket_wc2026_") or model.startswith(
+        ("stg_polymarket_wc2026_", "int_polymarket_wc2026_", "polymarket_wc2026_")
+    ):
+        tags.update({"polymarket", "wc2026"})
+    if schema.startswith("polymarket_us_midterms_2026_") or model.startswith(
+        (
+            "stg_polymarket_us_midterms_2026_",
+            "int_polymarket_us_midterms_2026_",
+            "polymarket_us_midterms_2026_",
+        )
+    ):
+        tags.update({"polymarket", "us_midterms_2026"})
+    if schema.startswith("kalshi_wc2026_") or model.startswith(
+        ("stg_kalshi_wc2026_", "int_kalshi_wc2026_", "kalshi_wc2026_")
+    ):
+        tags.update({"kalshi", "wc2026"})
+    if schema.startswith("international_results_wc2026_"):
+        tags.update({"wc2026", "international_results"})
+    if schema.startswith("openfootball_wc2026_"):
+        tags.update({"wc2026", "openfootball"})
+    if schema.startswith("wc2026_") or model.startswith(("int_wc2026_", "wc2026_")):
+        tags.update({"wc2026", "cross_domain"})
+    if model in _CROSS_DOMAIN_MODELS:
+        tags.add("cross_domain")
+    if "polygon_settlement" in model:
+        tags.add("polygon_settlement")
+    if (
+        "match_order_book" in model
+        or "match_trade" in model
+        or model.startswith("stg_polymarket_wc2026_match_order_book")
+    ):
+        tags.add("pmxt_order_book")
+    if (
+        "logical" in model
+        or model.startswith("int_polymarket_wc2026_event")
+        or model.startswith("int_polymarket_wc2026_fixture")
+        or model == "polymarket_wc2026_logical_contract"
+        or model == "polymarket_wc2026_event_membership_overrides"
+    ):
+        tags.add("wc2026_logical_atlas")
+    return frozenset(tags)
+
+
+def _token_matches_model(token: str, schema: str, model: str, tags: frozenset[str]) -> bool:
+    if token.startswith("tag:"):
+        return token[4:] in tags
+    return token == model or model.startswith(token) or schema.startswith(token)
+
+
+def _relation_matches_selector_groups(
+    schema: str,
+    model: str,
+    groups: tuple[frozenset[str], ...],
+) -> bool:
+    if not groups:
+        return True
+    tags = _infer_dbt_model_tags(schema, model)
+    return any(
+        all(_token_matches_model(token, schema, model, tags) for token in group)
+        for group in groups
+    )
+
+
+def _scoped_dbt_relations(
+    dbt_select: str | None = None,
+    dbt_exclude: str | None = None,
+) -> tuple[tuple[str, str], ...]:
+    select_groups = _selector_groups(dbt_select)
+    exclude_tokens = [
+        token
+        for group in _selector_groups(dbt_exclude)
+        for token in group
+    ]
+    relations: list[tuple[str, str]] = []
+    for schema, model in DBT_EXPECTED_RELATIONS:
+        tags = _infer_dbt_model_tags(schema, model)
+        if exclude_tokens and any(
+            _token_matches_model(token, schema, model, tags)
+            for token in exclude_tokens
+        ):
+            continue
+        if not _relation_matches_selector_groups(schema, model, select_groups):
+            continue
+        relations.append((schema, model))
+    return tuple(relations)
+
+
+def snapshot_dbt_models(
+    conn=None,
+    *,
+    dbt_select: str | None = None,
+    dbt_exclude: str | None = None,
+) -> dict[str, Any]:
+    """Return row counts for modeled dbt relations selected by the build scope."""
     out: dict[str, Any] = {}
+    relations = _scoped_dbt_relations(dbt_select, dbt_exclude)
 
     def _fill(c) -> None:
-        for schema, model in DBT_EXPECTED_RELATIONS:
+        counts = _batch_table_row_counts(c, relations)
+        for schema, model in relations:
             key = f"{schema}.{model}"
-            try:
-                row = c.execute(
-                    f"SELECT COUNT(*) FROM {_qualified(schema, model)}"
-                ).fetchone()
-                out[key] = {
-                    "exists": True,
-                    "rows": int(row[0]) if row and row[0] is not None else 0,
-                }
-            except duckdb.Error:
-                out[key] = {"exists": False, "rows": None}
-            except (TypeError, ValueError) as exc:
-                logger.warning("unexpected error counting dbt model %s: %s", key, exc)
+            exists, row_count = counts.get((schema, model), (False, None))
+            if exists:
+                out[key] = {"exists": True, "rows": row_count if row_count is not None else 0}
+            else:
                 out[key] = {"exists": False, "rows": None}
 
     if conn is not None:

@@ -122,16 +122,50 @@ def test_delta_raw_layer_ignores_missing_flags():
 
 def test_snapshot_dbt_models_reports_missing_relations(tmp_path):
     with duckdb.connect(str(tmp_path / "dbt.duckdb")) as conn:
-        snapshot = snapshot_dbt_models(conn=conn)
+        snapshot = snapshot_dbt_models(
+            conn=conn,
+            dbt_select="+tag:kalshi",
+            dbt_exclude="tag:cross_domain",
+        )
 
-    assert snapshot["polymarket_wc2026_staging.stg_polymarket_wc2026_markets"] == {
-        "exists": False,
-        "rows": None,
-    }
+    assert "polymarket_wc2026_staging.stg_polymarket_wc2026_markets" not in snapshot
     assert snapshot["kalshi_wc2026_marts.kalshi_wc2026_stage_markets"] == {
         "exists": False,
         "rows": None,
     }
+
+
+def test_scoped_dbt_relations_filters_us_midterms_scope():
+    relations = obs._scoped_dbt_relations(
+        dbt_select="+tag:us_midterms_2026",
+        dbt_exclude="tag:wc2026",
+    )
+    assert relations
+    assert all(
+        schema.startswith("polymarket_us_midterms_2026_") for schema, _ in relations
+    )
+    assert not any(
+        schema.startswith("polymarket_wc2026_") for schema, _ in relations
+    )
+
+
+def test_batch_table_row_counts_reports_missing_and_existing_tables(tmp_path):
+    with duckdb.connect(str(tmp_path / "batch.duckdb")) as conn:
+        conn.execute("CREATE SCHEMA polymarket_wc2026_raw")
+        conn.execute(
+            "CREATE TABLE polymarket_wc2026_raw.markets (id VARCHAR)"
+        )
+        conn.execute("INSERT INTO polymarket_wc2026_raw.markets VALUES ('m1')")
+        counts = obs._batch_table_row_counts(
+            conn,
+            (
+                ("polymarket_wc2026_raw", "markets"),
+                ("polymarket_wc2026_raw", "missing_table"),
+            ),
+        )
+
+    assert counts[("polymarket_wc2026_raw", "markets")] == (True, 1)
+    assert counts[("polymarket_wc2026_raw", "missing_table")] == (False, None)
 
 
 def test_dbt_delta_and_formatters():
@@ -226,20 +260,41 @@ def test_snapshot_raw_layer_rejects_invalid_level():
 
 def test_snapshot_dbt_models_handles_unexpected_count_value(caplog):
     class BadCountConn:
-        def execute(self, *_args, **_kwargs):
-            return self
+        def execute(self, sql, *_args, **_kwargs):
+            class _Result:
+                def fetchall(self_inner):
+                    if "information_schema.tables" in str(sql):
+                        return [
+                            (
+                                "polymarket_wc2026_staging",
+                                "stg_polymarket_wc2026_markets",
+                                True,
+                            )
+                        ]
+                    return [
+                        (
+                            "polymarket_wc2026_staging",
+                            "stg_polymarket_wc2026_markets",
+                            "bad-int",
+                        )
+                    ]
 
-        def fetchone(self):
-            return ("bad-int",)
+                def fetchone(self_inner):
+                    return ("bad-int",)
+
+            return _Result()
 
     caplog.set_level("WARNING")
-    snapshot = snapshot_dbt_models(conn=BadCountConn())
+    snapshot = snapshot_dbt_models(
+        conn=BadCountConn(),
+        dbt_select="stg_polymarket_wc2026_markets",
+    )
 
     assert snapshot["polymarket_wc2026_staging.stg_polymarket_wc2026_markets"] == {
         "exists": False,
         "rows": None,
     }
-    assert "unexpected error counting dbt model" in caplog.text
+    assert "unexpected value" in caplog.text
 
 
 def test_formatters_render_skip_reasons_and_plain_values():
