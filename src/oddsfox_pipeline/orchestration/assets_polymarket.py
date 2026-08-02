@@ -1,8 +1,8 @@
 import os
-import subprocess
-import sys
+import tempfile
 from pathlib import Path
 
+import duckdb
 import dlt
 from dagster import (
     AssetExecutionContext,
@@ -42,6 +42,9 @@ from oddsfox_pipeline.orchestration.config import (
     MatchMinuteOddsSyncConfig,
     MetadataEnrichmentConfig,
     ReviewedMembershipConfig,
+)
+from oddsfox_pipeline.orchestration.logical_bundle_export import (
+    export_polymarket_wc2026_logical_bundle,
 )
 from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
 from oddsfox_pipeline.orchestration.snapshot_helpers import (
@@ -343,25 +346,25 @@ def polymarket_wc2026_release_logical_bundle(
     if min(row_counts.values()) <= 0:
         raise RuntimeError(f"Logical-v1 bundle cannot be empty: {row_counts}")
 
-    repo_root = Path(__file__).resolve().parents[3]
-    command = [
-        sys.executable,
-        str(repo_root / "scripts/export_polymarket_wc2026_logical_bundle.py"),
-        "--duckdb-path",
-        str(active_duckdb_path()),
-    ]
     metadata: dict[str, object] = {"row_counts": row_counts}
-    if config.output_dir is not None:
-        output_dir = Path(config.output_dir).expanduser().resolve()
-        command.extend(("--output-dir", str(output_dir)))
-        metadata.update(
-            publication_mode="exported",
-            output_dir=str(output_dir),
-        )
-    else:
-        command.append("--validate-only")
-        metadata["publication_mode"] = "validated_only"
-    subprocess.run(command, cwd=repo_root, check=True)
+    with duckdb.connect(str(active_duckdb_path()), read_only=True) as export_conn:
+        if config.output_dir is not None:
+            output_dir = Path(config.output_dir).expanduser().resolve()
+            export_polymarket_wc2026_logical_bundle(export_conn, output_dir)
+            metadata.update(
+                publication_mode="exported",
+                output_dir=str(output_dir),
+            )
+        else:
+            with tempfile.TemporaryDirectory(
+                prefix="oddsfox-wc2026-logical-validation-"
+            ) as temporary_root:
+                export_polymarket_wc2026_logical_bundle(
+                    export_conn,
+                    Path(temporary_root) / "bundle",
+                    require_clean_repo=False,
+                )
+            metadata["publication_mode"] = "validated_only"
     context.log.info("WC2026 logical-v1 bundle: %s", metadata)
     return MaterializeResult(metadata=metadata)
 

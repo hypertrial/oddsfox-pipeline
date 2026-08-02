@@ -315,18 +315,27 @@ def test_logical_bundle_asset_runs_strict_validation_when_not_publishing(
     def connection():
         yield conn
 
-    run = MagicMock()
+    export_bundle = MagicMock()
+
+    class _ConnCtx:
+        def __enter__(self):
+            return conn
+
+        def __exit__(self, *_args):
+            return False
+
     monkeypatch.setattr(assets_mod, "get_connection", connection)
     monkeypatch.setattr(assets_mod, "active_duckdb_path", lambda: "/tmp/atlas.db")
-    monkeypatch.setattr(assets_mod.subprocess, "run", run)
+    monkeypatch.setattr(
+        assets_mod, "export_polymarket_wc2026_logical_bundle", export_bundle
+    )
+    monkeypatch.setattr(assets_mod.duckdb, "connect", lambda *_a, **_k: _ConnCtx())
 
     fn = assets_mod.polymarket_wc2026_release_logical_bundle.op.compute_fn.decorated_fn
     materialization = fn(MagicMock(), orch_config.LogicalAtlasBundleConfig())
 
-    command = run.call_args.args[0]
-    assert command[-1] == "--validate-only"
-    assert command[command.index("--duckdb-path") + 1] == "/tmp/atlas.db"
-    assert run.call_args.kwargs["check"] is True
+    export_bundle.assert_called_once()
+    assert export_bundle.call_args.kwargs["require_clean_repo"] is False
     assert materialization.metadata["publication_mode"] == "validated_only"
 
 
@@ -340,10 +349,21 @@ def test_logical_bundle_asset_exports_to_configured_output(monkeypatch, tmp_path
     def connection():
         yield conn
 
-    run = MagicMock()
+    export_bundle = MagicMock()
+
+    class _ConnCtx:
+        def __enter__(self):
+            return conn
+
+        def __exit__(self, *_args):
+            return False
+
     monkeypatch.setattr(assets_mod, "get_connection", connection)
     monkeypatch.setattr(assets_mod, "active_duckdb_path", lambda: "/tmp/atlas.db")
-    monkeypatch.setattr(assets_mod.subprocess, "run", run)
+    monkeypatch.setattr(
+        assets_mod, "export_polymarket_wc2026_logical_bundle", export_bundle
+    )
+    monkeypatch.setattr(assets_mod.duckdb, "connect", lambda *_a, **_k: _ConnCtx())
 
     output_dir = tmp_path / "logical-bundle"
     fn = assets_mod.polymarket_wc2026_release_logical_bundle.op.compute_fn.decorated_fn
@@ -352,8 +372,7 @@ def test_logical_bundle_asset_exports_to_configured_output(monkeypatch, tmp_path
         orch_config.LogicalAtlasBundleConfig(output_dir=str(output_dir)),
     )
 
-    command = run.call_args.args[0]
-    assert command[command.index("--output-dir") + 1] == str(output_dir.resolve())
+    export_bundle.assert_called_once_with(conn, output_dir.resolve())
     assert materialization.metadata["publication_mode"] == "exported"
     assert materialization.metadata["output_dir"] == str(output_dir.resolve())
 
@@ -387,16 +406,27 @@ def test_logical_bundle_asset_fails_closed_when_strict_validation_fails(
     def connection():
         yield conn
 
+    export_bundle = MagicMock(side_effect=RuntimeError("export failed"))
     monkeypatch.setattr(assets_mod, "get_connection", connection)
     monkeypatch.setattr(assets_mod, "active_duckdb_path", lambda: "/tmp/atlas.db")
     monkeypatch.setattr(
-        assets_mod.subprocess,
-        "run",
-        MagicMock(side_effect=assets_mod.subprocess.CalledProcessError(1, ["export"])),
+        assets_mod, "export_polymarket_wc2026_logical_bundle", export_bundle
+    )
+    monkeypatch.setattr(
+        assets_mod.duckdb,
+        "connect",
+        lambda *_a, **_k: type(
+            "_ConnCtx",
+            (),
+            {
+                "__enter__": lambda self: conn,
+                "__exit__": lambda self, *_args: False,
+            },
+        )(),
     )
 
     fn = assets_mod.polymarket_wc2026_release_logical_bundle.op.compute_fn.decorated_fn
-    with pytest.raises(assets_mod.subprocess.CalledProcessError):
+    with pytest.raises(RuntimeError, match="export failed"):
         fn(MagicMock(), orch_config.LogicalAtlasBundleConfig())
 
 
