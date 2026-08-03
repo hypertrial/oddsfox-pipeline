@@ -30,6 +30,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In-process logical-bundle export reloads the script-backed exporter when its
   source mtime changes, so long-lived Dagster workers pick up exporter updates
   without restart.
+- Kalshi hourly candlestick sync now honors Dagster `history_backfill_days` and
+  `routine_interval_hours` run-config fields instead of ignoring them.
+- `parse_created_at()` accepts ISO-8601 timestamps ending in `Z` or `+00:00`
+  without fractional seconds.
+- Empty `DUCKDB_PATH` now falls back to `DUCKDB_NAME` like the connection
+  resolver, instead of treating the empty string as a literal path.
+- Unrecognized `POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED` values now omit the
+  closed filter instead of coercing to `false`.
 
 ### Removed
 

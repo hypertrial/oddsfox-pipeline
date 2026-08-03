@@ -214,7 +214,7 @@ These names stay as written:
 | sync run observability | ingestion run observability |
 | scope class (review taxonomy) | membership class |
 | knockout fixtures (OpenFootball 1–104) | schedule fixtures |
-| `int_wc2026_knockout_fixtures` | `int_wc2026_advancement_fixtures` |
+| `int_wc2026_knockout_fixtures` | `advancement_fixtures` CTE (`int_polymarket_wc2026_fixture_events`, `int_polymarket_wc2026_match_working_set`) |
 | ScopeStep `market_registry` | ScopeStep `market_scope_registry` |
 | `publish_current` (symlink repoint) | `activate_current` |
 

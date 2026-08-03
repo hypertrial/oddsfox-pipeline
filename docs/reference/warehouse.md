@@ -158,10 +158,16 @@ Schema: `polymarket_wc2026_intermediate`
   for raw CLOB tokens in the WC2026 pipeline policy trailing window.
 - `int_polymarket_wc2026_knockout_market_classification`: shared real-team
   knockout market classifier used by knockout marts and observability.
-- `int_polymarket_wc2026_match_advance_tokens`: exact team-to-advance outcomes
-  mapped to official FIFA fixture sides without the progression volume floor.
-- `int_polymarket_wc2026_match_hourly_odds`: permanent incremental match-token
-  hourly fact with a short late-arrival lookback and no age deletion.
+- `int_polymarket_wc2026_match_working_set`: match-grain working set for
+  minute odds and order-book pipelines.
+- `int_polymarket_wc2026_match_token_minute_odds`: incremental minute-grain
+  token odds fact for the match-minute mart.
+- `int_polymarket_wc2026_match_minute_odds_candidate`: candidate rows before
+  the match-minute publication gate.
+- `int_polymarket_wc2026_match_order_book_levels`: PMXT order-book levels for
+  the match order-book mart.
+- `int_polymarket_wc2026_match_order_book_publication_gate`: publication gate
+  for the match order-book mart.
 
 Schema: `kalshi_wc2026_intermediate`
 
@@ -171,10 +177,6 @@ Schema: `kalshi_wc2026_intermediate`
 - `int_kalshi_wc2026_stage_classification` and
   `int_kalshi_wc2026_group_winner_classification`: shared classifiers for
   stage and group-winner marts.
-- `int_kalshi_wc2026_match_advance_markets`: exact `KXWCADVANCE` sides mapped to
-  official FIFA fixtures.
-- `int_kalshi_wc2026_match_hourly_odds`: permanent incremental match-market
-  hourly fact with no age deletion.
 
 Schema: `polymarket_wc2026_observability`
 

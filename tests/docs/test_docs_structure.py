@@ -182,6 +182,19 @@ def test_readme_links_to_canonical_docs_and_live_reload():
         assert term in readme
 
 
+def test_docs_do_not_reference_removed_model_names():
+    removed_models = [
+        "int_polymarket_wc2026_match_advance_tokens",
+        "int_polymarket_wc2026_match_hourly_odds",
+        "int_kalshi_wc2026_match_advance_markets",
+        "int_kalshi_wc2026_match_hourly_odds",
+    ]
+    combined = "\n".join(path.read_text() for path in DOCS_DIR.rglob("*.md"))
+
+    for model_name in removed_models:
+        assert model_name not in combined, model_name
+
+
 def test_repository_docs_do_not_reference_moved_markdown_paths():
     policy_docs = [
         REPO_ROOT / "README.md",

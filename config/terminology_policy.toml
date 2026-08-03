@@ -149,7 +149,7 @@ prefer = "is_logical_event / event_logical_eligible / logical_usable / logical_*
 [[retired.identifier]]
 id = "retired_schedule_fixture_names"
 pattern = '''stg_openfootball_wc2026_knockout_fixtures|openfootball_wc2026_raw_knockout_fixtures|openfootball/wc2026/(raw|staging)/knockout_fixtures|ingestion/openfootball/knockout_fixtures\.py|int_wc2026_knockout_fixtures|assert_wc2026_knockout_fixture_set_complete'''
-prefer = "schedule_fixtures / int_wc2026_advancement_fixtures"
+prefer = "schedule_fixtures / advancement_fixtures CTE (int_polymarket_wc2026_fixture_events, int_polymarket_wc2026_match_working_set)"
 
 [[retired.identifier]]
 id = "retired_scope_registry_module"

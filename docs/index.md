@@ -93,8 +93,8 @@ as execution. Strategy consumers use private `wc2026.v1` separately.
 ## Supported local scopes
 
 Version `0.1.x` supports Polymarket FIFA World Cup 2026 and Kalshi WC2026
-stage, group-winner, and exact match-advance markets, plus FIFA fixture/results
-ingestion for identity and real-team validation.
+stage and group-winner markets, plus FIFA fixture/results ingestion for identity
+and real-team validation.
 
 An isolated finalized Polygon WC2026 settlement-history mart with internal-audit
 and operator-local technical-export paths is optional and advanced; it is not

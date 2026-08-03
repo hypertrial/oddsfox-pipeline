@@ -185,7 +185,11 @@ overrides.
 - `POLYMARKET_WC2026_SCOPE_EVENT_SLUGS`
 - `POLYMARKET_WC2026_SCOPE_EVENT_SLUG_PREFIXES`
 - `POLYMARKET_WC2026_SCOPE_EVENT_TAGS`
-- `POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED`
+- `POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED`: Gamma `/events/keyset` closed filter.
+  Unset defaults to `false` (open events only). `false`/`0`/`open` → `false`;
+  `true`/`1`/`closed` → `true`. Empty string or `any`/`all`/`none`/`null`, or
+  any other unrecognized value, omits the `closed` parameter entirely (filter
+  not applied; scope not narrowed).
 - `POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN`: minimum Gamma keyset volume filter (default
   `5000`, aligned with the WC2026 knockout pipeline-policy volume floor); shared by dlt and markets sync entrypoints.
 - `POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS`
@@ -219,9 +223,8 @@ the trailing hourly window and freshness windows live in
 `dbt/seeds/kalshi_wc2026_pipeline_policy.csv`; Python defaults are checked against
 that seed in unit tests.
 
-The packaged Kalshi series include `KXWCADVANCE`. Only the two team-advance
-binary markets under a recognized event are eligible for the neutral match
-mart.
+The packaged Kalshi series include `KXWCADVANCE` for raw ingestion only; no
+Kalshi dbt mart currently classifies or publishes match-advance markets.
 
 ## dbt build defaults
 
@@ -250,6 +253,16 @@ Dagster hourly odds config uses history-oriented option names:
   is a dbt presentation window, not raw retention).
 - `window_hours`: maximum CLOB fetch window per request. Hourly/full-pipeline jobs
   default this to `720` (30 days) for CLOB chunk sizing.
+
+Kalshi hourly odds (`kalshi_wc2026_hourly_odds_ingest`,
+`kalshi_wc2026_full_pipeline`) use the same field names with different defaults:
+
+- `history_backfill_days`: rebuild only the trailing N days of candlestick
+  history. Kalshi hourly/full-pipeline jobs default this to `63` (aligned with
+  `KALSHI_WC2026_HOURLY_WINDOW_DAYS` and the Kalshi pipeline-policy seed),
+  unlike Polymarket's `0` (collect from market creation).
+- `routine_interval_hours`: expected hours between routine runs for skip
+  planning and ledger state. Kalshi hourly jobs default this to `1`.
 
 The old minute-grain schedule-oriented names are not accepted in v0.1.x.
 

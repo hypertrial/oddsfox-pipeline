@@ -197,8 +197,8 @@ unrelated Polymarket tests.
 - `raw/markets` discovers series, events, and markets and lands events and
   markets through dlt.
 - `raw/markets_snapshot` is local lineage and does not call Kalshi.
-- The registry admits fixed WC2026 stage, group-winner, and `KXWCADVANCE`
-  match-advance markets.
+- The registry admits fixed WC2026 stage and group-winner markets. `KXWCADVANCE`
+  is registered for raw ingestion only; no Kalshi dbt mart consumes it yet.
 - `raw/market_candlesticks_hourly` syncs hourly public-trade-API candlesticks.
 
 ### Canonical WC2026 fixtures
@@ -206,7 +206,8 @@ unrelated Polymarket tests.
 - `openfootball/wc2026/raw/schedule_fixtures` refreshes the dependency-free
   OpenFootball `cup.txt`/`cup_finals.txt` mirror of the FIFA schedule and
   retains all FIFA match numbers 1–104. Knockout consumers filter 73–104
-  explicitly (`int_wc2026_advancement_fixtures` and related models).
+  explicitly (`int_polymarket_wc2026_fixture_events`,
+  `int_polymarket_wc2026_match_working_set`, and related models).
 - The parser fails closed on invalid pinned file identity, exact bytes,
   reviewed group-fixture slice hashes, IDs, stages, groups, dates, UTC offsets,
   teams, or venues. Each stored fixture includes the final source line number

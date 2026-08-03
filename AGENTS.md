@@ -7,9 +7,9 @@ Hypertrial operates no hosted production pipeline or data service; operators
 supply and control their own data. `THIRD_PARTY_NOTICES.md` is the authoritative
 scope statement.
 Version `0.1.x` ships a WC2026 Polymarket pipeline for FIFA World Cup
-2026 markets and odds, a Kalshi WC2026 pipeline for stage, group-winner, and
-match-advance markets, plus FIFA fixture/results sources for official identity
-and real-team validation.
+2026 markets and odds, a Kalshi WC2026 pipeline for stage and group-winner
+markets, plus FIFA fixture/results sources for official identity and real-team
+validation.
 Stack: **Dagster** (orchestration), **dlt** (market landing), **dbt** +
 **DuckDB** (warehouse/analytics), **uv** (deps), **Ruff** + **sqlfluff**
 (lint), **pytest** (tests).

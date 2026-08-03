@@ -19,6 +19,10 @@ Modeled layers:
 - `international_results_wc2026_marts`
 - `international_results_wc2026_observability`
 - `openfootball_wc2026_staging`
+- `kalshi_wc2026_staging`
+- `kalshi_wc2026_intermediate`
+- `kalshi_wc2026_marts`
+- `kalshi_wc2026_observability`
 - `wc2026_intermediate`
 - `wc2026_marts`
 - `wc2026_observability`
