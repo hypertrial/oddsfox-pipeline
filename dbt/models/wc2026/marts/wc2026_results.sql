@@ -37,7 +37,7 @@ inner join {{ ref('international_results_wc2026_matches') }} as r
         )
         or (
             f.is_knockout
-            and r.match_date = f.match_date
+            and f.match_date = r.match_date
             and {{ name_match_key('f.host_city') }} = {{ name_match_key('r.city') }}
         )
 where r.match_status = 'completed'
