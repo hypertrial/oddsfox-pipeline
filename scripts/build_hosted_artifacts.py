@@ -26,6 +26,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from _bootstrap import ensure_src_on_path
 
 ensure_src_on_path()
+from oddsfox_pipeline.config import settings  # noqa: E402
 from oddsfox_pipeline.publishing._bundle_io import (  # noqa: E402
     git_head_sha,
     sha256_file,
@@ -146,7 +147,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--duckdb-path",
         type=Path,
-        default=Path(os.environ.get("DUCKDB_PATH", REPO_ROOT / "oddsfox.duckdb")),
+        default=None,
+        help="DuckDB warehouse file (default: DUCKDB_PATH from settings / .env)",
     )
     parser.add_argument(
         "--graph-repo", type=Path, default=REPO_ROOT.parent / "oddsfox-graph"
@@ -191,6 +193,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--allow-empty-graph", action="store_true")
     parser.add_argument("--interval-seconds", type=int, default=0)
     args = parser.parse_args(argv)
+    if args.duckdb_path is None:
+        args.duckdb_path = settings.DUCKDB_PATH
     if args.activate_release and args.validate_release:
         parser.error("--activate-release and --validate-release are mutually exclusive")
     if args.interval_seconds > 0:

@@ -834,3 +834,22 @@ def test_main_rejects_unbound_revision_before_refresh(tmp_path: Path) -> None:
 
     refresh.assert_not_called()
     assert not (artifact_dir / "releases").exists()
+
+
+def test_parse_args_defaults_duckdb_path_to_settings(
+    tmp_path: Path, monkeypatch
+) -> None:
+    builder = _load_builder_module()
+    root = tmp_path / "pipeline-root"
+    root.mkdir()
+    monkeypatch.setenv("ODDSFOX_PIPELINE_ROOT", str(root))
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
+    monkeypatch.setenv("DUCKDB_NAME", "custom.duckdb")
+
+    from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
+
+    settings = reload_all_settings_modules()
+    args = builder.parse_args([])
+
+    assert args.duckdb_path.resolve() == settings.DUCKDB_PATH.resolve()
+    assert args.duckdb_path == (root / "custom.duckdb").resolve()

@@ -246,9 +246,10 @@ Dagster hourly odds config uses history-oriented option names:
 - `rebuild_history`: bypass routine skip planning and rebuild token history.
 - `history_backfill_days`: rebuild only the trailing N days of history. The packaged
   `polymarket_wc2026_hourly_odds_ingest` and `polymarket_wc2026_full_pipeline` jobs
-  default this to `30`.
+  default this to `0` (collect raw history from market creation; the 30-day bound
+  is a dbt presentation window, not raw retention).
 - `window_hours`: maximum CLOB fetch window per request. Hourly/full-pipeline jobs
-  default this to `720` (30 days), aligned with the default backfill window.
+  default this to `720` (30 days) for CLOB chunk sizing.
 
 The old minute-grain schedule-oriented names are not accepted in v0.1.x.
 

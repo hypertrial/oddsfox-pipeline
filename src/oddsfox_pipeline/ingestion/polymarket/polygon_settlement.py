@@ -20,6 +20,7 @@ from typing import Any, Iterable, Sequence
 
 import duckdb
 
+from oddsfox_pipeline.config.settings import BASE_DIR
 from oddsfox_pipeline.ingestion.polymarket.polygon_rpc import (
     EVENT_TOPICS,
     ORDERS_MATCHED_TOPIC,
@@ -74,9 +75,7 @@ _MIN_LOG_CHUNK_SIZE = 250
 _MAX_LOG_CHUNK_SIZE = 20_000
 _MIN_RECEIPT_BATCH_SIZE = 5
 _MAX_RECEIPT_BATCH_SIZE = 50
-_STATUS_ROOT = (
-    Path(__file__).resolve().parents[4] / ".cache" / "polygon_settlement" / "status"
-)
+_STATUS_ROOT = BASE_DIR / ".cache" / "polygon_settlement" / "status"
 
 
 def _block_headers(rpc: PolygonRPC, numbers: Iterable[int]) -> dict[int, PolygonBlock]:

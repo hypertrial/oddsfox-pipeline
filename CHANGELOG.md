@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `profile_warehouse.py` `--refresh` now propagates `--duckdb-path` to Polymarket
+  sync and dbt subprocesses instead of mutating the settings-default warehouse.
+- `build_hosted_artifacts.py` default `--duckdb-path` now follows
+  `settings.DUCKDB_PATH` (`ODDSFOX_PIPELINE_ROOT` / `DUCKDB_NAME`).
+- Polygon settlement scan status JSON is stored under
+  `BASE_DIR/.cache/polygon_settlement/status/` instead of a hardcoded checkout
+  path.
 - `polymarket_wc2026_full_pipeline` (and other jobs using `_merge_run_configs`)
   now unions `dbt_select` and `dbt_exclude` when combining `oddsfox_dbt` run
   configs instead of last-write-wins over the whole op config.

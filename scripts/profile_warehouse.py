@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -83,6 +84,7 @@ def _run_dbt_build(repo: Path) -> tuple[bool, str]:
         cwd=repo,
         capture_output=True,
         text=True,
+        env=os.environ.copy(),
     )
     out = (proc.stdout or "") + (proc.stderr or "")
     if proc.returncode != 0:
@@ -263,6 +265,12 @@ def main() -> int:
     refresh_norm = _normalize_refresh_steps([x for x in args.refresh if x])
     refresh_results: list = []
     if refresh_norm:
+        os.environ["DUCKDB_PATH"] = str(duck)
+        from oddsfox_pipeline.storage.duckdb.connection import (
+            reset_duckdb_connection_state,
+        )
+
+        reset_duckdb_connection_state()
         refresh_results = run_refresh(REPO_ROOT, duck, refresh_norm)
         for r in refresh_results:
             if not r.ok:

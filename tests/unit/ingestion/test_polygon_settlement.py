@@ -1834,6 +1834,15 @@ def test_complete_leaf_adapts_or_retains_log_chunk_size(
     assert result.next_log_chunk_size == expected_size
 
 
+def test_status_root_is_under_pipeline_base_dir() -> None:
+    assert polygon_settlement_module._STATUS_ROOT == (
+        polygon_settlement_module.BASE_DIR
+        / ".cache"
+        / "polygon_settlement"
+        / "status"
+    )
+
+
 def test_status_json_is_atomic_allowlisted_and_rejects_endpoint_fields(
     tmp_path,
 ) -> None:
