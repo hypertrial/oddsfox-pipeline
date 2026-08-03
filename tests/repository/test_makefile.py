@@ -166,6 +166,7 @@ def test_fast_and_coverage_tests_parallelize_only_the_safe_collection():
     for target in (
         "package-smoke",
         "dbt-polygon-settlement-ci",
+        "dbt-match-minute-ci",
         "golden-dbt",
         "contract-http",
         "docs-test",
@@ -193,6 +194,15 @@ def test_fast_and_coverage_tests_parallelize_only_the_safe_collection():
     assert "DBT_TEST_WORKERS ?=" in makefile
     assert "unit-orchestration:" in makefile
     assert "-n auto" in _target_recipe(makefile, "unit-orchestration")
+    assert _recursive_make_targets(_target_recipe(makefile, "pipelines-deterministic")) == [
+        "integration-dagster",
+        "integration-dbt",
+        "dbt-polygon-settlement-ci",
+        "dbt-match-minute-ci",
+        "dbt-build-ci",
+    ]
+    pipelines_deterministic = _target_recipe(makefile, "pipelines-deterministic")
+    assert pipelines_deterministic.count("-j1") == 5
 
 
 def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
@@ -253,6 +263,7 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
         "release-gate-dbt-freshness",
         "release-gate-dbt-polygon",
         "release-gate-dbt-match-order-book",
+        "release-gate-dbt-match-minute",
         "release-gate-dbt-market-portrait",
     ]
     assert _target_prerequisites(makefile, "release-gate-dbt-quality") == [
@@ -313,6 +324,7 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
 def test_release_gate_match_analysis_lanes_use_isolated_runtime_roots():
     makefile = makefile_text()
     match_order_book = _target_recipe(makefile, "release-gate-dbt-match-order-book")
+    match_minute = _target_recipe(makefile, "release-gate-dbt-match-minute")
     market_portrait = _target_recipe(makefile, "release-gate-dbt-market-portrait")
     coverage_prep = _target_recipe(makefile, "release-gate-coverage-prep")
 
@@ -325,6 +337,13 @@ def test_release_gate_match_analysis_lanes_use_isolated_runtime_roots():
         in match_order_book
     )
     assert (
+        'ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_MINUTE_RUNTIME)"' in match_minute
+    )
+    assert (
+        'MATCH_ANALYSIS_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_MINUTE_RUNTIME)"'
+        in match_minute
+    )
+    assert (
         'ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MARKET_PORTRAIT_RUNTIME)"'
         in market_portrait
     )
@@ -333,6 +352,7 @@ def test_release_gate_match_analysis_lanes_use_isolated_runtime_roots():
         in market_portrait
     )
     assert match_order_book != market_portrait
+    assert match_minute != match_order_book
     assert (
         'ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" dbt-prepare'
         in coverage_prep

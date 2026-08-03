@@ -203,6 +203,7 @@ when settings reload from disk. See
 | `uv run make integration-dagster` | Dagster integration smoke tests. |
 | `uv run make test-cov` | Unit tests with coverage accumulation (`-n auto`). |
 | `uv run make integration-dagster-cov` | Local wrapper for both split Dagster coverage targets. |
+| `uv run make pipelines-deterministic` | Dev-only all-pipelines offline validation (Dagster, dbt integration, Polygon, match-minute, production dbt build). |
 | `uv run make integration-dbt-cov` | DuckDB + dbt integration with coverage append. |
 | `uv run make dbt-unit` | dbt unit tests for classifier and mart edge-case SQL. |
 | `uv run make golden-dbt` | Standalone exact-output mart fixtures (also run by `integration-dbt`). |
@@ -214,6 +215,7 @@ when settings reload from disk. See
 | `uv run make runtime-dirs` | Create SSD-local runtime, temporary, and cache directories. |
 | `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
 | `uv run make dbt-polygon-settlement-ci` | Polygon dbt unit tests plus slim 39,120-row integration against replay fixtures. |
+| `uv run make dbt-match-minute-ci` | Match-minute dbt integration against a synthetic 104/248/496 contract. |
 | `uv run make data-quality` | Safe local dbt build-and-test wrapper against disposable state. |
 | `uv run make mutation` | Resume focused mutation testing for five curated modules and enforce exported Mutmut statistics. |
 | `uv run make mutation-ci` | Start from a clean mutation cache and run the deterministic zero-unresolved-mutant gate. |

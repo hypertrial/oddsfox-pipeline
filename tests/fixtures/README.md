@@ -19,3 +19,8 @@ parsing only; it does not contain a captured PMXT trade stream or API key.
 target manifest for the market-portrait pipeline. It mirrors the committed
 order-book target identities for match 95 and is used by
 `dbt-market-portrait-ci`; it is not an operator-approved production manifest.
+
+The match-minute dbt integration contract is generated in-test by
+`tests/integration/match_minute_seed.py` (104 games, 248 markets, 496
+tokens, 24,304 mart rows). No operator minute-history or schedule rows are
+committed.

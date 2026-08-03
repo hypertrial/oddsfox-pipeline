@@ -141,6 +141,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make integration-dagster` | Dagster integration smoke |
 | `make integration-dbt-cov` | DuckDB + dbt integration with coverage append |
 | `make integration-dagster-cov` | Local wrapper for both split Dagster coverage targets |
+| `make pipelines-deterministic` | Dev-only all-pipelines offline validation across Dagster, dbt integration, Polygon, match-minute, and production dbt build |
 | `make dbt-unit` | dbt unit tests for high-risk SQL branches |
 | `make golden-dbt` | Standalone exact-output dbt mart fixtures (also covered by `integration-dbt`) |
 | `make dbt-prepare` | Shared dbt deps/parse into `DBT_TARGET_PATH` before xdist test imports |
@@ -154,6 +155,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
 | `make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement graph against replay fixtures |
 | `make dbt-match-order-book-ci` | Build the isolated PMXT order-book graph against replay fixtures |
+| `make dbt-match-minute-ci` | Build the isolated match-minute graph against a synthetic 104/248/496 contract |
 | `make dbt-market-portrait-ci` | Build the isolated market-portrait graph and bundle contract against replay fixtures |
 | `make market-portrait-target-validate` | Validate the committed synthetic match-95 portrait target manifest |
 | `make data-quality` | Safe local dbt build-and-test wrapper against disposable state |

@@ -93,10 +93,13 @@ release-gate-dbt-polygon:
 release-gate-dbt-match-order-book:
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_ORDER_BOOK_RUNTIME)" MATCH_ANALYSIS_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_ORDER_BOOK_RUNTIME)" dbt-match-order-book-ci
 
+release-gate-dbt-match-minute:
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_MINUTE_RUNTIME)" MATCH_ANALYSIS_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_MINUTE_RUNTIME)" dbt-match-minute-ci
+
 release-gate-dbt-market-portrait:
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MARKET_PORTRAIT_RUNTIME)" MATCH_ANALYSIS_RUNTIME_ROOT="$(RELEASE_DBT_MARKET_PORTRAIT_RUNTIME)" dbt-market-portrait-ci
 
-release-gate-dbt-build: release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-dbt-match-order-book release-gate-dbt-market-portrait
+release-gate-dbt-build: release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-dbt-match-order-book release-gate-dbt-match-minute release-gate-dbt-market-portrait
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_BUILD_RUNTIME)" dbt-build-ci
 
 release-gate-costguard-scan: release-gate-dbt-build

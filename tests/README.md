@@ -43,6 +43,7 @@ make mutation
 make mutation-ci
 make integration-dbt
 make integration-dagster
+make pipelines-deterministic
 make contract-http
 make test
 make test-dev
@@ -82,6 +83,11 @@ Dagster integration is layered:
 3. One real disposable-DuckDB/dbt end-to-end materialization per shipped scope,
    plus focused writer recovery. Incremental/full-refresh equivalence and golden
    mart semantics stay in the dbt integration suite.
+
+`make pipelines-deterministic` composes the Dagster integration suite,
+`integration-dbt`, `dbt-polygon-settlement-ci`, `dbt-match-minute-ci`, and
+`dbt-build-ci` for offline validation of all six product pipelines. It is a
+dev-only convenience target, not a `ci-fast` substitute.
 
 Together with the other coverage commands, they enforce 100% branch coverage for
 `src/oddsfox_pipeline` except the warehouse profiling operator helpers under

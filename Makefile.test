@@ -66,3 +66,10 @@ integration-dagster:
 # Keep each Dagster group serial (-n 0) until xdist safety is proven
 # for Dagster instance and DuckDB-locked fixtures.
 integration-dagster-cov: dagster-jobs-smoke-cov dagster-refresh-cov
+
+pipelines-deterministic:
+	$(MAKE) -j1 integration-dagster
+	$(MAKE) -j1 integration-dbt
+	$(MAKE) -j1 dbt-polygon-settlement-ci
+	$(MAKE) -j1 dbt-match-minute-ci
+	$(MAKE) -j1 dbt-build-ci
