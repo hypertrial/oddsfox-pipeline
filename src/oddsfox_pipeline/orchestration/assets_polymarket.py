@@ -58,10 +58,7 @@ from oddsfox_pipeline.storage.duckdb.observability import (
     snapshot_dbt_models,
     snapshot_raw_layer,
 )
-from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
-    bootstrap_polymarket_tables,
-    ensure_polymarket_indexes,
-)
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket import ensure_polymarket_indexes
 
 POLYMARKET_WC2026_SCOPE_NAME = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE
 POLYMARKET_WC2026_RAW_MARKETS = asset_key(
