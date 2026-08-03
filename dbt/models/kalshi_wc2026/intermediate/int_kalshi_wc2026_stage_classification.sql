@@ -51,11 +51,11 @@ with scoped as (
             when m.series_ticker = 'KXWCSTAGEOFELIM' and m.market_suffix = 'R16'
                 then 'not_eliminated_in_round_of_16'
             when m.series_ticker = 'KXWCSTAGEOFELIM' and m.market_suffix = 'QF'
-                then 'reach_quarterfinal'
+                then 'not_eliminated_in_quarterfinal'
             when m.series_ticker = 'KXWCSTAGEOFELIM' and m.market_suffix = 'SF'
-                then 'reach_semifinal'
+                then 'not_eliminated_in_semifinal'
             when m.series_ticker = 'KXWCSTAGEOFELIM' and m.market_suffix = 'FL'
-                then 'reach_final'
+                then 'not_eliminated_in_final'
         end as progression_outcome_label
     from {{ ref('int_kalshi_wc2026_markets') }} as m
     where m.series_ticker in ('KXMENWORLDCUP', 'KXWCSTAGEOFELIM')

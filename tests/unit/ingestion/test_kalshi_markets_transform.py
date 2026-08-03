@@ -70,7 +70,7 @@ def test_normalize_candlestick_rows_skips_missing_end_period_ts():
     assert rows[0]["volume"] == 5
     assert rows[0]["refreshed_at"] == refreshed
     assert rows[0]["hour_start_utc"] == datetime.fromtimestamp(
-        1_700_000_000, tz=timezone.utc
+        1_700_000_000 - 3600, tz=timezone.utc
     ).replace(tzinfo=None)
 
 

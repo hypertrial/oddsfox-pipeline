@@ -96,9 +96,9 @@ def normalize_candlestick_rows(
         end_ts = candle.get("end_period_ts")
         if end_ts is None:
             continue
-        hour_start = datetime.fromtimestamp(int(end_ts), tz=timezone.utc).replace(
-            tzinfo=None
-        )
+        hour_start = datetime.fromtimestamp(
+            int(end_ts) - 3600, tz=timezone.utc
+        ).replace(tzinfo=None)
         price = candle.get("price") if isinstance(candle.get("price"), dict) else {}
         rows.append(
             {

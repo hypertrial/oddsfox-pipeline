@@ -49,6 +49,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fetch_token_history()` honors explicit `start_ts=0` epoch timestamps.
 - Warehouse profiler numeric classification now covers DuckDB unsigned integer
   types (`USMALLINT`, `UINTEGER`, `UBIGINT`).
+- Match-minute knockout working-set joins now allow up to one day of kickoff
+  drift instead of a 60-second cutoff that silently dropped mapped markets.
+- Kalshi `hour_start_utc` now stores the hourly candlestick bucket start
+  (`end_period_ts - 3600`) instead of the inclusive period end timestamp.
+- `wc2026_results` keeps one-day date tolerance for team-identity joins but
+  requires exact dates for knockout city-only attribution.
+- Kalshi QF/SF/FL `progression_outcome_label` values now use the
+  `not_eliminated_in_*` convention aligned with price inversion.
+- Order-book backfill progress callbacks now record progress before enforcing
+  hard no-progress timeouts.
+- Release-gate match-order-book and market-portrait lanes now use isolated
+  dbt runtime roots instead of sharing one target directory.
+- `count_polymarket_wc2026_gamma_tag_events.py` now forwards
+  `keyset_related_tags` to Gamma keyset requests.
+- `release-gate-coverage-prep` now prepares dbt state under the coverage
+  runtime root used by coverage shards.
+- `join_under_base()` now rejects relative hrefs that escape the base path via
+  `../` segments.
 
 ### Removed
 

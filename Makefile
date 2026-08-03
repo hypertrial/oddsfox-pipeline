@@ -76,7 +76,7 @@ POLYGON_SEED_OUTPUT_DIR ?= artifacts/polygon_settlement_seed_candidates/$(POLYGO
 POLYGON_DATASET_VERSION ?=
 POLYGON_AUDIT_OUTPUT_ROOT ?= artifacts/polygon_settlement/audit
 POLYGON_EXPORT_OUTPUT_ROOT ?= artifacts/polygon_settlement/exports
-MATCH_ANALYSIS_RUNTIME_ROOT := $(REPO_ROOT)/.cache/match_analysis
+MATCH_ANALYSIS_RUNTIME_ROOT ?= $(REPO_ROOT)/.cache/match_analysis
 MATCH_ANALYSIS_RUNTIME_TMP := $(MATCH_ANALYSIS_RUNTIME_ROOT)/tmp
 MATCH_ANALYSIS_RUNTIME_XDG := $(MATCH_ANALYSIS_RUNTIME_ROOT)/xdg
 MATCH_ANALYSIS_RUNTIME_DBT_TARGET := $(MATCH_ANALYSIS_RUNTIME_ROOT)/dbt-target
@@ -104,6 +104,8 @@ RELEASE_COVERAGE_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-coverage
 RELEASE_DBT_UNIT_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-dbt-unit
 RELEASE_DBT_FRESHNESS_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-dbt-freshness
 RELEASE_DBT_BUILD_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-dbt-build
+RELEASE_DBT_MATCH_ORDER_BOOK_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-dbt-match-order-book
+RELEASE_DBT_MARKET_PORTRAIT_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-dbt-market-portrait
 RELEASE_MUTATION_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-mutation
 RELEASE_STATIC_RUNTIME := $(REPO_ROOT)/.cache/runtime/release-static
 COVERAGE_DATA_DIR := $(RELEASE_COVERAGE_RUNTIME)/coverage-data
@@ -142,7 +144,8 @@ release-gate-goal: coverage-combine-report release-gate-costguard-scan release-g
 release-gate-coverage: coverage-combine-report
 	@:
 
-release-gate-coverage-prep: dbt-prepare
+release-gate-coverage-prep:
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" dbt-prepare
 	$(RUN_IN_REPO) rm -rf "$(COVERAGE_DATA_DIR)"
 	$(RUN_IN_REPO) mkdir -p "$(COVERAGE_DATA_DIR)"
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" coverage-erase
@@ -203,10 +206,10 @@ release-gate-dbt-polygon:
 	$(MAKE) dbt-polygon-settlement-ci
 
 release-gate-dbt-match-order-book:
-	$(MAKE) dbt-match-order-book-ci
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_ORDER_BOOK_RUNTIME)" MATCH_ANALYSIS_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_ORDER_BOOK_RUNTIME)" dbt-match-order-book-ci
 
 release-gate-dbt-market-portrait:
-	$(MAKE) dbt-market-portrait-ci
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MARKET_PORTRAIT_RUNTIME)" MATCH_ANALYSIS_RUNTIME_ROOT="$(RELEASE_DBT_MARKET_PORTRAIT_RUNTIME)" dbt-market-portrait-ci
 
 release-gate-dbt-build: release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-dbt-match-order-book release-gate-dbt-market-portrait
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_BUILD_RUNTIME)" dbt-build-ci
@@ -280,13 +283,15 @@ dbt-polygon-settlement-ci: polygon-runtime-dirs
 match-analysis-runtime-dirs: runtime-dirs
 	$(RUN_IN_REPO) mkdir -p "$(MATCH_ANALYSIS_RUNTIME_TMP)" "$(MATCH_ANALYSIS_RUNTIME_XDG)" "$(MATCH_ANALYSIS_RUNTIME_DBT_TARGET)" "$(MATCH_ANALYSIS_RUNTIME_DBT_LOGS)" "$(MATCH_ANALYSIS_RUNTIME_PYCACHE)" "$(MATCH_ANALYSIS_RUNTIME_DUCKDB_EXTENSIONS)"
 
-dbt-match-order-book-ci: match-analysis-runtime-dirs dbt-prepare
+dbt-match-order-book-ci: match-analysis-runtime-dirs
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(MATCH_ANALYSIS_RUNTIME_ROOT)" dbt-prepare
 	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/duckdb/test_match_order_book_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
 
 market-portrait-target-validate:
 	$(RUN_IN_REPO) "$(PYTHON)" -c "import hashlib, json; from pathlib import Path; import yaml; path = Path('tests/fixtures/market_portrait/match-95-target.yml'); payload = yaml.safe_load(path.read_text(encoding='utf-8')); declared = str(payload.pop('content_sha256')); actual = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest(); assert declared == actual, (declared, actual); print(f'match-95 portrait target validated, sha256 {declared}')"
 
-dbt-market-portrait-ci: match-analysis-runtime-dirs dbt-prepare market-portrait-target-validate
+dbt-market-portrait-ci: match-analysis-runtime-dirs market-portrait-target-validate
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(MATCH_ANALYSIS_RUNTIME_ROOT)" dbt-prepare
 	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/duckdb/test_market_portrait_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
 
 dbt-parse: dbt-prepare

@@ -66,12 +66,12 @@ def polymarket_wc2026_raw_match_order_book_snapshots(
     )
 
     def progress(phase: str, diagnostics: dict[str, Any]) -> None:
-        guardrail.check(phase=phase, diagnostics=diagnostics)
         guardrail.record_progress(
             work_increment=1,
             phase=phase,
             diagnostics=diagnostics,
         )
+        guardrail.check(phase=phase, diagnostics=diagnostics)
 
     try:
         with get_connection() as conn:

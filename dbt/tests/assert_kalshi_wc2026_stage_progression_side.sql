@@ -30,3 +30,18 @@ where
         and stage_key = 'round_of_16'
         and progression_outcome_label != 'not_eliminated_in_round_of_16'
     )
+    or (
+        market_direction = 'elimination'
+        and stage_key = 'quarterfinal'
+        and progression_outcome_label != 'not_eliminated_in_quarterfinal'
+    )
+    or (
+        market_direction = 'elimination'
+        and stage_key = 'semifinal'
+        and progression_outcome_label != 'not_eliminated_in_semifinal'
+    )
+    or (
+        market_direction = 'elimination'
+        and stage_key = 'final'
+        and progression_outcome_label != 'not_eliminated_in_final'
+    )

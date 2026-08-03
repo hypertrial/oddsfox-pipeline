@@ -251,3 +251,22 @@ unit_tests:
     expect:
       rows:
         - {match_id: 1, home_score: 2, away_score: 0, winner_team: null, status: final}
+
+  - name: test_wc2026_results_knockout_city_match_requires_exact_date
+    model: wc2026_results
+    given:
+      - input: ref('wc2026_fixtures')
+        rows:
+          - {match_id: 101, match_date: '2026-07-14', venue: Dallas Stadium, home_team: null, away_team: null, is_knockout: true}
+      - input: ref('wc2026_base_camp_venues')
+        rows:
+          - {venue: Dallas Stadium, host_city: Arlington}
+      - input: ref('international_results_wc2026_matches')
+        rows:
+          - {match_date: '2026-07-14', city: Arlington, home_team: France, away_team: Spain, home_score: 1, away_score: 0, advancing_team: France, match_status: completed, source_url: public-results, source_loaded_at: '2026-07-15 00:00:00'}
+          - {match_date: '2026-07-15', city: Arlington, home_team: Germany, away_team: Italy, home_score: 2, away_score: 1, advancing_team: Germany, match_status: completed, source_url: public-results, source_loaded_at: '2026-07-16 00:00:00'}
+      - input: ref('wc2026_team_canonical_aliases')
+        rows: []
+    expect:
+      rows:
+        - {match_id: 101, home_score: 1, away_score: 0, winner_team: France, status: final}

@@ -306,7 +306,7 @@ knockout_candidates as (
             = least(f.home_team_key, f.away_team_key)
             and greatest(a.outcome_0_key, a.outcome_1_key)
             = greatest(f.home_team_key, f.away_team_key)
-            and abs(epoch(a.match_started_at_utc) - epoch(f.kickoff_at_utc)) <= 60
+            and abs(epoch(a.match_started_at_utc) - epoch(f.kickoff_at_utc)) <= 86400
 ),
 
 knockout_markets as (

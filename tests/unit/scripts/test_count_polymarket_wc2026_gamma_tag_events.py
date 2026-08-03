@@ -61,6 +61,7 @@ def test_count_tag_events_uses_mocked_keyset_pages(monkeypatch):
                 "max_pages": 5,
                 "keyset_tag_slug": "fifa-world-cup",
                 "keyset_closed": False,
+                "keyset_related_tags": True,
                 "keyset_volume_min": 0.0,
             },
         )
@@ -107,6 +108,7 @@ def test_count_main_resolves_tags_and_options(monkeypatch):
         ["fifa-world-cup"],
         {
             "keyset_closed": None,
+            "keyset_related_tags": True,
             "keyset_volume_min": 0.0,
             "log_every": 5,
             "max_pages": 2,

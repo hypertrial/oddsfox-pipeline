@@ -158,6 +158,13 @@ def test_join_under_base_rejects_non_https_absolute_href(monkeypatch):
         join_under_base("https://example.com", "http://example.com/file.csv")
 
 
+def test_join_under_base_rejects_path_escape(monkeypatch):
+    _mock_public_dns(monkeypatch)
+
+    with pytest.raises(OutboundUrlError, match="escapes base path"):
+        join_under_base("https://example.com/root/subdir", "../../outside.csv")
+
+
 def test_resolve_host_public_dns_edge_branches(monkeypatch):
     def fake_getaddrinfo(host, *args, **kwargs):
         if host == "empty.example":

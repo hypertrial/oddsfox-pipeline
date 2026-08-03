@@ -206,7 +206,9 @@ def test_kalshi_events_markets_and_candlesticks_replay_contract():
     assert candle_rows == [
         {
             "market_ticker": "KXWCSTAGEOFELIM-26ARG-R16",
-            "hour_start_utc": scraped_at,
+            "hour_start_utc": datetime.fromtimestamp(
+                4_070_941_200, tz=timezone.utc
+            ).replace(tzinfo=None),
             "open_price": 0.61,
             "high_price": 0.68,
             "low_price": 0.6,

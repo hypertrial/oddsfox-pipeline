@@ -31,6 +31,7 @@ for _rp in (REPO_ROOT, REPO_ROOT / "src"):
 
 from oddsfox_pipeline.config.settings import (  # noqa: E402
     POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED,
+    POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS,
     POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
 )
 from oddsfox_pipeline.ingestion.polymarket.gamma_events import (  # noqa: E402
@@ -61,10 +62,20 @@ def _parse_keyset_closed(value: str) -> bool | None:
     )
 
 
+def _parse_keyset_related_tags(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"false", "0", "no", "off"}:
+        return False
+    if normalized in {"true", "1", "yes", "on"}:
+        return True
+    raise argparse.ArgumentTypeError("keyset-related-tags must be one of: true, false")
+
+
 def count_tag_events(
     tag_slug: str,
     *,
     keyset_closed: bool | None = POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED,
+    keyset_related_tags: bool = POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS,
     keyset_volume_min: float | None = POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
     log_every: int = 1000,
     max_pages: int | None = None,
@@ -76,9 +87,10 @@ def count_tag_events(
     next_log_at = log_every
 
     logger.info(
-        "start tag=%s keyset_closed=%s keyset_volume_min=%s",
+        "start tag=%s keyset_closed=%s keyset_related_tags=%s keyset_volume_min=%s",
         tag_slug,
         keyset_closed,
+        keyset_related_tags,
         keyset_volume_min,
     )
 
@@ -87,6 +99,7 @@ def count_tag_events(
         max_pages=max_pages,
         keyset_tag_slug=tag_slug,
         keyset_closed=keyset_closed,
+        keyset_related_tags=keyset_related_tags,
         keyset_volume_min=keyset_volume_min,
     ):
         pages = meta.pages_done
@@ -122,6 +135,7 @@ def count_scope_tags(
     tag_slugs: list[str],
     *,
     keyset_closed: bool | None = POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED,
+    keyset_related_tags: bool = POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS,
     keyset_volume_min: float | None = POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
     log_every: int = 1000,
     max_pages: int | None = None,
@@ -131,6 +145,7 @@ def count_scope_tags(
         totals[tag_slug] = count_tag_events(
             tag_slug,
             keyset_closed=keyset_closed,
+            keyset_related_tags=keyset_related_tags,
             keyset_volume_min=keyset_volume_min,
             log_every=log_every,
             max_pages=max_pages,
@@ -171,6 +186,12 @@ def main() -> int:
         help=("closed filter: false=open only (default), true=closed only, any=both"),
     )
     parser.add_argument(
+        "--keyset-related-tags",
+        type=_parse_keyset_related_tags,
+        default=POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS,
+        help="Gamma related_tags query filter (default: settings/env)",
+    )
+    parser.add_argument(
         "--keyset-volume-min",
         type=float,
         default=default_volume_min,
@@ -208,6 +229,7 @@ def main() -> int:
     count_scope_tags(
         tag_slugs,
         keyset_closed=args.keyset_closed,
+        keyset_related_tags=args.keyset_related_tags,
         keyset_volume_min=args.keyset_volume_min,
         log_every=args.log_every,
         max_pages=args.max_pages,

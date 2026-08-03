@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import posixpath
 import socket
 from functools import lru_cache
 from urllib.parse import urljoin, urlparse
@@ -124,6 +125,15 @@ def join_under_base(base_url: str, href: str) -> str:
             )
         return assert_same_origin(link, base)
     joined = urljoin(base + "/", link.removeprefix("/"))
+    base_path = posixpath.normpath(urlparse(base).path or "/")
+    joined_path = posixpath.normpath(urlparse(joined).path or "/")
+    if (
+        not joined_path.startswith(base_path.rstrip("/") + "/")
+        and joined_path != base_path
+    ):
+        raise OutboundUrlError(
+            f"URL path {joined_path!r} escapes base path {base_path!r}"
+        )
     # This defensive branch is unreachable after foreign links are rejected.
     # Its message therefore has no observable behavior for accepted inputs.
     # pragma: no mutate start

@@ -158,6 +158,29 @@ unit_tests:
         - {fifa_match_id: 103, market_id: third-advance, home_team: Spain, away_team: Argentina, proposition_type: home_win_third_place, yes_clob_token_id: spain-token, no_clob_token_id: argentina-token}
         - {fifa_match_id: 104, market_id: final-advance, home_team: France, away_team: Germany, proposition_type: home_wins_final, yes_clob_token_id: france-token, no_clob_token_id: germany-token}
 
+  - name: test_match_working_set_tolerates_knockout_kickoff_drift
+    model: int_polymarket_wc2026_match_working_set
+    given:
+      - input: ref('stg_polymarket_wc2026_markets')
+        rows:
+          - {market_id: r-home, event_id: r-primary, event_slug: r-primary, event_title: Brazil vs. Portugal, event_start_time: '2026-07-14 19:30:00', event_finished_time: '2026-07-14 21:35:00', event_ended: true, sports_market_type: moneyline, group_item_title: Brazil, outcomes: '["Yes", "No"]', clob_token_ids: '["r-home-yes", "r-home-no"]', is_closed: true}
+          - {market_id: r-draw, event_id: r-primary, event_slug: r-primary, event_title: Brazil vs. Portugal, event_start_time: '2026-07-14 19:30:00', event_finished_time: '2026-07-14 21:35:00', event_ended: true, sports_market_type: moneyline, group_item_title: Draw, outcomes: '["Yes", "No"]', clob_token_ids: '["r-draw-yes", "r-draw-no"]', is_closed: true}
+          - {market_id: r-away, event_id: r-primary, event_slug: r-primary, event_title: Brazil vs. Portugal, event_start_time: '2026-07-14 19:30:00', event_finished_time: '2026-07-14 21:35:00', event_ended: true, sports_market_type: moneyline, group_item_title: Portugal, outcomes: '["Yes", "No"]', clob_token_ids: '["r-away-yes", "r-away-no"]', is_closed: true}
+          - {market_id: round-advance, event_id: r-more, event_slug: r-more, event_title: Brazil vs. Portugal - More Markets, event_start_time: '2026-07-14 19:30:00', sports_market_type: soccer_team_to_advance, group_item_title: Team to Advance, outcomes: '["Portugal", "Brazil"]', clob_token_ids: '["portugal-token", "brazil-token"]', condition_id: round-condition, question: Team to Advance, is_closed: true}
+      - input: ref('wc2026_fixtures')
+        rows: []
+      - input: ref('international_results_wc2026_matches')
+        rows:
+          - {match_id: result-round, match_date: '2026-07-14', home_team: Brazil, away_team: Portugal}
+      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+        rows:
+          - {fifa_match_id: 101, stage_key: semifinal, home_team: Brazil, away_team: Portugal, kickoff_at_utc: '2026-07-14 19:00:00'}
+      - input: ref('wc2026_team_canonical_aliases')
+        rows: []
+    expect:
+      rows:
+        - {fifa_match_id: 101, market_id: round-advance, home_team: Brazil, away_team: Portugal, proposition_type: home_advances, yes_clob_token_id: brazil-token, no_clob_token_id: portugal-token}
+
   - name: test_match_token_minute_ohlc_filters_exact_window_and_orders_jitter
     model: int_polymarket_wc2026_match_token_minute_odds
     given:

@@ -10,6 +10,7 @@ from oddsfox_pipeline.ingestion.polymarket.match_order_book import (
 )
 from oddsfox_pipeline.orchestration import assets_match_order_book as assets_mod
 from oddsfox_pipeline.orchestration.config import MatchOrderBookBackfillConfig
+from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
 
 
 def _connection(value="connection") -> MagicMock:
@@ -118,3 +119,35 @@ def test_match_order_book_asset_attaches_allowlisted_failure_metadata(monkeypatc
             "ratio": 0.5,
         }
     )
+
+
+def test_match_order_book_progress_records_before_timeout_check():
+    class _Logger:
+        def info(self, *_args, **_kwargs):
+            return None
+
+        def warning(self, *_args, **_kwargs):
+            return None
+
+        def error(self, *_args, **_kwargs):
+            return None
+
+    clock = {"t": 0.0}
+    guardrail = ProgressGuardrail(
+        asset="polymarket_wc2026_raw_match_order_book_snapshots",
+        logger=_Logger(),
+        progress_log_interval_seconds=60,
+        no_progress_soft_timeout_seconds=5,
+        no_progress_hard_timeout_seconds=10,
+        clock=lambda: clock["t"],
+    )
+
+    def progress(phase: str, diagnostics: dict[str, object]) -> None:
+        guardrail.record_progress(
+            work_increment=1, phase=phase, diagnostics=diagnostics
+        )
+        guardrail.check(phase=phase, diagnostics=diagnostics)
+
+    clock["t"] = 11.0
+    progress("loaded", {"snapshots": 1})
+    assert guardrail.snapshot()["work_completed"] == 1

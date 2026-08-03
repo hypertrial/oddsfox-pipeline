@@ -119,6 +119,27 @@ unit_tests:
               scraped_at: "2026-01-01 00:00:00",
               scope_name: "wc2026"
             }
+          - {
+              market_ticker: "KXWCSTAGEOFELIM-26ARG-QF",
+              event_ticker: "KXWCSTAGEOFELIM-26ARG",
+              series_ticker: "KXWCSTAGEOFELIM",
+              event_suffix: "26ARG",
+              market_suffix: "QF",
+              title: "Argentina",
+              subtitle: "",
+              yes_sub_title: "Argentina",
+              no_sub_title: "",
+              status: "active",
+              market_type: "binary",
+              open_time: "2026-01-01 00:00:00",
+              close_time: "2026-07-19 00:00:00",
+              expiration_time: "2026-07-19 00:00:00",
+              volume: 100,
+              open_interest: 10,
+              last_price: 0.45,
+              scraped_at: "2026-01-01 00:00:00",
+              scope_name: "wc2026"
+            }
       - input: ref('international_results_wc2026_team_aliases')
         rows: []
       - input: ref('international_results_wc2026_team_status')
@@ -148,6 +169,17 @@ unit_tests:
             stage_rank: 2,
             market_direction: "elimination",
             progression_outcome_label: "not_eliminated_in_round_of_16",
+            price_represents: "progression",
+            canonical_team_name: "Argentina",
+            market_status: "live",
+            is_live_market: true
+          }
+        - {
+            market_ticker: "KXWCSTAGEOFELIM-26ARG-QF",
+            stage_key: "quarterfinal",
+            stage_rank: 3,
+            market_direction: "elimination",
+            progression_outcome_label: "not_eliminated_in_quarterfinal",
             price_represents: "progression",
             canonical_team_name: "Argentina",
             market_status: "live",

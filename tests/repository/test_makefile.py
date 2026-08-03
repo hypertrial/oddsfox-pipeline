@@ -290,6 +290,36 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
     )
 
 
+def test_release_gate_match_analysis_lanes_use_isolated_runtime_roots():
+    makefile = (REPO_ROOT / "Makefile").read_text()
+    match_order_book = _target_recipe(makefile, "release-gate-dbt-match-order-book")
+    market_portrait = _target_recipe(makefile, "release-gate-dbt-market-portrait")
+    coverage_prep = _target_recipe(makefile, "release-gate-coverage-prep")
+
+    assert (
+        'ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_ORDER_BOOK_RUNTIME)"'
+        in match_order_book
+    )
+    assert (
+        'MATCH_ANALYSIS_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_ORDER_BOOK_RUNTIME)"'
+        in match_order_book
+    )
+    assert (
+        'ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MARKET_PORTRAIT_RUNTIME)"'
+        in market_portrait
+    )
+    assert (
+        'MATCH_ANALYSIS_RUNTIME_ROOT="$(RELEASE_DBT_MARKET_PORTRAIT_RUNTIME)"'
+        in market_portrait
+    )
+    assert match_order_book != market_portrait
+    assert (
+        'ODDSFOX_RUNTIME_ROOT="$(RELEASE_COVERAGE_RUNTIME)" dbt-prepare'
+        in coverage_prep
+    )
+    assert "release-gate-coverage-prep: dbt-prepare" not in makefile
+
+
 def test_polygon_settlement_live_smoke_is_fail_closed_to_disposable_database():
     proc = subprocess.run(
         ["make", "-n", "polygon-settlement-live-smoke"],

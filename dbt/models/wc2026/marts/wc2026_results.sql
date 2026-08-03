@@ -28,17 +28,16 @@ select
 from fixtures as f
 inner join {{ ref('international_results_wc2026_matches') }} as r
     on
-        abs(date_diff('day', r.match_date, f.match_date)) <= 1
-        and (
-            (
-                {{ canonical_team_match_key('f.home_team') }}
-                = {{ canonical_team_match_key('r.home_team') }}
-                and {{ canonical_team_match_key('f.away_team') }}
-                = {{ canonical_team_match_key('r.away_team') }}
-            )
-            or (
-                f.is_knockout
-                and {{ name_match_key('f.host_city') }} = {{ name_match_key('r.city') }}
-            )
+        (
+            abs(date_diff('day', r.match_date, f.match_date)) <= 1
+            and {{ canonical_team_match_key('f.home_team') }}
+            = {{ canonical_team_match_key('r.home_team') }}
+            and {{ canonical_team_match_key('f.away_team') }}
+            = {{ canonical_team_match_key('r.away_team') }}
+        )
+        or (
+            f.is_knockout
+            and r.match_date = f.match_date
+            and {{ name_match_key('f.host_city') }} = {{ name_match_key('r.city') }}
         )
 where r.match_status = 'completed'
