@@ -1836,10 +1836,7 @@ def test_complete_leaf_adapts_or_retains_log_chunk_size(
 
 def test_status_root_is_under_pipeline_base_dir() -> None:
     assert polygon_settlement_module._STATUS_ROOT == (
-        polygon_settlement_module.BASE_DIR
-        / ".cache"
-        / "polygon_settlement"
-        / "status"
+        polygon_settlement_module.BASE_DIR / ".cache" / "polygon_settlement" / "status"
     )
 
 
