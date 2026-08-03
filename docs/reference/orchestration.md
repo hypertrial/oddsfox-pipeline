@@ -24,7 +24,9 @@ paid or narrow credentials, single-target manifests.
 | Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt`, `logical_atlas` | Hourly odds (stopped) | `ci-fast` (`+tag:polymarket,tag:wc2026`) | Production |
 | Kalshi WC2026 | `kalshi_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` (`+tag:kalshi`) | Production |
 | Polygon settlement history | `polymarket_wc2026_polygon_settlement_backfill` → `_release` → standalone exporter | Backfill scan, audit release, offline export | None | `dbt-polygon-settlement-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
-| Advanced match analysis | `polymarket_wc2026_match_order_book_backfill` → `polymarket_wc2026_market_portrait_backfill`; `polymarket_wc2026_match_minute_odds_backfill` (independent) | Order book, then portrait (portrait requires order book + trades); minute odds is a separate optional path in the same family | None | Minute mart in `ci-fast`; PMXT-tagged models excluded (`tag:pmxt_order_book`) | Experimental |
+| Match-minute odds | `polymarket_wc2026_match_minute_odds_backfill` | Results refresh, minute fetch, dbt | None | Minute mart in ordinary `ci-fast` / `dbt-build-ci` | Mature, isolated |
+| Match order book | `polymarket_wc2026_match_order_book_backfill` | PMXT order-book scan, dbt | None | `dbt-match-order-book-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
+| Market portrait | `polymarket_wc2026_market_portrait_backfill` | Order book + trades scan, portrait bundle build | None | `dbt-market-portrait-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 
 Supporting ingestion jobs (`international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`) feed WC2026 production
@@ -105,34 +107,38 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   reads a completed audit bundle offline and writes below
   `artifacts/polygon_settlement/exports/releases/`.
 
-**Advanced match analysis (experimental)**
+**Isolated: Match-minute odds**
 
-Portrait requires order book and trades; minute odds is an independent path in
-the same family. See [Pipeline registry](#pipeline-registry).
+- `polymarket_wc2026_match_minute_odds_backfill`: one-time or rerunnable
+  completed-match backfill for all 104 FIFA-numbered games and the dedicated
+  minute mart. It refreshes the latest 104 international-results rows and the
+  OpenFootball schedule fixtures (knockout subset 73–104), discovers closed
+  Gamma events without a volume floor, validates result alignment and the
+  104/248/496 inventory, fetches exact game windows at CLOB `fidelity=1`, then
+  runs dbt. The results refresh first resolves and downloads an immutable Git
+  revision. Minute fetches append 496 audit rows; only an all-success run
+  atomically replaces raw history and marks those audits published.
+  Run `uv run make match-minute-live-smoke` for the disposable live acceptance
+  check; it is intentionally absent from CI and all schedules.
 
-1. `polymarket_wc2026_match_minute_odds_backfill` (optional, independent): one-time or rerunnable
-   completed-match backfill for all 104 FIFA-numbered games and the dedicated
-   minute mart. It refreshes the latest 104 international-results rows and the
-   OpenFootball schedule fixtures (knockout subset 73–104), discovers closed
-   Gamma events without a volume floor, validates result alignment and the
-   104/248/496 inventory, fetches exact game windows at CLOB `fidelity=1`, then
-   runs dbt. The results refresh first resolves and downloads an immutable Git
-   revision. Minute fetches append 496 audit rows; only an all-success run
-   atomically replaces raw history and marks those audits published.
-   Run `uv run make match-minute-live-smoke` for the disposable live acceptance
-   check; it is intentionally absent from CI and all schedules.
-2. `polymarket_wc2026_match_order_book_backfill` (required before portrait): validates the reviewed
-   Argentina–Egypt match-95 manifest against one exact Gamma market lookup,
-   retrieves both independent outcome-token snapshot streams from PMXT, and
-   builds only `+tag:pmxt_order_book`. Saturated 1,000-snapshot ranges split
-   recursively with a one-millisecond overlap; terminal loads merge
-   idempotently before their window checkpoints. Compatible published runs
-   return without Gamma, PMXT, or credential access. Credit exhaustion pauses
-   the scan for a later resume. The job has no schedule.
-3. `polymarket_wc2026_market_portrait_backfill` (requires step 2): resumable PMXT books and
-   trades backfill for a reviewed target manifest; builds the
-   `oddsfox.market-portrait.v1` bundle. Requires `TARGET_MANIFEST` and a PMXT
-   API key. See [Market portrait](market-portrait.md).
+**Isolated: Match order book**
+
+- `polymarket_wc2026_match_order_book_backfill`: validates the reviewed
+  Argentina–Egypt match-95 manifest against one exact Gamma market lookup,
+  retrieves both independent outcome-token snapshot streams from PMXT, and
+  builds only `+tag:pmxt_order_book`. Saturated 1,000-snapshot ranges split
+  recursively with a one-millisecond overlap; terminal loads merge
+  idempotently before their window checkpoints. Compatible published runs
+  return without Gamma, PMXT, or credential access. Credit exhaustion pauses
+  the scan for a later resume. The job has no schedule.
+
+**Isolated: Market portrait**
+
+- `polymarket_wc2026_market_portrait_backfill`: resumable PMXT books and
+  trades backfill for a reviewed target manifest; builds the
+  `oddsfox.market-portrait.v1` bundle. Requires `TARGET_MANIFEST` and a PMXT
+  API key. Portrait publication requires a completed order-book scan and trade
+  scan for the same manifest. See [Market portrait](market-portrait.md).
 
 **Supporting ingestion**
 
@@ -219,6 +225,7 @@ unrelated Polymarket tests.
 
 The match-minute backfill has no schedule or environment enable flag.
 The PMXT match-order-book backfill has no schedule or environment enable flag.
+The market-portrait backfill has no schedule or environment enable flag.
 The Polygon settlement backfill and audit-release jobs likewise have no schedule
 or environment enable flag. The technical exporter is standalone and
 unscheduled. None of these paths uploads or distributes data.

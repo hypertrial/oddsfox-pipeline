@@ -1,4 +1,4 @@
-.PHONY: ci-fast ci-fast-core ci-fast-goal ci-fast-static-docs ci-fast-tests ci-fast-dbt release-gate release-gate-core release-gate-goal release-gate-coverage release-gate-coverage-prep release-gate-cov-unit release-gate-cov-unit-run release-gate-cov-dagster-jobs release-gate-cov-dagster-jobs-run release-gate-cov-dagster-refresh release-gate-cov-dagster-refresh-run release-gate-cov-dbt-incremental release-gate-cov-dbt-incremental-run release-gate-cov-dbt-serial release-gate-cov-dbt-serial-run coverage-combine-report coverage-combine-report-run release-gate-dbt-quality release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-dbt-build release-gate-costguard-scan release-gate-mutation release-gate-static-docs release-gate-static-checks release-gate-python-lint release-gate-dbt-lint release-gate-docs-build release-gate-docs-test package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-lint dbt-prepare dbt-polygon-settlement-ci dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality mutation mutation-ci contract-http match-minute-live-smoke match-order-book-live-smoke market-portrait-live-backfill polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate export-wc2026-elo-freezes costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint python-lint test test-dev test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-parallel integration-dbt-serial integration-dbt-cov integration-dbt-cov-parallel integration-dbt-cov-serial integration-dagster integration-dagster-cov check-repository check-distribution check-secrets check-terminology compact-warehouse prune-odds-history gate-timing
+.PHONY: ci-fast ci-fast-core ci-fast-goal ci-fast-static-docs ci-fast-tests ci-fast-dbt release-gate release-gate-core release-gate-goal release-gate-coverage release-gate-coverage-prep release-gate-cov-unit release-gate-cov-unit-run release-gate-cov-dagster-jobs release-gate-cov-dagster-jobs-run release-gate-cov-dagster-refresh release-gate-cov-dagster-refresh-run release-gate-cov-dbt-incremental release-gate-cov-dbt-incremental-run release-gate-cov-dbt-serial release-gate-cov-dbt-serial-run coverage-combine-report coverage-combine-report-run release-gate-dbt-quality release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-dbt-match-order-book release-gate-dbt-market-portrait release-gate-dbt-build release-gate-costguard-scan release-gate-mutation release-gate-static-docs release-gate-static-checks release-gate-python-lint release-gate-dbt-lint release-gate-docs-build release-gate-docs-test package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov duckdb-ui dbt-build dbt-build-ci dbt-lint dbt-prepare dbt-polygon-settlement-ci dbt-match-order-book-ci dbt-market-portrait-ci market-portrait-target-validate dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality mutation mutation-ci contract-http match-minute-live-smoke match-order-book-live-smoke market-portrait-live-backfill polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate export-wc2026-elo-freezes costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint python-lint test test-dev test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-parallel integration-dbt-serial integration-dbt-cov integration-dbt-cov-parallel integration-dbt-cov-serial integration-dagster integration-dagster-cov check-repository check-distribution check-secrets check-terminology compact-warehouse prune-odds-history gate-timing
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -76,6 +76,14 @@ POLYGON_SEED_OUTPUT_DIR ?= artifacts/polygon_settlement_seed_candidates/$(POLYGO
 POLYGON_DATASET_VERSION ?=
 POLYGON_AUDIT_OUTPUT_ROOT ?= artifacts/polygon_settlement/audit
 POLYGON_EXPORT_OUTPUT_ROOT ?= artifacts/polygon_settlement/exports
+MATCH_ANALYSIS_RUNTIME_ROOT := $(REPO_ROOT)/.cache/match_analysis
+MATCH_ANALYSIS_RUNTIME_TMP := $(MATCH_ANALYSIS_RUNTIME_ROOT)/tmp
+MATCH_ANALYSIS_RUNTIME_XDG := $(MATCH_ANALYSIS_RUNTIME_ROOT)/xdg
+MATCH_ANALYSIS_RUNTIME_DBT_TARGET := $(MATCH_ANALYSIS_RUNTIME_ROOT)/dbt-target
+MATCH_ANALYSIS_RUNTIME_DBT_LOGS := $(MATCH_ANALYSIS_RUNTIME_ROOT)/dbt-logs
+MATCH_ANALYSIS_RUNTIME_PYCACHE := $(MATCH_ANALYSIS_RUNTIME_ROOT)/pycache
+MATCH_ANALYSIS_RUNTIME_DUCKDB_EXTENSIONS := $(MATCH_ANALYSIS_RUNTIME_ROOT)/duckdb-extensions
+MATCH_ANALYSIS_RUNTIME_ENV := TMPDIR="$(MATCH_ANALYSIS_RUNTIME_TMP)" XDG_CACHE_HOME="$(MATCH_ANALYSIS_RUNTIME_XDG)" UV_CACHE_DIR="$(POLYGON_RUNTIME_UV)" UV_PYTHON_INSTALL_DIR="$(POLYGON_RUNTIME_UV_PYTHON)" DBT_TARGET_PATH="$(MATCH_ANALYSIS_RUNTIME_DBT_TARGET)" DBT_LOG_PATH="$(MATCH_ANALYSIS_RUNTIME_DBT_LOGS)" PYTHONPYCACHEPREFIX="$(MATCH_ANALYSIS_RUNTIME_PYCACHE)" DUCKDB_EXTENSION_DIRECTORY="$(MATCH_ANALYSIS_RUNTIME_DUCKDB_EXTENSIONS)" DBT_SEND_ANONYMOUS_USAGE_STATS=false
 MATCH_MINUTE_REBUILD_DUCKDB_PATH ?=
 POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH ?=
 PYTEST_FAST_MARKERS := not integration and not performance and not slow and not repo_check and not contract
@@ -194,7 +202,13 @@ release-gate-dbt-freshness:
 release-gate-dbt-polygon:
 	$(MAKE) dbt-polygon-settlement-ci
 
-release-gate-dbt-build: release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon
+release-gate-dbt-match-order-book:
+	$(MAKE) dbt-match-order-book-ci
+
+release-gate-dbt-market-portrait:
+	$(MAKE) dbt-market-portrait-ci
+
+release-gate-dbt-build: release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-dbt-match-order-book release-gate-dbt-market-portrait
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_BUILD_RUNTIME)" dbt-build-ci
 
 release-gate-costguard-scan: release-gate-dbt-build
@@ -262,6 +276,18 @@ dbt-polygon-settlement-ci: polygon-runtime-dirs
 	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main run --empty --select tag:polygon_settlement --project-dir dbt --profiles-dir dbt/profiles
 	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main test --select "test_type:unit,tag:polygon_settlement" --project-dir dbt --profiles-dir dbt/profiles
 	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/test_polygon_settlement_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
+
+match-analysis-runtime-dirs: runtime-dirs
+	$(RUN_IN_REPO) mkdir -p "$(MATCH_ANALYSIS_RUNTIME_TMP)" "$(MATCH_ANALYSIS_RUNTIME_XDG)" "$(MATCH_ANALYSIS_RUNTIME_DBT_TARGET)" "$(MATCH_ANALYSIS_RUNTIME_DBT_LOGS)" "$(MATCH_ANALYSIS_RUNTIME_PYCACHE)" "$(MATCH_ANALYSIS_RUNTIME_DUCKDB_EXTENSIONS)"
+
+dbt-match-order-book-ci: match-analysis-runtime-dirs dbt-prepare
+	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/duckdb/test_match_order_book_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
+
+market-portrait-target-validate:
+	$(RUN_IN_REPO) "$(PYTHON)" -c "import hashlib, json; from pathlib import Path; import yaml; path = Path('tests/fixtures/market_portrait/match-95-target.yml'); payload = yaml.safe_load(path.read_text(encoding='utf-8')); declared = str(payload.pop('content_sha256')); actual = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest(); assert declared == actual, (declared, actual); print(f'match-95 portrait target validated, sha256 {declared}')"
+
+dbt-market-portrait-ci: match-analysis-runtime-dirs dbt-prepare market-portrait-target-validate
+	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/duckdb/test_market_portrait_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
 
 dbt-parse: dbt-prepare
 

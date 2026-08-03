@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -31,6 +31,9 @@ from oddsfox_pipeline.ingestion.polymarket.match_order_book import (
     build_pmxt_client,
     load_order_book_manifest,
     normalize_pmxt_snapshot,
+)
+from oddsfox_pipeline.ingestion.polymarket.match_trades import (
+    ENDPOINT as PMXT_TRADES_ENDPOINT,
 )
 from oddsfox_pipeline.ingestion.polymarket.odds.fetch import fetch_token_history
 from oddsfox_pipeline.resources.http import APIClient
@@ -122,6 +125,40 @@ def test_pmxt_order_book_payload_replay_contract():
     )
     assert row["bids_json"] == ('[{"order_count":2,"price":"0.4","size":"10"}]')
     assert row["asks_json"] == ('[{"order_count":1,"price":"0.6","size":"5"}]')
+
+
+def test_pmxt_trades_payload_replay_contract():
+    manifest = load_order_book_manifest()
+    target = manifest.targets[0]
+    outcome = target.outcomes[0]
+    client = build_pmxt_client(requests_per_minute=60)
+    start_iso = (
+        datetime.fromtimestamp(target.window_start_ms / 1_000, tz=timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+    end_iso = (
+        datetime.fromtimestamp(target.window_end_ms / 1_000, tz=timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+    with _replay_vcr().use_cassette("pmxt_trades.yml"):
+        payload = client.get(
+            PMXT_TRADES_ENDPOINT,
+            headers={"Authorization": "Bearer synthetic-replay-key"},
+            params={
+                "outcomeId": outcome.clob_token_id,
+                "start": start_iso,
+                "end": end_iso,
+                "limit": 1_000,
+            },
+        )
+
+    assert payload["success"] is True
+    trade = payload["data"][0]
+    assert trade["id"] == "pmxt-trade-home-1"
+    assert trade["outcomeId"] == outcome.clob_token_id
 
 
 def test_international_results_immutable_revision_replay_contract():

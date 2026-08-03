@@ -20,7 +20,9 @@ Schedules stay disabled until manual jobs and dbt builds are healthy.
 | `polymarket:wc2026` | Public Gamma/CLOB; CLOB auth optional unless a live job requires it | `.env` only for the ordinary full run |
 | `kalshi:wc2026` | Public trade API; no API credentials | `.env` only |
 | FIFA / international results | Public CSV feeds pulled by WC2026 jobs | `.env` only |
-| Advanced match analysis (experimental): minute odds (optional); order book → market portrait | Live APIs or completed raw warehouse; PMXT API key for order-book and portrait steps | Populated schedule overlay (tracked shell) for minute; reviewed target manifest for match 95 (order book / portrait) |
+| Match-minute odds (mature, isolated) | Live APIs or completed raw warehouse | Populated schedule overlay (tracked shell) |
+| Match order book (mature, isolated) | Live APIs or completed raw warehouse; PMXT API key | Reviewed target manifest for match 95 |
+| Market portrait (mature, isolated) | Completed order-book + trades scan; PMXT API key | Reviewed `TARGET_MANIFEST` for one approved match |
 | Polygon settlement (advanced) | Finalized-capable Polygon JSON-RPC | Reviewed 248-row manifest + resolution attestation (tracked seed is a header-only shell) |
 
 Never commit `.env`, operator seed rows, reviewed attestations, DuckDB files, or
@@ -45,7 +47,9 @@ These are optional. They are not part of the default quickstart.
 | Topic | Page |
 | --- | --- |
 | Enable hourly schedules | [Enable schedules](../guides/enable-schedules.md) |
-| Advanced match analysis (experimental): minute odds (optional); order book → market portrait | [Recreate local marts](../guides/recreate-local-marts.md), [Recreate PMXT order-book mart](../guides/recreate-match-order-book-mart.md), [Market portrait](../reference/market-portrait.md); maturity tiers in [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
+| Match-minute odds (mature, isolated) | [Recreate local marts](../guides/recreate-local-marts.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
+| Match order book (mature, isolated) | [Recreate PMXT order-book mart](../guides/recreate-match-order-book-mart.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
+| Market portrait (mature, isolated) | [Market portrait](../reference/market-portrait.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
 | Isolated Polygon settlement history | [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md) |
 | Knockout parquet exports | [Scripts](../reference/scripts.md) |
 | Configuration reference | [Configuration](../reference/configuration.md) |

@@ -45,7 +45,9 @@ These fixed jobs are not chooser refs:
 | Pipeline / job | Guide |
 | --- | --- |
 | Isolated Polygon settlement history | [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md) |
-| Advanced match analysis (experimental): minute odds (optional); order book → market portrait | [Recreate local marts](../guides/recreate-local-marts.md), [Recreate PMXT order-book mart](../guides/recreate-match-order-book-mart.md), [Market portrait](../reference/market-portrait.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
+| Match-minute odds (mature, isolated) | [Recreate local marts](../guides/recreate-local-marts.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
+| Match order book (mature, isolated) | [Recreate PMXT order-book mart](../guides/recreate-match-order-book-mart.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
+| Market portrait (mature, isolated) | [Market portrait](../reference/market-portrait.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
 
 Next, read [Run a scope](../guides/run-a-scope.md) for staged execution or
 [Data contracts](../reference/data-contracts.md) for the exact documented marts.

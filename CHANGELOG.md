@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Split the former "Advanced match analysis (experimental)" registry row into
+  three mature, isolated pipelines: match-minute odds, match order book, and
+  market portrait. Added `dbt-match-order-book-ci`, `dbt-market-portrait-ci`,
+  and `market-portrait-target-validate` release-gate lanes plus synthetic
+  portrait/trades replay fixtures.
+
 ### Fixed
 
 - `profile_warehouse.py` `--refresh` now propagates `--duckdb-path` to Polymarket

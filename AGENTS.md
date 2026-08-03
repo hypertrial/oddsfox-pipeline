@@ -153,6 +153,9 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make runtime-dirs` | Create SSD-local temp, cache, dbt, Python, DuckDB-extension, and browser directories below `.cache/runtime` |
 | `make dbt-build-ci` | Bootstrap disposable DuckDB + dbt build |
 | `make dbt-polygon-settlement-ci` | Build the isolated Polygon settlement graph against replay fixtures |
+| `make dbt-match-order-book-ci` | Build the isolated PMXT order-book graph against replay fixtures |
+| `make dbt-market-portrait-ci` | Build the isolated market-portrait graph and bundle contract against replay fixtures |
+| `make market-portrait-target-validate` | Validate the committed synthetic match-95 portrait target manifest |
 | `make data-quality` | Safe local dbt build-and-test wrapper against disposable state |
 | `make mutation` | Resume the focused Mutmut run and enforce its exported statistics |
 | `make mutation-ci` | Delete cached mutants and run the deterministic focused mutation gate |
