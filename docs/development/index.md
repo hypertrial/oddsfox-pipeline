@@ -26,8 +26,7 @@ cp .env.example .env
 `uv sync --group dev` (the uv default group) installs the aggregate contributor
 toolset. CI workers pass `--no-default-groups` and only the groups each job
 needs (`test`, `coverage`, `python-lint`, `dbt-lint`, `docs`, `docs-render`,
-`mutation`). `uv sync --extra dev` remains available as a compatibility alias
-of the same toolset.
+`mutation`).
 
 Keep schedules disabled for local development unless intentionally testing live
 ingestion:

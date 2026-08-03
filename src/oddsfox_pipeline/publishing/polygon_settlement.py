@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import json
 import re
 import shutil
 import tempfile
@@ -33,6 +32,7 @@ from oddsfox_pipeline.publishing._bundle_io import (
     sha256_file,
     validate_dataset_version,
     write_checksums,
+    write_json,
     write_text,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
@@ -914,8 +914,8 @@ def _write_audit_metadata(
         },
         "output_sha256": data_hashes,
     }
-    _write_json(directory / "PROVENANCE.json", generated_provenance)
-    _write_json(
+    write_json(directory / "PROVENANCE.json", generated_provenance, jsonable=_jsonable)
+    write_json(
         directory / "QUALITY_REPORT.json",
         {
             "dataset_version": spec.dataset_version,
@@ -924,8 +924,9 @@ def _write_audit_metadata(
             "warehouse_gate": _jsonable(dict(quality_rows[0])),
             "issues": _jsonable(list(issue_rows)),
         },
+        jsonable=_jsonable,
     )
-    _write_json(directory / "schema.json", _schema_document())
+    write_json(directory / "schema.json", _schema_document(), jsonable=_jsonable)
     _write_sources(directory / "SOURCES.csv", market_rows, provenance)
     write_text(directory / "README.md", _readme(spec, summary))
     write_text(directory / "CHANGELOG.md", _changelog(spec))
@@ -1123,14 +1124,6 @@ def _write_csv(
         writer.writeheader()
         for row in rows:
             writer.writerow({column: _csv_value(row.get(column)) for column in columns})
-
-
-def _write_json(path: Path, value: Any) -> None:
-    write_text(
-        path,
-        json.dumps(_jsonable(value), indent=2, sort_keys=True, ensure_ascii=False)
-        + "\n",
-    )
 
 
 def _validate_audit_bundle_files(directory: Path) -> None:

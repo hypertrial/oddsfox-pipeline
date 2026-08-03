@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Sequence
 
 from oddsfox_pipeline.config.settings import DEFAULT_KALSHI_WC2026_MARKET_SCOPE
@@ -11,6 +10,7 @@ from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_conne
 from oddsfox_pipeline.storage.duckdb.kalshi_dlt_batch import (
     load_kalshi_market_scope_registry_stage,
 )
+from oddsfox_pipeline.storage.duckdb.registry_common import _normalize_scope, _utc_now
 from oddsfox_pipeline.storage.duckdb.schemas.constants import kalshi_ops_tbl
 
 
@@ -21,17 +21,6 @@ class KalshiRegistryRow:
     series_ticker: str
     source: str
     scope_name: str = DEFAULT_KALSHI_WC2026_MARKET_SCOPE
-
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _normalize_scope(scope_name: str) -> str:
-    normalized = str(scope_name or "").strip().lower()
-    if not normalized:
-        raise ValueError("scope_name must not be empty")
-    return normalized
 
 
 def upsert_registry_rows(rows: Sequence[KalshiRegistryRow]) -> int:

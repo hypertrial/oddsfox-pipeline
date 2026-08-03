@@ -27,6 +27,7 @@ from oddsfox_pipeline.publishing._bundle_io import (
     sha256_file,
     validate_dataset_version,
     write_checksums,
+    write_json,
     write_text,
 )
 
@@ -286,10 +287,10 @@ def export_polygon_settlement_minute_odds(
                 csv_sha256=audit_checksums[MAIN_CSV_NAME],
                 export_commit=export_commit,
             )
-            _write_json(temporary_dir / "schema.json", _schema_document())
+            write_json(temporary_dir / "schema.json", _schema_document())
             _write_sources(temporary_dir / "SOURCES.csv", provenance)
-            _write_json(temporary_dir / "MANIFEST.json", manifest)
-            _write_json(temporary_dir / "QUALITY_SUMMARY.json", analysis)
+            write_json(temporary_dir / "MANIFEST.json", manifest)
+            write_json(temporary_dir / "QUALITY_SUMMARY.json", analysis)
             write_text(
                 temporary_dir / "QUALITY_SUMMARY.md",
                 _quality_markdown(analysis),
@@ -1392,13 +1393,6 @@ def _validate_export_files(directory: Path) -> None:
     }
     if names & forbidden:  # pragma: no cover - exact allowlist already protects this
         raise RuntimeError("Export contains an audit-only or publisher-controlled file")
-
-
-def _write_json(path: Path, value: Any) -> None:
-    write_text(
-        path,
-        json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False),
-    )
 
 
 def _decimal_text(value: Any, *, places: int) -> str:

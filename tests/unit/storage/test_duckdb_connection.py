@@ -415,6 +415,35 @@ def test_ensure_duck_db_switches_active_path_without_manual_reset(
     assert table_count > 0
 
 
+def test_init_duck_db_switches_active_path_without_ensure(
+    monkeypatch, tmp_path, isolated_env
+):
+    first = tmp_path / "first.duckdb"
+    second = tmp_path / "second.duckdb"
+    monkeypatch.setenv("DUCKDB_NAME", str(first))
+
+    reload_all_settings_modules()
+    import oddsfox_pipeline.storage.duckdb.connection as conn
+
+    conn = importlib.reload(conn)
+    conn.init_duck_db()
+    assert conn.active_duckdb_path() == first
+
+    monkeypatch.setenv("DUCKDB_NAME", str(second))
+    conn.init_duck_db()
+
+    assert conn.active_duckdb_path() == second
+    with duckdb.connect(str(second)) as c:
+        table_count = c.execute(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema IN ('polymarket_wc2026_raw', 'polymarket_wc2026_ops')
+            """
+        ).fetchone()[0]
+    assert table_count > 0
+
+
 def test_reset_duckdb_connection_state_clears_active_path(
     monkeypatch, tmp_path, isolated_env
 ):

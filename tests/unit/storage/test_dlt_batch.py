@@ -7,15 +7,19 @@ import pytest
 
 from oddsfox_pipeline.storage.duckdb import dlt_batch as dlt_batch_mod
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
-    EVENT_CATALOG_MARKET_COLUMNS,
     EVENT_SNAPSHOT_COLUMNS,
     load_market_tokens_stage,
     load_odds_history_stage,
     load_stage_rows,
-    merge_event_catalog_batch,
     merge_match_order_book_snapshots,
 )
+from oddsfox_pipeline.storage.duckdb.dlt_batch_event_catalog import (
+    merge_event_catalog_batch,
+)
 from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_wc2026_raw_tbl
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
+    EVENT_CATALOG_MARKET_COLUMNS,
+)
 
 
 def _order_book_row(**overrides):

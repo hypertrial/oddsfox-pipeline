@@ -75,24 +75,6 @@ dev = [
   "pip-audit>=2.10.1",
 ]
 
-[project.optional-dependencies]
-dev = [
-  "dagster-dg-cli>=1.13.0",
-  "hypothesis>=6.156.6",
-  "mkdocs>=1.6.0",
-  "mkdocs-material>=9.5.0",
-  "mutmut==3.6.0",
-  "playwright>=1.55.0,<2",
-  "pip-audit>=2.10.1",
-  "pytest>=8.0.0",
-  "pytest-cov>=5.0.0",
-  "pytest-xdist>=3.5.0",
-  "ruff>=0.15.21",
-  "sqlfluff>=4.2.2",
-  "sqlfluff-templater-dbt>=3.0.0",
-  "vcrpy>=6.0.0",
-]
-
 [tool.mutmut]
 source_paths = ["src/oddsfox_pipeline"]
 only_mutate = [
@@ -101,6 +83,7 @@ only_mutate = [
   "src/oddsfox_pipeline/ingestion/polymarket/market_scope/predicates.py",
   "src/oddsfox_pipeline/ingestion/polymarket/markets/persistence.py",
   "src/oddsfox_pipeline/ingestion/polymarket/odds/planning.py",
+  "src/oddsfox_pipeline/ingestion/polymarket/polygon_settlement_normalize.py",
 ]
 pytest_add_cli_args = ["--hypothesis-seed=20260725"]
 pytest_add_cli_args_test_selection = [
@@ -109,6 +92,7 @@ pytest_add_cli_args_test_selection = [
   "tests/unit/ingestion/market_scope/test_predicates.py",
   "tests/unit/ingestion/test_market_persistence.py",
   "tests/unit/ingestion/test_odds_planning.py",
+  "tests/unit/ingestion/polygon_settlement/test_normalize.py",
 ]
 
 [tool.setuptools]

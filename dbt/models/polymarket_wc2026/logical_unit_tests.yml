@@ -347,11 +347,11 @@ unit_tests:
             'wc2026-finals-sporting-v1' as membership_policy_version,
             null::varchar as fixture_group_label,
             null::varchar as fixture_stage
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: ref('int_polymarket_wc2026_logical_team_groups')
         format: sql
         rows: |
-          select 'A' as group_label, 'USA' as home_team,
-            'Paraguay' as away_team
+          select 'usa-id' as canonical_team_id, 'a' as group_label
+          union all select 'paraguay-id', 'a'
       - input: ref('int_polymarket_wc2026_logical_team_identities')
         format: sql
         rows: |
@@ -451,11 +451,11 @@ unit_tests:
             'Official FIFA award', 'scope:wc2026:award:young_player',
             'awards', null, null, false, null, true,
             'wc2026-finals-sporting-v1', null, null
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: ref('int_polymarket_wc2026_logical_team_groups')
         format: sql
         rows: |
-          select null::varchar as group_label, null::varchar as home_team,
-            null::varchar as away_team where false
+          select null::varchar as canonical_team_id,
+            null::varchar as group_label where false
       - input: ref('int_polymarket_wc2026_logical_team_identities')
         format: sql
         rows: |
@@ -517,11 +517,11 @@ unit_tests:
             'wc2026-finals-sporting-v1' as membership_policy_version,
             null::varchar as fixture_group_label,
             null::varchar as fixture_stage
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: ref('int_polymarket_wc2026_logical_team_groups')
         format: sql
         rows: |
-          select 'A' as group_label, 'USA' as home_team,
-            'Paraguay' as away_team
+          select 'usa-id' as canonical_team_id, 'a' as group_label
+          union all select 'paraguay-id', 'a'
       - input: ref('int_polymarket_wc2026_logical_team_identities')
         format: sql
         rows: |
@@ -600,11 +600,11 @@ unit_tests:
             'wc2026-finals-sporting-v1' as membership_policy_version,
             null::varchar as fixture_group_label,
             null::varchar as fixture_stage
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: ref('int_polymarket_wc2026_logical_team_groups')
         format: sql
         rows: |
-          select null::varchar as group_label, null::varchar as home_team,
-            null::varchar as away_team where false
+          select null::varchar as canonical_team_id,
+            null::varchar as group_label where false
       - input: ref('int_polymarket_wc2026_logical_team_identities')
         format: sql
         rows: |
@@ -660,11 +660,11 @@ unit_tests:
         rows: |
           select null::varchar as variant_match_key,
             null::varchar as canonical_match_key where false
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: ref('int_polymarket_wc2026_logical_team_groups')
         format: sql
         rows: |
-          select null::varchar as group_label, null::varchar as home_team,
-            null::varchar as away_team where false
+          select null::varchar as canonical_team_id,
+            null::varchar as group_label where false
       - input: ref('polymarket_wc2026_logical_events')
         format: sql
         rows: |
@@ -744,11 +744,11 @@ unit_tests:
         rows: |
           select null::varchar as variant_match_key,
             null::varchar as canonical_match_key where false
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: ref('int_polymarket_wc2026_logical_team_groups')
         format: sql
         rows: |
-          select 'A' as group_label, 'USA' as home_team,
-            'Paraguay' as away_team
+          select 'usa-id' as canonical_team_id, 'a' as group_label
+          union all select 'paraguay-id', 'a'
       - input: ref('polymarket_wc2026_logical_events')
         format: sql
         rows: |
@@ -888,11 +888,11 @@ unit_tests:
         rows: |
           select null::varchar as variant_match_key,
             null::varchar as canonical_match_key where false
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: ref('int_polymarket_wc2026_logical_team_groups')
         format: sql
         rows: |
-          select null::varchar as group_label, null::varchar as home_team,
-            null::varchar as away_team where false
+          select null::varchar as canonical_team_id,
+            null::varchar as group_label where false
       - input: ref('polymarket_wc2026_logical_events')
         format: sql
         rows: |
@@ -968,11 +968,11 @@ unit_tests:
         rows: |
           select null::varchar as variant_match_key,
             null::varchar as canonical_match_key where false
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: ref('int_polymarket_wc2026_logical_team_groups')
         format: sql
         rows: |
-          select null::varchar as group_label, null::varchar as home_team,
-            null::varchar as away_team where false
+          select null::varchar as canonical_team_id,
+            null::varchar as group_label where false
       - input: ref('polymarket_wc2026_logical_events')
         format: sql
         rows: |
@@ -1060,11 +1060,11 @@ unit_tests:
         rows: |
           select null::varchar as variant_match_key,
             null::varchar as canonical_match_key where false
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: ref('int_polymarket_wc2026_logical_team_groups')
         format: sql
         rows: |
-          select null::varchar as group_label, null::varchar as home_team,
-            null::varchar as away_team where false
+          select null::varchar as canonical_team_id,
+            null::varchar as group_label where false
       - input: ref('polymarket_wc2026_logical_events')
         format: sql
         rows: |

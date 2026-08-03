@@ -179,6 +179,12 @@ def test_flush_writer_buffers_rollback(monkeypatch, tmp_path):
     }
 
     class BadConn:
+        def register(self, *_args, **_kwargs):
+            return None
+
+        def unregister(self, *_args, **_kwargs):
+            return None
+
         def execute(self, *a, **k):
             raise RuntimeError("rollback path")
 

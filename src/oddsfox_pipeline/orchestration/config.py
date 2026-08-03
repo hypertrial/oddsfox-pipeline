@@ -328,6 +328,9 @@ def polymarket_wc2026_full_refresh_events_run_config() -> dict:
     return {
         "ops": {
             "polymarket_wc2026_raw_markets": {"config": markets_cfg.model_dump()},
+            "polymarket_wc2026_raw_event_catalog": {
+                "config": registry_cfg.model_dump()
+            },
             "polymarket_wc2026_ops_market_scope_registry": {
                 "config": registry_cfg.model_dump()
             },
@@ -370,6 +373,7 @@ def polymarket_wc2026_match_minute_odds_run_config() -> dict:
     return {
         "ops": {
             "polymarket_wc2026_raw_markets": {"config": markets.model_dump()},
+            "polymarket_wc2026_raw_event_catalog": {"config": registry.model_dump()},
             "polymarket_wc2026_ops_market_scope_registry": {
                 "config": registry.model_dump()
             },

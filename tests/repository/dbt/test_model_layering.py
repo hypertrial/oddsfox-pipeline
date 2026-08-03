@@ -98,6 +98,48 @@ def test_wc2026_knockout_hourly_view_joins_current_metadata_to_hourly_fact():
     assert "selected_" not in lowered
 
 
+def test_wc2026_logical_marts_do_not_reference_openfootball_staging_directly():
+    marts_root = DBT_ROOT / "models" / "polymarket_wc2026" / "marts"
+    openfootball_ref = "{{ ref('stg_openfootball_wc2026_schedule_fixtures') }}"
+    for suffix in (
+        "events",
+        "markets",
+        "market_events",
+        "propositions",
+        "entities",
+        "proposition_entities",
+        "scopes",
+    ):
+        sql = (marts_root / f"polymarket_wc2026_logical_{suffix}.sql").read_text()
+        assert openfootball_ref not in sql
+
+
+def test_wc2026_logical_team_groups_is_shared_intermediate():
+    team_groups_ref = "{{ ref('int_polymarket_wc2026_logical_team_groups') }}"
+    openfootball_ref = "{{ ref('stg_openfootball_wc2026_schedule_fixtures') }}"
+    intermediate_root = DBT_ROOT / "models" / "polymarket_wc2026" / "intermediate"
+    marts_root = DBT_ROOT / "models" / "polymarket_wc2026" / "marts"
+
+    team_groups_sql = (
+        intermediate_root / "int_polymarket_wc2026_logical_team_groups.sql"
+    ).read_text()
+    assert openfootball_ref in team_groups_sql
+    assert (
+        "having count(distinct candidates.group_label) = 1" in team_groups_sql.lower()
+    )
+
+    markets_sql = (
+        intermediate_root / "int_polymarket_wc2026_logical_markets.sql"
+    ).read_text()
+    assert team_groups_ref in markets_sql
+    assert openfootball_ref not in markets_sql
+
+    for suffix in ("propositions", "entities"):
+        sql = (marts_root / f"polymarket_wc2026_logical_{suffix}.sql").read_text()
+        assert team_groups_ref in sql
+        assert openfootball_ref not in sql
+
+
 def test_wc2026_logical_propositions_use_classified_markets_and_entities():
     sql = (
         DBT_ROOT
@@ -110,6 +152,7 @@ def test_wc2026_logical_propositions_use_classified_markets_and_entities():
 
     assert "{{ ref('int_polymarket_wc2026_logical_markets') }}" in lowered
     assert "{{ ref('int_polymarket_wc2026_logical_team_identities') }}" in lowered
+    assert "{{ ref('int_polymarket_wc2026_logical_team_groups') }}" in lowered
     assert "{{ ref('polymarket_wc2026_logical_events') }}" in lowered
     assert "source_proposition_id" in lowered
     assert "event_constraint_group_id" in lowered

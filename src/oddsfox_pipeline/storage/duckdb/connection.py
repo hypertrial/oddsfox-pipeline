@@ -1,6 +1,7 @@
 import logging
 import os
 import tempfile
+import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -43,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 _SCHEMA_LOGGED = False
 _SCHEMA_INITIALIZED = False
+_SCHEMA_BOOTSTRAP_LOCK = threading.Lock()
 _ACTIVE_DUCKDB_PATH: Path | None = None
 
 
@@ -83,10 +85,11 @@ def reset_orchestration_dlt_pipeline_caches() -> None:
 def reset_duckdb_connection_state() -> None:
     """Reset process-local DuckDB connection caches after tests or env swaps."""
     global _SCHEMA_LOGGED, _SCHEMA_INITIALIZED, _ACTIVE_DUCKDB_PATH
-    _SCHEMA_LOGGED = False
-    _SCHEMA_INITIALIZED = False
-    _ACTIVE_DUCKDB_PATH = None
-    _reset_path_scoped_caches()
+    with _SCHEMA_BOOTSTRAP_LOCK:
+        _SCHEMA_LOGGED = False
+        _SCHEMA_INITIALIZED = False
+        _ACTIVE_DUCKDB_PATH = None
+        _reset_path_scoped_caches()
 
 
 def _sync_active_duckdb_path() -> Path:
@@ -221,47 +224,59 @@ def open_writable_duckdb_connection(
 
 def init_duck_db() -> None:
     global _SCHEMA_LOGGED, _SCHEMA_INITIALIZED
-    path = _sync_active_duckdb_path()
+    # Sync before the fast-path return so DUCKDB_PATH / DUCKDB_NAME swaps still
+    # clear `_SCHEMA_INITIALIZED` (same contract as pre-lock init_duck_db).
+    _sync_active_duckdb_path()
     if _SCHEMA_INITIALIZED:
         return
-    conn = open_writable_duckdb_connection(path)
-    if not _SCHEMA_LOGGED:
-        logger.info(
-            "Ensuring DuckDB raw/ops schemas (%s, %s, %s, %s, %s, %s, %s)",
-            POLYMARKET_WC2026_RAW_SCHEMA,
-            POLYMARKET_WC2026_OPS_SCHEMA,
-            POLYMARKET_CATALOG_RAW_SCHEMA,
-            KALSHI_WC2026_RAW_SCHEMA,
-            KALSHI_WC2026_OPS_SCHEMA,
-            INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
-            OPENFOOTBALL_WC2026_RAW_SCHEMA,
-        )
-        _SCHEMA_LOGGED = True
-    try:
-        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_RAW_SCHEMA}"')
-        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_OPS_SCHEMA}"')
-        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_CATALOG_RAW_SCHEMA}"')
-        conn.execute(
-            f'CREATE SCHEMA IF NOT EXISTS "{INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA}"'
-        )
-        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{OPENFOOTBALL_WC2026_RAW_SCHEMA}"')
-        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{KALSHI_WC2026_RAW_SCHEMA}"')
-        conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{KALSHI_WC2026_OPS_SCHEMA}"')
-        bootstrap_all_polymarket_tables(conn)
-        bootstrap_all_kalshi_tables(conn)
-        bootstrap_international_results_tables(conn)
-        bootstrap_openfootball_tables(conn)
-        ensure_all_polymarket_indexes(conn)
-        ensure_all_kalshi_indexes(conn)
-        _SCHEMA_INITIALIZED = True
-    finally:
-        conn.close()
+    with _SCHEMA_BOOTSTRAP_LOCK:
+        path = _sync_active_duckdb_path()
+        if _SCHEMA_INITIALIZED:
+            return
+        conn = open_writable_duckdb_connection(path)
+        if not _SCHEMA_LOGGED:
+            logger.info(
+                "Ensuring DuckDB raw/ops schemas (%s, %s, %s, %s, %s, %s, %s)",
+                POLYMARKET_WC2026_RAW_SCHEMA,
+                POLYMARKET_WC2026_OPS_SCHEMA,
+                POLYMARKET_CATALOG_RAW_SCHEMA,
+                KALSHI_WC2026_RAW_SCHEMA,
+                KALSHI_WC2026_OPS_SCHEMA,
+                INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
+                OPENFOOTBALL_WC2026_RAW_SCHEMA,
+            )
+            _SCHEMA_LOGGED = True
+        try:
+            conn.execute(
+                f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_RAW_SCHEMA}"'
+            )
+            conn.execute(
+                f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_OPS_SCHEMA}"'
+            )
+            conn.execute(
+                f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_CATALOG_RAW_SCHEMA}"'
+            )
+            conn.execute(
+                f'CREATE SCHEMA IF NOT EXISTS "{INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA}"'
+            )
+            conn.execute(
+                f'CREATE SCHEMA IF NOT EXISTS "{OPENFOOTBALL_WC2026_RAW_SCHEMA}"'
+            )
+            conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{KALSHI_WC2026_RAW_SCHEMA}"')
+            conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{KALSHI_WC2026_OPS_SCHEMA}"')
+            bootstrap_all_polymarket_tables(conn)
+            bootstrap_all_kalshi_tables(conn)
+            bootstrap_international_results_tables(conn)
+            bootstrap_openfootball_tables(conn)
+            ensure_all_polymarket_indexes(conn)
+            ensure_all_kalshi_indexes(conn)
+            _SCHEMA_INITIALIZED = True
+        finally:
+            conn.close()
 
 
 def ensure_duck_db() -> None:
     _sync_active_duckdb_path()
-    if _SCHEMA_INITIALIZED:
-        return
     init_duck_db()
 
 

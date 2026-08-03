@@ -23,35 +23,6 @@ with primary_links as (
     where links.is_primary_qualifying_event
 ),
 
-team_group_candidates as (
-    select
-        lower(fixtures.group_label) as group_label,
-        fixtures.home_team as team_name
-    from {{ ref('stg_openfootball_wc2026_schedule_fixtures') }} as fixtures
-    where fixtures.group_label is not null
-
-    union all
-
-    select
-        lower(fixtures.group_label) as group_label,
-        fixtures.away_team as team_name
-    from {{ ref('stg_openfootball_wc2026_schedule_fixtures') }} as fixtures
-    where fixtures.group_label is not null
-),
-
-unique_team_groups as (
-    select
-        identities.canonical_team_id,
-        min(candidates.group_label) as group_label
-    from team_group_candidates as candidates
-    inner join {{ ref('int_polymarket_wc2026_logical_team_identities') }} as identities
-        on
-            identities.team_match_key
-            = {{ canonical_team_match_key('candidates.team_name') }}
-    group by identities.canonical_team_id
-    having count(distinct candidates.group_label) = 1
-),
-
 base_raw as (
     select
         markets.*,
@@ -149,7 +120,7 @@ base_raw as (
         on
             market_team_identity.team_match_key
             = {{ canonical_team_match_key('markets.group_item_title') }}
-    left join unique_team_groups as team_groups
+    left join {{ ref('int_polymarket_wc2026_logical_team_groups') }} as team_groups
         on market_team_identity.canonical_team_id = team_groups.canonical_team_id
 ),
 

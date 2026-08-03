@@ -240,13 +240,16 @@ def test_match_minute_job_is_closed_untruncated_and_unscheduled():
     config = polymarket_wc2026_match_minute_odds_run_config()["ops"]
     markets = config["polymarket_wc2026_raw_markets"]["config"]
     registry = config["polymarket_wc2026_ops_market_scope_registry"]["config"]
+    event_catalog = config["polymarket_wc2026_raw_event_catalog"]["config"]
     minute = config["polymarket_wc2026_raw_match_token_odds_history_minute"]["config"]
     dbt = config["oddsfox_dbt"]["config"]
 
     assert markets["keyset_closed"] is True
     assert registry["keyset_closed"] is True
+    assert event_catalog["keyset_closed"] is True
     assert markets["keyset_volume_min"] == 0.0
     assert registry["keyset_volume_min"] == 0.0
+    assert event_catalog["keyset_volume_min"] == 0.0
     assert markets["max_event_pages"] is None
     assert markets["max_pages_without_progress"] is None
     assert minute["requests_per_second"] > 0
@@ -258,6 +261,7 @@ def test_match_minute_job_is_closed_untruncated_and_unscheduled():
         AssetKey(["international_results", "wc2026", "raw", "match_results"])
         in selected
     )
+    assert AssetKey(["polymarket", "wc2026", "raw", "event_catalog"]) in selected
     assert all(
         schedule.job_name != "polymarket_wc2026_match_minute_odds_backfill"
         for schedule in defs.schedules
@@ -415,7 +419,7 @@ def test_kalshi_hourly_schedule_enabled_by_env(monkeypatch):
     )
 
 
-def test_wc2026_market_scope_registry_refresh_excludes_logical_catalog_crawl():
+def test_wc2026_market_scope_registry_refresh_includes_event_catalog_dependency():
     selected = {
         tuple(key.path)
         for key in defs.resolve_job_def(
@@ -424,19 +428,15 @@ def test_wc2026_market_scope_registry_refresh_excludes_logical_catalog_crawl():
     }
 
     assert ("polymarket", "wc2026", "raw", "markets") in selected
+    assert ("polymarket", "wc2026", "raw", "event_catalog") in selected
+    assert ("polymarket", "wc2026", "raw", "event_snapshots") in selected
+    assert ("polymarket", "wc2026", "raw", "event_market_memberships") in selected
+    assert ("openfootball", "wc2026", "raw", "schedule_fixtures") in selected
     assert ("polymarket", "wc2026", "ops", "market_scope_registry") in selected
-    assert (
-        not {
-            ("polymarket", "wc2026", "raw", "event_catalog"),
-            ("polymarket", "wc2026", "raw", "event_snapshots"),
-            ("polymarket", "wc2026", "raw", "event_market_memberships"),
-            ("polymarket", "wc2026", "raw", "reviewed_event_membership"),
-        }
-        & selected
-    )
+    assert ("polymarket", "wc2026", "raw", "reviewed_event_membership") not in selected
     assert (
         "polymarket_wc2026_raw_event_catalog"
-        not in polymarket_wc2026_full_refresh_events_run_config()["ops"]
+        in polymarket_wc2026_full_refresh_events_run_config()["ops"]
     )
 
 

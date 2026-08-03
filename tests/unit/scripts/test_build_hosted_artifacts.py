@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -127,13 +126,6 @@ def _write_release(path: Path, *, markets: int = 1, edges: int = 1) -> None:
         + "\n",
         encoding="utf-8",
     )
-
-
-def _write_legacy_release(path: Path) -> None:
-    builder = _load_builder_module()
-    path.mkdir(parents=True)
-    for name in builder.LEGACY_REQUIRED_FILES:
-        (path / name).write_bytes(f"legacy:{name}".encode())
 
 
 def _args(tmp_path: Path, **overrides):
@@ -667,49 +659,6 @@ def test_main_activates_only_after_revalidating_existing_release(
 
     assert (artifact_dir / "current").resolve() == release.resolve()
     assert order == ["graph", "browser", "publish"]
-
-
-def test_legacy_current_is_content_sealed_and_can_be_rolled_back(
-    tmp_path: Path,
-) -> None:
-    builder = _load_builder_module()
-    artifact_dir = tmp_path / "artifacts"
-    legacy = artifact_dir / "releases" / "legacy"
-    current_release = artifact_dir / "releases" / "atlas"
-    _write_legacy_release(legacy)
-    _write_release(current_release)
-    artifact_dir.mkdir(exist_ok=True)
-    os.symlink(Path("releases") / "legacy", artifact_dir / "current")
-
-    builder.activate_current(artifact_dir, "atlas")
-
-    receipt = builder.rollback_receipt_path(artifact_dir, "legacy")
-    assert receipt.is_file()
-    builder.validate_legacy_release(artifact_dir, "legacy")
-    receipt_payload = json.loads(receipt.read_text(encoding="utf-8"))
-    assert receipt_payload["pipeline_git_sha"] is None
-    assert receipt_payload["graph_git_sha"] is None
-    assert (artifact_dir / "previous").resolve() == legacy.resolve()
-
-    with (
-        patch.object(builder, "validate_graph_acceptance_for_release") as graph_gate,
-        patch.object(builder, "validate_browser_smoke_receipt") as browser_gate,
-    ):
-        assert (
-            builder.main(
-                [
-                    "--artifact-dir",
-                    str(artifact_dir),
-                    "--activate-release",
-                    "legacy",
-                ]
-            )
-            == 0
-        )
-    graph_gate.assert_not_called()
-    browser_gate.assert_not_called()
-    assert (artifact_dir / "current").resolve() == legacy.resolve()
-    assert (artifact_dir / "previous").resolve() == current_release.resolve()
 
 
 def test_validate_release_mode_never_repoints_current(tmp_path: Path) -> None:

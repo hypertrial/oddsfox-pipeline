@@ -262,32 +262,6 @@ labels as (
     from expanded
 ),
 
-fixture_team_names as (
-    select
-        group_label,
-        home_team as team_name
-    from {{ ref('stg_openfootball_wc2026_schedule_fixtures') }}
-    where group_label is not null
-
-    union all
-
-    select
-        group_label,
-        away_team as team_name
-    from {{ ref('stg_openfootball_wc2026_schedule_fixtures') }}
-    where group_label is not null
-),
-
-team_groups as (
-    select
-        teams.canonical_team_id,
-        min(lower(fixtures.group_label)) as group_label
-    from {{ ref('int_polymarket_wc2026_logical_team_identities') }} as teams
-    inner join fixture_team_names as fixtures
-        on teams.team_match_key = {{ canonical_team_match_key('fixtures.team_name') }}
-    group by teams.canonical_team_id
-),
-
 oriented as (
     select
         labels.*,
@@ -372,9 +346,9 @@ oriented as (
         on
             {{ canonical_team_match_key('labels.matchup_team_right_label') }}
             = matchup_right_team.team_match_key
-    left join team_groups as subject_group
+    left join {{ ref('int_polymarket_wc2026_logical_team_groups') }} as subject_group
         on subject_team.canonical_team_id = subject_group.canonical_team_id
-    left join team_groups as outcome_group
+    left join {{ ref('int_polymarket_wc2026_logical_team_groups') }} as outcome_group
         on outcome_team.canonical_team_id = outcome_group.canonical_team_id
 ),
 

@@ -106,8 +106,9 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
 
 **Steps**
 
-- `polymarket_wc2026_market_scope_registry_refresh`: market discovery, market
-  scope registry refresh, and metadata enrichment.
+- `polymarket_wc2026_market_scope_registry_refresh`: market discovery, event
+  catalog (with OpenFootball fixtures), market scope registry refresh, and
+  metadata enrichment.
 - `polymarket_wc2026_hourly_odds_ingest`: trailing hourly token-odds refresh.
 - `polymarket_wc2026_dbt_build`: WC2026 and international-results dbt build.
   Default run config uses incremental dbt (`full_refresh=False`); set

@@ -37,8 +37,6 @@ INPUT_CONTRACT = "polymarket-wc2026-logical-v1"
 INPUT_BUNDLE_RELATIVE = Path("input") / INPUT_CONTRACT
 GRAPH_RELATIVE = Path("graph")
 RELEASE_MANIFEST_NAME = "release_manifest.json"
-ROLLBACK_RECEIPT_SCHEMA = "oddsfox-legacy-rollback-receipt-v1"
-ROLLBACK_RECEIPTS_RELATIVE = Path("rollback-receipts")
 BROWSER_SMOKE_RECEIPTS_RELATIVE = Path("browser-smoke-receipts")
 BROWSER_SMOKE_RECEIPT_SCHEMA = "wc2026-atlas-browser-smoke-v1"
 PREVIOUS_LINK_NAME = "previous"
@@ -64,13 +62,6 @@ REQUIRED_GRAPH_FILES = (
     "constraint_groups.parquet",
     "constraint_members.parquet",
 )
-LEGACY_REQUIRED_FILES = (
-    "build_manifest.json",
-    "graph_snapshot.json",
-    "knockout_artifacts.json",
-    "oddsfox_graph.duckdb",
-)
-
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
@@ -83,8 +74,7 @@ def main(argv: list[str] | None = None) -> int:
             release_id,
             allow_empty_graph=args.allow_empty_graph,
         )
-        if not is_legacy_release(release_dir):
-            validate_graph_acceptance_for_release(args, release_dir)
+        validate_graph_acceptance_for_release(args, release_dir)
         print(f"Validated {releases_dir / release_id}")
         return 0
     if args.activate_release:
@@ -95,14 +85,13 @@ def main(argv: list[str] | None = None) -> int:
                 release_id,
                 allow_empty_graph=args.allow_empty_graph,
             )
-            if not is_legacy_release(release_dir):
-                validate_graph_acceptance_for_release(args, release_dir)
-                validate_browser_smoke_receipt(
-                    args,
-                    artifact_dir,
-                    release_id,
-                    release_dir,
-                )
+            validate_graph_acceptance_for_release(args, release_dir)
+            validate_browser_smoke_receipt(
+                args,
+                artifact_dir,
+                release_id,
+                release_dir,
+            )
             _activate_current_locked(artifact_dir, release_id)
         print(f"Activated {release_dir}")
         print(f"Current -> {artifact_dir / 'current'}")
@@ -598,77 +587,8 @@ def validate_release_for_activation(
     release_dir = artifact_dir.resolve() / "releases" / release_id
     if not release_dir.is_dir():
         raise SystemExit(f"release does not exist: {release_id}")
-    if (release_dir / RELEASE_MANIFEST_NAME).is_file():
-        validate_release(release_dir, allow_empty_graph=allow_empty_graph)
-    else:
-        validate_legacy_release(artifact_dir.resolve(), release_id)
+    validate_release(release_dir, allow_empty_graph=allow_empty_graph)
     return release_dir
-
-
-def is_legacy_release(release_dir: Path) -> bool:
-    """Return whether a validated release predates the logical-atlas format."""
-    return not (release_dir / RELEASE_MANIFEST_NAME).is_file()
-
-
-def validate_legacy_release(artifact_dir: Path, release_id: str) -> None:
-    release_id = validate_release_id(release_id)
-    release_dir = artifact_dir / "releases" / release_id
-    _require_files(release_dir, LEGACY_REQUIRED_FILES, "legacy release")
-    receipt_path = rollback_receipt_path(artifact_dir, release_id)
-    if not receipt_path.is_file():
-        raise RuntimeError(
-            f"legacy release has no sealed rollback receipt: {release_id}"
-        )
-    receipt = load_json_object(receipt_path, label="legacy rollback receipt")
-    if receipt.get("schema") != ROLLBACK_RECEIPT_SCHEMA:
-        raise RuntimeError("legacy rollback receipt has an unsupported schema")
-    if receipt.get("release_id") != release_id:
-        raise RuntimeError("legacy rollback receipt release ID does not match")
-    if receipt.get("pipeline_git_sha") is not None:
-        validate_git_sha(str(receipt["pipeline_git_sha"]), label="legacy Pipeline")
-    if receipt.get("graph_git_sha") is not None:
-        validate_git_sha(str(receipt["graph_git_sha"]), label="legacy Graph")
-    validate_file_hashes(
-        release_dir,
-        receipt.get("files"),
-        label="legacy release",
-    )
-
-
-def seal_legacy_release(artifact_dir: Path, release_id: str) -> Path:
-    """Content-seal an immutable pre-atlas release without inventing code SHAs."""
-    release_id = validate_release_id(release_id)
-    release_dir = artifact_dir / "releases" / release_id
-    _require_files(release_dir, LEGACY_REQUIRED_FILES, "legacy release")
-    receipt_path = rollback_receipt_path(artifact_dir, release_id)
-    receipt_path.parent.mkdir(parents=True, exist_ok=True)
-    if receipt_path.exists():
-        validate_legacy_release(artifact_dir, release_id)
-        return receipt_path
-    payload = {
-        "schema": ROLLBACK_RECEIPT_SCHEMA,
-        "sealed_at": datetime.now(timezone.utc).isoformat(),
-        "release_id": release_id,
-        "pipeline_git_sha": None,
-        "graph_git_sha": None,
-        "revision_note": (
-            "Historical code SHAs were not recorded by the legacy release format; "
-            "artifact bytes are sealed without fabricating provenance."
-        ),
-        "files": file_hashes(release_dir),
-    }
-    temporary = receipt_path.with_name(f".{receipt_path.name}.{uuid4().hex}.tmp")
-    temporary.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    os.replace(temporary, receipt_path)
-    validate_legacy_release(artifact_dir, release_id)
-    return receipt_path
-
-
-def rollback_receipt_path(artifact_dir: Path, release_id: str) -> Path:
-    return artifact_dir / ROLLBACK_RECEIPTS_RELATIVE / f"{release_id}.json"
 
 
 @contextmanager
@@ -697,9 +617,6 @@ def _activate_current_locked(artifact_dir: Path, release_id: str) -> None:
     current = artifact_dir / "current"
     previous_release_id = current_release_id(artifact_dir)
     if previous_release_id is not None and previous_release_id != release_id:
-        previous_dir = artifact_dir / "releases" / previous_release_id
-        if not (previous_dir / RELEASE_MANIFEST_NAME).is_file():
-            seal_legacy_release(artifact_dir, previous_release_id)
         replace_release_symlink(
             artifact_dir,
             PREVIOUS_LINK_NAME,

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 SEMVER_RE: Final = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
@@ -27,6 +29,19 @@ def sha256_file(path: Path) -> str:
 
 def write_text(path: Path, text: str) -> None:
     path.write_text(text.rstrip() + "\n", encoding="utf-8", newline="\n")
+
+
+def write_json(
+    path: Path,
+    value: Any,
+    *,
+    jsonable: Callable[[Any], Any] | None = None,
+) -> None:
+    payload = jsonable(value) if jsonable is not None else value
+    write_text(
+        path,
+        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False),
+    )
 
 
 def write_checksums(directory: Path, *, file_names: set[str]) -> None:
@@ -106,5 +121,6 @@ __all__ = [
     "validate_dataset_version",
     "validate_git_sha",
     "write_checksums",
+    "write_json",
     "write_text",
 ]

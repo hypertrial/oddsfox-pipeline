@@ -47,9 +47,7 @@ Run them through `uv run python` so they use the repo environment.
   separate command and requires Graph's browser-smoke receipt at
   `$ODDSFOX_DATA_DIR/artifacts/browser-smoke-receipts/<UTC_BUILD_ID>.json`;
   supports validation, locked atomic activation, and rollback to a validated
-  release. A sealed pre-atlas legacy rollback is hash-validated from its
-  rollback receipt and bypasses only atlas-specific acceptance/browser gates;
-  unavailable historical code SHAs remain null.
+  release.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_wc2026_raw.odds_history` rows older
   than a retention window (default 365 days). Destructive pruning is protected

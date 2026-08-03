@@ -70,12 +70,13 @@ def prepare_odds_bulk_upsert(
     *,
     assume_deduped: bool = False,
 ) -> str | None:
-    """Load a dlt odds stage table; call before ``BEGIN`` on ``conn``."""
+    """Load an odds stage table on ``conn``; call before ``BEGIN``."""
     if not records:
         return None
     ensure_duck_db()
     return prepare_odds_history_stage(
-        _odds_history_stage_rows(records, assume_deduped=assume_deduped)
+        _odds_history_stage_rows(records, assume_deduped=assume_deduped),
+        conn,
     )
 
 
@@ -90,7 +91,7 @@ def save_odds_bulk_upsert(
     assume_deduped: bool = False,
 ):
     """
-    Bulk upsert odds rows using a dlt-managed stage table.
+    Bulk upsert odds rows using an Arrow-backed stage table on ``conn``.
 
     This path is resilient to overlap-driven duplicates (same token/timestamp)
     and generally performs better than row-wise inserts for large bulk loads.

@@ -18,24 +18,34 @@ def test_map_bounded_skips_failed_workers():
 
 
 def test_sync_hourly_candlesticks_continues_after_market_failure(monkeypatch):
-    candlesticks_sync.get_registry_markets_for_sync = lambda **_: [
-        {"market_ticker": f"KXWC-MKT{i}", "series_ticker": "KXWC", "open_time": None}
-        for i in range(3)
-    ]
+    monkeypatch.setattr(
+        candlesticks_sync,
+        "get_registry_markets_for_sync",
+        lambda **_: [
+            {
+                "market_ticker": f"KXWC-MKT{i}",
+                "series_ticker": "KXWC",
+                "open_time": None,
+            }
+            for i in range(3)
+        ],
+    )
 
     def fake_fetch(client, *, series_ticker, market_ticker, start_at, end_at):
         if market_ticker == "KXWC-MKT1":
             raise requests.exceptions.ConnectionError("simulated")
         return []
 
-    candlesticks_sync.fetch_hourly_candlesticks = fake_fetch
+    monkeypatch.setattr(candlesticks_sync, "fetch_hourly_candlesticks", fake_fetch)
     monkeypatch.setattr(
         candlesticks_sync,
         "save_candlesticks_batch",
         lambda rows: len(rows),
     )
     monkeypatch.setattr(
-        candlesticks_sync, "upsert_candlestick_ledger_state", lambda **_: None
+        candlesticks_sync,
+        "upsert_candlestick_ledger_states_batch",
+        lambda states, **_: None,
     )
     monkeypatch.setattr(
         candlesticks_sync, "save_sync_run_metrics", lambda *args, **kwargs: None

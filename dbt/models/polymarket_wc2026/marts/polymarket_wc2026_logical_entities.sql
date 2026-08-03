@@ -187,18 +187,17 @@ fixtures as (
 
 groups as (
     select distinct
-        'group:' || lower(group_label) as entity_id,
+        'group:' || team_groups.group_label as entity_id,
         'group' as entity_type,
-        lower(group_label) as canonical_name,
-        'Group ' || upper(group_label) as display_name,
+        team_groups.group_label as canonical_name,
+        'Group ' || upper(team_groups.group_label) as display_name,
         'group_stage' as tournament_part,
         cast(null as integer) as fifa_match_id,
-        lower(group_label) as group_label,
+        team_groups.group_label,
         cast(null as varchar) as home_team_entity_id,
         cast(null as varchar) as away_team_entity_id,
         'wc2026_official_fixture_universe' as source
-    from {{ ref('stg_openfootball_wc2026_schedule_fixtures') }}
-    where group_label is not null
+    from {{ ref('int_polymarket_wc2026_logical_team_groups') }} as team_groups
 ),
 
 stage_references (entity_id) as (

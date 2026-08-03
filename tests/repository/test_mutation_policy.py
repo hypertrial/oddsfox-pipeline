@@ -11,7 +11,7 @@ pytestmark = pytest.mark.repo_check
 try:
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10 CI
-    import toml as tomllib
+    import tomli as tomllib  # type: ignore[no-redef]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -21,6 +21,7 @@ TARGETS = [
     "src/oddsfox_pipeline/ingestion/polymarket/market_scope/predicates.py",
     "src/oddsfox_pipeline/ingestion/polymarket/markets/persistence.py",
     "src/oddsfox_pipeline/ingestion/polymarket/odds/planning.py",
+    "src/oddsfox_pipeline/ingestion/polymarket/polygon_settlement_normalize.py",
 ]
 TESTS = [
     "tests/unit/resources/test_outbound_url.py",
@@ -28,16 +29,17 @@ TESTS = [
     "tests/unit/ingestion/market_scope/test_predicates.py",
     "tests/unit/ingestion/test_market_persistence.py",
     "tests/unit/ingestion/test_odds_planning.py",
+    "tests/unit/ingestion/polygon_settlement/test_normalize.py",
 ]
 
 
 def test_mutmut_dependency_and_scope_are_pinned() -> None:
     project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
-    dev = project["project"]["optional-dependencies"]["dev"]
+    mutation = project["dependency-groups"]["mutation"]
     config = project["tool"]["mutmut"]
 
-    assert "mutmut==3.6.0" in dev
-    assert not any("great_expectations" in dependency for dependency in dev)
+    assert "mutmut==3.6.0" in mutation
+    assert not any("great_expectations" in dependency for dependency in mutation)
     assert config == {
         "source_paths": ["src/oddsfox_pipeline"],
         "only_mutate": TARGETS,

@@ -132,10 +132,16 @@ def test_sync_hourly_candlesticks_issues_one_fetch_per_market(monkeypatch, duck)
     _seed_market(duck, market_ticker="KXWC-MKT1")
     _seed_market(duck, market_ticker="KXWC-MKT2")
     fetch_calls: list[str] = []
+    save_calls: list[int] = []
     monkeypatch.setattr(
         candlesticks_sync,
         "fetch_hourly_candlesticks",
         lambda *_args, **kwargs: fetch_calls.append(kwargs["market_ticker"]) or [],
+    )
+    monkeypatch.setattr(
+        candlesticks_sync,
+        "save_candlesticks_batch",
+        lambda rows: save_calls.append(len(rows)) or len(rows),
     )
     monkeypatch.setattr(
         candlesticks_sync,
@@ -150,6 +156,7 @@ def test_sync_hourly_candlesticks_issues_one_fetch_per_market(monkeypatch, duck)
     )
 
     assert sorted(fetch_calls) == ["KXWC-MKT1", "KXWC-MKT2"]
+    assert save_calls == [0]
     assert metrics["markets_total"] == 2
 
 
@@ -240,7 +247,7 @@ def test_sync_hourly_candlesticks_honors_history_backfill_days(monkeypatch):
 
 def test_sync_hourly_candlesticks_forwards_routine_interval_hours(monkeypatch, duck):
     _seed_market(duck, market_ticker="KXWC-ROUTINE")
-    ledger_calls: list[int] = []
+    ledger_calls: list[dict[str, object]] = []
     monkeypatch.setattr(
         candlesticks_sync,
         "fetch_hourly_candlesticks",
@@ -248,8 +255,8 @@ def test_sync_hourly_candlesticks_forwards_routine_interval_hours(monkeypatch, d
     )
     monkeypatch.setattr(
         candlesticks_sync,
-        "upsert_candlestick_ledger_state",
-        lambda **kwargs: ledger_calls.append(kwargs["routine_interval_hours"]),
+        "upsert_candlestick_ledger_states_batch",
+        lambda states, **kwargs: ledger_calls.append(kwargs),
     )
 
     candlesticks_sync.sync_hourly_candlesticks(
@@ -259,4 +266,4 @@ def test_sync_hourly_candlesticks_forwards_routine_interval_hours(monkeypatch, d
         client_factory=lambda: MagicMock(),
     )
 
-    assert ledger_calls == [6]
+    assert ledger_calls == [{"routine_interval_hours": 6, "scope_name": "wc2026"}]

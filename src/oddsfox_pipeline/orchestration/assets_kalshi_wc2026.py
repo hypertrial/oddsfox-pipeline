@@ -212,42 +212,7 @@ def kalshi_wc2026_ops_market_scope_registry(
     context: AssetExecutionContext,
     config: KalshiMarketScopeRegistryConfig,
 ) -> MaterializeResult:
-    if config.skip_if_snapshot_refreshed and not config.force_refresh:
-        snapshot_metrics = get_sync_run_metrics(
-            "sync_kalshi_markets",
-            scope_name=KALSHI_WC2026_SCOPE_NAME,
-            source="kalshi",
-        )
-        refreshed_scope_name = (
-            _snapshot_refreshed_scope_name(snapshot_metrics)
-            if snapshot_metrics
-            else None
-        )
-        if (
-            snapshot_metrics
-            and snapshot_metrics.get("registry_refreshed") is True
-            and refreshed_scope_name == KALSHI_WC2026_SCOPE_NAME
-        ):
-            context.log.info(
-                "Skipping Kalshi market-scope registry refresh; snapshot already refreshed"
-            )
-            pre = snapshot_raw_layer(level=config.raw_snapshot_level)
-            run_summary = {
-                "skipped": True,
-                "reason": "snapshot_refreshed_registry",
-                "scope_name": KALSHI_WC2026_SCOPE_NAME,
-                "snapshot_metrics": snapshot_metrics,
-            }
-            return MaterializeResult(
-                metadata=asset_helpers._raw_snapshot_metadata(
-                    pre,
-                    pre,
-                    {},
-                    run_summary=run_summary,
-                )
-            )
-
-    def _sync_registry_wrapped(_pre: dict[str, Any]) -> dict[str, Any]:
+    def _sync_kalshi_registry() -> dict[str, Any]:
         from oddsfox_pipeline.ingestion.kalshi.series_scope.config import (
             load_market_scope_config,
         )
@@ -257,14 +222,21 @@ def kalshi_wc2026_ops_market_scope_registry(
         )
         return {"scope_name": KALSHI_WC2026_SCOPE_NAME, **summary}
 
-    run_summary, _, _, raw_delta, raw_metadata = asset_helpers._run_with_raw_snapshot(
-        config.raw_snapshot_level,
-        _sync_registry_wrapped,
+    return asset_helpers._materialize_market_scope_registry(
+        context,
+        config,
+        scope_name=KALSHI_WC2026_SCOPE_NAME,
+        sync_task_name="sync_kalshi_markets",
+        get_sync_run_metrics_fn=lambda task, *, scope_name: get_sync_run_metrics(
+            task,
+            scope_name=scope_name,
+            source="kalshi",
+        ),
+        snapshot_refreshed_scope_name_fn=_snapshot_refreshed_scope_name,
+        sync_market_scope_registry_fn=_sync_kalshi_registry,
         snapshot_raw_layer_fn=snapshot_raw_layer,
         delta_raw_layer_fn=delta_raw_layer,
     )
-    context.log.info("Kalshi registry refresh delta: %s", raw_delta)
-    return MaterializeResult(metadata=raw_metadata)
 
 
 @multi_asset(

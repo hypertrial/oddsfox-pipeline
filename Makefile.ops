@@ -1,0 +1,117 @@
+package-smoke:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/package/test_package_distribution.py -q -n 0
+
+dagster-dev: runtime-dirs
+	mkdir -p "$(REPO_ROOT)/.dagster_home"
+	cp "$(REPO_ROOT)/dagster_instance.yaml" "$(REPO_ROOT)/.dagster_home/dagster.yaml"
+	cd "$(REPO_ROOT)" && \
+		export PATH="$(REPO_ROOT)/.venv/bin:$$PATH" && \
+		export DAGSTER_HOME="$(REPO_ROOT)/.dagster_home" && \
+		if test -x "$(REPO_ROOT)/.venv/bin/dg"; then \
+			"$(REPO_ROOT)/.venv/bin/dg" dev -h 127.0.0.1 -w "$(REPO_ROOT)/workspace.yaml"; \
+		else \
+			"$(PYTHON)" -m dagster dev -h 127.0.0.1 -w "$(REPO_ROOT)/workspace.yaml"; \
+		fi
+
+mutation:
+	$(RUN_IN_REPO) mutmut run --max-children "$(MUTMUT_MAX_CHILDREN)"
+	$(RUN_IN_REPO) mutmut export-cicd-stats
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/check_mutmut_stats.py
+
+mutation-ci:
+	$(RUN_IN_REPO) rm -rf "$(REPO_ROOT)/mutants"
+	$(MAKE) mutation
+
+contract-http:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/contract -q -n 0 -m "contract" $(PYTEST_DURATION_ARGS)
+
+match-minute-inputs-validate: runtime-dirs
+	$(RUN_IN_REPO) "$(PYTHON)" -c "import csv; from pathlib import Path; path = Path('dbt/seeds/wc2026_schedule_matches.csv'); rows = list(csv.DictReader(path.open(encoding='utf-8-sig', newline=''))); ids = {int(row['match_id']) for row in rows}; assert len(rows) == 104 and ids == set(range(1, 105)), 'supply a complete operator-local 104-match schedule at ' + str(path); print(f'{len(rows)} operator-local schedule rows')"
+
+match-minute-live-smoke: match-minute-inputs-validate
+	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
+	$(RUN_IN_REPO) rm -f "$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)" "$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH).wal" "$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)-wal" "$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)-shm"
+	cd "$(REPO_ROOT)/.cache" && $(MATCH_MINUTE_LIVE_SMOKE_ENV) "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_match_minute_odds_backfill
+	$(RUN_IN_REPO) $(MATCH_MINUTE_LIVE_SMOKE_ENV) "$(PYTHON)" -c "import duckdb; conn = duckdb.connect('$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)', read_only=True); row = conn.execute('select mapped_games, mapped_markets, mapped_group_markets, mapped_knockout_markets, mapped_tokens, international_results_games, international_results_mapped_games, international_results_mapped_source_games, international_results_revisions, international_results_payload_hashes, international_results_provenance_issues, latest_fetch_run_status, latest_fetch_audited_tokens, latest_fetch_success_tokens, latest_fetch_empty_tokens, latest_fetch_error_tokens, latest_fetch_cancelled_tokens, latest_fetch_published_tokens, latest_fetch_hash_issues, elapsed_axis_issue_markets, error_issue_count, blocking_issue_keys from polymarket_wc2026_observability.polymarket_wc2026_match_minute_odds_data_quality').fetchone(); expected = (104, 248, 216, 32, 496, 104, 104, 104, 1, 1, 0, 'published', 496, 496, 0, 0, 0, 496, 0, 0, 0, None); assert row == expected, row; print(row)"
+
+match-order-book-live-smoke: runtime-dirs
+	@"$(PYTHON)" -c "from oddsfox_pipeline.config.settings import PMXT_API_KEY; assert PMXT_API_KEY, 'PMXT_API_KEY is required; this target consumes PMXT credits'"
+	@if test "$(MATCH_ORDER_BOOK_LIVE_SMOKE_RESET)" = "true"; then rm -f "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)" "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH).wal" "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)-wal" "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)-shm"; fi
+	@echo "Running resumable PMXT backfill; this consumes API credits."
+	cd "$(REPO_ROOT)/.cache" && $(MATCH_ORDER_BOOK_LIVE_SMOKE_ENV) "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_match_order_book_backfill
+	$(RUN_IN_REPO) $(MATCH_ORDER_BOOK_LIVE_SMOKE_ENV) "$(PYTHON)" -c "import duckdb; conn = duckdb.connect('$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)', read_only=True); row = conn.execute('select count(distinct fifa_match_id), count(distinct market_id), count(distinct clob_token_id), count(*) from polymarket_wc2026_marts.polymarket_wc2026_match_order_book').fetchone(); assert row[0:3] == (1, 1, 2) and row[3] > 0, row; print(row)"
+
+market-portrait-live-backfill: runtime-dirs
+	@test -n "$(TARGET_MANIFEST)" || (echo "TARGET_MANIFEST=/absolute/path.yml is required" >&2; exit 2)
+	@test "$$(python3 -c 'import os,sys; print(os.path.isabs(sys.argv[1]))' "$(TARGET_MANIFEST)")" = "True" || (echo "TARGET_MANIFEST must be absolute" >&2; exit 2)
+	@test -f "$(TARGET_MANIFEST)" || (echo "TARGET_MANIFEST does not exist" >&2; exit 2)
+	@"$(PYTHON)" -c "from oddsfox_pipeline.config.settings import PMXT_API_KEY; assert PMXT_API_KEY, 'PMXT_API_KEY is required; this target consumes PMXT credits'"
+	@echo "Approved target: $(TARGET_MANIFEST). Running resumable PMXT books + trades backfill."
+	$(RUN_IN_REPO) "$(PYTHON)" -c "from oddsfox_pipeline.orchestration.config import polymarket_wc2026_market_portrait_run_config; from oddsfox_pipeline.orchestration.definitions import defs; result=defs.resolve_job_def('polymarket_wc2026_market_portrait_backfill').execute_in_process(run_config=polymarket_wc2026_market_portrait_run_config(manifest_path='$(TARGET_MANIFEST)')); assert result.success"
+
+polygon-runtime-dirs: runtime-dirs
+	$(RUN_IN_REPO) mkdir -p "$(POLYGON_RUNTIME_TMP)" "$(POLYGON_RUNTIME_XDG)" "$(POLYGON_RUNTIME_DAGSTER_HOME)" "$(POLYGON_RUNTIME_DBT_TARGET)" "$(POLYGON_RUNTIME_DBT_LOGS)" "$(POLYGON_RUNTIME_PYCACHE)" "$(POLYGON_RUNTIME_DUCKDB_EXTENSIONS)" "$(POLYGON_RUNTIME_ROOT)/status" "$(POLYGON_RUNTIME_ROOT)/benchmarks/v3" "$(POLYGON_RUNTIME_ROOT)/benchmarks/v4"
+	$(RUN_IN_REPO) cp "$(REPO_ROOT)/dagster_instance.yaml" "$(POLYGON_RUNTIME_DAGSTER_HOME)/dagster.yaml"
+
+polygon-settlement-live-smoke: polygon-runtime-dirs polygon-settlement-seed-validate
+	@if test "$(POLYGON_SETTLEMENT_LIVE_SMOKE_RESET)" = "true"; then rm -f "$(POLYGON_SETTLEMENT_LIVE_SMOKE_DUCKDB_PATH)" "$(POLYGON_SETTLEMENT_LIVE_SMOKE_DUCKDB_PATH).wal" "$(POLYGON_SETTLEMENT_LIVE_SMOKE_DUCKDB_PATH)-wal" "$(POLYGON_SETTLEMENT_LIVE_SMOKE_DUCKDB_PATH)-shm"; fi
+	cd "$(POLYGON_RUNTIME_ROOT)" && $(POLYGON_RUNTIME_ENV) $(POLYGON_SETTLEMENT_LIVE_SMOKE_ENV) $(POLYGON_SETTLEMENT_LIVE_SMOKE_TUNING_ENV) "$(PYTHON)" -c "import os; from oddsfox_pipeline.orchestration.config import polymarket_wc2026_polygon_settlement_backfill_run_config as run_config; from oddsfox_pipeline.orchestration.definitions import defs; from oddsfox_pipeline.storage.duckdb.connection import assert_disposable_duckdb_path; expected = '$(POLYGON_SETTLEMENT_LIVE_SMOKE_DUCKDB_PATH)'; assert_disposable_duckdb_path(expected); config = run_config(expected_duckdb_path=expected, requests_per_second=float(os.environ['POLYGON_SETTLEMENT_LIVE_SMOKE_REQUESTS_PER_SECOND']), workers=int(os.environ['POLYGON_SETTLEMENT_LIVE_SMOKE_WORKERS']), initial_block_chunk_size=int(os.environ['POLYGON_SETTLEMENT_LIVE_SMOKE_INITIAL_BLOCK_CHUNK_SIZE']), initial_receipt_batch_size=int(os.environ['POLYGON_SETTLEMENT_LIVE_SMOKE_INITIAL_RECEIPT_BATCH_SIZE'])); result = defs.resolve_job_def('polymarket_wc2026_polygon_settlement_backfill').execute_in_process(run_config=config); assert result.success"
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_SETTLEMENT_LIVE_SMOKE_ENV) "$(PYTHON)" -c "import duckdb; conn = duckdb.connect('$(POLYGON_SETTLEMENT_LIVE_SMOKE_DUCKDB_PATH)', read_only=True); count = conn.execute('select count(*) from polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds').fetchone()[0]; assert count == 39120, count; print(count)"
+
+polygon-settlement-benchmark: polygon-runtime-dirs
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" scripts/benchmark_polymarket_wc2026_polygon_settlement.py --v3-duckdb "$(POLYGON_BENCHMARK_V3_DUCKDB_PATH)" --v4-duckdb "$(POLYGON_BENCHMARK_V4_DUCKDB_PATH)" --output "$(POLYGON_BENCHMARK_REPORT_PATH)"
+
+polygon-settlement-seed-candidate: polygon-runtime-dirs
+	@test -n "$(POLYGON_SEED_MANIFEST_VERSION)" || (echo "POLYGON_SEED_MANIFEST_VERSION is required" >&2; exit 2)
+	@test -n "$(POLYGON_SEED_REVIEWED_AT)" || (echo "POLYGON_SEED_REVIEWED_AT is required (UTC, minute-aligned)" >&2; exit 2)
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" scripts/generate_polymarket_wc2026_polygon_settlement_seed.py --manifest-version "$(POLYGON_SEED_MANIFEST_VERSION)" --reviewed-at "$(POLYGON_SEED_REVIEWED_AT)" --output-dir "$(POLYGON_SEED_OUTPUT_DIR)"
+
+polygon-settlement-seed-validate: polygon-runtime-dirs
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" -c "from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import load_polygon_resolution_attestation; from oddsfox_pipeline.ingestion.polymarket.polygon_seed import load_polygon_market_seed; manifest = load_polygon_market_seed(); attestation = load_polygon_resolution_attestation(manifest=manifest); print(f'{len(manifest.markets)} propositions, {attestation.resolved_condition_count} resolved, version {manifest.version}, sha256 {manifest.sha256}')"
+
+polygon-settlement-release: polygon-runtime-dirs
+	@test -n "$(POLYGON_DATASET_VERSION)" || (echo "POLYGON_DATASET_VERSION is required" >&2; exit 2)
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" scripts/build_polymarket_wc2026_polygon_settlement_release.py --dataset-version "$(POLYGON_DATASET_VERSION)" --output-root "$(POLYGON_AUDIT_OUTPUT_ROOT)"
+
+polygon-settlement-export:
+	@test -n "$(POLYGON_DATASET_VERSION)" || (echo "POLYGON_DATASET_VERSION is required" >&2; exit 2)
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_polymarket_wc2026_polygon_settlement_minute_odds.py --audit-release "$(POLYGON_AUDIT_OUTPUT_ROOT)/releases/$(POLYGON_DATASET_VERSION)" --output-root "$(POLYGON_EXPORT_OUTPUT_ROOT)"
+
+export-wc2026-elo-freezes:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_eloratings_wc2026_team_ratings_freezes.py
+
+local-marts-rebuild: runtime-dirs match-minute-inputs-validate polygon-settlement-seed-validate
+	@test -n "$(MATCH_MINUTE_REBUILD_DUCKDB_PATH)" || (echo "MATCH_MINUTE_REBUILD_DUCKDB_PATH is required" >&2; exit 2)
+	@test -n "$(POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH)" || (echo "POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH is required" >&2; exit 2)
+	$(RUN_IN_REPO) "$(PYTHON)" -c "from pathlib import Path; root = Path('$(ODDSFOX_STORAGE_ROOT)').resolve(); paths = [Path('$(MATCH_MINUTE_REBUILD_DUCKDB_PATH)').resolve(), Path('$(POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH)').resolve()]; assert all(path.is_relative_to(root) for path in paths), f'warehouse paths must remain below SSD-backed ODDSFOX_STORAGE_ROOT={root}: {paths}'; assert all(path.is_file() for path in paths), f'raw warehouses must already exist: {paths}'"
+	$(RUN_IN_REPO) DUCKDB_EXTENSION_DIRECTORY="$(ODDSFOX_RUNTIME_DUCKDB_EXTENSIONS)" DUCKDB_NAME="$(MATCH_MINUTE_REBUILD_DUCKDB_PATH)" DUCKDB_PATH="$(MATCH_MINUTE_REBUILD_DUCKDB_PATH)" DBT_SEND_ANONYMOUS_USAGE_STATS=false "$(PYTHON)" -m dbt.cli.main build --full-refresh --select +polymarket_wc2026_match_minute_odds --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) DUCKDB_EXTENSION_DIRECTORY="$(ODDSFOX_RUNTIME_DUCKDB_EXTENSIONS)" DUCKDB_NAME="$(POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH)" DUCKDB_PATH="$(POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH)" DBT_SEND_ANONYMOUS_USAGE_STATS=false "$(PYTHON)" -m dbt.cli.main build --full-refresh --select +polymarket_wc2026_polygon_settlement_minute_odds --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) DUCKDB_EXTENSION_DIRECTORY="$(ODDSFOX_RUNTIME_DUCKDB_EXTENSIONS)" "$(PYTHON)" -c "import duckdb; match = duckdb.connect('$(MATCH_MINUTE_REBUILD_DUCKDB_PATH)', read_only=True); row = match.execute('select count(*), count(distinct fifa_match_id), count(distinct market_id), count(*) - count(distinct (odds_minute_epoch, market_id)) from polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds').fetchone(); quality = match.execute('select error_issue_count, blocking_issue_keys from polymarket_wc2026_observability.polymarket_wc2026_match_minute_odds_data_quality').fetchone(); assert row[0] > 0 and row[1:] == (104, 248, 0), row; assert quality == (0, None), quality; polygon = duckdb.connect('$(POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH)', read_only=True); polygon_row = polygon.execute('select count(*), count(distinct fifa_match_id), count(distinct proposition_id), count(*) - count(distinct (proposition_id, settlement_minute_epoch)) from polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds').fetchone(); publication_ready = polygon.execute('select publication_ready from polymarket_wc2026_observability.polymarket_wc2026_polygon_settlement_data_quality').fetchone()[0]; assert polygon_row == (39120, 104, 248, 0), polygon_row; assert publication_ready is True, publication_ready; print({'match_minute': row, 'polygon_settlement': polygon_row})"
+
+costguard-scan:
+	$(RUN_IN_REPO) cd dbt && "$(COSTGUARD)" scan --manifest "$(ODDSFOX_RUNTIME_DBT_TARGET)/manifest.json"
+
+costguard:
+	$(MAKE) -j1 dbt-build-ci costguard-scan
+
+docs-serve:
+	$(RUN_IN_REPO) NO_MKDOCS_2_WARNING=true "$(PYTHON)" -m mkdocs serve -a 127.0.0.1:8000
+
+docs-build:
+	$(RUN_IN_REPO) NO_MKDOCS_2_WARNING=true "$(PYTHON)" -m mkdocs build --strict
+
+docs-test:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/docs -q -n 0 $(PYTEST_DURATION_ARGS)
+
+docs-check: docs-build docs-test
+
+clean-local-artifacts:
+	$(RUN_IN_REPO) find . -type d -name __pycache__ -prune -exec rm -rf {} +
+	$(RUN_IN_REPO) rm -rf .pytest_cache .ruff_cache .dagster_home .cache mutants site dbt/logs dbt/target src/oddsfox_pipeline.egg-info
+	$(RUN_IN_REPO) find . -maxdepth 2 \( -name '*.duckdb' -o -name '*.duckdb.tmp' -o -name '*.duckdb-wal' -o -name '*.duckdb-shm' -o -name '*.duckdb.wal' \) -exec rm -rf {} +
+
+compact-warehouse:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/compact_warehouse.py
+
+prune-odds-history:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/prune_odds_history.py

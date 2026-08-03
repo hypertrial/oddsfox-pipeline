@@ -1,0 +1,29 @@
+format:
+	$(RUN_IN_REPO) ruff format src tests
+	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
+	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m sqlfluff fix dbt/models dbt/tests
+
+lint:
+	$(MAKE) python-lint
+	$(MAKE) dbt-lint
+	$(MAKE) check-repository
+
+python-lint:
+	$(RUN_IN_REPO) ruff format --check src tests
+	$(RUN_IN_REPO) ruff check src tests
+
+dbt-lint: dbt-prepare
+	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache"
+	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" -m sqlfluff lint dbt/models dbt/tests -p 0
+
+check-repository: dbt-prepare
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository -q -n 0 -m "repo_check" $(PYTEST_DURATION_ARGS)
+
+check-secrets:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository/test_secrets_not_committed.py -q -n 0
+
+check-distribution:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository/test_distribution_policy.py -q -n 0
+
+check-terminology:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/repository/test_terminology_policy.py tests/repository/test_naming_policy.py -q -n 0

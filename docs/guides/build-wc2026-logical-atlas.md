@@ -167,9 +167,11 @@ Publication remains blocked until the review-completeness test is empty.
 
 The normal `polymarket_wc2026_full_pipeline` owns the independent legacy
 raw-odds branch. The logical event catalog does not register its children in
-that legacy market scope registry, and a routine
-`polymarket_wc2026_market_scope_registry_refresh` does not run the five-source
-logical event-catalog crawl. Supporting temporal odds for every atlas
+that legacy market scope registry. A routine
+`polymarket_wc2026_market_scope_registry_refresh` now includes the event-catalog
+multi-asset (and OpenFootball fixtures) so registry materialization has current
+membership inputs, but it still excludes operator-reviewed membership and the
+logical-atlas dbt/release path. Supporting temporal odds for every atlas
 proposition will require a dedicated observation producer joined through
 proposition/token identity.
 
@@ -236,11 +238,7 @@ Activation re-runs deterministic Graph acceptance and validates the
 manifest-bound browser receipt immediately before a locked atomic symlink
 replacement. Missing, stale, malformed, or failed receipts block activation.
 The prior target is retained as `previous`; activating that release ID performs
-a rollback after full validation. A legacy pre-atlas release is content-sealed
-automatically before it becomes `previous`. Its rollback revalidates that seal
-but skips atlas-only acceptance and browser-receipt gates that the legacy format
-cannot satisfy; unavailable historical Git SHAs remain null rather than being
-invented.
+a rollback after full validation.
 
 ## Breaking cutover from the retired hourly export
 

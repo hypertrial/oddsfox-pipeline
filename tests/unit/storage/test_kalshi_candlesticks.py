@@ -111,3 +111,27 @@ def test_upsert_candlestick_ledger_state_tracks_empty_runs(duck):
             ["KXWC-MKT1"],
         ).fetchone()[0]
     assert streak == 0
+
+
+def test_upsert_candlestick_ledger_states_batch_tracks_empty_runs(duck):
+    kalshi_candlesticks.upsert_candlestick_ledger_states_batch(
+        [("KXWC-MKT1", True, True), ("KXWC-MKT2", True, True)],
+        routine_interval_hours=2,
+    )
+    kalshi_candlesticks.upsert_candlestick_ledger_states_batch(
+        [("KXWC-MKT1", True, True), ("KXWC-MKT2", True, False)],
+    )
+    ledger = kalshi_ops_tbl("wc2026", "candlestick_sync_ledger")
+    with duck.get_connection() as conn:
+        rows = {
+            row[0]: row[1]
+            for row in conn.execute(
+                f"""
+                SELECT market_ticker, empty_run_streak
+                FROM {ledger}
+                WHERE market_ticker IN (?, ?)
+                """,
+                ["KXWC-MKT1", "KXWC-MKT2"],
+            ).fetchall()
+        }
+    assert rows == {"KXWC-MKT1": 2, "KXWC-MKT2": 0}

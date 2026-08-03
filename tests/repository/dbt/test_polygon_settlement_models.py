@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tests.support.makefile_text import makefile_text
+
 pytestmark = pytest.mark.repo_check
 
 DBT_ROOT = Path(__file__).resolve().parents[3] / "dbt"
@@ -192,7 +194,7 @@ def test_polygon_settlement_seed_and_sources_are_tagged():
 
 
 def test_polygon_settlement_graph_has_an_isolated_release_gate():
-    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    makefile = makefile_text()
     integration = (
         REPO_ROOT / "tests" / "integration" / "test_polygon_settlement_dbt.py"
     ).read_text(encoding="utf-8")

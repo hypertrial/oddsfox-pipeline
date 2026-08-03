@@ -2325,25 +2325,6 @@ dependencies = [
     { name = "tqdm" },
 ]
 
-[package.optional-dependencies]
-dev = [
-    { name = "dagster-dg-cli" },
-    { name = "hypothesis" },
-    { name = "mkdocs" },
-    { name = "mkdocs-material" },
-    { name = "mutmut" },
-    { name = "pip-audit" },
-    { name = "playwright" },
-    { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "pytest-cov" },
-    { name = "pytest-xdist" },
-    { name = "ruff" },
-    { name = "sqlfluff" },
-    { name = "sqlfluff-templater-dbt" },
-    { name = "vcrpy" },
-]
-
 [package.dev-dependencies]
 coverage = [
     { name = "hypothesis" },
@@ -2410,34 +2391,19 @@ test = [
 requires-dist = [
     { name = "dagster", specifier = ">=1.13.13" },
     { name = "dagster-dbt", specifier = ">=0.24.0" },
-    { name = "dagster-dg-cli", marker = "extra == 'dev'", specifier = ">=1.13.0" },
     { name = "dagster-dlt", specifier = ">=0.24.0" },
     { name = "dagster-webserver", specifier = ">=1.8.0" },
     { name = "dbt-core", specifier = ">=1.11.12" },
     { name = "dbt-duckdb", specifier = ">=1.8.0" },
     { name = "dlt", extras = ["duckdb"], specifier = ">=1.29.1" },
     { name = "duckdb", specifier = ">=1.5.4" },
-    { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.156.6" },
-    { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.6.0" },
-    { name = "mkdocs-material", marker = "extra == 'dev'", specifier = ">=9.5.0" },
-    { name = "mutmut", marker = "extra == 'dev'", specifier = "==3.6.0" },
-    { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.10.1" },
-    { name = "playwright", marker = "extra == 'dev'", specifier = ">=1.55.0,<2" },
     { name = "polars", specifier = ">=1.42.1" },
     { name = "pyarrow", specifier = ">=14.0.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
-    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.5.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.34.2" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.21" },
-    { name = "sqlfluff", marker = "extra == 'dev'", specifier = ">=4.2.2" },
-    { name = "sqlfluff-templater-dbt", marker = "extra == 'dev'", specifier = ">=3.0.0" },
     { name = "tqdm", specifier = ">=4.68.4" },
-    { name = "vcrpy", marker = "extra == 'dev'", specifier = ">=6.0.0" },
 ]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 coverage = [

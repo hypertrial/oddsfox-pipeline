@@ -1,0 +1,68 @@
+# Dev-only fast loop; see AGENTS.md (not a CI gate substitute).
+test-dev: dbt-prepare
+	$(RUN_IN_REPO) area_expr="$$("$(PYTHON)" scripts/dev_loop.py polygon-marker)"; \
+		HYPOTHESIS_PROFILE=dev "$(PYTHON)" -m pytest tests $(PYTEST_UNIT_IGNORES) -q -n auto \
+		-m "$(PYTEST_FAST_MARKERS) $$area_expr" $(TEST_DEV_PYTEST_ARGS) $(PYTEST_DURATION_ARGS)
+
+test: dbt-prepare
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests $(PYTEST_UNIT_IGNORES) -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(PYTEST_DURATION_ARGS)
+
+coverage-erase:
+	$(RUN_IN_REPO) "$(PYTHON)" -m coverage erase
+
+test-cov: coverage-erase dbt-prepare
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests $(PYTEST_UNIT_IGNORES) -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
+	# tests/conftest.py auto-marks tests/integration/* as integration;
+	# run ingestion integration serially here so CI coverage matches make coverage.
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/ingestion -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
+
+coverage:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests -q -m "$(PYTEST_COVERAGE_MARKERS)" --cov=oddsfox_pipeline --cov-branch --cov-report=term-missing --cov-fail-under=100 $(PYTEST_DURATION_ARGS)
+
+coverage-report:
+	$(RUN_IN_REPO) "$(PYTHON)" -m coverage report --show-missing --fail-under=100
+
+unit-core:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/unit/config tests/unit/resources tests/unit/storage -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(PYTEST_DURATION_ARGS)
+
+unit-ingest:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/unit/ingestion -q -n auto -m "$(PYTEST_FAST_MARKERS)" $(PYTEST_DURATION_ARGS)
+
+unit-orchestration: dbt-prepare
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/unit/orchestration -q -n auto -m "not performance and not slow" $(PYTEST_DURATION_ARGS)
+
+dagster-jobs-smoke:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster/test_registered_jobs_smoke.py -q -n 0 -m "not performance and not slow" $(PYTEST_DURATION_ARGS)
+
+dagster-jobs-smoke-cov:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster/test_registered_jobs_smoke.py -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
+
+dagster-refresh-cov:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster/test_scope_refresh_e2e.py tests/integration/dagster/test_polymarket_writer_recovery.py tests/integration/dagster/test_scoped_job_dbt_wiring.py -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
+
+integration-dbt-parallel:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n $(DBT_TEST_WORKERS) -m "not performance and not slow" $(PYTEST_DURATION_ARGS)
+
+integration-dbt-serial:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb --ignore=tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n 0 -m "not performance and not slow" $(PYTEST_DURATION_ARGS)
+
+integration-dbt:
+	$(MAKE) integration-dbt-parallel
+	$(MAKE) integration-dbt-serial
+
+integration-dbt-cov-parallel:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n $(DBT_TEST_WORKERS) -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
+
+integration-dbt-cov-serial:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb --ignore=tests/integration/duckdb/test_dbt_incremental_hourly_odds.py -q -n 0 -m "not performance and not slow" $(COV_APPEND_ARGS) $(PYTEST_DURATION_ARGS)
+
+integration-dbt-cov:
+	$(MAKE) integration-dbt-cov-parallel
+	$(MAKE) integration-dbt-cov-serial
+
+integration-dagster:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/dagster -q -n 0 -m "not performance and not slow" $(PYTEST_DURATION_ARGS)
+
+# Keep each Dagster group serial (-n 0) until xdist safety is proven
+# for Dagster instance and DuckDB-locked fixtures.
+integration-dagster-cov: dagster-jobs-smoke-cov dagster-refresh-cov

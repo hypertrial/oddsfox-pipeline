@@ -101,11 +101,21 @@ def _merge_run_configs(*configs: dict) -> dict:
     return merged
 
 
-POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION = AssetSelection.assets(
-    asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "markets"),
-    asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "markets_snapshot"),
-    asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "ops", "market_scope_registry"),
-    asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "market_metadata_enrichment"),
+OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION = AssetSelection.assets(
+    asset_key(SOURCE_OPENFOOTBALL, SCOPE_WC2026, "raw", "schedule_fixtures"),
+)
+
+POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION = (
+    AssetSelection.assets(
+        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "markets"),
+        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "markets_snapshot"),
+        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "ops", "market_scope_registry"),
+        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "market_metadata_enrichment"),
+    )
+    | AssetSelection.assets(
+        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "event_catalog"),
+    ).required_multi_asset_neighbors()
+    | OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION
 )
 
 POLYMARKET_WC2026_HOURLY_ODDS_SELECTION = AssetSelection.assets(
@@ -193,10 +203,6 @@ INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION = AssetSelection.assets(
 )
 INTERNATIONAL_RESULTS_HISTORICAL_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_INTERNATIONAL_RESULTS, "historical", "raw", "snapshot"),
-)
-
-OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION = AssetSelection.assets(
-    asset_key(SOURCE_OPENFOOTBALL, SCOPE_WC2026, "raw", "schedule_fixtures"),
 )
 
 POLYMARKET_WC2026_LOGICAL_ATLAS_SELECTION = (

@@ -5,6 +5,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tests.support.makefile_text import makefile_text
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DOCS_DIR = REPO_ROOT / "docs"
 
@@ -362,7 +364,7 @@ def test_built_homepage_and_diagrams_are_semantic():
 
 
 def test_docs_make_targets_suppress_material_warning():
-    makefile = (REPO_ROOT / "Makefile").read_text()
+    makefile = makefile_text()
     assert "NO_MKDOCS_2_WARNING=true" in makefile
 
 

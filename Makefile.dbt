@@ -1,0 +1,53 @@
+dbt-build dbt-test:
+	$(RUN_IN_REPO) "$(PYTHON)" -m dbt.cli.main build --exclude tag:polygon_settlement tag:pmxt_order_book --project-dir dbt --profiles-dir dbt/profiles
+
+dbt-prepare: runtime-dirs
+	$(RUN_IN_REPO) $(DBT_LINT_ENV) "$(PYTHON)" scripts/dev_loop.py dbt-prepare \
+		--target-path "$(ODDSFOX_RUNTIME_DBT_TARGET)" \
+		--deps-lock "$(DBT_DEPS_LOCK)"
+
+dbt-build-ci: runtime-dirs
+	$(RUN_IN_REPO) rm -f "$(DBT_BUILD_DUCKDB_PATH)" "$(DBT_BUILD_DUCKDB_PATH).wal" "$(DBT_BUILD_DUCKDB_PATH)-wal" "$(DBT_BUILD_DUCKDB_PATH)-shm"
+	$(RUN_IN_REPO) $(DBT_BUILD_ENV) "$(PYTHON)" scripts/bootstrap_dbt_ci_duckdb.py
+	$(RUN_IN_REPO) $(DBT_BUILD_ENV) $(MAKE) dbt-build
+
+dbt-polygon-settlement-ci: polygon-runtime-dirs
+	$(RUN_IN_REPO) rm -f "$(POLYGON_UNIT_DUCKDB_PATH)" "$(POLYGON_UNIT_DUCKDB_PATH).wal" "$(POLYGON_UNIT_DUCKDB_PATH)-wal" "$(POLYGON_UNIT_DUCKDB_PATH)-shm"
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_UNIT_ENV) "$(PYTHON)" scripts/bootstrap_dbt_ci_duckdb.py
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main seed --select tag:polygon_settlement --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main run --empty --select tag:polygon_settlement --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) $(POLYGON_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main test --select "test_type:unit,tag:polygon_settlement" --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/test_polygon_settlement_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
+
+match-analysis-runtime-dirs: runtime-dirs
+	$(RUN_IN_REPO) mkdir -p "$(MATCH_ANALYSIS_RUNTIME_TMP)" "$(MATCH_ANALYSIS_RUNTIME_XDG)" "$(MATCH_ANALYSIS_RUNTIME_DBT_TARGET)" "$(MATCH_ANALYSIS_RUNTIME_DBT_LOGS)" "$(MATCH_ANALYSIS_RUNTIME_PYCACHE)" "$(MATCH_ANALYSIS_RUNTIME_DUCKDB_EXTENSIONS)"
+
+dbt-match-order-book-ci: match-analysis-runtime-dirs
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(MATCH_ANALYSIS_RUNTIME_ROOT)" dbt-prepare
+	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/duckdb/test_match_order_book_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
+
+market-portrait-target-validate:
+	$(RUN_IN_REPO) "$(PYTHON)" -c "import hashlib, json; from pathlib import Path; import yaml; path = Path('tests/fixtures/market_portrait/match-95-target.yml'); payload = yaml.safe_load(path.read_text(encoding='utf-8')); declared = str(payload.pop('content_sha256')); actual = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest(); assert declared == actual, (declared, actual); print(f'match-95 portrait target validated, sha256 {declared}')"
+
+dbt-market-portrait-ci: match-analysis-runtime-dirs market-portrait-target-validate
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(MATCH_ANALYSIS_RUNTIME_ROOT)" dbt-prepare
+	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/duckdb/test_market_portrait_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
+
+dbt-parse: dbt-prepare
+
+dbt-unit: dbt-prepare
+	$(RUN_IN_REPO) rm -f "$(DBT_UNIT_DUCKDB_PATH)" "$(DBT_UNIT_DUCKDB_PATH).wal" "$(DBT_UNIT_DUCKDB_PATH)-wal" "$(DBT_UNIT_DUCKDB_PATH)-shm"
+	$(RUN_IN_REPO) $(DBT_UNIT_ENV) "$(PYTHON)" scripts/bootstrap_dbt_ci_duckdb.py
+	$(RUN_IN_REPO) $(DBT_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main seed --exclude tag:polygon_settlement tag:pmxt_order_book --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(DBT_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main run --empty --exclude tag:polygon_settlement tag:pmxt_order_book --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(DBT_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main test --select "test_type:unit" --exclude tag:polygon_settlement tag:pmxt_order_book --project-dir dbt --profiles-dir dbt/profiles
+
+dbt-source-freshness-ci: runtime-dirs
+	$(RUN_IN_REPO) rm -f "$(DBT_FRESHNESS_DUCKDB_PATH)" "$(DBT_FRESHNESS_DUCKDB_PATH).wal" "$(DBT_FRESHNESS_DUCKDB_PATH)-wal" "$(DBT_FRESHNESS_DUCKDB_PATH)-shm"
+	$(RUN_IN_REPO) $(DBT_FRESHNESS_ENV) "$(PYTHON)" scripts/seed_dbt_source_freshness.py
+	$(RUN_IN_REPO) $(DBT_FRESHNESS_ENV) "$(PYTHON)" -m dbt.cli.main source freshness --project-dir dbt --profiles-dir dbt/profiles
+
+golden-dbt:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/integration/duckdb/test_golden_marts.py -q -n 0 -m "not performance and not slow" $(PYTEST_DURATION_ARGS)
+
+data-quality: dbt-build-ci

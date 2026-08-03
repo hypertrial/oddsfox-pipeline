@@ -74,21 +74,33 @@ def save_candlesticks_batch(rows: Sequence[dict[str, Any]]) -> int:
     return len(rows)
 
 
-def upsert_candlestick_ledger_state(
+def upsert_candlestick_ledger_states_batch(
+    states: Sequence[tuple[str, bool, bool]],
     *,
-    market_ticker: str,
-    fully_checked: bool,
-    empty_run: bool,
     routine_interval_hours: int = 1,
+    scope_name: str = DEFAULT_KALSHI_WC2026_MARKET_SCOPE,
 ) -> None:
+    if not states:
+        return
     ensure_duck_db()
     now = _utc_now()
     next_check = now + timedelta(hours=routine_interval_hours)
-    ledger = kalshi_ops_tbl(
-        DEFAULT_KALSHI_WC2026_MARKET_SCOPE, "candlestick_sync_ledger"
-    )
+    checked_at = now.replace(tzinfo=None)
+    next_at = next_check.replace(tzinfo=None)
+    ledger = kalshi_ops_tbl(scope_name, "candlestick_sync_ledger")
+    params = [
+        [
+            market_ticker,
+            fully_checked,
+            checked_at,
+            next_at,
+            1 if empty_run else 0,
+            empty_run,
+        ]
+        for market_ticker, fully_checked, empty_run in states
+    ]
     with get_connection() as conn:
-        conn.execute(
+        conn.executemany(
             f"""
             INSERT INTO {ledger} (
                 market_ticker,
@@ -108,19 +120,28 @@ def upsert_candlestick_ledger_state(
                     ELSE 0
                 END
             """,
-            [
-                market_ticker,
-                fully_checked,
-                now.replace(tzinfo=None),
-                next_check.replace(tzinfo=None),
-                1 if empty_run else 0,
-                empty_run,
-            ],
+            params,
         )
+
+
+def upsert_candlestick_ledger_state(
+    *,
+    market_ticker: str,
+    fully_checked: bool,
+    empty_run: bool,
+    routine_interval_hours: int = 1,
+    scope_name: str = DEFAULT_KALSHI_WC2026_MARKET_SCOPE,
+) -> None:
+    upsert_candlestick_ledger_states_batch(
+        [(market_ticker, fully_checked, empty_run)],
+        routine_interval_hours=routine_interval_hours,
+        scope_name=scope_name,
+    )
 
 
 __all__ = [
     "get_registry_markets_for_sync",
     "save_candlesticks_batch",
     "upsert_candlestick_ledger_state",
+    "upsert_candlestick_ledger_states_batch",
 ]

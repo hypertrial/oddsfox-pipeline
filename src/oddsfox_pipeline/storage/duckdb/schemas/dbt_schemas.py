@@ -257,6 +257,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_logical_team_groups",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
         "int_polymarket_wc2026_logical_team_identities",
     ),
     (POLYMARKET_WC2026_INTERMEDIATE_SCHEMA, "int_polymarket_wc2026_token_working_set"),

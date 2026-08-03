@@ -15,6 +15,10 @@ from oddsfox_pipeline.orchestration.raw_snapshot_helpers import (
     get_cached_dlt_pipeline,
 )
 from oddsfox_pipeline.storage.duckdb.connection import active_duckdb_path
+from oddsfox_pipeline.storage.duckdb.observability import (
+    delta_raw_layer,
+    snapshot_raw_layer,
+)
 
 
 def get_kalshi_dlt_pipeline(
@@ -88,8 +92,70 @@ def materialize_kalshi_candlesticks_sync(
     return MaterializeResult(metadata=metadata)
 
 
+def _materialize_market_scope_registry(
+    context: AssetExecutionContext,
+    config: Any,
+    *,
+    scope_name: str,
+    sync_task_name: str,
+    get_sync_run_metrics_fn: Callable[..., dict[str, Any] | None],
+    snapshot_refreshed_scope_name_fn: Callable[[dict[str, Any]], str | None],
+    sync_market_scope_registry_fn: Callable[[], dict[str, Any]],
+    snapshot_raw_layer_fn: Callable[..., dict[str, Any]] = snapshot_raw_layer,
+    delta_raw_layer_fn: Callable[
+        [dict[str, Any], dict[str, Any]], dict[str, Any]
+    ] = delta_raw_layer,
+) -> MaterializeResult:
+    if config.skip_if_snapshot_refreshed and not config.force_refresh:
+        snapshot_metrics = get_sync_run_metrics_fn(
+            sync_task_name,
+            scope_name=scope_name,
+        )
+        refreshed_scope_name = (
+            snapshot_refreshed_scope_name_fn(snapshot_metrics)
+            if snapshot_metrics
+            else None
+        )
+        if (
+            snapshot_metrics
+            and snapshot_metrics.get("registry_refreshed") is True
+            and refreshed_scope_name == scope_name
+        ):
+            context.log.info(
+                "Skipping Kalshi market-scope registry refresh; snapshot already refreshed"
+            )
+            pre = snapshot_raw_layer_fn(level=config.raw_snapshot_level)
+            run_summary = {
+                "skipped": True,
+                "reason": "snapshot_refreshed_registry",
+                "scope_name": scope_name,
+                "snapshot_metrics": snapshot_metrics,
+            }
+            return MaterializeResult(
+                metadata=_raw_snapshot_metadata(
+                    pre,
+                    pre,
+                    {},
+                    run_summary=run_summary,
+                )
+            )
+
+    def _sync_registry(_pre: dict[str, Any]) -> dict[str, Any]:
+        return sync_market_scope_registry_fn()
+
+    run_summary, _, _, raw_delta, raw_metadata = _run_with_raw_snapshot(
+        config.raw_snapshot_level,
+        _sync_registry,
+        snapshot_raw_layer_fn=snapshot_raw_layer_fn,
+        delta_raw_layer_fn=delta_raw_layer_fn,
+    )
+    context.log.info("Kalshi registry refresh delta: %s", raw_delta)
+    return MaterializeResult(metadata=raw_metadata)
+
+
 __all__ = [
     "_DLT_PIPELINE_BY_PATH",
+    "_materialize_market_scope_registry",
     "_raw_snapshot_metadata",
     "_run_with_raw_snapshot",
     "get_kalshi_dlt_pipeline",

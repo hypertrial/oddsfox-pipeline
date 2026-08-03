@@ -55,7 +55,9 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     active_duckdb_path,
     get_connection,
 )
-from oddsfox_pipeline.storage.duckdb.dlt_batch import merge_event_catalog_batch
+from oddsfox_pipeline.storage.duckdb.dlt_batch_event_catalog import (
+    merge_event_catalog_batch,
+)
 from oddsfox_pipeline.storage.duckdb.markets import save_market_tokens_batch
 from oddsfox_pipeline.storage.duckdb.metadata import (
     get_sync_run_metrics,

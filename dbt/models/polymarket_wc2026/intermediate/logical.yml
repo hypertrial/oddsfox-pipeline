@@ -13,6 +13,16 @@ models:
       - name: canonical_team_id
         tests: [not_null]
 
+  - name: int_polymarket_wc2026_logical_team_groups
+    description: >-
+      OpenFootball team-to-group mapping for teams with exactly one distinct
+      group label across the official fixture schedule.
+    columns:
+      - name: canonical_team_id
+        tests: [not_null, unique]
+      - name: group_label
+        tests: [not_null]
+
   - name: int_polymarket_wc2026_logical_markets
     columns:
       - name: market_id

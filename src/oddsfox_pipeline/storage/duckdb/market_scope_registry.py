@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import List, Sequence
 
 from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_connection
 from oddsfox_pipeline.storage.duckdb.dlt_batch import load_market_scope_registry_stage
+from oddsfox_pipeline.storage.duckdb.registry_common import _normalize_scope, _utc_now
 from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_ops_tbl
 
 _TAB_REGISTRY = polymarket_ops_tbl(DEFAULT_MARKET_SCOPE, "market_scope_registry")
@@ -25,17 +25,6 @@ class RegistryRow:
     event_id: str | None
     source: str
     scope_name: str = DEFAULT_MARKET_SCOPE
-
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _normalize_scope(scope_name: str) -> str:
-    normalized = str(scope_name or "").strip().lower()
-    if not normalized:
-        raise ValueError("scope_name must not be empty")
-    return normalized
 
 
 def upsert_registry_rows(rows: Sequence[RegistryRow]) -> int:

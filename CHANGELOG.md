@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `polymarket_wc2026_market_scope_registry_refresh` now materializes the
+  `event_catalog` multi-asset neighborhood (plus OpenFootball schedule fixtures)
+  so registry refresh aligns with the declared `event_catalog` dependency.
+- Polymarket odds writer flushes now stage rows with Arrow bulk loads on the
+  writer connection instead of per-flush `dlt.pipeline.run` replace loads.
+- Kalshi hourly candlestick sync now fetches concurrently and persists candlestick
+  rows plus ledger state in one batched write after the worker pool joins.
+- Split `polygon_settlement` ingest into `polygon_settlement_{types,normalize,scan,sync}`
+  modules with a facade preserving public imports; widened focused mutation coverage
+  to `polygon_settlement_normalize.py`.
+- Split `market_portrait` into `market_portrait_story` and `market_portrait_export`
+  modules with a facade preserving public imports.
+- Extracted `merge_event_catalog_batch` into `dlt_batch_event_catalog.py`.
+- Deduplicated polygon audit/export JSON writes via `publishing._bundle_io.write_json`.
+- Extracted shared registry helpers (`registry_common.py`) and lifted Kalshi
+  registry skip-if-refreshed materialization into `kalshi_asset_helpers.py`.
+- Added a bootstrap lock around DuckDB schema initialization in `connection.py`.
+- Extracted `int_polymarket_wc2026_logical_team_groups` and rewired logical
+  markets/propositions/entities marts to stop referencing OpenFootball staging
+  directly; propositions now share markets' ambiguous team-group guard.
+- Removed `[project.optional-dependencies].dev`; contributor tooling installs
+  exclusively through uv dependency groups (`uv sync --group dev`).
+- Split the root `Makefile` into include fragments (`Makefile.gates`,
+  `Makefile.dbt`, `Makefile.lint`, `Makefile.test`, `Makefile.ops`).
+- Removed the pre-atlas legacy rollback path from
+  `scripts/build_hosted_artifacts.py`; activation now always requires a
+  logical-atlas release manifest plus Graph acceptance and browser-smoke
+  receipt validation.
+
 - Split the former "Advanced match analysis (experimental)" registry row into
   three mature, isolated pipelines: match-minute odds, match order book, and
   market portrait. Added `dbt-match-order-book-ci`, `dbt-market-portrait-ci`,
@@ -17,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `init_duck_db()` again syncs the active DuckDB path before the initialized
+  fast-path return, so `DUCKDB_PATH` / `DUCKDB_NAME` swaps still re-bootstrap
+  under the schema bootstrap lock.
 - `profile_warehouse.py` `--refresh` now propagates `--duckdb-path` to Polymarket
   sync and dbt subprocesses instead of mutating the settings-default warehouse.
 - `build_hosted_artifacts.py` default `--duckdb-path` now follows

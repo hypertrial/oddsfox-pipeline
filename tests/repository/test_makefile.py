@@ -8,9 +8,18 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.makefile_text import makefile_text
+
 pytestmark = pytest.mark.repo_check
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+MAKEFILE_FRAGMENTS = (
+    "Makefile.gates",
+    "Makefile.dbt",
+    "Makefile.lint",
+    "Makefile.test",
+    "Makefile.ops",
+)
 
 
 def _target_recipe(makefile: str, target: str) -> str:
@@ -93,8 +102,19 @@ def test_dagster_dev_recipe_prefers_dg_with_python_fallback():
     assert "-m dagster dev" in script
 
 
+def test_makefile_include_fragments_are_present_and_inlined():
+    root = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    for name in MAKEFILE_FRAGMENTS:
+        assert f"include {name}" in root
+        assert (REPO_ROOT / name).is_file()
+    inlined = makefile_text()
+    assert "include Makefile." not in inlined
+    assert "ci-fast:" in inlined
+    assert "test-dev:" in inlined
+
+
 def test_ci_split_targets_remain_wired():
-    makefile = (REPO_ROOT / "Makefile").read_text()
+    makefile = makefile_text()
 
     assert "gx-data-quality" not in makefile
     assert re.search(r"^data-quality: dbt-build-ci$", makefile, re.MULTILINE)
@@ -128,7 +148,7 @@ def test_ci_split_targets_remain_wired():
 
 
 def test_fast_and_coverage_tests_parallelize_only_the_safe_collection():
-    makefile = (REPO_ROOT / "Makefile").read_text()
+    makefile = makefile_text()
     fast = _target_recipe(makefile, "test")
     coverage = _target_recipe(makefile, "test-cov")
 
@@ -176,7 +196,7 @@ def test_fast_and_coverage_tests_parallelize_only_the_safe_collection():
 
 
 def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
-    makefile = (REPO_ROOT / "Makefile").read_text()
+    makefile = makefile_text()
 
     assert _recursive_make_targets(_target_recipe(makefile, "lint")) == [
         "python-lint",
@@ -291,7 +311,7 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
 
 
 def test_release_gate_match_analysis_lanes_use_isolated_runtime_roots():
-    makefile = (REPO_ROOT / "Makefile").read_text()
+    makefile = makefile_text()
     match_order_book = _target_recipe(makefile, "release-gate-dbt-match-order-book")
     market_portrait = _target_recipe(makefile, "release-gate-dbt-market-portrait")
     coverage_prep = _target_recipe(makefile, "release-gate-coverage-prep")
@@ -389,7 +409,7 @@ def test_export_wc2026_elo_freezes_runs_the_freeze_script():
 
 
 def test_runtime_and_temporary_storage_default_below_the_checkout():
-    makefile = (REPO_ROOT / "Makefile").read_text()
+    makefile = makefile_text()
 
     assert "ODDSFOX_STORAGE_ROOT ?= $(REPO_ROOT)" in makefile
     assert "ODDSFOX_RUNTIME_ROOT ?= $(REPO_ROOT)/.cache/runtime" in makefile

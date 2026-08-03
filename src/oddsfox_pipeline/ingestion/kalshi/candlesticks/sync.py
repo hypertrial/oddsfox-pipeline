@@ -19,7 +19,7 @@ from oddsfox_pipeline.ingestion.kalshi.concurrent import map_bounded
 from oddsfox_pipeline.storage.duckdb.kalshi_candlesticks import (
     get_registry_markets_for_sync,
     save_candlesticks_batch,
-    upsert_candlestick_ledger_state,
+    upsert_candlestick_ledger_states_batch,
 )
 from oddsfox_pipeline.storage.duckdb.metadata import save_sync_run_metrics
 
@@ -27,11 +27,10 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class _MarketSyncResult:
+class _MarketFetchResult:
     market_ticker: str
-    rows_written: int
-    markets_synced: int
-    empty_markets: int
+    candlesticks: list[dict[str, Any]]
+    empty_run: bool
 
 
 def _utc_now() -> datetime:
@@ -46,14 +45,13 @@ def _trailing_window_hours(*, window_hours: int, history_backfill_days: int) -> 
     return hours
 
 
-def _sync_market_candlesticks(
+def _fetch_market_candlesticks(
     client: object,
     market: dict[str, Any],
     *,
     start_at: datetime,
     end_at: datetime,
-    routine_interval_hours: int,
-) -> _MarketSyncResult:
+) -> _MarketFetchResult:
     market_ticker = market["market_ticker"]
     series_ticker = market["series_ticker"]
     open_time = market.get("open_time")
@@ -69,18 +67,10 @@ def _sync_market_candlesticks(
         start_at=effective_start,
         end_at=end_at,
     )
-    rows_written = save_candlesticks_batch(candlesticks) if candlesticks else 0
-    upsert_candlestick_ledger_state(
+    return _MarketFetchResult(
         market_ticker=market_ticker,
-        fully_checked=True,
+        candlesticks=candlesticks,
         empty_run=candlesticks == [],
-        routine_interval_hours=routine_interval_hours,
-    )
-    return _MarketSyncResult(
-        market_ticker=market_ticker,
-        rows_written=rows_written,
-        markets_synced=1 if candlesticks else 0,
-        empty_markets=0 if candlesticks else 1,
     )
 
 
@@ -109,18 +99,21 @@ def sync_hourly_candlesticks(
 
     results = map_bounded(
         markets,
-        lambda market: _sync_market_candlesticks(
+        lambda market: _fetch_market_candlesticks(
             client,
             market,
             start_at=start_at,
             end_at=end_at,
-            routine_interval_hours=int(routine_interval_hours),
         ),
     )
+    all_candlesticks: list[dict[str, Any]] = []
+    ledger_states: list[tuple[str, bool, bool]] = []
     for result in results:
-        rows_written += result.rows_written
-        markets_synced += result.markets_synced
-        empty_markets += result.empty_markets
+        all_candlesticks.extend(result.candlesticks)
+        ledger_states.append((result.market_ticker, True, result.empty_run))
+        markets_synced += 0 if result.empty_run else 1
+        empty_markets += 1 if result.empty_run else 0
+        rows_written += len(result.candlesticks)
         if progress_callback:
             progress_callback(
                 "kalshi_candlesticks",
@@ -130,6 +123,13 @@ def sync_hourly_candlesticks(
                     "market_ticker": result.market_ticker,
                 },
             )
+
+    rows_written = save_candlesticks_batch(all_candlesticks)
+    upsert_candlestick_ledger_states_batch(
+        ledger_states,
+        routine_interval_hours=int(routine_interval_hours),
+        scope_name=scope_name,
+    )
 
     metrics = {
         "scope_name": scope_name,
