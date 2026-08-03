@@ -105,27 +105,6 @@ def set_backfill_fully_checked(
     _metadata_set(f"{_BACKFILL_KEY_PREFIX}{task}:timestamp", now_iso, conn)
 
 
-def get_backfill_progress(
-    task: str,
-    conn: duckdb.DuckDBPyConnection | None = None,
-) -> int:
-    """Return the last processed count for a backfill task (0 if unset)."""
-    raw = _metadata_get(f"{_BACKFILL_KEY_PREFIX}{task}:progress", conn)
-    try:
-        return int(raw) if raw is not None else 0
-    except ValueError:
-        return 0
-
-
-def set_backfill_progress(
-    task: str,
-    processed: int,
-    conn: duckdb.DuckDBPyConnection | None = None,
-):
-    """Persist the last processed count for a backfill task."""
-    _metadata_set(f"{_BACKFILL_KEY_PREFIX}{task}:progress", str(int(processed)), conn)
-
-
 def append_ingestion_run_event(
     task_name: str,
     metrics: dict[str, Any],
@@ -335,8 +314,6 @@ __all__ = [
     "get_connection",
     "get_backfill_fully_checked",
     "set_backfill_fully_checked",
-    "get_backfill_progress",
-    "set_backfill_progress",
     "get_sync_run_metrics",
     "get_market_scope_discovery_fully_checked",
     "get_market_scope_discovery_scope_config_hash",

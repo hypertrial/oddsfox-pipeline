@@ -34,16 +34,6 @@ def save_odds_batch(records: List[Tuple[str, int, float]]):
     logger.debug("Saved %d odds records to DuckDB", len(records))
 
 
-def save_odds_bulk_appender(
-    records: List[Tuple[str, int, float]], conn: duckdb.DuckDBPyConnection
-):
-    """Compatibility wrapper for bulk odds-history upserts on an open connection."""
-    if not records:
-        return
-    save_odds_bulk_upsert(records, conn, assume_deduped=False)
-    logger.debug("Saved %d odds records to DuckDB", len(records))
-
-
 def _odds_history_stage_rows(
     records: List[Tuple[str, int, float]],
     *,

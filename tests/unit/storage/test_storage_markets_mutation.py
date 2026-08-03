@@ -14,6 +14,10 @@ from tests.unit.storage.duckdb_storage_test_support import (
 import oddsfox_pipeline.storage.duckdb.markets as markets
 from oddsfox_pipeline.storage.duckdb import _market_mutations as mutations
 from oddsfox_pipeline.storage.duckdb.connection import get_connection
+from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
+    RegistryRow,
+    upsert_registry_rows,
+)
 
 
 def test_save_market_tokens_batch_persists_tokens(duck):
@@ -43,13 +47,27 @@ def test_persist_market_tokens_empty_guard():
     mutations._persist_market_tokens(None, [])
 
 
-def test_get_markets_without_tokens_and_save_tokens(duck):
+def test_save_tokens_batch_clears_missing_token_metadata(duck):
     with markets.get_connection() as conn:
         _insert_minimal_market(conn, "nm")
-        mids = markets.get_markets_without_tokens(limit=5)
-        assert "nm" in mids
+    upsert_registry_rows([RegistryRow("nm", None, None, "test")])
+    mids = markets.get_markets_missing_any_metadata(
+        include_tokens=True,
+        include_slugs=False,
+        include_event_slugs=False,
+        include_end_dates=False,
+    )
+    assert "nm" in mids
     markets.save_tokens_batch([("nm", '["tok"]')])
-    assert markets.get_markets_without_tokens(limit=5) == []
+    assert (
+        markets.get_markets_missing_any_metadata(
+            include_tokens=True,
+            include_slugs=False,
+            include_event_slugs=False,
+            include_end_dates=False,
+        )
+        == []
+    )
 
 
 def test_delete_orphan_market_tokens(duck):

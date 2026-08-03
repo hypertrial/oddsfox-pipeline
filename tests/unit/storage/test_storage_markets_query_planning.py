@@ -20,15 +20,7 @@ from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
 )
 
 
-def test_markets_count_and_ids(duck):
-    assert markets.get_market_count() == 0
-    with duck.get_connection() as conn:
-        _insert_minimal_market(conn, "a")
-    assert markets.get_market_count() == 1
-    assert "a" in markets.get_all_market_ids()
-
-
-def test_get_markets_with_tokens_and_iter(duck):
+def test_iter_markets_with_tokens_basic(duck):
     _seed_markets(
         duck,
         [
@@ -50,8 +42,6 @@ def test_get_markets_with_tokens_and_iter(duck):
         ],
         [("gw", '["a","b"]')],
     )
-    rows = markets.get_markets_with_tokens()
-    assert len(rows) >= 1
     pages = list(
         markets.iter_markets_with_tokens(
             page_size=1, cutoff_created_at="2020-01-01 00:00:00", json_array_only=True
@@ -60,7 +50,7 @@ def test_get_markets_with_tokens_and_iter(duck):
     assert pages
 
 
-def test_slug_event_end_date_queries(duck):
+def test_missing_metadata_slug_event_end_date(duck):
     with markets.get_connection() as conn:
         conn.execute(
             f"""INSERT OR REPLACE INTO {T_M}
@@ -69,9 +59,25 @@ def test_slug_event_end_date_queries(duck):
             VALUES ('99', 'q','c','d','[]',1.0,1,0,
              '2024-01-01','2024-01-01', NULL, '', '')"""
         )
-    assert "99" in markets.get_markets_without_slugs(limit=10)
-    assert "99" in markets.get_markets_without_event_slugs(limit=10)
-    assert "99" in markets.get_markets_without_end_date(limit=10)
+    upsert_registry_rows([RegistryRow("99", None, None, "test")])
+    assert "99" in markets.get_markets_missing_any_metadata(
+        include_tokens=False,
+        include_slugs=True,
+        include_event_slugs=False,
+        include_end_dates=False,
+    )
+    assert "99" in markets.get_markets_missing_any_metadata(
+        include_tokens=False,
+        include_slugs=False,
+        include_event_slugs=True,
+        include_end_dates=False,
+    )
+    assert "99" in markets.get_markets_missing_any_metadata(
+        include_tokens=False,
+        include_slugs=False,
+        include_event_slugs=False,
+        include_end_dates=True,
+    )
     markets.save_slugs_batch([("slug99", "99")])
     markets.save_event_slugs_batch([("es99", "99")])
     markets.save_end_dates_batch([("2025-12-31 00:00:00", "99")])

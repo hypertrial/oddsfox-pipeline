@@ -3,7 +3,6 @@ from typing import List, Tuple
 
 import duckdb
 
-from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_connection
 from oddsfox_pipeline.storage.duckdb.odds._common import (
     logger,
     odds_history_tbl,
@@ -140,90 +139,3 @@ def refresh_token_odds_daily(
         conn.execute("ROLLBACK")
         raise
     logger.debug("Refreshed %d daily odds keys from history", len(unique_keys))
-
-
-def backfill_token_odds_daily_from_history() -> int:
-    """Rebuild the full daily odds table from odds_history and return row count."""
-    ensure_duck_db()
-    with get_connection() as conn:
-        conn.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {token_odds_daily_tbl()} (
-                clobTokenId TEXT,
-                odds_date_utc DATE,
-                open_price DOUBLE,
-                high_price DOUBLE,
-                low_price DOUBLE,
-                close_price DOUBLE,
-                avg_price DOUBLE,
-                observed_points BIGINT,
-                first_timestamp BIGINT,
-                last_timestamp BIGINT,
-                refreshed_at TIMESTAMP,
-                PRIMARY KEY (clobTokenId, odds_date_utc)
-            )
-            """
-        )
-        conn.execute(
-            f"ALTER TABLE {token_odds_daily_tbl()} ADD COLUMN IF NOT EXISTS refreshed_at TIMESTAMP"
-        )
-        conn.execute(f"DELETE FROM {token_odds_daily_tbl()}")
-        conn.execute(
-            f"""
-            INSERT INTO {token_odds_daily_tbl()} (
-                clobTokenId,
-                odds_date_utc,
-                open_price,
-                high_price,
-                low_price,
-                close_price,
-                avg_price,
-                observed_points,
-                first_timestamp,
-                last_timestamp,
-                refreshed_at
-            )
-            WITH history AS (
-                SELECT
-                    clobTokenId,
-                    CAST(TIMESTAMP '1970-01-01' + timestamp * INTERVAL 1 SECOND AS DATE) AS odds_date_utc,
-                    timestamp,
-                    price
-                FROM {odds_history_tbl()}
-            ),
-            ranked AS (
-                SELECT
-                    clobTokenId,
-                    odds_date_utc,
-                    timestamp,
-                    price,
-                    row_number() OVER (
-                        PARTITION BY clobTokenId, odds_date_utc
-                        ORDER BY timestamp ASC, price ASC
-                    ) AS open_rank,
-                    row_number() OVER (
-                        PARTITION BY clobTokenId, odds_date_utc
-                        ORDER BY timestamp DESC, price DESC
-                    ) AS close_rank
-                FROM history
-            )
-            SELECT
-                clobTokenId,
-                odds_date_utc,
-                MAX(CASE WHEN open_rank = 1 THEN price END) AS open_price,
-                MAX(price) AS high_price,
-                MIN(price) AS low_price,
-                MAX(CASE WHEN close_rank = 1 THEN price END) AS close_price,
-                ROUND(AVG(price), 8) AS avg_price,
-                COUNT(*) AS observed_points,
-                MIN(timestamp) AS first_timestamp,
-                MAX(timestamp) AS last_timestamp,
-                CURRENT_TIMESTAMP AS refreshed_at
-            FROM ranked
-            GROUP BY 1, 2
-            """
-        )
-        row = conn.execute(f"SELECT COUNT(*) FROM {token_odds_daily_tbl()}").fetchone()
-    count = int(row[0]) if row and row[0] is not None else 0
-    logger.info("Backfilled token_odds_daily from odds_history: rows=%s", count)
-    return count

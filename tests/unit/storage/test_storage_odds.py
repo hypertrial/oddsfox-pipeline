@@ -13,17 +13,7 @@ def test_odds_chunked_raises():
         list(odds_mod._chunked(["a"], 0))
 
 
-def test_odds_latest_and_tokens(duck):
-    odds_mod.save_odds_batch([("tok", 100, 0.5)])
-    assert "tok" in odds_mod.get_latest_timestamps()
-    assert "tok" in odds_mod.get_tokens_with_data()
-    odds_mod.mark_tokens_fully_checked(["tok"])
-    assert "tok" in odds_mod.get_fully_checked_tokens()
-    odds_mod.save_skipped_tokens([("t2", "reason")])
-    assert odds_mod.get_skipped_tokens()["t2"] == "reason"
-
-
-def test_refresh_token_odds_daily_and_backfill(duck):
+def test_refresh_token_odds_daily(duck):
     odds_mod.save_odds_batch(
         [
             ("tok", 1710000000, 0.4),
@@ -49,9 +39,6 @@ def test_refresh_token_odds_daily_and_backfill(duck):
         ).fetchall()
     assert rows[0][1:] == (0.4, 0.6, 0.4, 0.6, 0.5, 2)
     assert rows[1][1:] == (0.2, 0.2, 0.2, 0.2, 0.2, 1)
-
-    count = odds_mod.backfill_token_odds_daily_from_history()
-    assert count >= 2
 
     odds_mod.save_odds_batch(
         [

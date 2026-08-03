@@ -19,46 +19,8 @@ T_LED = polymarket_wc2026_ops_tbl("token_sync_ledger")
 T_SK = polymarket_wc2026_ops_tbl("token_sync_skips")
 
 
-def test_get_latest_timestamps_ledger_beats_history(duck):
-    with odds_mod.get_connection() as conn:
-        conn.execute(
-            f"INSERT OR REPLACE INTO {T_OH} (clobTokenId, timestamp, price) VALUES ('ab', 10, 0.5)"
-        )
-        conn.execute(
-            f"INSERT INTO {T_LED} (clobTokenId, last_sync_timestamp) VALUES ('ab', 50)"
-        )
-    ts = odds_mod.get_latest_timestamps()
-    assert ts["ab"] == 50
-
-
-def test_get_latest_timestamps_ledger_null_skipped(duck):
-    with odds_mod.get_connection() as conn:
-        conn.execute(
-            f"INSERT INTO {T_LED} (clobTokenId, last_sync_timestamp) VALUES ('nl', NULL)"
-        )
-    ts = odds_mod.get_latest_timestamps()
-    assert "nl" not in ts
-
-
-def test_get_latest_timestamps_history_only_and_empty_helpers(duck):
-    odds_mod.save_odds_batch([("hist", 11, 0.4)])
-    ts = odds_mod.get_latest_timestamps()
-    assert ts["hist"] == 11
-    assert odds_mod.get_skipped_tokens() == {}
-
-
-def test_get_latest_timestamps_ledger_only(duck):
-    with odds_mod.get_connection() as conn:
-        conn.execute(
-            f"INSERT INTO {T_LED} (clobTokenId, last_sync_timestamp) VALUES ('ledgeronly', 22)"
-        )
-    ts = odds_mod.get_latest_timestamps()
-    assert ts["ledgeronly"] == 22
-
-
 def test_save_helpers_empty_guards(duck):
     odds_mod.save_skipped_tokens([])
-    odds_mod.mark_tokens_fully_checked([])
     odds_mod.save_odds_batch([])
     odds_mod.save_sync_status_batch([])
     odds_mod.save_token_sync_state_batch([])
@@ -89,12 +51,6 @@ def test_refresh_token_odds_daily_rolls_back_on_error():
         )
 
     assert "ROLLBACK" in calls
-
-
-def test_save_odds_bulk_appender_empty_and_assume_deduped(duck):
-    with odds_mod.get_connection() as conn:
-        odds_mod.save_odds_bulk_appender([], conn)
-        odds_mod.save_odds_bulk_upsert([("dd", 1.0, 0.2)], conn, assume_deduped=True)
 
 
 def test_save_odds_bulk_upsert_empty_guard(duck):
@@ -139,29 +95,6 @@ def test_refresh_token_odds_daily_splits_utc_days(duck):
     assert len(rows) == 2
     assert rows[0][1:] == (0.2, 0.2, 1)
     assert rows[1][1:] == (0.8, 0.8, 1)
-
-
-def test_backfill_token_odds_daily_replaces_existing_rows(duck):
-    odds_mod.save_odds_batch([("bf", 1710000000, 0.1), ("bf", 1710000600, 0.9)])
-    with odds_mod.get_connection() as conn:
-        conn.execute(
-            f"""
-            INSERT OR REPLACE INTO {T_TOD}
-            (clobTokenId, odds_date_utc, open_price, high_price, low_price, close_price, avg_price, observed_points, first_timestamp, last_timestamp)
-            VALUES ('bf', DATE '2024-03-09', 0.0, 0.0, 0.0, 0.0, 0.0, 99, 1, 1)
-            """
-        )
-    count = odds_mod.backfill_token_odds_daily_from_history()
-    assert count >= 1
-    with odds_mod.get_connection() as conn:
-        row = conn.execute(
-            f"""
-            SELECT open_price, high_price, low_price, close_price, avg_price, observed_points
-            FROM {T_TOD}
-            WHERE clobTokenId = 'bf'
-            """
-        ).fetchone()
-    assert row == (0.1, 0.9, 0.1, 0.9, 0.5, 2)
 
 
 def test_get_token_sync_snapshot_repair_and_missing(duck):
@@ -329,21 +262,6 @@ def test_get_token_sync_snapshot_reconcile_without_repair_updates_latest_only(du
             [tid],
         ).fetchone()[0]
     assert ledger_ts == 10
-
-
-def test_save_odds_bulk_appender_delegates_to_canonical_upsert(monkeypatch):
-    calls = []
-    records = [("app", 1, 0.1)]
-    conn = object()
-    monkeypatch.setattr(
-        odds_writes,
-        "save_odds_bulk_upsert",
-        lambda *args, **kwargs: calls.append((args, kwargs)),
-    )
-
-    odds_mod.save_odds_bulk_appender(records, conn)
-
-    assert calls == [((records, conn), {"assume_deduped": False})]
 
 
 def test_save_sync_status_batch_preserves_fully_checked(duck):

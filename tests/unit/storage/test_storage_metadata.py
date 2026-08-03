@@ -124,10 +124,6 @@ def test_metadata_helpers(duck):
     metadata.set_backfill_fully_checked("t", False)
     assert metadata.get_backfill_fully_checked("t") is False
 
-    assert metadata.get_backfill_progress("p") == 0
-    metadata.set_backfill_progress("p", 3)
-    assert metadata.get_backfill_progress("p") == 3
-
     metadata.save_sync_run_metrics("job", {"a": 1}, history_limit=2)
     m = metadata.get_sync_run_metrics("job")
     assert m is not None and m.get("a") == 1
@@ -140,11 +136,6 @@ def test_metadata_helpers(duck):
         json.dumps([1, 2, 3]),
     )
     assert metadata.get_sync_run_metrics("badh") is None
-
-
-def test_get_backfill_progress_invalid(duck):
-    metadata._metadata_set("backfill:x:progress", "x")
-    assert metadata.get_backfill_progress("x") == 0
 
 
 def test_get_sync_run_metrics_missing_returns_none(duck):

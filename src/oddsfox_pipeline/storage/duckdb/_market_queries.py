@@ -179,36 +179,6 @@ def _missing_end_date_predicate(alias: str) -> str:
     return f"({alias}.end_date IS NULL OR CAST({alias}.end_date AS VARCHAR) = '')"
 
 
-def get_market_count() -> int:
-    ensure_duck_db()
-    with get_connection() as conn:
-        result = conn.execute(f"SELECT COUNT(*) FROM {_markets_tbl()}").fetchone()
-        return int(result[0]) if result else 0
-
-
-def get_all_market_ids() -> set:
-    """
-    Get all existing market IDs as a set for efficient lookup.
-    Used for early stopping in incremental syncs.
-    """
-    ensure_duck_db()
-    with get_connection() as conn:
-        rows = conn.execute(f"SELECT id FROM {_markets_tbl()}").fetchall()
-        return {row[0] for row in rows}
-
-
-def get_markets_without_tokens(limit: Optional[int] = None) -> List[str]:
-    ensure_duck_db()
-    return _fetch_market_ids(
-        f"""
-        SELECT id
-        FROM {_markets_tbl()}
-        WHERE id NOT IN (SELECT market_id FROM {_market_tokens_tbl()})
-    """,
-        limit=limit,
-    )
-
-
 def get_markets_missing_any_metadata(
     *,
     include_tokens: bool = True,
@@ -245,23 +215,6 @@ def get_markets_missing_any_metadata(
         with get_connection() as conn:
             rows = conn.execute(query).fetchall()
             return [str(row[0]) for row in rows]
-
-
-def get_markets_with_tokens() -> List[Tuple[str, str, Optional[str], Optional[bool]]]:
-    """
-    Get all markets that have associated tokens, including creation date and closed status.
-    """
-    ensure_duck_db()
-    with get_connection() as conn:
-        rows = conn.execute(
-            f"""
-            SELECT mt.market_id, mt.clobTokenIds, m.created_at, m.closed
-            FROM {_market_tokens_tbl()} mt
-            JOIN {_markets_tbl()} m ON mt.market_id = m.id
-            WHERE mt.clobTokenIds IS NOT NULL AND mt.clobTokenIds != '[]'
-            """
-        ).fetchall()
-        return rows
 
 
 def iter_markets_with_tokens(
@@ -466,61 +419,13 @@ def count_candidate_market_tokens(
         }
 
 
-def get_markets_without_slugs(limit: Optional[int] = None) -> List[str]:
-    ensure_duck_db()
-    return _fetch_market_ids(
-        f"""
-        SELECT id
-        FROM {_markets_tbl()}
-        WHERE (slug IS NULL OR slug = '')
-          AND TRY_CAST(id AS BIGINT) IS NOT NULL
-          AND TRY_CAST(id AS BIGINT) > 0
-    """,
-        limit=limit,
-    )
-
-
-def get_markets_without_event_slugs(limit: Optional[int] = None) -> List[str]:
-    ensure_duck_db()
-    return _fetch_market_ids(
-        f"""
-        SELECT id
-        FROM {_markets_tbl()}
-        WHERE (event_slug IS NULL OR event_slug = '')
-          AND TRY_CAST(id AS BIGINT) IS NOT NULL
-          AND TRY_CAST(id AS BIGINT) > 0
-        ORDER BY TRY_CAST(id AS BIGINT)
-    """,
-        limit=limit,
-    )
-
-
-def get_markets_without_end_date(limit: Optional[int] = None) -> List[str]:
-    ensure_duck_db()
-    return _fetch_market_ids(
-        f"""
-        SELECT id
-        FROM {_markets_tbl()}
-        WHERE (end_date IS NULL OR CAST(end_date AS VARCHAR) = '')
-    """,
-        limit=limit,
-    )
-
-
 __all__ = [
     "_fetch_market_ids",
     "_validate_volume_bound",
     "_volume_where_clause",
     "count_candidate_market_tokens",
     "count_due_market_token_exclusions",
-    "get_all_market_ids",
-    "get_market_count",
     "get_markets_missing_any_metadata",
-    "get_markets_with_tokens",
-    "get_markets_without_end_date",
-    "get_markets_without_event_slugs",
-    "get_markets_without_slugs",
-    "get_markets_without_tokens",
     "iter_due_market_tokens",
     "iter_markets_with_tokens",
 ]
