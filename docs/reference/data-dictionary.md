@@ -5,11 +5,12 @@ common mistakes.
 
 !!! note "Reference ladder"
 
-    Chooser → dictionary → public contracts → warehouse reference; do not treat
+    Chooser → dictionary → documented contracts → warehouse reference; do not treat
     staging/raw as APIs. Start with
     [Query the warehouse](../guides/query-the-warehouse.md). Formal grains and
     the Polygon complete column contract live in
-    [Data contracts](data-contracts.md).
+    [Data contracts](data-contracts.md). To see which pipeline builds a given
+    mart, see [Pipeline outputs](orchestration.md#pipeline-outputs).
 
 ## Core Semantics
 

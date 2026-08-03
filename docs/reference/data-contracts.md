@@ -28,22 +28,27 @@ has a separate allowlisted exporter.
 
 Schema: `polymarket_wc2026_marts`
 
-| Relation | Grain | Contract |
-| --- | --- | --- |
-| `polymarket_wc2026_markets` | One row per `market_id` | Platform-wide Polymarket market catalog: every Gamma market with reported volume at or above $100,000 USD from `scripts/sync_polymarket_markets_catalog.py` (`GET /markets/keyset` with `volume_num_min`; open + closed; no tag/registry filter), including reported USD `volume`. `start_time` is nulled when Gamma reports a start after `end_time`. Metadata only; not an odds mart. Distinct from `int_polymarket_wc2026_markets` ($5,000 registry-scoped intermediate) and from strategy `wc2026_venue_markets`. |
-| `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Progression-side token working set for knockout-related markets at or above the WC2026 pipeline policy volume floor, including explicit price semantics. |
-| `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, result metadata, and price semantics. |
-| `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
-| `polymarket_wc2026_logical_events` | One row per `event_id` | Reviewed event admission, sticky event-volume eligibility, scope, fixture mapping, and constraint metadata. Included ever-eligible events require a source `event_created_at`; missing creation time fails publication rather than substituting `first_seen_at`. |
-| `polymarket_wc2026_logical_markets` | One row per `market_id` | Complete current child inventory from each admitted event's latest complete catalog observation, including independently quarantined malformed/tokenless markets. |
-| `polymarket_wc2026_logical_market_events` | One row per `(market_id, event_id)` | Current qualifying event memberships from each event's latest complete catalog observation and exactly one deterministic primary event per market. Historical raw membership snapshots remain append-only. |
-| `polymarket_wc2026_logical_propositions` | One row per `source_proposition_id` | Typed source outcomes, predicates, polarity, bounds, score/handicap semantics, and conservative constraints. |
-| `polymarket_wc2026_logical_entities` | One row per `entity_id` | Canonical team, player, fixture, group, stage, award, and tournament entities. |
-| `polymarket_wc2026_logical_proposition_entities` | One row per `(source_proposition_id, entity_id, entity_role)` | Typed proposition/entity relationships. Every proposition also references its mapped fixture, fixture group when present, and canonical stage or tournament context, independent of predicate shape. |
-| `polymarket_wc2026_logical_scopes` | One row per `scope_id` | Tournament, stage, group, fixture, and award scope hierarchy. |
-| `polymarket_wc2026_match_minute_odds` | One row per `(odds_minute_utc, market_id)` | Dense in-game minute OHLC for 216 group moneyline markets and 32 knockout advance/win markets across FIFA match IDs 1–104. |
-| `polymarket_wc2026_match_order_book` | One row per `(fifa_match_id, market_id, clob_token_id, snapshot_timestamp_ms, snapshot_sha256, book_side, level_rank)` | Every bid and ask level from every PMXT historical L2 snapshot in the reviewed Argentina–Egypt match-95 market window. |
-| `polymarket_wc2026_polygon_settlement_minute_odds` | One row per `(proposition_id, settlement_minute_utc)` | Finalized Polygon V2 settlement-time OHLC/VWAP over fixed half-open scheduled windows; exactly 39,120 dense rows. |
+| Relation | Grain | Pipeline | Contract |
+| --- | --- | --- | --- |
+| `polymarket_wc2026_markets` | One row per `market_id` | Polymarket WC2026 | Platform-wide Polymarket market catalog: every Gamma market with reported volume at or above $100,000 USD from `scripts/sync_polymarket_markets_catalog.py` (`GET /markets/keyset` with `volume_num_min`; open + closed; no tag/registry filter), including reported USD `volume`. `start_time` is nulled when Gamma reports a start after `end_time`. Metadata only; not an odds mart. Distinct from `int_polymarket_wc2026_markets` ($5,000 registry-scoped intermediate) and from strategy `wc2026_venue_markets`. |
+| `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Polymarket WC2026 | Progression-side token working set for knockout-related markets at or above the WC2026 pipeline policy volume floor, including explicit price semantics. |
+| `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Polymarket WC2026 | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, result metadata, and price semantics. |
+| `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Polymarket WC2026 | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
+| `polymarket_wc2026_logical_events` | One row per `event_id` | Polymarket WC2026 | Reviewed event admission, sticky event-volume eligibility, scope, fixture mapping, and constraint metadata. Included ever-eligible events require a source `event_created_at`; missing creation time fails publication rather than substituting `first_seen_at`. |
+| `polymarket_wc2026_logical_markets` | One row per `market_id` | Polymarket WC2026 | Complete current child inventory from each admitted event's latest complete catalog observation, including independently quarantined malformed/tokenless markets. |
+| `polymarket_wc2026_logical_market_events` | One row per `(market_id, event_id)` | Polymarket WC2026 | Current qualifying event memberships from each event's latest complete catalog observation and exactly one deterministic primary event per market. Historical raw membership snapshots remain append-only. |
+| `polymarket_wc2026_logical_propositions` | One row per `source_proposition_id` | Polymarket WC2026 | Typed source outcomes, predicates, polarity, bounds, score/handicap semantics, and conservative constraints. |
+| `polymarket_wc2026_logical_entities` | One row per `entity_id` | Polymarket WC2026 | Canonical team, player, fixture, group, stage, award, and tournament entities. |
+| `polymarket_wc2026_logical_proposition_entities` | One row per `(source_proposition_id, entity_id, entity_role)` | Polymarket WC2026 | Typed proposition/entity relationships. Every proposition also references its mapped fixture, fixture group when present, and canonical stage or tournament context, independent of predicate shape. |
+| `polymarket_wc2026_logical_scopes` | One row per `scope_id` | Polymarket WC2026 | Tournament, stage, group, fixture, and award scope hierarchy. |
+| `polymarket_wc2026_match_minute_odds` | One row per `(odds_minute_utc, market_id)` | Match-minute odds | Dense in-game minute OHLC for 216 group moneyline markets and 32 knockout advance/win markets across FIFA match IDs 1–104. |
+| `polymarket_wc2026_match_order_book` | One row per `(fifa_match_id, market_id, clob_token_id, snapshot_timestamp_ms, snapshot_sha256, book_side, level_rank)` | Match order book; market portrait | Every bid and ask level from every PMXT historical L2 snapshot in the reviewed Argentina–Egypt match-95 market window. |
+| `polymarket_wc2026_polygon_settlement_minute_odds` | One row per `(proposition_id, settlement_minute_utc)` | Polygon settlement history | Finalized Polygon V2 settlement-time OHLC/VWAP over fixed half-open scheduled windows; exactly 39,120 dense rows. |
+
+`polymarket_wc2026_match_order_book_states` and `polymarket_wc2026_match_trades`
+are additional `polymarket_wc2026_marts` tables built only by the market-portrait
+pipeline as bundle inputs; they are not independently documented contracts. See
+[Market portrait](market-portrait.md).
 
 ### Portable logical-v1 physical contract
 
@@ -392,19 +397,19 @@ control the local artifact and remain responsible for their inputs and outputs.
 
 Schema: `international_results_wc2026_marts`
 
-| Relation | Grain | Contract |
-| --- | --- | --- |
-| `international_results_wc2026_matches` | One row per `match_id` | Clean WC2026 FIFA World Cup fixture/result rows from `martj42/international_results`, including stage, status, score, inferred knockout advancer metadata, and immutable source revision/hash provenance. |
-| `international_results_wc2026_team_status` | One row per `team_name` | Canonical 48-team WC2026 roster and current tournament status derived from fixture/result rows. |
+| Relation | Grain | Pipeline | Contract |
+| --- | --- | --- | --- |
+| `international_results_wc2026_matches` | One row per `match_id` | Shared (Polymarket WC2026, Kalshi WC2026, match-minute odds) | Clean WC2026 FIFA World Cup fixture/result rows from `martj42/international_results`, including stage, status, score, inferred knockout advancer metadata, and immutable source revision/hash provenance. |
+| `international_results_wc2026_team_status` | One row per `team_name` | Shared (Polymarket WC2026, Kalshi WC2026) | Canonical 48-team WC2026 roster and current tournament status derived from fixture/result rows. |
 
 Schema: `kalshi_wc2026_marts`
 
-| Relation | Grain | Contract |
-| --- | --- | --- |
-| `kalshi_wc2026_stage_markets` | One row per `market_ticker` | Latest stage-of-elimination market snapshot with team/stage classification, progression-side pricing, and current-price status. |
-| `kalshi_wc2026_stage_market_hourly_odds` | One row per `(market_ticker, odds_hour_epoch)` | Trailing contract-window hourly OHLC odds for stage markets joined to classified metadata. |
-| `kalshi_wc2026_group_winner_markets` | One row per `market_ticker` | Latest group-winner market snapshot with team classification and current-price status. |
-| `kalshi_wc2026_group_winner_market_hourly_odds` | One row per `(market_ticker, odds_hour_epoch)` | Trailing contract-window hourly OHLC odds for group-winner markets. |
+| Relation | Grain | Pipeline | Contract |
+| --- | --- | --- | --- |
+| `kalshi_wc2026_stage_markets` | One row per `market_ticker` | Kalshi WC2026 | Latest stage-of-elimination market snapshot with team/stage classification, progression-side pricing, and current-price status. |
+| `kalshi_wc2026_stage_market_hourly_odds` | One row per `(market_ticker, odds_hour_epoch)` | Kalshi WC2026 | Trailing contract-window hourly OHLC odds for stage markets joined to classified metadata. |
+| `kalshi_wc2026_group_winner_markets` | One row per `market_ticker` | Kalshi WC2026 | Latest group-winner market snapshot with team classification and current-price status. |
+| `kalshi_wc2026_group_winner_market_hourly_odds` | One row per `(market_ticker, odds_hour_epoch)` | Kalshi WC2026 | Trailing contract-window hourly OHLC odds for group-winner markets. |
 
 ## Health And Observability
 

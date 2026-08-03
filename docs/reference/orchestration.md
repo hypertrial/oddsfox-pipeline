@@ -32,6 +32,36 @@ Supporting ingestion jobs (`international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`) feed WC2026 production
 pipelines but are not separate product pipelines.
 
+## Pipeline outputs
+
+Marts are defined once in [Data contracts](data-contracts.md#documented-marts);
+this list maps each pipeline to what it builds.
+
+- **Polymarket WC2026** (`polymarket_wc2026_full_pipeline`): four knockout marts
+  (`polymarket_wc2026_markets`, `polymarket_wc2026_knockout_market_tokens`,
+  `polymarket_wc2026_knockout_markets`, `polymarket_wc2026_knockout_token_hourly_odds`)
+  and seven `polymarket_wc2026_logical_*` marts (the `polymarket-wc2026-logical-v1`
+  bundle). Rebuilds the shared `international_results_wc2026_matches` and
+  `international_results_wc2026_team_status` marts as inputs.
+- **Kalshi WC2026** (`kalshi_wc2026_full_pipeline`): `kalshi_wc2026_stage_markets`,
+  `kalshi_wc2026_stage_market_hourly_odds`, `kalshi_wc2026_group_winner_markets`,
+  `kalshi_wc2026_group_winner_market_hourly_odds`. Rebuilds the same shared
+  `international_results_wc2026_*` marts.
+- **Polygon settlement history** (`polymarket_wc2026_polygon_settlement_backfill`):
+  `polymarket_wc2026_polygon_settlement_minute_odds`. The `_release` job and
+  standalone exporter read this mart to write audit/export artifact bundles;
+  they build no additional mart.
+- **Match-minute odds** (`polymarket_wc2026_match_minute_odds_backfill`):
+  `polymarket_wc2026_match_minute_odds`. Rebuilds the shared
+  `international_results_wc2026_matches` mart as an input.
+- **Match order book** (`polymarket_wc2026_match_order_book_backfill`):
+  `polymarket_wc2026_match_order_book`.
+- **Market portrait** (`polymarket_wc2026_market_portrait_backfill`): no
+  documented mart. Builds `polymarket_wc2026_match_order_book` (shared with the
+  match order book pipeline), `polymarket_wc2026_match_order_book_states`, and
+  `polymarket_wc2026_match_trades` as bundle inputs to
+  `oddsfox.market-portrait.v1`. See [Market portrait](market-portrait.md).
+
 ## Asset order
 
 1. `polymarket/wc2026/raw/markets`
