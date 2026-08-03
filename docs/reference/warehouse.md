@@ -33,9 +33,9 @@ Schema: `polymarket_catalog_raw`
 Schema: `polymarket_wc2026_raw`
 
 - `event_market_payload_snapshots`: append-only Gamma child-market metadata at
-  `(market_id, observed_at)` grain. The logical atlas reads its latest staging
-  view; the dlt-owned `markets` table remains exclusive to the existing odds
-  ingestion path.
+  `(market_id, observed_at)` grain. Market scope registry refresh uses the shared
+  event-catalog ingestion path; the dlt-owned `markets` table remains exclusive
+  to the existing odds ingestion path.
 - `markets`: dlt-owned Gamma market landing table with frozen column/type contract.
 - `market_tokens`: one row per market with CLOB token JSON; current batches are
   extracted from the same Gamma payload as `markets` and finalized into this

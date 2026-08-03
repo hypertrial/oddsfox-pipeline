@@ -90,7 +90,6 @@ running Dagster/dbt writer.
 | Polymarket market catalog (metadata, ≥$100k) | `polymarket_wc2026_marts.polymarket_wc2026_markets` | Platform-wide Gamma markets after `sync_polymarket_markets_catalog.py`; not odds. |
 | Current WC2026 Polymarket progression prices | `polymarket_wc2026_marts.polymarket_wc2026_knockout_markets` | Filter to `is_actionable_live_market` for current live use. |
 | WC2026 Polymarket progression hourly series | `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` | One row per `clob_token_id`, `odds_hour_epoch`. Prices are normalized to progression. |
-| WC2026 logical atlas inventory | `polymarket_wc2026_marts.polymarket_wc2026_logical_markets` | Join the other six `polymarket_wc2026_logical_*` marts or consume the versioned seven-file bundle; see the [atlas runbook](build-wc2026-logical-atlas.md). |
 | WC2026 in-game match minutes | `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds` | Dense minute series for all 104 matches; requires the match-minute path, not ordinary hourly ingest alone. |
 | Argentina–Egypt historical L2 depth | `polymarket_wc2026_marts.polymarket_wc2026_match_order_book` | Long-form independent bid/ask levels for both PMXT outcome-token snapshot streams; requires the unscheduled PMXT backfill. |
 | WC2026 fixtures and results | `international_results_wc2026_marts.international_results_wc2026_matches` | One row per `match_id`, with knockout advancer inference. |

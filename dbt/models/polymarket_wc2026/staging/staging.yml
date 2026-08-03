@@ -1,26 +1,5 @@
 version: 2
 models:
-- name: stg_polymarket_wc2026_event_market_payload_snapshots
-  description: >
-    Append-only child-market payloads captured with each converged event-catalog
-    observation; logical models select the latest payload per market.
-  tests:
-  - no_duplicate_grain:
-      arguments:
-        grain_columns: [market_id, observed_at]
-  columns:
-  - name: market_id
-    description: Polymarket child-market identifier.
-    tests: [not_null]
-  - name: observed_at
-    description: Shared event-catalog observation timestamp.
-    tests: [not_null]
-- name: stg_polymarket_wc2026_event_market_payload_latest
-  description: Latest event-catalog payload per child market for the current logical atlas.
-  columns:
-  - name: market_id
-    description: Polymarket child-market identifier.
-    tests: [not_null, unique]
 - name: stg_polymarket_wc2026_markets
   description: Normalized market metadata from raw Gamma API landing with stable snake_case
     field names.

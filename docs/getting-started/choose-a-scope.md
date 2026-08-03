@@ -6,7 +6,7 @@ scope selectors.
 
 | Scope | Source | Public output | Credentials |
 | --- | --- | --- | --- |
-| `polymarket:wc2026` | Polymarket Gamma/CLOB plus FIFA results | Knockout snapshots, progression odds, logical atlas, schedule fixtures, and team status | Optional for public pipelines |
+| `polymarket:wc2026` | Polymarket Gamma/CLOB plus FIFA results | Knockout snapshots, progression odds, schedule fixtures, and team status | Optional for public pipelines |
 | `kalshi:wc2026` | Kalshi public trade API plus FIFA results | Stage-of-elimination and group-winner snapshots and hourly odds | None |
 
 The manual WC2026 Polygon settlement-history pipeline is not a third

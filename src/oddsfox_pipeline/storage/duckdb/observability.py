@@ -334,14 +334,6 @@ def _infer_dbt_model_tags(schema: str, model: str) -> frozenset[str]:
         or model.startswith("stg_polymarket_wc2026_match_order_book")
     ):
         tags.add("pmxt_order_book")
-    if (
-        "logical" in model
-        or model.startswith("int_polymarket_wc2026_event")
-        or model.startswith("int_polymarket_wc2026_fixture")
-        or model == "polymarket_wc2026_logical_contract"
-        or model == "polymarket_wc2026_event_membership_overrides"
-    ):
-        tags.add("wc2026_logical_atlas")
     return frozenset(tags)
 
 

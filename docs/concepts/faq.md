@@ -7,7 +7,7 @@
 | Query an existing warehouse | [Analysts](../audiences/analysts.md) |
 | Run or maintain the pipeline | [Operators](../audiences/operators.md) |
 | Change code or dbt | [Contributors](../audiences/contributors.md) |
-| Consume marts / logical-v1 bundle downstream | [Integrators](../audiences/integrators.md) |
+| Consume marts downstream | [Integrators](../audiences/integrators.md) |
 
 ## Is there a hosted OddsFox Pipeline dataset or API?
 
@@ -72,7 +72,7 @@ Ordinary Polymarket/Kalshi WC2026 marts do not depend on it.
 
 ## How do pipeline outputs relate to trading?
 
-Pipeline marts and the logical-v1 bundle are analytics outputs. Order execution
+Pipeline marts are analytics outputs. Order execution
 is a separate concern in `oddsfox-execution`. See
 [System overview](system-overview.md) and [Integration](integration.md).
 

@@ -1,4 +1,4 @@
-{{ config(tags=['wc2026_logical_atlas']) }}
+{{ config(tags=['openfootball', 'match_minute']) }}
 
 with expected as (
     select cast(range as integer) as fifa_match_id

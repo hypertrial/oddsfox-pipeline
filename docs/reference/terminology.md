@@ -67,8 +67,8 @@ pipeline**, **OddsFox Pipeline**. Jobs named `*_full_pipeline` remain valid.
 
 Entry-point jobs (`*_full_pipeline`, or the sole job for single-job isolated
 pipelines such as Polygon settlement) are pipelines. Narrower jobs such as
-`*_dbt_build`, `*_market_scope_registry_refresh`, `*_hourly_odds_ingest`, and
-`*_logical_atlas` run one step of a pipeline, not a separate pipeline. See the
+`*_dbt_build`, `*_market_scope_registry_refresh`, and `*_hourly_odds_ingest` run
+one step of a pipeline, not a separate pipeline. See the
 [Pipeline registry](orchestration.md#pipeline-registry) for the full inventory
 and maturity tiers.
 
@@ -165,8 +165,6 @@ Concrete contract IDs live in local docs:
 - Mart contracts → [Data contracts](data-contracts.md)
 - Strategy contract `wc2026.v1` and raw snapshot contract `oddsfox.raw.v1` →
   [Strategy contracts](strategy-contracts.md)
-- Logical bundle `polymarket-wc2026-logical-v1` →
-  [Build the WC2026 logical atlas](../guides/build-wc2026-logical-atlas.md)
 
 Internal threshold seeds (`*_pipeline_policy`) are naming/configuration, not
 a separate ontology term.
@@ -177,7 +175,6 @@ a separate ontology term.
 | --- | --- |
 | Scope reference, namespace, pipeline-policy seed names | [Naming](naming.md) |
 | API fidelity, threshold windows | [Configuration](configuration.md) |
-| Logical atlas, atlas nodes, membership review, oddsfox-graph | [Logical atlas runbook](../guides/build-wc2026-logical-atlas.md) |
 | Raw layer / raw snapshot collector format | [Strategy contracts](strategy-contracts.md), [Warehouse](warehouse.md) |
 | Analyst column shortcuts | [Glossary](../concepts/glossary.md) |
 
@@ -187,13 +184,11 @@ These names stay as written:
 
 - Product and package: `OddsFox Pipeline`, `oddsfox_pipeline`, `oddsfox-pipeline`
 - Library API: `dlt.pipeline`
-- External product: `oddsfox-graph`
 - Qualified tooling: `dbt graph`, `asset graph`
 - Vendor fields: Gamma `game_id`, `game_start_time`, and similar upstream columns
 - Test infrastructure: “test fixture”, pytest fixtures
 - Ops telemetry table: `sync_run_metrics`
 - Released CHANGELOG history (do not rewrite old release notes)
-- Logical-v1 physical names (`logical_scopes`, `scope_id`, bundle relation keys)
 - Historical filesystem roles already documented for Polygon audit bundles
 
 ## Deprecated phrases
@@ -202,8 +197,8 @@ These names stay as written:
 | --- | --- |
 | flow (product path) | pipeline |
 | minutely | minute-grain / match-minute |
-| graph odds / graph export / graph bundle | logical atlas / logical bundle (runbook) |
-| graph contract (internal) | logical contract |
+| graph odds / graph export / graph bundle | retired logical-atlas export surface |
+| graph contract (internal) | mart contract |
 | universe / market universe / token universe | working set |
 | Dagster job (general prose) | job |
 | public mart | mart + [Data contracts](data-contracts.md) |
@@ -212,9 +207,7 @@ These names stay as written:
 | metadata backfill (non-historical) | metadata enrichment |
 | pipeline run events (ops telemetry) | ingestion run events |
 | sync run observability | ingestion run observability |
-| scope class (review taxonomy) | membership class |
 | knockout fixtures (OpenFootball 1–104) | schedule fixtures |
-| `int_wc2026_knockout_fixtures` | `advancement_fixtures` CTE (`int_polymarket_wc2026_fixture_events`, `int_polymarket_wc2026_match_working_set`) |
 | ScopeStep `market_registry` | ScopeStep `market_scope_registry` |
 | `publish_current` (symlink repoint) | `activate_current` |
 
@@ -225,4 +218,3 @@ These names stay as written:
 - [Orchestration](orchestration.md)
 - [Data contracts](data-contracts.md)
 - [Strategy contracts](strategy-contracts.md)
-- [Build the WC2026 logical atlas](../guides/build-wc2026-logical-atlas.md)

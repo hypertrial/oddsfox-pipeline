@@ -29,9 +29,7 @@ from oddsfox_pipeline.orchestration.assets_polymarket import (
     polymarket_wc2026_raw_markets,
     polymarket_wc2026_raw_markets_snapshot,
     polymarket_wc2026_raw_match_token_odds_history_minute,
-    polymarket_wc2026_raw_reviewed_event_membership,
     polymarket_wc2026_raw_token_odds_history_hourly,
-    polymarket_wc2026_release_logical_bundle,
 )
 from oddsfox_pipeline.orchestration.dbt_project import (
     DBT_DAGSTER_GROUP_NAME,
@@ -54,8 +52,6 @@ __all__ = [
     "oddsfox_dbt",
     "polymarket_wc2026_raw_market_metadata_enrichment",
     "polymarket_wc2026_raw_event_catalog",
-    "polymarket_wc2026_raw_reviewed_event_membership",
-    "polymarket_wc2026_release_logical_bundle",
     "polymarket_wc2026_raw_markets",
     "polymarket_wc2026_raw_markets_snapshot",
     "polymarket_wc2026_raw_match_token_odds_history_minute",

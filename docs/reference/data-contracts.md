@@ -34,13 +34,6 @@ Schema: `polymarket_wc2026_marts`
 | `polymarket_wc2026_knockout_market_tokens` | One row per `clob_token_id` | Polymarket WC2026 | Progression-side token working set for knockout-related markets at or above the WC2026 pipeline policy volume floor, including explicit price semantics. |
 | `polymarket_wc2026_knockout_markets` | One row per `clob_token_id` | Polymarket WC2026 | Latest progression-side knockout snapshot with market, team, stage, explicit market/price status, volume, result metadata, and price semantics. |
 | `polymarket_wc2026_knockout_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Polymarket WC2026 | Trailing 30-day hourly OHLC odds for progression-side knockout tokens, including live/historical status metadata and price semantics. |
-| `polymarket_wc2026_logical_events` | One row per `event_id` | Polymarket WC2026 | Reviewed event admission, sticky event-volume eligibility, scope, fixture mapping, and constraint metadata. Included ever-eligible events require a source `event_created_at`; missing creation time fails publication rather than substituting `first_seen_at`. |
-| `polymarket_wc2026_logical_markets` | One row per `market_id` | Polymarket WC2026 | Complete current child inventory from each admitted event's latest complete catalog observation, including independently quarantined malformed/tokenless markets. |
-| `polymarket_wc2026_logical_market_events` | One row per `(market_id, event_id)` | Polymarket WC2026 | Current qualifying event memberships from each event's latest complete catalog observation and exactly one deterministic primary event per market. Historical raw membership snapshots remain append-only. |
-| `polymarket_wc2026_logical_propositions` | One row per `source_proposition_id` | Polymarket WC2026 | Typed source outcomes, predicates, polarity, bounds, score/handicap semantics, and conservative constraints. |
-| `polymarket_wc2026_logical_entities` | One row per `entity_id` | Polymarket WC2026 | Canonical team, player, fixture, group, stage, award, and tournament entities. |
-| `polymarket_wc2026_logical_proposition_entities` | One row per `(source_proposition_id, entity_id, entity_role)` | Polymarket WC2026 | Typed proposition/entity relationships. Every proposition also references its mapped fixture, fixture group when present, and canonical stage or tournament context, independent of predicate shape. |
-| `polymarket_wc2026_logical_scopes` | One row per `scope_id` | Polymarket WC2026 | Tournament, stage, group, fixture, and award scope hierarchy. |
 | `polymarket_wc2026_match_minute_odds` | One row per `(odds_minute_utc, market_id)` | Match-minute odds | Dense in-game minute OHLC for 216 group moneyline markets and 32 knockout advance/win markets across FIFA match IDs 1–104. |
 | `polymarket_wc2026_match_order_book` | One row per `(fifa_match_id, market_id, clob_token_id, snapshot_timestamp_ms, snapshot_sha256, book_side, level_rank)` | Match order book; market portrait | Every bid and ask level from every PMXT historical L2 snapshot in the reviewed Argentina–Egypt match-95 market window. |
 | `polymarket_wc2026_polygon_settlement_minute_odds` | One row per `(proposition_id, settlement_minute_utc)` | Polygon settlement history | Finalized Polygon V2 settlement-time OHLC/VWAP over fixed half-open scheduled windows; exactly 39,120 dense rows. |
@@ -49,44 +42,6 @@ Schema: `polymarket_wc2026_marts`
 are additional `polymarket_wc2026_marts` tables built only by the market-portrait
 pipeline as bundle inputs; they are not independently documented contracts. See
 [Market portrait](market-portrait.md).
-
-### Portable logical-v1 physical contract
-
-The seven `polymarket_wc2026_logical_*` relations export together as
-`polymarket-wc2026-logical-v1`. File names and column order are immutable within
-version 1 and are validated by
-`scripts/export_polymarket_wc2026_logical_bundle.py`. Every Parquet field is
-nullable so an unavailable source value remains distinct from an invented
-default.
-
-- `BIGINT`: `fifa_match_id`, `source_ordinal`, `outcome_index`,
-  `predicate_stage_rank`, `score_home`, `score_away`, and `stage_rank`.
-- `DOUBLE`: reported event/market volume, `line`, `normalized_threshold`,
-  `interval_lower`, `interval_upper`, `threshold_value`, and `handicap_value`.
-- `TIMESTAMP WITH TIME ZONE`: `event_volume_observed_at`, `first_seen_at`,
-  `first_eligible_observed_at`, `eligibility_effective_from`,
-  `event_created_at`, `start_at`, `end_at`, and `finished_at`.
-- Source and derived flags are `BOOLEAN`.
-- Market-level entity role columns `subject_entity_ids`,
-  `participant_entity_ids`, `player_national_team_entity_ids`, and
-  `referenced_entity_ids` are sorted, deduplicated `VARCHAR[]` values. They
-  preserve identities provable from reviewed market/context metadata even when
-  an invalid outcomes payload yields no propositions; every ID references
-  `entities.parquet`.
-- Every other field is `VARCHAR`, including `group_item_threshold`, so the
-  original threshold spelling is not silently coerced.
-
-Consumers must reject missing/extra files, reordered or retyped fields, hash
-mismatches, unsupported contract/taxonomy versions, and `temporal_odds` values
-other than `false`. See the
-[logical-atlas runbook](../guides/build-wc2026-logical-atlas.md) for admission,
-review, publication, and rollback.
-
-Version 1 contains no price observations. The reserved grain for a future
-temporal graph observation is
-`(logical_proposition_id, clob_token_id, observed_at)`. A future contract must
-preserve both logical/source-token identity and observation time rather than
-attaching mutable latest odds directly to static nodes.
 
 The match-minute contract contains 248 markets and 496 source tokens. Group
 rows preserve each binary market's literal Yes and No tokens for `home_win`,
@@ -484,13 +439,7 @@ Schema: `kalshi_wc2026_marts`
   World Cup fixture/result source and is included in the Polymarket WC2026 full pipeline.
 - `polymarket_wc2026_knockout_token_hourly_odds` remains the public
   progression-side export for downstream knockout probability views.
-- The complete seven-file `polymarket-wc2026-logical-v1` bundle is the portable
-  Graph input. Its manifest binds the exact schemas, event-volume admission
-  policy, scan inventories, input hashes, file hashes, row counts, quality
-  checks, and topology/semantic/source fingerprints. The bundle is static and
-  declares `temporal_odds=false`.
-- Raw hourly collection is a separate legacy temporal-foundation branch; the
-  logical catalog does not widen its market registry. An existing
+- Raw hourly collection is a separate temporal-foundation branch. An existing
   `(clobTokenId, timestamp)` point is not overwritten on replay. The trailing
   30-day dbt odds views are presentation windows, not retention guarantees.
 - `scripts/prune_odds_history.py` permanently exempts observations from

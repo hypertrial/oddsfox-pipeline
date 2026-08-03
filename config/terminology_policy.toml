@@ -39,7 +39,6 @@ exclude_prefixes = [
   "dbt/target/",
   "dbt/dbt_packages/",
   "tests/fixtures/cassettes/",
-  "tests/fixtures/polymarket_wc2026_logical_v1/",
   "tests/support/terminology_policy.py",
   "tests/repository/test_terminology_policy.py",
   "config/terminology_policy.toml",
@@ -54,7 +53,6 @@ literals = [
   "OddsFox Pipeline",
   "oddsfox_pipeline",
   "oddsfox-pipeline",
-  "oddsfox-graph",
   "dlt.pipeline",
   "dbt graph",
   "asset graph",
@@ -92,16 +90,11 @@ terms = ["contract"]
 "API fidelity" = "docs/reference/configuration.md"
 "wc2026.v1" = "docs/reference/strategy-contracts.md"
 "oddsfox.raw.v1" = "docs/reference/strategy-contracts.md"
-"polymarket-wc2026-logical-v1" = "docs/guides/build-wc2026-logical-atlas.md"
-"logical atlas" = "docs/guides/build-wc2026-logical-atlas.md"
-"membership class" = "docs/guides/build-wc2026-logical-atlas.md"
-"atlas node" = "docs/guides/build-wc2026-logical-atlas.md"
 
 [structural]
 extension_jobs = [
   "international_results_historical_ingest",
   "international_results_wc2026_match_results_ingest",
-  "polymarket_wc2026_logical_atlas",
   "polymarket_wc2026_match_minute_odds_backfill",
   "polymarket_wc2026_match_order_book_backfill",
   "polymarket_wc2026_market_portrait_backfill",
@@ -110,7 +103,6 @@ extension_jobs = [
 ]
 critical_asset_keys = [
   ["polymarket", "wc2026", "ops", "market_scope_registry"],
-  ["polymarket", "wc2026", "release", "logical_bundle"],
   ["polymarket", "wc2026", "marts", "knockout_token_hourly_odds"],
   ["polymarket", "wc2026", "marts", "match_minute_odds"],
   ["kalshi", "wc2026", "ops", "market_scope_registry"],
@@ -124,32 +116,37 @@ critical_asset_keys = [
 [[retired.identifier]]
 id = "retired_graph_export_product"
 pattern = '''\bgraph export\b|\bgraph_export\b|graph_token_hourly|graph_hourly'''
-prefer = "logical-v1 bundle / polymarket-wc2026-logical-v1"
+prefer = "documented marts / knockout marts"
 
 [[retired.identifier]]
 id = "ambiguous_graph_bundle"
 pattern = '''\bgraph bundle\b'''
-prefer = "logical-v1 bundle"
+prefer = "documented mart surfaces"
 
 [[retired.identifier]]
 id = "internal_graph_contract_identifier"
 pattern = '''\bgraph_contract\b|polymarket_wc2026_graph_contract'''
-prefer = "polymarket_wc2026_logical_contract"
+prefer = "polymarket_wc2026_pipeline_policy"
 
 [[retired.identifier]]
 id = "intermediate_graph_model_names"
 pattern = '''int_polymarket_wc2026_graph_(markets|market_events)'''
-prefer = "int_polymarket_wc2026_logical_*"
+prefer = "int_polymarket_wc2026_markets"
+
+[[retired.identifier]]
+id = "retired_logical_atlas_identifiers"
+pattern = '''\b(?:polymarket_wc2026_logical_\w+|int_polymarket_wc2026_logical_\w+|polymarket-wc2026-logical-v1|wc2026_logical_atlas|polymarket_wc2026_logical_atlas|release/logical_bundle|logical_bundle_export|export_polymarket_wc2026_logical_bundle|build_hosted_artifacts|reviewed_event_membership|ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH)\b'''
+prefer = "retired logical-atlas surface (removed)"
 
 [[retired.identifier]]
 id = "retired_logical_eligibility_flags"
-pattern = '''\b(is_graph_event|event_graph_eligible|graph_usable|graph_usable_market_count|graph_market_count|graph_event_volume_min_usd)\b'''
-prefer = "is_logical_event / event_logical_eligible / logical_usable / logical_*"
+pattern = '''\b(is_graph_event|event_graph_eligible|graph_usable|graph_usable_market_count|graph_market_count|graph_event_volume_min_usd|is_logical_event|event_logical_eligible|logical_usable)\b'''
+prefer = "knockout classification / pipeline_policy thresholds"
 
 [[retired.identifier]]
 id = "retired_schedule_fixture_names"
 pattern = '''stg_openfootball_wc2026_knockout_fixtures|openfootball_wc2026_raw_knockout_fixtures|openfootball/wc2026/(raw|staging)/knockout_fixtures|ingestion/openfootball/knockout_fixtures\.py|int_wc2026_knockout_fixtures|assert_wc2026_knockout_fixture_set_complete'''
-prefer = "schedule_fixtures / advancement_fixtures CTE (int_polymarket_wc2026_fixture_events, int_polymarket_wc2026_match_working_set)"
+prefer = "schedule_fixtures / int_polymarket_wc2026_match_working_set"
 
 [[retired.identifier]]
 id = "retired_scope_registry_module"
@@ -169,7 +166,7 @@ prefer = 'ScopeStep "market_scope_registry"'
 [[retired.identifier]]
 id = "retired_membership_scope_class"
 pattern = '''\bscope_class\b'''
-prefer = "membership_class"
+prefer = "market_scope_registry / market catalog review fields"
 
 [[retired.identifier]]
 id = "retired_metadata_backfill_asset"
@@ -220,7 +217,7 @@ prefer = "activate_current / --no-activate"
 [[retired.prose]]
 id = "retired_scope_class_phrase"
 pattern = '''\bscope class\b'''
-prefer = "membership class"
+prefer = "review taxonomy (retired logical-atlas surface)"
 
 [[retired.prose]]
 id = "retired_market_universe_phrase"

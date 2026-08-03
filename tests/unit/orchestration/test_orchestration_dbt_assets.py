@@ -616,7 +616,7 @@ def test_stream_dbt_build_appends_full_refresh_flag():
             "build",
             "--full-refresh",
             "--exclude",
-            "tag:polygon_settlement tag:pmxt_order_book tag:wc2026_logical_atlas",
+            "tag:polygon_settlement tag:pmxt_order_book",
         ]
     ]
 
@@ -759,7 +759,7 @@ def test_stream_dbt_build_keeps_polygon_graph_opt_in_for_subset():
         [
             "build",
             "--exclude",
-            "tag:polygon_settlement tag:pmxt_order_book tag:wc2026_logical_atlas",
+            "tag:polygon_settlement tag:pmxt_order_book",
         ]
     ]
 

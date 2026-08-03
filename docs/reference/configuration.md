@@ -166,12 +166,6 @@ Python defaults are checked against those seeds in unit tests.
 scope source. The packaged seed contains `wc2026`, and the shipped jobs,
 assets, and dbt graphs are fixed per scope in v0.1.x.
 
-`ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH` must name the absolute path to the
-operator-reviewed logical-atlas membership CSV when running
-`polymarket_wc2026_logical_atlas` or the full pipeline. The same path can be
-supplied as the focused job's `reviewed_membership_path` op config. The tracked
-dbt membership seed is only a header-only schema shell.
-
 Polymarket scope helper code accepts any slug-like scope that exists in the
 seed file, which keeps tests and future adapter work seed-backed instead of
 hard-coded. That does not add a runtime scope selector.
@@ -228,8 +222,8 @@ Kalshi dbt mart currently classifies or publishes match-advance markets.
 
 ## dbt build defaults
 
-Scoped dbt jobs (`polymarket_wc2026_dbt_build`, `kalshi_wc2026_dbt_build`, and
-`polymarket_wc2026_logical_atlas`) ship with `full_refresh=False` in their
+Scoped dbt jobs (`polymarket_wc2026_dbt_build` and `kalshi_wc2026_dbt_build`)
+ship with `full_refresh=False` in their
 default Dagster run config. Routine runs therefore use dbt incremental
 materializations where defined. Override with `full_refresh=True` in Dagster run
 config when a one-off full rebuild is required.

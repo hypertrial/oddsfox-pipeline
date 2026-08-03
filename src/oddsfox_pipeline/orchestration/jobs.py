@@ -27,7 +27,6 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
-    polymarket_wc2026_logical_atlas_run_config,
     polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
@@ -152,12 +151,6 @@ POLYMARKET_WC2026_DBT_SELECTION = build_dbt_asset_selection(
     dbt_exclude=POLYMARKET_WC2026_SCOPE.dbt_exclude,
 )
 
-POLYMARKET_WC2026_LOGICAL_ATLAS_DBT_SELECTION = build_dbt_asset_selection(
-    [oddsfox_dbt],
-    dbt_select="+tag:wc2026_logical_atlas",
-    dbt_exclude="tag:polygon_settlement tag:pmxt_order_book",
-)
-
 _POLYMARKET_WC2026_MATCH_MINUTE_DBT_GRAPH = build_dbt_asset_selection(
     [oddsfox_dbt],
     dbt_select="+polymarket_wc2026_match_minute_odds",
@@ -205,30 +198,6 @@ INTERNATIONAL_RESULTS_HISTORICAL_SELECTION = AssetSelection.assets(
     asset_key(SOURCE_INTERNATIONAL_RESULTS, "historical", "raw", "snapshot"),
 )
 
-POLYMARKET_WC2026_LOGICAL_ATLAS_SELECTION = (
-    AssetSelection.assets(
-        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "event_catalog"),
-        asset_key(
-            SOURCE_POLYMARKET,
-            SCOPE_WC2026,
-            "raw",
-            "reviewed_event_membership",
-        ),
-        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "event_snapshots"),
-        asset_key(
-            SOURCE_POLYMARKET,
-            SCOPE_WC2026,
-            "raw",
-            "event_market_memberships",
-        ),
-    )
-    | OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION
-    | POLYMARKET_WC2026_LOGICAL_ATLAS_DBT_SELECTION
-    | AssetSelection.assets(
-        asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "release", "logical_bundle")
-    )
-)
-
 POLYMARKET_WC2026_MATCH_MINUTE_SELECTION = (
     INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION
     | OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION
@@ -252,7 +221,6 @@ POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
     | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
     | POLYMARKET_WC2026_HOURLY_ODDS_SELECTION
     | POLYMARKET_WC2026_DBT_SELECTION
-    | POLYMARKET_WC2026_LOGICAL_ATLAS_SELECTION
 )
 
 polymarket_wc2026_market_scope_registry_refresh = define_asset_job(
@@ -276,14 +244,6 @@ polymarket_wc2026_dbt_build = define_asset_job(
     selection=POLYMARKET_WC2026_DBT_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_dbt_build_run_config(),
-    tags=_POLYMARKET_WC2026_TAGS,
-)
-
-polymarket_wc2026_logical_atlas = define_asset_job(
-    "polymarket_wc2026_logical_atlas",
-    selection=POLYMARKET_WC2026_LOGICAL_ATLAS_SELECTION,
-    executor_def=_ANALYTICS_BUILD_EXECUTOR,
-    config=polymarket_wc2026_logical_atlas_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
 )
 
@@ -350,7 +310,6 @@ polymarket_wc2026_full_pipeline = define_asset_job(
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=_merge_run_configs(
         polymarket_wc2026_full_refresh_events_run_config(),
-        polymarket_wc2026_logical_atlas_run_config(),
         polymarket_wc2026_hourly_odds_run_config(),
         polymarket_wc2026_dbt_build_run_config(),
     ),

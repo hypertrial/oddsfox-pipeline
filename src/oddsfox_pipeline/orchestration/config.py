@@ -239,37 +239,9 @@ class DbtBuildConfig(GuardrailConfig):
     )
     full_refresh: bool = False
     dbt_select: str | None = None
-    dbt_exclude: str | None = (
-        "tag:polygon_settlement tag:pmxt_order_book tag:wc2026_logical_atlas"
-    )
+    dbt_exclude: str | None = "tag:polygon_settlement tag:pmxt_order_book"
     fetch_dbt_metadata: bool = False
     expected_duckdb_path: str | None = None
-
-
-class LogicalAtlasBundleConfig(Config):
-    """Optional filesystem publication for the logical-v1 Dagster asset."""
-
-    output_dir: str | None = None
-
-    @field_validator("output_dir")
-    @classmethod
-    def _validate_output_dir(cls, value: str | None) -> str | None:
-        if value is not None and not value.strip():
-            raise ValueError("output_dir must not be blank")
-        return value
-
-
-class ReviewedMembershipConfig(Config):
-    """Operator-local reviewed event-membership input."""
-
-    reviewed_membership_path: str | None = None
-
-    @field_validator("reviewed_membership_path")
-    @classmethod
-    def _validate_reviewed_membership_path(cls, value: str | None) -> str | None:
-        if value is not None and not value.strip():
-            raise ValueError("reviewed_membership_path must not be blank")
-        return value
 
 
 def polymarket_wc2026_dbt_build_run_config() -> dict:
@@ -279,38 +251,6 @@ def polymarket_wc2026_dbt_build_run_config() -> dict:
         dbt_exclude=POLYMARKET_WC2026_SCOPE.dbt_exclude,
     )
     return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}
-
-
-def polymarket_wc2026_logical_atlas_run_config(
-    *, reviewed_membership_path: str | None = None
-) -> dict:
-    """Refresh only the raw event catalog and logical-atlas dbt graph."""
-    registry_cfg = MarketScopeRegistryConfig(
-        force_refresh=True,
-        max_pages_without_progress=None,
-        keyset_volume_min=None,
-    )
-    dbt_cfg = DbtBuildConfig(
-        full_refresh=False,
-        dbt_select="+tag:wc2026_logical_atlas",
-        dbt_exclude="tag:polygon_settlement tag:pmxt_order_book",
-    )
-    return {
-        "ops": {
-            "polymarket_wc2026_raw_reviewed_event_membership": {
-                "config": ReviewedMembershipConfig(
-                    reviewed_membership_path=reviewed_membership_path
-                ).model_dump()
-            },
-            "polymarket_wc2026_raw_event_catalog": {
-                "config": registry_cfg.model_dump()
-            },
-            "oddsfox_dbt": {"config": dbt_cfg.model_dump()},
-            "polymarket_wc2026_release_logical_bundle": {
-                "config": LogicalAtlasBundleConfig().model_dump()
-            },
-        }
-    }
 
 
 def polymarket_wc2026_full_refresh_events_run_config() -> dict:

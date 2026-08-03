@@ -152,9 +152,6 @@ def bootstrap_polymarket_tables(
     event_market_payload_snapshots = polymarket_raw_tbl(
         scope_name, "event_market_payload_snapshots"
     )
-    reviewed_event_membership = polymarket_raw_tbl(
-        scope_name, "reviewed_event_membership"
-    )
     match_minute_audit = polymarket_ops_tbl(scope_name, "match_minute_odds_fetch_audit")
     conn.execute(
         f"""
@@ -234,24 +231,6 @@ def bootstrap_polymarket_tables(
                 f"ALTER TABLE {event_market_payload_snapshots} "
                 f"ADD COLUMN IF NOT EXISTS {column_definition}"
             )
-        conn.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {reviewed_event_membership} (
-                event_id TEXT PRIMARY KEY,
-                membership_status TEXT NOT NULL,
-                membership_class TEXT NOT NULL,
-                tournament_part TEXT NOT NULL,
-                membership_basis TEXT NOT NULL,
-                reason TEXT NOT NULL,
-                reviewed_by TEXT NOT NULL,
-                reviewed_at_utc TIMESTAMP NOT NULL,
-                source_sha256 TEXT NOT NULL CHECK (
-                    regexp_full_match(source_sha256, '[0-9a-f]{{64}}')
-                ),
-                loaded_at TIMESTAMP NOT NULL
-            )
-            """
-        )
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {oh} (

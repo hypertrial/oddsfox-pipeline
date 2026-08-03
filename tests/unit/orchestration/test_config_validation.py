@@ -6,7 +6,6 @@ from oddsfox_pipeline.orchestration.config import (
     DbtBuildConfig,
     GuardrailConfig,
     HourlyOddsSyncConfig,
-    LogicalAtlasBundleConfig,
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
     MatchOrderBookBackfillConfig,
@@ -14,7 +13,6 @@ from oddsfox_pipeline.orchestration.config import (
     OddsSyncConfig,
     PolygonSettlementReleaseConfig,
     PolygonSettlementSyncConfig,
-    ReviewedMembershipConfig,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
     polymarket_wc2026_polygon_settlement_release_run_config,
 )
@@ -85,20 +83,6 @@ def test_dbt_build_config_accepts_fixed_scope_selectors():
     assert cfg.dbt_select == "+tag:polymarket,tag:wc2026"
     assert cfg.dbt_exclude == "tag:kalshi"
     assert cfg.expected_duckdb_path is None
-
-
-def test_operator_input_paths_reject_blank_values():
-    assert LogicalAtlasBundleConfig().output_dir is None
-    assert ReviewedMembershipConfig().reviewed_membership_path is None
-
-    with pytest.raises(ValueError, match="output_dir"):
-        LogicalAtlasBundleConfig(output_dir=" ")
-    with pytest.raises(ValueError, match="output_dir"):
-        LogicalAtlasBundleConfig(output_dir="   ")
-    with pytest.raises(ValueError, match="reviewed_membership_path"):
-        ReviewedMembershipConfig(reviewed_membership_path="\t")
-    with pytest.raises(ValueError, match="reviewed_membership_path"):
-        ReviewedMembershipConfig(reviewed_membership_path="")
 
 
 def test_match_order_book_config_enforces_pmxt_limits():

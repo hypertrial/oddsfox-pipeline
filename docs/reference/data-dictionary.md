@@ -82,18 +82,6 @@ common mistakes.
 | Common joins | Join to hourly odds on `clob_token_id`; join to team status on `canonical_team_name`. |
 | Common mistakes | Expecting current prices here; use `polymarket_wc2026_knockout_markets` instead. |
 
-### `polymarket_wc2026_marts.polymarket_wc2026_logical_*`
-
-| Field | Analyst Guidance |
-| --- | --- |
-| Intended use | Static World Cup market inventory and explicit logical relationships for `oddsfox-graph` and analyst audits. |
-| Relations | `logical_events`, `logical_markets`, `logical_market_events`, `logical_propositions`, `logical_entities`, `logical_proposition_entities`, and `logical_scopes`. |
-| Identifiers | Join markets to events through `(market_id, event_id)`, propositions to markets through `market_id`, and proposition/entity roles through `source_proposition_id` and `entity_id`. `referenced` roles always include mapped fixture, fixture group when present, and stage/tournament context, so these facets also include player props and ordinary match markets. |
-| Recommended filters | Filter markets by `market_family`, `tournament_part`, `scope_id`, `primary_event_id`, and `logical_usable`; filter propositions by `predicate`, `polarity`, and constraint fields. |
-| Quarantine | `logical_usable = false` and `quarantine_reason` retain malformed or tokenless markets for audit without creating unsupported logical claims. |
-| Price columns | None. The logical-v1 contract declares `temporal_odds=false`. The reserved future observation grain is `(logical_proposition_id, clob_token_id, observed_at)`; raw hourly history remains an independent legacy branch until a dedicated atlas observation producer exists. |
-| Common mistakes | Applying a child-market $100k floor. Admission is based on sticky cumulative event volume; every child of an admitted event is retained. |
-
 ### `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`
 
 | Property | Value |

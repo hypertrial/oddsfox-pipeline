@@ -11,11 +11,6 @@ Run them through `uv run python` so they use the repo environment.
 - `sync_polymarket_markets_catalog.py`: sync every Gamma market with volume ≥ $100k via `/markets/keyset` (`volume_num_min`, `after_cursor`; open + closed passes) into `polymarket_catalog_raw.markets`. Required before building the public catalog marts.
 - `export_polymarket_markets.py`: export the public Polymarket market catalog mart (`polymarket_wc2026_markets`) to parquet under `artifacts/polymarket_markets_exports/`. Validates grain, volume floor, timing, and outcomes/CLOB JSON before replacing the artifact.
 - `export_polymarket_wc2026_knockout_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` to parquet for progression-only WC2026 knockout audits.
-- `export_polymarket_wc2026_logical_bundle.py`: validate and atomically export
-  the seven-file `polymarket-wc2026-logical-v1` Parquet contract plus its
-  content-bound manifest for `oddsfox-graph`.
-- `materialize_polymarket_wc2026_logical_fixture.py`: materialize and verify the
-  pinned offline logical-v1 consumer fixture and lock file.
 - `export_polymarket_wc2026_match_minute_odds.py`: write the 104-game match-minute mart to a temporary Parquet, validate its grain, 104/248/496 inventory, proposition mix, timing, elapsed-axis invariants, and immutable results provenance, then atomically replace the prior artifact. It prints completeness, boundary nulls, pair warnings, elapsed range and over-120-minute games, revision/hash, file size, and SHA-256; quality warnings do not fail export.
 - `generate_polymarket_wc2026_polygon_settlement_seed.py`: developer-only
   authoring tool. It downloads the hash-pinned CC0 OpenFootball fixture files
@@ -41,13 +36,6 @@ Run them through `uv run python` so they use the repo environment.
   incomplete scans, then writes only aggregate durations/counts, database
   hashes, v4 RPC metrics, and the advisory speed ratio. It refuses a partial or
   missing baseline.
-- `build_hosted_artifacts.py`: build and validate an immutable logical-atlas
-  shadow release below
-  `$ODDSFOX_DATA_DIR/artifacts/releases/<UTC_BUILD_ID>`. Activation is a
-  separate command and requires Graph's browser-smoke receipt at
-  `$ODDSFOX_DATA_DIR/artifacts/browser-smoke-receipts/<UTC_BUILD_ID>.json`;
-  supports validation, locked atomic activation, and rollback to a validated
-  release.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_wc2026_raw.odds_history` rows older
   than a retention window (default 365 days). Destructive pruning is protected
@@ -185,49 +173,8 @@ uv run make export-wc2026-elo-freezes
 export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-.runtime}"
 mkdir -p "$ODDSFOX_DATA_DIR/exports"
 uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py --snapshot-copy --output "$ODDSFOX_DATA_DIR/exports/wc2026_knockout_hourly.parquet"
-uv run python scripts/export_polymarket_wc2026_logical_bundle.py \
-  --duckdb-path oddsfox.duckdb \
-  --output-dir "$ODDSFOX_DATA_DIR/exports/polymarket-wc2026-logical-v1"
 # writes "$ODDSFOX_DATA_DIR/exports/wc2026_knockout_hourly.parquet"
-# writes the logical-v1 manifest and seven Parquet files
 ```
-
-Local hosted-artifact build:
-
-```bash
-export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-.runtime}"
-mkdir -p "$ODDSFOX_DATA_DIR"/{warehouse,artifacts,exports,dagster-home,dlt,logs}
-export DUCKDB_PATH="$ODDSFOX_DATA_DIR/warehouse/oddsfox.duckdb"
-export DAGSTER_HOME="$ODDSFOX_DATA_DIR/dagster-home"
-export DLT_DATA_DIR="$ODDSFOX_DATA_DIR/dlt"
-uv run python scripts/build_hosted_artifacts.py \
-  --artifact-dir "$ODDSFOX_DATA_DIR/artifacts" \
-  --graph-repo ../oddsfox-graph
-```
-
-The build never repoints `current`. Run Graph's `atlas-browser-smoke` against
-the exact candidate Graph directory, write its receipt under
-`artifacts/browser-smoke-receipts/`, then use `--activate-release`; activation
-revalidates that receipt immediately before the atomic cutover. Install Graph's
-`browser` extra and Playwright Chromium before running the browser smoke.
-
-For a local fixture run without network or dbt:
-
-```bash
-export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-.runtime}"
-uv run python scripts/materialize_polymarket_wc2026_logical_fixture.py \
-  --output-dir "$ODDSFOX_DATA_DIR/exports/logical-v1-fixture"
-uv run python scripts/build_hosted_artifacts.py \
-  --artifact-dir "$ODDSFOX_DATA_DIR/artifacts" \
-  --graph-repo ../oddsfox-graph \
-  --skip-refresh \
-  --skip-dbt \
-  --input-bundle "$ODDSFOX_DATA_DIR/exports/logical-v1-fixture"
-```
-
-See [Build the WC2026 logical atlas](../guides/build-wc2026-logical-atlas.md)
-for reviewed event admission, the exact bundle contract, temporal-history
-retention, migration, activation, and rollback.
 
 Scripts that call Polymarket APIs need network access and should use conservative request-rate settings.
 The Polygon seed authoring/backfill paths call only the configured JSON-RPC and

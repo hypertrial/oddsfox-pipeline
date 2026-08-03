@@ -50,10 +50,7 @@ ALLOWED_DATA_LIKE_FILES = {
     "dbt/models/openfootball_wc2026/staging/staging.yml",
     "dbt/models/polymarket_catalog/staging/staging.yml",
     "dbt/models/polymarket_wc2026/intermediate/intermediate.yml",
-    "dbt/models/polymarket_wc2026/intermediate/logical.yml",
     "dbt/models/polymarket_wc2026/intermediate/match_minute.yml",
-    "dbt/models/polymarket_wc2026/logical_unit_tests.yml",
-    "dbt/models/polymarket_wc2026/marts/logical.yml",
     "dbt/models/polymarket_wc2026/marts/polymarket_wc2026.yml",
     "dbt/models/polymarket_wc2026/observability/observability.yml",
     "dbt/models/polymarket_wc2026/match_order_book.yml",
@@ -71,8 +68,6 @@ ALLOWED_DATA_LIKE_FILES = {
     "dbt/profiles/profiles.yml",
     "dbt/seeds/international_results_wc2026_team_aliases.csv",
     "dbt/seeds/kalshi_wc2026_pipeline_policy.csv",
-    "dbt/seeds/polymarket_wc2026_event_membership_overrides.csv",
-    "dbt/seeds/polymarket_wc2026_logical_contract.csv",
     "dbt/seeds/polymarket_wc2026_pipeline_policy.csv",
     "dbt/seeds/polymarket_wc2026_polygon_settlement_markets.csv",
     "dbt/seeds/schema.yml",
@@ -96,17 +91,11 @@ ALLOWED_DATA_LIKE_FILES = {
     "tests/fixtures/golden/international_results_wc2026_team_status.csv",
     "tests/fixtures/golden/kalshi_wc2026_hourly_odds.csv",
     "tests/fixtures/golden/polymarket_wc2026_knockout_token_hourly_odds.csv",
-    "tests/fixtures/polymarket_wc2026_logical_v1/fixture.lock.json",
-    "tests/fixtures/polymarket_wc2026_logical_v1/source_fixture.v1.json",
     "vercel.json",
     "workspace.yaml",
 }
 
 HEADER_ONLY_SEEDS = {
-    "dbt/seeds/polymarket_wc2026_event_membership_overrides.csv": (
-        "event_id,membership_status,membership_class,tournament_part,"
-        "membership_basis,reason,reviewed_by,reviewed_at_utc"
-    ),
     "dbt/seeds/polymarket_wc2026_polygon_settlement_markets.csv": (
         "proposition_id,fifa_match_id,stage,group_label,home_team,away_team,"
         "kickoff_at_utc,window_start_at_utc,window_end_at_utc,proposition_type,"

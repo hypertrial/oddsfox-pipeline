@@ -82,7 +82,6 @@ nav:
       - Choose a scope: getting-started/choose-a-scope.md
   - Guides:
       - Run a scope: guides/run-a-scope.md
-      - Build the WC2026 logical atlas: guides/build-wc2026-logical-atlas.md
       - Query the warehouse: guides/query-the-warehouse.md
       - Query recipes: guides/query-recipes.md
       - Day-two operations: guides/day-two-operations.md

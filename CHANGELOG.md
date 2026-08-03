@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **Breaking:** Polymarket WC2026 logical atlas — the seven
+  `polymarket_wc2026_logical_*` marts, `polymarket-wc2026-logical-v1` export
+  bundle, `polymarket_wc2026_logical_atlas` job, `release/logical_bundle` asset,
+  `raw/reviewed_event_membership` asset, related dbt models/seeds/tests, and
+  scripts `export_polymarket_wc2026_logical_bundle.py`,
+  `materialize_polymarket_wc2026_logical_fixture.py`, and
+  `build_hosted_artifacts.py`. Shared event-catalog ingestion
+  (`raw/event_catalog`, `raw/event_snapshots`, `raw/event_market_memberships`)
+  remains for market scope registry refresh.
+
 ### Changed
 
 - `polymarket_wc2026_market_scope_registry_refresh` now materializes the

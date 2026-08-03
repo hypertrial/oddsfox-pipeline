@@ -89,10 +89,6 @@ oddsfox:
     monkeypatch.setenv("DUCKDB_NAME", str(db_path))
     monkeypatch.setenv("DUCKDB_PATH", str(db_path))
     monkeypatch.setenv("DBT_PROFILES_DIR", str(profiles_dir))
-    monkeypatch.setenv(
-        "ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH",
-        str(tmp_path / "reviewed-membership.csv"),
-    )
 
     pipeline = MagicMock(has_pending_data=False)
     conn = MagicMock()
@@ -251,15 +247,6 @@ oddsfox:
             "markets": 248,
             "tokens": 496,
             "rows": 496,
-        },
-    )
-    monkeypatch.setattr(
-        assets_mod,
-        "replace_reviewed_membership",
-        lambda _path: {
-            "rows": 1,
-            "source_sha256": "d" * 64,
-            "reviewer_count": 1,
         },
     )
     monkeypatch.setattr(

@@ -88,7 +88,7 @@ def test_market_portrait_graph_builds_bundle_from_dbt_marts(
             "--select",
             "+tag:pmxt_order_book",
             "--exclude",
-            "tag:polygon_settlement tag:wc2026_logical_atlas",
+            "tag:polygon_settlement",
         ],
         profiles_dir=dbt_profiles_dir,
         env=env,

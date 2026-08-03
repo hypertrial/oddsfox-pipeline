@@ -16,7 +16,7 @@ production pipeline or data service. See
 
 `oddsfox-pipeline` is the open-source warehouse component of the private
 `oddsfox` superproject. It ingests safe public sources, validates canonical
-snapshots, builds dbt marts, and exports the logical-v1 bundle for offline use.
+snapshots, builds dbt marts, and exports documented mart surfaces for offline use.
 Order execution belongs to `oddsfox-execution` and is not part of this runtime.
 
 Read the [System Overview](docs/concepts/system-overview.md) for repository
@@ -30,7 +30,7 @@ boundaries and [Terminology](docs/reference/terminology.md) for the compact
 | Analysts | [Analysts hub](docs/audiences/analysts.md), then [Query the warehouse](docs/guides/query-the-warehouse.md), [Query recipes](docs/guides/query-recipes.md), and the [Data dictionary](docs/reference/data-dictionary.md). |
 | Operators | [Operators hub](docs/audiences/operators.md), then [Quickstart](docs/getting-started/index.md). |
 | Contributors | [Contributors hub](docs/audiences/contributors.md), [Development guide](docs/development/index.md), and [CONTRIBUTING.md](CONTRIBUTING.md). |
-| Integrators | [Integrators hub](docs/audiences/integrators.md), [Terminology](docs/reference/terminology.md), [WC2026 logical-atlas runbook](docs/guides/build-wc2026-logical-atlas.md), [Integration](docs/concepts/integration.md), and [Data contracts](docs/reference/data-contracts.md). |
+| Integrators | [Integrators hub](docs/audiences/integrators.md), [Terminology](docs/reference/terminology.md), [Integration](docs/concepts/integration.md), and [Data contracts](docs/reference/data-contracts.md). |
 
 ## Quickstart
 
@@ -79,10 +79,7 @@ advanced Polygon settlement-minute mart is documented separately for operators
 who supply a reviewed manifest and finalized RPC.
 
 See the [Data dictionary](docs/reference/data-dictionary.md) and
-[Data contracts](docs/reference/data-contracts.md). The versioned
-`polymarket-wc2026-logical-v1` seven-file Parquet bundle is the supported input
-for the `oddsfox-graph` World Cup logical atlas; see the
-[build and cutover runbook](docs/guides/build-wc2026-logical-atlas.md).
+[Data contracts](docs/reference/data-contracts.md).
 
 ## Development
 

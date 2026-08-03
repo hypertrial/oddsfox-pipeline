@@ -1,9 +1,4 @@
-import os
-import tempfile
-from pathlib import Path
-
 import dlt
-import duckdb
 from dagster import (
     AssetExecutionContext,
     AssetSpec,
@@ -24,9 +19,6 @@ from oddsfox_pipeline.ingestion.polymarket.event_catalog import (
 from oddsfox_pipeline.ingestion.polymarket.markets.sync import (
     collect_market_scope_payload,
 )
-from oddsfox_pipeline.ingestion.polymarket.reviewed_membership import (
-    replace_reviewed_membership,
-)
 from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_POLYMARKET, asset_key
 from oddsfox_pipeline.orchestration import polymarket_asset_helpers as asset_helpers
 from oddsfox_pipeline.orchestration import polymarket_ops as ops
@@ -36,17 +28,12 @@ from oddsfox_pipeline.orchestration.assets_openfootball import (
 from oddsfox_pipeline.orchestration.config import (
     DbtBuildConfig,
     HourlyOddsSyncConfig,
-    LogicalAtlasBundleConfig,
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
     MatchMinuteOddsSyncConfig,
     MetadataEnrichmentConfig,
-    ReviewedMembershipConfig,
 )
 from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
-from oddsfox_pipeline.orchestration.logical_bundle_export import (
-    export_polymarket_wc2026_logical_bundle,
-)
 from oddsfox_pipeline.orchestration.snapshot_helpers import (
     _snapshot_refreshed_scope_name,
 )
@@ -71,7 +58,6 @@ from oddsfox_pipeline.storage.duckdb.observability import (
     snapshot_dbt_models,
     snapshot_raw_layer,
 )
-from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_raw_tbl
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     bootstrap_polymarket_tables,
     ensure_polymarket_indexes,
@@ -92,12 +78,6 @@ POLYMARKET_WC2026_RAW_EVENT_SNAPSHOTS = asset_key(
 )
 POLYMARKET_WC2026_RAW_EVENT_MARKET_MEMBERSHIPS = asset_key(
     SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "event_market_memberships"
-)
-POLYMARKET_WC2026_RAW_REVIEWED_EVENT_MEMBERSHIP = asset_key(
-    SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "reviewed_event_membership"
-)
-POLYMARKET_WC2026_RELEASE_LOGICAL_BUNDLE = asset_key(
-    SOURCE_POLYMARKET, SCOPE_WC2026, "release", "logical_bundle"
 )
 POLYMARKET_WC2026_OPS_MARKET_SCOPE_REGISTRY = asset_key(
     SOURCE_POLYMARKET, SCOPE_WC2026, "ops", "market_scope_registry"
@@ -189,52 +169,6 @@ def polymarket_wc2026_raw_markets_snapshot(
 
 
 @multi_asset(
-    name="polymarket_wc2026_raw_reviewed_event_membership",
-    specs=[
-        AssetSpec(
-            key=POLYMARKET_WC2026_RAW_REVIEWED_EVENT_MEMBERSHIP,
-            deps=[],
-        )
-    ],
-    group_name="ingestion",
-)
-def polymarket_wc2026_raw_reviewed_event_membership(
-    context: AssetExecutionContext,
-    config: ReviewedMembershipConfig,
-) -> MaterializeResult:
-    """Load review decisions, or bootstrap an empty clean-start candidate run."""
-    path_value = config.reviewed_membership_path or os.getenv(
-        "ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH"
-    )
-    if path_value is None:
-        with get_connection() as conn:
-            bootstrap_polymarket_tables(conn, scope_name=POLYMARKET_WC2026_SCOPE_NAME)
-            relation = polymarket_raw_tbl("wc2026", "reviewed_event_membership")
-            existing_rows = int(
-                conn.execute(f"SELECT count(*) FROM {relation}").fetchone()[0]
-            )
-        if existing_rows:
-            raise RuntimeError(
-                "Set reviewed_membership_path or "
-                "ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH; refusing to reuse "
-                "an existing reviewed inventory implicitly"
-            )
-        context.log.warning(
-            "No reviewed membership supplied on an empty warehouse; continuing "
-            "only to materialize review candidates. The dbt review-completeness "
-            "gate is expected to fail until an operator-local CSV is loaded."
-        )
-        return MaterializeResult(metadata={"rows": 0, "bootstrap_only": True})
-    summary = replace_reviewed_membership(Path(path_value))
-    context.log.info(
-        "Loaded operator-reviewed WC2026 membership: rows=%s sha256=%s",
-        summary["rows"],
-        summary["source_sha256"],
-    )
-    return MaterializeResult(metadata=summary)
-
-
-@multi_asset(
     name="polymarket_wc2026_raw_event_catalog",
     specs=[
         AssetSpec(
@@ -296,79 +230,6 @@ def polymarket_wc2026_raw_event_catalog(
         asset_key=POLYMARKET_WC2026_RAW_EVENT_CATALOG,
         metadata=batch.summary,
     )
-
-
-_LOGICAL_MART_ASSET_KEYS = [
-    asset_key(SOURCE_POLYMARKET, SCOPE_WC2026, "marts", name)
-    for name in (
-        "logical_events",
-        "logical_markets",
-        "logical_market_events",
-        "logical_propositions",
-        "logical_entities",
-        "logical_proposition_entities",
-        "logical_scopes",
-    )
-]
-
-
-@multi_asset(
-    name="polymarket_wc2026_release_logical_bundle",
-    specs=[
-        AssetSpec(
-            key=POLYMARKET_WC2026_RELEASE_LOGICAL_BUNDLE,
-            deps=_LOGICAL_MART_ASSET_KEYS,
-        )
-    ],
-    group_name="publishing",
-)
-def polymarket_wc2026_release_logical_bundle(
-    context: AssetExecutionContext,
-    config: LogicalAtlasBundleConfig,
-) -> MaterializeResult:
-    """Validate logical marts and optionally atomically export all seven files."""
-    relation_names = (
-        "polymarket_wc2026_logical_events",
-        "polymarket_wc2026_logical_markets",
-        "polymarket_wc2026_logical_market_events",
-        "polymarket_wc2026_logical_propositions",
-        "polymarket_wc2026_logical_entities",
-        "polymarket_wc2026_logical_proposition_entities",
-        "polymarket_wc2026_logical_scopes",
-    )
-    with get_connection() as conn:
-        row_counts = {
-            name: int(
-                conn.execute(
-                    f"select count(*) from polymarket_wc2026_marts.{name}"
-                ).fetchone()[0]
-            )
-            for name in relation_names
-        }
-    if min(row_counts.values()) <= 0:
-        raise RuntimeError(f"Logical-v1 bundle cannot be empty: {row_counts}")
-
-    metadata: dict[str, object] = {"row_counts": row_counts}
-    with duckdb.connect(str(active_duckdb_path()), read_only=True) as export_conn:
-        if config.output_dir is not None:
-            output_dir = Path(config.output_dir).expanduser().resolve()
-            export_polymarket_wc2026_logical_bundle(export_conn, output_dir)
-            metadata.update(
-                publication_mode="exported",
-                output_dir=str(output_dir),
-            )
-        else:
-            with tempfile.TemporaryDirectory(
-                prefix="oddsfox-wc2026-logical-validation-"
-            ) as temporary_root:
-                export_polymarket_wc2026_logical_bundle(
-                    export_conn,
-                    Path(temporary_root) / "bundle",
-                    require_clean_repo=False,
-                )
-            metadata["publication_mode"] = "validated_only"
-    context.log.info("WC2026 logical-v1 bundle: %s", metadata)
-    return MaterializeResult(metadata=metadata)
 
 
 @multi_asset(
@@ -550,8 +411,6 @@ __all__ = [
     "POLYMARKET_WC2026_RAW_EVENT_CATALOG",
     "POLYMARKET_WC2026_RAW_EVENT_SNAPSHOTS",
     "POLYMARKET_WC2026_RAW_EVENT_MARKET_MEMBERSHIPS",
-    "POLYMARKET_WC2026_RAW_REVIEWED_EVENT_MEMBERSHIP",
-    "POLYMARKET_WC2026_RELEASE_LOGICAL_BUNDLE",
     "POLYMARKET_WC2026_RAW_MATCH_TOKEN_ODDS_HISTORY_MINUTE",
     "POLYMARKET_WC2026_RAW_TOKEN_ODDS_HISTORY_HOURLY",
     "oddsfox_dbt",
@@ -559,8 +418,6 @@ __all__ = [
     "polymarket_wc2026_raw_markets",
     "polymarket_wc2026_raw_markets_snapshot",
     "polymarket_wc2026_raw_event_catalog",
-    "polymarket_wc2026_raw_reviewed_event_membership",
-    "polymarket_wc2026_release_logical_bundle",
     "polymarket_wc2026_raw_match_token_odds_history_minute",
     "polymarket_wc2026_raw_token_odds_history_hourly",
     "polymarket_wc2026_ops_market_scope_registry",

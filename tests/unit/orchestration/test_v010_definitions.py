@@ -5,10 +5,8 @@ import yaml
 from dagster import AssetKey, DefaultScheduleStatus, build_schedule_context
 
 from oddsfox_pipeline.orchestration.config import (
-    polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
-    polymarket_wc2026_logical_atlas_run_config,
     polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
@@ -70,7 +68,6 @@ def test_definitions_expose_v010_jobs_only():
         "kalshi_wc2026_hourly_odds_ingest",
         "kalshi_wc2026_market_scope_registry_refresh",
         "polymarket_wc2026_hourly_odds_ingest",
-        "polymarket_wc2026_logical_atlas",
         "polymarket_wc2026_market_scope_registry_refresh",
         "polymarket_wc2026_match_minute_odds_backfill",
         "polymarket_wc2026_match_order_book_backfill",
@@ -106,8 +103,6 @@ def test_definitions_expose_v010_asset_keys():
         ("wc2026", "ops", "raw_snapshot_ledger"),
         ("polymarket", "wc2026", "raw", "event_snapshots"),
         ("polymarket", "wc2026", "raw", "event_market_memberships"),
-        ("polymarket", "wc2026", "intermediate", "event_membership"),
-        ("polymarket", "wc2026", "release", "logical_bundle"),
         ("kalshi", "wc2026", "raw", "events"),
         ("kalshi", "wc2026", "raw", "markets"),
         ("kalshi", "wc2026", "raw", "markets_snapshot"),
@@ -222,18 +217,6 @@ def test_wc2026_jobs_do_not_expose_scope_config():
     assert legacy_key not in set(_nested_keys(hourly_config))
     assert legacy_key not in set(_nested_keys(full_config))
     assert "oddsfox_dbt" in full_config
-
-
-def test_full_pipeline_merge_retains_logical_atlas_and_scope_dbt_selects():
-    merged = _merge_run_configs(
-        polymarket_wc2026_logical_atlas_run_config(),
-        polymarket_wc2026_dbt_build_run_config(),
-    )["ops"]["oddsfox_dbt"]["config"]
-
-    assert "+tag:wc2026_logical_atlas" in merged["dbt_select"]
-    assert "+tag:polymarket,tag:wc2026" in merged["dbt_select"]
-    assert "tag:polygon_settlement" in merged["dbt_exclude"]
-    assert "tag:pmxt_order_book" in merged["dbt_exclude"]
 
 
 def test_match_minute_job_is_closed_untruncated_and_unscheduled():
@@ -433,56 +416,19 @@ def test_wc2026_market_scope_registry_refresh_includes_event_catalog_dependency(
     assert ("polymarket", "wc2026", "raw", "event_market_memberships") in selected
     assert ("openfootball", "wc2026", "raw", "schedule_fixtures") in selected
     assert ("polymarket", "wc2026", "ops", "market_scope_registry") in selected
-    assert ("polymarket", "wc2026", "raw", "reviewed_event_membership") not in selected
     assert (
         "polymarket_wc2026_raw_event_catalog"
         in polymarket_wc2026_full_refresh_events_run_config()["ops"]
     )
 
 
-def test_logical_atlas_job_has_explicit_producer_assets_and_no_odds_dependency():
-    selected = {
-        tuple(key.path)
-        for key in defs.resolve_job_def(
-            "polymarket_wc2026_logical_atlas"
-        ).asset_layer.selected_asset_keys
-    }
-    required = {
-        ("polymarket", "wc2026", "raw", "event_snapshots"),
-        ("polymarket", "wc2026", "raw", "event_market_memberships"),
-        ("polymarket", "wc2026", "intermediate", "event_membership"),
-        ("polymarket", "wc2026", "release", "logical_bundle"),
-    }
-    assert required <= selected
-    assert not any("odds" in part for key in selected for part in key)
-    assert (
-        "polymarket",
-        "wc2026",
-        "raw",
-        "market_metadata_enrichment",
-    ) not in selected
-    assert not any("order_book" in part for key in selected for part in key)
-    assert not any("polygon_settlement" in part for key in selected for part in key)
-
-    config = polymarket_wc2026_logical_atlas_run_config()["ops"]
-    assert "polymarket_wc2026_raw_token_odds_history_hourly" not in config
-    assert "polymarket_wc2026_raw_market_metadata_enrichment" not in config
-    assert config["oddsfox_dbt"]["config"]["dbt_select"] == (
-        "+tag:wc2026_logical_atlas"
-    )
-    assert config["polymarket_wc2026_release_logical_bundle"]["config"] == {
-        "output_dir": None
-    }
-
-
-def test_wc2026_full_pipeline_includes_logical_bundle_cutover_path():
+def test_wc2026_full_pipeline_includes_registry_and_hourly_odds():
     selected = {
         tuple(key.path)
         for key in defs.resolve_job_def(
             "polymarket_wc2026_full_pipeline"
         ).asset_layer.selected_asset_keys
     }
-    assert ("polymarket", "wc2026", "release", "logical_bundle") in selected
     assert ("polymarket", "wc2026", "raw", "event_snapshots") in selected
     assert (
         "polymarket",

@@ -8,7 +8,6 @@ not cover private strategy internals or order execution.
 | Consume | Notes |
 | --- | --- |
 | Public `*_marts` relations | Supported query API; start with [Data contracts](../reference/data-contracts.md) and the [Data dictionary](../reference/data-dictionary.md). |
-| WC2026 logical-v1 bundle | Seven-file static logical input for `oddsfox-graph`; produce with `scripts/export_polymarket_wc2026_logical_bundle.py` and validate `manifest.json` (see the [logical-atlas runbook](../guides/build-wc2026-logical-atlas.md)). |
 | `*_observability` | Optional trust and freshness checks before analysis. |
 | Strategy / raw.v1 consumers only | Private canonical snapshots and the strategy clean-data set (`wc2026.v1`); see [Strategy contracts](../reference/strategy-contracts.md). |
 
@@ -31,7 +30,7 @@ semver stability for warehouse layouts.
 
 ## Execution Boundary
 
-Pipeline and logical-atlas outputs are not execution inputs unless a separate
+Pipeline outputs are not execution inputs unless a separate
 control plane converts them into an admitted explicit intent for
 `oddsfox-execution`. This repository never contains strategy or execution code.
 

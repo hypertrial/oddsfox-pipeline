@@ -232,30 +232,28 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 
 1. `polymarket/wc2026/raw/markets`
 2. `polymarket/wc2026/raw/markets_snapshot`
-3. `polymarket/wc2026/raw/reviewed_event_membership`
-4. `polymarket/wc2026/raw/event_catalog`
-5. `polymarket/wc2026/raw/event_snapshots`
-6. `polymarket/wc2026/raw/event_market_memberships`
-7. `polymarket/wc2026/ops/market_scope_registry`
-8. `polymarket/wc2026/raw/market_metadata_enrichment`
-9. `polymarket/wc2026/raw/token_odds_history_hourly`
-10. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
-11. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
-12. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
-13. `international_results/historical/raw/snapshot`
-14. `international_results/wc2026/raw/match_results`
-15. `openfootball/wc2026/raw/schedule_fixtures`
-16. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
-17. `kalshi/wc2026/raw/markets`
-18. `kalshi/wc2026/raw/markets_snapshot`
-19. `kalshi/wc2026/ops/market_scope_registry`
-20. `kalshi/wc2026/raw/market_candlesticks_hourly`
-21. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+3. `polymarket/wc2026/raw/event_catalog`
+4. `polymarket/wc2026/raw/event_snapshots`
+5. `polymarket/wc2026/raw/event_market_memberships`
+6. `polymarket/wc2026/ops/market_scope_registry`
+7. `polymarket/wc2026/raw/market_metadata_enrichment`
+8. `polymarket/wc2026/raw/token_odds_history_hourly`
+9. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
+10. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
+11. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
+12. `international_results/historical/raw/snapshot`
+13. `international_results/wc2026/raw/match_results`
+14. `openfootball/wc2026/raw/schedule_fixtures`
+15. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
+16. `kalshi/wc2026/raw/markets`
+17. `kalshi/wc2026/raw/markets_snapshot`
+18. `kalshi/wc2026/ops/market_scope_registry`
+19. `kalshi/wc2026/raw/market_candlesticks_hourly`
+20. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
    `international_results/wc2026/{staging,intermediate,marts,observability}/...`,
    `kalshi_wc2026/{staging,intermediate,marts,observability}/...`,
    `openfootball/wc2026/staging/...`, and `wc2026/{intermediate,marts,observability}/...`
-22. `polymarket/wc2026/release/logical_bundle`
-23. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
+21. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
 
 Key jobs: `international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`,
@@ -264,8 +262,7 @@ Key jobs: `international_results_historical_ingest`,
 `polymarket_wc2026_match_order_book_backfill`,
 `polymarket_wc2026_polygon_settlement_backfill`,
 `polymarket_wc2026_polygon_settlement_release`,
-`polymarket_wc2026_dbt_build`, `polymarket_wc2026_logical_atlas`,
-`polymarket_wc2026_full_pipeline`,
+`polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`,
 `kalshi_wc2026_market_scope_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
 `kalshi_wc2026_dbt_build`, `kalshi_wc2026_full_pipeline`.
 

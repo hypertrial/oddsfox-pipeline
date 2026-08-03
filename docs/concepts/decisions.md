@@ -50,8 +50,8 @@ and [Data contracts](../reference/data-contracts.md).
 
 Entry-point jobs (`*_full_pipeline`, or the sole job for single-job isolated
 pipelines) are pipelines. Narrower jobs such as `*_dbt_build`,
-`*_market_scope_registry_refresh`, `*_hourly_odds_ingest`, and
-`*_logical_atlas` run one step of a pipeline, not a separate pipeline. The
+`*_market_scope_registry_refresh`, and `*_hourly_odds_ingest` run one step of a
+pipeline, not a separate pipeline. The
 match-minute, PMXT order-book, and market-portrait jobs are documented together
 as one advanced match-analysis pipeline family. Portrait requires order book
 and trades; minute odds is an independent optional path in the same family,

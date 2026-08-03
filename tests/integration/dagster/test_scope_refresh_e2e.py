@@ -512,10 +512,7 @@ oddsfox:
                         "config": {
                             "full_refresh": True,
                             "dbt_select": POLYMARKET_WC2026_SCOPE.dbt_select,
-                            "dbt_exclude": (
-                                f"{POLYMARKET_WC2026_SCOPE.dbt_exclude} "
-                                "tag:wc2026_logical_atlas"
-                            ),
+                            "dbt_exclude": POLYMARKET_WC2026_SCOPE.dbt_exclude,
                             "progress_log_interval_events": 1,
                             "progress_log_interval_seconds": 1,
                             "no_progress_soft_timeout_seconds": 120,

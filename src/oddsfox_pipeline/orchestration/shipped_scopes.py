@@ -83,7 +83,7 @@ KALSHI_WC2026_SCOPE = ScopeSpec(
     dbt_job_name="kalshi_wc2026_dbt_build",
     full_job_name="kalshi_wc2026_full_pipeline",
     dbt_select="+tag:kalshi",
-    dbt_exclude="tag:polymarket tag:wc2026_logical_atlas",
+    dbt_exclude="tag:polymarket",
     source_seed="kalshi.market_scopes",
     includes_international_results=True,
 )

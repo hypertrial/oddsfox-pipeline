@@ -225,9 +225,6 @@ def test_shipped_scopes_and_public_marts_remain_documented():
         "scripts/run_scope.py",
         "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets",
         "polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds",
-        "polymarket_wc2026_marts.polymarket_wc2026_logical_markets",
-        "polymarket_wc2026_logical_events",
-        "polymarket_wc2026_logical_propositions",
         "polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds",
         "polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds",
         "international_results_wc2026_marts.international_results_wc2026_matches",
@@ -284,10 +281,8 @@ def test_strategy_contracts_split_and_public_contracts_link():
     assert "#### Complete column contract" in public
 
 
-def test_integrators_hub_checklist_covers_graph_and_polygon_boundary():
+def test_integrators_hub_checklist_covers_polygon_boundary():
     integrators = (DOCS_DIR / "audiences/integrators.md").read_text()
-    assert "export_polymarket_wc2026_logical_bundle.py" in integrators
-    assert "polymarket-wc2026-logical-v1" in integrators
     assert "not `wc2026.v1` signal inputs" in integrators
     assert "strategy-contracts.md" in integrators
 
@@ -296,7 +291,6 @@ def test_terminology_reference_is_documented_and_linked():
     terminology = (DOCS_DIR / "reference/terminology.md").read_text()
     glossary = (DOCS_DIR / "concepts/glossary.md").read_text()
     naming = (DOCS_DIR / "reference/naming.md").read_text()
-    atlas = (DOCS_DIR / "guides/build-wc2026-logical-atlas.md").read_text()
     strategy = (DOCS_DIR / "reference/strategy-contracts.md").read_text()
     readme = (REPO_ROOT / "README.md").read_text()
     agents = (REPO_ROOT / "AGENTS.md").read_text()
@@ -305,7 +299,6 @@ def test_terminology_reference_is_documented_and_linked():
     assert "working set" in terminology.lower()
     assert "contract" in terminology.lower()
     assert "34" in terminology
-    assert "logical atlas" in atlas.lower()
     assert "wc2026.v1" in strategy
     assert "terminology.md" in glossary
     assert "terminology.md" in naming

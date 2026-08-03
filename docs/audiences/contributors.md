@@ -63,5 +63,4 @@ v0.1.x intentionally has no warehouse migrations, no runtime scope selector, and
 an isolated Polygon path. Read [Design decisions](../concepts/decisions.md)
 before proposing compatibility shims. Use [Terminology](../reference/terminology.md)
 for product vocabulary (pipeline, working set, marts vs strategy
-contract `wc2026.v1`). Local atlas semantics live in the
-[logical-atlas runbook](../guides/build-wc2026-logical-atlas.md).
+contract `wc2026.v1`).

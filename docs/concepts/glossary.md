@@ -50,10 +50,6 @@ Dagster asset configs do not accept arbitrary runtime scope selectors in
 [Strategy contracts](../reference/strategy-contracts.md). Ordinary mart
 consumers start with [Data contracts](../reference/data-contracts.md).
 
-**logical atlas** — Static WC2026 inventory product exported as
-`polymarket-wc2026-logical-v1`. See
-[Build the WC2026 logical atlas](../guides/build-wc2026-logical-atlas.md).
-
 **asset key** — Dagster asset identity, written source-first (for example
 `polymarket/wc2026/raw/markets`).
 

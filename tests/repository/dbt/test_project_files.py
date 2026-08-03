@@ -1,5 +1,3 @@
-import hashlib
-import json
 import re
 from pathlib import Path
 
@@ -10,27 +8,6 @@ from scripts.seed_dbt_source_freshness import FRESHNESS_SOURCE_TABLES
 from oddsfox_pipeline.orchestration.shipped_scopes import SHIPPED_SCOPE_SPECS
 
 pytestmark = pytest.mark.repo_check
-
-
-def test_logical_fixture_inputs_are_packaged_and_lock_the_source():
-    repo_root = Path(__file__).resolve().parents[3]
-    fixture_root = repo_root / "tests/fixtures/polymarket_wc2026_logical_v1"
-    source = fixture_root / "source_fixture.v1.json"
-    lock = fixture_root / "fixture.lock.json"
-
-    assert source.is_file()
-    assert lock.is_file()
-    assert "!tests/fixtures/polymarket_wc2026_logical_v1/*.json" in (
-        repo_root / ".gitignore"
-    ).read_text(encoding="utf-8")
-
-    source_payload = json.loads(source.read_text(encoding="utf-8"))
-    lock_payload = json.loads(lock.read_text(encoding="utf-8"))
-    assert source_payload["schema_version"] == "polymarket-wc2026-logical-v1"
-    assert lock_payload["schema_version"] == source_payload["schema_version"]
-    assert (
-        lock_payload["source_sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
-    )
 
 
 def test_sqlfluff_dbt_templating_fails_closed():
@@ -155,7 +132,7 @@ def test_dbt_source_freshness_tables_are_seeded_for_ci():
     assert freshness_tables == FRESHNESS_SOURCE_TABLES
 
 
-def test_hourly_odds_and_logical_atlas_materialization_shape():
+def test_hourly_odds_materialization_shape():
     project = yaml.safe_load(
         (Path(__file__).resolve().parents[3] / "dbt" / "dbt_project.yml").read_text()
     )
@@ -172,23 +149,6 @@ def test_hourly_odds_and_logical_atlas_materialization_shape():
     assert "polymarket_wc2026_graph_" + "token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_daily_odds" not in marts
-    marts_root = (
-        Path(__file__).resolve().parents[3]
-        / "dbt"
-        / "models"
-        / "polymarket_wc2026"
-        / "marts"
-    )
-    for suffix in (
-        "events",
-        "markets",
-        "market_events",
-        "propositions",
-        "entities",
-        "proposition_entities",
-        "scopes",
-    ):
-        assert (marts_root / f"polymarket_wc2026_logical_{suffix}.sql").is_file()
 
 
 def test_wc2026_pipeline_policy_seed_is_configured_and_documented():
@@ -280,25 +240,6 @@ def test_knockout_mart_semantic_columns_are_documented():
             assert "is_actionable_live_market" in columns
         else:
             assert "is_actionable_live_market" not in columns
-
-
-def test_logical_atlas_marts_are_documented():
-    dbt_root = Path(__file__).resolve().parents[3] / "dbt"
-    docs = yaml.safe_load(
-        (
-            dbt_root / "models" / "polymarket_wc2026" / "marts" / "logical.yml"
-        ).read_text()
-    )
-    documented = {model["name"] for model in docs["models"]}
-    assert documented == {
-        "polymarket_wc2026_logical_events",
-        "polymarket_wc2026_logical_markets",
-        "polymarket_wc2026_logical_market_events",
-        "polymarket_wc2026_logical_propositions",
-        "polymarket_wc2026_logical_entities",
-        "polymarket_wc2026_logical_proposition_entities",
-        "polymarket_wc2026_logical_scopes",
-    }
 
 
 def test_multi_parent_singular_tests_have_dagster_asset_metadata():

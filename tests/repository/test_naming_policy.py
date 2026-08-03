@@ -24,7 +24,6 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
-    polymarket_wc2026_logical_atlas_run_config,
     polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
@@ -61,7 +60,6 @@ EXPECTED_OP_NAMES = {
     "polymarket_wc2026_raw_markets",
     "polymarket_wc2026_raw_markets_snapshot",
     "polymarket_wc2026_raw_event_catalog",
-    "polymarket_wc2026_raw_reviewed_event_membership",
     "polymarket_wc2026_ops_market_scope_registry",
     "polymarket_wc2026_raw_market_metadata_enrichment",
     "polymarket_wc2026_raw_token_odds_history_hourly",
@@ -70,7 +68,6 @@ EXPECTED_OP_NAMES = {
     "polymarket_wc2026_raw_match_trades",
     "polymarket_wc2026_raw_polygon_settlement_fills",
     "polymarket_wc2026_release_polygon_settlement_odds_bundle",
-    "polymarket_wc2026_release_logical_bundle",
     "oddsfox_dbt",
 }
 
@@ -211,7 +208,6 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         assets.polymarket_wc2026_raw_markets.op.name,
         assets.polymarket_wc2026_raw_markets_snapshot.op.name,
         assets.polymarket_wc2026_raw_event_catalog.op.name,
-        assets.polymarket_wc2026_raw_reviewed_event_membership.op.name,
         assets.polymarket_wc2026_ops_market_scope_registry.op.name,
         assets.polymarket_wc2026_raw_market_metadata_enrichment.op.name,
         assets.polymarket_wc2026_raw_token_odds_history_hourly.op.name,
@@ -220,12 +216,10 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         assets.polymarket_wc2026_raw_match_trades.op.name,
         assets.polymarket_wc2026_raw_polygon_settlement_fills.op.name,
         assets.polymarket_wc2026_release_polygon_settlement_odds_bundle.op.name,
-        assets.polymarket_wc2026_release_logical_bundle.op.name,
         assets.oddsfox_dbt.op.name,
     }
     run_config_ops = (
         set(polymarket_wc2026_full_refresh_events_run_config()["ops"])
-        | set(polymarket_wc2026_logical_atlas_run_config()["ops"])
         | set(polymarket_wc2026_hourly_odds_run_config()["ops"])
         | set(polymarket_wc2026_match_minute_odds_run_config()["ops"])
         | set(polymarket_wc2026_match_order_book_run_config()["ops"])

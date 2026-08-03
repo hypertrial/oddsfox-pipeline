@@ -25,9 +25,7 @@ from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_raw_match_token_odds_history_minute,
     polymarket_wc2026_raw_match_trades,
     polymarket_wc2026_raw_polygon_settlement_fills,
-    polymarket_wc2026_raw_reviewed_event_membership,
     polymarket_wc2026_raw_token_odds_history_hourly,
-    polymarket_wc2026_release_logical_bundle,
     polymarket_wc2026_release_polygon_settlement_odds_bundle,
 )
 from oddsfox_pipeline.orchestration.jobs import (
@@ -40,7 +38,6 @@ from oddsfox_pipeline.orchestration.jobs import (
     polymarket_wc2026_dbt_build,
     polymarket_wc2026_full_pipeline,
     polymarket_wc2026_hourly_odds_ingest,
-    polymarket_wc2026_logical_atlas,
     polymarket_wc2026_market_portrait_backfill,
     polymarket_wc2026_market_scope_registry_refresh,
     polymarket_wc2026_match_minute_odds_backfill,
@@ -66,8 +63,6 @@ defs = Definitions(
         polymarket_wc2026_raw_markets,
         polymarket_wc2026_raw_markets_snapshot,
         polymarket_wc2026_raw_event_catalog,
-        polymarket_wc2026_raw_reviewed_event_membership,
-        polymarket_wc2026_release_logical_bundle,
         polymarket_wc2026_raw_match_token_odds_history_minute,
         polymarket_wc2026_raw_match_order_book_snapshots,
         polymarket_wc2026_raw_match_trades,
@@ -93,7 +88,6 @@ defs = Definitions(
         polymarket_wc2026_polygon_settlement_backfill,
         polymarket_wc2026_polygon_settlement_release,
         polymarket_wc2026_dbt_build,
-        polymarket_wc2026_logical_atlas,
         polymarket_wc2026_full_pipeline,
     ],
     schedules=[
