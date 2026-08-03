@@ -29,10 +29,18 @@ def parse_created_at(raw_ts) -> Optional[datetime]:
     if isinstance(raw_ts, datetime):
         created_at = raw_ts
     else:
-        clean_ts = str(raw_ts).replace("T", " ")
-        if "." in clean_ts:
-            clean_ts = clean_ts.split(".")[0]
-        created_at = datetime.strptime(clean_ts, "%Y-%m-%d %H:%M:%S")
+        text = str(raw_ts).strip().replace("Z", "+00:00")
+        try:
+            created_at = datetime.fromisoformat(text)
+        except ValueError:
+            clean_ts = text.replace("T", " ")
+            if "." in clean_ts:
+                clean_ts = clean_ts.split(".")[0]
+            if "+" in clean_ts:
+                clean_ts = clean_ts.split("+", 1)[0].rstrip()
+            created_at = datetime.strptime(clean_ts, "%Y-%m-%d %H:%M:%S")
+        if "." in str(raw_ts):
+            created_at = created_at.replace(microsecond=0)
     if created_at.tzinfo is None:
         return created_at.replace(tzinfo=timezone.utc)
     return created_at.astimezone(timezone.utc)

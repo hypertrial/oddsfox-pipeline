@@ -232,6 +232,8 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
         "release-gate-dbt-unit",
         "release-gate-dbt-freshness",
         "release-gate-dbt-polygon",
+        "release-gate-dbt-match-order-book",
+        "release-gate-dbt-market-portrait",
     ]
     assert _target_prerequisites(makefile, "release-gate-dbt-quality") == [
         "release-gate-costguard-scan",

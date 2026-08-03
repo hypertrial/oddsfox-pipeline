@@ -544,6 +544,8 @@ def test_parse_created_at_variants():
         is not None
     )
     assert odds_sync._parse_created_at("2020-01-01T12:30:45.123Z") is not None
+    assert odds_sync._parse_created_at("2020-01-01T12:30:45Z") is not None
+    assert odds_sync._parse_created_at("2020-01-01T12:30:45+00:00") is not None
     assert odds_sync._parse_created_at("2020-01-01 12:30:45") is not None
 
 

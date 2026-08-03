@@ -61,6 +61,8 @@ def materialize_kalshi_candlesticks_sync(
         return sync_fn(
             scope_name=scope_name,
             window_hours=config.window_hours,
+            history_backfill_days=config.history_backfill_days,
+            routine_interval_hours=config.routine_interval_hours,
             force=config.force,
             progress_callback=_progress,
         )

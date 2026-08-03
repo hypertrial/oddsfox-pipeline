@@ -51,6 +51,16 @@ def test_duckdb_path_env_overrides_name(monkeypatch, tmp_path, isolated_env):
     assert settings.DUCKDB_PATH == db.resolve()
 
 
+def test_empty_duckdb_path_falls_back_to_duckdb_name(monkeypatch, tmp_path, isolated_env):
+    db = tmp_path / "oddsfox.duckdb"
+    monkeypatch.setenv("DUCKDB_PATH", "")
+    monkeypatch.setenv("DUCKDB_NAME", str(db))
+
+    settings = reload_all_settings_modules()
+
+    assert settings.DUCKDB_PATH == db.resolve()
+
+
 def test_missing_duckdb_path_does_not_override_new_name(
     monkeypatch, tmp_path, isolated_env
 ):
@@ -185,7 +195,7 @@ def test_env_bool_parses_truthy_and_falsey_values(monkeypatch, isolated_env):
         ("open", False),
         ("", None),
         ("any", None),
-        ("surprise", False),
+        ("surprise", None),
     ],
 )
 def test_market_scope_keyset_closed_env_branches(

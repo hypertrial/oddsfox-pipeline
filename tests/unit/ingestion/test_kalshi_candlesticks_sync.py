@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 from oddsfox_pipeline.ingestion.kalshi.candlesticks import sync as candlesticks_sync
@@ -203,3 +203,60 @@ def test_sync_hourly_candlesticks_honors_timezone_aware_open_time(monkeypatch):
     )
 
     assert seen["start_at"] >= datetime(2025, 6, 1, tzinfo=timezone.utc)
+
+
+def test_sync_hourly_candlesticks_honors_history_backfill_days(monkeypatch):
+    seen = {}
+    end_at = datetime(2026, 1, 2, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(
+        candlesticks_sync,
+        "get_registry_markets_for_sync",
+        lambda **_kwargs: [
+            {
+                "market_ticker": "KXWC-BACKFILL",
+                "series_ticker": "KXWC",
+                "open_time": None,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        candlesticks_sync,
+        "fetch_hourly_candlesticks",
+        lambda *_args, **kwargs: seen.update(kwargs) or [],
+    )
+    monkeypatch.setattr(candlesticks_sync, "_utc_now", lambda: end_at)
+
+    candlesticks_sync.sync_hourly_candlesticks(
+        scope_name="wc2026",
+        window_hours=1512,
+        history_backfill_days=30,
+        force=True,
+        client_factory=lambda: MagicMock(),
+    )
+
+    assert seen["start_at"] == end_at - timedelta(days=30)
+
+
+def test_sync_hourly_candlesticks_forwards_routine_interval_hours(monkeypatch, duck):
+    _seed_market(duck, market_ticker="KXWC-ROUTINE")
+    ledger_calls: list[int] = []
+    monkeypatch.setattr(
+        candlesticks_sync,
+        "fetch_hourly_candlesticks",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        candlesticks_sync,
+        "upsert_candlestick_ledger_state",
+        lambda **kwargs: ledger_calls.append(kwargs["routine_interval_hours"]),
+    )
+
+    candlesticks_sync.sync_hourly_candlesticks(
+        scope_name="wc2026",
+        force=True,
+        routine_interval_hours=6,
+        client_factory=lambda: MagicMock(),
+    )
+
+    assert ledger_calls == [6]

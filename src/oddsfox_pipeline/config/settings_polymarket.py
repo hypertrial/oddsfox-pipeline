@@ -86,7 +86,7 @@ def _parse_scope_keyset_closed_env() -> bool | None:
         return False
     if normalized in {"true", "1", "closed"}:
         return True
-    return _env_bool("POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED", False)
+    return None
 
 
 def _parse_scope_keyset_volume_min_env() -> float | None:

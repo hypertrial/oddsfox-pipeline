@@ -21,7 +21,7 @@ DUCKDB_NAME = os.getenv("DUCKDB_NAME", "oddsfox.duckdb")
 _DUCKDB_PATH_ENV = os.getenv("DUCKDB_PATH")
 DUCKDB_PATH = (
     Path(_DUCKDB_PATH_ENV).expanduser().resolve()
-    if _DUCKDB_PATH_ENV is not None
+    if _DUCKDB_PATH_ENV
     else (BASE_DIR / DUCKDB_NAME).resolve()
 )
 

@@ -38,12 +38,21 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _trailing_window_hours(*, window_hours: int, history_backfill_days: int) -> int:
+    hours = int(window_hours)
+    days = int(history_backfill_days)
+    if days > 0:
+        return min(hours, days * 24)
+    return hours
+
+
 def _sync_market_candlesticks(
     client: object,
     market: dict[str, Any],
     *,
     start_at: datetime,
     end_at: datetime,
+    routine_interval_hours: int,
 ) -> _MarketSyncResult:
     market_ticker = market["market_ticker"]
     series_ticker = market["series_ticker"]
@@ -65,6 +74,7 @@ def _sync_market_candlesticks(
         market_ticker=market_ticker,
         fully_checked=True,
         empty_run=candlesticks == [],
+        routine_interval_hours=routine_interval_hours,
     )
     return _MarketSyncResult(
         market_ticker=market_ticker,
@@ -78,6 +88,8 @@ def sync_hourly_candlesticks(
     *,
     scope_name: str = DEFAULT_KALSHI_WC2026_MARKET_SCOPE,
     window_hours: int = KALSHI_WC2026_HOURLY_WINDOW_HOURS,
+    history_backfill_days: int = 0,
+    routine_interval_hours: int = 1,
     force: bool = False,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
     client_factory: Callable[[], object] | None = None,
@@ -85,7 +97,11 @@ def sync_hourly_candlesticks(
     factory = client_factory or build_client
     client = factory()
     end_at = _utc_now()
-    start_at = end_at - timedelta(hours=int(window_hours))
+    trailing_hours = _trailing_window_hours(
+        window_hours=window_hours,
+        history_backfill_days=history_backfill_days,
+    )
+    start_at = end_at - timedelta(hours=trailing_hours)
     markets = get_registry_markets_for_sync(scope_name=scope_name, force=force)
     rows_written = 0
     markets_synced = 0
@@ -98,6 +114,7 @@ def sync_hourly_candlesticks(
             market,
             start_at=start_at,
             end_at=end_at,
+            routine_interval_hours=int(routine_interval_hours),
         ),
     )
     for result in results:
@@ -117,6 +134,8 @@ def sync_hourly_candlesticks(
     metrics = {
         "scope_name": scope_name,
         "window_hours": window_hours,
+        "history_backfill_days": history_backfill_days,
+        "routine_interval_hours": routine_interval_hours,
         "markets_total": len(markets),
         "markets_synced": markets_synced,
         "empty_markets": empty_markets,
