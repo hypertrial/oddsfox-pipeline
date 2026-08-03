@@ -38,17 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extracted shared registry helpers (`registry_common.py`) and lifted Kalshi
   registry skip-if-refreshed materialization into `kalshi_asset_helpers.py`.
 - Added a bootstrap lock around DuckDB schema initialization in `connection.py`.
-- Extracted `int_polymarket_wc2026_logical_team_groups` and rewired logical
-  markets/propositions/entities marts to stop referencing OpenFootball staging
-  directly; propositions now share markets' ambiguous team-group guard.
 - Removed `[project.optional-dependencies].dev`; contributor tooling installs
   exclusively through uv dependency groups (`uv sync --group dev`).
 - Split the root `Makefile` into include fragments (`Makefile.gates`,
   `Makefile.dbt`, `Makefile.lint`, `Makefile.test`, `Makefile.ops`).
-- Removed the pre-atlas legacy rollback path from
-  `scripts/build_hosted_artifacts.py`; activation now always requires a
-  logical-atlas release manifest plus Graph acceptance and browser-smoke
-  receipt validation.
 
 - Split the former "Advanced match analysis (experimental)" registry row into
   three mature, isolated pipelines: match-minute odds, match order book, and
@@ -63,17 +56,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   under the schema bootstrap lock.
 - `profile_warehouse.py` `--refresh` now propagates `--duckdb-path` to Polymarket
   sync and dbt subprocesses instead of mutating the settings-default warehouse.
-- `build_hosted_artifacts.py` default `--duckdb-path` now follows
-  `settings.DUCKDB_PATH` (`ODDSFOX_PIPELINE_ROOT` / `DUCKDB_NAME`).
 - Polygon settlement scan status JSON is stored under
   `BASE_DIR/.cache/polygon_settlement/status/` instead of a hardcoded checkout
   path.
 - `polymarket_wc2026_full_pipeline` (and other jobs using `_merge_run_configs`)
   now unions `dbt_select` and `dbt_exclude` when combining `oddsfox_dbt` run
   configs instead of last-write-wins over the whole op config.
-- In-process logical-bundle export reloads the script-backed exporter when its
-  source mtime changes, so long-lived Dagster workers pick up exporter updates
-  without restart.
 - Kalshi hourly candlestick sync now honors Dagster `history_backfill_days` and
   `routine_interval_hours` run-config fields instead of ignoring them.
 - `parse_created_at()` accepts ISO-8601 timestamps ending in `Z` or `+00:00`
