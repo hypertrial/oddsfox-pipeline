@@ -149,7 +149,8 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
 - `polymarket_wc2026_match_order_book_backfill`: validates the reviewed
   Argentina–Egypt match-95 manifest against one exact Gamma market lookup,
   retrieves both independent outcome-token snapshot streams from PMXT, and
-  builds only `+tag:pmxt_order_book`. Saturated 1,000-snapshot ranges split
+  builds only `+tag:pmxt_order_book` and excludes `tag:match_minute` alongside
+  `tag:polygon_settlement`. Saturated 1,000-snapshot ranges split
   recursively with a one-millisecond overlap; terminal loads merge
   idempotently before their window checkpoints. Compatible published runs
   return without Gamma, PMXT, or credential access. Credit exhaustion pauses
@@ -158,10 +159,12 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
 **Isolated: Market portrait**
 
 - `polymarket_wc2026_market_portrait_backfill`: resumable PMXT books and
-  trades backfill for a reviewed target manifest; builds the
-  `oddsfox.market-portrait.v1` bundle. Requires `TARGET_MANIFEST` and a PMXT
-  API key. Portrait publication requires a completed order-book scan and trade
-  scan for the same manifest. See [Market portrait](market-portrait.md).
+  trades backfill for a reviewed target manifest; builds
+  `+tag:pmxt_order_book +tag:market_portrait` (trade marts are
+  `tag:market_portrait` only) and the `oddsfox.market-portrait.v1` bundle.
+  Requires `TARGET_MANIFEST` and a PMXT API key. Portrait publication
+  requires a completed order-book scan and trade scan for the same manifest.
+  See [Market portrait](market-portrait.md).
 
 **Supporting ingestion**
 

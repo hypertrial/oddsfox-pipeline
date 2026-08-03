@@ -42,7 +42,7 @@ The backfill performs one exact Gamma identity check before PMXT calls. It then
 splits every saturated 1,000-snapshot range until each terminal range is
 demonstrably short, lands bounded batches through dlt, checkpoints completed
 windows, publishes only after both token trees are complete, and builds the
-isolated `+tag:pmxt_order_book` dbt graph.
+isolated `+tag:pmxt_order_book` dbt graph with `tag:match_minute` excluded.
 
 ## Verify the result
 

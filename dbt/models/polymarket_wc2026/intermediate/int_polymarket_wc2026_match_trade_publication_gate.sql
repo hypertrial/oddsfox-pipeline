@@ -1,4 +1,4 @@
-{{ config(materialized='table', tags=['pmxt_order_book', 'market_portrait']) }}
+{{ config(materialized='table', tags=['market_portrait']) }}
 
 with latest as (
     select *

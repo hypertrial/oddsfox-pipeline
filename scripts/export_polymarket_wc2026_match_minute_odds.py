@@ -109,7 +109,7 @@ def summarize_parquet(
         )
         select
             count(*) as rows,
-            count(distinct (odds_minute_epoch, market_id)) as grain_rows,
+            count(distinct (odds_minute_utc, market_id)) as grain_rows,
             count(distinct fifa_match_id) as fifa_matches,
             min(fifa_match_id) as first_fifa_match_id,
             max(fifa_match_id) as last_fifa_match_id,
@@ -276,7 +276,7 @@ def validate_summary(summary: dict[str, Any]) -> None:
         if summary.get(key) != value
     ]
     if summary.get("grain_rows") != summary.get("rows"):
-        failures.append("duplicate (odds_minute_epoch, market_id) grain")
+        failures.append("duplicate (odds_minute_utc, market_id) grain")
     expected_propositions = {
         "away_win": 72,
         "draw": 72,

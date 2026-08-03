@@ -46,7 +46,7 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
             "--select",
             "+tag:pmxt_order_book",
             "--exclude",
-            "tag:polygon_settlement",
+            "tag:polygon_settlement tag:match_minute",
         ],
         profiles_dir=dbt_profiles_dir,
         env=env,
@@ -77,13 +77,6 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
             from polymarket_wc2026_marts.polymarket_wc2026_match_order_book
             """
         ).fetchall()
-        trade_count = conn.execute(
-            """
-            select count(*)
-            from polymarket_wc2026_marts.polymarket_wc2026_match_trades
-            """
-        ).fetchone()[0]
-
     assert [row[:5] for row in levels] == [
         ("ask", 1, Decimal("0.6"), Decimal("4"), Decimal("4")),
         ("ask", 2, Decimal("0.7"), Decimal("3"), Decimal("7")),
@@ -104,7 +97,6 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
     assert source_labels == [
         ("api.pmxt.dev/api/polymarket/fetchOrderBook",),
     ]
-    assert trade_count == 2
 
     with duckdb.connect(str(db_path)) as conn:
         conn.execute(
@@ -120,7 +112,7 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
             "--select",
             "+tag:pmxt_order_book",
             "--exclude",
-            "tag:polygon_settlement",
+            "tag:polygon_settlement tag:match_minute",
         ],
         profiles_dir=dbt_profiles_dir,
         env=env,
@@ -161,7 +153,7 @@ def test_order_book_graph_blocks_malformed_optional_numerics(
             "--select",
             "+tag:pmxt_order_book",
             "--exclude",
-            "tag:polygon_settlement",
+            "tag:polygon_settlement tag:match_minute",
         ],
         profiles_dir=dbt_profiles_dir,
         env=env,
@@ -185,7 +177,7 @@ def test_order_book_graph_blocks_malformed_optional_numerics(
             "--select",
             "+tag:pmxt_order_book",
             "--exclude",
-            "tag:polygon_settlement",
+            "tag:polygon_settlement tag:match_minute",
         ],
         profiles_dir=dbt_profiles_dir,
         env=env,

@@ -194,7 +194,9 @@ def test_fast_and_coverage_tests_parallelize_only_the_safe_collection():
     assert "DBT_TEST_WORKERS ?=" in makefile
     assert "unit-orchestration:" in makefile
     assert "-n auto" in _target_recipe(makefile, "unit-orchestration")
-    assert _recursive_make_targets(_target_recipe(makefile, "pipelines-deterministic")) == [
+    assert _recursive_make_targets(
+        _target_recipe(makefile, "pipelines-deterministic")
+    ) == [
         "integration-dagster",
         "integration-dbt",
         "dbt-polygon-settlement-ci",
@@ -336,9 +338,7 @@ def test_release_gate_match_analysis_lanes_use_isolated_runtime_roots():
         'MATCH_ANALYSIS_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_ORDER_BOOK_RUNTIME)"'
         in match_order_book
     )
-    assert (
-        'ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_MINUTE_RUNTIME)"' in match_minute
-    )
+    assert 'ODDSFOX_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_MINUTE_RUNTIME)"' in match_minute
     assert (
         'MATCH_ANALYSIS_RUNTIME_ROOT="$(RELEASE_DBT_MATCH_MINUTE_RUNTIME)"'
         in match_minute

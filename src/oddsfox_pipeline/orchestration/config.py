@@ -334,7 +334,7 @@ def polymarket_wc2026_match_order_book_run_config(
     dbt = DbtBuildConfig(
         full_refresh=False,
         dbt_select="+tag:pmxt_order_book",
-        dbt_exclude="tag:polygon_settlement",
+        dbt_exclude="tag:polygon_settlement tag:match_minute",
     )
     return {
         "ops": {
@@ -355,6 +355,9 @@ def polymarket_wc2026_market_portrait_run_config(
     config["ops"]["polymarket_wc2026_raw_match_trades"] = {
         "config": MatchOrderBookBackfillConfig(manifest_path=manifest_path).model_dump()
     }
+    config["ops"]["oddsfox_dbt"]["config"]["dbt_select"] = (
+        "+tag:pmxt_order_book +tag:market_portrait"
+    )
     return config
 
 

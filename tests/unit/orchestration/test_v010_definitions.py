@@ -269,7 +269,7 @@ def test_match_order_book_job_is_isolated_and_unscheduled():
     assert raw["monthly_credit_budget"] == 20_000
     assert raw["force"] is False
     assert dbt["dbt_select"] == "+tag:pmxt_order_book"
-    assert dbt["dbt_exclude"] == "tag:polygon_settlement"
+    assert dbt["dbt_exclude"] == "tag:polygon_settlement tag:match_minute"
     assert "polymarket_wc2026_raw_match_trades" not in config
 
     portrait = polymarket_wc2026_market_portrait_run_config(
@@ -278,6 +278,9 @@ def test_match_order_book_job_is_isolated_and_unscheduled():
     assert (
         portrait["polymarket_wc2026_raw_match_trades"]["config"]["manifest_path"]
         == "/private/target.yml"
+    )
+    assert portrait["oddsfox_dbt"]["config"]["dbt_select"] == (
+        "+tag:pmxt_order_book +tag:market_portrait"
     )
 
     selected = defs.get_job_def(
@@ -288,6 +291,13 @@ def test_match_order_book_job_is_isolated_and_unscheduled():
         in selected
     )
     assert AssetKey(["polymarket", "wc2026", "marts", "match_order_book"]) in selected
+    assert AssetKey(["polymarket", "wc2026", "marts", "match_trades"]) not in selected
+    assert (
+        AssetKey(
+            ["polymarket", "wc2026", "intermediate", "match_trade_publication_gate"]
+        )
+        not in selected
+    )
     assert all(
         schedule.job_name != "polymarket_wc2026_match_order_book_backfill"
         for schedule in defs.schedules

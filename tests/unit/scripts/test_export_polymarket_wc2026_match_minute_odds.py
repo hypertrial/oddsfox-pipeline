@@ -158,3 +158,86 @@ def test_invalid_export_preserves_previous_file(tmp_path: Path) -> None:
             export_polymarket_wc2026_match_minute_odds(conn, output)
 
     assert output.read_bytes() == b"previous-good-export"
+
+
+def test_export_rejects_duplicate_utc_minute_grain(tmp_path: Path) -> None:
+    scripts_dir = Path(__file__).resolve().parents[3] / "scripts"
+    sys.path.insert(0, str(scripts_dir))
+    from export_polymarket_wc2026_match_minute_odds import (
+        export_polymarket_wc2026_match_minute_odds,
+        summarize_parquet,
+    )
+
+    output = tmp_path / "match_minute.parquet"
+    with duckdb.connect() as conn:
+        conn.execute("create schema polymarket_wc2026_marts")
+        conn.execute(
+            """
+            create table polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds as
+            select
+                timestamp '2026-06-11 19:00:00' as odds_minute_utc,
+                1000::bigint as odds_minute_epoch,
+                0::bigint as elapsed_window_minute,
+                1 as fifa_match_id,
+                'market-1' as market_id,
+                'yes-1' as yes_clob_token_id,
+                'no-1' as no_clob_token_id,
+                'result-1' as international_results_match_id,
+                'moneyline' as sports_market_type,
+                'home_win' as proposition_type,
+                true as yes_observed,
+                true as no_observed,
+                true as minute_complete,
+                false as is_game_start_minute,
+                false as is_game_finish_minute,
+                'complete' as minute_status,
+                false as pair_price_anomaly,
+                0.0 as yes_no_close_deviation,
+                timestamp '2026-06-11 18:55:00' as scheduled_kickoff_at_utc,
+                timestamp '2026-06-11 19:00:00' as match_started_at_utc,
+                timestamp '2026-06-11 20:40:00' as match_finished_at_utc,
+                'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+                    as results_source_revision,
+                'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+                    as results_source_payload_sha256,
+                timestamp '2026-07-21 10:00:00' as results_source_loaded_at
+            union all
+            select
+                timestamp '2026-06-11 19:00:00',
+                2000::bigint,
+                0::bigint,
+                1,
+                'market-1',
+                'yes-1',
+                'no-1',
+                'result-1',
+                'moneyline',
+                'home_win',
+                true,
+                true,
+                true,
+                false,
+                false,
+                'complete',
+                false,
+                0.0,
+                timestamp '2026-06-11 18:55:00',
+                timestamp '2026-06-11 19:00:00',
+                timestamp '2026-06-11 20:40:00',
+                'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                timestamp '2026-07-21 10:00:00'
+            """
+        )
+        conn.execute(
+            f"""
+            copy (
+                select * from polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds
+            ) to '{output}' (format parquet)
+            """
+        )
+        summary = summarize_parquet(conn, output)
+        assert summary["rows"] == 2
+        assert summary["grain_rows"] == 1
+        with pytest.raises(ValueError, match="odds_minute_utc, market_id"):
+            export_polymarket_wc2026_match_minute_odds(conn, output)

@@ -96,7 +96,7 @@ Expected contract:
 - 30,936 rows for the reviewed completed-WC2026 source state;
 - 104 distinct matches;
 - 248 distinct markets; and
-- unique `(odds_minute_epoch, market_id)` grain.
+- unique `(odds_minute_utc, market_id)` grain.
 
 The Make target prints and asserts the inventory and quality result. Do not
 continue if it exits nonzero.
