@@ -25,8 +25,8 @@ def test_run_scope_lists_known_scopes(capsys):
 
     out = capsys.readouterr().out
     assert "polymarket:wc2026\tpolymarket_wc2026" in out
-    assert "polymarket:us_midterms_2026\tpolymarket_us_midterms_2026" in out
     assert "kalshi:wc2026\tkalshi_wc2026" in out
+    assert "us_midterms_2026" not in out
 
 
 def test_run_scope_dry_run_accepts_multiple_scope_aliases(capsys):
@@ -67,7 +67,7 @@ def test_run_scope_executes_fixed_dagster_job():
         assert (
             runner.main(
                 [
-                    "polymarket:us_midterms_2026",
+                    "kalshi:wc2026",
                     "--step",
                     "odds",
                     "--python",
@@ -88,7 +88,7 @@ def test_run_scope_executes_fixed_dagster_job():
         "-m",
         "oddsfox_pipeline.orchestration.definitions",
         "-j",
-        "polymarket_us_midterms_2026_hourly_odds_ingest",
+        "kalshi_wc2026_hourly_odds_ingest",
     ]
 
 

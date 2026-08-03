@@ -135,15 +135,13 @@ def test_snapshot_dbt_models_reports_missing_relations(tmp_path):
     }
 
 
-def test_scoped_dbt_relations_filters_us_midterms_scope():
+def test_scoped_dbt_relations_filters_kalshi_scope():
     relations = obs._scoped_dbt_relations(
-        dbt_select="+tag:us_midterms_2026",
-        dbt_exclude="tag:wc2026",
+        dbt_select="+tag:kalshi",
+        dbt_exclude="tag:polymarket",
     )
     assert relations
-    assert all(
-        schema.startswith("polymarket_us_midterms_2026_") for schema, _ in relations
-    )
+    assert all(schema.startswith("kalshi_wc2026_") for schema, _ in relations)
     assert not any(schema.startswith("polymarket_wc2026_") for schema, _ in relations)
 
 

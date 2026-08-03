@@ -2,9 +2,8 @@
 
 Thank you for your interest in contributing. OddsFox Pipeline is an open-source,
 local-first prediction-market data pipeline built with Dagster, dlt, dbt, and
-DuckDB. Version `0.1.x` ships WC2026 and US midterms 2026 Polymarket pipelines,
-a Kalshi WC2026 pipeline, plus a small FIFA fixture/results source for
-real-team scope validation.
+DuckDB. Version `0.1.x` ships WC2026 Polymarket and Kalshi WC2026 pipelines,
+plus a small FIFA fixture/results source for real-team scope validation.
 
 ## Development setup
 
@@ -26,7 +25,6 @@ The default warehouse is `oddsfox.duckdb` in the repo root. Keep schedules disab
 
 ```dotenv
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
-POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
@@ -36,9 +34,9 @@ setup. Use [Terminology](docs/reference/terminology.md) for product vocabulary.
 
 ## Source adapter contributions
 
-Polymarket WC2026, Polymarket US midterms 2026, and Kalshi WC2026 are the
-shipped market adapters. The bundled `international_results` WC2026 source
-validates team scope; it is not a bookmaker/market adapter. Contributions may
+Polymarket WC2026 and Kalshi WC2026 are the shipped market adapters. The
+bundled `international_results` WC2026 source validates team scope; it is not a
+bookmaker/market adapter. Contributions may
 add or improve adapters for traditional bookmakers and other odds sources when
 they keep the pipeline local-first and operator-owned.
 

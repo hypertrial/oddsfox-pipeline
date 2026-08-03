@@ -22,7 +22,7 @@ from oddsfox_pipeline.ingestion.polymarket.markets.sync import (
 from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
     process_markets_dataframe,
 )
-from oddsfox_pipeline.naming import POLYMARKET_US_MIDTERMS_2026, POLYMARKET_WC2026
+from oddsfox_pipeline.naming import POLYMARKET_WC2026
 from oddsfox_pipeline.storage.duckdb.dlt_batch import DLT_STRICT_SCHEMA_CONTRACT
 
 _MARKET_COLUMNS = {
@@ -128,14 +128,9 @@ def polymarket_wc2026_markets_source(rows: Iterable[dict[str, Any]] = ()):
     return polymarket_markets_source(rows, source_name=POLYMARKET_WC2026)
 
 
-def polymarket_us_midterms_2026_markets_source(rows: Iterable[dict[str, Any]] = ()):
-    return polymarket_markets_source(rows, source_name=POLYMARKET_US_MIDTERMS_2026)
-
-
 __all__ = [
     "collect_raw_markets",
     "normalize_market_payloads_for_dlt",
     "polymarket_markets_source",
-    "polymarket_us_midterms_2026_markets_source",
     "polymarket_wc2026_markets_source",
 ]

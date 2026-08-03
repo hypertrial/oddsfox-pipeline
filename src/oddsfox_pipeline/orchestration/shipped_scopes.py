@@ -7,9 +7,7 @@ from typing import Iterable, Literal
 
 from oddsfox_pipeline.naming import (
     KALSHI_WC2026,
-    POLYMARKET_US_MIDTERMS_2026,
     POLYMARKET_WC2026,
-    SCOPE_US_MIDTERMS_2026,
     SCOPE_WC2026,
     SOURCE_KALSHI,
     SOURCE_POLYMARKET,
@@ -69,23 +67,12 @@ POLYMARKET_WC2026_SCOPE = ScopeSpec(
     full_job_name="polymarket_wc2026_full_pipeline",
     dbt_select="+tag:polymarket,tag:wc2026",
     dbt_exclude=(
-        "tag:cross_domain wc2026_fixtures wc2026_schedule_matches "
-        "wc2026_team_canonical_aliases tag:polygon_settlement tag:pmxt_order_book"
+        "tag:match_minute tag:wc2026_strategy wc2026_fixtures "
+        "wc2026_schedule_matches wc2026_team_canonical_aliases "
+        "tag:polygon_settlement tag:pmxt_order_book"
     ),
     source_seed="polymarket.market_scopes",
     includes_international_results=True,
-)
-POLYMARKET_US_MIDTERMS_2026_SCOPE = ScopeSpec(
-    source=SOURCE_POLYMARKET,
-    scope=SCOPE_US_MIDTERMS_2026,
-    label="Polymarket US midterms 2026",
-    registry_job_name="polymarket_us_midterms_2026_market_scope_registry_refresh",
-    odds_job_name="polymarket_us_midterms_2026_hourly_odds_ingest",
-    dbt_job_name="polymarket_us_midterms_2026_dbt_build",
-    full_job_name="polymarket_us_midterms_2026_full_pipeline",
-    dbt_select="+tag:us_midterms_2026",
-    dbt_exclude="tag:wc2026 tag:wc2026_logical_atlas",
-    source_seed="polymarket.market_scopes",
 )
 KALSHI_WC2026_SCOPE = ScopeSpec(
     source=SOURCE_KALSHI,
@@ -96,14 +83,13 @@ KALSHI_WC2026_SCOPE = ScopeSpec(
     dbt_job_name="kalshi_wc2026_dbt_build",
     full_job_name="kalshi_wc2026_full_pipeline",
     dbt_select="+tag:kalshi",
-    dbt_exclude="tag:cross_domain tag:polymarket tag:wc2026_logical_atlas",
+    dbt_exclude="tag:polymarket tag:wc2026_logical_atlas",
     source_seed="kalshi.market_scopes",
     includes_international_results=True,
 )
 
 SHIPPED_SCOPE_SPECS: tuple[ScopeSpec, ...] = (
     POLYMARKET_WC2026_SCOPE,
-    POLYMARKET_US_MIDTERMS_2026_SCOPE,
     KALSHI_WC2026_SCOPE,
 )
 
@@ -147,8 +133,6 @@ def scope_dbt_config(ref: str) -> dict[str, str | None]:
 __all__ = [
     "KALSHI_WC2026",
     "KALSHI_WC2026_SCOPE",
-    "POLYMARKET_US_MIDTERMS_2026",
-    "POLYMARKET_US_MIDTERMS_2026_SCOPE",
     "POLYMARKET_WC2026",
     "POLYMARKET_WC2026_SCOPE",
     "SCOPE_STEPS",

@@ -1,4 +1,4 @@
-{{ config(tags=['cross_domain']) }}
+{{ config(tags=['match_minute']) }}
 
 with source_inventory as (
     select count(*) as relevant_source_markets

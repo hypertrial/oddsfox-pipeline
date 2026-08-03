@@ -4,9 +4,9 @@ Use `.env.example` as the source of local overrides.
 For first-run steps, see [Quickstart](../getting-started/index.md).
 
 Most settings are adapter-specific. In v0.1.x, that means the shipped WC2026
-and US midterms 2026 Polymarket pipelines, the Kalshi WC2026 pipeline, the fixed
-FIFA results CSV used for team validation, and the OpenFootball mirror of FIFA
-knockout match numbers.
+Polymarket pipeline, the Kalshi WC2026 pipeline, the fixed FIFA results CSV
+used for team validation, and the OpenFootball mirror of FIFA schedule
+fixtures.
 
 ## Warehouse and dbt
 
@@ -48,8 +48,6 @@ complete local manifest and attestation are present.
   use `isolate_duckdb_test_env()` in
   `tests/unit/storage/duckdb_storage_test_support.py` to clear `DUCKDB_PATH`
   before and after reload.
-- US midterms hourly jobs default to the same trailing 30-day window and volume
-  floor as WC2026, aligned with `dbt/seeds/polymarket_us_midterms_2026_pipeline_policy.csv`.
 
 ## API Pacing
 
@@ -154,7 +152,6 @@ Shared volume floors, trailing hourly windows, and freshness windows live in
 the `<namespace>_pipeline_policy.csv` seeds (see [Naming](naming.md)):
 
 - `dbt/seeds/polymarket_wc2026_pipeline_policy.csv`
-- `dbt/seeds/polymarket_us_midterms_2026_pipeline_policy.csv`
 - `dbt/seeds/kalshi_wc2026_pipeline_policy.csv`
 
 Python defaults are checked against those seeds in unit tests.
@@ -164,11 +161,10 @@ Python defaults are checked against those seeds in unit tests.
 | Preset | Focus |
 | --- | --- |
 | `wc2026` | FIFA World Cup 2026 |
-| `us_midterms_2026` | Balance of Power, Senate control, and House control 2026 midterms |
 
 `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml` is the
-scope source. The packaged seed contains `wc2026` and `us_midterms_2026`, and
-the shipped jobs, assets, and dbt graphs are fixed per scope in v0.1.x.
+scope source. The packaged seed contains `wc2026`, and the shipped jobs,
+assets, and dbt graphs are fixed per scope in v0.1.x.
 
 `ODDSFOX_WC2026_REVIEWED_MEMBERSHIP_PATH` must name the absolute path to the
 operator-reviewed logical-atlas membership CSV when running
@@ -229,8 +225,7 @@ mart.
 
 ## dbt build defaults
 
-Scoped dbt jobs (`polymarket_wc2026_dbt_build`,
-`polymarket_us_midterms_2026_dbt_build`, `kalshi_wc2026_dbt_build`, and
+Scoped dbt jobs (`polymarket_wc2026_dbt_build`, `kalshi_wc2026_dbt_build`, and
 `polymarket_wc2026_logical_atlas`) ship with `full_refresh=False` in their
 default Dagster run config. Routine runs therefore use dbt incremental
 materializations where defined. Override with `full_refresh=True` in Dagster run
@@ -260,10 +255,7 @@ The old minute-grain schedule-oriented names are not accepted in v0.1.x.
 ## Schedules
 
 - `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
-- `POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_us_midterms_2026_hourly_odds_ingest` schedule (`fidelity=60`).
 - `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `kalshi_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
-- `WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED`: enables the atomic
-  hourly `wc2026_knockout_match_odds_full_pipeline` schedule.
 
 All schedule flags default to `false`.
 

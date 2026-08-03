@@ -50,8 +50,8 @@ def test_get_polymarket_dlt_pipeline_uses_path_cache(monkeypatch):
     assert created[0]["pipeline_name"] == "polymarket_wc2026_raw_landing"
 
     helpers_mod._DLT_PIPELINE_BY_PATH.clear()
-    midterms = helpers_mod.get_polymarket_dlt_pipeline(
-        scope_name="us_midterms_2026",
+    other_scope = helpers_mod.get_polymarket_dlt_pipeline(
+        scope_name="custom-scope",
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
         dlt_module=FakeDlt,
     )
@@ -60,7 +60,7 @@ def test_get_polymarket_dlt_pipeline_uses_path_cache(monkeypatch):
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
         dlt_module=FakeDlt,
     )
-    assert midterms is not wc2026
+    assert other_scope is not wc2026
     assert len(created) == 3
 
     helpers_mod._DLT_PIPELINE_BY_PATH.clear()

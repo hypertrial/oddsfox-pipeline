@@ -27,16 +27,12 @@ from oddsfox_pipeline.orchestration import (
     assets_polygon_settlement as polygon_assets_mod,
 )
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
-from oddsfox_pipeline.orchestration import (
-    assets_polymarket_us_midterms_2026 as midterms_assets_mod,
-)
 from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.shipped_scopes import SCOPE_STEPS, iter_scope_specs
 
 _NON_SCOPE_JOB_NAMES = {
     "international_results_historical_ingest",
     "international_results_wc2026_match_results_ingest",
-    "wc2026_knockout_match_odds_full_pipeline",
     "polymarket_wc2026_match_minute_odds_backfill",
     "polymarket_wc2026_match_order_book_backfill",
     "polymarket_wc2026_market_portrait_backfill",
@@ -104,7 +100,7 @@ oddsfox:
         if False:
             yield None
 
-    for module in (assets_mod, midterms_assets_mod, kalshi_assets_mod):
+    for module in (assets_mod, kalshi_assets_mod):
         if module is kalshi_assets_mod:
             monkeypatch.setattr(
                 module.asset_helpers,

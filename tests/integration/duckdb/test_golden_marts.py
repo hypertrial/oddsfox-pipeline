@@ -11,13 +11,12 @@ from tests.integration.conftest import dbt_subprocess_env, write_dbt_profile
 from tests.integration.dbt_cli import run_dbt as _run_dbt
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
-from oddsfox_pipeline.naming import SCOPE_US_MIDTERMS_2026, SCOPE_WC2026
+from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.connection import init_duck_db
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     international_results_wc2026_raw_tbl,
     kalshi_ops_tbl,
     kalshi_raw_tbl,
-    openfootball_wc2026_raw_tbl,
     polymarket_ops_tbl,
     polymarket_raw_tbl,
 )
@@ -32,8 +31,6 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 GOLDEN_ROOT = REPO_ROOT / "tests" / "fixtures" / "golden"
 ODDS_HOUR = datetime(2099, 1, 1, 10, tzinfo=timezone.utc)
 ODDS_HOUR_EPOCH = int(ODDS_HOUR.timestamp())
-MATCH_ODDS_HOUR = datetime(2026, 7, 14, 16, tzinfo=timezone.utc)
-MATCH_ODDS_HOUR_EPOCH = int(MATCH_ODDS_HOUR.timestamp())
 
 
 def _expected(name: str) -> list[dict[str, str]]:
@@ -257,202 +254,6 @@ def _seed_kalshi(conn: duckdb.DuckDBPyConnection) -> None:
     )
 
 
-def _seed_wc2026_match_odds(conn: duckdb.DuckDBPyConnection) -> None:
-    conn.executemany(
-        f"""
-        insert into {openfootball_wc2026_raw_tbl("schedule_fixtures")}
-        (
-            fifa_match_id,
-            stage_key,
-            stage_rank,
-            group_label,
-            kickoff_at_utc,
-            home_team,
-            away_team,
-            venue,
-            match_status,
-            source_url,
-            source_line_number,
-            source_line_hash,
-            source_loaded_at
-        )
-        values (?, ?, ?, null, ?, ?, ?, 'Test Venue', 'scheduled',
-            'https://example.com/cup_finals.txt', ?, ?, timestamp '2026-07-13 00:00:00')
-        """,
-        [
-            (
-                101,
-                "semifinal",
-                4,
-                datetime(2026, 7, 14, 19),
-                "France",
-                "Spain",
-                101,
-                "fixture-101",
-            ),
-            (
-                103,
-                "third_place",
-                0,
-                datetime(2026, 7, 18, 21),
-                "L101",
-                "L102",
-                103,
-                "fixture-103",
-            ),
-        ],
-    )
-    conn.execute(
-        f"""
-        insert into {polymarket_raw_tbl(SCOPE_WC2026, "markets")}
-        (
-            id,
-            question,
-            category,
-            description,
-            outcomes,
-            volume,
-            active,
-            closed,
-            created_at,
-            scraped_at,
-            end_date,
-            slug,
-            event_slug,
-            event_id,
-            condition_id,
-            sports_market_type,
-            game_start_time,
-            group_item_title,
-            tags,
-            clob_token_ids,
-            is_resolved,
-            winning_outcome,
-            winning_clob_token_id
-        )
-        values (
-            'pm-match-101',
-            'France vs. Spain: Team to Advance',
-            'sports',
-            '',
-            '["Spain","France"]',
-            1.0,
-            true,
-            false,
-            timestamp '2026-07-11 00:00:00',
-            timestamp '2026-07-13 00:00:00',
-            timestamp '2026-07-14 19:00:00',
-            'fifwc-fra-esp-2026-07-14-team-to-advance',
-            'fifwc-fra-esp-2026-07-14-more-markets',
-            'event-101',
-            'condition-101',
-            'soccer_team_to_advance',
-            timestamp '2026-07-14 19:00:00',
-            'Team to Advance',
-            '[]',
-            '["pm-spain","pm-france"]',
-            false,
-            null,
-            null
-        )
-        """
-    )
-    conn.execute(
-        f"""
-        insert into {polymarket_raw_tbl(SCOPE_WC2026, "market_tokens")}
-        (market_id, clobTokenIds, updated_at)
-        values ('pm-match-101', '["pm-spain","pm-france"]',
-            timestamp '2026-07-13 00:00:00')
-        """
-    )
-    conn.execute(
-        f"""
-        insert into {polymarket_ops_tbl(SCOPE_WC2026, "market_scope_registry")}
-        (scope_name, market_id, event_slug, event_id, source, refreshed_at)
-        values ('wc2026', 'pm-match-101',
-            'fifwc-fra-esp-2026-07-14-more-markets', 'event-101', 'golden',
-            timestamp '2026-07-13 00:00:00')
-        """
-    )
-    conn.executemany(
-        f"""
-        insert into {polymarket_raw_tbl(SCOPE_WC2026, "odds_history")}
-        (clobTokenId, timestamp, price, ingested_at)
-        values (?, ?, ?, timestamp '2026-07-14 21:00:00')
-        """,
-        [
-            ("pm-spain", MATCH_ODDS_HOUR_EPOCH + 600, 0.40),
-            ("pm-france", MATCH_ODDS_HOUR_EPOCH + 600, 0.60),
-            ("pm-france", MATCH_ODDS_HOUR_EPOCH + 2 * 3600 + 600, 0.65),
-        ],
-    )
-    kalshi_markets = [
-        ("KXWCADVANCE-101-ESP", "Spain advances"),
-        ("KXWCADVANCE-101-FRA", "France advances"),
-    ]
-    conn.executemany(
-        f"""
-        insert into {kalshi_raw_tbl(SCOPE_WC2026, "markets")}
-        (
-            market_ticker,
-            event_ticker,
-            series_ticker,
-            title,
-            subtitle,
-            yes_sub_title,
-            no_sub_title,
-            status,
-            market_type,
-            open_time,
-            close_time,
-            expiration_time,
-            occurrence_datetime,
-            volume,
-            open_interest,
-            last_price_dollars,
-            scraped_at
-        )
-        values (?, 'KXWCADVANCE-101', 'KXWCADVANCE',
-            'France vs. Spain', '', ?, '', 'active', 'binary',
-            timestamp '2026-07-11 00:00:00', timestamp '2026-07-14 23:00:00',
-            timestamp '2026-07-14 23:00:00', timestamp '2026-07-14 19:00:00',
-            1, 1, '0.50', timestamp '2026-07-13 00:00:00')
-        """,
-        kalshi_markets,
-    )
-    conn.executemany(
-        f"""
-        insert into {kalshi_ops_tbl(SCOPE_WC2026, "market_scope_registry")}
-        (scope_name, market_ticker, event_ticker, series_ticker, source, refreshed_at)
-        values ('wc2026', ?, 'KXWCADVANCE-101', 'KXWCADVANCE', 'golden',
-            timestamp '2026-07-13 00:00:00')
-        """,
-        [(market_ticker,) for market_ticker, _ in kalshi_markets],
-    )
-    conn.executemany(
-        f"""
-        insert into {kalshi_raw_tbl(SCOPE_WC2026, "market_candlesticks_hourly")}
-        (
-            market_ticker,
-            hour_start_utc,
-            open_price,
-            high_price,
-            low_price,
-            close_price,
-            avg_price,
-            volume,
-            refreshed_at
-        )
-        values (?, timestamp '2026-07-14 17:00:00', ?, ?, ?, ?, ?, 1,
-            timestamp '2026-07-14 21:00:00')
-        """,
-        [
-            ("KXWCADVANCE-101-ESP", 0.44, 0.46, 0.44, 0.45, 0.45),
-            ("KXWCADVANCE-101-FRA", 0.54, 0.56, 0.54, 0.55, 0.55),
-        ],
-    )
-
-
 def test_public_marts_match_golden_rows(
     tmp_path: Path, monkeypatch, dbt_profiles_dir, dbt_target_dir
 ):
@@ -476,17 +277,7 @@ def test_public_marts_match_golden_rows(
             event_slug="world-cup",
             close_price=0.70,
         )
-        _seed_polymarket_scope(
-            conn,
-            scope_name=SCOPE_US_MIDTERMS_2026,
-            market_id="pm-mid-house",
-            token_id="pm-mid-house-yes",
-            question="Which party will win the 2026 House popular vote?",
-            event_slug="us-midterms-2026",
-            close_price=0.54,
-        )
         _seed_kalshi(conn)
-        _seed_wc2026_match_odds(conn)
 
     env = dbt_subprocess_env(
         db_path=db_path,
@@ -502,10 +293,8 @@ def test_public_marts_match_golden_rows(
             "--select",
             "+international_results_wc2026_team_status",
             "+polymarket_wc2026_knockout_token_hourly_odds",
-            "+polymarket_us_midterms_2026_market_token_hourly_odds",
             "+kalshi_wc2026_stage_market_hourly_odds",
             "+kalshi_wc2026_group_winner_market_hourly_odds",
-            "+wc2026_knockout_match_hourly_odds",
         ],
         profiles_dir=dbt_profiles_dir,
         env=env,
@@ -546,21 +335,6 @@ def test_public_marts_match_golden_rows(
             conn,
             """
             select
-                market_id,
-                clob_token_id,
-                question,
-                event_slug,
-                cast(odds_hour_epoch as varchar) as odds_hour_epoch,
-                cast(close_price as varchar) as close_price,
-                cast(observed_points as varchar) as observed_points
-            from polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds
-            order by market_id, clob_token_id, odds_hour_epoch
-            """,
-        ) == _expected("polymarket_us_midterms_2026_market_token_hourly_odds.csv")
-        assert _dict_rows(
-            conn,
-            """
-            select
                 'kalshi_wc2026_stage_market_hourly_odds' as model_name,
                 market_ticker,
                 progression_outcome_label as semantic_key,
@@ -580,95 +354,3 @@ def test_public_marts_match_golden_rows(
             order by model_name desc, market_ticker
             """,
         ) == _expected("kalshi_wc2026_hourly_odds.csv")
-        assert _dict_rows(
-            conn,
-            """
-            select
-                cast(fifa_match_id as varchar) as fifa_match_id,
-                cast(odds_hour_utc as varchar) as odds_hour_utc,
-                stage_key,
-                home_team,
-                away_team,
-                coalesce(cast(polymarket_home_advance_price as varchar), '')
-                    as polymarket_home_advance_price,
-                coalesce(cast(polymarket_away_advance_price as varchar), '')
-                    as polymarket_away_advance_price,
-                coalesce(cast(kalshi_home_advance_price as varchar), '')
-                    as kalshi_home_advance_price,
-                coalesce(cast(kalshi_away_advance_price as varchar), '')
-                    as kalshi_away_advance_price,
-                polymarket_market_id,
-                kalshi_event_ticker,
-                cast(polymarket_hour_complete as varchar) as polymarket_hour_complete,
-                cast(kalshi_hour_complete as varchar) as kalshi_hour_complete,
-                cast(both_sources_complete as varchar) as both_sources_complete,
-                cast(is_pre_kickoff as varchar) as is_pre_kickoff
-            from wc2026_marts.wc2026_knockout_match_hourly_odds
-            order by fifa_match_id, odds_hour_epoch
-            """,
-        ) == _expected("wc2026_knockout_match_hourly_odds.csv")
-
-    with duckdb.connect(str(db_path)) as conn:
-        conn.execute(
-            f"""
-            delete from {polymarket_raw_tbl(SCOPE_WC2026, "odds_history")}
-            where clobTokenId in ('pm-france', 'pm-spain')
-                and timestamp < ?
-            """,
-            [MATCH_ODDS_HOUR_EPOCH + 3600],
-        )
-        conn.execute(
-            f"""
-            delete from {kalshi_raw_tbl(SCOPE_WC2026, "market_candlesticks_hourly")}
-            where market_ticker like 'KXWCADVANCE-101-%'
-            """
-        )
-        conn.execute(
-            f"""
-            insert into {polymarket_raw_tbl(SCOPE_WC2026, "odds_history")}
-            (clobTokenId, timestamp, price, ingested_at)
-            values ('pm-spain', ?, 0.35, timestamp '2026-07-14 22:00:00')
-            """,
-            [MATCH_ODDS_HOUR_EPOCH + 2 * 3600 + 1200],
-        )
-
-    _run_dbt(
-        [
-            "run",
-            "--select",
-            "int_polymarket_wc2026_match_hourly_odds",
-            "int_kalshi_wc2026_match_hourly_odds",
-            "wc2026_knockout_match_hourly_odds",
-        ],
-        profiles_dir=dbt_profiles_dir,
-        env=env,
-    )
-
-    with duckdb.connect(str(db_path), read_only=True) as conn:
-        assert conn.execute(
-            """
-            select count(*)
-            from polymarket_wc2026_intermediate.int_polymarket_wc2026_match_hourly_odds
-            where odds_hour_epoch = ?
-            """,
-            [MATCH_ODDS_HOUR_EPOCH],
-        ).fetchone() == (2,)
-        assert conn.execute(
-            """
-            select count(*)
-            from kalshi_wc2026_intermediate.int_kalshi_wc2026_match_hourly_odds
-            where odds_hour_epoch = ?
-            """,
-            [MATCH_ODDS_HOUR_EPOCH + 3600],
-        ).fetchone() == (2,)
-        assert conn.execute(
-            """
-            select
-                polymarket_home_advance_price,
-                polymarket_away_advance_price,
-                polymarket_hour_complete
-            from wc2026_marts.wc2026_knockout_match_hourly_odds
-            where fifa_match_id = 101 and odds_hour_epoch = ?
-            """,
-            [MATCH_ODDS_HOUR_EPOCH + 2 * 3600],
-        ).fetchone() == (0.65, 0.35, True)

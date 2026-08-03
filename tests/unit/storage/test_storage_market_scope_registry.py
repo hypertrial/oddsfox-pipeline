@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import pytest
 
+from oddsfox_pipeline.storage.duckdb import (
+    kalshi_market_scope_registry as kalshi_registry,
+)
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     clear_registry,
@@ -20,14 +23,22 @@ def test_upsert_empty_rows_is_noop(duck):
 
 def test_clear_registry_default_scope(duck):
     upsert_registry_rows(
+        [RegistryRow("m1", "event-a", "e1", "seed", scope_name="wc2026")]
+    )
+    kalshi_registry.upsert_registry_rows(
         [
-            RegistryRow("m1", "event-a", "e1", "seed", scope_name="wc2026"),
-            RegistryRow("m2", "event-b", "e2", "seed", scope_name="us_midterms_2026"),
+            kalshi_registry.KalshiRegistryRow(
+                "KXTEST-1",
+                "KXTEST-EVT",
+                "KXTEST",
+                "seed",
+                scope_name="wc2026",
+            )
         ]
     )
     clear_registry()
     assert registry_market_count("wc2026") == 0
-    assert registry_market_count("us_midterms_2026") == 1
+    assert kalshi_registry.registry_market_count("wc2026") == 1
 
 
 def test_upsert_and_query_registry(duck):
@@ -43,34 +54,56 @@ def test_upsert_and_query_registry(duck):
 
 
 def test_registry_grain_includes_scope_name(duck):
-    n = upsert_registry_rows(
-        [
-            RegistryRow("m1", "event-a", "e1", "seed", scope_name="wc2026"),
-            RegistryRow("m1", "event-b", "e2", "seed", scope_name="us_midterms_2026"),
-        ]
+    upsert_registry_rows(
+        [RegistryRow("m1", "event-a", "e1", "seed", scope_name="wc2026")]
     )
+    with duck.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO polymarket_wc2026_ops.market_scope_registry
+            (scope_name, market_id, event_slug, event_id, source, refreshed_at)
+            VALUES ('legacy-scope', 'm1', 'event-b', 'e2', 'seed', current_timestamp)
+            """
+        )
 
-    assert n == 2
-    assert (
-        registry_market_count("wc2026") + registry_market_count("us_midterms_2026") == 2
-    )
     assert registry_market_count("wc2026") == 1
+    with duck.get_connection() as conn:
+        legacy_count = conn.execute(
+            """
+            SELECT count(*)
+            FROM polymarket_wc2026_ops.market_scope_registry
+            WHERE scope_name = 'legacy-scope'
+            """
+        ).fetchone()[0]
+    assert legacy_count == 1
     assert get_registry_market_ids("wc2026") == ["m1"]
-    assert get_registry_market_ids("us_midterms_2026") == ["m1"]
 
 
 def test_registry_helpers_are_scope_aware(duck):
     upsert_registry_rows(
-        [
-            RegistryRow("m1", "event-a", "e1", "seed", scope_name="wc2026"),
-            RegistryRow("m2", "event-b", "e2", "seed", scope_name="us_midterms_2026"),
-        ]
+        [RegistryRow("m1", "event-a", "e1", "seed", scope_name="wc2026")]
     )
+    with duck.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO polymarket_wc2026_ops.market_scope_registry
+            (scope_name, market_id, event_slug, event_id, source, refreshed_at)
+            VALUES ('legacy-scope', 'm2', 'event-b', 'e2', 'seed', current_timestamp)
+            """
+        )
 
     assert get_registry_event_slugs("wc2026") == ["event-a"]
     clear_registry("wc2026")
     assert registry_market_count("wc2026") == 0
-    assert registry_market_count("us_midterms_2026") == 1
+    with duck.get_connection() as conn:
+        legacy_count = conn.execute(
+            """
+            SELECT count(*)
+            FROM polymarket_wc2026_ops.market_scope_registry
+            WHERE scope_name = 'legacy-scope'
+            """
+        ).fetchone()[0]
+    assert legacy_count == 1
     with pytest.raises(ValueError, match="scope_name"):
         get_registry_market_ids("")
 

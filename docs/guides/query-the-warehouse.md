@@ -40,7 +40,6 @@ definitions live in the [Glossary](../concepts/glossary.md).
 
     ```bash
     uv run python scripts/run_scope.py kalshi:wc2026 --step full
-    uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step full
     ```
 
     Use [Quickstart](../getting-started/index.md) for the full operator path.
@@ -92,7 +91,6 @@ running Dagster/dbt writer.
 | Current WC2026 Polymarket progression prices | `polymarket_wc2026_marts.polymarket_wc2026_knockout_markets` | Filter to `is_actionable_live_market` for current live use. |
 | WC2026 Polymarket progression hourly series | `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` | One row per `clob_token_id`, `odds_hour_epoch`. Prices are normalized to progression. |
 | WC2026 logical atlas inventory | `polymarket_wc2026_marts.polymarket_wc2026_logical_markets` | Join the other six `polymarket_wc2026_logical_*` marts or consume the versioned seven-file bundle; see the [atlas runbook](build-wc2026-logical-atlas.md). |
-| Cross-platform knockout match hours | `wc2026_marts.wc2026_knockout_match_hourly_odds` | Compare Polymarket and Kalshi match-advance closes. |
 | WC2026 in-game match minutes | `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds` | Dense minute series for all 104 matches; requires the match-minute path, not ordinary hourly ingest alone. |
 | Argentina–Egypt historical L2 depth | `polymarket_wc2026_marts.polymarket_wc2026_match_order_book` | Long-form independent bid/ask levels for both PMXT outcome-token snapshot streams; requires the unscheduled PMXT backfill. |
 | WC2026 fixtures and results | `international_results_wc2026_marts.international_results_wc2026_matches` | One row per `match_id`, with knockout advancer inference. |
@@ -101,8 +99,6 @@ running Dagster/dbt writer.
 | Kalshi stage hourly series | `kalshi_wc2026_marts.kalshi_wc2026_stage_market_hourly_odds` | Use `progression_*_price` for stage progression semantics. |
 | Current Kalshi group-winner prices | `kalshi_wc2026_marts.kalshi_wc2026_group_winner_markets` | Use `group_winner_price`. |
 | Kalshi group-winner hourly series | `kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds` | One row per `market_ticker`, `odds_hour_epoch`. |
-| Polymarket market catalog alias (same rows) | `polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_markets` | Same platform-wide ≥$100k catalog as `polymarket_wc2026_markets`. |
-| US midterms Polymarket hourly odds | `polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds` | Balance of Power combos are independent binary markets. |
 | WC2026 finalized Polygon settlement minutes (advanced) | `polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds` | Fixed 150/210-minute scheduled windows; empty sides remain null; fill counts are normalized economic legs. |
 
 ## Trust Before Analysis
@@ -127,7 +123,6 @@ Useful observability tables:
 | Polygon settlement WC2026 | `polymarket_wc2026_observability.polymarket_wc2026_polygon_settlement_quality_issues` | Sparse/no-fill, derived-leg, pair-deviation, secondary-RPC, and structural findings. |
 | Kalshi WC2026 | `kalshi_wc2026_observability.kalshi_wc2026_data_quality` | Stage/group-winner stale or missing live odds and coverage findings. |
 | Kalshi WC2026 | `kalshi_wc2026_observability.kalshi_wc2026_ingestion_run_observability` | Kalshi ingestion telemetry. |
-| US midterms 2026 | `polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_ingestion_run_observability` | Midterms ingestion telemetry. |
 
 Next: use [Query recipes](query-recipes.md) for examples, then the
 [Data dictionary](../reference/data-dictionary.md) for table-by-table semantics.

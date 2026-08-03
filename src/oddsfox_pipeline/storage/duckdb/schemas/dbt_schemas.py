@@ -7,7 +7,6 @@ from typing import Final, Mapping, Sequence
 from dagster import AssetKey
 
 from oddsfox_pipeline.naming import (
-    SCOPE_US_MIDTERMS_2026,
     SCOPE_WC2026,
     SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_KALSHI,
@@ -20,13 +19,11 @@ DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026: Final = "international_results_wc2026"
 DBT_SOURCE_OPENFOOTBALL_WC2026: Final = "openfootball_wc2026"
 DBT_SOURCE_KALSHI_WC2026: Final = "kalshi_wc2026"
 DBT_SOURCE_POLYMARKET_WC2026: Final = "polymarket_wc2026"
-DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026: Final = "polymarket_us_midterms_2026"
 DBT_SOURCE_POLYMARKET_CATALOG: Final = "polymarket_catalog"
 DBT_SOURCE_WC2026: Final = "wc2026"
 
 _POLYMARKET_SOURCE_SCOPES: dict[str, str] = {
     DBT_SOURCE_POLYMARKET_WC2026: SCOPE_WC2026,
-    DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026: SCOPE_US_MIDTERMS_2026,
 }
 _KALSHI_SOURCE_SCOPES: dict[str, str] = {
     DBT_SOURCE_KALSHI_WC2026: SCOPE_WC2026,
@@ -71,18 +68,6 @@ KALSHI_WC2026_MARTS_SCHEMA: Final = schema_name(SOURCE_KALSHI, SCOPE_WC2026, "ma
 KALSHI_WC2026_OBSERVABILITY_SCHEMA: Final = schema_name(
     SOURCE_KALSHI, SCOPE_WC2026, "observability"
 )
-POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA: Final = schema_name(
-    SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "staging"
-)
-POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA: Final = schema_name(
-    SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "intermediate"
-)
-POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA: Final = schema_name(
-    SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "marts"
-)
-POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA: Final = schema_name(
-    SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "observability"
-)
 POLYMARKET_CATALOG_STAGING_SCHEMA: Final = "polymarket_catalog_staging"
 DBT_FALLBACK_SCHEMA: Final = "dbt"
 POLYMARKET_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
@@ -100,9 +85,6 @@ KALSHI_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "kalshi_wc2026_stage_coverage",
     "kalshi_wc2026_data_quality",
     "kalshi_wc2026_ingestion_run_observability",
-)
-POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
-    "polymarket_us_midterms_2026_ingestion_run_observability",
 )
 INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "international_results_wc2026_data_quality",
@@ -127,10 +109,6 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
     KALSHI_WC2026_INTERMEDIATE_SCHEMA,
     KALSHI_WC2026_MARTS_SCHEMA,
     KALSHI_WC2026_OBSERVABILITY_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA,
 )
 
 DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
@@ -138,8 +116,6 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         OPENFOOTBALL_WC2026_STAGING_SCHEMA,
         "stg_openfootball_wc2026_schedule_fixtures",
     ),
-    (WC2026_INTERMEDIATE_SCHEMA, "int_wc2026_advancement_fixtures"),
-    (WC2026_MARTS_SCHEMA, "wc2026_knockout_match_hourly_odds"),
     (WC2026_STAGING_SCHEMA, "wc2026_schedule_matches"),
     (WC2026_STAGING_SCHEMA, "wc2026_third_place_options"),
     (WC2026_STAGING_SCHEMA, "wc2026_base_camps_teams"),
@@ -170,14 +146,6 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (WC2026_MARTS_SCHEMA, "wc2026_venue_markets"),
     (WC2026_OBSERVABILITY_SCHEMA, "wc2026_source_availability"),
     (WC2026_OBSERVABILITY_SCHEMA, "wc2026_strategy_input_readiness"),
-    (
-        WC2026_OBSERVABILITY_SCHEMA,
-        "wc2026_knockout_match_odds_coverage",
-    ),
-    (
-        WC2026_OBSERVABILITY_SCHEMA,
-        "wc2026_knockout_match_odds_data_quality",
-    ),
     (
         INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
         "stg_international_results_wc2026_match_results",
@@ -300,14 +268,6 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
         "int_polymarket_wc2026_knockout_market_classification",
-    ),
-    (
-        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_wc2026_match_advance_tokens",
-    ),
-    (
-        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_wc2026_match_hourly_odds",
     ),
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
@@ -460,66 +420,6 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
         "polymarket_wc2026_ingestion_run_observability",
     ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_markets",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_market_tokens",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_odds",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_odds_daily",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_ingestion_run_events",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_sync_ledger",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "stg_polymarket_us_midterms_2026_token_sync_skips",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA,
-        "polymarket_us_midterms_2026_pipeline_policy",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_us_midterms_2026_markets",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_us_midterms_2026_token_working_set",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_us_midterms_2026_market_tokens",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA,
-        "int_polymarket_us_midterms_2026_token_hourly_odds",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
-        "polymarket_us_midterms_2026_markets",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
-        "polymarket_us_midterms_2026_market_token_hourly_odds",
-    ),
-    (
-        POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA,
-        "polymarket_us_midterms_2026_ingestion_run_observability",
-    ),
     (KALSHI_WC2026_STAGING_SCHEMA, "stg_kalshi_wc2026_events"),
     (KALSHI_WC2026_STAGING_SCHEMA, "stg_kalshi_wc2026_markets"),
     (
@@ -536,14 +436,6 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         KALSHI_WC2026_INTERMEDIATE_SCHEMA,
         "int_kalshi_wc2026_group_winner_classification",
-    ),
-    (
-        KALSHI_WC2026_INTERMEDIATE_SCHEMA,
-        "int_kalshi_wc2026_match_advance_markets",
-    ),
-    (
-        KALSHI_WC2026_INTERMEDIATE_SCHEMA,
-        "int_kalshi_wc2026_match_hourly_odds",
     ),
     (KALSHI_WC2026_MARTS_SCHEMA, "kalshi_wc2026_stage_markets"),
     (KALSHI_WC2026_MARTS_SCHEMA, "kalshi_wc2026_stage_market_hourly_odds"),
@@ -580,8 +472,6 @@ def _kalshi_source_slug(model_name: str) -> str | None:
 def _polymarket_source_slug(model_name: str) -> str | None:
     if model_name.startswith("stg_polymarket_catalog_"):
         return DBT_SOURCE_POLYMARKET_CATALOG
-    if model_name.startswith("stg_polymarket_us_midterms_2026_"):
-        return DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026
     if model_name.startswith(
         (
             "stg_polymarket_wc2026_",
@@ -590,13 +480,6 @@ def _polymarket_source_slug(model_name: str) -> str | None:
         )
     ):
         return DBT_SOURCE_POLYMARKET_WC2026
-    if model_name.startswith(
-        (
-            "int_polymarket_us_midterms_2026_",
-            "polymarket_us_midterms_2026_",
-        )
-    ):
-        return DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026
     return None
 
 
@@ -708,22 +591,6 @@ def _polymarket_wc2026_layer(
     )
 
 
-def _polymarket_us_midterms_2026_layer(
-    model_name: str,
-    props: Mapping[str, object] | None = None,
-    *,
-    fqn: Sequence[str] | None = None,
-) -> str:
-    return _polymarket_layer(
-        model_name,
-        props,
-        fqn=fqn,
-        observability_models=POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_MODELS,
-        staging_prefix="stg_polymarket_us_midterms_2026_",
-        intermediate_prefix="int_polymarket_us_midterms_2026_",
-    )
-
-
 def _international_results_wc2026_layer(
     model_name: str,
     props: Mapping[str, object] | None = None,
@@ -763,15 +630,6 @@ def _polymarket_wc2026_subject(model_name: str) -> str:
     )
 
 
-def _polymarket_us_midterms_2026_subject(model_name: str) -> str:
-    return _polymarket_subject(
-        model_name,
-        staging_prefix="stg_polymarket_us_midterms_2026_",
-        intermediate_prefix="int_polymarket_us_midterms_2026_",
-        mart_prefix="polymarket_us_midterms_2026_",
-    )
-
-
 def _international_results_wc2026_subject(model_name: str) -> str:
     for prefix in (
         "stg_international_results_wc2026_",
@@ -792,8 +650,6 @@ def shorten_model_name(model_name: str, source_slug: str) -> str:
         return _kalshi_wc2026_subject(model_name)
     if source_slug == DBT_SOURCE_POLYMARKET_WC2026:
         return _polymarket_wc2026_subject(model_name)
-    if source_slug == DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026:
-        return _polymarket_us_midterms_2026_subject(model_name)
     if source_slug == DBT_SOURCE_POLYMARKET_CATALOG:
         prefix = "stg_polymarket_catalog_"
         if model_name.startswith(prefix):
@@ -850,13 +706,6 @@ def dbt_model_asset_key_for_name(
             layer or _polymarket_wc2026_layer(model_name, props, fqn=fqn),
             _polymarket_wc2026_subject(model_name),
         )
-    if source_slug == DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026:
-        return asset_key(
-            SOURCE_POLYMARKET,
-            SCOPE_US_MIDTERMS_2026,
-            layer or _polymarket_us_midterms_2026_layer(model_name, props, fqn=fqn),
-            _polymarket_us_midterms_2026_subject(model_name),
-        )
     if source_slug == DBT_SOURCE_POLYMARKET_CATALOG:
         path_fqn = list(fqn or (props or {}).get("fqn") or ())
         resolved_layer = layer or next(
@@ -896,7 +745,6 @@ __all__ = [
     "DBT_SOURCE_KALSHI_WC2026",
     "DBT_SOURCE_OPENFOOTBALL_WC2026",
     "DBT_SOURCE_POLYMARKET_CATALOG",
-    "DBT_SOURCE_POLYMARKET_US_MIDTERMS_2026",
     "DBT_SOURCE_POLYMARKET_WC2026",
     "DBT_SOURCE_WC2026",
     "INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA",
@@ -908,10 +756,6 @@ __all__ = [
     "KALSHI_WC2026_MARTS_SCHEMA",
     "KALSHI_WC2026_OBSERVABILITY_SCHEMA",
     "KALSHI_WC2026_STAGING_SCHEMA",
-    "POLYMARKET_US_MIDTERMS_2026_INTERMEDIATE_SCHEMA",
-    "POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA",
-    "POLYMARKET_US_MIDTERMS_2026_OBSERVABILITY_SCHEMA",
-    "POLYMARKET_US_MIDTERMS_2026_STAGING_SCHEMA",
     "POLYMARKET_WC2026_INTERMEDIATE_SCHEMA",
     "POLYMARKET_WC2026_MARTS_SCHEMA",
     "POLYMARKET_WC2026_OBSERVABILITY_SCHEMA",

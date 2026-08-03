@@ -14,6 +14,7 @@ from tests.unit.storage.duckdb_storage_test_support import (
     T_MT,
     _insert_minimal_market,
 )
+
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     upsert_registry_rows,

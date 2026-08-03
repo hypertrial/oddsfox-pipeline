@@ -12,8 +12,6 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
     KALSHI_WC2026_OPS_SCHEMA,
     KALSHI_WC2026_RAW_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
     POLYMARKET_WC2026_RAW_SCHEMA,
     get_connection,
@@ -37,15 +35,6 @@ _RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
     (POLYMARKET_WC2026_OPS_SCHEMA, "token_sync_skips"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "ingestion_run_events"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "sync_run_metrics"),
-    (POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA, "markets"),
-    (POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA, "market_tokens"),
-    (POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA, "odds_history"),
-    (POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA, "token_odds_daily"),
-    (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "market_scope_registry"),
-    (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "token_sync_ledger"),
-    (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "token_sync_skips"),
-    (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "ingestion_run_events"),
-    (POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA, "sync_run_metrics"),
     (KALSHI_WC2026_RAW_SCHEMA, "events"),
     (KALSHI_WC2026_RAW_SCHEMA, "markets"),
     (KALSHI_WC2026_RAW_SCHEMA, "market_candlesticks_hourly"),
@@ -305,20 +294,6 @@ def _qualified(schema: str, name: str) -> str:
     return f'"{schema}"."{name}"'
 
 
-_CROSS_DOMAIN_MODELS: frozenset[str] = frozenset(
-    {
-        "int_polymarket_wc2026_match_hourly_odds",
-        "int_polymarket_wc2026_match_advance_tokens",
-        "int_kalshi_wc2026_match_hourly_odds",
-        "int_kalshi_wc2026_match_advance_markets",
-        "wc2026_knockout_match_hourly_odds",
-        "int_wc2026_advancement_fixtures",
-        "wc2026_knockout_match_odds_coverage",
-        "wc2026_knockout_match_odds_data_quality",
-    }
-)
-
-
 def _selector_groups(selector: str | None) -> tuple[frozenset[str], ...]:
     if not selector:
         return ()
@@ -341,14 +316,6 @@ def _infer_dbt_model_tags(schema: str, model: str) -> frozenset[str]:
         ("stg_polymarket_wc2026_", "int_polymarket_wc2026_", "polymarket_wc2026_")
     ):
         tags.update({"polymarket", "wc2026"})
-    if schema.startswith("polymarket_us_midterms_2026_") or model.startswith(
-        (
-            "stg_polymarket_us_midterms_2026_",
-            "int_polymarket_us_midterms_2026_",
-            "polymarket_us_midterms_2026_",
-        )
-    ):
-        tags.update({"polymarket", "us_midterms_2026"})
     if schema.startswith("kalshi_wc2026_") or model.startswith(
         ("stg_kalshi_wc2026_", "int_kalshi_wc2026_", "kalshi_wc2026_")
     ):
@@ -358,9 +325,7 @@ def _infer_dbt_model_tags(schema: str, model: str) -> frozenset[str]:
     if schema.startswith("openfootball_wc2026_"):
         tags.update({"wc2026", "openfootball"})
     if schema.startswith("wc2026_") or model.startswith(("int_wc2026_", "wc2026_")):
-        tags.update({"wc2026", "cross_domain"})
-    if model in _CROSS_DOMAIN_MODELS:
-        tags.add("cross_domain")
+        tags.add("wc2026")
     if "polygon_settlement" in model:
         tags.add("polygon_settlement")
     if (

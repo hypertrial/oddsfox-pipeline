@@ -8,9 +8,6 @@ from contextlib import contextmanager
 from tests.unit.storage.duckdb_storage_test_support import T_PRE
 
 import oddsfox_pipeline.storage.duckdb.metadata as metadata
-from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-    polymarket_us_midterms_2026_ops_tbl,
-)
 
 
 def test_save_sync_run_metrics_history_json_not_list(duck):
@@ -64,19 +61,24 @@ def test_append_ingestion_run_event_inserts_row(duck):
     assert "timestamp" in json.loads(row[1])
 
 
-def test_save_sync_run_metrics_scoped_to_us_midterms_2026(duck):
-    midterms_pre = polymarket_us_midterms_2026_ops_tbl("ingestion_run_events")
+def test_save_sync_run_metrics_scoped_to_kalshi_wc2026(duck):
+    from oddsfox_pipeline.storage.duckdb.schemas.constants import kalshi_ops_tbl
+
+    kalshi_pre = kalshi_ops_tbl("wc2026", "ingestion_run_events")
     metadata.save_sync_run_metrics(
-        "sync_markets", {"total_fetched": 3}, scope_name="us_midterms_2026"
+        "sync_markets",
+        {"total_fetched": 3},
+        source="kalshi",
+        scope_name="wc2026",
     )
     with metadata.get_connection() as conn:
-        midterms_count = conn.execute(
-            f"SELECT count(*) FROM {midterms_pre} WHERE task_name = 'sync_markets'"
+        kalshi_count = conn.execute(
+            f"SELECT count(*) FROM {kalshi_pre} WHERE task_name = 'sync_markets'"
         ).fetchone()[0]
         wc2026_count = conn.execute(
             f"SELECT count(*) FROM {T_PRE} WHERE task_name = 'sync_markets'"
         ).fetchone()[0]
-    assert midterms_count == 1
+    assert kalshi_count == 1
     assert wc2026_count == 0
 
 

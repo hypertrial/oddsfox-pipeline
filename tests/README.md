@@ -1,7 +1,7 @@
 # tests
 
 This subtree validates OddsFox Pipeline. Version `0.1.x`
-ships WC2026 and US midterms 2026 Polymarket ingestion, marts, and orchestration.
+ships WC2026 Polymarket and Kalshi ingestion, marts, and orchestration.
 
 See [OddsFox Pipeline docs](../docs/index.md) for setup and runbook commands.
 

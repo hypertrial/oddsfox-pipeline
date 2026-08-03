@@ -16,7 +16,7 @@ from bootstrap_dbt_ci_duckdb import bootstrap_dbt_ci_duckdb
 ensure_src_on_path()
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
-from oddsfox_pipeline.naming import SCOPE_US_MIDTERMS_2026, SCOPE_WC2026
+from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     international_results_wc2026_raw_tbl,
     kalshi_ops_tbl,
@@ -32,11 +32,6 @@ FRESHNESS_SOURCE_TABLES: frozenset[tuple[str, str]] = frozenset(
         ("kalshi_wc2026_raw", "events"),
         ("kalshi_wc2026_raw", "market_candlesticks_hourly"),
         ("kalshi_wc2026_raw", "markets"),
-        ("polymarket_us_midterms_2026_ops", "ingestion_run_events"),
-        ("polymarket_us_midterms_2026_raw", "market_tokens"),
-        ("polymarket_us_midterms_2026_raw", "markets"),
-        ("polymarket_us_midterms_2026_raw", "odds_history"),
-        ("polymarket_us_midterms_2026_raw", "token_odds_daily"),
         ("polymarket_wc2026_ops", "ingestion_run_events"),
         ("polymarket_wc2026_raw", "market_tokens"),
         ("polymarket_wc2026_raw", "markets"),
@@ -265,7 +260,6 @@ def main() -> None:
     try:
         _seed_international_results(conn, now)
         _seed_polymarket_scope(conn, scope_name=SCOPE_WC2026, now=now)
-        _seed_polymarket_scope(conn, scope_name=SCOPE_US_MIDTERMS_2026, now=now)
         _seed_kalshi(conn, now)
     finally:
         conn.close()

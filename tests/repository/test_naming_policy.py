@@ -9,7 +9,6 @@ from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
     polymarket_wc2026_markets_source,
 )
 from oddsfox_pipeline.naming import (
-    SCOPE_US_MIDTERMS_2026,
     SCOPE_WC2026,
     SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_KALSHI,
@@ -31,7 +30,6 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
     polymarket_wc2026_polygon_settlement_release_run_config,
-    wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.shipped_scopes import SHIPPED_SCOPE_SPECS
@@ -60,11 +58,6 @@ EXPECTED_OP_NAMES = {
     "kalshi_wc2026_raw_markets_snapshot",
     "kalshi_wc2026_ops_market_scope_registry",
     "kalshi_wc2026_raw_market_candlesticks_hourly",
-    "polymarket_us_midterms_2026_raw_markets",
-    "polymarket_us_midterms_2026_raw_markets_snapshot",
-    "polymarket_us_midterms_2026_ops_market_scope_registry",
-    "polymarket_us_midterms_2026_raw_market_metadata_enrichment",
-    "polymarket_us_midterms_2026_raw_token_odds_history_hourly",
     "polymarket_wc2026_raw_markets",
     "polymarket_wc2026_raw_markets_snapshot",
     "polymarket_wc2026_raw_event_catalog",
@@ -106,7 +99,6 @@ OLD_SCRIPT_FILES = {
 _ALLOWED_ASSET_ROOTS = frozenset(
     {
         (SOURCE_POLYMARKET, SCOPE_WC2026),
-        (SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026),
         (SOURCE_POLYMARKET, "catalog"),
         (SOURCE_INTERNATIONAL_RESULTS, "historical"),
         (SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026),
@@ -145,12 +137,10 @@ def _job_expected_source(job_name: str) -> str:
         return SOURCE_KALSHI
     if job_name.startswith(f"{SOURCE_POLYMARKET}_"):
         return SOURCE_POLYMARKET
-    return "cross_domain"
+    raise AssertionError(f"unexpected job name: {job_name}")
 
 
 def _job_expected_scope(job_name: str) -> str:
-    if job_name.startswith(f"{SOURCE_POLYMARKET}_{SCOPE_US_MIDTERMS_2026}_"):
-        return SCOPE_US_MIDTERMS_2026
     if job_name == "international_results_historical_ingest":
         return "historical"
     return SCOPE_WC2026
@@ -200,16 +190,12 @@ def test_public_schedule_is_source_first_and_targets_source_first_job():
     assert {schedule.name for schedule in defs.schedules} == {
         "international_results_daily_schedule",
         "kalshi_wc2026_hourly_odds_schedule",
-        "polymarket_us_midterms_2026_hourly_odds_schedule",
         "polymarket_wc2026_hourly_odds_schedule",
-        "wc2026_knockout_match_odds_hourly_schedule",
     }
     assert {schedule.job_name for schedule in defs.schedules} == {
         "international_results_historical_ingest",
         "kalshi_wc2026_hourly_odds_ingest",
-        "polymarket_us_midterms_2026_hourly_odds_ingest",
         "polymarket_wc2026_hourly_odds_ingest",
-        "wc2026_knockout_match_odds_full_pipeline",
     }
 
 
@@ -222,11 +208,6 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         assets.kalshi_wc2026_raw_markets_snapshot.op.name,
         assets.kalshi_wc2026_ops_market_scope_registry.op.name,
         assets.kalshi_wc2026_raw_market_candlesticks_hourly.op.name,
-        assets.polymarket_us_midterms_2026_raw_markets.op.name,
-        assets.polymarket_us_midterms_2026_raw_markets_snapshot.op.name,
-        assets.polymarket_us_midterms_2026_ops_market_scope_registry.op.name,
-        assets.polymarket_us_midterms_2026_raw_market_metadata_enrichment.op.name,
-        assets.polymarket_us_midterms_2026_raw_token_odds_history_hourly.op.name,
         assets.polymarket_wc2026_raw_markets.op.name,
         assets.polymarket_wc2026_raw_markets_snapshot.op.name,
         assets.polymarket_wc2026_raw_event_catalog.op.name,
@@ -258,7 +239,6 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         | set(polymarket_wc2026_dbt_build_run_config()["ops"])
         | set(kalshi_wc2026_full_refresh_events_run_config()["ops"])
         | set(kalshi_wc2026_hourly_odds_run_config()["ops"])
-        | set(wc2026_knockout_match_odds_full_pipeline_run_config()["ops"])
     )
 
     assert actual_op_names == EXPECTED_OP_NAMES
@@ -268,11 +248,6 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         "international_results_wc2026_raw_match_results",
         "openfootball_wc2026_raw_schedule_fixtures",
         "kalshi_wc2026_raw_markets_snapshot",
-        "polymarket_us_midterms_2026_raw_markets",
-        "polymarket_us_midterms_2026_raw_markets_snapshot",
-        "polymarket_us_midterms_2026_ops_market_scope_registry",
-        "polymarket_us_midterms_2026_raw_market_metadata_enrichment",
-        "polymarket_us_midterms_2026_raw_token_odds_history_hourly",
         "polymarket_wc2026_raw_markets_snapshot",
     }
 
@@ -282,10 +257,14 @@ def test_registered_asset_keys_are_hierarchical_source_scope_layer():
     policy = load_policy()
 
     assert policy.critical_asset_keys <= asset_keys
+    shipped_asset_keys = {
+        key for key in asset_keys if "us_midterms_2026" not in "/".join(key)
+    }
     assert all(
-        key[:2] in _ALLOWED_ASSET_ROOTS or key[0] == SCOPE_WC2026 for key in asset_keys
+        key[:2] in _ALLOWED_ASSET_ROOTS or key[0] == SCOPE_WC2026
+        for key in shipped_asset_keys
     )
-    assert all(len(key) >= 3 for key in asset_keys)
+    assert all(len(key) >= 3 for key in shipped_asset_keys)
     assert not any(_INVERTED_NS in part for key in asset_keys for part in key)
 
 
@@ -305,10 +284,6 @@ def test_dbt_project_uses_source_first_directory_and_schemas():
         flat_name(SOURCE_POLYMARKET, SCOPE_WC2026): (
             SOURCE_POLYMARKET,
             SCOPE_WC2026,
-        ),
-        flat_name(SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026): (
-            SOURCE_POLYMARKET,
-            SCOPE_US_MIDTERMS_2026,
         ),
         flat_name(SOURCE_KALSHI, SCOPE_WC2026): (SOURCE_KALSHI, SCOPE_WC2026),
         flat_name(SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026): (
@@ -335,30 +310,11 @@ def test_dbt_model_filenames_are_source_first_by_layer():
 
 
 def test_storage_schema_constants_are_source_first():
-    from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-        POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA,
-        POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA,
-        polymarket_us_midterms_2026_ops_tbl,
-        polymarket_us_midterms_2026_raw_tbl,
-    )
-
     assert POLYMARKET_WC2026_RAW_SCHEMA == schema_name(
         SOURCE_POLYMARKET, SCOPE_WC2026, "raw"
     )
     assert POLYMARKET_WC2026_OPS_SCHEMA == schema_name(
         SOURCE_POLYMARKET, SCOPE_WC2026, "ops"
-    )
-    assert POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA == schema_name(
-        SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "raw"
-    )
-    assert POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA == schema_name(
-        SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "ops"
-    )
-    assert polymarket_us_midterms_2026_raw_tbl("markets").endswith(
-        f'"{schema_name(SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "raw")}"."markets"'
-    )
-    assert polymarket_us_midterms_2026_ops_tbl("token_sync_ledger").endswith(
-        f'"{schema_name(SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "ops")}"."token_sync_ledger"'
     )
     assert INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA == schema_name(
         SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "raw"
@@ -381,15 +337,6 @@ def test_dbt_source_metadata_uses_hierarchical_asset_keys():
         yaml.safe_load(
             (
                 ROOT / "dbt" / "models" / "sources" / "polymarket_wc2026_sources.yml"
-            ).read_text()
-        )["sources"]
-        + yaml.safe_load(
-            (
-                ROOT
-                / "dbt"
-                / "models"
-                / "sources"
-                / "polymarket_us_midterms_2026_sources.yml"
             ).read_text()
         )["sources"]
         + yaml.safe_load(

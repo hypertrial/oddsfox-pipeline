@@ -1,5 +1,4 @@
 {{ config(
-    tags = ['cross_domain'],
     meta = {
         'dagster': {
             'ref': {'name': 'international_results_wc2026_data_quality'},

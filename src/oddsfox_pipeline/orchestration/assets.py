@@ -33,13 +33,6 @@ from oddsfox_pipeline.orchestration.assets_polymarket import (
     polymarket_wc2026_raw_token_odds_history_hourly,
     polymarket_wc2026_release_logical_bundle,
 )
-from oddsfox_pipeline.orchestration.assets_polymarket_us_midterms_2026 import (
-    polymarket_us_midterms_2026_ops_market_scope_registry,
-    polymarket_us_midterms_2026_raw_market_metadata_enrichment,
-    polymarket_us_midterms_2026_raw_markets,
-    polymarket_us_midterms_2026_raw_markets_snapshot,
-    polymarket_us_midterms_2026_raw_token_odds_history_hourly,
-)
 from oddsfox_pipeline.orchestration.dbt_project import (
     DBT_DAGSTER_GROUP_NAME,
     DBT_PROJECT,
@@ -58,11 +51,6 @@ __all__ = [
     "kalshi_wc2026_raw_markets",
     "kalshi_wc2026_raw_markets_snapshot",
     "openfootball_wc2026_raw_schedule_fixtures",
-    "polymarket_us_midterms_2026_ops_market_scope_registry",
-    "polymarket_us_midterms_2026_raw_market_metadata_enrichment",
-    "polymarket_us_midterms_2026_raw_markets",
-    "polymarket_us_midterms_2026_raw_markets_snapshot",
-    "polymarket_us_midterms_2026_raw_token_odds_history_hourly",
     "oddsfox_dbt",
     "polymarket_wc2026_raw_market_metadata_enrichment",
     "polymarket_wc2026_raw_event_catalog",

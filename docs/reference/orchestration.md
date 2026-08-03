@@ -15,17 +15,14 @@ Entry-point jobs are pipelines; narrower jobs run one step of a pipeline. See
 [Terminology](terminology.md#execution) for the distinction.
 
 **Maturity tiers:** **Production** — scheduled-capable, full `ci-fast` dbt gate,
-primary quickstart path. **Mature, composed** — composes existing scope assets
-into a cross-provider mart. **Mature, isolated** — own CI lane and documented
+primary quickstart path. **Mature, isolated** — own CI lane and documented
 data-boundary isolation, not immaturity. **Experimental** — opt-in backfill,
 paid or narrow credentials, single-target manifests.
 
 | Pipeline | Entry job(s) | Steps | Schedule | CI dbt gate | Maturity |
 | --- | --- | --- | --- | --- | --- |
 | Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt`, `logical_atlas` | Hourly odds (stopped) | `ci-fast` (`+tag:polymarket,tag:wc2026`) | Production |
-| Polymarket US midterms 2026 | `polymarket_us_midterms_2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` (`+tag:us_midterms_2026`) | Production |
 | Kalshi WC2026 | `kalshi_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` (`+tag:kalshi`) | Production |
-| Cross-platform WC2026 knockout | `wc2026_knockout_match_odds_full_pipeline` | OpenFootball fixtures + both provider registries and hourly odds + `+tag:cross_domain` dbt | Hourly (stopped) | `ci-fast` (`+tag:cross_domain`) | Mature, composed |
 | Polygon settlement history | `polymarket_wc2026_polygon_settlement_backfill` → `_release` → standalone exporter | Backfill scan, audit release, offline export | None | `dbt-polygon-settlement-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Advanced match analysis | `polymarket_wc2026_match_order_book_backfill` → `polymarket_wc2026_market_portrait_backfill`; `polymarket_wc2026_match_minute_odds_backfill` (independent) | Order book, then portrait (portrait requires order book + trades); minute odds is a separate optional path in the same family | None | Minute mart in `ci-fast`; PMXT-tagged models excluded (`tag:pmxt_order_book`) | Experimental |
 
@@ -47,23 +44,18 @@ pipelines but are not separate product pipelines.
 10. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
 11. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
 12. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
-13. `polymarket/us_midterms_2026/raw/markets`
-14. `polymarket/us_midterms_2026/raw/markets_snapshot`
-15. `polymarket/us_midterms_2026/ops/market_scope_registry`
-16. `polymarket/us_midterms_2026/raw/market_metadata_enrichment`
-17. `polymarket/us_midterms_2026/raw/token_odds_history_hourly`
-18. `international_results/historical/raw/snapshot`
-19. `international_results/wc2026/raw/match_results`
-20. `openfootball/wc2026/raw/schedule_fixtures`
-21. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
-22. `kalshi/wc2026/raw/markets`
-23. `kalshi/wc2026/raw/markets_snapshot`
-24. `kalshi/wc2026/ops/market_scope_registry`
-25. `kalshi/wc2026/raw/market_candlesticks_hourly`
-26. dbt model assets under the matching
+13. `international_results/historical/raw/snapshot`
+14. `international_results/wc2026/raw/match_results`
+15. `openfootball/wc2026/raw/schedule_fixtures`
+16. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
+17. `kalshi/wc2026/raw/markets`
+18. `kalshi/wc2026/raw/markets_snapshot`
+19. `kalshi/wc2026/ops/market_scope_registry`
+20. `kalshi/wc2026/raw/market_candlesticks_hourly`
+21. dbt model assets under the matching
     `{staging,intermediate,marts,observability}` namespaces.
-27. `polymarket/wc2026/release/logical_bundle`
-28. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
+22. `polymarket/wc2026/release/logical_bundle`
+23. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
 
 Flat Dagster op names preserve the same source-first order, for example
 `polymarket_wc2026_raw_token_odds_history_hourly`.
@@ -149,16 +141,6 @@ the same family. See [Pipeline registry](#pipeline-registry).
 - `international_results_wc2026_match_results_ingest`: FIFA fixture/results
   refresh.
 
-### Polymarket US midterms 2026
-
-- `polymarket_us_midterms_2026_market_scope_registry_refresh`
-- `polymarket_us_midterms_2026_hourly_odds_ingest`
-- `polymarket_us_midterms_2026_dbt_build`
-- `polymarket_us_midterms_2026_full_pipeline`
-
-The dbt jobs select `+tag:us_midterms_2026` so their shared catalog ancestors
-are materialized; there is no FIFA results input.
-
 ### Kalshi WC2026
 
 - `kalshi_wc2026_market_scope_registry_refresh`
@@ -169,17 +151,6 @@ are materialized; there is no FIFA results input.
 The full pipeline refreshes FIFA results, Kalshi markets and candlesticks, then
 builds `+tag:kalshi` including `international_results` parents while excluding
 unrelated Polymarket tests.
-
-### Cross-platform WC2026 knockout match odds
-
-- `wc2026_knockout_match_odds_full_pipeline`: refreshes the OpenFootball
-  schedule fixtures mirror, both provider registries, both hourly odds sources,
-  permanent provider facts, and the neutral mart/observability models in one job.
-
-The combined job selects `+tag:cross_domain`. Source-specific Polymarket and
-Kalshi dbt jobs exclude that tag, so they cannot publish a partially refreshed
-cross-provider comparison. Operator recipe:
-[Run cross-platform knockout](../guides/run-cross-platform-knockout.md).
 
 ## Scope behavior
 
@@ -215,15 +186,6 @@ cross-provider comparison. Operator recipe:
 - `release/logical_bundle` exports the seven-file `polymarket-wc2026-logical-v1`
   logical bundle for `oddsfox-graph`.
 
-### Polymarket US midterms 2026
-
-- Discovery targets Balance of Power, Senate control, and House control event
-  slugs.
-- Raw, ops, registry, and odds assets mirror the WC2026 pipeline in a separate
-  namespace.
-- The public dbt surface is a markets-plus-hourly-odds mart without office-type
-  classification.
-
 ### Kalshi WC2026
 
 - `raw/markets` discovers series, events, and markets and lands events and
@@ -253,9 +215,7 @@ cross-provider comparison. Operator recipe:
 | --- | --- | --- |
 | `international_results_daily_schedule` | `international_results_historical_ingest` | Stopped |
 | `polymarket_wc2026_hourly_odds_schedule` | `polymarket_wc2026_hourly_odds_ingest` | Stopped |
-| `polymarket_us_midterms_2026_hourly_odds_schedule` | `polymarket_us_midterms_2026_hourly_odds_ingest` | Stopped |
 | `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | Stopped |
-| `wc2026_knockout_match_odds_hourly_schedule` | `wc2026_knockout_match_odds_full_pipeline` | Stopped |
 
 The match-minute backfill has no schedule or environment enable flag.
 The PMXT match-order-book backfill has no schedule or environment enable flag.
@@ -263,10 +223,9 @@ The Polygon settlement backfill and audit-release jobs likewise have no schedule
 or environment enable flag. The technical exporter is standalone and
 unscheduled. None of these paths uploads or distributes data.
 
-The international-results schedule runs daily at 02:15 UTC; the other four run
-hourly. The combined schedule uses Polymarket CLOB
-`fidelity=60`, bypasses the progression-futures volume floor for exact match
-markets, and remains stopped unless its dedicated env flag is enabled.
+The international-results schedule runs daily at 02:15 UTC; the Polymarket and
+Kalshi hourly schedules run on the hour. All remain stopped unless their
+dedicated env flags are enabled.
 
 ## Landing and finalization
 

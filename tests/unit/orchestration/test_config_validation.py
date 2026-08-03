@@ -17,7 +17,6 @@ from oddsfox_pipeline.orchestration.config import (
     ReviewedMembershipConfig,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
     polymarket_wc2026_polygon_settlement_release_run_config,
-    wc2026_knockout_match_odds_full_pipeline_run_config,
 )
 
 
@@ -173,24 +172,3 @@ def test_polygon_settlement_configs_are_fixed_and_release_inputs_are_explicit():
             dataset_version="1.0.0",
             output_root=" ",
         )
-
-
-def test_combined_match_odds_config_preserves_history_and_bypasses_volume_floor():
-    ops = wc2026_knockout_match_odds_full_pipeline_run_config()["ops"]
-
-    assert ops["polymarket_wc2026_raw_markets"]["config"]["keyset_volume_min"] == 0.0
-    assert (
-        ops["polymarket_wc2026_ops_market_scope_registry"]["config"][
-            "keyset_volume_min"
-        ]
-        == 0.0
-    )
-    assert (
-        ops["polymarket_wc2026_raw_token_odds_history_hourly"]["config"]["min_volume"]
-        is None
-    )
-    assert ops["oddsfox_dbt"]["config"]["full_refresh"] is False
-    assert ops["oddsfox_dbt"]["config"]["dbt_select"] == "+tag:cross_domain"
-    assert ops["oddsfox_dbt"]["config"]["dbt_exclude"] == (
-        "tag:polygon_settlement tag:pmxt_order_book tag:wc2026_logical_atlas"
-    )

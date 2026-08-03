@@ -1,4 +1,4 @@
-{{ config(materialized='table', tags=['cross_domain']) }}
+{{ config(materialized='table', tags=['match_minute']) }}
 
 with selected_tokens as (
     select

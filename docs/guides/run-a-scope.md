@@ -9,11 +9,10 @@ start with [Operators](../audiences/operators.md). Day-two cadence lives in
 
 ```bash
 uv run python scripts/run_scope.py --list
-uv run python scripts/run_scope.py polymarket_us_midterms_2026 --step odds --dry-run
+uv run python scripts/run_scope.py polymarket_wc2026 --step odds --dry-run
 ```
 
-Supported refs are `polymarket:wc2026` (`polymarket_wc2026`),
-`polymarket:us_midterms_2026` (`polymarket_us_midterms_2026`), and
+Supported refs are `polymarket:wc2026` (`polymarket_wc2026`) and
 `kalshi:wc2026` (`kalshi_wc2026`). Supported steps are `market_scope_registry`, `odds`,
 `dbt`, and `full`.
 
@@ -29,14 +28,6 @@ selector and does not accept arbitrary dbt selectors.
     uv run python scripts/run_scope.py polymarket:wc2026 --step market_scope_registry
     uv run python scripts/run_scope.py polymarket:wc2026 --step odds
     uv run python scripts/run_scope.py polymarket:wc2026 --step dbt
-    ```
-
-=== "Polymarket US midterms"
-
-    ```bash
-    uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step market_scope_registry
-    uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step odds
-    uv run python scripts/run_scope.py polymarket:us_midterms_2026 --step dbt
     ```
 
 === "Kalshi WC2026"

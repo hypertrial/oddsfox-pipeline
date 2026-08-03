@@ -31,9 +31,6 @@ token-hour or one FIFA match-minute). See
 minute marts, dense empty slots usually keep null prices with no forward-fill or
 pair renormalization.
 
-**both_sources_complete** — Cross-platform match-mart flag that both providers
-have usable closes for that row's comparison.
-
 ## Operator And Integration Terms
 
 **pipeline** — A coherent source-to-output data path such as the Polymarket

@@ -107,7 +107,6 @@ extension_jobs = [
   "polymarket_wc2026_market_portrait_backfill",
   "polymarket_wc2026_polygon_settlement_backfill",
   "polymarket_wc2026_polygon_settlement_release",
-  "wc2026_knockout_match_odds_full_pipeline",
 ]
 critical_asset_keys = [
   ["polymarket", "wc2026", "ops", "market_scope_registry"],
@@ -116,7 +115,6 @@ critical_asset_keys = [
   ["polymarket", "wc2026", "marts", "match_minute_odds"],
   ["kalshi", "wc2026", "ops", "market_scope_registry"],
   ["kalshi", "wc2026", "marts", "stage_markets"],
-  ["wc2026", "marts", "knockout_match_hourly_odds"],
   ["openfootball", "wc2026", "raw", "schedule_fixtures"],
   ["international_results", "wc2026", "marts", "matches"],
   ["polymarket", "catalog", "raw", "markets"],

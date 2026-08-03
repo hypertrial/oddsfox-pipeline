@@ -1,4 +1,4 @@
-{{ config(tags=['cross_domain']) }}
+{{ config(tags=['match_minute']) }}
 
 select
     fetch_run_id,

@@ -2,7 +2,7 @@
 
 Use this page when a local run fails. Most fixes assume schedules are disabled
 and only one process is writing to the DuckDB warehouse. The runbooks cover both
-shipped Polymarket scopes (`wc2026` and `us_midterms_2026`).
+the shipped Polymarket WC2026 scope (`wc2026`).
 
 ## DuckDB Lock Errors
 
@@ -78,8 +78,6 @@ Then rerun the quickstart.
 - Re-run the failed job; token sync state is ledgered.
 - Check `polymarket_wc2026_ops.ingestion_run_events` and
   `polymarket_wc2026_ops.sync_run_metrics` for WC2026 run payloads.
-- Check `polymarket_us_midterms_2026_ops.ingestion_run_events` and
-  `polymarket_us_midterms_2026_ops.sync_run_metrics` for US midterms run payloads.
 - If the latest sync metrics include `ingestion_run_event_append_failed`, the
   ingestion run continued but the append-only telemetry event failed to land;
   inspect `ingestion_run_event_append_error` and rerun after fixing storage.
@@ -204,24 +202,3 @@ Fix:
    repo-root `oddsfox.duckdb` in this checkout), or
 2. Unset `DUCKDB_PATH` and rely on `DUCKDB_NAME=oddsfox.duckdb` so the path
    resolves relative to the repo root.
-
-## Midterms Metadata Enrichment Uses Wrong Markets
-
-Symptom: `polymarket/us_midterms_2026/raw/market_metadata_enrichment` queries WC2026
-markets or returns zero due markets.
-
-Cause: an older build exited `active_polymarket_scope` before scoped queries ran.
-
-Fix: pull the latest code, reset a polluted warehouse if needed (`rm oddsfox.duckdb*`),
-and rerun the midterms market scope registry refresh job.
-
-## Empty Midterms Observability
-
-Symptom: `polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_ingestion_run_observability`
-has zero rows after a successful midterms run.
-
-Cause: an older build wrote `ingestion_run_events` to the WC2026 ops schema.
-
-Fix: pull the latest code and rerun `polymarket_us_midterms_2026_hourly_odds_ingest`
-or the full midterms pipeline. Confirm rows land in
-`polymarket_us_midterms_2026_ops.ingestion_run_events`.

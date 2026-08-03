@@ -9,9 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Polymarket US midterms `ops/market_scope_registry` skip path now passes
-  `scope_name` into `get_sync_run_metrics`, so registry-skip metrics read the
-  correct scope instead of failing or mis-attributing.
 - `polymarket_wc2026_full_pipeline` (and other jobs using `_merge_run_configs`)
   now unions `dbt_select` and `dbt_exclude` when combining `oddsfox_dbt` run
   configs instead of last-write-wins over the whole op config.
@@ -21,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Polymarket US midterms 2026 pipeline (`polymarket_us_midterms_2026_*` jobs,
+  schedules, dbt graph, and `POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED`).
+- Cross-platform WC2026 knockout match pipeline (`wc2026_knockout_match_odds_full_pipeline`,
+  `wc2026_marts.wc2026_knockout_match_hourly_odds`, related observability, and
+  `WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED`).
 - Docker packaging and publication: Dockerfile(s), `.dockerignore`, container
   smoke Make targets, GHCR multi-arch publish/sign steps, and the Docker image
   guide. OddsFox Pipeline is macOS-first; distribution smoke stays on
@@ -35,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Routine scoped dbt jobs (`polymarket_wc2026_dbt_build`,
-  `polymarket_us_midterms_2026_dbt_build`, `kalshi_wc2026_dbt_build`, and
+  `kalshi_wc2026_dbt_build`, and
   `polymarket_wc2026_logical_atlas`) default to incremental builds
   (`full_refresh=False`). Set `full_refresh=True` in Dagster run config when a
   one-off full rebuild is required.

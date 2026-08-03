@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import duckdb
 
-from oddsfox_pipeline.naming import SCOPE_US_MIDTERMS_2026, SCOPE_WC2026
+from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     POLYMARKET_CATALOG_RAW_SCHEMA,
     polymarket_ops_tbl,
@@ -45,7 +45,7 @@ def _add_column_if_missing(
 
 logger = logging.getLogger(__name__)
 
-_POLYMARKET_SCOPES = (SCOPE_WC2026, SCOPE_US_MIDTERMS_2026)
+_POLYMARKET_SCOPES = (SCOPE_WC2026,)
 
 
 def ensure_polymarket_indexes(

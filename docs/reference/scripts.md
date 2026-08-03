@@ -5,11 +5,11 @@ Run them through `uv run python` so they use the repo environment.
 
 ## Warehouse
 
-- `run_scope.py`: run a fixed Dagster step for one or more shipped scopes, such as `polymarket:wc2026`, `polymarket:us_midterms_2026`, or `kalshi:wc2026`. Namespace aliases such as `polymarket_wc2026`, `polymarket_us_midterms_2026`, and `kalshi_wc2026` are accepted.
+- `run_scope.py`: run a fixed Dagster step for one or more shipped scopes, such as `polymarket:wc2026` or `kalshi:wc2026`. Namespace aliases such as `polymarket_wc2026` and `kalshi_wc2026` are accepted.
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
 - `export_eloratings_wc2026_team_ratings_freezes.py`: export national-team Elo CSV freezes from `wc2026_marts.team_ratings_history` (`pre_kickoff` = year-end 2025) and `wc2026_marts.team_ratings_current` (`latest_current`) under `artifacts/wc2026_elo_exports/`. Prefer `make export-wc2026-elo-freezes`. Match×team pre-match Elo is `wc2026_marts.team_ratings_pre_match` (not this export); it needs an EloRatings snapshot that includes `match_results`.
 - `sync_polymarket_markets_catalog.py`: sync every Gamma market with volume ≥ $100k via `/markets/keyset` (`volume_num_min`, `after_cursor`; open + closed passes) into `polymarket_catalog_raw.markets`. Required before building the public catalog marts.
-- `export_polymarket_markets.py`: export the public Polymarket market catalog marts (`polymarket_wc2026_markets` and `polymarket_us_midterms_2026_markets`) to parquet under `artifacts/polymarket_markets_exports/`. Validates grain, volume floor, timing, and outcomes/CLOB JSON before replacing the artifact. Use `--scope wc2026` or `--scope us_midterms_2026` for one mart.
+- `export_polymarket_markets.py`: export the public Polymarket market catalog mart (`polymarket_wc2026_markets`) to parquet under `artifacts/polymarket_markets_exports/`. Validates grain, volume floor, timing, and outcomes/CLOB JSON before replacing the artifact.
 - `export_polymarket_wc2026_knockout_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` to parquet for progression-only WC2026 knockout audits.
 - `export_polymarket_wc2026_logical_bundle.py`: validate and atomically export
   the seven-file `polymarket-wc2026-logical-v1` Parquet contract plus its

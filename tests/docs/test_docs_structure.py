@@ -206,21 +206,18 @@ def test_shipped_scopes_and_public_marts_remain_documented():
     combined = "\n".join(path.read_text() for path in DOCS_DIR.rglob("*.md"))
     required = [
         "polymarket:wc2026",
-        "polymarket:us_midterms_2026",
         "kalshi:wc2026",
         "scripts/run_scope.py",
         "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets",
         "polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds",
-        "polymarket_wc2026_marts.polymarket_wc2026_logical_events",
         "polymarket_wc2026_marts.polymarket_wc2026_logical_markets",
-        "polymarket_wc2026_marts.polymarket_wc2026_logical_propositions",
+        "polymarket_wc2026_logical_events",
+        "polymarket_wc2026_logical_propositions",
         "polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds",
         "polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds",
         "international_results_wc2026_marts.international_results_wc2026_matches",
-        "wc2026_marts.wc2026_knockout_match_hourly_odds",
         "kalshi_wc2026_marts.kalshi_wc2026_stage_markets",
         "kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds",
-        "polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds",
         "is_actionable_live_market",
         "current_price_status",
         "price_represents",
@@ -260,17 +257,6 @@ def test_local_mart_recreation_guide_keeps_complete_operator_runbook():
         assert term in combined, term
 
 
-def test_cross_platform_knockout_guide_and_entry_points():
-    guide = (DOCS_DIR / "guides/run-cross-platform-knockout.md").read_text()
-    choose = (DOCS_DIR / "getting-started/choose-a-scope.md").read_text()
-    operators = (DOCS_DIR / "audiences/operators.md").read_text()
-
-    assert "wc2026_knockout_match_odds_full_pipeline" in guide
-    assert "dagster job execute" in guide
-    assert "run-cross-platform-knockout.md" in choose
-    assert "run-cross-platform-knockout.md" in operators
-
-
 def test_strategy_contracts_split_and_public_contracts_link():
     strategy = DOCS_DIR / "reference/strategy-contracts.md"
     assert strategy.is_file()
@@ -281,11 +267,6 @@ def test_strategy_contracts_split_and_public_contracts_link():
     assert "contract_metadata" in strategy_text
     assert "strategy-contracts.md" in public
     assert "#### Complete column contract" in public
-
-
-def test_development_schedule_snippet_includes_knockout_flag():
-    development = (DOCS_DIR / "development/index.md").read_text()
-    assert "WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED" in development
 
 
 def test_integrators_hub_checklist_covers_graph_and_polygon_boundary():

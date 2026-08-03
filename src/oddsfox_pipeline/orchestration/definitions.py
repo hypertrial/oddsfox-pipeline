@@ -16,11 +16,6 @@ from oddsfox_pipeline.orchestration.assets import (
     kalshi_wc2026_raw_markets_snapshot,
     oddsfox_dbt,
     openfootball_wc2026_raw_schedule_fixtures,
-    polymarket_us_midterms_2026_ops_market_scope_registry,
-    polymarket_us_midterms_2026_raw_market_metadata_enrichment,
-    polymarket_us_midterms_2026_raw_markets,
-    polymarket_us_midterms_2026_raw_markets_snapshot,
-    polymarket_us_midterms_2026_raw_token_odds_history_hourly,
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_event_catalog,
     polymarket_wc2026_raw_market_metadata_enrichment,
@@ -42,10 +37,6 @@ from oddsfox_pipeline.orchestration.jobs import (
     kalshi_wc2026_full_pipeline,
     kalshi_wc2026_hourly_odds_ingest,
     kalshi_wc2026_market_scope_registry_refresh,
-    polymarket_us_midterms_2026_dbt_build,
-    polymarket_us_midterms_2026_full_pipeline,
-    polymarket_us_midterms_2026_hourly_odds_ingest,
-    polymarket_us_midterms_2026_market_scope_registry_refresh,
     polymarket_wc2026_dbt_build,
     polymarket_wc2026_full_pipeline,
     polymarket_wc2026_hourly_odds_ingest,
@@ -56,14 +47,11 @@ from oddsfox_pipeline.orchestration.jobs import (
     polymarket_wc2026_match_order_book_backfill,
     polymarket_wc2026_polygon_settlement_backfill,
     polymarket_wc2026_polygon_settlement_release,
-    wc2026_knockout_match_odds_full_pipeline,
 )
 from oddsfox_pipeline.orchestration.schedules import (
     international_results_daily_schedule,
     kalshi_wc2026_hourly_odds_schedule,
-    polymarket_us_midterms_2026_hourly_odds_schedule,
     polymarket_wc2026_hourly_odds_schedule,
-    wc2026_knockout_match_odds_hourly_schedule,
 )
 
 defs = Definitions(
@@ -88,11 +76,6 @@ defs = Definitions(
         polymarket_wc2026_raw_market_metadata_enrichment,
         polymarket_wc2026_raw_token_odds_history_hourly,
         polymarket_wc2026_release_polygon_settlement_odds_bundle,
-        polymarket_us_midterms_2026_raw_markets,
-        polymarket_us_midterms_2026_raw_markets_snapshot,
-        polymarket_us_midterms_2026_ops_market_scope_registry,
-        polymarket_us_midterms_2026_raw_market_metadata_enrichment,
-        polymarket_us_midterms_2026_raw_token_odds_history_hourly,
         oddsfox_dbt,
     ],
     jobs=[
@@ -112,18 +95,11 @@ defs = Definitions(
         polymarket_wc2026_dbt_build,
         polymarket_wc2026_logical_atlas,
         polymarket_wc2026_full_pipeline,
-        polymarket_us_midterms_2026_hourly_odds_ingest,
-        polymarket_us_midterms_2026_market_scope_registry_refresh,
-        polymarket_us_midterms_2026_dbt_build,
-        polymarket_us_midterms_2026_full_pipeline,
-        wc2026_knockout_match_odds_full_pipeline,
     ],
     schedules=[
         international_results_daily_schedule,
         kalshi_wc2026_hourly_odds_schedule,
         polymarket_wc2026_hourly_odds_schedule,
-        polymarket_us_midterms_2026_hourly_odds_schedule,
-        wc2026_knockout_match_odds_hourly_schedule,
     ],
     resources={
         "dbt": DbtCliResource(

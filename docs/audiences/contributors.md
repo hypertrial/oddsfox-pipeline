@@ -27,7 +27,7 @@ PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/runtime/ms-playwright" \
 | Docs, styles, or `mkdocs.yml` only | `uv run make docs-check` |
 | Ordinary code or test PR (including dependency, Dagster, dbt, data-quality) | `uv run make ci-fast` |
 | Major-version publish only | `uv run make release-gate` |
-| Live network acceptance (local only) | `live-smoke`, `match-minute-live-smoke`, or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
+| Live network acceptance (local only) | `match-minute-live-smoke` or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
 
 The full command tables and layout guardrails live in
 [AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md).

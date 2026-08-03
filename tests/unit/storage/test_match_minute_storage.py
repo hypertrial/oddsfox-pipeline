@@ -16,8 +16,6 @@ def test_match_minute_raw_table_is_wc2026_only():
     with duckdb.connect(":memory:") as conn:
         conn.execute("create schema polymarket_wc2026_raw")
         conn.execute("create schema polymarket_wc2026_ops")
-        conn.execute("create schema polymarket_us_midterms_2026_raw")
-        conn.execute("create schema polymarket_us_midterms_2026_ops")
         bootstrap_all_polymarket_tables(conn)
 
         rows = conn.execute(

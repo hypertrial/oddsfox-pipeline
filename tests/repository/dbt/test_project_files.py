@@ -106,7 +106,6 @@ def test_dbt_project_sources_are_wc2026_only():
         "kalshi_wc2026",
         "openfootball_wc2026",
         "polymarket_catalog",
-        "polymarket_us_midterms_2026",
         "polymarket_wc2026",
         "sources",
         "wc2026",
@@ -192,30 +191,6 @@ def test_hourly_odds_and_logical_atlas_materialization_shape():
         assert (marts_root / f"polymarket_wc2026_logical_{suffix}.sql").is_file()
 
 
-def test_match_hourly_facts_are_incremental_cross_domain_models():
-    project = yaml.safe_load(
-        (Path(__file__).resolve().parents[3] / "dbt" / "dbt_project.yml").read_text()
-    )
-    models = project["models"]["oddsfox"]
-    polymarket = models["polymarket_wc2026"]["intermediate"]
-    kalshi = models["kalshi_wc2026"]["intermediate"]
-
-    assert polymarket["int_polymarket_wc2026_match_hourly_odds"] == {
-        "+materialized": "incremental",
-        "+tags": ["cross_domain"],
-    }
-    assert polymarket["int_polymarket_wc2026_match_advance_tokens"] == {
-        "+tags": ["cross_domain"]
-    }
-    assert kalshi["int_kalshi_wc2026_match_hourly_odds"] == {
-        "+materialized": "incremental",
-        "+tags": ["cross_domain"],
-    }
-    assert kalshi["int_kalshi_wc2026_match_advance_markets"] == {
-        "+tags": ["cross_domain"]
-    }
-
-
 def test_wc2026_pipeline_policy_seed_is_configured_and_documented():
     dbt_root = Path(__file__).resolve().parents[3] / "dbt"
     project = yaml.safe_load((dbt_root / "dbt_project.yml").read_text())
@@ -228,32 +203,6 @@ def test_wc2026_pipeline_policy_seed_is_configured_and_documented():
         == "polymarket_wc2026_staging"
     )
     assert "polymarket_wc2026_pipeline_policy" in documented
-    assert (
-        seeds["polymarket_us_midterms_2026_pipeline_policy"]["+schema"]
-        == "polymarket_us_midterms_2026_staging"
-    )
-    assert "polymarket_us_midterms_2026_pipeline_policy" in documented
-
-
-def test_us_midterms_2026_mart_materialization_shape():
-    project = yaml.safe_load(
-        (Path(__file__).resolve().parents[3] / "dbt" / "dbt_project.yml").read_text()
-    )
-    intermediate = project["models"]["oddsfox"]["polymarket_us_midterms_2026"][
-        "intermediate"
-    ]
-    marts = project["models"]["oddsfox"]["polymarket_us_midterms_2026"]["marts"]
-
-    assert (
-        intermediate["int_polymarket_us_midterms_2026_token_hourly_odds"][
-            "+materialized"
-        ]
-        == "incremental"
-    )
-    assert (
-        marts["polymarket_us_midterms_2026_market_token_hourly_odds"]["+materialized"]
-        == "view"
-    )
 
 
 def test_knockout_classifier_intermediate_exists_and_is_documented():

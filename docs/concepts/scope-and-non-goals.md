@@ -11,8 +11,8 @@ For the operator checklist, see
 
 - Source code, dbt models, jobs, operator scripts, and documentation
   for local macOS-first operation.
-- Three fixed `run_scope.py` market scopes in `v0.1.x`:
-  `polymarket:wc2026`, `polymarket:us_midterms_2026`, and `kalshi:wc2026`.
+- Two fixed `run_scope.py` market scopes in `v0.1.x`:
+  `polymarket:wc2026` and `kalshi:wc2026`.
 - Supporting FIFA fixture/results ingestion used to validate real-team scope on
   WC2026 market graphs.
 - An optional, isolated Polygon settlement-history pipeline with its own

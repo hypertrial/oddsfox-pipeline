@@ -4,27 +4,6 @@ These examples use fully qualified DuckDB table names and assume the current
 working directory contains `oddsfox.duckdb`. If `.env` sets `DUCKDB_PATH`, open
 that file instead.
 
-## Compare WC2026 Knockout Match Advance Prices
-
-```sql
-select
-    odds_hour_utc,
-    fifa_match_id,
-    stage_key,
-    home_team,
-    away_team,
-    polymarket_home_advance_price,
-    kalshi_home_advance_price,
-    polymarket_away_advance_price,
-    kalshi_away_advance_price
-from wc2026_marts.wc2026_knockout_match_hourly_odds
-where both_sources_complete
-order by fifa_match_id, odds_hour_epoch;
-```
-
-These are raw team-advance closes, including extra time and penalties. Missing
-provider-side observations remain null and are not carried across hours.
-
 ## WC2026 In-Game Minute Moneylines And Advance Odds
 
 ```sql
@@ -250,25 +229,6 @@ where group_letter = 'A'
 order by canonical_team_name, odds_hour_epoch;
 ```
 
-## US Midterms Hourly Odds
-
-```sql
-select
-    odds_hour_utc,
-    event_slug,
-    question,
-    outcome_label,
-    close_price,
-    market_volume_usd,
-    clob_token_id
-from polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds
-where event_slug is not null
-order by event_slug, question, outcome_index, odds_hour_epoch;
-```
-
-Balance of Power combinations are independent binary Yes/No markets.
-Probabilities across combinations do not necessarily sum to 1.0.
-
 ## Run Health And Freshness
 
 Latest Polymarket WC2026 ingestion telemetry:
@@ -306,11 +266,6 @@ select
     'kalshi_group_winner',
     max(odds_hour_utc)
 from kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds
-union all
-select
-    'polymarket_us_midterms_2026',
-    max(odds_hour_utc)
-from polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds;
 ```
 
 ## Python And Pandas

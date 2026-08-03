@@ -15,8 +15,6 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     KALSHI_WC2026_RAW_SCHEMA,
     OPENFOOTBALL_WC2026_RAW_SCHEMA,
     POLYMARKET_CATALOG_RAW_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA,
-    POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
     POLYMARKET_WC2026_RAW_SCHEMA,
     international_results_wc2026_raw_tbl,
@@ -229,11 +227,9 @@ def init_duck_db() -> None:
     conn = open_writable_duckdb_connection(path)
     if not _SCHEMA_LOGGED:
         logger.info(
-            "Ensuring DuckDB raw/ops schemas (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "Ensuring DuckDB raw/ops schemas (%s, %s, %s, %s, %s, %s, %s)",
             POLYMARKET_WC2026_RAW_SCHEMA,
             POLYMARKET_WC2026_OPS_SCHEMA,
-            POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA,
-            POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA,
             POLYMARKET_CATALOG_RAW_SCHEMA,
             KALSHI_WC2026_RAW_SCHEMA,
             KALSHI_WC2026_OPS_SCHEMA,
@@ -244,12 +240,6 @@ def init_duck_db() -> None:
     try:
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_RAW_SCHEMA}"')
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_OPS_SCHEMA}"')
-        conn.execute(
-            f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA}"'
-        )
-        conn.execute(
-            f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA}"'
-        )
         conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_CATALOG_RAW_SCHEMA}"')
         conn.execute(
             f'CREATE SCHEMA IF NOT EXISTS "{INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA}"'
@@ -300,8 +290,6 @@ def _use_conn(conn=None):
 
 
 __all__ = [
-    "POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA",
-    "POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA",
     "POLYMARKET_WC2026_OPS_SCHEMA",
     "POLYMARKET_WC2026_RAW_SCHEMA",
     "KALSHI_WC2026_OPS_SCHEMA",

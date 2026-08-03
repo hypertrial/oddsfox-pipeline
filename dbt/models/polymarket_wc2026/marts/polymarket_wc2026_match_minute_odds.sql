@@ -1,4 +1,4 @@
-{{ config(materialized='table', tags=['cross_domain']) }}
+{{ config(materialized='table', tags=['match_minute']) }}
 
 select candidate.*
 from {{ ref('int_polymarket_wc2026_match_minute_odds_candidate') }} as candidate

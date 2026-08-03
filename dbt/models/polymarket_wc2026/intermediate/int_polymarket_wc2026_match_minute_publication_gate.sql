@@ -1,4 +1,4 @@
-{{ config(materialized='view', tags=['cross_domain']) }}
+{{ config(materialized='view', tags=['match_minute']) }}
 
 select
     case

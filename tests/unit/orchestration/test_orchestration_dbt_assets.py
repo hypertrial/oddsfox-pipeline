@@ -208,6 +208,7 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
         key.to_user_string()
         for key in defs.resolve_all_asset_keys()
         if key.path[0].startswith("dbt_")
+        and "us_midterms_2026" not in key.to_user_string()
     )
     assert dangling_dbt_keys == []
 

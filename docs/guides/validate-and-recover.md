@@ -42,7 +42,6 @@ For current analysis, inspect the matching `*_data_quality` and
 ## Recover a failed path
 
 - Re-run `polymarket_wc2026_hourly_odds_ingest` for routine WC2026 odds gaps.
-- Re-run `polymarket_us_midterms_2026_hourly_odds_ingest` for midterms odds gaps.
 - Re-run `kalshi_wc2026_hourly_odds_ingest` for Kalshi candlestick gaps.
 - Re-run `international_results_wc2026_match_results_ingest` after fixture or
   score updates.
@@ -57,22 +56,6 @@ For current analysis, inspect the matching `*_data_quality` and
   `--dry-run` before changing retention.
 - Use `make compact-warehouse` after pruning or large refreshes to reclaim
   DuckDB file space.
-
-## Spot-check US midterms
-
-```sql
-SELECT count(*) AS registry_markets
-FROM polymarket_us_midterms_2026_ops.market_scope_registry;
-
-SELECT max(odds_hour_epoch) AS latest_hour
-FROM polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds;
-
-SELECT count(*) AS observability_rows
-FROM polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_ingestion_run_observability;
-```
-
-Confirm `dbt build --select +tag:us_midterms_2026` reports all selected models
-and tests passing.
 
 Next, use [Troubleshooting](troubleshooting.md) for a specific symptom or the
 [orchestration reference](../reference/orchestration.md) for exact job names.

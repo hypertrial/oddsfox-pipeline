@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from oddsfox_pipeline.naming import (
-    SCOPE_US_MIDTERMS_2026,
     SCOPE_WC2026,
     SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_KALSHI,
@@ -14,12 +13,6 @@ from oddsfox_pipeline.naming import (
 
 POLYMARKET_WC2026_RAW_SCHEMA = schema_name(SOURCE_POLYMARKET, SCOPE_WC2026, "raw")
 POLYMARKET_WC2026_OPS_SCHEMA = schema_name(SOURCE_POLYMARKET, SCOPE_WC2026, "ops")
-POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA = schema_name(
-    SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "raw"
-)
-POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA = schema_name(
-    SOURCE_POLYMARKET, SCOPE_US_MIDTERMS_2026, "ops"
-)
 # Platform-wide catalog landing (not a Dagster scope); script + dbt source share this name.
 POLYMARKET_CATALOG_RAW_SCHEMA = "polymarket_catalog_raw"
 KALSHI_WC2026_RAW_SCHEMA = schema_name(SOURCE_KALSHI, SCOPE_WC2026, "raw")
@@ -31,11 +24,9 @@ OPENFOOTBALL_WC2026_RAW_SCHEMA = schema_name(SOURCE_OPENFOOTBALL, SCOPE_WC2026, 
 
 _POLYMARKET_RAW_SCHEMAS: dict[str, str] = {
     SCOPE_WC2026: POLYMARKET_WC2026_RAW_SCHEMA,
-    SCOPE_US_MIDTERMS_2026: POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA,
 }
 _POLYMARKET_OPS_SCHEMAS: dict[str, str] = {
     SCOPE_WC2026: POLYMARKET_WC2026_OPS_SCHEMA,
-    SCOPE_US_MIDTERMS_2026: POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA,
 }
 
 
@@ -75,14 +66,6 @@ def polymarket_wc2026_raw_tbl(name: str) -> str:
 
 def polymarket_wc2026_ops_tbl(name: str) -> str:
     return polymarket_ops_tbl(SCOPE_WC2026, name)
-
-
-def polymarket_us_midterms_2026_raw_tbl(name: str) -> str:
-    return polymarket_raw_tbl(SCOPE_US_MIDTERMS_2026, name)
-
-
-def polymarket_us_midterms_2026_ops_tbl(name: str) -> str:
-    return polymarket_ops_tbl(SCOPE_US_MIDTERMS_2026, name)
 
 
 def kalshi_q(schema: str, table: str) -> str:
@@ -133,8 +116,6 @@ __all__ = [
     "KALSHI_WC2026_RAW_SCHEMA",
     "OPENFOOTBALL_WC2026_RAW_SCHEMA",
     "POLYMARKET_CATALOG_RAW_SCHEMA",
-    "POLYMARKET_US_MIDTERMS_2026_OPS_SCHEMA",
-    "POLYMARKET_US_MIDTERMS_2026_RAW_SCHEMA",
     "POLYMARKET_WC2026_OPS_SCHEMA",
     "POLYMARKET_WC2026_RAW_SCHEMA",
     "international_results_wc2026_raw_tbl",
@@ -151,8 +132,6 @@ __all__ = [
     "polymarket_q",
     "polymarket_raw_schema",
     "polymarket_raw_tbl",
-    "polymarket_us_midterms_2026_ops_tbl",
-    "polymarket_us_midterms_2026_raw_tbl",
     "polymarket_wc2026_ops_tbl",
     "polymarket_wc2026_q",
     "polymarket_wc2026_raw_tbl",

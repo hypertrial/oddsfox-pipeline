@@ -21,18 +21,15 @@ from _export_common import qualified_mart_name, snapshot_duckdb_files
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
 from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (  # noqa: E402
-    POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA,
     POLYMARKET_WC2026_MARTS_SCHEMA,
 )
 
 CATALOG_MARTS: Final[tuple[tuple[str, str], ...]] = (
     (POLYMARKET_WC2026_MARTS_SCHEMA, "polymarket_wc2026_markets"),
-    (POLYMARKET_US_MIDTERMS_2026_MARTS_SCHEMA, "polymarket_us_midterms_2026_markets"),
 )
 SCOPE_MARTS: Final[dict[str, tuple[tuple[str, str], ...]]] = {
     "all": CATALOG_MARTS,
     "wc2026": (CATALOG_MARTS[0],),
-    "us_midterms_2026": (CATALOG_MARTS[1],),
 }
 DEFAULT_OUTPUT_DIR: Final[Path] = REPO_ROOT / "artifacts" / "polymarket_markets_exports"
 MIN_VOLUME_USD: Final = 100_000.0
@@ -230,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--scope",
-        choices=("all", "wc2026", "us_midterms_2026"),
+        choices=("all", "wc2026"),
         default="all",
         help="Which catalog mart(s) to export (default: both).",
     )

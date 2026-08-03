@@ -4,14 +4,9 @@ OddsFox Pipeline is intentionally local-first: every routine workflow writes to 
 DuckDB warehouse and is coordinated by jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
 v0.1.x adapters support WC2026 Polymarket knockout marts, Kalshi WC2026 stage
-and group-winner marts, US midterms 2026 generic market odds, historical
-international-results ingestion, analytics marts as the supported query
-API, and the private `wc2026.v1` strategy clean-data contract.
-
-US midterms 2026 is a parallel Polymarket namespace: targeted Gamma discovery
-for Balance of Power, Senate control, and House control event slugs, with raw/ops
-ledgers and a simple markets-plus-hourly-odds mart. There is no FIFA join or
-knockout classifier for that scope in v0.1.x.
+and group-winner marts, historical international-results ingestion, analytics
+marts as the supported query API, and the private `wc2026.v1` strategy
+clean-data contract.
 
 At the generic layer, source adapters follow one shape: external market and
 odds APIs feed dlt/Python ingestion, DuckDB stores raw and ops data, dbt
@@ -67,8 +62,8 @@ observability. The Polygon release asset writes only an internal audit bundle;
 the allowlisted exporter is a separate offline script. Neither path uploads
 data.
 
-The shipped Dagster/dbt graphs are fixed per scope (`wc2026`,
-`us_midterms_2026`); see [Configuration](../reference/configuration.md) for the seed-backed
+The shipped Dagster/dbt graphs are fixed per scope (`wc2026` on Polymarket and
+Kalshi); see [Configuration](../reference/configuration.md) for the seed-backed
 helper boundary.
 
 ## Main Components
@@ -124,16 +119,6 @@ metrics, stage coverage, result inference warnings, and DQ findings for
 live/historical status, active-team live consumption, odds freshness, and sparse
 team coverage.
 
-### US midterms 2026
-
-Targeted Polymarket discovery lands in `polymarket_us_midterms_2026_raw` and
-`polymarket_us_midterms_2026_ops`. dbt builds
-`polymarket_us_midterms_2026_market_token_hourly_odds` plus run observability.
-`polymarket_us_midterms_2026_markets` is an alias of the platform-wide ≥$100k
-catalog synced by `scripts/sync_polymarket_markets_catalog.py` (same rows as
-`polymarket_wc2026_markets`). There is no `international_results` join or
-office-type classification in v0.1.x.
-
 ### Kalshi WC2026
 
 Kalshi series discovery lands events and markets in `kalshi_wc2026_raw` through
@@ -174,14 +159,11 @@ result or determine rights in operator inputs or outputs.
 ## Operating Model
 
 - `polymarket_wc2026_full_pipeline` is the one-click full manual WC2026 pipeline.
-- `polymarket_us_midterms_2026_full_pipeline` is the one-click full manual US
-  midterms pipeline (`+tag:us_midterms_2026` dbt selection only).
 - `international_results_wc2026_match_results_ingest` refreshes fixture/results
   and also runs inside the WC2026 full pipeline.
 - `international_results_historical_ingest` refreshes public 2006+ matches,
   shootouts, and goalscorers; its daily schedule is stopped by default.
-- `polymarket_wc2026_hourly_odds_ingest` and
-  `polymarket_us_midterms_2026_hourly_odds_ingest` are the hourly odds jobs
+- `polymarket_wc2026_hourly_odds_ingest` is the hourly Polymarket odds job
   (`fidelity=60`).
 - `kalshi_wc2026_full_pipeline` is the one-click full manual Kalshi WC2026
   pipeline (FIFA results refresh, Kalshi ingest, and `+tag:kalshi` dbt selection

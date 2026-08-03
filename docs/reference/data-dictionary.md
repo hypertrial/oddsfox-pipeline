@@ -13,11 +13,6 @@ common mistakes.
 
 ## Core Semantics
 
-- `wc2026_marts.wc2026_knockout_match_hourly_odds` compares exact match-level
-  team-advance prices across Polymarket and Kalshi. Extra time and penalties
-  count; the final means winning the World Cup.
-- Match-mart prices are raw hourly closes. Null means no observation for that
-  side/provider/hour; do not forward-fill or renormalize.
 - Public Polymarket WC2026 knockout prices are normalized to team progression.
 - Winner and reach markets use the Yes token; elimination-framed markets may use
   the No token.
@@ -26,27 +21,11 @@ common mistakes.
 - `current_price_status` separates `fresh_live`, `stale_live`, `missing_live`,
   `historical_closed`, `historical_resolved`, and `inactive`.
 - For current analysis, prefer `is_actionable_live_market` where available.
-- Midterms Balance of Power combinations are independent binary markets; do not
-  force probabilities across combinations to sum to 1.0.
 - Kalshi stage marts expose progression prices separately from raw Yes prices.
   Use `progression_*_price` for team-progression analysis.
 - Polygon settlement prices use finalized event-block time and normalized
   economic legs. They are not quotes, order-book snapshots, unique-user trade
   counts, order-match timestamps, or CLOB observations.
-
-## Cross-platform WC2026 Mart
-
-### `wc2026_marts.wc2026_knockout_match_hourly_odds`
-
-| Field | Analyst Guidance |
-| --- | --- |
-| Intended use | Compare raw match-advance probabilities for the official home and away teams across both providers. |
-| Grain | One row per published `fifa_match_id`, `odds_hour_epoch`. |
-| Identifiers | FIFA match numbers 73–102 and 104; match 103 is excluded. Provider identifiers are retained separately. |
-| Time columns | `odds_hour_utc`, `odds_hour_epoch`, `kickoff_at_utc`; `is_pre_kickoff` distinguishes pregame hours. |
-| Price columns | Four nullable home/away advance closes, one pair per provider. |
-| Recommended filters | Use `both_sources_complete` for direct comparisons or provider-specific completeness flags for single-source analysis. |
-| Common mistakes | Treating prices as regulation moneylines, using provider home/away order, filling nulls, or normalizing pair sums. |
 
 ## Polymarket WC2026 Marts
 
@@ -325,31 +304,3 @@ contracts.
 | Recommended filters | Filter by `group_letter`, `canonical_team_name`, or `market_ticker`. |
 | Common joins | Join to `kalshi_wc2026_group_winner_markets` on `market_ticker` for latest status. |
 | Common mistakes | Comparing group-winner prices to stage progression prices without labeling the market type. |
-
-## Polymarket US Midterms 2026 Marts
-
-### `polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_markets`
-
-| Field | Analyst Guidance |
-| --- | --- |
-| Intended use | Same platform-wide Polymarket ≥$100k catalog as `polymarket_wc2026_markets`. |
-| Grain | One row per `market_id`. |
-| Identifiers | `market_id`, `event_id`, `event_slug`, `clob_token_ids`. |
-| Time columns | `start_time` (`coalesce(game_start_time, event_start_time)`; nulled when that start is after `end_time`), `end_time` (`end_date`). |
-| Price columns | None. `volume` is reported Gamma USD volume (≥ $100,000). |
-| Recommended filters | Same catalog as `polymarket_wc2026_markets`; sync via `scripts/sync_polymarket_markets_catalog.py` first. Filter by `event_slug` or `category`; `tags` is usually null on this Gamma path. |
-| Common joins | Join `market_id` to the hourly odds mart; parse `outcomes` / `clob_token_ids` JSON for outcome labels. |
-| Common mistakes | Treating this as the $5,000 registry-scoped intermediate market scope or as an odds time series; expecting a separate `resolution_rules` column (`description` holds Gamma prose). |
-
-### `polymarket_us_midterms_2026_marts.polymarket_us_midterms_2026_market_token_hourly_odds`
-
-| Field | Analyst Guidance |
-| --- | --- |
-| Intended use | Hourly OHLC odds for admitted US midterms Polymarket tokens. |
-| Grain | One row per `clob_token_id`, `odds_hour_epoch`. |
-| Identifiers | `market_id`, `clob_token_id`, `outcome_index`, `outcome_label`, `event_slug`. |
-| Time columns | `odds_hour_utc`, `odds_hour_epoch`, `first_observed_at`, `last_observed_at`. |
-| Price columns | `open_price`, `high_price`, `low_price`, `close_price`, `avg_price`. |
-| Recommended filters | Filter by `event_slug`, `question`, and `outcome_label`; use `is_active` and `is_closed` when separating live and historical rows. |
-| Common joins | Join on `market_id` or `clob_token_id` in downstream notebooks. |
-| Common mistakes | Summing Balance of Power combination probabilities as if they were mutually exclusive. |

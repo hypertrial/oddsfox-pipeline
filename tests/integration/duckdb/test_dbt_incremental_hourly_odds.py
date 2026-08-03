@@ -30,33 +30,11 @@ CASES = (
         True,
     ),
     IncrementalCase(
-        "int_polymarket_wc2026_match_hourly_odds",
-        '"polymarket_wc2026_intermediate"."int_polymarket_wc2026_match_hourly_odds"',
-        "polymarket_wc2026_match",
-        "clob_token_id",
-        False,
-    ),
-    IncrementalCase(
-        "int_polymarket_us_midterms_2026_token_hourly_odds",
-        '"polymarket_us_midterms_2026_intermediate".'
-        '"int_polymarket_us_midterms_2026_token_hourly_odds"',
-        "polymarket_us_midterms_2026_token",
-        "clob_token_id",
-        True,
-    ),
-    IncrementalCase(
         "int_kalshi_wc2026_market_hourly_odds",
         '"kalshi_wc2026_intermediate"."int_kalshi_wc2026_market_hourly_odds"',
         "kalshi_wc2026_market",
         "market_ticker",
         True,
-    ),
-    IncrementalCase(
-        "int_kalshi_wc2026_match_hourly_odds",
-        '"kalshi_wc2026_intermediate"."int_kalshi_wc2026_match_hourly_odds"',
-        "kalshi_wc2026_match",
-        "market_ticker",
-        False,
     ),
 )
 
@@ -65,7 +43,7 @@ def _create_polymarket_inputs(
     conn: duckdb.DuckDBPyConnection,
     case: IncrementalCase,
 ) -> None:
-    scope = "us_midterms_2026" if "us_midterms_2026" in case.kind else "wc2026"
+    scope = "wc2026"
     staging = f"polymarket_{scope}_staging"
     intermediate = f"polymarket_{scope}_intermediate"
     conn.execute(f'create schema "{staging}"')
@@ -140,7 +118,7 @@ def _change_polymarket_inputs(
     conn: duckdb.DuckDBPyConnection,
     case: IncrementalCase,
 ) -> None:
-    scope = "us_midterms_2026" if "us_midterms_2026" in case.kind else "wc2026"
+    scope = "wc2026"
     staging = f"polymarket_{scope}_staging"
     if not case.retention:
         conn.execute(

@@ -6,8 +6,7 @@ rules, and guarantees. A **contract** is a named guarantee about a relation set,
 bundle, or collector format; see [Terminology](terminology.md#guarantee).
 OddsFox Pipeline is a prediction-market pipeline; the current documented marts
 are WC2026 Polymarket knockout odds outputs, Kalshi
-WC2026 stage and group-winner odds, US midterms 2026 generic market odds, the
-cross-platform knockout match mart, plus WC2026 FIFA fixtures/results used to
+WC2026 stage and group-winner odds, plus WC2026 FIFA fixtures/results used to
 validate WC2026 team scope. Model-level column docs and tests live in the dbt
 project.
 
@@ -26,79 +25,6 @@ project.
 Prefer **mart** or **documented mart**. It does not mean that every relation is
 sanitized or intended for external distribution; the Polygon settlement mart
 has a separate allowlisted exporter.
-
-Schema: `wc2026_marts`
-
-| Relation | Grain | Contract |
-| --- | --- | --- |
-| `wc2026_knockout_match_hourly_odds` | One row per `(fifa_match_id, odds_hour_epoch)` | Dense hourly raw closing prices for both teams to advance from each FIFA-numbered knockout match on Polymarket and Kalshi. Covers match numbers 73–102 and 104; match 103 is excluded. |
-
-`fifa_match_id` is the published numeric match number from the FIFA schedule,
-not the repository-generated hash in the international-results mart. The
-pinned OpenFootball [`cup.txt`](https://github.com/openfootball/worldcup/blob/bd46a148289f9930da66c140d4d7d2325e95d387/2026--usa/cup.txt)
-and [`cup_finals.txt`](https://github.com/openfootball/worldcup/blob/bd46a148289f9930da66c140d4d7d2325e95d387/2026--usa/cup_finals.txt)
-files are the machine-readable fixture mirror used for automation; FIFA remains
-the numeric identity authority. The parser publishes a complete schedule for
-match IDs 1–104, while this knockout mart filters that inventory to IDs 73–102
-and 104. Fixture matching uses the normalized, unordered pair of teams, then
-applies the fixture's official home/away order. Provider ordering is never
-authoritative.
-
-The four price columns are
-`polymarket_home_advance_price`, `polymarket_away_advance_price`,
-`kalshi_home_advance_price`, and `kalshi_away_advance_price`. They are raw
-hourly closes in `[0, 1]` for the team that advances, including extra time and
-penalties. For match 104, advancing means winning the World Cup. Prices are not
-vig-adjusted, averaged across providers, interpolated, forward-filled, or
-renormalized. `price_represents = 'team_advances'` and
-`price_statistic = 'hourly_close'` make those semantics explicit.
-
-Each match gets an hourly spine from its first through last observation on
-either provider. A null price means that exact provider/side had no observation
-in that exact hour. Use `polymarket_hour_complete`, `kalshi_hour_complete`, and
-`both_sources_complete` to select complete comparisons. Pair sums are raw
-diagnostics, not normalization factors. `is_pre_kickoff` distinguishes pregame
-hours from in-play and settlement hours.
-
-The platform facts retain old match hours across incremental runs and reprocess
-a short recent lookback for late arrivals. No automatic age deletion applies to
-these match facts. An intentional local warehouse reset still removes history.
-The progression-futures and stage-of-elimination marts below have different
-semantics and do not feed this relation.
-
-Core and provenance fields:
-
-| Field group | Columns |
-| --- | --- |
-| Time and identity | `odds_hour_utc`, `odds_hour_epoch`, `fifa_match_id`, `stage_key`, `stage_rank`, `kickoff_at_utc`, `home_team`, `away_team` |
-| Polymarket provenance | `polymarket_market_id`, `polymarket_home_clob_token_id`, `polymarket_away_clob_token_id`, home/away observation counts |
-| Kalshi provenance | `kalshi_event_ticker`, `kalshi_home_market_ticker`, `kalshi_away_market_ticker`, home/away hourly volumes |
-| Diagnostics | pair-price sums, per-provider completeness, `both_sources_complete`, `is_pre_kickoff` |
-
-Example: compare complete pregame hours without changing raw prices.
-
-```sql
-select
-    odds_hour_utc,
-    fifa_match_id,
-    stage_key,
-    home_team,
-    away_team,
-    polymarket_home_advance_price,
-    kalshi_home_advance_price,
-    polymarket_away_advance_price,
-    kalshi_away_advance_price
-from wc2026_marts.wc2026_knockout_match_hourly_odds
-where both_sources_complete and is_pre_kickoff
-order by fifa_match_id, odds_hour_epoch;
-```
-
-Schema: `polymarket_us_midterms_2026_marts`
-
-| Relation | Grain | Contract |
-| --- | --- | --- |
-| `polymarket_us_midterms_2026_markets` | One row per `market_id` | Platform-wide Polymarket market catalog (same rows as `polymarket_wc2026_markets`): every Gamma market with reported volume at or above $100,000 USD from `scripts/sync_polymarket_markets_catalog.py`, including reported USD `volume`. `start_time` is nulled when Gamma reports a start after `end_time`. Metadata only; not an odds mart. Distinct from `int_polymarket_us_midterms_2026_markets` ($5,000 intermediate floor). |
-| `polymarket_us_midterms_2026_market_token_hourly_odds` | One row per `(clob_token_id, odds_hour_epoch)` | Trailing 30-day hourly OHLC odds for admitted US midterms 2026 market tokens joined to source market metadata. No office-type classification in v0.1.x. |
 
 Schema: `polymarket_wc2026_marts`
 
@@ -482,8 +408,6 @@ Schema: `kalshi_wc2026_marts`
 
 ## Health And Observability
 
-- Use `polymarket_us_midterms_2026_observability.polymarket_us_midterms_2026_ingestion_run_observability`
-  for US midterms run-level ingestion telemetry.
 - Use `polymarket_wc2026_observability.polymarket_wc2026_ingestion_run_observability` for run-level ingestion
   telemetry, market-discovery provenance, request counts, and sync metrics.
 - Use `polymarket_wc2026_observability.polymarket_wc2026_knockout_stage_coverage` to inspect raw
@@ -494,33 +418,12 @@ Schema: `kalshi_wc2026_marts`
 - Use `kalshi_wc2026_observability.kalshi_wc2026_ingestion_run_observability` for Kalshi run-level ingestion telemetry.
 - Use `kalshi_wc2026_observability.kalshi_wc2026_stage_coverage` to inspect classified market coverage and hourly completeness against the pipeline policy window.
 - Use `kalshi_wc2026_observability.kalshi_wc2026_data_quality` for Kalshi source-state anomalies, sparse coverage, and stale or missing live odds findings.
-- Use `wc2026_observability.wc2026_knockout_match_odds_coverage` for one row per
-  expected advancement match, including fixture readiness, both vendor mappings,
-  side completeness, first/last observed hours, and freshness warnings.
-- Use `wc2026_observability.wc2026_knockout_match_odds_data_quality` for hard
-  mapping, fixture, and price errors plus missing/stale vendor warnings.
 
 ## Current Scope Rules
 
-- US midterms 2026 marts expose only targeted Balance of Power, Senate
-  control, and House control markets from the `us_midterms_2026` registry at or
-  above the pipeline policy volume floor ($5,000 USD by default).
-- **Balance of Power semantics:** each combo is an independent binary Yes/No
-  market. Probabilities across combos do **not** sum to 1.0 (unlike mutually
-  exclusive partitions).
-- **Volume floor exclusions:** zero-volume placeholder markets (for example
-  generic "Party A/B/C" rows) are intentionally excluded from documented marts.
-- **No office-type classification** in v0.1.x; join on `market_id` / `clob_token_id`
-  and source question text.
-- Shared US midterms thresholds live in
-  `dbt/seeds/polymarket_us_midterms_2026_pipeline_policy.csv`; there is no results or
-  candidate validation layer for this scope in v0.1.x.
 - Kalshi WC2026 marts expose stage-of-elimination and group-winner markets
   from the fixed `wc2026` registry across the packaged Kalshi series tickers.
   Shared Kalshi thresholds live in `dbt/seeds/kalshi_wc2026_pipeline_policy.csv`.
-- The neutral match mart admits exact `soccer_team_to_advance` Polymarket
-  markets and exact `KXWCADVANCE` Kalshi markets regardless of volume. The
-  source-specific $5,000 progression-futures filter remains unchanged.
 - WC2026 marts expose only knockout-related markets from the WC2026 registry
   at or above the WC2026 pipeline policy volume floor. The current floor is $5,000 USD,
   and markets crossing it on a later sync are admitted on the next dbt build.
@@ -568,21 +471,12 @@ Schema: `kalshi_wc2026_marts`
 - Use `polymarket_wc2026_market_scope_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
   `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline` for WC2026
   Dagster operations.
-- Use `polymarket_us_midterms_2026_market_scope_registry_refresh`,
-  `polymarket_us_midterms_2026_hourly_odds_ingest`, and
-  `polymarket_us_midterms_2026_full_pipeline` for US midterms Dagster operations.
 - Use `kalshi_wc2026_market_scope_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
   and `kalshi_wc2026_full_pipeline` for Kalshi WC2026 Dagster operations.
   `kalshi_wc2026_full_pipeline` also runs `international_results_wc2026_match_results_ingest`
   and a scoped dbt build (`+tag:kalshi`, including `international_results` parents).
   `international_results_wc2026_match_results_ingest` refreshes only the FIFA
   World Cup fixture/result source and is included in the Polymarket WC2026 full pipeline.
-- Use `wc2026_knockout_match_odds_full_pipeline` for an atomic fixture,
-  Polymarket registry/odds, Kalshi registry/candlestick, permanent-fact, neutral
-  mart, and observability refresh. Source-specific dbt jobs exclude the neutral
-  `cross_domain` models so a one-sided refresh is not presented as atomic.
-- `wc2026_knockout_match_odds_hourly_schedule` targets that combined job and is
-  stopped unless `WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED=true`.
 - `polymarket_wc2026_knockout_token_hourly_odds` remains the public
   progression-side export for downstream knockout probability views.
 - The complete seven-file `polymarket-wc2026-logical-v1` bundle is the portable
@@ -601,7 +495,7 @@ Schema: `kalshi_wc2026_marts`
 - `int_polymarket_wc2026_markets` is the canonical market-level WC2026 scope (grain:
   `scope_name`, `market_id`) with the WC2026 pipeline policy volume floor applied
   ($5,000) and the scope registry. Catalog marts `polymarket_wc2026_markets`
-  and `polymarket_us_midterms_2026_markets` read the platform-wide catalog sync
+ read the platform-wide catalog sync
   (`polymarket_catalog_raw.markets`, volume ≥ $100,000, no tag/registry filter)
   and do not replace that intermediate.
 - Run `uv run python scripts/sync_polymarket_markets_catalog.py` before building
@@ -624,13 +518,8 @@ Schema: `kalshi_wc2026_marts`
   upstream live lag, unsurfaced source-state or hourly coverage issues, sparse
   stage/team coverage, live-team alignment, and stale fixture/result source loads.
 - Observability run health (warn-level: latest run error-token regression and history coverage floor).
-- US midterms grain, OHLC bounds, volume floor from
-  `polymarket_us_midterms_2026_pipeline_policy.csv`, and `scope_name` accepted values.
 - Kalshi WC2026 grain, OHLC order, progression-side selection, real-team scope,
   and data-quality checks from `kalshi_wc2026_pipeline_policy.csv`.
-- Official knockout match-number/stage relationships, match 103 exclusion,
-  unique provider mappings, exact team-to-advance classification, permanent
-  incremental hours, dense null preservation, and four-price pivot behavior.
 
 Warn-level observability tests fail softly in `dbt build` output; treat warnings
 as operator signals on real warehouses, not hard release blockers when the
@@ -646,10 +535,6 @@ DuckDB schemas use flat `polymarket_wc2026_*` names.
 There are no compatibility views, env aliases, or migration shims in v0.1.x.
 Delete old local warehouse files (`rm oddsfox.duckdb*`) and rerun quickstart
 after upgrading from older layouts.
-
-The neutral `wc2026_*` dbt schemas and permanent platform match facts change
-the local warehouse layout. v0.1.x provides no compatibility aliases or schema
-migration; reset `oddsfox.duckdb*` before rebuilding an older warehouse.
 
 The knockout hourly time-series mart is a dbt view over a private incremental
 hourly fact. If an existing local DuckDB warehouse still has deleted broad

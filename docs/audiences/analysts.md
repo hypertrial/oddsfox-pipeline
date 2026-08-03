@@ -51,7 +51,7 @@ Practical join rules:
 
 - Join Polymarket/Kalshi team fields to
   `international_results_wc2026_team_status.team_name` via `canonical_team_name`.
-- Cross-platform and minute marts use official `fifa_match_id`. Fixture rows in
+- Minute marts use official `fifa_match_id`. Fixture rows in
   `international_results_wc2026_matches` use `match_id`; do not assume those
   identifiers are interchangeable without a documented bridge.
 - Prefer `clob_token_id` / `market_ticker` for provider time series, not raw

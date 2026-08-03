@@ -32,8 +32,6 @@ def test_init_duck_db_creates_raw_and_ops_schemas(tmp_path, monkeypatch):
                 where table_schema in (
                     'polymarket_wc2026_raw',
                     'polymarket_wc2026_ops',
-                    'polymarket_us_midterms_2026_raw',
-                    'polymarket_us_midterms_2026_ops',
                     'kalshi_wc2026_raw',
                     'kalshi_wc2026_ops',
                     'international_results_wc2026_raw',
@@ -46,8 +44,6 @@ def test_init_duck_db_creates_raw_and_ops_schemas(tmp_path, monkeypatch):
     assert schemas == {
         "polymarket_wc2026_raw",
         "polymarket_wc2026_ops",
-        "polymarket_us_midterms_2026_raw",
-        "polymarket_us_midterms_2026_ops",
         "kalshi_wc2026_raw",
         "kalshi_wc2026_ops",
         "international_results_wc2026_raw",
@@ -57,12 +53,8 @@ def test_init_duck_db_creates_raw_and_ops_schemas(tmp_path, monkeypatch):
     assert {
         ("international_results_wc2026_raw", "match_results"),
         ("openfootball_wc2026_raw", "schedule_fixtures"),
-        ("polymarket_us_midterms_2026_raw", "market_tokens"),
-        ("polymarket_us_midterms_2026_raw", "odds_history"),
-        ("polymarket_us_midterms_2026_ops", "market_scope_registry"),
         ("polymarket_wc2026_raw", "market_tokens"),
         ("polymarket_wc2026_raw", "odds_history"),
-        ("polymarket_wc2026_raw", "token_odds_daily"),
         ("polymarket_wc2026_ops", "market_scope_registry"),
         ("polymarket_wc2026_ops", "token_sync_ledger"),
         ("polymarket_wc2026_ops", "token_sync_skips"),

@@ -2,8 +2,7 @@
 
 Use this page when changing code, dbt models, docs, or orchestration behavior.
 OddsFox Pipeline is a prediction-market pipeline; v0.1.x development touches the
-Polymarket WC2026 and US midterms 2026 adapters, Kalshi WC2026, marts, and
-orchestration. For a short contributor map, start with
+Polymarket WC2026 and Kalshi WC2026 adapters, marts, and orchestration. For a short contributor map, start with
 [Contributors](../audiences/contributors.md). For operator setup, start with
 [Quickstart](../getting-started/index.md).
 
@@ -35,9 +34,7 @@ ingestion:
 
 ```dotenv
 POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
-POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
-WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED=false
 ```
 
 For documentation work, install Chromium once into the Makefile runtime browser
@@ -60,7 +57,7 @@ saved documentation, stylesheet, or configuration change; no restart is needed.
 | Docs, styles, or `mkdocs.yml` only | `uv run make docs-check` |
 | Ordinary code or test PR (including dependency, Dagster, dbt, data-quality) | `uv run make ci-fast` |
 | Major-version publish only | `uv run make release-gate` |
-| Live network acceptance (local only) | `live-smoke`, `match-minute-live-smoke`, or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
+| Live network acceptance (local only) | `match-minute-live-smoke` or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
 
 `ci-fast` and `release-gate` run isolated parallel lanes that mirror GitHub's
 worker topology. Use `ci-fast-core` / `release-gate-core` when you need a
@@ -222,7 +219,6 @@ when settings reload from disk. See
 | `uv run make mutation` | Resume focused mutation testing for five curated modules and enforce exported Mutmut statistics. |
 | `uv run make mutation-ci` | Start from a clean mutation cache and run the deterministic zero-unresolved-mutant gate. |
 | `uv run make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate. |
-| `uv run make live-smoke` | Opt-in live WC2026 cross-platform pipeline. |
 | `uv run make match-minute-live-smoke` | Opt-in disposable live acceptance check for the 104-game Polymarket minute mart. |
 | `uv run make local-marts-rebuild` | Full-refresh and verify both WC2026 minute marts from completed local raw warehouses. |
 | `uv run make polygon-settlement-live-smoke` | Opt-in finalized Polygon backfill against a disposable warehouse. |

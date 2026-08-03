@@ -73,8 +73,8 @@ See [Architecture](docs/concepts/architecture.md) and the
 
 Supported local analytics schemas include
 `polymarket_wc2026_marts`, `wc2026_marts`,
-`international_results_wc2026_marts`, `polymarket_us_midterms_2026_marts`,
-`kalshi_wc2026_marts`, and matching `*_observability` schemas. An optional
+`international_results_wc2026_marts`, `kalshi_wc2026_marts`, and matching
+`*_observability` schemas. An optional
 advanced Polygon settlement-minute mart is documented separately for operators
 who supply a reviewed manifest and finalized RPC.
 

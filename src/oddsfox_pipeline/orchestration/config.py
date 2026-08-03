@@ -10,15 +10,11 @@ from oddsfox_pipeline.config.settings import (
     KALSHI_WC2026_HOURLY_WINDOW_DAYS,
     KALSHI_WC2026_HOURLY_WINDOW_HOURS,
     MIN_ODDS_FIDELITY_MINUTES,
-    POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_DAYS,
-    POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_HOURS,
-    POLYMARKET_US_MIDTERMS_2026_MIN_VOLUME_USD,
     POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
     POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
-    POLYMARKET_US_MIDTERMS_2026_SCOPE,
     POLYMARKET_WC2026_SCOPE,
 )
 from oddsfox_pipeline.publishing.polygon_settlement import (
@@ -276,54 +272,6 @@ class ReviewedMembershipConfig(Config):
         return value
 
 
-def polymarket_us_midterms_2026_full_refresh_events_run_config() -> dict:
-    markets_cfg = MarketsSyncConfig(
-        discovery_mode="targeted",
-        force_full_discovery=True,
-        max_pages_without_progress=None,
-    )
-    registry_cfg = MarketScopeRegistryConfig(
-        force_refresh=True,
-        max_pages_without_progress=None,
-    )
-    metadata_cfg = MetadataEnrichmentConfig()
-    return {
-        "ops": {
-            "polymarket_us_midterms_2026_raw_markets": {
-                "config": markets_cfg.model_dump()
-            },
-            "polymarket_us_midterms_2026_ops_market_scope_registry": {
-                "config": registry_cfg.model_dump()
-            },
-            "polymarket_us_midterms_2026_raw_market_metadata_enrichment": {
-                "config": metadata_cfg.model_dump()
-            },
-        }
-    }
-
-
-def polymarket_us_midterms_2026_hourly_odds_run_config() -> dict:
-    odds_cfg = HourlyOddsSyncConfig(
-        fidelity=60,
-        force=True,
-        skip_recent_minutes=1,
-        overlap_minutes=60,
-        window_hours=POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_HOURS,
-        history_backfill_days=POLYMARKET_US_MIDTERMS_2026_HOURLY_WINDOW_DAYS,
-        routine_interval_hours=1,
-        min_volume=POLYMARKET_US_MIDTERMS_2026_MIN_VOLUME_USD,
-        max_volume=None,
-        ended_market_grace_days=7,
-    )
-    return {
-        "ops": {
-            "polymarket_us_midterms_2026_raw_token_odds_history_hourly": {
-                "config": odds_cfg.model_dump()
-            },
-        }
-    }
-
-
 def polymarket_wc2026_dbt_build_run_config() -> dict:
     dbt_cfg = DbtBuildConfig(
         full_refresh=False,
@@ -363,15 +311,6 @@ def polymarket_wc2026_logical_atlas_run_config(
             },
         }
     }
-
-
-def polymarket_us_midterms_2026_dbt_build_run_config() -> dict:
-    dbt_cfg = DbtBuildConfig(
-        full_refresh=False,
-        dbt_select=POLYMARKET_US_MIDTERMS_2026_SCOPE.dbt_select,
-        dbt_exclude=POLYMARKET_US_MIDTERMS_2026_SCOPE.dbt_exclude,
-    )
-    return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}
 
 
 def polymarket_wc2026_full_refresh_events_run_config() -> dict:
@@ -574,52 +513,3 @@ def kalshi_wc2026_dbt_build_run_config() -> dict:
         dbt_exclude=KALSHI_WC2026_SCOPE.dbt_exclude,
     )
     return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}
-
-
-def wc2026_knockout_match_odds_full_pipeline_run_config() -> dict:
-    """Atomic fixture, vendor, permanent-fact, and mart refresh config."""
-    polymarket_markets = MarketsSyncConfig(
-        discovery_mode="full_keyset",
-        force_full_discovery=True,
-        keyset_volume_min=0.0,
-        max_pages_without_progress=None,
-    )
-    polymarket_registry = MarketScopeRegistryConfig(
-        force_refresh=True,
-        keyset_volume_min=0.0,
-        max_pages_without_progress=None,
-    )
-    polymarket_odds = HourlyOddsSyncConfig(
-        window_hours=KALSHI_WC2026_HOURLY_WINDOW_HOURS,
-        history_backfill_days=KALSHI_WC2026_HOURLY_WINDOW_DAYS,
-        min_volume=None,
-    )
-    dbt = DbtBuildConfig(full_refresh=False, dbt_select="+tag:cross_domain")
-    return {
-        "ops": {
-            "polymarket_wc2026_raw_markets": {
-                "config": polymarket_markets.model_dump()
-            },
-            "polymarket_wc2026_ops_market_scope_registry": {
-                "config": polymarket_registry.model_dump()
-            },
-            "polymarket_wc2026_raw_market_metadata_enrichment": {
-                "config": MetadataEnrichmentConfig().model_dump()
-            },
-            "polymarket_wc2026_raw_token_odds_history_hourly": {
-                "config": polymarket_odds.model_dump()
-            },
-            "kalshi_wc2026_raw_markets": {
-                "config": KalshiMarketsSyncConfig().model_dump()
-            },
-            "kalshi_wc2026_ops_market_scope_registry": {
-                "config": KalshiMarketScopeRegistryConfig(
-                    force_refresh=True
-                ).model_dump()
-            },
-            "kalshi_wc2026_raw_market_candlesticks_hourly": {
-                "config": KalshiHourlyOddsSyncConfig().model_dump()
-            },
-            "oddsfox_dbt": {"config": dbt.model_dump()},
-        }
-    }

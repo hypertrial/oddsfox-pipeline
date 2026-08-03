@@ -79,15 +79,6 @@ Schema: `openfootball_wc2026_raw`
   `source_line_number` field, that slice's SHA-256 in `source_line_hash`, and
   load timestamp.
 
-Schema: `polymarket_us_midterms_2026_raw`
-
-- `markets`: dlt-owned Gamma market landing for targeted US midterms event slugs.
-- `market_tokens`: one row per market with CLOB token JSON; finalized from the
-  same Gamma payload as `markets`.
-- `odds_history`: point-in-time CLOB token prices with the same idempotent
-  `(clobTokenId, timestamp)` primary key as WC2026.
-- `token_odds_daily`: daily token aggregates rebuilt from canonical `odds_history`.
-
 Schema: `kalshi_wc2026_raw`
 
 - `events`: dlt-owned Kalshi event landing table.
@@ -137,16 +128,6 @@ Schema: `kalshi_wc2026_ops`
 - `ingestion_run_events`: append-only run metrics landed through custom SQL.
 - `sync_run_metrics`: latest sync metrics and short history for Kalshi tasks.
 
-Schema: `polymarket_us_midterms_2026_ops`
-
-- `market_scope_registry`: market ids admitted to the US midterms 2026 scope.
-- `token_sync_ledger`: per-token sync progress for the midterms namespace.
-- `token_sync_skips`: persisted skip reasons for midterms tokens.
-- `ingestion_run_events`: append-only run metrics for midterms ingestion jobs.
-- `sync_run_metrics`: latest sync metrics and short history for midterms tasks.
-- `scrape_metadata`: shared key/value metadata (global across scopes).
-- `market_metadata_unresolved`: retry ledger for unresolved midterms metadata.
-
 ## dbt Schemas
 
 - `polymarket_wc2026_staging`
@@ -158,13 +139,6 @@ Schema: `polymarket_us_midterms_2026_ops`
 - `international_results_wc2026_marts`
 - `international_results_wc2026_observability`
 - `openfootball_wc2026_staging`
-- `wc2026_intermediate`
-- `wc2026_marts`
-- `wc2026_observability`
-- `polymarket_us_midterms_2026_staging`
-- `polymarket_us_midterms_2026_intermediate`
-- `polymarket_us_midterms_2026_marts`
-- `polymarket_us_midterms_2026_observability`
 - `kalshi_wc2026_staging`
 - `kalshi_wc2026_intermediate`
 - `kalshi_wc2026_marts`
@@ -189,17 +163,6 @@ Schema: `polymarket_wc2026_intermediate`
 - `int_polymarket_wc2026_match_hourly_odds`: permanent incremental match-token
   hourly fact with a short late-arrival lookback and no age deletion.
 
-Schema: `polymarket_us_midterms_2026_intermediate`
-
-- `int_polymarket_us_midterms_2026_token_working_set`: one-row-per-token join of
-  market tokens to market labels, state, and volume.
-- `int_polymarket_us_midterms_2026_markets`: markets admitted by the fixed US
-  midterms scope at or above the pipeline policy volume floor.
-- `int_polymarket_us_midterms_2026_market_tokens`: midterms subset of the token
-  working set.
-- `int_polymarket_us_midterms_2026_token_hourly_odds`: incremental hourly OHLC
-  price fact for raw CLOB tokens in the pipeline policy trailing window.
-
 Schema: `kalshi_wc2026_intermediate`
 
 - `int_kalshi_wc2026_markets`: markets admitted by the fixed Kalshi WC2026 scope.
@@ -212,105 +175,6 @@ Schema: `kalshi_wc2026_intermediate`
   official FIFA fixtures.
 - `int_kalshi_wc2026_match_hourly_odds`: permanent incremental match-market
   hourly fact with no age deletion.
-
-Schema: `wc2026_intermediate`
-
-- `int_wc2026_advancement_fixtures`: the 31 advancement fixtures keyed by official
-  FIFA match number; excludes the third-place match.
-
-## dbt Marts
-
-Schema: `wc2026_marts`
-
-- `wc2026_knockout_match_hourly_odds`: dense raw hourly team-advance closes for
-  official home/away teams across Polymarket and Kalshi. Nulls preserve exact
-  missing observations; the mart never fills or normalizes prices.
-
-Schema: `polymarket_wc2026_marts`
-
-- `polymarket_wc2026_markets`: public platform-wide Polymarket market catalog
-  (volume ≥ $100,000) from `polymarket_catalog_raw.markets` after
-  `scripts/sync_polymarket_markets_catalog.py`. One row per `market_id` with
-  event/market identity, question, description, outcomes, CLOB token IDs,
-  reported USD volume (≥ $100k), start/end times, category, and tags. Metadata
-  only; distinct from the $5,000 registry-scoped `int_polymarket_wc2026_markets`
-  intermediate and from knockout odds marts. `start_time` is nulled when Gamma
-  reports a start after `end_time`. `tags` is usually null on this sync path.
-- `polymarket_wc2026_polygon_settlement_minute_odds`: exactly 39,120 dense rows
-  at `(proposition_id, settlement_minute_utc)`: 216 group propositions × 150
-  scheduled minutes and 32 knockout propositions × 210. Each oriented Yes/No
-  side exposes OHLC, share-weighted VWAP, normalized/derived economic-leg
-  counts, share/collateral volume, first/last finalized block timestamp, and an
-  observed flag. Empty minutes retain null prices/timestamps and zero
-  counts/volumes. The mart never forward-fills, interpolates, infers a
-  complement, normalizes pair sums, or adds match results. It retains
-  `settlement_minute_epoch`, condition/token IDs, market structure, exchange
-  address, and manifest hash/version for internal auditing; a direct mart
-  export is not the allowlisted technical artifact.
-- `polymarket_wc2026_match_minute_odds`: dense, inclusive in-game UTC minute
-  rows at `(odds_minute_utc, market_id)` for all 104 matches. It contains 216
-  group moneyline markets and 32 knockout advance/win markets. Yes/No OHLC,
-  average, counts, and observation times remain null when a minute has no
-  source point; no value is filled or derived as `1 - price`. Team identity and
-  home/away orientation are reconciled to one pinned international-results
-  revision before publication. The zero-based `elapsed_window_minute` is an
-  uncapped wall-clock offset from the Gamma start bucket, not football match
-  time. Timing deltas, boundary flags/status, raw close sums/deviations, anomaly
-  flags, source revision/hash/load time, and the matched international-results
-  ID are included without changing the grain.
-- `polymarket_wc2026_knockout_market_tokens`: progression-side token working set for real WC2026 team knockout
-  markets at or above the WC2026 pipeline policy volume floor, plus derived `market_status`, source live flag,
-  active-team live flag, and explicit price semantics.
-- `polymarket_wc2026_knockout_token_hourly_odds`: trailing 30-day hourly OHLC odds for real-team progression-side
-  knockout tokens (dbt view over the incremental hourly fact), including current market status, tournament status,
-  active-team live flag, and `price_represents = 'progression'`.
-- `polymarket_wc2026_logical_events`, `polymarket_wc2026_logical_markets`,
-  `polymarket_wc2026_logical_market_events`,
-  `polymarket_wc2026_logical_propositions`,
-  `polymarket_wc2026_logical_entities`,
-  `polymarket_wc2026_logical_proposition_entities`, and
-  `polymarket_wc2026_logical_scopes`: the reviewed static logical-atlas
-  producer relations. Export them only as the complete versioned bundle.
-  Their fully qualified entry points include
-  `polymarket_wc2026_marts.polymarket_wc2026_logical_events`,
-  `polymarket_wc2026_marts.polymarket_wc2026_logical_markets`, and
-  `polymarket_wc2026_marts.polymarket_wc2026_logical_propositions`.
-- `polymarket_wc2026_knockout_markets`: latest real-team progression-side knockout snapshot with explicit
-  current-price status and progression outcome labels. Use `is_actionable_live_market` for current live consumption;
-  use `is_active_team_live_market` when stale/missing live rows should remain visible. Closed/resolved rows are
-  retained as historical rows.
-
-Schema: `international_results_wc2026_marts`
-
-- `international_results_wc2026_matches`: clean FIFA World Cup 2026 fixtures/results with stage mapping and tied-knockout advancer inference from later fixtures when possible.
-- `international_results_wc2026_team_status`: canonical team roster and current tournament status used to filter Polymarket documented marts.
-
-Schema: `polymarket_us_midterms_2026_marts`
-
-- `polymarket_us_midterms_2026_markets`: same platform-wide ≥$100k catalog as
-  `polymarket_wc2026_markets` (alias relation for existing midterms consumers),
-  including reported USD volume and the same start-after-end nulling.
-- `polymarket_us_midterms_2026_market_token_hourly_odds`: trailing 30-day hourly
-  OHLC odds for admitted US midterms market tokens joined to source metadata.
-
-Schema: `kalshi_wc2026_marts`
-
-- `kalshi_wc2026_stage_markets`: latest stage-of-elimination market snapshots.
-- `kalshi_wc2026_stage_market_hourly_odds`: trailing pipeline-policy-window hourly odds
-  for stage markets.
-- `kalshi_wc2026_group_winner_markets`: latest group-winner market snapshots.
-- `kalshi_wc2026_group_winner_market_hourly_odds`: trailing pipeline-policy-window
-  hourly odds for group-winner markets.
-
-## Polygon Settlement Artifacts
-
-The Dagster release asset writes a complete internal audit bundle below
-`artifacts/polygon_settlement/audit/releases/<version>/`. A standalone,
-network-free exporter verifies that bundle and writes the allowlisted
-**WC2026 Polygon Settlement Minute Aggregates** CSV and redacted technical
-dossier below `artifacts/polygon_settlement/exports/releases/<version>/`.
-Neither artifact is a warehouse relation. Both remain operator-local, and the
-repository performs no upload step.
 
 Schema: `polymarket_wc2026_observability`
 
@@ -340,11 +204,6 @@ Schema: `polymarket_wc2026_observability`
 - `polymarket_wc2026_knockout_data_quality`: DQ findings for aggregated source-state anomalies, sparse stage/team
   coverage, actionable stale or missing odds, upstream eliminated-team live lag, and live-team alignment.
 
-Schema: `polymarket_us_midterms_2026_observability`
-
-- `polymarket_us_midterms_2026_ingestion_run_observability`: run-level ingestion and
-  odds-sync telemetry for US midterms jobs.
-
 Schema: `kalshi_wc2026_observability`
 
 - `kalshi_wc2026_ingestion_run_observability`: run-level Kalshi ingestion telemetry.
@@ -358,13 +217,6 @@ Schema: `international_results_wc2026_observability`
 - `international_results_wc2026_data_quality`: warning findings for unresolved
   tied-knockout advancers or stale source loads, plus an error when a populated
   snapshot does not share one valid immutable revision and payload SHA-256.
-
-Schema: `wc2026_observability`
-
-- `wc2026_knockout_match_odds_coverage`: fixture, provider mapping, side,
-  observed-hour, and freshness coverage per advancement match.
-- `wc2026_knockout_match_odds_data_quality`: mapping/fixture/price errors and
-  missing/stale provider warnings.
 
 ## dlt Landing And Canonical Tables
 
