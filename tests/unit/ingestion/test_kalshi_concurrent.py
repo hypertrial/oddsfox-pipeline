@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
-from oddsfox_pipeline.ingestion.kalshi.concurrent import map_bounded
 from oddsfox_pipeline.ingestion.kalshi.candlesticks import sync as candlesticks_sync
+from oddsfox_pipeline.ingestion.kalshi.concurrent import map_bounded
 from oddsfox_pipeline.storage.duckdb.profile.discovery import _classify_warehouse_type
 
 
