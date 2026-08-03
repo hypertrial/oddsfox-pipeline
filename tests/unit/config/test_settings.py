@@ -51,7 +51,9 @@ def test_duckdb_path_env_overrides_name(monkeypatch, tmp_path, isolated_env):
     assert settings.DUCKDB_PATH == db.resolve()
 
 
-def test_empty_duckdb_path_falls_back_to_duckdb_name(monkeypatch, tmp_path, isolated_env):
+def test_empty_duckdb_path_falls_back_to_duckdb_name(
+    monkeypatch, tmp_path, isolated_env
+):
     db = tmp_path / "oddsfox.duckdb"
     monkeypatch.setenv("DUCKDB_PATH", "")
     monkeypatch.setenv("DUCKDB_NAME", str(db))
