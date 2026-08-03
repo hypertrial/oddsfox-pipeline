@@ -38,6 +38,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resolver, instead of treating the empty string as a literal path.
 - Unrecognized `POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED` values now omit the
   closed filter instead of coercing to `false`.
+- Kalshi `map_bounded` now skips per-item transient failures instead of
+  aborting the whole candlestick sync or registry refresh batch.
+- Polymarket market-discovery progress guardrails now read `events_page` and
+  record per-page deltas instead of always reporting zero work.
+- Kalshi and Polymarket progress guardrails now record per-callback work
+  deltas instead of inflating cumulative totals.
+- `wc2026_results` now tolerates a one-day fixture/result date drift when
+  joining international results.
+- `fetch_token_history()` honors explicit `start_ts=0` epoch timestamps.
+- Warehouse profiler numeric classification now covers DuckDB unsigned integer
+  types (`USMALLINT`, `UINTEGER`, `UBIGINT`).
 
 ### Removed
 

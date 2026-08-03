@@ -48,10 +48,15 @@ def materialize_kalshi_candlesticks_sync(
         work_log_interval=config.progress_log_interval_markets,
     )
 
+    last_work = 0
+
     def _progress(phase: str, payload: dict[str, Any]) -> None:
+        nonlocal last_work
         work = int(payload.get("markets_synced") or payload.get("rows_written") or 0)
+        increment = max(0, work - last_work)
+        last_work = work
         guardrail.record_progress(
-            work_increment=max(0, work),
+            work_increment=increment,
             phase=phase,
             diagnostics=payload,
         )

@@ -110,7 +110,7 @@ def fetch_token_history(
         params = {"market": token_id}
 
         # Use interval OR explicit time range (mutually exclusive per docs)
-        if start_ts and end_ts:
+        if start_ts is not None and end_ts is not None:
             params["startTs"] = start_ts
             params["endTs"] = end_ts
         else:

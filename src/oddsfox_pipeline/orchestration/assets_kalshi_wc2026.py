@@ -100,15 +100,20 @@ def kalshi_wc2026_raw_markets(
         work_log_interval=config.progress_log_interval_pages,
     )
 
+    last_work = 0
+
     def _markets_progress(phase: str, payload: dict[str, Any]) -> None:
+        nonlocal last_work
         work = int(
             payload.get("pages")
             or payload.get("api_requests")
             or payload.get("markets_collected")
             or 0
         )
+        increment = max(0, work - last_work)
+        last_work = work
         guardrail.record_progress(
-            work_increment=max(0, work),
+            work_increment=increment,
             phase=phase,
             diagnostics=payload,
         )

@@ -233,3 +233,21 @@ unit_tests:
       rows:
         - {match_id: 1, home_score: 2, away_score: 0, winner_team: null, status: final}
         - {match_id: 101, home_score: 1, away_score: 0, winner_team: France, status: final}
+
+  - name: test_wc2026_results_tolerates_one_day_result_date_drift
+    model: wc2026_results
+    given:
+      - input: ref('wc2026_fixtures')
+        rows:
+          - {match_id: 1, match_date: '2026-06-11', venue: Mexico Stadium, home_team: Mexico, away_team: South Africa, is_knockout: false}
+      - input: ref('wc2026_base_camp_venues')
+        rows:
+          - {venue: Mexico Stadium, host_city: Mexico City}
+      - input: ref('international_results_wc2026_matches')
+        rows:
+          - {match_date: '2026-06-12', city: Mexico City, home_team: Mexico, away_team: South Africa, home_score: 2, away_score: 0, advancing_team: null, match_status: completed, source_url: public-results, source_loaded_at: '2026-06-13 00:00:00'}
+      - input: ref('wc2026_team_canonical_aliases')
+        rows: []
+    expect:
+      rows:
+        - {match_id: 1, home_score: 2, away_score: 0, winner_team: null, status: final}

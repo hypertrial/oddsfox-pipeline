@@ -28,7 +28,7 @@ select
 from fixtures as f
 inner join {{ ref('international_results_wc2026_matches') }} as r
     on
-        f.match_date = r.match_date
+        abs(date_diff('day', r.match_date, f.match_date)) <= 1
         and (
             (
                 {{ canonical_team_match_key('f.home_team') }}

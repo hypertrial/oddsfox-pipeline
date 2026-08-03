@@ -28,6 +28,19 @@ def test_fetch_token_history_range():
     odds_fetch.fetch_token_history(c, "t" * 40, start_ts=1, end_ts=2)
 
 
+def test_fetch_token_history_accepts_epoch_start_ts():
+    c = MagicMock()
+    captured = {}
+    c.get.side_effect = lambda endpoint, params=None: (
+        captured.update(params or {}),
+        {"history": []},
+    )[1]
+    odds_fetch.fetch_token_history(c, "t" * 40, start_ts=0, end_ts=1000)
+    assert captured["startTs"] == 0
+    assert captured["endTs"] == 1000
+    assert "interval" not in captured
+
+
 def test_fetch_token_history_fidelity_and_skips_malformed_points():
     c = MagicMock()
     c.get.return_value = {"history": [{"t": 1}, {"p": 0.4}, {"t": 2, "p": 0.6}]}

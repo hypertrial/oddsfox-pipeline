@@ -27,8 +27,8 @@ def _is_system_schema(s: str) -> bool:
 
 
 _NUM_RE = re.compile(
-    r"^(TINY|SMALL|BIG|HUGE)?INT(EGER)?$|^INTEGER$|^UTINYINT$|^"
-    r"(DOUBLE|FLOAT|REAL|DECIMAL|NUMERIC)|^UHUGEINT$",
+    r"^(TINY|SMALL|BIG|HUGE)?INT(EGER)?$|^INTEGER$|^U(TINY|SMALL|BIG|HUGE)?INT(EGER)?$|^"
+    r"(DOUBLE|FLOAT|REAL|DECIMAL|NUMERIC)",
     re.I,
 )
 _DATE_RE = re.compile(r"^(DATE|TIME|TIMESTAMP|TIMESTAMPTZ|INTERVAL)", re.I)

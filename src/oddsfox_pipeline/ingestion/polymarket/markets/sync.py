@@ -233,15 +233,21 @@ def sync_markets(
         force_log=True,
     )
 
+    last_work = 0
+
     def _guardrailed_progress_callback(phase: str, diagnostics: dict[str, Any]) -> None:
+        nonlocal last_work
         work = int(
-            diagnostics.get("events_pages")
+            diagnostics.get("events_page")
+            or diagnostics.get("events_pages")
             or diagnostics.get("api_requests")
             or diagnostics.get("markets_fetched")
             or 0
         )
+        increment = max(0, work - last_work)
+        last_work = work
         guardrail.record_progress(
-            work_increment=max(0, work),
+            work_increment=increment,
             phase=phase,
             diagnostics=diagnostics,
         )
