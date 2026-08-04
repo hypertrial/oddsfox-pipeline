@@ -37,6 +37,59 @@ class RegistryRow:
     first_eligible_at: datetime | None = None
 
 
+def prune_stale_event_catalog_registry_rows(
+    *,
+    scope_name: str,
+    active_market_ids: Sequence[str],
+) -> int:
+    """Drop event-catalog registry rows that are no longer admitted."""
+    ensure_duck_db()
+    scope = _normalize_scope(scope_name)
+    registry = _registry_tbl(scope)
+    active_ids = [str(market_id) for market_id in active_market_ids]
+    with get_connection() as conn:
+        if not active_ids:
+            count_row = conn.execute(
+                f"""
+                SELECT COUNT(*)
+                FROM {registry}
+                WHERE scope_name = ?
+                  AND source = 'event_catalog'
+                """,
+                [scope],
+            ).fetchone()
+            conn.execute(
+                f"""
+                DELETE FROM {registry}
+                WHERE scope_name = ?
+                  AND source = 'event_catalog'
+                """,
+                [scope],
+            )
+        else:
+            placeholders = ", ".join("?" for _ in active_ids)
+            count_row = conn.execute(
+                f"""
+                SELECT COUNT(*)
+                FROM {registry}
+                WHERE scope_name = ?
+                  AND source = 'event_catalog'
+                  AND market_id NOT IN ({placeholders})
+                """,
+                [scope, *active_ids],
+            ).fetchone()
+            conn.execute(
+                f"""
+                DELETE FROM {registry}
+                WHERE scope_name = ?
+                  AND source = 'event_catalog'
+                  AND market_id NOT IN ({placeholders})
+                """,
+                [scope, *active_ids],
+            )
+    return int(count_row[0]) if count_row and count_row[0] is not None else 0
+
+
 def upsert_registry_rows(rows: Sequence[RegistryRow]) -> int:
     if not rows:
         return 0
@@ -209,13 +262,20 @@ def _load_enclosing_market_memberships(
     rows = conn.execute(
         f"""
         SELECT event_id, market_id
-        FROM {event_market_snapshots}
-        WHERE is_enclosing_event
-          AND event_id IN ({placeholders})
-        QUALIFY row_number() OVER (
-            PARTITION BY market_id
-            ORDER BY observed_at DESC
-        ) = 1
+        FROM (
+            SELECT
+                event_id,
+                market_id,
+                is_enclosing_event,
+                row_number() OVER (
+                    PARTITION BY market_id
+                    ORDER BY observed_at DESC
+                ) AS rn
+            FROM {event_market_snapshots}
+            WHERE event_id IN ({placeholders})
+        )
+        WHERE rn = 1
+          AND is_enclosing_event
         """,
         list(eligible_event_ids),
     ).fetchall()
@@ -289,6 +349,7 @@ __all__ = [
     "clear_registry",
     "get_registry_event_slugs",
     "get_registry_market_ids",
+    "prune_stale_event_catalog_registry_rows",
     "registry_market_count",
     "upsert_registry_rows",
 ]

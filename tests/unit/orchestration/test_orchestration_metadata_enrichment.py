@@ -228,21 +228,17 @@ def test_metadata_enrichment_guardrail_poll_checks_and_raises_worker_errors(
         return real_check(self, *args, **kwargs)
 
     monkeypatch.setattr(polymarket_ops_mod.ProgressGuardrail, "check", counting_check)
-    monkeypatch.setattr(
-        polymarket_ops_mod,
-        "Thread",
-        lambda *args, **kwargs: _DelayedWorkerThread(
-            *args,
-            **kwargs,
-            clock=clock,
-            advance_seconds=1.1,
-        ),
-    )
+
+    def enrich_with_progress(**kwargs):
+        progress = kwargs.get("progress_callback")
+        if progress is not None:
+            progress("enrich_batch", {"batch": 1})
+        return {"task": "enrich_market_metadata", "ok": True}
 
     with (
         patch(
             "oddsfox_pipeline.orchestration.polymarket_ops.enrich_market_metadata",
-            lambda **k: {"task": "enrich_market_metadata", "ok": True},
+            enrich_with_progress,
         ),
         patch(
             "oddsfox_pipeline.orchestration.polymarket_ops.delete_orphan_market_tokens",

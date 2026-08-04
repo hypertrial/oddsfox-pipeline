@@ -103,6 +103,29 @@ def test_export_eloratings_wc2026_team_ratings_freezes_writes_both_csvs(
     assert latest_rows[0]["rating"] == "2100.0"
 
 
+def test_export_eloratings_pre_kickoff_filters_snapshot_scope(tmp_path: Path) -> None:
+    mod = _load_export_module()
+    conn = duckdb.connect()
+    try:
+        _seed_marts(conn)
+        conn.execute(
+            """
+            insert into wc2026_marts.team_ratings_history values
+                (2025, 'current', 3, 'ES', 'Spain', 2090.0, 'snap-2', ?)
+            """,
+            [datetime(2026, 7, 25, 12, 0, tzinfo=timezone.utc)],
+        )
+        counts = mod.export_eloratings_wc2026_team_ratings_freezes(conn, tmp_path)
+    finally:
+        conn.close()
+
+    assert counts["pre_kickoff"] == 2
+    with (tmp_path / mod.PRE_KICKOFF_FILE).open(encoding="utf-8", newline="") as handle:
+        pre_rows = list(csv.DictReader(handle))
+    assert len(pre_rows) == 2
+    assert {row["team_code"] for row in pre_rows} == {"ES", "AR"}
+
+
 def test_export_eloratings_wc2026_team_ratings_freezes_requires_pre_kickoff_year(
     tmp_path: Path,
 ) -> None:

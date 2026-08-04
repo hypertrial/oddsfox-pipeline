@@ -7,6 +7,7 @@ responsibility focused.
 """
 
 import json
+from datetime import date, datetime
 from typing import Dict, List
 
 import polars as pl
@@ -48,6 +49,48 @@ def extract_event_slug(events) -> str:
     return None
 
 
+def _parse_gamma_datetime_value(value) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None) if value.tzinfo else value
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return datetime.combine(value, datetime.min.time())
+    text = str(value).strip()
+    if not text:
+        return None
+    if len(text) == 10 and text[4] == "-" and text[7] == "-":
+        return datetime.strptime(text, "%Y-%m-%d")
+    normalized = text.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        clean = normalized.replace("T", " ")
+        if "." in clean:
+            clean = clean.split(".", 1)[0]
+        if "+" in clean:
+            clean = clean.split("+", 1)[0].rstrip()
+        try:
+            parsed = datetime.strptime(clean, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+    return parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+
+
+def _parse_gamma_datetime_expr(column: str, *, alias: str) -> pl.Expr:
+    return (
+        pl.col(column)
+        .map_elements(_parse_gamma_datetime_value, return_dtype=pl.Datetime)
+        .alias(alias)
+    )
+
+
+def _parse_gamma_datetime_from_expr(expr: pl.Expr, *, alias: str) -> pl.Expr:
+    return expr.map_elements(
+        _parse_gamma_datetime_value, return_dtype=pl.Datetime
+    ).alias(alias)
+
+
 def extract_event_id(events) -> str:
     """Extract parent event id from the events field."""
     events = _normalize_nested_value(events)
@@ -75,11 +118,13 @@ def process_markets_dataframe(markets_list: List[Dict]) -> pl.DataFrame:
         "description",
         "resolutionSource",
         "outcomes",
+        "volume",
         "volumeNum",
         "active",
         "closed",
         "createdAt",
         "endDate",
+        "endDateIso",
         "conditionId",
         "condition_id",
         "sportsMarketType",
@@ -211,34 +256,31 @@ def process_markets_dataframe(markets_list: List[Dict]) -> pl.DataFrame:
             pl.coalesce([pl.col("eventEnded"), pl.col("event_ended")])
             .cast(pl.Boolean, strict=False)
             .alias("event_ended"),
-            # Parse dates
-            pl.col("createdAt")
-            .cast(pl.Utf8, strict=False)
-            .fill_null("")
-            .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%.fZ", strict=False)
-            .alias("created_at"),
-            pl.col("endDate")
-            .cast(pl.Utf8, strict=False)
-            .fill_null("")
-            .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%.fZ", strict=False)
-            .alias("end_date"),
-            pl.coalesce([pl.col("gameStartTime"), pl.col("game_start_time")])
-            .cast(pl.Utf8, strict=False)
-            .fill_null("")
-            .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%.fZ", strict=False)
-            .alias("game_start_time"),
-            pl.coalesce([pl.col("eventStartTime"), pl.col("event_start_time")])
-            .cast(pl.Utf8, strict=False)
-            .fill_null("")
-            .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%.fZ", strict=False)
-            .alias("event_start_time"),
-            pl.coalesce([pl.col("eventFinishedTime"), pl.col("event_finished_time")])
-            .cast(pl.Utf8, strict=False)
-            .fill_null("")
-            .str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%.fZ", strict=False)
-            .alias("event_finished_time"),
-            # Ensure volumeNum is float
-            pl.col("volumeNum").cast(pl.Float64).fill_null(0.0),
+            _parse_gamma_datetime_expr("createdAt", alias="created_at"),
+            _parse_gamma_datetime_from_expr(
+                pl.coalesce([pl.col("endDate"), pl.col("endDateIso")]),
+                alias="end_date",
+            ),
+            _parse_gamma_datetime_from_expr(
+                pl.coalesce([pl.col("gameStartTime"), pl.col("game_start_time")]),
+                alias="game_start_time",
+            ),
+            _parse_gamma_datetime_from_expr(
+                pl.coalesce([pl.col("eventStartTime"), pl.col("event_start_time")]),
+                alias="event_start_time",
+            ),
+            _parse_gamma_datetime_from_expr(
+                pl.coalesce(
+                    [pl.col("eventFinishedTime"), pl.col("event_finished_time")]
+                ),
+                alias="event_finished_time",
+            ),
+            pl.coalesce(
+                [
+                    pl.col("volumeNum").cast(pl.Float64, strict=False),
+                    pl.col("volume").cast(pl.Float64, strict=False),
+                ]
+            ).alias("volumeNum"),
             # Ensure boolean columns are properly typed
             pl.col("active").cast(pl.Boolean),
             pl.col("closed").cast(pl.Boolean),

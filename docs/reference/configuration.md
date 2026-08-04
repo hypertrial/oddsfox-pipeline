@@ -209,7 +209,8 @@ normal event-volume defaults.
 
 - `KALSHI_REQUESTS_PER_SECOND`: Kalshi trade API request pace (default `5`).
 - `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly
-  `kalshi_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
+  `kalshi_wc2026_hourly_odds_ingest` schedule (hourly `period_interval=60`
+  candlesticks).
 
 Kalshi uses the public HTTPS trade API at `external-api.kalshi.com`. No API key,
 secret, or passphrase is required for local docs, dbt, or mocked tests.
@@ -246,8 +247,7 @@ Dagster hourly odds config uses history-oriented option names:
 - `rebuild_history`: bypass routine skip planning and rebuild token history.
 - `history_backfill_days`: rebuild only the trailing N days of history. The packaged
   `polymarket_wc2026_hourly_odds_ingest` and `polymarket_wc2026_full_pipeline` jobs
-  default this to `0` (collect raw history from market creation; the 30-day bound
-  is a dbt presentation window, not raw retention).
+  default this to `0` (collect raw history from market creation).
 - `window_hours`: maximum CLOB fetch window per request. Hourly/full-pipeline jobs
   default this to `720` (30 days) for CLOB chunk sizing.
 
@@ -266,7 +266,7 @@ The old minute-grain schedule-oriented names are not accepted in v0.1.x.
 ## Schedules
 
 - `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
-- `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `kalshi_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
+- `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `kalshi_wc2026_hourly_odds_ingest` schedule (hourly `period_interval=60` candlesticks).
 
 All schedule flags default to `false`.
 

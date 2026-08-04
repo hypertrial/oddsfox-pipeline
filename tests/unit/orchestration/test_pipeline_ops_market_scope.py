@@ -40,7 +40,10 @@ def test_sync_market_scope_registry_delegates_to_refresh():
 def test_sync_market_scope_registry_defaults_to_event_catalog_refresh():
     with patch(
         "oddsfox_pipeline.orchestration.pipeline_ops.refresh_registry_from_event_catalog",
-        return_value={"task": "refresh_market_scope_registry", "registry_rows_upserted": 2},
+        return_value={
+            "task": "refresh_market_scope_registry",
+            "registry_rows_upserted": 2,
+        },
     ) as refresh:
         out = pipeline_ops.sync_market_scope_registry()
     refresh.assert_called_once()

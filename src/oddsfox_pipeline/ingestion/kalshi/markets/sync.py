@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
+from datetime import datetime, timezone
+
 from oddsfox_pipeline.ingestion.kalshi.client import build_client
 from oddsfox_pipeline.ingestion.kalshi.markets.transform import (
     normalize_event_row,
@@ -35,7 +37,7 @@ def collect_market_scope_payload(
         config=cfg,
         progress_callback=progress_callback,
     )
-    scraped_at = None
+    scraped_at = datetime.now(timezone.utc).replace(tzinfo=None)
     events = [normalize_event_row(row, scraped_at=scraped_at) for row in result.events]
     markets = [
         normalize_market_row(row, scraped_at=scraped_at) for row in result.markets

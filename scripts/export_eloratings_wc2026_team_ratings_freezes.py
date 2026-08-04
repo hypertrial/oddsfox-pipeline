@@ -22,6 +22,7 @@ MART_SCHEMA: Final = WC2026_MARTS_SCHEMA
 CURRENT_MART: Final = "team_ratings_current"
 HISTORY_MART: Final = "team_ratings_history"
 PRE_KICKOFF_YEAR: Final = 2025
+PRE_KICKOFF_SCOPE: Final = "2025"
 PRE_KICKOFF_AS_OF: Final = "2025-12-31"
 PRE_KICKOFF_FILE: Final = "team_ratings_pre_kickoff.csv"
 LATEST_CURRENT_FILE: Final = "team_ratings_latest_current.csv"
@@ -54,8 +55,9 @@ def export_eloratings_wc2026_team_ratings_freezes(
         select count(*)
         from {history_rel}
         where snapshot_year = ?
+          and snapshot_scope = ?
         """,
-        [PRE_KICKOFF_YEAR],
+        [PRE_KICKOFF_YEAR, PRE_KICKOFF_SCOPE],
     ).fetchone()
     if not pre_count or int(pre_count[0]) == 0:
         raise LookupError(
@@ -79,10 +81,11 @@ def export_eloratings_wc2026_team_ratings_freezes(
                 collected_at
             from {history_rel}
             where snapshot_year = ?
+              and snapshot_scope = ?
             order by rank, team_code
         ) to '{pre_path_sql}' (format csv, header true)
         """,
-        [PRE_KICKOFF_AS_OF, PRE_KICKOFF_YEAR],
+        [PRE_KICKOFF_AS_OF, PRE_KICKOFF_YEAR, PRE_KICKOFF_SCOPE],
     )
 
     latest_count_row = conn.execute(f"select count(*) from {current_rel}").fetchone()

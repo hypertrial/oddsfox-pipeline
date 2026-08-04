@@ -11,6 +11,7 @@ from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     build_registry_rows_from_event_catalog,
     get_registry_market_ids,
+    prune_stale_event_catalog_registry_rows,
     upsert_registry_rows,
 )
 from oddsfox_pipeline.storage.duckdb.metadata import (
@@ -339,6 +340,84 @@ def refresh_registry_and_collect_markets_targeted(
     )
 
 
+def collect_markets_from_registry(
+    client: Any,
+    *,
+    config: MarketScopeConfig | None = None,
+    progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
+) -> tuple[list[dict[str, Any]], Dict[str, Any]]:
+    """Fetch Gamma markets for the current registry without mutating it."""
+    cfg = config or load_market_scope_config()
+    merged = _empty_scan_result()
+    api_requests = 0
+
+    for slug in cfg.event_slugs:
+        event = fetch_gamma_event_by_slug(client, slug)
+        api_requests += 1
+        if progress_callback:
+            try:
+                progress_callback(
+                    "market_scope_event_by_slug",
+                    {
+                        "scope_name": cfg.scope_name,
+                        "slug": slug,
+                        "found": event is not None,
+                    },
+                )
+            except Exception:
+                logger.debug("Ignoring slug progress callback failure", exc_info=True)
+        if event:
+            merged = _merge_scan_results(merged, _collect_from_events([event], cfg))
+
+    allowlisted_ids = set(cfg.market_ids) | set(get_registry_market_ids(cfg.scope_name))
+    market_ids = _gamma_market_ids(allowlisted_ids)
+    for batch_idx, chunk in enumerate(
+        _chunk_market_ids(market_ids, _TARGETED_MARKETS_BATCH_SIZE), start=1
+    ):
+        payloads = _fetch_markets_batch_resilient(client, chunk, include_events=True)
+        api_requests += 1
+        if progress_callback:
+            try:
+                progress_callback(
+                    "market_scope_markets_by_id",
+                    {
+                        "scope_name": cfg.scope_name,
+                        "batch": batch_idx,
+                        "chunk_size": len(chunk),
+                        "markets_fetched": len(payloads or []),
+                    },
+                )
+            except Exception:
+                logger.debug(
+                    "Ignoring markets-by-id progress callback failure", exc_info=True
+                )
+        merged = _merge_scan_results(
+            merged,
+            _collect_from_market_payloads(
+                payloads or [], cfg, allowlisted_market_ids=allowlisted_ids
+            ),
+        )
+
+    markets = list(merged.raw_markets)
+    collect_meta = _scan_collect_metadata(
+        MarketScopeEventsScanResult(
+            registry_rows=merged.registry_rows,
+            raw_markets=merged.raw_markets,
+            pages_done=0,
+            truncated=False,
+            discovered_slugs=merged.discovered_slugs,
+            api_requests=api_requests,
+        ),
+        cfg,
+        discovery_mode="registry_collect",
+        total_api=api_requests,
+        markets_collected=len(markets),
+        registry_refreshed=False,
+        include_fallback_crawl_tag_slugs=False,
+    )
+    return markets, collect_meta
+
+
 def refresh_registry_from_event_catalog(
     *,
     config: MarketScopeConfig | None = None,
@@ -354,6 +433,12 @@ def refresh_registry_from_event_catalog(
         )
     )
     saved = upsert_registry_rows(merged)
+    pruned = prune_stale_event_catalog_registry_rows(
+        scope_name=cfg.scope_name,
+        active_market_ids=[
+            row.market_id for row in merged if row.source == "event_catalog"
+        ],
+    )
     from oddsfox_pipeline.storage.duckdb.event_catalog_markets import (
         materialize_registry_markets_from_event_catalog,
     )
@@ -365,6 +450,7 @@ def refresh_registry_from_event_catalog(
     return {
         "task": "refresh_market_scope_registry",
         "registry_rows_upserted": saved,
+        "registry_rows_pruned": pruned,
         "by_source": by_source,
         "discovery_mode": "event_catalog",
         "registry_refreshed": True,

@@ -62,8 +62,8 @@ views.
 
 Operator CSV freezes from those marts (`make export-wc2026-elo-freezes`) write
 `artifacts/wc2026_elo_exports/team_ratings_pre_kickoff.csv` (year-end
-`snapshot_year = 2025`, designated pre-WC2026 freeze — not a recovered
-June-2026 `World.tsv` scrape) and
+`snapshot_year = 2025` and `snapshot_scope = '2025'`, designated pre-WC2026 freeze
+— not a recovered June-2026 `World.tsv` scrape) and
 `team_ratings_latest_current.csv` (latest `team_ratings_current` World scrape).
 Both CSVs use mart columns `rank, team_code, team_name, rating` plus export
 metadata `freeze_label, as_of, snapshot_id, collected_at`.

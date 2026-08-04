@@ -391,9 +391,9 @@ Schema: `kalshi_wc2026_marts`
   history from the private incremental `int_polymarket_wc2026_token_hourly_odds`
   fact. Market and enclosing-event metadata come from
   `int_polymarket_wc2026_markets` and `int_polymarket_wc2026_event_latest`.
-- WC2026 match/result rows come from
-  `https://raw.githubusercontent.com/martj42/international_results/refs/heads/master/results.csv`
-  where `tournament = 'FIFA World Cup'` and `match_date` is between
+- WC2026 match/result rows come from `martj42/international_results` at the
+  immutable Git revision pinned during ingest (`source_revision`, `source_url` on
+  each row), filtered to `tournament = 'FIFA World Cup'` and `match_date` between
   `2026-06-11` and `2026-07-19`. The Polymarket full pipeline still refreshes
   those marts for Kalshi and match-minute consumers, but they do not filter the
   golden hourly mart.

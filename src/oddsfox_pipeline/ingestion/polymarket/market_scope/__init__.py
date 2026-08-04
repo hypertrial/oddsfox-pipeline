@@ -40,6 +40,7 @@ from .predicates import (
     resolve_market_scope_discovery,
 )
 from .registry import (
+    collect_markets_from_registry,
     collect_scope_markets_from_events,
     refresh_registry_and_collect_markets_from_events,
     refresh_registry_and_collect_markets_targeted,
@@ -85,6 +86,7 @@ __all__ = [
     "_resolve_keyset_volume_min",
     "_scan_market_scope_gamma_events",
     "_scan_market_scope_gamma_events_keyset_pass",
+    "collect_markets_from_registry",
     "collect_scope_markets_from_events",
     "default_market_scopes_seed_path",
     "event_in_scope",

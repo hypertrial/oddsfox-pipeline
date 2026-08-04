@@ -66,6 +66,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Polymarket Gamma market transform now accepts RFC3339 offset timestamps,
+  coalesces `volumeNum` from `volume`, and honors `endDateIso` when `endDate` is
+  absent.
+- Event-catalog registry refresh stamps per-market `scraped_at`, admits membership
+  from the latest enclosing snapshot only, and prunes stale `event_catalog`
+  registry rows after rebuild.
+- Routine `raw/markets` no longer mutates the event-catalog registry
+  (`refresh_registry=false`); metadata enrichment runs inline with guardrail
+  checks instead of a daemon side thread.
+- Kalshi market landing stamps one shared `scraped_at` per sync batch.
+- Elo pre-kickoff export filters `snapshot_scope = '2025'` so duplicate year-end
+  scopes do not emit duplicate team rows.
+
 - `init_duck_db()` again syncs the active DuckDB path before the initialized
   fast-path return, so `DUCKDB_PATH` / `DUCKDB_NAME` swaps still re-bootstrap
   under the schema bootstrap lock.

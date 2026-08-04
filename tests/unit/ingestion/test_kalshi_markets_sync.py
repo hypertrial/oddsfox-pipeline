@@ -46,6 +46,7 @@ def test_collect_market_scope_payload_normalizes_rows(monkeypatch):
     assert payload["total_markets"] == 1
     assert payload["events"][0]["event_ticker"] == "KXWC-EVT1"
     assert payload["markets"][0]["market_ticker"] == "KXWC-MKT1"
+    assert payload["events"][0]["scraped_at"] == payload["markets"][0]["scraped_at"]
 
 
 def test_sync_markets_persists_metrics(monkeypatch, duck):

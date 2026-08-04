@@ -185,7 +185,6 @@ def materialize_registry_markets_from_event_catalog(
             return {"markets_materialized": 0, "token_rows_materialized": 0}
 
         payloads = [_payload_row_to_gamma_dict(row[:-1]) for row in rows]
-        observed_at = rows[0][-1]
         from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
             normalize_market_payloads_for_dlt,
             polymarket_wc2026_markets_source,
@@ -194,11 +193,18 @@ def materialize_registry_markets_from_event_catalog(
             get_polymarket_dlt_pipeline,
         )
 
-        market_rows = normalize_market_payloads_for_dlt(
-            payloads,
-            observed_at=observed_at,
+        market_rows: list[dict[str, Any]] = []
+        for row in rows:
+            payload = _payload_row_to_gamma_dict(row[:-1])
+            market_rows.extend(
+                normalize_market_payloads_for_dlt(
+                    [payload],
+                    observed_at=row[-1],
+                )
+            )
+        df = process_markets_dataframe(
+            [_payload_row_to_gamma_dict(row[:-1]) for row in rows]
         )
-        df = process_markets_dataframe(payloads)
         _, token_data = prepare_batch_for_db(df)
         token_rows = list(token_data)
 

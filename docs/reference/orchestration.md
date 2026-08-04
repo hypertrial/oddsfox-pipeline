@@ -187,16 +187,21 @@ unrelated Polymarket tests.
 
 ### Polymarket WC2026
 
-- `raw/markets` performs one Gamma discovery pass, lands raw markets through
-  dlt, and persists token mappings from the same payload.
+- `raw/markets` fetches Gamma markets for the current event-catalog registry
+  (`discovery_mode=targeted`, `refresh_registry=false`) and lands them through
+  dlt without mutating registry admission. Full keyset discovery with registry
+  refresh remains available via explicit Dagster run config (match-minute and
+  full-refresh jobs).
 - `raw/markets_snapshot` records local lineage and does not call Gamma.
 - `raw/event_catalog`, `raw/event_snapshots`,
   and `raw/event_market_memberships` land event-catalog inputs used by market
   scope registry refresh.
-- `ops/market_scope_registry` writes only when discovery did not already
-  refresh the market scope registry. When Dagster run config leaves
-  `max_pages_without_progress` unset, discovery and registry refresh apply the
-  scan helper's built-in guard (25 pages without progress).
+- `ops/market_scope_registry` rebuilds sticky event-volume admission from
+  landed event-catalog snapshots, prunes stale `event_catalog` registry rows,
+  and materializes admitted markets into raw tables. When Dagster run config
+  leaves `max_pages_without_progress` unset on legacy keyset refresh paths,
+  discovery and registry refresh apply the scan helper's built-in guard (25
+  pages without progress).
 - Metadata enrichment and hourly odds operate over the fixed WC2026 registry.
 - The match-minute asset writes a separate raw table and never reads or updates
   the hourly token-sync ledger. Any missing token history aborts before dbt. A

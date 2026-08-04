@@ -68,7 +68,8 @@ class GuardrailConfig(Config):
 
 class MarketsSyncConfig(GuardrailConfig):
     progress_log_interval_pages: int = Field(default=10, ge=1)
-    discovery_mode: Literal["targeted", "full_keyset"] = "full_keyset"
+    discovery_mode: Literal["targeted", "full_keyset"] = "targeted"
+    refresh_registry: bool = False
     force_full_discovery: bool = False
     max_event_pages: int | None = None
     keyset_closed: bool | None = None
@@ -253,6 +254,7 @@ def polymarket_wc2026_dbt_build_run_config() -> dict:
 def polymarket_wc2026_full_refresh_events_run_config() -> dict:
     markets_cfg = MarketsSyncConfig(
         discovery_mode="full_keyset",
+        refresh_registry=True,
         force_full_discovery=True,
         max_pages_without_progress=None,
     )
@@ -292,6 +294,7 @@ def polymarket_wc2026_hourly_odds_run_config() -> dict:
 def polymarket_wc2026_match_minute_odds_run_config() -> dict:
     markets = MarketsSyncConfig(
         discovery_mode="full_keyset",
+        refresh_registry=True,
         force_full_discovery=True,
         keyset_closed=True,
         keyset_volume_min=0.0,

@@ -27,7 +27,7 @@ CASES = (
         '"polymarket_wc2026_intermediate"."int_polymarket_wc2026_token_hourly_odds"',
         "polymarket_wc2026_token",
         "clob_token_id",
-        True,
+        False,
     ),
     IncrementalCase(
         "int_kalshi_wc2026_market_hourly_odds",
@@ -73,22 +73,7 @@ def _create_polymarket_inputs(
             [scope],
         )
     else:
-        conn.execute(
-            f"""
-            create table "{intermediate}".
-            "int_polymarket_wc2026_match_advance_tokens" (
-                clob_token_id varchar,
-                is_ambiguous_mapping boolean
-            )
-            """
-        )
-        conn.execute(
-            f"""
-            insert into "{intermediate}".
-            "int_polymarket_wc2026_match_advance_tokens"
-            values ('token-a', false)
-            """
-        )
+        pass
     conn.executemany(
         f"""
         insert into "{staging}"."stg_polymarket_{scope}_odds"
@@ -120,14 +105,6 @@ def _change_polymarket_inputs(
 ) -> None:
     scope = "wc2026"
     staging = f"polymarket_{scope}_staging"
-    if not case.retention:
-        conn.execute(
-            """
-            insert into "polymarket_wc2026_intermediate".
-            "int_polymarket_wc2026_match_advance_tokens"
-            values ('token-null', false), ('token-new', false)
-            """
-        )
     conn.executemany(
         f"""
         insert into "{staging}"."stg_polymarket_{scope}_odds"
@@ -141,7 +118,7 @@ def _change_polymarket_inputs(
                 "2099-01-01 13:05:00",
                 4070955900,
                 0.5,
-                "2000-01-01 01:00:00" if not case.retention else "2099-01-01 14:00:00",
+                "2099-01-01 14:00:00",
             ),
         ],
     )
@@ -394,6 +371,8 @@ def test_incremental_output_matches_full_refresh(
     if case.retention:
         assert any(key.endswith("-retained") for key in keys)
         assert not any(key.endswith("-old") for key in keys)
+    else:
+        assert any(key.endswith("-old") for key in keys)
 
     _run_dbt(
         ["run", "--full-refresh", "--select", case.model],

@@ -13,6 +13,7 @@ from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     DISCOVERY_MODE_FULL_KEYSET,
     DISCOVERY_MODE_TARGETED,
     DiscoveryMode,
+    collect_markets_from_registry,
     load_market_scope_config,
     refresh_registry_and_collect_markets_from_events,
     refresh_registry_and_collect_markets_targeted,
@@ -55,6 +56,7 @@ def collect_market_scope_payload(
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
     keyset_volume_min: float | None = POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
+    refresh_registry: bool = True,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> Dict[str, Any]:
     """Collect WC2026 Gamma markets once and normalize both market and token rows."""
@@ -66,7 +68,19 @@ def collect_market_scope_payload(
     client = factory()
     cfg = load_market_scope_config(scope_name=scope_name)
     effective_keyset_tag_slugs: list[str] | None = None
-    if effective_mode == DISCOVERY_MODE_TARGETED:
+    if not refresh_registry:
+        raw_markets, collect_meta = collect_markets_from_registry(
+            client,
+            config=cfg,
+            progress_callback=progress_callback,
+        )
+        registry_summary = {
+            "task": "collect_markets_from_registry",
+            "registry_refreshed": False,
+            "scope_name": cfg.scope_name,
+            "markets_collected": len(raw_markets),
+        }
+    elif effective_mode == DISCOVERY_MODE_TARGETED:
         registry_summary, raw_markets, collect_meta = (
             refresh_registry_and_collect_markets_targeted(
                 client,
@@ -164,6 +178,7 @@ def _sync_markets_for_scope(
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
     keyset_volume_min: float | None = POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
+    refresh_registry: bool = True,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> Dict[str, Any]:
     collection = collect_market_scope_payload(
@@ -175,6 +190,7 @@ def _sync_markets_for_scope(
         keyset_closed=keyset_closed,
         keyset_tag_slugs=keyset_tag_slugs,
         keyset_volume_min=keyset_volume_min,
+        refresh_registry=refresh_registry,
         progress_callback=progress_callback,
     )
     if collection["token_rows"]:
@@ -193,6 +209,7 @@ def sync_markets(
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
     keyset_volume_min: float | None = POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN,
+    refresh_registry: bool = True,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
     progress_log_interval_pages: int = 10,
     progress_log_interval_seconds: int = 60,
@@ -272,6 +289,7 @@ def sync_markets(
         keyset_closed=keyset_closed,
         keyset_tag_slugs=keyset_tag_slugs,
         keyset_volume_min=keyset_volume_min,
+        refresh_registry=refresh_registry,
         progress_callback=_guardrailed_progress_callback,
     )
     guardrail_snapshot = guardrail.snapshot()

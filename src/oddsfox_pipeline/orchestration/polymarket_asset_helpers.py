@@ -117,13 +117,18 @@ def _run_with_guardrail_thread(
 
     worker = thread_factory(target=_target, daemon=True)
     worker.start()
-    while worker.is_alive():
-        worker.join(timeout=max(1, poll_seconds))
+    try:
+        while worker.is_alive():
+            worker.join(timeout=max(1, poll_seconds))
+            if worker.is_alive():
+                guardrail.check(
+                    phase=phase_name,
+                    diagnostics={"worker_alive": True},
+                )
+    except BaseException:
         if worker.is_alive():
-            guardrail.check(
-                phase=phase_name,
-                diagnostics={"worker_alive": True},
-            )
+            worker.join()
+        raise
     if error is not None:
         raise error
     guardrail.record_progress(
@@ -250,6 +255,7 @@ def _run_raw_markets(
         discovery_mode=discovery_mode,
         force_full_discovery=config.force_full_discovery,
         scope_name=scope_name,
+        refresh_registry=config.refresh_registry,
         max_event_pages=config.max_event_pages,
         max_pages_without_progress=(
             DEFAULT_MAX_PAGES_WITHOUT_PROGRESS
@@ -443,30 +449,25 @@ def _materialize_metadata_enrichment(
     def _metadata_progress(phase: str, payload: dict[str, Any]) -> None:
         context.log.info("[%s] %s", phase, payload)
         guardrail.record_progress(work_increment=1, phase=phase, diagnostics=payload)
+        guardrail.check(phase=phase, diagnostics=payload)
 
     pre = snapshot_raw_layer_fn(level=config.raw_snapshot_level)
     backfill_summaries = [
-        _run_with_guardrail_thread(
-            guardrail,
-            "enrich_market_metadata",
-            lambda: enrich_market_metadata_fn(
-                batch_size=config.batch_size,
-                max_markets=config.max_markets,
-                force=config.force,
-                include_tokens=True,
-                include_slugs=config.include_slugs,
-                include_event_slugs=config.include_event_slugs,
-                include_end_dates=config.include_end_dates,
-                progress_callback=_metadata_progress,
-                progress_every_n_batches=config.progress_log_interval_batches,
-                gamma_requests_per_second=config.gamma_requests_per_second,
-                market_scope=scope_name,
-                event_slug_fallback_max_pages=config.event_slug_fallback_max_pages,
-                event_slug_fallback_max_pages_without_progress=config.event_slug_fallback_max_pages_without_progress,
-                event_slug_fallback_progress_every_pages=config.event_slug_fallback_progress_pages,
-            ),
-            poll_seconds=config.progress_poll_seconds,
-            thread_factory=ops.Thread,
+        enrich_market_metadata_fn(
+            batch_size=config.batch_size,
+            max_markets=config.max_markets,
+            force=config.force,
+            include_tokens=True,
+            include_slugs=config.include_slugs,
+            include_event_slugs=config.include_event_slugs,
+            include_end_dates=config.include_end_dates,
+            progress_callback=_metadata_progress,
+            progress_every_n_batches=config.progress_log_interval_batches,
+            gamma_requests_per_second=config.gamma_requests_per_second,
+            market_scope=scope_name,
+            event_slug_fallback_max_pages=config.event_slug_fallback_max_pages,
+            event_slug_fallback_max_pages_without_progress=config.event_slug_fallback_max_pages_without_progress,
+            event_slug_fallback_progress_every_pages=config.event_slug_fallback_progress_pages,
         )
     ]
     orphan_market_tokens_removed = delete_orphan_market_tokens_fn(scope_name=scope_name)

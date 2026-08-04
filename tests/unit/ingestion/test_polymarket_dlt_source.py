@@ -74,6 +74,74 @@ def test_markets_resource_has_frozen_columns_and_types_contract():
     assert resource.columns["neg_risk_other"]["data_type"] == "bool"
 
 
+def test_normalize_market_payloads_accepts_rfc3339_offset_timestamps():
+    [row] = normalize_market_payloads_for_dlt(
+        [
+            {
+                "id": "m1",
+                "question": "q",
+                "outcomes": ["Yes", "No"],
+                "volumeNum": 1000.0,
+                "active": True,
+                "closed": False,
+                "createdAt": "2024-01-15T12:00:00+00:00",
+                "endDate": "2024-01-15T12:00:00+00:00",
+                "conditionId": "c1",
+                "clobTokenIds": ["1", "2"],
+                "slug": "s",
+                "events": [{"id": "e1", "slug": "ev"}],
+            }
+        ]
+    )
+    assert row["created_at"] == "2024-01-15 12:00:00"
+    assert row["end_date"] == "2024-01-15 12:00:00"
+
+
+def test_normalize_market_payloads_falls_back_to_volume_when_volume_num_missing():
+    [row] = normalize_market_payloads_for_dlt(
+        [
+            {
+                "id": "m1",
+                "question": "q",
+                "outcomes": ["Yes", "No"],
+                "volume": 250_000.0,
+                "volumeNum": None,
+                "active": True,
+                "closed": False,
+                "createdAt": "2024-01-15T12:00:00Z",
+                "endDate": "2024-01-15T12:00:00Z",
+                "conditionId": "c1",
+                "clobTokenIds": ["1", "2"],
+                "slug": "s",
+                "events": [{"id": "e1", "slug": "ev"}],
+            }
+        ]
+    )
+    assert row["volume"] == 250_000.0
+
+
+def test_normalize_market_payloads_accepts_end_date_iso_only():
+    [row] = normalize_market_payloads_for_dlt(
+        [
+            {
+                "id": "m1",
+                "question": "q",
+                "outcomes": ["Yes", "No"],
+                "volumeNum": 1.0,
+                "active": True,
+                "closed": False,
+                "createdAt": "2024-01-15T12:00:00.000Z",
+                "endDateIso": "2024-07-19",
+                "conditionId": "c1",
+                "clobTokenIds": ["1", "2"],
+                "slug": "s",
+                "events": [{"id": "e1", "slug": "ev"}],
+            }
+        ]
+    )
+    assert row["end_date"] == "2024-07-19 00:00:00"
+
+
 def test_parent_event_timing_survives_normalization():
     [row] = normalize_market_payloads_for_dlt(
         [

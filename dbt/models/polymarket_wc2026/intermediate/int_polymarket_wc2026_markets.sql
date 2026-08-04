@@ -17,12 +17,20 @@ enclosing_events as (
     select
         market_id,
         event_id
-    from {{ ref('stg_polymarket_wc2026_event_market_snapshots') }}
-    where is_enclosing_event
-    qualify row_number() over (
-        partition by market_id
-        order by observed_at desc
-    ) = 1
+    from (
+        select
+            market_id,
+            event_id,
+            is_enclosing_event,
+            row_number() over (
+                partition by market_id
+                order by observed_at desc
+            ) as rn
+        from {{ ref('stg_polymarket_wc2026_event_market_snapshots') }}
+    )
+    where
+        rn = 1
+        and is_enclosing_event
 )
 
 select
