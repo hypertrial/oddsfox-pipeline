@@ -29,6 +29,14 @@ from oddsfox_pipeline.storage.duckdb.metadata import (
 )
 
 _POLYMARKET_HOURLY_ODDS_MART = "polymarket_wc2026_market_hourly_odds"
+_INCREMENTAL_MODEL_SUBJECTS = (
+    POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL,
+    "token_hourly_odds",
+)
+_MART_SUBJECTS = (
+    _POLYMARKET_HOURLY_ODDS_MART,
+    "market_hourly_odds",
+)
 _ISOLATED_DBT_SELECT_MARKERS = (
     "match_minute",
     "polygon_settlement",
@@ -43,22 +51,21 @@ def _polymarket_token_hourly_odds_incremental_in_scope(
     context: AssetExecutionContext,
     is_subset: bool,
 ) -> bool:
-    model = POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL
-    mart = _POLYMARKET_HOURLY_ODDS_MART
     if is_subset:
         selected = getattr(context, "selected_asset_keys", None)
         if not selected:
             return False
+        subjects = _INCREMENTAL_MODEL_SUBJECTS + _MART_SUBJECTS
         for key in selected:
             text = str(key).lower()
-            if model in text or mart in text:
+            if any(subject in text for subject in subjects):
                 return True
         return False
 
     dbt_select = (config.dbt_select or "").strip().lower()
     if not dbt_select:
         return True
-    if mart in dbt_select or model in dbt_select:
+    if any(subject in dbt_select for subject in _MART_SUBJECTS + _INCREMENTAL_MODEL_SUBJECTS):
         return True
     if "tag:kalshi" in dbt_select:
         return False
@@ -161,12 +168,6 @@ def stream_dbt_build(
     os.environ["DUCKDB_PATH"] = str(active_duckdb_path())
 
     is_subset = getattr(context, "is_subset", False) is True
-    _maybe_recover_polymarket_token_hourly_odds_incremental(
-        context=context,
-        dbt=dbt,
-        config=config,
-        is_subset=is_subset,
-    )
     incremental_in_progress = False
     if (
         not config.full_refresh
@@ -193,6 +194,12 @@ def stream_dbt_build(
         # atlas, and cross-domain graphs without widening the asset selection.
         build_args.extend(["--exclude", config.dbt_exclude])
     try:
+        _maybe_recover_polymarket_token_hourly_odds_incremental(
+            context=context,
+            dbt=dbt,
+            config=config,
+            is_subset=is_subset,
+        )
         invocation = dbt.cli(build_args, context=context)
         sentinel = object()
         event_queue: Queue[Any] = Queue()

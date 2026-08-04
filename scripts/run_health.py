@@ -157,7 +157,8 @@ def main() -> int:
     )
     args = parser.parse_args()
     duckdb_path = (args.duckdb_path or settings.DUCKDB_PATH).resolve()
-    ensure_duck_db()
+    if args.duckdb_path is None:
+        ensure_duck_db()
     limit = max(1, args.limit)
     _print_sync_run_metrics(limit=limit, duckdb_path=duckdb_path)
     _print_ingestion_run_events(limit=limit, duckdb_path=duckdb_path)

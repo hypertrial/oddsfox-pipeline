@@ -31,6 +31,7 @@ class _MarketFetchResult:
     market_ticker: str
     candlesticks: list[dict[str, Any]]
     empty_run: bool
+    last_sync_hour_start: int | None
 
 
 def _utc_now() -> datetime:
@@ -71,6 +72,7 @@ def _fetch_market_candlesticks(
         market_ticker=market_ticker,
         candlesticks=candlesticks,
         empty_run=candlesticks == [],
+        last_sync_hour_start=int(effective_start.timestamp()),
     )
 
 
@@ -107,10 +109,17 @@ def sync_hourly_candlesticks(
         ),
     )
     all_candlesticks: list[dict[str, Any]] = []
-    ledger_states: list[tuple[str, bool, bool]] = []
+    ledger_states: list[tuple[str, bool, bool, int | None]] = []
     for result in results:
         all_candlesticks.extend(result.candlesticks)
-        ledger_states.append((result.market_ticker, True, result.empty_run))
+        ledger_states.append(
+            (
+                result.market_ticker,
+                True,
+                result.empty_run,
+                result.last_sync_hour_start,
+            )
+        )
         markets_synced += 0 if result.empty_run else 1
         empty_markets += 1 if result.empty_run else 0
         rows_written += len(result.candlesticks)

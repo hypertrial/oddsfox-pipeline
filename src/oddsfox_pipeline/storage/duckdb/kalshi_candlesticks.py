@@ -75,7 +75,7 @@ def save_candlesticks_batch(rows: Sequence[dict[str, Any]]) -> int:
 
 
 def upsert_candlestick_ledger_states_batch(
-    states: Sequence[tuple[str, bool, bool]],
+    states: Sequence[tuple[str, bool, bool] | tuple[str, bool, bool, int | None]],
     *,
     routine_interval_hours: int = 1,
     scope_name: str = DEFAULT_KALSHI_WC2026_MARKET_SCOPE,
@@ -88,17 +88,21 @@ def upsert_candlestick_ledger_states_batch(
     checked_at = now.replace(tzinfo=None)
     next_at = next_check.replace(tzinfo=None)
     ledger = kalshi_ops_tbl(scope_name, "candlestick_sync_ledger")
-    params = [
-        [
-            market_ticker,
-            fully_checked,
-            checked_at,
-            next_at,
-            1 if empty_run else 0,
-            empty_run,
-        ]
-        for market_ticker, fully_checked, empty_run in states
-    ]
+    params = []
+    for state in states:
+        market_ticker, fully_checked, empty_run = state[0], state[1], state[2]
+        last_sync_hour_start = state[3] if len(state) > 3 else None
+        params.append(
+            [
+                market_ticker,
+                last_sync_hour_start,
+                fully_checked,
+                checked_at,
+                next_at,
+                1 if empty_run else 0,
+                empty_run,
+            ]
+        )
     with get_connection() as conn:
         conn.executemany(
             f"""
@@ -110,8 +114,9 @@ def upsert_candlestick_ledger_states_batch(
                 next_check_at,
                 empty_run_streak
             )
-            VALUES (?, NULL, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(market_ticker) DO UPDATE SET
+                last_sync_hour_start=excluded.last_sync_hour_start,
                 fully_checked=excluded.fully_checked,
                 last_checked_at=excluded.last_checked_at,
                 next_check_at=excluded.next_check_at,
@@ -129,11 +134,12 @@ def upsert_candlestick_ledger_state(
     market_ticker: str,
     fully_checked: bool,
     empty_run: bool,
+    last_sync_hour_start: int | None = None,
     routine_interval_hours: int = 1,
     scope_name: str = DEFAULT_KALSHI_WC2026_MARKET_SCOPE,
 ) -> None:
     upsert_candlestick_ledger_states_batch(
-        [(market_ticker, fully_checked, empty_run)],
+        [(market_ticker, fully_checked, empty_run, last_sync_hour_start)],
         routine_interval_hours=routine_interval_hours,
         scope_name=scope_name,
     )

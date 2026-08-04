@@ -82,6 +82,49 @@ def test_save_sync_run_metrics_scoped_to_kalshi_wc2026(duck):
     assert wc2026_count == 0
 
 
+def test_save_sync_run_metrics_kalshi_does_not_clobber_polymarket_scrape_metadata(duck):
+    metadata.save_sync_run_metrics("sync_markets", {"pm": 1}, source="polymarket")
+    metadata.save_sync_run_metrics(
+        "sync_markets",
+        {"kalshi": 1},
+        source="kalshi",
+        scope_name="wc2026",
+    )
+    raw = metadata._metadata_get("sync_metrics:sync_markets:last")
+    assert raw is not None
+    assert json.loads(raw)["pm"] == 1
+    assert "kalshi" not in json.loads(raw)
+
+
+def test_save_sync_run_metrics_kalshi_keeps_rolling_history_in_ops_table(duck):
+    metadata.save_sync_run_metrics(
+        "sync_markets",
+        {"kalshi": 1},
+        source="kalshi",
+        scope_name="wc2026",
+        history_limit=3,
+    )
+    metadata.save_sync_run_metrics(
+        "sync_markets",
+        {"kalshi": 2},
+        source="kalshi",
+        scope_name="wc2026",
+        history_limit=3,
+    )
+    with metadata.get_connection() as conn:
+        row = conn.execute(
+            f"""
+            SELECT history_json
+            FROM {metadata._ops_tbl("wc2026", "sync_run_metrics", source="kalshi")}
+            WHERE task_name = 'sync_markets'
+            """
+        ).fetchone()
+    history = json.loads(row[0])
+    assert len(history) == 2
+    assert history[0]["kalshi"] == 1
+    assert history[1]["kalshi"] == 2
+
+
 def test_save_sync_run_metrics_preserves_nested_planning_payload(duck):
     payload = {
         "planning": {"plans": 2, "closed_done": 1},

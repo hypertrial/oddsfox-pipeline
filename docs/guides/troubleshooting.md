@@ -86,6 +86,8 @@ Then rerun the quickstart.
 
 ```bash
 uv run python scripts/run_health.py --limit 20
+# Inspect another warehouse read-only without bootstrapping DUCKDB_PATH:
+uv run python scripts/run_health.py --duckdb-path /path/to/other.duckdb --limit 20
 ```
 
 - If the latest sync metrics include `ingestion_run_event_append_failed`, the

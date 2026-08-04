@@ -8,7 +8,7 @@ import logging
 import math
 import re
 import unicodedata
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import local
@@ -336,6 +336,7 @@ def sync_match_minute_odds_history(
     progress_log_interval_seconds: int = 60,
     no_progress_soft_timeout_seconds: int | None = 900,
     no_progress_hard_timeout_seconds: int | None = 2700,
+    progress_poll_seconds: int = 5,
     client_factory: Callable[[], Any] | None = None,
     fetch_window_fn: Callable[..., Any] = fetch_window_with_auto_split,
     persist_fn: Callable[..., Any] = load_match_minute_odds_history_stage,
@@ -378,41 +379,54 @@ def sync_match_minute_odds_history(
     fetched: list[MatchMinuteFetchResult] = []
     with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
         futures = {pool.submit(fetch, plan): plan for plan in plans}
-        for future in as_completed(futures):
-            plan = futures[future]
-            try:
-                result = future.result()
-            except Exception as exc:  # pragma: no cover - defensive worker boundary
-                now = datetime.now(timezone.utc)
-                result = MatchMinuteFetchResult(
-                    plan=plan,
-                    fetch_status="error",
-                    history=(),
-                    request_start_epoch=int(plan.started_at.timestamp()),
-                    request_end_epoch=int(plan.finished_at.timestamp()),
-                    source_row_count=0,
-                    in_game_history_sha256=None,
-                    fetch_started_at=now,
-                    fetch_finished_at=now,
-                    error_type=exc.__class__.__name__,
-                    error_message=_sanitize_error_message(exc),
+        pending = set(futures.keys())
+        while pending:
+            done, pending = wait(
+                pending,
+                timeout=max(1, progress_poll_seconds),
+                return_when=FIRST_COMPLETED,
+            )
+            if not done:
+                guardrail.check(
+                    phase="fetch_token_wait",
+                    diagnostics={"inflight_futures": len(pending)},
                 )
-            fetched.append(result)
-            guardrail.record_progress(
-                work_increment=1,
-                phase="fetch_token",
-                diagnostics={
-                    "token_id": plan.token_id,
-                    "status": result.fetch_status,
-                },
-            )
-            guardrail.check(
-                phase="fetch_token",
-                diagnostics={
-                    "token_id": plan.token_id,
-                    "status": result.fetch_status,
-                },
-            )
+                continue
+            for future in done:
+                plan = futures[future]
+                try:
+                    result = future.result()
+                except Exception as exc:  # pragma: no cover - defensive worker boundary
+                    now = datetime.now(timezone.utc)
+                    result = MatchMinuteFetchResult(
+                        plan=plan,
+                        fetch_status="error",
+                        history=(),
+                        request_start_epoch=int(plan.started_at.timestamp()),
+                        request_end_epoch=int(plan.finished_at.timestamp()),
+                        source_row_count=0,
+                        in_game_history_sha256=None,
+                        fetch_started_at=now,
+                        fetch_finished_at=now,
+                        error_type=exc.__class__.__name__,
+                        error_message=_sanitize_error_message(exc),
+                    )
+                fetched.append(result)
+                guardrail.record_progress(
+                    work_increment=1,
+                    phase="fetch_token",
+                    diagnostics={
+                        "token_id": plan.token_id,
+                        "status": result.fetch_status,
+                    },
+                )
+                guardrail.check(
+                    phase="fetch_token",
+                    diagnostics={
+                        "token_id": plan.token_id,
+                        "status": result.fetch_status,
+                    },
+                )
 
     fetched.sort(key=lambda result: result.plan.token_id)
     audit_rows = [

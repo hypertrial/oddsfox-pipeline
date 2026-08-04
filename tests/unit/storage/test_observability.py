@@ -304,3 +304,22 @@ def test_formatters_render_skip_reasons_and_plain_values():
     assert "token_sync_skips_by_reason={empty:2,error:1}" in raw
     assert "odds_history_max_ts=123" in raw
     assert dbt == "plain=3"
+
+
+def test_snapshot_raw_layer_full_tolerates_missing_odds_history(
+    tmp_path, monkeypatch, isolated_env
+):
+    import oddsfox_pipeline.storage.duckdb.connection as conn_mod
+
+    db_path = tmp_path / "obs-missing-oh.duckdb"
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    conn_mod.reset_duckdb_connection_state()
+    init_duck_db()
+
+    with duckdb.connect(str(db_path)) as conn:
+        conn.execute("DROP TABLE IF EXISTS polymarket_wc2026_raw.odds_history")
+        snapshot = snapshot_raw_layer(conn=conn, level="full")
+
+    assert snapshot["polymarket_wc2026_raw.odds_history_missing"] is True
+    assert snapshot["odds_history_max_ts"] is None

@@ -300,7 +300,11 @@ def test_enrich_market_metadata_records_unresolved_event_slug_cooldown(
     monkeypatch, duck_ready, no_tqdm
 ):
     unresolved = []
+    recorded: list[tuple[str, bool]] = []
     client = MagicMock()
+
+    def _record(key: str, value: bool) -> None:
+        recorded.append((key, value))
 
     monkeypatch.setattr(bf_metadata, "get_backfill_fully_checked", lambda key: False)
     monkeypatch.setattr(
@@ -333,7 +337,7 @@ def test_enrich_market_metadata_records_unresolved_event_slug_cooldown(
     monkeypatch.setattr(
         bf_metadata, "save_slugs_batch", lambda rows, scope_name=None: None
     )
-    monkeypatch.setattr(bf_metadata, "set_backfill_fully_checked", lambda *args: None)
+    monkeypatch.setattr(bf_metadata, "set_backfill_fully_checked", _record)
     monkeypatch.setattr(
         bf_metadata,
         "mark_market_metadata_unresolved",
@@ -350,6 +354,8 @@ def test_enrich_market_metadata_records_unresolved_event_slug_cooldown(
     )
 
     assert out["unresolved_event_slugs"] == 1
+    assert out["fully_checked_set"] is False
+    assert recorded == [("event_slugs", False)]
     assert unresolved == [
         (("1", "event_slug", "missing from Gamma market and events payload"), 12)
     ]

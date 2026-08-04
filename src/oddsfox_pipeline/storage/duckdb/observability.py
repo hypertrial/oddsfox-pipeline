@@ -185,6 +185,16 @@ def _normalize_dt(value: Any) -> str | None:
     return text or None
 
 
+def _scalar_max_timestamp(conn, sql: str) -> str | None:
+    try:
+        row = conn.execute(sql).fetchone()
+        if row is None:
+            return None
+        return _normalize_dt(row[0])
+    except duckdb.Error:
+        return None
+
+
 def snapshot_raw_layer(conn=None, *, level: str = "full") -> dict[str, Any]:
     """Aggregate row counts and freshness markers for raw + operational tables."""
     snapshot_level = str(level or "full").strip().lower()
@@ -222,8 +232,9 @@ def snapshot_raw_layer(conn=None, *, level: str = "full") -> dict[str, Any]:
             c,
             f"SELECT COUNT(DISTINCT clobTokenId) FROM {_TAB_OH}",
         )
-        out["odds_history_max_ts"] = _normalize_dt(
-            c.execute(f"SELECT MAX(timestamp) FROM {_TAB_OH}").fetchone()[0]
+        out["odds_history_max_ts"] = _scalar_max_timestamp(
+            c,
+            f"SELECT MAX(timestamp) FROM {_TAB_OH}",
         )
         out["token_odds_daily_distinct_tokens"] = _scalar_int(
             c,

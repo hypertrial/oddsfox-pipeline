@@ -176,23 +176,47 @@ def save_sync_run_metrics(
             exc,
         )
 
-    _metadata_set(f"{base_key}:last", json.dumps(payload, sort_keys=True), conn)
-
-    history_key = f"{base_key}:history"
-    history_raw = _metadata_get(history_key, conn)
     history: list[dict[str, Any]] = []
-    if history_raw:
-        try:
-            parsed = json.loads(history_raw)
-            if isinstance(parsed, list):
-                history = [item for item in parsed if isinstance(item, dict)]
-        except json.JSONDecodeError:
-            history = []
+    if source == "polymarket":
+        _metadata_set(f"{base_key}:last", json.dumps(payload, sort_keys=True), conn)
 
-    history.append(payload)
-    if history_limit > 0:
-        history = history[-int(history_limit) :]
-    _metadata_set(history_key, json.dumps(history, sort_keys=True), conn)
+        history_key = f"{base_key}:history"
+        history_raw = _metadata_get(history_key, conn)
+        if history_raw:
+            try:
+                parsed = json.loads(history_raw)
+                if isinstance(parsed, list):
+                    history = [item for item in parsed if isinstance(item, dict)]
+            except json.JSONDecodeError:
+                history = []
+
+        history.append(payload)
+        if history_limit > 0:
+            history = history[-int(history_limit) :]
+        _metadata_set(history_key, json.dumps(history, sort_keys=True), conn)
+    else:
+        with _use_conn(conn) as active:
+            try:
+                row = active.execute(
+                    f"""
+                    SELECT history_json
+                    FROM {_ops_tbl(scope_name, "sync_run_metrics", source=source)}
+                    WHERE task_name = ?
+                    """,
+                    [task],
+                ).fetchone()
+            except Exception:
+                row = None
+        if row and row[0] is not None:
+            try:
+                parsed = json.loads(str(row[0]))
+                if isinstance(parsed, list):
+                    history = [item for item in parsed if isinstance(item, dict)]
+            except json.JSONDecodeError:
+                history = []
+        history.append(payload)
+        if history_limit > 0:
+            history = history[-int(history_limit) :]
     with _use_conn(conn) as active:
         active.execute(
             f"""

@@ -1092,3 +1092,87 @@ def test_stream_dbt_build_skips_polymarket_recovery_for_kalshi_select(monkeypatc
     assert len(captured_args) == 1
     assert captured_args[0][0] == "build"
     assert marked["count"] == 0
+
+
+def test_polymarket_token_hourly_odds_incremental_in_scope_for_subset_keys():
+    from unittest.mock import MagicMock
+
+    from oddsfox_pipeline.orchestration.config import DbtBuildConfig
+    from oddsfox_pipeline.orchestration.dbt_build import (
+        _polymarket_token_hourly_odds_incremental_in_scope,
+    )
+    from oddsfox_pipeline.orchestration.shipped_scopes import POLYMARKET_WC2026_SCOPE
+    from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
+        DBT_SOURCE_POLYMARKET_WC2026,
+        dbt_model_asset_key_for_name,
+    )
+
+    selected = {
+        dbt_model_asset_key_for_name(
+            "int_polymarket_wc2026_token_hourly_odds",
+            DBT_SOURCE_POLYMARKET_WC2026,
+            layer="intermediate",
+        ),
+        dbt_model_asset_key_for_name(
+            "polymarket_wc2026_market_hourly_odds",
+            DBT_SOURCE_POLYMARKET_WC2026,
+            layer="marts",
+        ),
+    }
+    cfg = DbtBuildConfig(
+        dbt_select=POLYMARKET_WC2026_SCOPE.dbt_select,
+        dbt_exclude=POLYMARKET_WC2026_SCOPE.dbt_exclude,
+    )
+    assert _polymarket_token_hourly_odds_incremental_in_scope(
+        config=cfg,
+        context=MagicMock(is_subset=True, selected_asset_keys=selected),
+        is_subset=True,
+    )
+
+
+def test_stream_dbt_build_persists_failure_metrics_on_recovery_error(monkeypatch):
+    from unittest.mock import MagicMock
+
+    saved: list[tuple[str, Exception]] = []
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            invocation = MagicMock()
+            invocation.stream = lambda: iter(["event"])
+            invocation.process = MagicMock(returncode=0)
+            return invocation
+
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "polymarket_token_hourly_odds_incremental_recovery_needed",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "_polymarket_token_hourly_odds_incremental_in_scope",
+        lambda **kwargs: True,
+    )
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "_run_dbt_cli_to_completion",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("recovery boom")),
+    )
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "save_asset_failure_metrics",
+        lambda task, exc, **kwargs: saved.append((task, exc)),
+    )
+
+    with pytest.raises(RuntimeError, match="recovery boom"):
+        list(
+            dbt_build_mod.stream_dbt_build(
+                asset_name="oddsfox_dbt",
+                context=MagicMock(is_subset=False),
+                dbt=MockDbt(),
+                config=orch_config.DbtBuildConfig(
+                    dbt_select="+polymarket_wc2026_market_hourly_odds",
+                ),
+            )
+        )
+    assert saved[0][0] == "dbt_build"
+    assert isinstance(saved[0][1], RuntimeError)

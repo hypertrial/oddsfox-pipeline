@@ -135,3 +135,23 @@ def test_upsert_candlestick_ledger_states_batch_tracks_empty_runs(duck):
             ).fetchall()
         }
     assert rows == {"KXWC-MKT1": 2, "KXWC-MKT2": 0}
+
+
+def test_upsert_candlestick_ledger_state_persists_last_sync_hour_start(duck):
+    kalshi_candlesticks.upsert_candlestick_ledger_state(
+        market_ticker="KXWC-MKT1",
+        fully_checked=True,
+        empty_run=False,
+        last_sync_hour_start=1_735_689_600,
+    )
+    ledger = kalshi_ops_tbl("wc2026", "candlestick_sync_ledger")
+    with duck.get_connection() as conn:
+        row = conn.execute(
+            f"""
+            SELECT last_sync_hour_start, fully_checked
+            FROM {ledger}
+            WHERE market_ticker = ?
+            """,
+            ["KXWC-MKT1"],
+        ).fetchone()
+    assert row == (1_735_689_600, True)
