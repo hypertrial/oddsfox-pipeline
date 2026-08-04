@@ -65,7 +65,10 @@ def _polymarket_token_hourly_odds_incremental_in_scope(
     dbt_select = (config.dbt_select or "").strip().lower()
     if not dbt_select:
         return True
-    if any(subject in dbt_select for subject in _MART_SUBJECTS + _INCREMENTAL_MODEL_SUBJECTS):
+    if any(
+        subject in dbt_select
+        for subject in _MART_SUBJECTS + _INCREMENTAL_MODEL_SUBJECTS
+    ):
         return True
     if "tag:kalshi" in dbt_select:
         return False
@@ -101,7 +104,9 @@ def _run_dbt_cli_to_completion(
         _cleanup_dbt_adapter(invocation)
     returncode = getattr(invocation.process, "returncode", None)
     if returncode not in (None, 0):
-        raise RuntimeError(f"dbt {' '.join(build_args)} failed with exit code {returncode}")
+        raise RuntimeError(
+            f"dbt {' '.join(build_args)} failed with exit code {returncode}"
+        )
 
 
 def _maybe_recover_polymarket_token_hourly_odds_incremental(
@@ -169,13 +174,10 @@ def stream_dbt_build(
 
     is_subset = getattr(context, "is_subset", False) is True
     incremental_in_progress = False
-    if (
-        not config.full_refresh
-        and _polymarket_token_hourly_odds_incremental_in_scope(
-            config=config,
-            context=context,
-            is_subset=is_subset,
-        )
+    if not config.full_refresh and _polymarket_token_hourly_odds_incremental_in_scope(
+        config=config,
+        context=context,
+        is_subset=is_subset,
     ):
         mark_polymarket_token_hourly_odds_incremental_in_progress()
         incremental_in_progress = True
@@ -208,7 +210,9 @@ def stream_dbt_build(
         def _producer() -> None:
             try:
                 event_stream = invocation.stream()
-                if config.fetch_dbt_metadata and hasattr(event_stream, "fetch_row_counts"):
+                if config.fetch_dbt_metadata and hasattr(
+                    event_stream, "fetch_row_counts"
+                ):
                     event_stream = event_stream.fetch_row_counts()
                 if config.fetch_dbt_metadata and hasattr(
                     event_stream, "fetch_column_metadata"

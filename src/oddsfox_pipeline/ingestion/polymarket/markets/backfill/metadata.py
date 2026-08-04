@@ -372,9 +372,7 @@ def enrich_market_metadata(
         )
 
     completed_all = (
-        processed >= total_markets
-        and not failed_batches
-        and not unresolved_event_slugs
+        processed >= total_markets and not failed_batches and not unresolved_event_slugs
     )
     _set_enrich_ledger_state(
         ledger_keys,

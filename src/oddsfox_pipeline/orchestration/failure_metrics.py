@@ -23,7 +23,9 @@ def build_failure_metrics(
         failure_status = summary.get("status")
         if failure_status is not None:
             payload["failure_status"] = failure_status
-        payload.update({key: value for key, value in summary.items() if key != "status"})
+        payload.update(
+            {key: value for key, value in summary.items() if key != "status"}
+        )
     if extra:
         payload.update(extra)
     payload["status"] = "failed"
