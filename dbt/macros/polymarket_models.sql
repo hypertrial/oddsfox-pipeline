@@ -26,18 +26,8 @@ inner join {{ markets_ref }} as m
 {% endmacro %}
 
 
-{% macro polymarket_token_hourly_odds_sql(contract_ref, odds_ref, scope_name) %}
-{% if contract_ref is not none %}
-with contract as (
-    select hourly_window_days
-    from {{ contract_ref }}
-    where scope_name = '{{ scope_name }}'
-),
-{% else %}
-with
-{% endif %}
-
-source_odds as (
+{% macro polymarket_token_hourly_odds_sql(odds_ref) %}
+with source_odds as (
     select
         o.clob_token_id,
         o.odds_timestamp,
@@ -51,11 +41,6 @@ source_odds as (
         o.price is not null
         and o.odds_timestamp is not null
         and o.odds_timestamp_epoch is not null
-        {% if contract_ref is not none %}
-        and o.odds_timestamp >= current_timestamp - (
-            (select contract.hourly_window_days from contract) * interval '1 day'
-        )
-        {% endif %}
 ),
 
 dirty_hours as (

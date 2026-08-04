@@ -11,8 +11,4 @@
     )
 }}
 
-{{ polymarket_token_hourly_odds_sql(
-    none,
-    ref('stg_polymarket_wc2026_odds'),
-    'wc2026',
-) }}
+{{ polymarket_token_hourly_odds_sql(ref('stg_polymarket_wc2026_odds')) }}

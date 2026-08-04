@@ -107,11 +107,6 @@ def current_clean_commit(
     )
 
 
-def validate_git_sha(value: str, *, label: str) -> None:
-    if COMMIT_RE.fullmatch(value) is None:
-        raise RuntimeError(f"invalid {label} Git SHA: {value!r}")
-
-
 __all__ = [
     "COMMIT_RE",
     "SEMVER_RE",
@@ -119,7 +114,6 @@ __all__ = [
     "git_head_sha",
     "sha256_file",
     "validate_dataset_version",
-    "validate_git_sha",
     "write_checksums",
     "write_json",
     "write_text",

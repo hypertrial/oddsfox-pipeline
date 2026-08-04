@@ -7,17 +7,16 @@ from time import sleep
 
 import pytest
 from tests.unit.ingestion.polygon_settlement.conftest import (
-    build_manifest as _manifest,
+    _raw_log,
+    polygon_settlement_module,
 )
 from tests.unit.ingestion.polygon_settlement.conftest import (
-    polygon_settlement_module,
+    build_manifest as _manifest,
 )
 
 import oddsfox_pipeline.ingestion.polymarket.polygon_settlement_sync as polygon_settlement_sync_module
 from oddsfox_pipeline.ingestion.polymarket.polygon_rpc import (
     EVENT_TOPICS,
-    ORDER_FILLED_TOPIC,
-    ORDERS_MATCHED_TOPIC,
     PolygonBlock,
     PolygonReceipt,
     PolygonRPCError,
@@ -82,33 +81,6 @@ def test_status_json_removes_temporary_file_after_atomic_replace_failure(
         polygon_settlement_module._write_status(path, {"scan_id": "scan"})
     if not already_missing:
         assert not list(tmp_path.iterdir())
-
-
-def _word(value: int) -> str:
-    return f"{value:064x}"
-
-
-def _raw_log(kind: str, side: int, token: int, maker: int, taker: int, index: int):
-    order_filled = kind == "order_filled"
-    words = [side, token, maker, taker]
-    if order_filled:
-        words.extend([0, 0, 0])
-    return {
-        "address": STANDARD_V2_EXCHANGE,
-        "blockNumber": "0x64",
-        "blockHash": "0x" + "1" * 64,
-        "transactionHash": "0x" + "2" * 64,
-        "transactionIndex": "0x0",
-        "logIndex": hex(index),
-        "removed": False,
-        "topics": [
-            ORDER_FILLED_TOPIC if order_filled else ORDERS_MATCHED_TOPIC,
-            "0x" + "3" * 64,
-            "0x" + "4" * 64,
-            *(["0x" + "5" * 64] if order_filled else []),
-        ],
-        "data": "0x" + "".join(_word(value) for value in words),
-    }
 
 
 class _SyncRPC:

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Unused `POLYMARKET_WC2026_HOURLY_WINDOW_DAYS` setting export and the dead
+  Polymarket hourly dbt macro `contract_ref` / `hourly_window_days` branch
+  (lifetime history; Kalshi retention window is unchanged).
+- Unused `validate_git_sha` helper and unused Polygon seed split constants
+  `EXPECTED_GROUP_PROPOSITIONS` / `EXPECTED_KNOCKOUT_PROPOSITIONS`.
+
 ### Fixed
 
 - Sticky Polymarket market-scope registry admission no longer drops an enclosing

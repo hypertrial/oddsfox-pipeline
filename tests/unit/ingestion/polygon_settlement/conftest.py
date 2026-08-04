@@ -15,7 +15,11 @@ import oddsfox_pipeline.ingestion.polymarket.polygon_settlement_scan as polygon_
 import oddsfox_pipeline.ingestion.polymarket.polygon_settlement_sync as polygon_settlement_sync
 import oddsfox_pipeline.ingestion.polymarket.polygon_settlement_types as polygon_settlement_types
 from oddsfox_pipeline.config.settings import BASE_DIR
-from oddsfox_pipeline.ingestion.polymarket.polygon_rpc import DecodedSettlementEvent
+from oddsfox_pipeline.ingestion.polymarket.polygon_rpc import (
+    ORDER_FILLED_TOPIC,
+    ORDERS_MATCHED_TOPIC,
+    DecodedSettlementEvent,
+)
 from oddsfox_pipeline.ingestion.polymarket.polygon_seed import (
     STANDARD_V2_EXCHANGE,
     PolygonMarketManifest,
@@ -42,6 +46,33 @@ def build_manifest() -> PolygonMarketManifest:
         sha256=standard.manifest_sha256,
         version=standard.manifest_version,
     )
+
+
+def _word(value: int) -> str:
+    return f"{value:064x}"
+
+
+def _raw_log(kind: str, side: int, token: int, maker: int, taker: int, index: int):
+    order_filled = kind == "order_filled"
+    words = [side, token, maker, taker]
+    if order_filled:
+        words.extend([0, 0, 0])
+    return {
+        "address": STANDARD_V2_EXCHANGE,
+        "blockNumber": "0x64",
+        "blockHash": "0x" + "1" * 64,
+        "transactionHash": "0x" + "2" * 64,
+        "transactionIndex": "0x0",
+        "logIndex": hex(index),
+        "removed": False,
+        "topics": [
+            ORDER_FILLED_TOPIC if order_filled else ORDERS_MATCHED_TOPIC,
+            "0x" + "3" * 64,
+            "0x" + "4" * 64,
+            *(["0x" + "5" * 64] if order_filled else []),
+        ],
+        "data": "0x" + "".join(_word(value) for value in words),
+    }
 
 
 @pytest.fixture

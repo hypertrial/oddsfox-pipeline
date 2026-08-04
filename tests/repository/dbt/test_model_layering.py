@@ -63,6 +63,7 @@ def test_wc2026_hourly_fact_aggregates_canonical_odds_directly():
     assert "is_incremental()" in lowered_macro
     assert "{{ ref('polymarket_wc2026_token_hourly_odds') }}" not in lowered
     assert "hourly_window_days" not in lowered
+    assert "hourly_window_days" not in lowered_macro
     assert "selected_" not in lowered
 
 

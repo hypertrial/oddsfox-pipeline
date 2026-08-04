@@ -39,10 +39,7 @@ CASES = (
 )
 
 
-def _create_polymarket_inputs(
-    conn: duckdb.DuckDBPyConnection,
-    case: IncrementalCase,
-) -> None:
+def _create_polymarket_inputs(conn: duckdb.DuckDBPyConnection) -> None:
     scope = "wc2026"
     staging = f"polymarket_{scope}_staging"
     intermediate = f"polymarket_{scope}_intermediate"
@@ -59,21 +56,6 @@ def _create_polymarket_inputs(
         )
         """
     )
-    if case.retention:
-        conn.execute(
-            f"""
-            create table "{staging}"."polymarket_{scope}_pipeline_policy" (
-                scope_name varchar,
-                hourly_window_days integer
-            )
-            """
-        )
-        conn.execute(
-            f'insert into "{staging}"."polymarket_{scope}_pipeline_policy" values (?, 30)',
-            [scope],
-        )
-    else:
-        pass
     conn.executemany(
         f"""
         insert into "{staging}"."stg_polymarket_{scope}_odds"
@@ -85,24 +67,9 @@ def _create_polymarket_inputs(
             ("token-old", "2000-01-01 10:05:00", 946721100, 0.1, "2000-01-01 11:00:00"),
         ],
     )
-    if case.retention:
-        conn.execute(
-            f"""
-            insert into "{staging}"."stg_polymarket_{scope}_odds"
-            select
-                'token-retained',
-                cast(current_timestamp - interval '29 day' as timestamp),
-                cast(epoch(current_timestamp - interval '29 day') as bigint),
-                0.3,
-                cast(current_timestamp as timestamp)
-            """
-        )
 
 
-def _change_polymarket_inputs(
-    conn: duckdb.DuckDBPyConnection,
-    case: IncrementalCase,
-) -> None:
+def _change_polymarket_inputs(conn: duckdb.DuckDBPyConnection) -> None:
     scope = "wc2026"
     staging = f"polymarket_{scope}_staging"
     conn.executemany(
@@ -322,7 +289,7 @@ def test_incremental_output_matches_full_refresh(
     write_dbt_profile(dbt_profiles_dir, db_path, threads=1)
     with duckdb.connect(str(db_path)) as conn:
         if case.kind.startswith("polymarket"):
-            _create_polymarket_inputs(conn, case)
+            _create_polymarket_inputs(conn)
         else:
             _create_kalshi_inputs(conn, case)
 
@@ -340,7 +307,7 @@ def test_incremental_output_matches_full_refresh(
 
     with duckdb.connect(str(db_path)) as conn:
         if case.kind.startswith("polymarket"):
-            _change_polymarket_inputs(conn, case)
+            _change_polymarket_inputs(conn)
         else:
             _change_kalshi_inputs(conn, case)
     _run_dbt(
