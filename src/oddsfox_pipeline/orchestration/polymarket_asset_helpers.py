@@ -23,6 +23,11 @@ from oddsfox_pipeline.orchestration.raw_snapshot_helpers import (
 )
 from oddsfox_pipeline.orchestration.transient_retry import raise_retry_if_transient
 from oddsfox_pipeline.storage.duckdb.connection import active_duckdb_path
+from oddsfox_pipeline.storage.duckdb.metadata import (
+    clear_event_catalog_partition_checkpoints,
+    load_event_catalog_partition_checkpoints,
+    save_event_catalog_partition_checkpoint,
+)
 from oddsfox_pipeline.storage.duckdb.observability import (
     delta_raw_layer,
     format_raw_snapshot_log,
@@ -569,11 +574,14 @@ def _materialize_event_catalog(
         guardrail.check(phase=phase, diagnostics=payload)
 
     context.log.info(
-        "%s start (max_event_pages=%s, progress_log_interval_pages=%s, "
-        "progress_log_interval_seconds=%s, no_progress_soft_timeout_seconds=%s, "
-        "no_progress_hard_timeout_seconds=%s)",
+        "%s start (max_event_pages=%s, include_slug_prefix_recall=%s, "
+        "slug_prefix_recall_max_pages_without_progress=%s, "
+        "progress_log_interval_pages=%s, progress_log_interval_seconds=%s, "
+        "no_progress_soft_timeout_seconds=%s, no_progress_hard_timeout_seconds=%s)",
         asset_name,
         config.max_event_pages,
+        getattr(config, "include_slug_prefix_recall", True),
+        getattr(config, "slug_prefix_recall_max_pages_without_progress", None),
         config.progress_log_interval_pages,
         config.progress_log_interval_seconds,
         config.no_progress_soft_timeout_seconds,
@@ -585,10 +593,44 @@ def _materialize_event_catalog(
         diagnostics={"scope_name": scope_name},
         force_log=True,
     )
+
+    def _load_checkpoints() -> dict[str, dict[str, Any]]:
+        with get_connection_fn() as conn:
+            return load_event_catalog_partition_checkpoints(conn, scope_name=scope_name)
+
+    def _save_checkpoint(
+        partition_key: str,
+        stable_events: dict[str, dict[str, Any]],
+        scan_summary: dict[str, Any],
+    ) -> None:
+        with get_connection_fn() as conn:
+            save_event_catalog_partition_checkpoint(
+                conn,
+                partition_key,
+                stable_events,
+                scan_summary,
+                scope_name=scope_name,
+            )
+
+    def _clear_checkpoints() -> None:
+        with get_connection_fn() as conn:
+            clear_event_catalog_partition_checkpoints(conn, scope_name=scope_name)
+
+    if getattr(config, "reset_event_catalog_checkpoint", False):
+        _clear_checkpoints()
+
     try:
         batch = collect_event_catalog_fn(
             max_pages=config.max_event_pages,
             progress_callback=_catalog_progress,
+            include_slug_prefix_recall=getattr(
+                config, "include_slug_prefix_recall", True
+            ),
+            slug_prefix_recall_max_pages_without_progress=getattr(
+                config, "slug_prefix_recall_max_pages_without_progress", None
+            ),
+            load_checkpoint_fn=_load_checkpoints,
+            save_checkpoint_fn=_save_checkpoint,
         )
         market_rows = normalize_market_payloads_fn(
             batch.market_payloads,
@@ -612,6 +654,8 @@ def _materialize_event_catalog(
             }
         )
         save_sync_run_metrics_fn("event_catalog", summary, scope_name=scope_name)
+        # Clear recovery checkpoints only after the warehouse merge succeeds.
+        _clear_checkpoints()
         context.log.info("WC2026 event catalog: %s", summary)
     except Exception as exc:
         save_asset_failure_metrics(

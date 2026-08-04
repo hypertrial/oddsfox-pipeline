@@ -146,6 +146,9 @@ def bootstrap_polymarket_tables(
     pre = polymarket_ops_tbl(scope_name, "ingestion_run_events")
     srm = polymarket_ops_tbl(scope_name, "sync_run_metrics")
     scope_reg = polymarket_ops_tbl(scope_name, "market_scope_registry")
+    event_catalog_ckpt = polymarket_ops_tbl(
+        scope_name, "event_catalog_scan_checkpoint"
+    )
     event_snapshots = polymarket_raw_tbl(scope_name, "event_snapshots")
     event_tag_snapshots = polymarket_raw_tbl(scope_name, "event_tag_snapshots")
     event_market_snapshots = polymarket_raw_tbl(scope_name, "event_market_snapshots")
@@ -738,6 +741,16 @@ def bootstrap_polymarket_tables(
             recorded_at TIMESTAMP NOT NULL,
             metrics_json TEXT NOT NULL,
             history_json TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS {event_catalog_ckpt} (
+            partition_key TEXT PRIMARY KEY,
+            updated_at TIMESTAMP NOT NULL,
+            stable_events_json TEXT NOT NULL,
+            scan_summary_json TEXT NOT NULL
         )
         """
     )

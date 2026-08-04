@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Routine Polymarket WC2026 registry refresh / full pipeline event-catalog runs
+  skip the platform-wide slug-prefix recall scan (`include_slug_prefix_recall=
+  false`). Tag and series partitions stay exhaustive. Use the unscheduled
+  `polymarket_wc2026_event_catalog_recall_audit` job (`make event-catalog-recall-audit`)
+  for a rare completeness re-check. Partition-level checkpoints resume interrupted
+  crawls; slug-prefix recall can early-stop after consecutive empty match pages.
+
 ### Removed
 
 - **Breaking:** Polymarket WC2026 knockout and catalog marts

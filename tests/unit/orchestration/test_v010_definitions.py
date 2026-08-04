@@ -5,6 +5,7 @@ import yaml
 from dagster import AssetKey, DefaultScheduleStatus, build_schedule_context
 
 from oddsfox_pipeline.orchestration.config import (
+    polymarket_wc2026_event_catalog_recall_audit_run_config,
     polymarket_wc2026_full_pipeline_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
@@ -74,6 +75,7 @@ def test_definitions_expose_v010_jobs_only():
         "kalshi_wc2026_market_scope_registry_refresh",
         "polymarket_wc2026_hourly_odds_ingest",
         "polymarket_wc2026_market_scope_registry_refresh",
+        "polymarket_wc2026_event_catalog_recall_audit",
         "polymarket_wc2026_match_minute_odds_backfill",
         "polymarket_wc2026_match_order_book_backfill",
         "polymarket_wc2026_market_portrait_backfill",
@@ -239,6 +241,8 @@ def test_match_minute_job_is_closed_untruncated_and_unscheduled():
     assert event_catalog["keyset_volume_min"] == 0.0
     assert markets["max_event_pages"] is None
     assert markets["max_pages_without_progress"] is None
+    assert event_catalog["include_slug_prefix_recall"] is True
+    assert event_catalog["slug_prefix_recall_max_pages_without_progress"] is None
     assert minute["requests_per_second"] > 0
     assert dbt["dbt_select"] == "+polymarket_wc2026_match_minute_odds"
     selected = defs.resolve_job_def(
@@ -315,6 +319,27 @@ def test_match_order_book_job_is_isolated_and_unscheduled():
     )
     assert all(
         schedule.job_name != "polymarket_wc2026_match_order_book_backfill"
+        for schedule in defs.schedules
+    )
+
+
+def test_event_catalog_recall_audit_job_is_isolated_and_unscheduled():
+    config = polymarket_wc2026_event_catalog_recall_audit_run_config()["ops"]
+    catalog_cfg = config["polymarket_wc2026_raw_event_catalog"]["config"]
+    assert catalog_cfg["include_slug_prefix_recall"] is True
+    assert catalog_cfg["slug_prefix_recall_max_pages_without_progress"] is None
+
+    routine = polymarket_wc2026_full_refresh_events_run_config()["ops"]
+    routine_catalog = routine["polymarket_wc2026_raw_event_catalog"]["config"]
+    assert routine_catalog["include_slug_prefix_recall"] is False
+
+    selected = defs.resolve_job_def(
+        "polymarket_wc2026_event_catalog_recall_audit"
+    ).asset_layer.selected_asset_keys
+    assert AssetKey(["polymarket", "wc2026", "raw", "event_catalog"]) in selected
+    assert AssetKey(["polymarket", "wc2026", "ops", "market_scope_registry"]) in selected
+    assert all(
+        schedule.job_name != "polymarket_wc2026_event_catalog_recall_audit"
         for schedule in defs.schedules
     )
 

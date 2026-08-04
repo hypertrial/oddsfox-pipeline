@@ -33,6 +33,7 @@ from oddsfox_pipeline.orchestration.shipped_scopes import SCOPE_STEPS, iter_scop
 _NON_SCOPE_JOB_NAMES = {
     "international_results_historical_ingest",
     "international_results_wc2026_match_results_ingest",
+    "polymarket_wc2026_event_catalog_recall_audit",
     "polymarket_wc2026_match_minute_odds_backfill",
     "polymarket_wc2026_match_order_book_backfill",
     "polymarket_wc2026_market_portrait_backfill",

@@ -289,3 +289,40 @@ def test_metadata_helpers_reuse_supplied_connection(duck, monkeypatch):
     assert saved is not None
     assert saved["ok"] is True
     assert opened == 0
+
+
+def test_event_catalog_partition_checkpoint_round_trip(duck):
+    with metadata.get_connection() as conn:
+        metadata.save_event_catalog_partition_checkpoint(
+            conn,
+            "exact_2026_tag:open",
+            {"1": {"id": "1", "slug": "fifwc-event-1"}},
+            {"event_count": 1, "complete": True},
+        )
+        loaded = metadata.load_event_catalog_partition_checkpoints(conn)
+        assert set(loaded) == {"exact_2026_tag:open"}
+        assert loaded["exact_2026_tag:open"]["stable_events"]["1"]["slug"] == (
+            "fifwc-event-1"
+        )
+        assert loaded["exact_2026_tag:open"]["scan_summary"]["event_count"] == 1
+
+        metadata.save_event_catalog_partition_checkpoint(
+            conn,
+            "exact_2026_tag:open",
+            {"1": {"id": "1", "slug": "updated"}},
+            {"event_count": 1, "complete": False},
+        )
+        loaded = metadata.load_event_catalog_partition_checkpoints(conn)
+        assert loaded["exact_2026_tag:open"]["stable_events"]["1"]["slug"] == "updated"
+        assert loaded["exact_2026_tag:open"]["scan_summary"]["complete"] is False
+
+        metadata.clear_event_catalog_partition_checkpoints(conn)
+        assert metadata.load_event_catalog_partition_checkpoints(conn) == {}
+
+
+def test_event_catalog_partition_checkpoint_rejects_blank_key(duck):
+    import pytest
+
+    with metadata.get_connection() as conn:
+        with pytest.raises(ValueError, match="partition_key"):
+            metadata.save_event_catalog_partition_checkpoint(conn, "  ", {}, {})

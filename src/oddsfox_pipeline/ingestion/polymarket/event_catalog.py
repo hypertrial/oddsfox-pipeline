@@ -398,6 +398,12 @@ def collect_wc2026_event_catalog(
     max_pages: int | None = None,
     event_tag: str = WC2026_EVENT_TAG,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
+    include_slug_prefix_recall: bool = True,
+    slug_prefix_recall_max_pages_without_progress: int | None = None,
+    load_checkpoint_fn: Callable[[], dict[str, dict[str, Any]]] | None = None,
+    save_checkpoint_fn: (
+        Callable[[str, dict[str, dict[str, Any]], dict[str, Any]], None] | None
+    ) = None,
 ) -> EventCatalogBatch:
     """Collect audited WC2026 candidates across complete Gamma partitions."""
     http = client or build_client()
@@ -406,6 +412,19 @@ def collect_wc2026_event_catalog(
     candidate_sources: dict[str, set[str]] = {}
     source_endpoints: dict[str, str] = {}
     scan_partitions: dict[str, dict[str, Any]] = {}
+    checkpoints = load_checkpoint_fn() if load_checkpoint_fn is not None else {}
+
+    def _apply_partition_result(
+        source: str,
+        partition: str,
+        stable_events: dict[str, dict[str, Any]],
+        partition_summary: dict[str, Any],
+    ) -> None:
+        for event_id, event in stable_events.items():
+            payloads.append(event)
+            candidate_sources.setdefault(event_id, set()).add(source)
+            source_endpoints[event_id] = "/events/keyset"
+        scan_partitions[partition] = partition_summary
 
     def scan(
         source: str,
@@ -418,12 +437,23 @@ def collect_wc2026_event_catalog(
         for closed in (False, True):
             state = "closed" if closed else "open"
             partition = f"{source}:{state}"
+            cached = checkpoints.get(partition)
+            if isinstance(cached, dict):
+                cached_events = cached.get("stable_events")
+                cached_summary = cached.get("scan_summary")
+                if isinstance(cached_events, dict) and isinstance(cached_summary, dict):
+                    _apply_partition_result(
+                        source, partition, cached_events, cached_summary
+                    )
+                    continue
             previous_inventory: tuple[Any, ...] | None = None
             stable_events: dict[str, dict[str, Any]] | None = None
             attempt_metadata: list[dict[str, Any]] = []
             for attempt in range(1, SCAN_CONVERGENCE_ATTEMPTS + 1):
                 pages = 0
                 attempt_events: dict[str, dict[str, Any]] = {}
+                pages_without_match = 0
+                early_stopped = False
                 for events, meta in iter_gamma_events_keyset(
                     http,
                     max_pages=max_pages,
@@ -445,6 +475,7 @@ def collect_wc2026_event_catalog(
                         raise RuntimeError(
                             f"WC2026 {partition} scan truncated after {pages} pages"
                         )
+                    matched_this_page = 0
                     for event in events:
                         if not isinstance(event, dict):
                             continue
@@ -474,6 +505,19 @@ def collect_wc2026_event_catalog(
                         )
                         if matches_source:
                             attempt_events[event_id] = event
+                            matched_this_page += 1
+                    if event_slug_prefixes:
+                        if matched_this_page == 0:
+                            pages_without_match += 1
+                        else:
+                            pages_without_match = 0
+                        if (
+                            slug_prefix_recall_max_pages_without_progress is not None
+                            and pages_without_match
+                            >= slug_prefix_recall_max_pages_without_progress
+                        ):
+                            early_stopped = True
+                            break
                 ids = frozenset(attempt_events)
                 event_ids_signature = sha256(
                     "\n".join(sorted(ids)).encode()
@@ -493,6 +537,7 @@ def collect_wc2026_event_catalog(
                         "membership_count": membership_count,
                         "membership_inventory_sha256": membership_signature,
                         "event_payload_inventory_sha256": payload_signature,
+                        "early_stopped": early_stopped,
                     }
                 )
                 if previous_inventory == membership_inventory:
@@ -504,11 +549,8 @@ def collect_wc2026_event_catalog(
                     f"WC2026 {partition} scan_unstable after "
                     f"{SCAN_CONVERGENCE_ATTEMPTS} complete attempts"
                 )
-            for event_id, event in stable_events.items():
-                payloads.append(event)
-                candidate_sources.setdefault(event_id, set()).add(source)
-                source_endpoints[event_id] = "/events/keyset"
-            scan_partitions[partition] = {
+            accepted_early_stopped = bool(attempt_metadata[-1].get("early_stopped"))
+            partition_summary = {
                 "attempts": attempt_metadata,
                 "event_count": len(stable_events),
                 "event_ids_sha256": attempt_metadata[-1]["event_ids_sha256"],
@@ -520,9 +562,13 @@ def collect_wc2026_event_catalog(
                 "event_payload_inventory_sha256": attempt_metadata[-1][
                     "event_payload_inventory_sha256"
                 ],
-                "complete": True,
+                "complete": not accepted_early_stopped,
+                "early_stopped": accepted_early_stopped,
                 "stable": True,
             }
+            _apply_partition_result(source, partition, stable_events, partition_summary)
+            if save_checkpoint_fn is not None:
+                save_checkpoint_fn(partition, stable_events, partition_summary)
 
     scan("exact_2026_tag", tag_slug=event_tag)
     # Related-tag expansion is recall-only. Returned events remain subject to
@@ -537,11 +583,13 @@ def collect_wc2026_event_catalog(
     scan("soccer_fifwc_series", series_id=series_id)
     # Gamma has no slug-prefix filter. Exhaustively scan both lifecycle states
     # and apply the audited prefixes locally so this recall path has the same
-    # convergence/completeness proof as tag and series discovery.
-    scan(
-        "wc2026_event_slug_prefix_recall",
-        event_slug_prefixes=WC2026_RECALL_EVENT_SLUG_PREFIXES,
-    )
+    # convergence/completeness proof as tag and series discovery. Routine jobs
+    # skip this path; the dedicated recall-audit job keeps it exhaustive.
+    if include_slug_prefix_recall:
+        scan(
+            "wc2026_event_slug_prefix_recall",
+            event_slug_prefixes=WC2026_RECALL_EVENT_SLUG_PREFIXES,
+        )
 
     events_by_id = _merge_event_payloads(payloads)
     unresolved = _referenced_event_ids(events_by_id.values()) - set(events_by_id)

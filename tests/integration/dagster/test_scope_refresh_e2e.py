@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -96,7 +98,10 @@ def _seed_dlt_owned_markets(
     *,
     raw_schema: str = "polymarket_wc2026_raw",
 ) -> None:
-    """dlt owns polymarket_*_raw.markets; this test's dlt resource is a noop."""
+    """dlt owns polymarket_*_raw.markets; this test's dlt resource is a noop.
+
+    Staging markets read event-catalog payload snapshots, so seed those too.
+    """
     df = process_markets_dataframe(market_page)
     market_data, _token_data = prepare_batch_for_db(df)
     if not market_data:
@@ -121,6 +126,45 @@ def _seed_dlt_owned_markets(
         conn.execute(
             f'UPDATE "{raw_schema}"."markets" SET _dlt_id = id WHERE _dlt_id IS NULL'
         )
+        observed_at = datetime.now(timezone.utc)
+        for row in market_data:
+            record = dict(zip(MARKET_RECORD_COLUMNS, row, strict=True))
+            token_ids = record["clob_token_ids"]
+            if isinstance(token_ids, (list, tuple)):
+                token_ids = json.dumps(list(token_ids))
+            conn.execute(
+                f"""
+                INSERT OR REPLACE INTO "{raw_schema}"."event_market_payload_snapshots"
+                (
+                    market_id, question, category, description, outcomes, volume,
+                    active, closed, created_at, scraped_at, end_date, slug,
+                    event_slug, event_id, condition_id, sports_market_type,
+                    clob_token_ids, is_resolved, observed_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    record["id"],
+                    record["question"],
+                    record["category"],
+                    record["description"],
+                    record["outcomes"],
+                    record["volume"],
+                    record["active"],
+                    record["closed"],
+                    record["created_at"],
+                    record["scraped_at"],
+                    record["end_date"],
+                    record["slug"],
+                    record["event_slug"],
+                    record["event_id"],
+                    record["condition_id"],
+                    record["sports_market_type"],
+                    token_ids,
+                    record["is_resolved"],
+                    observed_at,
+                ],
+            )
 
 
 def _ingestion_run_counts(conn, *, ops_schema: str) -> dict[str, int]:
@@ -434,6 +478,7 @@ oddsfox:
                 "polymarket_wc2026_raw_markets": {
                     "config": {
                         "discovery_mode": "targeted",
+                        "refresh_registry": True,
                     }
                 },
             }
@@ -591,9 +636,15 @@ def test_refresh_path_materializes(
         second_state = _polymarket_business_state(conn, scope_name="wc2026")
         second_raw = {k: v for k, v in second_state.items() if k != "hourly_model"}
         assert second_raw == first_raw_state
-        assert _ingestion_run_counts(conn, ops_schema="polymarket_wc2026_ops") == {
-            task: count * 2 for task, count in first_run_counts.items()
+        second_run_counts = _ingestion_run_counts(
+            conn, ops_schema="polymarket_wc2026_ops"
+        )
+        # Second pass uses run_dbt=False, so dbt_build stays at the first-run count.
+        expected = {
+            task: count if task == "dbt_build" else count * 2
+            for task, count in first_run_counts.items()
         }
+        assert second_run_counts == expected
 
 
 _KALSHI_SCOPE = "wc2026"

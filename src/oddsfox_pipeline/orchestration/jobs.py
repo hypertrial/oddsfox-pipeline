@@ -25,6 +25,7 @@ from oddsfox_pipeline.orchestration.config import (
     kalshi_wc2026_full_refresh_events_run_config,
     kalshi_wc2026_hourly_odds_run_config,
     polymarket_wc2026_dbt_build_run_config,
+    polymarket_wc2026_event_catalog_recall_audit_run_config,
     polymarket_wc2026_full_pipeline_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
@@ -247,6 +248,14 @@ polymarket_wc2026_market_scope_registry_refresh = define_asset_job(
     selection=POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_full_refresh_events_run_config(),
+    tags=_POLYMARKET_WC2026_TAGS,
+)
+
+polymarket_wc2026_event_catalog_recall_audit = define_asset_job(
+    "polymarket_wc2026_event_catalog_recall_audit",
+    selection=POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_wc2026_event_catalog_recall_audit_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
 )
 

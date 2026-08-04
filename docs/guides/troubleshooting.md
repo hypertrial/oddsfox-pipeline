@@ -79,7 +79,16 @@ Then rerun the quickstart.
 - Dagster `run_monitoring` and `run_retries` in `dagster_instance.yaml` mark
   orphaned runs failed and retry from the last successful step.
 - Transient connection or 5xx failures on network-heavy assets may raise Dagster
-  `RetryRequested` for a bounded automatic retry.
+  `RetryRequested` for a bounded automatic retry. Wrapped Gamma/CLOB read
+  timeouts are classified as transient.
+- A retried `polymarket_wc2026_raw_event_catalog` crawl resumes already-converged
+  partitions from `polymarket_wc2026_ops.event_catalog_scan_checkpoint` instead
+  of restarting every partition from page 0. Checkpoints clear after a successful
+  warehouse merge. Set `reset_event_catalog_checkpoint=true` in run config to
+  discard checkpoints.
+- Routine full-pipeline / registry-refresh runs skip the platform-wide
+  slug-prefix recall scan. For a rare completeness re-check, run
+  `uv run make event-catalog-recall-audit`.
 - Check `polymarket_wc2026_ops.ingestion_run_events` and
   `polymarket_wc2026_ops.sync_run_metrics` for WC2026 run payloads.
 - Summarize the latest task outcomes locally:

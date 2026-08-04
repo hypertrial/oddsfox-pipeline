@@ -240,6 +240,28 @@ Dagster run config, the orchestration layer passes the scan helper's built-in
 default of **25** pages without progress. Set a positive integer in run config
 to tighten or relax the guard for a one-off run.
 
+## Event catalog recall and checkpoints
+
+`polymarket_wc2026_raw_event_catalog` (and the shared
+`MarketScopeRegistryConfig` used by registry refresh) also exposes:
+
+- `include_slug_prefix_recall` (default `true` on the config class; routine
+  `full_pipeline` / registry refresh set `false`): when `false`, skip the
+  unfiltered Gamma slug-prefix recall partition. Tag and series scans still
+  run.
+- `slug_prefix_recall_max_pages_without_progress` (default `500`; `null` =
+  exhaustive): early-stop the slug-prefix partition after this many consecutive
+  pages with no local prefix matches. Match-minute and the recall-audit job pin
+  `null`.
+- `reset_event_catalog_checkpoint` (default `false`): clear
+  `polymarket_wc2026_ops.event_catalog_scan_checkpoint` before crawling.
+
+Run the exhaustive recall completeness check with:
+
+```bash
+uv run make event-catalog-recall-audit
+```
+
 ## Odds History Run Config
 
 Dagster hourly odds config uses history-oriented option names:

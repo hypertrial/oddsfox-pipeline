@@ -358,6 +358,79 @@ def set_market_scope_discovery_fully_checked(
     _metadata_set(_scope_discovery_key(scope_name, "last_run_at"), now_iso, conn)
 
 
+def save_event_catalog_partition_checkpoint(
+    conn: duckdb.DuckDBPyConnection,
+    partition_key: str,
+    stable_events: dict[str, dict[str, Any]],
+    scan_summary: dict[str, Any],
+    *,
+    scope_name: str = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
+) -> None:
+    """Persist one converged event-catalog partition for crash recovery."""
+    key = str(partition_key or "").strip()
+    if not key:
+        raise ValueError("partition_key must not be empty")
+    table = polymarket_ops_tbl(scope_name, "event_catalog_scan_checkpoint")
+    conn.execute(
+        f"""
+        INSERT OR REPLACE INTO {table}
+            (partition_key, updated_at, stable_events_json, scan_summary_json)
+        VALUES (?, ?, ?, ?)
+        """,
+        [
+            key,
+            datetime.now(timezone.utc),
+            json.dumps(stable_events, separators=(",", ":"), default=str),
+            json.dumps(scan_summary, separators=(",", ":"), default=str),
+        ],
+    )
+
+
+def load_event_catalog_partition_checkpoints(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    scope_name: str = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
+) -> dict[str, dict[str, Any]]:
+    """Load partition checkpoints as {partition_key: {stable_events, scan_summary}}."""
+    table = polymarket_ops_tbl(scope_name, "event_catalog_scan_checkpoint")
+    try:
+        rows = conn.execute(
+            f"""
+            SELECT partition_key, stable_events_json, scan_summary_json
+            FROM {table}
+            """
+        ).fetchall()
+    except duckdb.CatalogException:
+        return {}
+    loaded: dict[str, dict[str, Any]] = {}
+    for partition_key, events_json, summary_json in rows:
+        try:
+            stable_events = json.loads(events_json)
+            scan_summary = json.loads(summary_json)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if not isinstance(stable_events, dict) or not isinstance(scan_summary, dict):
+            continue
+        loaded[str(partition_key)] = {
+            "stable_events": stable_events,
+            "scan_summary": scan_summary,
+        }
+    return loaded
+
+
+def clear_event_catalog_partition_checkpoints(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    scope_name: str = DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
+) -> None:
+    """Drop all event-catalog partition checkpoints after a successful crawl."""
+    table = polymarket_ops_tbl(scope_name, "event_catalog_scan_checkpoint")
+    try:
+        conn.execute(f"DELETE FROM {table}")
+    except duckdb.CatalogException:
+        return
+
+
 __all__ = [
     "_metadata_get",
     "_metadata_set",
@@ -374,4 +447,7 @@ __all__ = [
     "get_market_scope_discovery_scope_config_hash",
     "save_sync_run_metrics",
     "set_market_scope_discovery_fully_checked",
+    "save_event_catalog_partition_checkpoint",
+    "load_event_catalog_partition_checkpoints",
+    "clear_event_catalog_partition_checkpoints",
 ]

@@ -104,7 +104,14 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
 
 - `polymarket_wc2026_market_scope_registry_refresh`: market discovery, event
   catalog (with OpenFootball fixtures), market scope registry refresh, and
-  metadata enrichment.
+  metadata enrichment. Routine event-catalog runs skip the exhaustive
+  slug-prefix recall scan (`include_slug_prefix_recall=false`).
+- `polymarket_wc2026_event_catalog_recall_audit`: same registry selection as
+  `market_scope_registry_refresh`, but forces exhaustive slug-prefix recall
+  (`include_slug_prefix_recall=true`,
+  `slug_prefix_recall_max_pages_without_progress=null`). Unscheduled;
+  run via `uv run make event-catalog-recall-audit` for a rare completeness
+  check.
 - `polymarket_wc2026_hourly_odds_ingest`: trailing hourly token-odds refresh.
 - `polymarket_wc2026_dbt_build`: golden-mart dbt build
   (`+polymarket_wc2026_market_hourly_odds`). Default run config uses
@@ -197,7 +204,18 @@ unrelated Polymarket tests.
 - `raw/markets_snapshot` records local lineage and does not call Gamma.
 - `raw/event_catalog`, `raw/event_snapshots`,
   and `raw/event_market_memberships` land event-catalog inputs used by market
-  scope registry refresh.
+  scope registry refresh. Tag and series Gamma partitions remain exhaustive;
+  the platform-wide slug-prefix recall partition is optional (off on routine
+  `full_pipeline` / registry refresh, on for
+  `polymarket_wc2026_event_catalog_recall_audit` and match-minute). When
+  slug-prefix recall runs with
+  `slug_prefix_recall_max_pages_without_progress` set, it stops after that many
+  consecutive pages with no local slug-prefix matches and marks the partition
+  `complete=false`. Partition-level checkpoints in
+  `polymarket_wc2026_ops.event_catalog_scan_checkpoint` let a retried crawl
+  skip already-converged partitions; checkpoints clear after a successful
+  warehouse merge. Set `reset_event_catalog_checkpoint=true` to discard them
+  before a crawl.
 - `ops/market_scope_registry` rebuilds sticky event-volume admission from
   landed event-catalog snapshots, prunes stale `event_catalog` registry rows,
   and materializes admitted markets into raw tables. When Dagster run config

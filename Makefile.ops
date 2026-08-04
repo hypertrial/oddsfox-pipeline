@@ -41,6 +41,10 @@ match-order-book-live-smoke: runtime-dirs
 	cd "$(REPO_ROOT)/.cache" && $(MATCH_ORDER_BOOK_LIVE_SMOKE_ENV) "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_match_order_book_backfill
 	$(RUN_IN_REPO) $(MATCH_ORDER_BOOK_LIVE_SMOKE_ENV) "$(PYTHON)" -c "import duckdb; conn = duckdb.connect('$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)', read_only=True); row = conn.execute('select count(distinct fifa_match_id), count(distinct market_id), count(distinct clob_token_id), count(*) from polymarket_wc2026_marts.polymarket_wc2026_match_order_book').fetchone(); assert row[0:3] == (1, 1, 2) and row[3] > 0, row; print(row)"
 
+event-catalog-recall-audit: runtime-dirs
+	@echo "Running exhaustive WC2026 event-catalog slug-prefix recall audit."
+	cd "$(REPO_ROOT)/.cache" && "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_event_catalog_recall_audit
+
 market-portrait-live-backfill: runtime-dirs
 	@test -n "$(TARGET_MANIFEST)" || (echo "TARGET_MANIFEST=/absolute/path.yml is required" >&2; exit 2)
 	@test "$$(python3 -c 'import os,sys; print(os.path.isabs(sys.argv[1]))' "$(TARGET_MANIFEST)")" = "True" || (echo "TARGET_MANIFEST must be absolute" >&2; exit 2)

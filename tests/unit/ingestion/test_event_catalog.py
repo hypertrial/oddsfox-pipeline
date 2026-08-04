@@ -430,3 +430,153 @@ def test_related_tag_recall_accepts_related_only_event_as_candidate(
         request["keyset_tag_slug"] == catalog.WC2026_EVENT_TAG
         for request in related_requests
     )
+
+
+def test_include_slug_prefix_recall_false_skips_slug_partitions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_series(monkeypatch)
+    requests: list[dict[str, Any]] = []
+
+    def pages(*_args: Any, **kwargs: Any):
+        requests.append(kwargs)
+        yield [_event()], EventsPageMeta(pages_done=1, truncated=False)
+
+    monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
+    batch = catalog.collect_wc2026_event_catalog(
+        client=object(), include_slug_prefix_recall=False
+    )
+
+    assert len(batch.summary["scan_partitions"]) == 8
+    assert not any(
+        key.startswith("wc2026_event_slug_prefix_recall:")
+        for key in batch.summary["scan_partitions"]
+    )
+    assert all(
+        "wc2026_event_catalog_wc2026_event_slug_prefix_recall"
+        not in request["progress_task"]
+        for request in requests
+    )
+
+
+def test_slug_prefix_early_stop_marks_incomplete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_series(monkeypatch)
+    match = _event("match", related_event_id="match")
+    miss = _event("miss", related_event_id="miss")
+    miss["slug"] = "unrelated-event"
+
+    def pages(*_args: Any, **kwargs: Any):
+        task = str(kwargs["progress_task"])
+        if "wc2026_event_slug_prefix_recall" in task:
+            # Each attempt: one match page, then misses so early-stop can fire
+            # and still converge on a stable inventory.
+            yield [match, miss], EventsPageMeta(pages_done=1, truncated=False)
+            for page in range(2, 6):
+                yield [miss], EventsPageMeta(pages_done=page, truncated=False)
+            return
+        yield [match], EventsPageMeta(pages_done=1, truncated=False)
+
+    monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
+    batch = catalog.collect_wc2026_event_catalog(
+        client=object(),
+        include_slug_prefix_recall=True,
+        slug_prefix_recall_max_pages_without_progress=2,
+    )
+
+    slug_open = batch.summary["scan_partitions"]["wc2026_event_slug_prefix_recall:open"]
+    assert slug_open["early_stopped"] is True
+    assert slug_open["complete"] is False
+    assert batch.summary["all_scan_partitions_complete"] is False
+    # Tag partitions must not early-stop even when pages have no tag matches.
+    exact_open = batch.summary["scan_partitions"]["exact_2026_tag:open"]
+    assert exact_open["complete"] is True
+    assert exact_open.get("early_stopped") is False
+
+
+def test_partition_checkpoint_replay_and_save(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_series(monkeypatch)
+    fetches: list[str] = []
+    saved: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+    event = _event()
+    inventory, child_markets, memberships = catalog._partition_inventory({"1": event})
+    signature = catalog._inventory_sha256(inventory)
+    payload_sig = catalog._payload_inventory_sha256({"1": event})
+    seeded = {
+        "exact_2026_tag:open": {
+            "stable_events": {"1": event},
+            "scan_summary": {
+                "attempts": [
+                    {
+                        "attempt": 1,
+                        "pages": 1,
+                        "event_count": 1,
+                        "event_ids_sha256": "a" * 64,
+                        "child_market_count": child_markets,
+                        "membership_count": memberships,
+                        "membership_inventory_sha256": signature,
+                        "event_payload_inventory_sha256": payload_sig,
+                        "early_stopped": False,
+                    }
+                ],
+                "event_count": 1,
+                "event_ids_sha256": "a" * 64,
+                "child_market_count": child_markets,
+                "membership_count": memberships,
+                "membership_inventory_sha256": signature,
+                "event_payload_inventory_sha256": payload_sig,
+                "complete": True,
+                "early_stopped": False,
+                "stable": True,
+            },
+        }
+    }
+
+    def pages(*_args: Any, **kwargs: Any):
+        fetches.append(str(kwargs["progress_task"]))
+        yield [event], EventsPageMeta(pages_done=1, truncated=False)
+
+    monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
+    batch = catalog.collect_wc2026_event_catalog(
+        client=object(),
+        include_slug_prefix_recall=False,
+        load_checkpoint_fn=lambda: seeded,
+        save_checkpoint_fn=lambda partition, events, summary: saved.append(
+            (partition, events, summary)
+        ),
+    )
+
+    assert {row["event_id"] for row in batch.event_snapshots} == {"1"}
+    assert not any("exact_2026_tag_open" in task for task in fetches)
+    assert any("exact_2026_tag_closed" in task for task in fetches)
+    assert any(partition == "exact_2026_tag:closed" for partition, _, _ in saved)
+
+
+def test_partition_checkpoint_kept_when_later_partition_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_series(monkeypatch)
+    saved: list[str] = []
+    calls = {"n": 0}
+
+    def pages(*_args: Any, **kwargs: Any):
+        calls["n"] += 1
+        # Fail after the first partition has had a chance to converge+save.
+        if calls["n"] > 4:
+            raise RuntimeError("boom after early partitions")
+        yield [_event()], EventsPageMeta(pages_done=1, truncated=False)
+
+    monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
+    with pytest.raises(RuntimeError, match="boom after early partitions"):
+        catalog.collect_wc2026_event_catalog(
+            client=object(),
+            include_slug_prefix_recall=False,
+            save_checkpoint_fn=lambda partition, _events, _summary: saved.append(
+                partition
+            ),
+        )
+
+    assert saved
