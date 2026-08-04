@@ -23,33 +23,6 @@ Machine-readable inventory and retirement rules live in the repository at
 | Domain | **event**, **market**, **outcome**, **token**, **proposition**, **fixture**, **match** |
 | Guarantee | **contract** |
 
-```mermaid
-flowchart TD
-    source["source"] --> scope["scope"]
-    scope --> catalog["catalog"]
-    catalog --> registry["registry"]
-    registry --> working_set["working set"]
-
-    pipeline["pipeline"] --> job["job"]
-    schedule["schedule"] --> job
-    backfill["backfill"] -.-> job
-    job --> run["run"]
-
-    snapshot["snapshot"] --> history["history"]
-    history --> latest["latest"]
-
-    relation["relation"] --> mart["mart"]
-    mart --> contract["contract"]
-    artifact["artifact"] --> bundle["bundle"]
-    bundle --> release["release"]
-
-    ingest["ingest"] --> refresh["refresh"]
-    refresh --> enrich["enrich"]
-    enrich --> build["build"]
-    build --> export["export"]
-    export --> activate["activate"]
-```
-
 ## Definitions
 
 ### Execution
@@ -166,9 +139,6 @@ Concrete contract IDs live in local docs:
 - Strategy contract `wc2026.v1` and raw snapshot contract `oddsfox.raw.v1` →
   [Strategy contracts](strategy-contracts.md)
 
-Internal threshold seeds (`*_pipeline_policy`) are naming/configuration, not
-a separate ontology term.
-
 ## Local vocabulary (not global terms)
 
 | Topic | Owner |
@@ -213,8 +183,5 @@ These names stay as written:
 
 ## See also
 
-- [Naming](naming.md)
 - [Glossary](../concepts/glossary.md)
 - [Orchestration](orchestration.md)
-- [Data contracts](data-contracts.md)
-- [Strategy contracts](strategy-contracts.md)

@@ -26,15 +26,5 @@ not execution orders. Canonical vocabulary lives in
    `oddsfox-execution`. See [Integration](../concepts/integration.md) and
    [System overview](../concepts/system-overview.md) for repository roles.
 
-## Boundary
-
-- Consume public `*_marts` only.
-- Do not treat `*_raw`, `*_ops`, staging, or intermediate schemas as APIs.
-- Order execution belongs to `oddsfox-execution` and is outside this runtime.
-- Polygon technical exports are operator-local and do not feed `wc2026.v1`
-  signals or intents.
-- `v0.1.x` mart layouts may break between releases; pin to CHANGELOG and
-  contracts when integrating.
-
 See [Scope and non-goals](../concepts/scope-and-non-goals.md) for what this
 repository ships and what it does not host.

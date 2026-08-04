@@ -1,10 +1,8 @@
 # Recreate the PMXT order-book mart
 
-Build
-`polymarket_wc2026_marts.polymarket_wc2026_match_order_book` with the
-dedicated, unscheduled hosted-PMXT backfill. The initial reviewed target is the
-Argentina–Egypt FIFA match-95 team-to-advance market and both outcome tokens.
-This path is not part of ordinary WC2026 ingestion or any schedule.
+Build `polymarket_wc2026_marts.polymarket_wc2026_match_order_book` with the
+dedicated, unscheduled PMXT backfill. Complete
+[shared setup](recreate-local-marts.md#shared-setup-every-route) first.
 
 ## Before you run
 
@@ -12,6 +10,10 @@ You need a PMXT API key and authorization to acquire and use the returned data.
 The default configuration reserves at most 20,000 locally counted attempts per
 UTC month and paces at 50 requests per minute. Retries count again before each
 HTTP attempt. PMXT provider limits and terms remain independently governed.
+
+The initial reviewed target is the Argentina–Egypt FIFA match-95 team-to-advance
+market and both outcome tokens. This path is not part of ordinary WC2026
+ingestion or any schedule.
 
 Copy `.env.example` to `.env` and set:
 
@@ -79,8 +81,8 @@ without Gamma or PMXT calls and leave raw hashes and mart rows unchanged.
   failures mark the scan failed and block dbt. Correct the cause and rerun; do
   not edit raw or ops rows manually.
 - `force=true` is an expert Dagster run-config option that creates a separate
-  scan. It does not overwrite the previous published scan. Do not use it merely
-  to resume.
+  scan. It does not overwrite the previous published scan. Do not use
+  it merely to resume.
 
 Downloaded snapshots, DuckDB/dlt state, and exports are operator-local and
 ignored by Git. See

@@ -13,8 +13,9 @@ For the operator checklist, see
   for local macOS-first operation.
 - Two fixed `run_scope.py` market scopes in `v0.1.x`:
   `polymarket:wc2026` and `kalshi:wc2026`.
-- Supporting FIFA fixture/results ingestion used to validate real-team scope on
-  WC2026 market graphs.
+- FIFA fixture/results and OpenFootball schedule ingestion for Kalshi WC2026 and
+  match-minute real-team validation; not required for the Polymarket golden-mart
+  path.
 - An optional, isolated Polygon settlement-history pipeline with its own
   unscheduled job and dbt tag (not a `run_scope.py` scope).
 
@@ -42,14 +43,8 @@ untracked. Restore shells with `git restore dbt/seeds` after local overlays; see
 
 ## De-Identification Is Not Anonymity
 
-The optional Polygon technical export omits wallets and many chain locators.
-Sparse public blockchain aggregates can still be reverse-linked. Treat exports
-as de-identified operator artifacts, not anonymous public datasets.
-
-The internal audit bundle retains verification locators and must stay
-operator-local. The allowlisted technical export is a narrower dossier and still
-is not an anonymous public dataset. See
-[Operator responsibilities](operator-responsibilities.md).
+Polygon exports are de-identified, not anonymous. See
+[Operator responsibilities](operator-responsibilities.md#privacy-and-re-identification).
 
 ## Related Pages
 

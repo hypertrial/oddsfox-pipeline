@@ -12,21 +12,6 @@ common mistakes.
     [Data contracts](data-contracts.md). To see which pipeline builds a given
     mart, see [Pipeline outputs](orchestration.md#pipeline-outputs).
 
-## Core Semantics
-
-- Public Polymarket WC2026 hourly prices are raw Yes-outcome CLOB probabilities
-  in `[0, 1]` from the primary market token.
-- `open_odds`, `high_odds`, `low_odds`, `close_odds`, and `avg_odds` are hourly
-  OHLC aggregates over that Yes token.
-- Admission is sticky at the enclosing-event level:
-  `event_volume_usd_lifetime_reported` must meet the pipeline policy floor
-  (currently $100,000 USD).
-- Kalshi stage marts expose progression prices separately from raw Yes prices.
-  Use `progression_*_price` for team-progression analysis.
-- Polygon settlement prices use finalized event-block time and normalized
-  economic legs. They are not quotes, order-book snapshots, unique-user trade
-  counts, order-match timestamps, or CLOB observations.
-
 ## Polymarket WC2026 Marts
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds`
@@ -39,7 +24,7 @@ common mistakes.
 | Time columns | `odds_hour_utc`, `odds_hour_epoch`, `first_observed_at`, `last_observed_at`, `game_start_time`, `end_time`, `event_start_at`, `event_finished_at`. |
 | Price columns | `open_odds`, `high_odds`, `low_odds`, `close_odds`, `avg_odds`; raw Yes-outcome CLOB probabilities. |
 | Recommended filters | Filter by `event_slug`, `event_id`, `question`, `category`, `tags`, or market status fields (`is_active`, `is_closed`, `is_resolved`). Require `event_volume_usd_lifetime_reported >= 100000` only when auditing eligibility; admitted rows already passed the sticky event floor. |
-| Common joins | Parse `outcomes` for outcome labels; join `event_id` across markets in the same event. For FIFA team context, join market text to `international_results_wc2026_team_status` manually. |
+| Common joins | Parse `outcomes` for outcome labels; join `event_id` across markets in the same event. For FIFA team context, join market text to `international_results_wc2026_team_status` manually. Optional metadata enrichment runs before hourly odds ingest; the mart reflects the latest enriched Gamma fields. For point-in-time child-market metadata beyond the mart columns, join `polymarket_wc2026_raw.event_market_payload_snapshots` on `market_id` (raw layer, not a documented contract). |
 | Common mistakes | Treating prices as progression-normalized knockout odds; using `clob_token_id` grain when the contract is `(market_id, odds_hour_epoch)`; expecting separate current-price or freshness status columns on this mart. |
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`
@@ -58,15 +43,8 @@ common mistakes.
 | Pair diagnostics | Nullable raw close sum/deviation and a strict `> 0.05` anomaly flag; prices are never normalized |
 | Provenance | Selected and primary timing events plus matched results ID, immutable revision, payload SHA-256, and load time |
 
-Use `proposition_type`, `yes_represents`, and `no_represents` instead of
-inferring meaning from token order. For match 103 the proposition is the
-official home team winning third place; for match 104 it is winning the final.
-Expected partial terminal-minute nulls remain visible as
-`finish_boundary_incomplete`; use `interior_incomplete` to isolate gaps inside a
-game rather than treating every boundary null as equivalent. Use
-`elapsed_window_minute` for within-game alignment, but do not interpret it as
-stoppage-adjusted football time: delays, halftime, extra time, and penalties all
-remain on the axis.
+Use `proposition_type`, `yes_represents`, and `no_represents` for meaning. See
+[Data contracts](data-contracts.md#documented-marts) for publication guarantees.
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_match_order_book`
 
@@ -81,10 +59,6 @@ remain on the axis.
 | Provenance | Published scan and manifest hashes, PMXT source label, and ingestion timestamp |
 | Null policy | Missing sides remain null; empty raw books emit no artificial mart level |
 | Common mistakes | Pairing the two token streams by timestamp, inferring fixed cadence, treating snapshots as order events, or synthesizing complementary prices |
-
-This is an optional, unscheduled historical pipeline. “Full order book” means all
-levels in every PMXT snapshot returned across demonstrably unsaturated ranges;
-it is not an order-event or fixed-interval feed.
 
 !!! note "Advanced historical pipeline"
 
@@ -108,13 +82,6 @@ it is not an order-event or fixed-interval feed.
 | Common joins | Compare with the Gamma/CLOB mart on `condition_id` plus oriented Yes/No token IDs, then read authored Yes/No semantics |
 | Common mistakes | Joining pipelines on raw team strings or `(fifa_match_id, proposition_type)`; independent aliases and home/away order can differ |
 
-`elapsed_window_minute` is zero-based and bounded to `0..149` for group
-propositions or `0..209` for knockout propositions. It is a scheduled analysis
-axis, not official football match time. A normalized fill count measures
-economic legs; MINT/MERGE can add an explicitly derived counterpart, so it
-should not be interpreted as unique users or transactions. Empty propositions
-and sparse token sides are retained and reported as warnings.
-
 #### Data sources and lineage
 
 The mart has two operator-supplied inputs: a reviewed static market manifest
@@ -134,31 +101,6 @@ manifest; it is not fetched again during a backfill.
 | [NegRisk Adapter `0xd91e…5296`](https://polygonscan.com/address/0xd91e80cf2e7be2e162c6513ced06f1dd0da35296) | Authoring-only source of `MarketPrepared`/`QuestionPrepared` evidence and neg-risk position IDs. Its operator and UMA adapter are discovered and verified through the event/deployment chain. | Minimal interface pinned to [NegRisk CTF Adapter revision `f78b35b…`](https://github.com/Polymarket/neg-risk-ctf-adapter/tree/f78b35b0863b4308a431ca307d06f49b2ea65e78). That revision contains no licence file, so no licence permission is inferred. |
 | [Polygon USDC.e `0x2791…4174`](https://polygonscan.com/address/0x2791bca1f2de4661ed88a30c99a7a9449aa84174) | Authoring-only collateral address used with CTF collection/index sets to derive and verify standard position IDs. Runtime integer collateral amounts are normalized from six decimals into mart volume/price fields. | Fixed Polygon bridged-USDC contract address; no token metadata or off-chain price feed is used. |
 | [Configured Polygon JSON-RPC provider](https://docs.polygon.technology/pos/reference/rpc-endpoints) | Transport for the Polygon facts above, not a separate semantic or pricing source. It returns finalized heads, logs, receipts, and headers; provider errors never become empty ranges. | `polygon_settlement_scan_runs` records the non-secret label and sanitized origin. The internal audit release retains that technical provenance, finalized head, and range hashes; the allowlisted technical export omits provider identity and exact chain locators. Credentials and full endpoints are never persisted. |
-
-The internal transformation lineage is:
-
-```text
-local manifest
-  → stg_polymarket_wc2026_polygon_settlement_markets
-  → int_polymarket_wc2026_polygon_settlement_working_set
-
-finalized Polygon V2 logs/receipts/headers
-  → polymarket_wc2026_raw.polygon_settlement_fills
-  → stg_polymarket_wc2026_polygon_settlement_fills
-  → int_polymarket_wc2026_polygon_settlement_token_minute_odds
-
-manifest working set + token-minute aggregates
-  → int_polymarket_wc2026_polygon_settlement_minute_odds_candidate
-  → int_polymarket_wc2026_polygon_settlement_publication_gate
-  → polymarket_wc2026_polygon_settlement_minute_odds
-```
-
-The publication gate also reads
-`polymarket_wc2026_ops.polygon_settlement_scan_runs` and
-`polymarket_wc2026_ops.polygon_settlement_scan_chunks` to prove that the raw
-snapshot matches the manifest and has gap-free, exchange-specific finalized
-coverage. Those tables are internal audit evidence, not additional external
-data sources.
 
 This pipeline does **not** use the Polymarket Gamma API, CLOB API or price history,
 the Polymarket website/UI, the repository's existing FIFA schedule seed,

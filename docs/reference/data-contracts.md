@@ -4,19 +4,18 @@ This page is the formal analytics **contract** for warehouse marts that
 notebooks, scripts, and open-source integrators should rely on: grains, scope
 rules, and guarantees. A **contract** is a named guarantee about a relation set,
 bundle, or collector format; see [Terminology](terminology.md#guarantee).
-OddsFox Pipeline is a prediction-market pipeline; the current documented marts
-are WC2026 Polymarket market hourly odds, Kalshi WC2026 stage and group-winner
-odds, plus WC2026 FIFA fixtures/results used by shared validation and isolated
-match pipelines. Model-level column docs and tests live in the dbt project.
-
-!!! note "Reference ladder"
-
-    Chooser → dictionary → documented contracts → warehouse reference; do not treat
-    staging/raw as APIs. Start with
-    [Query the warehouse](../guides/query-the-warehouse.md), then the
-    [Data dictionary](data-dictionary.md). For private `oddsfox.raw.v1` snapshots
-    and the strategy clean-data relation set, see
-    [Strategy contracts](strategy-contracts.md).
+OddsFox Pipeline is a prediction-market pipeline; the production Polymarket WC2026
+contract is the golden mart `polymarket_wc2026_market_hourly_odds`. Kalshi WC2026
+stage and group-winner odds are a separate documented scope. Other Polymarket
+WC2026 marts (match-minute, order book, Polygon settlement) are isolated
+pipelines. WC2026 FIFA fixtures/results are documented for Kalshi validation and
+those isolated match pipelines, not the Polymarket golden-mart quickstart.
+Model-level column docs and tests live in the dbt project. Analyst query
+guidance starts at
+[Query the warehouse](../guides/query-the-warehouse.md); column semantics and
+join recipes live in [Data dictionary](data-dictionary.md). For private
+`oddsfox.raw.v1` snapshots and the strategy clean-data relation set, see
+[Strategy contracts](strategy-contracts.md).
 
 ## Documented Marts
 
@@ -29,172 +28,23 @@ Schema: `polymarket_wc2026_marts`
 
 | Relation | Grain | Pipeline | Contract |
 | --- | --- | --- | --- |
-| `polymarket_wc2026_market_hourly_odds` | One row per `(market_id, odds_hour_epoch)` | Polymarket WC2026 | Golden WC2026 hourly odds mart. Every market under a sticky event-volume-eligible WC2026 event (reported lifetime volume at or above the pipeline policy floor, currently $100,000 USD) with Yes-outcome CLOB prices in `[0, 1]`, full lifetime hourly OHLC history, and comprehensive market and enclosing-event metadata. |
-| `polymarket_wc2026_match_minute_odds` | One row per `(odds_minute_utc, market_id)` | Match-minute odds | Dense in-game minute OHLC for 216 group moneyline markets and 32 knockout advance/win markets across FIFA match IDs 1–104. |
-| `polymarket_wc2026_match_order_book` | One row per `(fifa_match_id, market_id, clob_token_id, snapshot_timestamp_ms, snapshot_sha256, book_side, level_rank)` | Match order book; market portrait | Every bid and ask level from every PMXT historical L2 snapshot in the reviewed Argentina–Egypt match-95 market window. |
-| `polymarket_wc2026_polygon_settlement_minute_odds` | One row per `(proposition_id, settlement_minute_utc)` | Polygon settlement history | Finalized Polygon V2 settlement-time OHLC/VWAP over fixed half-open scheduled windows; exactly 39,120 dense rows. |
+| `polymarket_wc2026_market_hourly_odds` | One row per `(market_id, odds_hour_epoch)` | Polymarket WC2026 golden mart | Golden WC2026 hourly odds mart. Every market under a sticky event-volume-eligible WC2026 event (reported lifetime volume at or above the pipeline policy floor, currently $100,000 USD) with Yes-outcome CLOB prices in `[0, 1]`, full lifetime hourly OHLC history, and comprehensive market and enclosing-event metadata. |
+| `polymarket_wc2026_match_minute_odds` | One row per `(odds_minute_utc, market_id)` | Match-minute odds (isolated) | Dense in-game minute OHLC for 216 group moneyline markets and 32 knockout advance/win markets across FIFA match IDs 1–104. |
+| `polymarket_wc2026_match_order_book` | One row per `(fifa_match_id, market_id, clob_token_id, snapshot_timestamp_ms, snapshot_sha256, book_side, level_rank)` | Match order book; market portrait (isolated) | Every bid and ask level from every PMXT historical L2 snapshot in the reviewed Argentina–Egypt match-95 market window. |
+| `polymarket_wc2026_polygon_settlement_minute_odds` | One row per `(proposition_id, settlement_minute_utc)` | Polygon settlement history (isolated) | Finalized Polygon V2 settlement-time OHLC/VWAP over fixed half-open scheduled windows; exactly 39,120 dense rows. |
 
 `polymarket_wc2026_match_order_book_states` and `polymarket_wc2026_match_trades`
 are additional `polymarket_wc2026_marts` tables built only by the market-portrait
 pipeline as bundle inputs; they are not independently documented contracts. See
 [Market portrait](market-portrait.md).
 
-The match-minute contract contains 248 markets and 496 source tokens. Group
-rows preserve each binary market's literal Yes and No tokens for `home_win`,
-`draw`, or `away_win`; a group No price is the proposition's logical
-complement, not necessarily an opponent win. Knockout rows are oriented to the
-official fixture: Yes is the home-team outcome token and No is the away-team
-outcome token. Match 103 means winning the third-place match. Match 104 means
-winning the final and becoming champion.
-
-FIFA match numbers and kickoff context come from the audited schedule and
-OpenFootball fixtures, while team names and home/away orientation are reconciled
-to one 104-row `international_results_wc2026_matches` snapshot fetched from the
-latest immutable Git revision affecting `results.csv`. Every public row carries
-the matched results ID, revision, exact-payload SHA-256, and load time. Missing,
-mixed, malformed, duplicate, or unmatched provenance blocks publication.
-
-Minute spines include the minute containing Gamma `startTime` through the
-minute containing the primary match event's `finishedTimestamp`. Observations
-are first filtered to the exact timestamp interval. Yes and No open, high, low,
-close, average, point count, and first/last source times are raw probabilities
-in `[0, 1]`. Missing minute observations remain null; the mart does not
-forward-fill, normalize, convert to decimal odds, or calculate `1 - price`.
-`elapsed_window_minute` is the uncapped zero-based difference from the truncated
-Gamma start bucket. It remains contiguous through weather delays, halftime,
-extra time, and penalties, so it is a wall-clock analysis axis rather than the
-official football match clock. UTC timestamps remain authoritative.
-`minute_status` distinguishes complete rows from incomplete start, finish, both,
-or interior buckets. The inclusive final-whistle bucket can legitimately be null
-when Gamma emitted no observation in that partial minute; it is measured but is
-not itself a quality-warning row.
-
-Close-pair, cadence, and timing diagnostics never alter prices. Warnings use
-fixed strict-greater-than thresholds: close-pair deviation `0.05`, observation
-gap or first/last boundary offset 120 seconds, scheduled-to-actual kickoff shift
-60 minutes, group window 150 minutes, and knockout window 210 minutes. A token
-with one distinct in-game price and every incomplete interior minute are also
-warnings. These source anomalies remain publishable. Structural inventory,
-mapping, timing, provenance, fetch-audit, token-history, price/OHLC, or spine
-failures block publication. Spine validation requires each market's elapsed axis
-to start at zero, remain nonnegative and contiguous, match every UTC bucket
-offset, and end at the truncated Gamma finish offset.
-
-The supported publication path is
-`polymarket_wc2026_match_minute_odds_backfill`. It rejects empty or partial live
-inventories before fetching and the dbt publication gate preserves the prior
-public table unless all 104 games, 248 markets, 496 tokens, timing windows, and
-per-token in-game histories validate. It also refreshes and validates the latest
-104 international-results rows before publication. Each attempted fetch run
-keeps 496 append-only token audit rows; a successful run publishes one exact raw
-snapshot, while failed runs preserve the prior raw and public tables. The job has
-no schedule.
-
-### PMXT historical match order book
-
-`polymarket_wc2026_marts.polymarket_wc2026_match_order_book` initially covers
-only FIFA match 95, Argentina–Egypt, market `2793969`, from
-`2026-07-04T10:34:02Z` through `2026-07-07T18:18:44Z`, inclusive. The market is
-`soccer_team_to_advance`; both pinned outcome-token streams are retained
-independently. Rows are not synchronized, paired, forward-filled, sampled onto
-a fixed cadence, or converted into complementary prices.
-
-“Full order book” means every bid and ask level from every complete historical
-L2 snapshot returned by PMXT across demonstrably unsaturated ranges. It does
-not mean individual order events or a claim of fixed snapshot cadence. Empty
-snapshot books remain in private raw/audit coverage and intentionally emit no
-public level rows.
-
-The public grain is
-`fifa_match_id + market_id + clob_token_id + snapshot_timestamp_ms +
-snapshot_sha256 + book_side + level_rank`. `snapshot_sha256` distinguishes
-different books at the same token millisecond. Bids rank from highest to lowest
-price; asks rank from lowest to highest. Exact `DECIMAL(38,18)` price and size
-fields feed `level_notional`, `cumulative_size`, and `cumulative_notional`,
-calculated independently per side.
-
-Every row also exposes match/event/market/condition/outcome/token identity,
-UTC and epoch-millisecond snapshot time, optional `order_count`, snapshot best
-bid and ask, spread, midpoint, last-trade price, negative-risk flag, published
-scan ID, manifest hash, source label, and ingestion time. Missing best sides
-produce null spread/midpoint; no price is synthesized.
-
-Publication requires one published manifest-consistent scan, both expected
-tokens, complete terminal window trees, nonempty snapshot inventories, exact
-OpenFootball match-95 team/stage identity, valid JSON/numerics, exact raw-to-
-exploded level counts, unique grain/prices, and consistent ranks/cumulative
-depth. Empty books, crossed books, and gaps over six hours are warnings only.
-The only supported writer is the unscheduled
-`polymarket_wc2026_match_order_book_backfill`.
+Analyst column guidance for the isolated Polymarket marts is in
+[Data dictionary](data-dictionary.md#polymarket-wc2026-marts).
 
 ### Polygon settlement minute odds
 
-`polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds` is a
-parallel historical contract at one row per `(proposition_id,
-settlement_minute_utc)`. It does not replace or alias the Gamma/CLOB match-minute
-mart.
-
-The inventory is fixed and dense:
-
-- 216 group propositions × the half-open scheduled window
-  `[kickoff, kickoff + 150 minutes)` = 32,400 rows;
-- 32 knockout propositions × `[kickoff, kickoff + 210 minutes)` = 6,720 rows;
-- 248 propositions, 496 oriented tokens, 104 FIFA match IDs, and exactly 39,120
-  mart rows.
-
-Runtime identity and semantics come exclusively from a complete operator-local
-Polygon market seed. Group propositions are `home_win`, `draw`, and `away_win`;
-matches 73–102 are `home_advances`, match 103 is `home_win_third_place`, and
-match 104 is `home_wins_final`. The seed pins the source revision and hashes,
-on-chain question/condition locators, ancillary-data hash, verified token
-orientation, exchange, manifest version, and review time. The backfill does not
-call Gamma, CLOB, the Polymarket UI, OpenFootball, international-results, or
-private match-event collectors.
-
-The matching resolution attestation is also operator-local. The authoring tool
-writes candidate evidence below ignored `artifacts/`; operators review it and
-supply the final attestation at
-`config/polygon-settlement-resolution-attestation.yml`. The repository tracks
-only a placeholder example.
-
-The independent fixture vocabulary is not a CLOB-mart join key. Cross-pipeline
-analysis must join on `condition_id` and the oriented token IDs, then use
-`yes_represents`/`no_represents` for meaning. Do not join on raw team strings or
-`(fifa_match_id, proposition_type)`, because independently sourced fixture
-orientation and aliases can differ.
-
-Correcting a local market seed requires regenerating and reviewing its
-supporting evidence before building a new immutable local audit/export SemVer.
-An existing local artifact version is never amended in place.
-
-For each Yes and No side the mart exposes chain-ordered open/high/low/close,
-VWAP (`sum(gross_collateral) / sum(shares)`), normalized and derived economic-leg
-counts, share and gross-collateral volume, first/last settlement timestamp, and
-an observed flag. `minute_status` is `both_observed`, `yes_only`, `no_only`, or
-`no_fills`. Empty minutes retain null prices and timestamps with zero counts and
-volumes. Prices are never forward-filled, interpolated, pair-normalized, or
-inferred as complements.
-
-These times are finalized Polygon event-block timestamps. They are not order
-matching times, quotes, order-book snapshots, or CLOB price history. A
-normalized economic leg is not necessarily one unique user trade. Complementary
-MINT/MERGE legs are included, explicitly flagged, and counted separately. Fees
-are neither subtracted nor published. For mixed MINT/MERGE settlement, V2 emits
-the active order's requested maker-asset fill before refunding any unused active
-collateral (BUY) or shares (SELL). The normalizer reconciles the received asset
-exactly, requires passive legs to consume no more than the active maker asset,
-and excludes that non-trade refund surplus from fill rows and public outputs.
-
-Mart materialization fails closed for seed/inventory errors, a missing or stale
-published scan, target ranges that do not represent both fixed V2 exchanges,
-incomplete/overlapping finalized coverage, an empty canonical scan, invalid or
-duplicate normalized fills, invalid price/volume/OHLC, a broken 150/210-minute
-axis, or any row count other than 39,120. Whole propositions or token sides
-without fills, sparse minutes, derived-fill prevalence, Yes/No pair deviations,
-and missing/disagreeing secondary RPC verification are technical warnings only.
-
-The mart is an internal audit surface, not the allowlisted technical export. In addition to
-the fields described above it contains these eight audit-only columns:
+The mart is an internal audit surface, not the allowlisted technical export. It
+contains eight audit-only columns in addition to the published fields below:
 `settlement_minute_epoch`, `condition_id`, `yes_token_id`, `no_token_id`,
 `market_structure`, `exchange_address`, `manifest_sha256`, and
 `manifest_version`. A direct mart export bypasses the technical allowlist.
@@ -375,9 +225,11 @@ Schema: `kalshi_wc2026_marts`
 - Kalshi WC2026 marts expose stage-of-elimination and group-winner markets
   from the fixed `wc2026` registry across the packaged Kalshi series tickers.
   Shared Kalshi thresholds live in `dbt/seeds/kalshi_wc2026_pipeline_policy.csv`.
-- Polymarket WC2026 exposes one documented odds mart:
-  `polymarket_wc2026_market_hourly_odds`. It includes every market under a
-  sticky event-volume-eligible WC2026 event from `polymarket_wc2026_ops.market_scope_registry`.
+- Polymarket WC2026 production contract: `polymarket_wc2026_market_hourly_odds`
+  (golden mart). It includes every market under a sticky event-volume-eligible
+  WC2026 event from `polymarket_wc2026_ops.market_scope_registry`. Match-minute,
+  order-book, and Polygon settlement marts are isolated pipelines documented
+  above but not built by the golden-mart full job.
 - The current event admission floor is `event_min_lifetime_volume_usd = 100000`
   in `dbt/seeds/polymarket_wc2026_pipeline_policy.csv`. Eligibility is sticky:
   once an event crosses the floor it remains admitted even if later snapshots
@@ -414,10 +266,8 @@ Schema: `kalshi_wc2026_marts`
   offline export for the golden mart.
 - Raw hourly collection is a separate temporal-foundation branch. An existing
   `(clobTokenId, timestamp)` point is not overwritten on replay.
-- `scripts/prune_odds_history.py` permanently exempts observations from
-  2026-06-11 00:00:00 through 2026-10-18 23:59:59 UTC, inclusive, covering the
-  tournament acceptance window. Outside that interval its default retention is
-  365 days; preserve a backup before shortening it.
+- `scripts/prune_odds_history.py` trims stale `odds_history` rows; see
+  [Scripts](scripts.md#warehouse).
 - `int_polymarket_wc2026_markets` is the canonical registry-scoped market
   dimension for the golden mart. It admits only markets whose enclosing event
   is volume-eligible in the scope registry.
@@ -453,5 +303,5 @@ Delete old local warehouse files (`rm oddsfox.duckdb*`) and rerun quickstart
 after upgrading from older layouts.
 
 The golden hourly mart reads a private incremental hourly fact. If an existing
-local DuckDB warehouse still has deleted knockout/catalog marts or old relation
+local DuckDB warehouse still has deleted schedule/catalog marts or old relation
 types, reset the warehouse or drop the affected dbt schemas before rebuilding.

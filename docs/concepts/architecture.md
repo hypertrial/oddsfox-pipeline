@@ -85,32 +85,37 @@ helper boundary.
 
 ```mermaid
 flowchart TD
-    raw["polymarket_wc2026_raw"] --> staging["polymarket_wc2026_staging"]
-    results_raw["international_results_wc2026_raw"] --> results_staging["international_results_wc2026_staging"]
-    results_staging --> matches["international_results_wc2026_matches"]
-    matches --> team_status["international_results_wc2026_team_status"]
-    ops["polymarket_wc2026_ops"] --> staging
-    staging --> token_working_set["int_polymarket_wc2026_token_working_set"]
-    staging --> wc2026_markets_int["int_polymarket_wc2026_markets"]
-    staging --> event_latest["int_polymarket_wc2026_event_latest"]
-    staging --> odds["stg_polymarket_wc2026_odds"]
-    ops --> wc2026_markets_int
-    event_latest --> wc2026_markets_int
-    wc2026_markets_int --> primary_token["int_polymarket_wc2026_primary_market_token"]
-    odds --> hourly_fact["int_polymarket_wc2026_token_hourly_odds"]
-    primary_token --> golden["polymarket_wc2026_market_hourly_odds"]
-    wc2026_markets_int --> golden
-    hourly_fact --> golden
-    ops --> observability["polymarket_wc2026_ingestion_run_observability"]
-    matches --> results_dq["international_results_wc2026_data_quality"]
+    subgraph polymarketGolden [Polymarket golden mart]
+        raw["polymarket_wc2026_raw"] --> staging["polymarket_wc2026_staging"]
+        ops["polymarket_wc2026_ops"] --> staging
+        staging --> token_working_set["int_polymarket_wc2026_token_working_set"]
+        staging --> wc2026_markets_int["int_polymarket_wc2026_markets"]
+        staging --> event_latest["int_polymarket_wc2026_event_latest"]
+        staging --> odds["stg_polymarket_wc2026_odds"]
+        event_latest --> wc2026_markets_int
+        ops --> wc2026_markets_int
+        wc2026_markets_int --> primary_token["int_polymarket_wc2026_primary_market_token"]
+        odds --> hourly_fact["int_polymarket_wc2026_token_hourly_odds"]
+        primary_token --> golden["polymarket_wc2026_market_hourly_odds"]
+        wc2026_markets_int --> golden
+        hourly_fact --> golden
+        ops --> observability["polymarket_wc2026_ingestion_run_observability"]
+    end
+    subgraph internationalResults [Kalshi and match-minute only]
+        results_raw["international_results_wc2026_raw"] --> results_staging["international_results_wc2026_staging"]
+        results_staging --> matches["international_results_wc2026_matches"]
+        matches --> team_status["international_results_wc2026_team_status"]
+        matches --> results_dq["international_results_wc2026_data_quality"]
+    end
 ```
 
-Text fallback: staging normalizes raw and ops tables, the registry admits
+Text fallback: the Polymarket golden mart path normalizes raw and ops tables, the registry admits
 sticky event-volume-eligible WC2026 markets, intermediates establish token
 working sets and Yes-outcome primary tokens, and the golden
 `polymarket_wc2026_market_hourly_odds` mart publishes full-lifetime hourly
 Yes-outcome odds with comprehensive market and event metadata. Observability
-models publish run metrics and result inference warnings.
+models publish run metrics. `international_results_wc2026_*` marts are built on
+Kalshi and match-minute paths only, not the Polymarket golden-mart closure.
 
 ### Kalshi WC2026
 

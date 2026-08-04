@@ -1,9 +1,10 @@
-# Recreate WC2026 minute marts locally
+# Recreate local marts
 
-This index covers two optional advanced marts:
+This index covers three optional advanced marts:
 
 - `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`
 - `polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds`
+- `polymarket_wc2026_marts.polymarket_wc2026_match_order_book`
 
 The repository contains the complete software path but no production rows.
 Operator-local inputs must be supplied:
@@ -15,9 +16,6 @@ Operator-local inputs must be supplied:
 | `config/polygon-settlement-resolution-attestation.yml` | Generate it with the same candidate tool and install it only with its matching reviewed manifest. | Polygon settlement |
 
 Do not commit these inputs, generated warehouses, or authoring evidence.
-Operators must obtain and use each source under terms that apply to them.
-Successful local rebuilds and exact row-count checks verify technical shape;
-they are not Hypertrial certification of data rights or fitness for trading.
 See [Operator responsibilities](../concepts/operator-responsibilities.md).
 
 !!! important "A clean clone is necessary, but not sufficient"
@@ -37,8 +35,9 @@ See [Operator responsibilities](../concepts/operator-responsibilities.md).
 | --- | --- |
 | Match-minute mart only | [Recreate match-minute mart](recreate-match-minute-mart.md) |
 | Polygon settlement mart only | [Recreate Polygon settlement mart](recreate-polygon-settlement-mart.md) |
-| Both from public sources | Complete shared setup below, then both child guides |
-| Both from completed raw warehouses | Shared setup + inputs, then [completed-warehouse route](#alternative-rebuild-completed-raw-warehouses) |
+| PMXT order-book mart only | [Recreate match-order-book mart](recreate-match-order-book-mart.md) |
+| Both minute marts from public sources | Complete shared setup below, then both minute child guides |
+| Both minute marts from completed raw warehouses | Shared setup + inputs, then [completed-warehouse route](#alternative-rebuild-completed-raw-warehouses) |
 
 ## Shared setup (every route)
 
@@ -95,12 +94,17 @@ these guides are unscheduled and run only when invoked.
 git status --short
 ```
 
-The new `.env` is ignored and should not appear.
+The new `.env` is ignored and should not appear. Populated schedule overlays,
+reviewed Polygon manifests, and real attestations must also stay untracked.
+Never run `git add -A` in this operator checkout.
 
 ## Alternative: rebuild completed raw warehouses
 
 Use this route only when network ingestion already succeeded and you have
 SSD-backed copies of both completed raw DuckDB warehouses.
+
+`local-marts-rebuild` always requires **both** warehouse paths (match-minute
+and Polygon settlement); it does not rebuild a single mart from one file.
 
 Install and validate the schedule overlay and the reviewed Polygon
 manifest/attestation first (see the child guides). Then place both warehouse
@@ -129,7 +133,7 @@ target then verifies:
 - Polygon settlement: 39,120 rows, 104 matches, 248 propositions, unique grain,
   and publication ready.
 
-## Final checklist (both marts)
+## Final checklist
 
 Inputs must always validate:
 
@@ -150,18 +154,19 @@ For the source-fetch route, both disposable smokes must also succeed:
 For the completed-warehouse route, `uv run make local-marts-rebuild` must exit
 zero against the operator-preserved raw warehouses instead of the live smokes.
 
-The two marts intentionally live in separate source-specific warehouses. The
-commands do not upload either warehouse or mart.
+The two minute marts intentionally live in separate source-specific warehouses.
+The commands do not upload either warehouse or mart.
 
-```bash
-git status --short
-```
-
-The populated schedule and Polygon manifest should appear only as local
-modifications. The real attestation is ignored. Never run `git add -A` in this
-operator checkout.
-
-Public availability, technical interoperability, or an unauthenticated
-endpoint does not itself grant permission to access, retain, or redistribute
-data. See the
+Operators must obtain and use each source under terms that apply to them.
+Successful local rebuilds and exact row-count checks verify technical shape;
+they are not Hypertrial certification of data rights or fitness for trading.
+Public availability or an unauthenticated endpoint does not itself grant
+permission to access, retain, or redistribute data. See the
 [authoritative licence scope](https://github.com/hypertrial/oddsfox-pipeline/blob/main/THIRD_PARTY_NOTICES.md).
+
+## Troubleshooting (all routes)
+
+| Failure | What to check |
+| --- | --- |
+| A dbt publication/readiness assertion fails | Inspect the named quality relation. Do not bypass the gate or manually publish the candidate table. |
+| A warehouse path is rejected | Keep it below the SSD-backed `ODDSFOX_STORAGE_ROOT` and make sure the file already exists for `local-marts-rebuild`. |

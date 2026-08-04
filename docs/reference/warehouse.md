@@ -1,21 +1,15 @@
 # Warehouse
 
+Physical schema inventory for contributors. Mart guarantees live in
+[Data contracts](data-contracts.md); analyst columns, joins, and common mistakes
+live in [Data dictionary](data-dictionary.md). Analysts should start with
+[Query the warehouse](../guides/query-the-warehouse.md),
+[Query recipes](../guides/query-recipes.md), and the data dictionary rather
+than this page.
+
 The local warehouse is DuckDB. By default it is `oddsfox.duckdb` in the repo
 root. OddsFox Pipeline is designed for prediction-market data; the v0.1.x warehouse
 schemas and relation names are source-specific because adapters ship in parallel.
-
-!!! note "Reference ladder"
-
-    Chooser → dictionary → documented contracts → warehouse reference; do not treat
-    staging/raw as APIs. This page is the physical/schema map for contributors.
-    Analysts should start with
-    [Query the warehouse](../guides/query-the-warehouse.md). Mart
-    guarantees live in [Data contracts](data-contracts.md).
-
-If you are analyzing data rather than operating the pipeline, start with the
-[Query the warehouse](../guides/query-the-warehouse.md),
-[Query recipes](../guides/query-recipes.md), and
-[Data dictionary](data-dictionary.md).
 
 ## Raw layer
 
@@ -42,8 +36,8 @@ Schema: `polymarket_wc2026_raw`
   canonical table with `INSERT OR REPLACE`.
 - `odds_history`: append-only point-in-time CLOB token prices. The composite
   primary key `(clobTokenId, timestamp)` makes replays idempotent; an observed
-  source point is never rewritten. Pruning permanently preserves the inclusive
-  2026-06-11 00:00:00 through 2026-10-18 23:59:59 UTC acceptance window.
+  source point is never rewritten. Pruning policy is documented under
+  [Scripts](scripts.md#warehouse) (`prune_odds_history.py`).
 - `match_minute_odds_history`: exact-window CLOB observations for the selected
   match markets, keyed by `(clobTokenId, timestamp)` with fixed fidelity `1`.
   A successful dedicated run replaces this complete snapshot atomically, so
@@ -146,6 +140,8 @@ Schema: `kalshi_wc2026_ops`
 
 ## dbt Intermediate
 
+Representative inventory only; see `dbt/models/**/intermediate/` for the full set.
+
 Schema: `polymarket_wc2026_intermediate`
 
 - `int_polymarket_wc2026_token_working_set`: materialized canonical one-row-per-token
@@ -165,10 +161,17 @@ Schema: `polymarket_wc2026_intermediate`
   token odds fact for the match-minute mart.
 - `int_polymarket_wc2026_match_minute_odds_candidate`: candidate rows before
   the match-minute publication gate.
+- `int_polymarket_wc2026_match_minute_publication_gate`: publication gate for
+  the match-minute mart.
 - `int_polymarket_wc2026_match_order_book_levels`: PMXT order-book levels for
   the match order-book mart.
 - `int_polymarket_wc2026_match_order_book_publication_gate`: publication gate
   for the match order-book mart.
+- `int_polymarket_wc2026_match_trade_publication_gate`: publication gate for the
+  market-portrait trades bundle.
+- `int_polymarket_wc2026_polygon_settlement_*`: working set, token-minute
+  aggregates, publication gate, and quality-summary models for the Polygon
+  settlement pipeline.
 
 Schema: `kalshi_wc2026_intermediate`
 
@@ -178,6 +181,13 @@ Schema: `kalshi_wc2026_intermediate`
 - `int_kalshi_wc2026_stage_classification` and
   `int_kalshi_wc2026_group_winner_classification`: shared classifiers for
   stage and group-winner marts.
+
+Schema: `international_results_wc2026_intermediate`
+
+- `int_international_results_wc2026_match_teams`: exploded home/away team rows
+  from the WC2026 fixture/result source.
+
+## dbt Observability
 
 Schema: `polymarket_wc2026_observability`
 
@@ -279,8 +289,3 @@ DROP TABLE IF EXISTS polymarket_wc2026_raw.markets;
 ```
 
 Then materialize `polymarket_wc2026_raw_markets`.
-
-This release changes strict raw/ops schemas for results provenance, minute
-fetch audit, and Polygon settlement storage. Reset an existing local warehouse
-(`rm oddsfox.duckdb*`) before rerunning the pipeline; no compatibility or
-migration path is provided.

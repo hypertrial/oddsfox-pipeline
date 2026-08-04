@@ -313,7 +313,7 @@ MIT-licensed project data. See `THIRD_PARTY_NOTICES.md`.
   / WAL/SHM files, parquet/CSV exports, source documents, or other local
   artifacts (see [`.gitignore`](.gitignore)).
 - Invent commands outside the Makefile; if a check is missing, add a Makefile target rather than documenting one-off scripts as the gate.
-- Add runtime scope such as soccer context, simulations, allocation, or web integration without explicit product direction; v0.1.x ships the WC2026 Polymarket ingest and warehouse implementation only.
+- Add runtime scope such as soccer context, simulations, allocation, or web integration without explicit product direction; v0.1.x ships fixed WC2026 Polymarket and Kalshi ingest and warehouse graphs only.
 - Add legacy, compat, deprecated, or migration shims unless the task explicitly requests backward compatibility.
 
 ## Pull requests

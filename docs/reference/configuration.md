@@ -152,8 +152,8 @@ Shared volume floors, trailing hourly windows, and freshness windows live in
 the `<namespace>_pipeline_policy.csv` seeds (see [Naming](naming.md)):
 
 - `dbt/seeds/polymarket_wc2026_pipeline_policy.csv` — Polymarket WC2026 sticky
-  event admission via `event_min_lifetime_volume_usd` (currently `100000`) and
-  FIFA result-source freshness via `results_freshness_hours`.
+  event admission via `event_min_lifetime_volume_usd` (currently `100000`) for
+  the golden mart.
 - `dbt/seeds/kalshi_wc2026_pipeline_policy.csv`
 
 Python defaults are checked against those seeds in unit tests.
@@ -200,10 +200,10 @@ covered under
 [API fidelity and pipeline policy thresholds](#api-fidelity-and-pipeline-policy-thresholds).
 
 The packaged WC2026 event prefixes include `fifwc-` so exact match events are
-discovered deterministically alongside tag discovery. The combined match job
-sets the Gamma keyset volume floor to zero and the odds volume filter to null for exact
-`soccer_team_to_advance` markets; source-specific progression jobs keep their
-normal event-volume defaults.
+discovered deterministically alongside tag discovery. The isolated match-minute
+job sets the Gamma keyset volume floor to zero and the odds volume filter to
+null for exact `soccer_team_to_advance` markets; the golden-mart full pipeline
+keeps normal event-volume defaults.
 
 ## Kalshi WC2026
 
@@ -284,5 +284,5 @@ schedule or enable flag. Its only credential is the optional-until-needed
 `PMXT_API_KEY`.
 
 The neutral `wc2026_*` schemas are a breaking local warehouse layout change.
-v0.1.x has no compatibility aliases or migration path; delete
-`oddsfox.duckdb*` and rerun quickstart when upgrading an older warehouse.
+v0.1.x has no compatibility aliases or migration path; see
+[Terminology](terminology.md).

@@ -3,18 +3,14 @@
 OddsFox Pipeline is local-first prediction-market pipeline software. Operators
 supply source data, run ingestion into their own warehouse, and may create
 immutable internal WC2026 Polygon settlement audit bundles and derive
-allowlisted technical CSV dossiers from them entirely offline. It does not host
-datasets or upload outputs. Trade execution is a separate concern owned by
-`oddsfox-execution`.
-
-Hypertrial owns and licenses the first-party project under MIT and operates no
-continuous live ingestion, hosted production pipeline, or hosted data service.
-See the
-[authoritative licence scope](https://github.com/hypertrial/oddsfox-pipeline/blob/main/THIRD_PARTY_NOTICES.md).
+allowlisted technical CSV dossiers from them entirely offline. Distribution
+boundaries and non-goals live in
+[Scope and non-goals](scope-and-non-goals.md); the operator checklist in
+[Operator responsibilities](operator-responsibilities.md).
 
 ```text
 Public sources and private canonical snapshots
-  -> oddsfox-pipeline: DuckDB warehouse (documented marts + private wc2026.v1 strategy contract)
+  -> oddsfox-pipeline: DuckDB warehouse (documented *_marts per pipeline; optional private wc2026.v1 from routine WC2026 paths)
   -> oddsfox-strategy: versioned signal batches
   -> oddsfox parent: policy-capped explicit intent plans
   -> oddsfox-execution: paper orders and trades
@@ -37,22 +33,12 @@ clean-data relations live in
 [Strategy contracts](../reference/strategy-contracts.md). Vocabulary lives in
 [Terminology](../reference/terminology.md).
 
-## Local-First Data
-
-OddsFox Pipeline ships software and operator tooling, not production datasets.
-Each operator supplies inputs and controls the resulting DuckDB file or
-self-managed warehouse.
-
-Pipeline outputs are not execution inputs unless the private
-strategy and parent control plane convert them into an admitted explicit intent
-for `oddsfox-execution`.
-
 ## Repository Roles
 
 | Repository | Role | Input | Output |
 | --- | --- | --- | --- |
 | private `oddsfox` | Superproject, private collectors, orchestration, policy, dispatch, deployment, and monitoring. | Private/public source changes and signal batches. | Canonical raw snapshots and effective intent plans. |
-| `oddsfox-pipeline` | Ingests operator-configured sources and validated canonical snapshots, then builds stable dbt marts. | Source APIs, finalized Polygon logs, operator-supplied CSV/TXT inputs, and `oddsfox.raw.v1`. | Local DuckDB marts, private `wc2026.v1` strategy clean-data, telemetry, internal Polygon audit bundles, and optional allowlisted technical exports. |
+| `oddsfox-pipeline` | Ingests operator-configured sources and validated canonical snapshots, then builds stable dbt marts. | Source APIs, finalized Polygon logs, operator-supplied CSV/TXT inputs, and `oddsfox.raw.v1`. | Local DuckDB `*_marts` per pipeline; private `wc2026.v1` strategy clean-data only from routine Polymarket/Kalshi WC2026 paths; telemetry; internal Polygon audit bundles; optional allowlisted technical exports. |
 | private `oddsfox-strategy` | Runs WC2026 discovery, models, arbitrage, and allocation. | Read-only `wc2026.v1` strategy clean-data. | Immutable `oddsfox.signal.v1` batches. |
 | `oddsfox-execution` | Executes externally generated order intents under durable risk controls. | Authenticated strategy intents and current venue state. | Orders, trades, positions, audit events, and operator controls. |
 | `oddsfox-dash` | Archived historical WC2026 graph client. | Retired `/api/v0` contract. | No supported deployment. |
@@ -69,6 +55,5 @@ for `oddsfox-execution`.
 
 ## Operator Path
 
-Run ingestion independently. Strategies may consume
-those outputs, but they communicate with execution only through the
-`oddsfox-execution` `/v1` intent API.
+Run ingestion independently. Strategies may consume routine-path `wc2026.v1`
+outputs; execution is separate — see [Integration](integration.md).

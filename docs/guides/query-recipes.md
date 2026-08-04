@@ -1,8 +1,7 @@
-# Query Cookbook
+# Query recipes
 
-These examples use fully qualified DuckDB table names and assume the current
-working directory contains `oddsfox.duckdb`. If `.env` sets `DUCKDB_PATH`, open
-that file instead.
+Copy-paste SQL examples. For table selection, trust checks, and Python access,
+start with [Query the warehouse](query-the-warehouse.md).
 
 ## WC2026 In-Game Minute Moneylines And Advance Odds
 
@@ -91,6 +90,10 @@ order by event_slug, question;
 ```
 
 ## WC2026 Fixtures And Team Status
+
+Prerequisite: run `kalshi:wc2026 --step full` or the isolated match-minute path
+so `international_results_wc2026_*` marts exist. The Polymarket golden-mart
+quickstart does not refresh FIFA fixtures/results.
 
 Join hourly odds to tournament state manually when question text or event
 metadata implies a team:
@@ -201,90 +204,4 @@ select
 from kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds
 where group_letter = 'A'
 order by canonical_team_name, odds_hour_epoch;
-```
-
-## Run Health And Freshness
-
-Latest Polymarket WC2026 ingestion telemetry:
-
-```sql
-select *
-from polymarket_wc2026_observability.polymarket_wc2026_ingestion_run_observability
-order by recorded_at desc
-limit 20;
-```
-
-Latest Kalshi ingestion telemetry:
-
-```sql
-select *
-from kalshi_wc2026_observability.kalshi_wc2026_ingestion_run_observability
-order by recorded_at desc
-limit 20;
-```
-
-Latest hourly data available in each major time-series mart:
-
-```sql
-select
-    'polymarket_wc2026' as mart,
-    max(odds_hour_utc) as latest_hour
-from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
-union all
-select
-    'kalshi_stage',
-    max(odds_hour_utc)
-from kalshi_wc2026_marts.kalshi_wc2026_stage_market_hourly_odds
-union all
-select
-    'kalshi_group_winner',
-    max(odds_hour_utc)
-from kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds
-```
-
-## Python And Pandas
-
-```python
-import duckdb
-
-con = duckdb.connect("oddsfox.duckdb", read_only=True)
-
-df = con.sql("""
-    select
-        event_slug,
-        question,
-        close_odds,
-        odds_hour_utc
-    from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
-    where is_active
-      and not is_closed
-    order by event_slug, question, odds_hour_epoch desc
-""").df()
-```
-
-Export one query to CSV:
-
-```python
-con.sql("""
-    copy (
-        select *
-        from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
-        where is_active
-          and not is_closed
-    )
-    to 'wc2026_active_market_hourly.csv' (header, delimiter ',')
-""")
-```
-
-Export to Parquet:
-
-```python
-con.sql("""
-    copy (
-        select *
-        from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
-    )
-    to 'wc2026_market_hourly.parquet'
-    (format parquet)
-""")
 ```

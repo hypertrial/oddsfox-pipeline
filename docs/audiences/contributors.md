@@ -3,35 +3,8 @@
 Use this hub when changing code, dbt models, docs, or orchestration. For
 operator setup, start with [Quickstart](../getting-started/index.md).
 
-## Setup
-
-```bash
-uv sync --group dev
-cp .env.example .env
-```
-
-Keep schedules disabled unless you intentionally test live ingestion. Docs
-contributors should install Chromium into the Makefile runtime browser cache
-once:
-
-```bash
-uv run make runtime-dirs
-PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/runtime/ms-playwright" \
-  uv run playwright install chromium
-```
-
-## Which Quality Gate?
-
-| Change | Gate |
-| --- | --- |
-| Docs, styles, or `mkdocs.yml` only | `uv run make docs-check` |
-| Ordinary code or test PR (including dependency, Dagster, dbt, data-quality) | `uv run make ci-fast` |
-| Major-version publish only | `uv run make release-gate` |
-| Live network acceptance (local only) | `match-minute-live-smoke` or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
-
-The full command tables and layout guardrails live in
-[AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md).
-Do not duplicate them elsewhere.
+Setup, quality gates, and targeted Make commands live in
+[Development](../development/index.md) and [CONTRIBUTING.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CONTRIBUTING.md).
 
 ## Contribution Checklists
 
@@ -41,7 +14,6 @@ See [Development](../development/index.md) for:
 - Add a market adapter
 - Add a documented mart
 - Add a fixed scope
-- Targeted Make commands
 
 ## Data And IP Hygiene
 

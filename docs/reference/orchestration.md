@@ -213,15 +213,19 @@ unrelated Polymarket tests.
   ledgers. It neither joins the two outcome streams by time nor enters the
   routine hourly/full selections. Empty books remain auditable raw snapshots
   but generate no artificial public levels.
-- FIFA results supply the real-team validation inputs used by dbt.
+- Kalshi and match-minute dbt paths use `international_results_wc2026_*` marts for
+  real-team validation; the Polymarket golden-mart closure does not.
 - The Polygon settlement asset is a parallel historical path. Its market and
   fixture semantics come only from the reviewed dbt seed at runtime. It scans
   finalized Polygon logs and stores normalized economic legs without wallets,
   order hashes, signatures, raw event payloads, oracle prose, or RPC URLs.
 - The ordinary Polymarket dbt/full jobs build only
-  `+polymarket_wc2026_market_hourly_odds` and exclude `tag:polygon_settlement`,
-  `tag:pmxt_order_book`, and `tag:market_portrait`; only dedicated backfills or
-  replay-backed validation targets build those graphs.
+  `+polymarket_wc2026_market_hourly_odds` and exclude
+  `tag:match_minute tag:wc2026_strategy wc2026_fixtures wc2026_schedule_matches
+  wc2026_team_canonical_aliases tag:polygon_settlement tag:pmxt_order_book
+  tag:market_portrait` (see `POLYMARKET_WC2026_SCOPE.dbt_exclude` in
+  `src/oddsfox_pipeline/orchestration/shipped_scopes.py`); only dedicated
+  backfills or replay-backed validation targets build those graphs.
 
 ### Kalshi WC2026
 

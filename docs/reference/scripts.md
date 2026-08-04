@@ -11,6 +11,7 @@ Run them through `uv run python` so they use the repo environment.
 - `sync_polymarket_markets_catalog.py`: sync every Gamma market with volume ≥ $100k via `/markets/keyset` (`volume_num_min`, `after_cursor`; open + closed passes) into `polymarket_catalog_raw.markets`. Optional operator utility; not required for the golden WC2026 hourly mart.
 - `export_polymarket_wc2026_market_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds` to Parquet under `artifacts/polymarket_wc2026_exports/`.
 - `export_polymarket_wc2026_match_minute_odds.py`: write the 104-game match-minute mart to a temporary Parquet, validate its grain, 104/248/496 inventory, proposition mix, timing, elapsed-axis invariants, and immutable results provenance, then atomically replace the prior artifact. It prints completeness, boundary nulls, pair warnings, elapsed range and over-120-minute games, revision/hash, file size, and SHA-256; quality warnings do not fail export.
+- `generate_polymarket_wc2026_market_portrait_target.py`: generate a non-credit-consuming PMXT target candidate YAML from the warehouse working set for operator review. Calls Gamma for fresh identities. Output defaults to `.cache/market_portrait_targets/match-<fifa_match_id>.yml`.
 - `generate_polymarket_wc2026_polygon_settlement_seed.py`: developer-only
   authoring tool. It downloads the hash-pinned CC0 OpenFootball fixture files
   and pinned official FIFA schedule PDF, derives condition/question/token

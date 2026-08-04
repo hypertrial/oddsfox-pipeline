@@ -1,9 +1,10 @@
 # Day-Two Operations
 
-Use this guide after a successful first scope run. Cadence below is guidance,
-not a required operations policy.
+Use this guide after a successful first scope run. The manual cadence below is
+operational guidance, not Dagster schedule configuration. Keep schedule flags
+false until you intentionally enable them (see [Schedules](#schedules)).
 
-## Suggested Cadence
+## Suggested manual cadence
 
 | Activity | When to consider it |
 | --- | --- |
@@ -47,5 +48,6 @@ schedule-enable flags.
 
 - [Recreate local marts](recreate-local-marts.md) for WC2026 minute marts
   ([match-minute](recreate-match-minute-mart.md),
+  [order-book](recreate-match-order-book-mart.md),
   [Polygon settlement](recreate-polygon-settlement-mart.md))
 - [Operators](../audiences/operators.md) hub for the full operator map

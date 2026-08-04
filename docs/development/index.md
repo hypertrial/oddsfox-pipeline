@@ -18,79 +18,14 @@ Polymarket WC2026 and Kalshi WC2026 adapters, marts, and orchestration. For a sh
 
 ## Local Setup
 
-```bash
-uv sync --group dev
-cp .env.example .env
-```
-
-`uv sync --group dev` (the uv default group) installs the aggregate contributor
-toolset. CI workers pass `--no-default-groups` and only the groups each job
-needs (`test`, `coverage`, `python-lint`, `dbt-lint`, `docs`, `docs-render`,
-`mutation`).
-
-Keep schedules disabled for local development unless intentionally testing live
-ingestion:
-
-```dotenv
-POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
-KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
-```
-
-For documentation work, install Chromium once into the Makefile runtime browser
-cache, then leave the live-reload server running while you edit:
-
-```bash
-uv run make runtime-dirs
-PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/runtime/ms-playwright" \
-  uv run playwright install chromium
-uv run make docs-serve
-```
-
-Open `http://127.0.0.1:8000`. MkDocs rebuilds and refreshes the page after each
-saved documentation, stylesheet, or configuration change; no restart is needed.
+See [Quickstart](../getting-started/index.md) for `uv sync`, `.env`, schedule
+flags, and docs-browser setup.
 
 ## Which Quality Gate?
 
-| Change | Gate |
-| --- | --- |
-| Docs, styles, or `mkdocs.yml` only | `uv run make docs-check` |
-| Ordinary code or test PR (including dependency, Dagster, dbt, data-quality) | `uv run make ci-fast` |
-| Major-version publish only | `uv run make release-gate` |
-| Live network acceptance (local only) | `match-minute-live-smoke` or `polygon-settlement-live-smoke` — never add these to GitHub Actions |
-
-`ci-fast` and `release-gate` run isolated parallel lanes that mirror GitHub's
-worker topology. Use `ci-fast-core` / `release-gate-core` when you need a
-sequential diagnostic pass. Local `release-gate` runs four top-level lanes
-(`-j4`); coverage shards write distinct `COVERAGE_FILE`s and combine, dbt-quality
-overlaps unit/freshness/polygon before build+Costguard, and Mutmut is capped
-with `MUTMUT_MAX_CHILDREN` (default `2`). Each lane overrides
-`ODDSFOX_RUNTIME_ROOT` so disposable dbt DuckDB files and dbt target dirs do not
-collide; `dbt-prepare` serializes `dbt deps` across lanes. Override
-`DBT_TEST_WORKERS` (default `4`) to bound parallel incremental dbt cases.
-Capture cold/warm timings with
-`uv run make gate-timing GATE_TIMING_ARGS='--label warm unit-orchestration test'`.
-
-The canonical Make target tables, Costguard install, coverage rules, and
-no-legacy policy live in
+Quality gates, targeted Make commands, Costguard install, coverage rules, and
+layout guardrails live in
 [AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md).
-Do not duplicate those tables here.
-
-Python 3.10 is the supported floor and remains the full-release runtime.
-Automatic pull-request CI also requires package smoke and the ordinary test
-suite on Python 3.13. Release integration tests compare incremental execution
-with full refresh for all five incremental odds models, replay each shipped
-refresh path twice, and verify recovery after a transactional Polymarket writer
-failure.
-
-All Make child processes use `.cache/runtime/` for temporary files, Python
-bytecode, and dbt output. Parallel gate lanes isolate tmp/XDG/dbt/DuckDB state
-under per-lane `ODDSFOX_RUNTIME_ROOT` dirs, while uv and Playwright browser
-caches stay shared at `.cache/runtime/uv` and `.cache/runtime/ms-playwright`.
-Polygon and local mart rebuild targets also use SSD-local DuckDB extension
-directories. Put the checkout on the intended SSD and export the same
-parent-process paths before the first `uv` command. The
-[local mart recreation guide](../guides/recreate-local-marts.md) documents the
-complete setup and the offline full-refresh proof for both minute marts.
 
 Dagster dbt assets enable dbt source tests as asset checks. Row-count and
 column metadata fetching is available through `DbtBuildConfig` but stays
@@ -116,9 +51,9 @@ change.
    or runbooks when operator behavior changes, and
    [Data contracts](../reference/data-contracts.md) / the
    [Data dictionary](../reference/data-dictionary.md) when documented marts change.
-6. Run the gate tree above, then the broader targets listed in AGENTS.md.
+6. Run the gate tree in [AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md).
 
-## Add A Public Mart
+## Add a documented mart
 
 1. Add dbt models under the correct source-first schema layers and tags.
 2. Define grain, null policy, and intended use in
@@ -141,7 +76,7 @@ debt includes:
   showed it is reused heavily by WC2026 marts and the dbt build stayed
   neutral or faster after the change.
 - `int_polymarket_wc2026_market_tokens` is materialized as a table because it
-  feeds the public knockout token classifier. Costguard now tracks its remaining
+  feeds multiple WC2026 intermediate joins. Costguard now tracks its remaining
   incremental-conversion question as `SQLCOST040`.
 - `int_polymarket_wc2026_token_hourly_odds` is an incremental private fact that
   reprocesses dirty hourly buckets from raw odds `ingested_at` overlap.
@@ -187,46 +122,6 @@ when settings reload from disk. See
 - Call `isolate_duckdb_test_env(monkeypatch, db_path)` in ingestion or
   orchestration tests that reload settings but cannot use the `duck` fixture
   directly.
-
-## Targeted Test Commands
-
-| Target | Use |
-| --- | --- |
-| `uv run make unit-core` | Config, resource, and storage unit tests. |
-| `uv run make unit-ingest` | Polymarket ingestion and odds sync tests. |
-| `uv run make unit-orchestration` | Dagster asset, job, and schedule tests. |
-| `uv run make dagster-jobs-smoke` | Headless deterministic smoke for every registered public job. |
-| `uv run make dagster-jobs-smoke-cov` | Coverage version of registered public job smoke. |
-| `uv run make dagster-refresh-cov` | Coverage for scoped Dagster E2E, writer recovery, and dbt wiring. |
-| `uv run make check-repository` | Ownership suite for Make/workflow/naming/distribution/terminology/secrets/static dbt checks. |
-| `uv run make integration-dbt` | DuckDB and dbt smoke tests. |
-| `uv run make integration-dagster` | Dagster integration smoke tests. |
-| `uv run make test-cov` | Unit tests with coverage accumulation (`-n auto`). |
-| `uv run make integration-dagster-cov` | Local wrapper for both split Dagster coverage targets. |
-| `uv run make pipelines-deterministic` | Dev-only all-pipelines offline validation (Dagster, dbt integration, Polygon, match-minute, production dbt build). |
-| `uv run make integration-dbt-cov` | DuckDB + dbt integration with coverage append. |
-| `uv run make dbt-unit` | dbt unit tests for classifier and mart edge-case SQL. |
-| `uv run make golden-dbt` | Standalone exact-output mart fixtures (also run by `integration-dbt`). |
-| `uv run make dbt-prepare` | Shared dbt deps/parse into the active `DBT_TARGET_PATH`. |
-| `uv run make gate-timing` | Opt-in JSON timings under `.cache/runtime/benchmarks/`. |
-| `uv run make dbt-source-freshness-ci` | Seed temp source rows and run dbt source freshness. |
-| `uv run make coverage-report` | Coverage report gate (`--fail-under=100`). |
-| `uv run make check-secrets` | Repo policy check for tracked secret leakage. |
-| `uv run make runtime-dirs` | Create SSD-local runtime, temporary, and cache directories. |
-| `uv run make dbt-build-ci` | Bootstrap disposable DuckDB and run dbt build. |
-| `uv run make dbt-polygon-settlement-ci` | Polygon dbt unit tests plus slim 39,120-row integration against replay fixtures. |
-| `uv run make dbt-match-minute-ci` | Match-minute dbt integration against a synthetic 104/248/496 contract. |
-| `uv run make data-quality` | Safe local dbt build-and-test wrapper against disposable state. |
-| `uv run make mutation` | Resume focused mutation testing for five curated modules and enforce exported Mutmut statistics. |
-| `uv run make mutation-ci` | Start from a clean mutation cache and run the deterministic zero-unresolved-mutant gate. |
-| `uv run make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate. |
-| `uv run make match-minute-live-smoke` | Opt-in disposable live acceptance check for the 104-game Polymarket minute mart. |
-| `uv run make local-marts-rebuild` | Full-refresh and verify both WC2026 minute marts from completed local raw warehouses. |
-| `uv run make polygon-settlement-live-smoke` | Opt-in finalized Polygon backfill against a disposable warehouse. |
-| `uv run make polygon-settlement-seed-validate` | Validate an operator-local reviewed 248-proposition static manifest. |
-| `uv run make costguard-scan` | Run the pinned dbt cost guardrail against an existing dbt build. |
-| `uv run make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard. |
-| `uv run make coverage` | Local one-shot 100% product-core branch coverage gate. |
 
 ## Pull Request Expectations
 

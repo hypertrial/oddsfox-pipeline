@@ -59,9 +59,11 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-**GitHub Private Vulnerability Reporting** on this repository (Security tab),
-as described in [SECURITY.md](SECURITY.md).
+reported to the repository maintainers responsible for enforcement. Do not
+route conduct reports through [SECURITY.md](SECURITY.md) or GitHub Private
+Vulnerability Reporting — those channels are for security vulnerabilities only.
+Open a GitHub issue or contact the maintainers through your organization's
+Hypertrial channel.
 
 All complaints will be reviewed and investigated promptly and fairly.
 

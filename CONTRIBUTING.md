@@ -7,30 +7,10 @@ plus a small FIFA fixture/results source for real-team scope validation.
 
 ## Development setup
 
-```bash
-uv sync --group dev
-cp .env.example .env
-```
-
-Documentation contributors should also install the browser used by the
-responsive docs smoke tests into the Makefile runtime cache:
-
-```bash
-uv run make runtime-dirs
-PLAYWRIGHT_BROWSERS_PATH="$PWD/.cache/runtime/ms-playwright" \
-  uv run playwright install chromium
-```
-
-The default warehouse is `oddsfox.duckdb` in the repo root. Keep schedules disabled in local dev and CI unless you intentionally run live ingestion:
-
-```dotenv
-POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
-KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
-```
-
 See the [Quickstart](docs/getting-started/index.md) and
-[Configuration reference](docs/reference/configuration.md) for full operator
-setup. Use [Terminology](docs/reference/terminology.md) for product vocabulary.
+[Development guide](docs/development/index.md) for local setup. Use
+[Terminology](docs/reference/terminology.md) for product vocabulary and the
+[Configuration reference](docs/reference/configuration.md) for `.env` details.
 
 ## Source adapter contributions
 
@@ -81,25 +61,10 @@ submit the material and that it meets the data and IP hygiene rules above.
 
 ## Quality gate
 
-| Change | Gate |
-| --- | --- |
-| Docs / MkDocs only | `uv run make docs-check` |
-| Ordinary PR (including dependency, Dagster, dbt, data-quality) | `uv run make ci-fast` (`GATE_JOBS` DAG; use `ci-fast-core` for `-j1`) |
-| Major-version publish only | `uv run make release-gate` (`GATE_JOBS` DAG; use `release-gate-core` for `-j1`) |
-| Live network acceptance | Local-only smokes; never add to GitHub Actions |
-
-The canonical command tables, Costguard install, and layout guardrails live in
-[AGENTS.md](AGENTS.md). Contributor checklists and the same gate tree are in
-the [Development guide](docs/development/index.md) and
+Quality gates, targeted Make commands, and layout guardrails live in
+[AGENTS.md](AGENTS.md). Contributor checklists are in the
+[Development guide](docs/development/index.md) and
 [Contributors hub](docs/audiences/contributors.md).
-Data quality remains dbt-native through `uv run make data-quality`. Use
-`uv run make mutation` for resumable focused work and `uv run make mutation-ci`
-for a clean strict mutation run over the five curated deterministic modules.
-Automatic CI verifies the Python 3.10 support floor and requires package and
-ordinary-test compatibility on Python 3.13. Release integration tests compare
-every incremental odds model with a full refresh and exercise repeat-run and
-writer-recovery behavior without live network calls. Repository policy checks
-live under `tests/repository/` (`make check-repository`).
 
 ## Versioning expectations
 
@@ -116,16 +81,8 @@ burden by default.
 
 ## Pull requests
 
-1. Branch from `main`.
-2. Keep changes focused; match existing style (Ruff, sqlfluff for dbt SQL).
-3. Add or update tests for behavior changes.
-4. Do not commit secrets, `.env`, operator seed rows, reviewed attestations,
-   DuckDB files, parquet/CSV exports, source documents, or other local artifacts
-   (see [`.gitignore`](.gitignore)).
-5. Ensure `uv run make ci-fast` passes locally (use `release-gate` only before
-   a major-version publish).
-
-For every proposed data-like file, complete the pull-request provenance
+See [AGENTS.md](AGENTS.md) for the PR checklist, quality gate, and artifact
+policy. For every proposed data-like file, complete the pull-request provenance
 checklist. State whether it is executable project configuration, a header-only
 schema shell, a synthetic test fixture, or third-party material. Third-party
 material must retain its original licence and a file-specific notice.

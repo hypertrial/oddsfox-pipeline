@@ -4,6 +4,7 @@ This subtree validates OddsFox Pipeline. Version `0.1.x`
 ships WC2026 Polymarket and Kalshi ingestion, marts, and orchestration.
 
 See [OddsFox Pipeline docs](../docs/index.md) for setup and runbook commands.
+Targeted Make commands and quality gates live in [AGENTS.md](../AGENTS.md).
 
 Ownership (paths) and execution properties (markers) are separate:
 
@@ -26,31 +27,6 @@ branch diff (vs `origin/main`) touches no Polygon paths or shared infra.
 `dev`: 15). `make test-dev` sets `HYPOTHESIS_PROFILE=dev`; other targets leave
 the default profile.
 
-Useful commands:
-
-```bash
-make unit-core
-make unit-ingest
-make unit-orchestration
-make dagster-jobs-smoke
-make dagster-jobs-smoke-cov
-make dagster-refresh-cov
-make dbt-unit
-make golden-dbt
-make dbt-source-freshness-ci
-make data-quality
-make mutation
-make mutation-ci
-make integration-dbt
-make integration-dagster
-make pipelines-deterministic
-make contract-http
-make test
-make test-dev
-make coverage
-make check-repository
-```
-
 The ordinary `make test` suite uses xdist and excludes `tests/integration`,
 `tests/contract`, `tests/repository`, `tests/docs`, and `tests/package`; those
 paths retain dedicated targets. `make check-repository` runs the `repo_check`
@@ -61,19 +37,6 @@ workers reuse one shared dbt manifest under `DBT_TARGET_PATH`.
 default 2) from the remaining serial DuckDB/dbt suite, which includes the golden
 marts. Standalone `make golden-dbt` remains available but is not duplicated in
 the release gate.
-
-Ordinary work uses `ci-fast`. `release-gate` is for major-version publishes
-only. Both use one Make jobserver (`GATE_JOBS`, default 4) over a prerequisite
-DAG; use `ci-fast-core` / `release-gate-core` for a true `-j1` sequential
-diagnosis of the same graph. Coverage shards write distinct `COVERAGE_FILE`s
-under the release coverage runtime and combine once; subprocess pools are
-capped with `RELEASE_PYTEST_WORKERS`, `DBT_TEST_WORKERS`, and
-`MUTMUT_MAX_CHILDREN`. GitHub's automatic `tests` worker runs the parallel fast
-suite and serial `make contract-http` while independent static/docs and dbt-lint
-workers run in parallel. A required Python 3.13 worker repeats package smoke and
-the ordinary suite while Python 3.10 remains the supported floor and full-release
-runtime. The `contract` marker remains excluded from `make test` and
-`make test-cov`.
 
 Dagster integration is layered:
 
@@ -92,14 +55,6 @@ dev-only convenience target, not a `ci-fast` substitute.
 Together with the other coverage commands, they enforce 100% branch coverage for
 `src/oddsfox_pipeline` except the warehouse profiling operator helpers under
 `storage/duckdb/profile/`, which are covered by smoke tests instead.
-
-`make data-quality` rebuilds disposable dbt state and runs the dbt-native model
-and data tests. `make mutation` resumes cached focused Mutmut work; `make
-mutation-ci` deletes `mutants/` first and is the deterministic release gate.
-Its five-module scope covers outbound URL safety, raw snapshot contracts,
-market-scope predicates, market persistence, and odds planning. Mutation output
-is local or a short-lived Manual Full Validation artifact and must not be
-committed.
 
 The dbt integration suite requires incremental/full-refresh equivalence for
 every incremental odds model, including late, null-refresh, new-key, uniqueness,

@@ -2,7 +2,8 @@
 
 For market portraits, this public repository owns the PMXT acquisition,
 prediction-market semantics, provider-neutral story construction, and the
-`oddsfox.market-portrait.v1` file contract. Production bundles are private
+`oddsfox.market-portrait.v1` file contract. Mart contracts for bundle inputs
+are in [Data contracts](data-contracts.md). Production bundles are private
 operator artifacts, not repository inputs.
 
 Private collection, source-native schemas, sanitation implementation, and
@@ -16,7 +17,7 @@ implementation.
 Build the normal World Cup market working set, then create a review candidate:
 
 ```bash
-python scripts/generate_polymarket_wc2026_market_portrait_target.py \
+uv run python scripts/generate_polymarket_wc2026_market_portrait_target.py \
   --fifa-match-id 95
 ```
 
@@ -109,9 +110,8 @@ through it.
 ## Recovery and retention
 
 Interrupted PMXT work resumes from terminal window leaves. Preserve a completed
-warehouse until the bundle is verified. For this pre-1.0 release, do not migrate
-old warehouse layouts: preserve the old database separately, rebuild a clean
-warehouse, and reacquire only operator-approved targets.
+warehouse until the bundle is verified. Older warehouse layouts require a
+rebuild; see [Terminology](terminology.md).
 
 Keep source bundles inside the caller-managed private export root. Copy an MP4
 out only after the operator completes rights and provenance review.

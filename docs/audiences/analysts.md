@@ -29,28 +29,29 @@ dataset.
     need Dagster schedules or Polygon settlement history for ordinary mart
     queries.
 
-## Join Map
+## Join map
 
 ```mermaid
 flowchart LR
+  golden["market_hourly_odds"]
+  kalshi["kalshi hourly odds"]
   teams["team_status"]
-  knockout["knockout_markets"]
-  hourly["provider hourly odds"]
-  fifa["fifa_match_id marts"]
+  fifa["matches"]
   obs["observability"]
 
-  teams -->|"canonical_team_name"| knockout
-  teams -->|"canonical_team_name"| hourly
-  knockout -->|"clob_token_id"| hourly
-  knockout --> obs
-  hourly --> obs
+  golden --> obs
+  kalshi --> obs
+  teams -->|"canonical_team_name"| kalshi
   fifa --> obs
 ```
 
 Practical join rules:
 
-- Join Polymarket/Kalshi team fields to
-  `international_results_wc2026_team_status.team_name` via `canonical_team_name`.
+- After a Polymarket `full` run, start from
+  `polymarket_wc2026_market_hourly_odds` (see [Data dictionary](../reference/data-dictionary.md)).
+- Join Kalshi team fields to `international_results_wc2026_team_status.team_name`
+  via `canonical_team_name` only when that mart exists (Kalshi or match-minute
+  ingest, not the default Polymarket golden path).
 - Minute marts use official `fifa_match_id`. Fixture rows in
   `international_results_wc2026_matches` use `match_id`; do not assume those
   identifiers are interchangeable without a documented bridge.
@@ -67,4 +68,4 @@ Practical join rules:
 | Copy-paste SQL and Python | [Query recipes](../guides/query-recipes.md) |
 | Grain, filters, and common mistakes | [Data dictionary](../reference/data-dictionary.md) |
 | Formal contract guarantees | [Data contracts](../reference/data-contracts.md) |
-| Term definitions | [Glossary](../concepts/glossary.md) |
+| Term definitions | [Terminology](../reference/terminology.md) |

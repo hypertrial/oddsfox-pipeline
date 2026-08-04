@@ -1,4 +1,4 @@
-# Analyst Guide
+# Query the warehouse
 
 Use this page when you want to query OddsFox Pipeline data, not operate it.
 OddsFox Pipeline ships code and local warehouse tooling, not a hosted dataset.
@@ -15,36 +15,13 @@ definitions live in the [Glossary](../concepts/glossary.md).
 
 === "I already have a warehouse"
 
-    Open it directly:
-
-    ```bash
-    duckdb oddsfox.duckdb
-    ```
-
-    The default warehouse is `oddsfox.duckdb` in the repo root. If `.env` sets
-    `DUCKDB_PATH`, query that file instead. See
-    [Configuration](../reference/configuration.md)
-    for path precedence. Prefer `read_only=True` in Python notebooks.
+    Open `oddsfox.duckdb` (or the file in `DUCKDB_PATH`). See
+    [Configuration](../reference/configuration.md) for path precedence.
 
 === "I need a warehouse first"
 
-    Ask an operator to run a scope, or run one yourself:
-
-    ```bash
-    uv sync --group dev
-    cp .env.example .env
-    uv run python scripts/run_scope.py polymarket:wc2026 --step full
-    ```
-
-    Optional shipped scopes:
-
-    ```bash
-    uv run python scripts/run_scope.py kalshi:wc2026 --step full
-    ```
-
-    Use [Quickstart](../getting-started/index.md) for the full operator path.
-    Polygon settlement history is optional and advanced; ordinary mart queries
-    do not need it.
+    Follow [Quickstart](../getting-started/index.md), or ask an operator to run
+    a scope. See [Analysts](../audiences/analysts.md) for the full analyst map.
 
 ## Query Rules
 
@@ -91,8 +68,8 @@ running Dagster/dbt writer.
 | WC2026 Polymarket hourly odds | `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds` | One row per `market_id`, `odds_hour_epoch`; Yes-outcome CLOB prices with market and event metadata. |
 | WC2026 in-game match minutes | `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds` | Dense minute series for all 104 matches; requires the match-minute path, not ordinary hourly ingest alone. |
 | Argentina–Egypt historical L2 depth | `polymarket_wc2026_marts.polymarket_wc2026_match_order_book` | Long-form independent bid/ask levels for both PMXT outcome-token snapshot streams; requires the unscheduled PMXT backfill. |
-| WC2026 fixtures and results | `international_results_wc2026_marts.international_results_wc2026_matches` | One row per `match_id`, with knockout advancer inference. |
-| WC2026 team status | `international_results_wc2026_marts.international_results_wc2026_team_status` | Join on `canonical_team_name` or `team_name`. |
+| WC2026 fixtures and results | `international_results_wc2026_marts.international_results_wc2026_matches` | One row per `match_id`, with knockout advancer inference; requires Kalshi full pipeline or match-minute ingest, not the Polymarket golden-mart quickstart. |
+| WC2026 team status | `international_results_wc2026_marts.international_results_wc2026_team_status` | Join on `canonical_team_name` or `team_name`; same ingest prerequisite as fixtures/results. |
 | Current Kalshi stage prices | `kalshi_wc2026_marts.kalshi_wc2026_stage_markets` | Filter to `is_actionable_live_market`. |
 | Kalshi stage hourly series | `kalshi_wc2026_marts.kalshi_wc2026_stage_market_hourly_odds` | Use `progression_*_price` for stage progression semantics. |
 | Current Kalshi group-winner prices | `kalshi_wc2026_marts.kalshi_wc2026_group_winner_markets` | Use `group_winner_price`. |

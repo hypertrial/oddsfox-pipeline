@@ -5,8 +5,7 @@ Schedules stay disabled until manual jobs and dbt builds are healthy.
 
 ## Path
 
-1. **First run** — [Quickstart](../getting-started/index.md) (Polymarket WC2026).
-   That full scope also refreshes FIFA results used for real-team validation.
+1. **First run** — [Quickstart](../getting-started/index.md) (Polymarket WC2026 golden mart).
 2. **Other scopes** — [Choose a scope](../getting-started/choose-a-scope.md) and
    [Run a scope](../guides/run-a-scope.md).
 3. **Day-two** — [Day-two operations](../guides/day-two-operations.md).
@@ -51,5 +50,5 @@ These are optional. They are not part of the default quickstart.
 | Match order book (mature, isolated) | [Recreate PMXT order-book mart](../guides/recreate-match-order-book-mart.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
 | Market portrait (mature, isolated) | [Market portrait](../reference/market-portrait.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
 | Isolated Polygon settlement history | [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md) |
-| Knockout parquet exports | [Scripts](../reference/scripts.md) |
+| Golden mart Parquet export | [Scripts](../reference/scripts.md) (`export_polymarket_wc2026_market_hourly_odds.py`) |
 | Configuration reference | [Configuration](../reference/configuration.md) |

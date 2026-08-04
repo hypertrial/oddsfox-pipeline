@@ -9,8 +9,8 @@ Short analyst and operator shortcuts. Normative definitions live in
 **progression** — Price or label normalized to a team advancing or reaching a
 stage, not necessarily the venue's raw Yes token wording.
 
-**price_represents** — Column that states what price columns mean. For
-Polymarket WC2026 knockout marts, expect `progression`.
+**price_represents** — Column that states what price columns mean. For Kalshi
+stage markets, expect `progression`.
 
 **progression_outcome_label** — Human-readable progression outcome tied to the
 normalized price side.
@@ -23,7 +23,7 @@ purpose.
 `stale_live`, `missing_live`, `historical_closed`, `historical_resolved`, or
 `inactive`.
 
-**temporal grain** — What one row uniquely represents (for example one
+**grain** — What one row uniquely represents (for example one
 token-hour or one FIFA match-minute). See
 [Terminology](../reference/terminology.md#observation).
 
@@ -32,19 +32,6 @@ minute marts, dense empty slots usually keep null prices with no forward-fill or
 pair renormalization.
 
 ## Operator And Integration Terms
-
-**pipeline** — A coherent source-to-output data path such as the Polymarket
-WC2026 match-minute odds pipeline. Entry-point jobs are pipelines; narrower jobs
-are steps. Full inventory and maturity tiers:
-[Pipeline registry](../reference/orchestration.md#pipeline-registry). See
-[Terminology](../reference/terminology.md#execution).
-
-**scope** — A fixed shipped product slice within a source, such as `wc2026`.
-Dagster asset configs do not accept arbitrary runtime scope selectors in
-`v0.1.x`. See [Terminology](../reference/terminology.md#identity).
-
-**scope reference** — Chooser encoding `source:scope` such as
-`polymarket:wc2026`. See [Naming](../reference/naming.md).
 
 **wc2026.v1** — Private strategy clean-data contract. See
 [Strategy contracts](../reference/strategy-contracts.md). Ordinary mart

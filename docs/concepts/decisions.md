@@ -5,10 +5,6 @@ over compatibility layers unless a change explicitly scopes legacy work.
 
 ## Local-First, No Hosted Data Service
 
-OddsFox Pipeline is software and operator tooling. Hypertrial does not operate a
-hosted production pipeline or dataset for this repository. Operators supply
-inputs and own warehouses and exports.
-
 Why: keeps MIT distribution, data ownership, and rate limits honest; avoids
 shipping production data in the canonical tree.
 
@@ -35,31 +31,9 @@ See [Choose a scope](../getting-started/choose-a-scope.md).
 
 ## Polygon Settlement Isolation
 
-The Polygon settlement-history pipeline uses an operator-local manifest, finalized
-Polygon V2 logs, and its own unscheduled job and dbt tag. It must not call
-Gamma, CLOB, the Polymarket UI, international-results, or OpenFootball at
-runtime. Ordinary WC2026 odds pipelines do not depend on it.
-
 Why: historical on-chain evidence has different trust, privacy, and operational
 boundaries than quote/CLOB history.
 
-See [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md)
+See [Scope and non-goals](scope-and-non-goals.md),
+[Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md),
 and [Data contracts](../reference/data-contracts.md).
-
-## Pipeline, Step, and Advanced-Family Language
-
-Entry-point jobs (`*_full_pipeline`, or the sole job for single-job isolated
-pipelines) are pipelines. Narrower jobs such as `*_dbt_build`,
-`*_market_scope_registry_refresh`, and `*_hourly_odds_ingest` run one step of a
-pipeline, not a separate pipeline. The
-match-minute, PMXT order-book, and market-portrait jobs are documented together
-as one advanced match-analysis pipeline family. Portrait requires order book
-and trades; minute odds is an independent optional path in the same family,
-without changing job names or schedules.
-
-Why: one authoritative inventory and maturity table prevents counting every
-registered job as a separate pipeline; grouping reflects actual operator
-dependencies.
-
-See [Pipeline registry](../reference/orchestration.md#pipeline-registry) and
-[Terminology](../reference/terminology.md#execution).

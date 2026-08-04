@@ -11,76 +11,58 @@
 
 ## Is there a hosted OddsFox Pipeline dataset or API?
 
-No. This project ships software and documentation. Operators run ingestion and
-own the resulting warehouse. See [Scope and non-goals](scope-and-non-goals.md).
+No — see [Scope and non-goals](scope-and-non-goals.md).
 
 ## Do I get rights in the data with the software?
 
-No. MIT covers the software and docs. It does not grant rights in operator or
-third-party data. See
-[Operator responsibilities](operator-responsibilities.md) and
+No — see [Operator responsibilities](operator-responsibilities.md) and
 [THIRD_PARTY_NOTICES.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/THIRD_PARTY_NOTICES.md).
 
 ## Is this trading or betting advice?
 
-No. Marts and examples are analytics tooling, not investment, betting, or
-trading advice. OddsFox Pipeline is not a venue, broker, or execution service.
+No — see [Scope and non-goals](scope-and-non-goals.md#what-it-does-not-ship-or-operate).
 
 ## May I redistribute my DuckDB file or Polygon export?
 
-Only if you independently have the rights to do so. Populated warehouses,
-exports, and Polygon dossiers are operator-controlled and are not licensed by
-this repository. Polygon technical exports are de-identified, not anonymous.
-See [Operator responsibilities](operator-responsibilities.md).
+Only with independent rights — see
+[Operator responsibilities](operator-responsibilities.md#export-and-redistribution-matrix).
 
 ## Are “validated” runs or exact row counts a Hypertrial certification?
 
-No. Local dbt, CI, and row-count checks verify technical shape against project
-contracts. They are not warranties of completeness, authorization, or fitness
-for trading.
+No — see
+[Operator responsibilities](operator-responsibilities.md#technical-success-is-not-certification).
 
 ## Where is the documentation site?
 
-[data.oddsfox.io](https://data.oddsfox.io/). Validate docs changes locally with
-`uv run make docs-check`. While editing, use `uv run make docs-serve`.
+[data.oddsfox.io](https://data.oddsfox.io/) — validate with `uv run make docs-check`; edit with `uv run make docs-serve`.
 
 ## Do I need API keys?
 
-Kalshi WC2026 uses the public trade API with no credentials. Polymarket public
-pipelines work without CLOB credentials unless a selected live job explicitly
-requires authentication. Polygon settlement needs a finalized-capable JSON-RPC
-endpoint and is optional.
+Kalshi needs none; Polymarket CLOB credentials are optional; Polygon JSON-RPC is optional — see [Configuration](../reference/configuration.md).
 
 ## Can I use Postgres instead of DuckDB?
 
-Not as a supported `v0.1.x` warehouse. The shipped stack targets local DuckDB.
+No — local DuckDB is the supported `v0.1.x` warehouse.
 
 ## Are warehouse migrations supported?
 
-No. If a checkout replaces an older layout, delete `oddsfox.duckdb*` and rerun
-quickstart. See [Design decisions](decisions.md).
+No — delete `oddsfox.duckdb*` and rerun quickstart; see [Design decisions](decisions.md).
 
 ## Are schedules on by default?
 
-No. Keep hourly schedules disabled until manual jobs and dbt builds are healthy.
-See [Enable schedules](../guides/enable-schedules.md).
+No — see [Enable schedules](../guides/enable-schedules.md).
 
 ## Is Polygon settlement required for WC2026 analysis?
 
-No. It is an isolated advanced historical pipeline with its own job and dbt tag.
-Ordinary Polymarket/Kalshi WC2026 marts do not depend on it.
+No — isolated advanced pipeline; ordinary Polymarket/Kalshi marts do not depend on it.
 
 ## How do pipeline outputs relate to trading?
 
-Pipeline marts are analytics outputs. Order execution
-is a separate concern in `oddsfox-execution`. See
-[System overview](system-overview.md) and [Integration](integration.md).
+Analytics only — see [System overview](system-overview.md) and [Integration](integration.md).
 
 ## Are strategy and execution open source in this repo?
 
-No. This repository is the warehouse component. Private strategy and parent
-orchestration live elsewhere; public graph tooling is separate. See the
-repository roles table in [System overview](system-overview.md).
+No — see repository roles in [System overview](system-overview.md).
 
 ## How do I reset a broken local warehouse?
 

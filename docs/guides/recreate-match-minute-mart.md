@@ -1,12 +1,8 @@
 # Recreate the match-minute mart
 
 Build `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds` from a clean
-clone or a preserved raw warehouse. Complete
+clone or preserved raw warehouse. Complete
 [shared setup](recreate-local-marts.md#shared-setup-every-route) first.
-
-You need Git, [`uv`](https://docs.astral.sh/uv/getting-started/installation/),
-an SSD-backed working directory, and network access to FIFA, GitHub, Polymarket
-Gamma, and Polymarket CLOB for the source-fetch route.
 
 ## Create and validate the 104-match schedule overlay
 
@@ -91,13 +87,6 @@ The relation is:
 polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds
 ```
 
-Expected contract:
-
-- 30,936 rows for the reviewed completed-WC2026 source state;
-- 104 distinct matches;
-- 248 distinct markets; and
-- unique `(odds_minute_utc, market_id)` grain.
-
 The Make target prints and asserts the inventory and quality result. Do not
 continue if it exits nonzero.
 
@@ -105,7 +94,6 @@ Historical API availability is not guaranteed. If Gamma or CLOB no longer
 returns the complete interval, use an operator's previously completed raw
 warehouse through the
 [completed-warehouse route](recreate-local-marts.md#alternative-rebuild-completed-raw-warehouses).
-The repository does not host one.
 
 ## Troubleshooting
 
@@ -113,8 +101,3 @@ The repository does not host one.
 | --- | --- |
 | `supply a complete operator-local 104-match schedule` | The schedule must contain exactly 104 records and the integer IDs 1–104 with no duplicate or missing ID. |
 | Gamma/CLOB inventory or history is incomplete | Retry only if the failure is transient; otherwise use a previously completed operator raw warehouse. |
-| A dbt publication/readiness assertion fails | Inspect the named quality relation. Do not bypass the gate or manually publish the candidate table. |
-| A warehouse path is rejected | Keep it below the SSD-backed `ODDSFOX_STORAGE_ROOT` and make sure the file already exists for `local-marts-rebuild`. |
-
-See also [Recreate Polygon settlement mart](recreate-polygon-settlement-mart.md)
-and the [index](recreate-local-marts.md).

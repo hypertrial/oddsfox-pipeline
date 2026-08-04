@@ -34,11 +34,11 @@ dbt parse --project-dir dbt --profiles-dir dbt/profiles
 dbt build --full-refresh --project-dir dbt --profiles-dir dbt/profiles
 ```
 
-WC2026 scoping is encoded in the model graph and
+WC2026 scoping is encoded in the dbt graph and
 `polymarket_wc2026_ops.market_scope_registry`; real-team validation comes from
 `international_results_wc2026_team_status`. There is no dbt scope-selection var.
 
-Public Polymarket WC2026 mart:
+Documented Polymarket WC2026 mart:
 
 - `polymarket_wc2026_market_hourly_odds`
 - `international_results_wc2026_matches`
@@ -56,12 +56,12 @@ international match history, and source provenance. Strategy readiness is
 published in
 `wc2026_observability.wc2026_strategy_input_readiness`.
 
-Private canonical sources are optional for public builds. The project creates
+Private canonical sources are optional for documented mart builds. The project creates
 schema-correct empty raw tables and publishes explicit availability/blocking
 rows; it does not ship private collectors, payloads, URLs, or fixtures. Raw
 snapshot rows and provenance remain append-only, while strategy-facing marts
 use only the latest ledger-declared complete snapshot for each private source.
 Readiness requires that latest payload to contain rows.
 
-If a local DuckDB file still has deleted knockout/catalog marts or older relation
+If a local DuckDB file still has deleted schedule/catalog marts or older relation
 types, reset the local warehouse or drop the affected dbt schemas before rebuilding.

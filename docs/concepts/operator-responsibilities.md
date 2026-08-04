@@ -8,14 +8,9 @@ terms.
 
 ## Authority
 
-OddsFox Pipeline is MIT-licensed software and documentation. The MIT grant
-covers Hypertrial-authored code and docs. It does **not** grant rights in data
-an operator obtains, generates, or supplies, and it does not licence OddsFox
-marks beyond unmodified documentation display.
-
-Public APIs, public blockchain state, and technical interoperability do not
-themselves authorize access, retention, or redistribution of third-party data
-or derived outputs.
+MIT covers Hypertrial-authored code and docs only — not operator or third-party
+data, and not OddsFox marks beyond unmodified documentation display. See
+[Scope and non-goals](scope-and-non-goals.md).
 
 ## Operator Checklist
 
@@ -36,14 +31,10 @@ and [Scope and non-goals](scope-and-non-goals.md).
 
 ## Not Advice And Not A Venue
 
-- Documentation, SQL examples, and marts are analytics tooling for operators who
-  already have rights to their data. They are not investment, betting, or
-  trading advice.
-- OddsFox Pipeline is not a prediction market, exchange, broker, oracle,
-  custodian, or KYC/AML service. It does not hold funds, match orders, or settle
-  markets.
-- Order execution belongs to separate systems such as `oddsfox-execution`; see
-  [System overview](system-overview.md).
+Not investment, betting, or trading advice; not a venue, broker, oracle, or
+custodian. Order execution is separate — see
+[Scope and non-goals](scope-and-non-goals.md#what-it-does-not-ship-or-operate)
+and [System overview](system-overview.md).
 
 ## Export And Redistribution Matrix
 

@@ -250,14 +250,14 @@ def test_local_mart_recreation_guide_keeps_complete_operator_runbook():
 
     assert "uv run make match-minute-inputs-validate" in match_minute
     assert "uv run make match-minute-live-smoke" in match_minute
-    assert "30,936 rows" in match_minute
-    assert ".cache/match_minute_live_smoke.duckdb" in match_minute
+    assert "30,936 rows" in index
+    assert ".cache/match_minute_live_smoke.duckdb" in index
 
     assert "uv run make polygon-settlement-seed-candidate" in polygon
     assert "uv run make polygon-settlement-seed-validate" in polygon
     assert "uv run make polygon-settlement-live-smoke" in polygon
-    assert "39,120 rows" in polygon
-    assert ".cache/polygon_settlement/benchmarks/v4/live_smoke.duckdb" in polygon
+    assert "39,120 rows" in index
+    assert ".cache/polygon_settlement/benchmarks/v4/live_smoke.duckdb" in index
 
     for term in (
         "dbt/seeds/wc2026_schedule_matches.csv",

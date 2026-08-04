@@ -25,11 +25,8 @@ Current canonical tuples are:
 
 ## Pipeline policy seeds
 
-Shared volume floors, trailing windows, and freshness thresholds ship as dbt
-seeds named `<namespace>_pipeline_policy.csv` (for example
-`polymarket_wc2026_pipeline_policy.csv`, `kalshi_wc2026_pipeline_policy.csv`). Those files are naming/configuration
-artifacts, not a global ontology term. Threshold meanings live in
-[Configuration](configuration.md).
+dbt seeds named `<namespace>_pipeline_policy.csv` (for example
+`polymarket_wc2026_pipeline_policy.csv`, `kalshi_wc2026_pipeline_policy.csv`).
 
 Flat names use `<source>_<scope>_<subject>[_<temporal_grain_or_cadence>]`.
 Use flat names for Dagster jobs, schedules, op names, Python functions, env
@@ -103,6 +100,3 @@ and its op name is `international_results_wc2026_raw_match_results`.
 The Kalshi hourly candlesticks asset key is
 `kalshi/wc2026/raw/market_candlesticks_hourly`, and its op config key is
 `kalshi_wc2026_raw_market_candlesticks_hourly`.
-
-This is a v0.1.x namespace reset. Operators with an older local warehouse
-should stop Dagster, delete `oddsfox.duckdb*`, and rerun the quickstart.
