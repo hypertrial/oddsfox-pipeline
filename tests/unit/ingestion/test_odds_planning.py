@@ -21,6 +21,15 @@ from oddsfox_pipeline.ingestion.polymarket.odds.support import (
 )
 
 
+
+def _flatten_token_plans(groups):
+    """Expand GroupPlans yielded by iter_token_plans_paged into TokenPlans."""
+    out = []
+    for group in groups:
+        out.extend(group.token_plans)
+    return out
+
+
 def _valid_token(seed: int) -> str:
     return f"{seed:030x}12"
 
@@ -244,6 +253,7 @@ def test_iter_token_plans_paged_collects_invalids_and_done_value():
             break
 
     planning_state, invalid_tokens = done_value
+    yielded = _flatten_token_plans(yielded)
     assert len(yielded) == 1
     assert planning_state.pre_clob_markets == 1
     assert planning_state.invalid_token == 1
@@ -262,7 +272,7 @@ def test_iter_token_plans_paged_force_passes_ended_market_grace():
     def due_pages(**kwargs):
         raise AssertionError(f"unexpected due iterator call: {kwargs}")
 
-    plans = list(
+    plans = _flatten_token_plans(list(
         odds_sync.iter_token_plans_paged(
             now_ts=1_900_000_000,
             clob_cutoff_date="2023-01-01",
@@ -277,7 +287,7 @@ def test_iter_token_plans_paged_force_passes_ended_market_grace():
             iter_due_market_tokens_fn=due_pages,
             get_token_sync_snapshot_fn=lambda token_ids, **kwargs: ({}, set(), {}),
         )
-    )
+    ))
 
     assert len(plans) == 1
     assert full_calls
@@ -370,7 +380,7 @@ def test_iter_token_plans_paged_due_only_uses_due_iterator_and_scheduler_state()
         called["full"] += 1
         yield []
 
-    plans = list(
+    plans = _flatten_token_plans(list(
         odds_sync.iter_token_plans_paged(
             now_ts=1_900_000_000,
             clob_cutoff_date="2023-01-01",
@@ -397,7 +407,7 @@ def test_iter_token_plans_paged_due_only_uses_due_iterator_and_scheduler_state()
                 },
             ),
         )
-    )
+    ))
     assert called == {"due": 1, "full": 0}
     assert len(plans) == 1
     assert plans[0].token_id == token_id
@@ -441,6 +451,7 @@ def test_iter_token_plans_paged_due_only_skips_bad_rows():
             done_value = done.value
             break
     planning_state, _ = done_value
+    plans = _flatten_token_plans(plans)
     assert len(plans) == 1
     assert plans[0].market_id == "good"
     assert planning_state.pre_clob_markets == 1
@@ -746,18 +757,18 @@ def test_iter_token_plans_paged_allowlist_and_denylist_skip_tokens():
         "get_token_sync_snapshot_fn": sync_snapshot,
     }
 
-    allowlisted = list(
+    allowlisted = _flatten_token_plans(list(
         odds_sync.iter_token_plans_paged(
             **common,
             token_id_allowlist={tok_keep},
         )
-    )
-    denied = list(
+    ))
+    denied = _flatten_token_plans(list(
         odds_sync.iter_token_plans_paged(
             **common,
             token_id_denylist={tok_skip},
         )
-    )
+    ))
 
     assert [plan.token_id for plan in allowlisted] == [tok_keep]
     assert [plan.token_id for plan in denied] == [tok_keep]
@@ -838,7 +849,7 @@ def test_iter_token_plans_paged_accepts_prebuilt_options(monkeypatch):
         return iter(())
 
     monkeypatch.setattr(odds_sync._planning_mod, "iter_token_plans_paged", fake_paged)
-    list(odds_sync.iter_token_plans_paged(options=options))
+    _flatten_token_plans(list(odds_sync.iter_token_plans_paged(options=options)))
 
     assert captured["options"] is options
 
@@ -1019,12 +1030,12 @@ def test_force_and_backfill_bypass_only_routine_skips():
 
 
 def _collect_plans_and_result(iterator):
-    plans = []
+    groups = []
     while True:
         try:
-            plans.append(next(iterator))
+            groups.append(next(iterator))
         except StopIteration as done:
-            return plans, done.value
+            return _flatten_token_plans(groups), done.value
 
 
 def test_paged_planning_forwards_every_full_scan_option(monkeypatch):

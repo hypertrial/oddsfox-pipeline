@@ -154,6 +154,7 @@ class OddsSyncConfig(GuardrailConfig):
     rebuild_history: bool = False
     reconcile_ledger: bool = False
     empty_skip_runs: int = 2
+    batch_group_size: int = Field(default=20, ge=1, le=20)
     routine_interval_hours: int = Field(default=6, ge=1)
     empty_retry_base_hours: int = Field(default=24, ge=1)
     empty_retry_max_hours: int = Field(default=168, ge=1)
@@ -194,6 +195,7 @@ class HourlyOddsSyncConfig(OddsSyncConfig):
     window_hours: int = POLYMARKET_WC2026_HOURLY_WINDOW_HOURS
     history_backfill_days: int = Field(default=0, ge=0)
     routine_interval_hours: int = Field(default=1, ge=1)
+    auto_tune_max_rps: int | None = Field(default=90, ge=1)
     min_volume: float | None = None
     max_volume: float | None = None
     ended_market_grace_days: int | None = None

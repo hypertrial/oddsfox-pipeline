@@ -136,7 +136,7 @@ class PlanningBootstrap:
     invalid_tokens: Dict[str, str] = field(default_factory=dict)
     persisted_invalid_tokens: set[str] = field(default_factory=set)
     persist_invalid_tokens_batch: Callable[[List[tuple[str, str]]], None] | None = None
-    first_plan: Any | None = None
+    first_group: Any | None = None
     candidate_tokens: int = 0
     candidate_markets: int = 0
 
@@ -194,11 +194,11 @@ def bootstrap_planning(
     boot.planning_state = PlanningState()
     boot.invalid_tokens = {}
     try:
-        boot.first_plan = next(boot.plan_iter)
+        boot.first_group = next(boot.plan_iter)
     except StopIteration as done:
         if done.value:
             boot.planning_state, boot.invalid_tokens = done.value
-        boot.first_plan = None
+        boot.first_group = None
     return boot
 
 

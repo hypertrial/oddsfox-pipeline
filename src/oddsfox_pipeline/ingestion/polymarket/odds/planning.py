@@ -6,7 +6,10 @@ from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional, Tuple
 
 from oddsfox_pipeline.ingestion.polymarket.odds.support import (
+    DEFAULT_BATCH_GROUP_SIZE,
     DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
+    GroupPlan,
+    MAX_BATCH_GROUP_SIZE,
     OddsSyncOptions,
     PlanningState,
     TokenPlan,
@@ -131,6 +134,47 @@ def build_single_token_plan(
         None,
         None,
     )
+
+
+def group_token_plans(
+    plans: List[TokenPlan],
+    *,
+    group_size: int = DEFAULT_BATCH_GROUP_SIZE,
+    sort_for_batch: bool = True,
+) -> List[GroupPlan]:
+    """Cluster TokenPlans into GroupPlans of at most ``group_size`` tokens.
+
+    When ``sort_for_batch`` is True, plans are sorted by ``(start_ts, span)`` so
+    similar windows share a batch call. Callers that already ordered plans
+    (e.g. short_range_first) should pass ``sort_for_batch=False``.
+    """
+    size = max(1, min(int(group_size), MAX_BATCH_GROUP_SIZE))
+    if not plans:
+        return []
+    ordered = (
+        sorted(
+            plans,
+            key=lambda plan: (
+                plan.start_ts,
+                plan.end_ts - plan.start_ts,
+                plan.token_id,
+            ),
+        )
+        if sort_for_batch
+        else list(plans)
+    )
+    groups: List[GroupPlan] = []
+    for offset in range(0, len(ordered), size):
+        chunk = tuple(ordered[offset : offset + size])
+        groups.append(
+            GroupPlan(
+                token_plans=chunk,
+                group_start_ts=min(plan.start_ts for plan in chunk),
+                group_end_ts=max(plan.end_ts for plan in chunk),
+                fidelity=int(chunk[0].fidelity),
+            )
+        )
+    return groups
 
 
 def iter_token_plans_paged(
@@ -330,8 +374,12 @@ def iter_token_plans_paged(
         prepared_rows, _, page_invalid_tokens, page_plans = prepare_page_rows(page_rows)
         if not prepared_rows:
             continue
-        for token_plan in page_plans:
-            yield token_plan
+        for group in group_token_plans(
+            page_plans,
+            group_size=options.batch_group_size,
+            sort_for_batch=not options.short_range_first,
+        ):
+            yield group
         if on_invalid_tokens_batch and page_invalid_tokens:
             on_invalid_tokens_batch(list(page_invalid_tokens.items()))
     return planning_state, invalid_tokens
@@ -339,6 +387,7 @@ def iter_token_plans_paged(
 
 __all__ = [
     "build_single_token_plan",
+    "group_token_plans",
     "iter_token_plans_paged",
     "parse_created_at",
     "parse_cutoff_date",

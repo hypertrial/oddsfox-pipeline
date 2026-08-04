@@ -25,6 +25,8 @@ DEFAULT_TRANSIENT_BACKOFF_SECONDS = 0.25
 DEFAULT_AUTOTUNE_WINDOW_REQUESTS = 200
 DEFAULT_AUTOTUNE_429_THRESHOLD = 0.03
 DEFAULT_AUTOTUNE_ERROR_THRESHOLD = 0.01
+DEFAULT_BATCH_GROUP_SIZE = 20
+MAX_BATCH_GROUP_SIZE = 20
 MAX_WORKERS_CAP = 128
 MAX_INFLIGHT_CAP = 4_096
 MAX_FLUSH_ROWS_CAP = 2_000_000
@@ -57,6 +59,18 @@ class TokenPlan:
 
 
 @dataclass(frozen=True)
+class GroupPlan:
+    token_plans: Tuple[TokenPlan, ...]
+    group_start_ts: int
+    group_end_ts: int
+    fidelity: int
+
+    @property
+    def token_ids(self) -> Tuple[str, ...]:
+        return tuple(plan.token_id for plan in self.token_plans)
+
+
+@dataclass(frozen=True)
 class OddsSyncOptions:
     clob_cutoff_date: str = "2023-01-01"
     fidelity: int = 1440
@@ -74,6 +88,7 @@ class OddsSyncOptions:
     history_backfill_days: int = 0
     empty_token_skip_budgets: Dict[str, int] | None = None
     empty_token_skip_runs: int = DEFAULT_EMPTY_TOKEN_SKIP_RUNS
+    batch_group_size: int = DEFAULT_BATCH_GROUP_SIZE
 
     @property
     def due_only(self) -> bool:
@@ -97,6 +112,12 @@ class WriterBuffers:
 @dataclass(frozen=True)
 class InflightTokenFuture:
     plan: TokenPlan
+    submitted_at: float
+
+
+@dataclass(frozen=True)
+class InflightGroupFuture:
+    group: GroupPlan
     submitted_at: float
 
 
@@ -196,7 +217,7 @@ def build_planning_context(
 
 
 def build_inflight_future_diagnostics(
-    futures: Dict[object, InflightTokenFuture],
+    futures: Dict[object, InflightTokenFuture | InflightGroupFuture],
     *,
     now: float | None = None,
     max_items: int = 3,
@@ -211,14 +232,30 @@ def build_inflight_future_diagnostics(
         futures.values(),
         key=lambda entry: entry.submitted_at,
     )[: max(1, max_items)]
-    oldest_items = [
-        {
-            "token_id_prefix": entry.plan.token_id[:24],
-            "market_id": entry.plan.market_id,
-            "inflight_seconds": round(max(0.0, observed_at - entry.submitted_at), 3),
-        }
-        for entry in oldest
-    ]
+    oldest_items = []
+    for entry in oldest:
+        if isinstance(entry, InflightGroupFuture):
+            first = entry.group.token_plans[0]
+            oldest_items.append(
+                {
+                    "token_id_prefix": first.token_id[:24],
+                    "market_id": first.market_id,
+                    "group_size": len(entry.group.token_plans),
+                    "inflight_seconds": round(
+                        max(0.0, observed_at - entry.submitted_at), 3
+                    ),
+                }
+            )
+        else:
+            oldest_items.append(
+                {
+                    "token_id_prefix": entry.plan.token_id[:24],
+                    "market_id": entry.plan.market_id,
+                    "inflight_seconds": round(
+                        max(0.0, observed_at - entry.submitted_at), 3
+                    ),
+                }
+            )
     return {
         "oldest_inflight_seconds": oldest_items[0]["inflight_seconds"],
         "oldest_inflight": oldest_items,
@@ -245,6 +282,7 @@ __all__ = [
     "DEFAULT_AUTOTUNE_429_THRESHOLD",
     "DEFAULT_AUTOTUNE_ERROR_THRESHOLD",
     "DEFAULT_AUTOTUNE_WINDOW_REQUESTS",
+    "DEFAULT_BATCH_GROUP_SIZE",
     "DEFAULT_EMPTY_RETRY_BASE_HOURS",
     "DEFAULT_EMPTY_RETRY_MAX_HOURS",
     "DEFAULT_EMPTY_TOKEN_SKIP_RUNS",
@@ -259,7 +297,10 @@ __all__ = [
     "DEFAULT_WINDOW_HOURS",
     "DEFAULT_WRITER_CHUNK_ROWS",
     "DEFAULT_WRITER_FLUSH_ROWS",
+    "GroupPlan",
+    "InflightGroupFuture",
     "InflightTokenFuture",
+    "MAX_BATCH_GROUP_SIZE",
     "MAX_FLUSH_ROWS_CAP",
     "MAX_INFLIGHT_CAP",
     "MAX_WORKERS_CAP",

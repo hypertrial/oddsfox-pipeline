@@ -12,7 +12,10 @@ from tests.support.odds_sync_harness import (
     FakePbar,
     ImmediatePool,
     ImmediateThread,
+    as_group_plans,
+    make_group_plan,
     make_plan,
+    wrap_token_sync_as_group,
 )
 
 from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
@@ -35,7 +38,7 @@ def test_sync_odds_covers_invalid_token_persist_worker_cache_and_budget_updates(
     def plan_iter(**kwargs):
         kwargs["on_invalid_tokens_batch"]([])
         kwargs["on_invalid_tokens_batch"]([("dup", "first")])
-        for plan in plans:
+        for plan in as_group_plans(plans):
             yield plan
         return (
             odds_sync.PlanningState(plans=len(plans), invalid_token=1),
@@ -108,7 +111,7 @@ def test_sync_odds_covers_invalid_token_persist_worker_cache_and_budget_updates(
         },
     )
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
-    monkeypatch.setattr(odds_sync, "_sync_token_plan", fake_sync_plan)
+    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan))
     monkeypatch.setattr(
         odds_sync, "save_sync_run_metrics", lambda *args, **kwargs: None
     )
@@ -198,7 +201,7 @@ def test_sync_odds_final_rate_absent_when_limiter_has_no_rate_attr(monkeypatch):
     plan = make_plan("tok_final")
 
     def plan_iter(**kwargs):
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     class Limiter:
@@ -212,15 +215,15 @@ def test_sync_odds_final_rate_absent_when_limiter_has_no_rate_attr(monkeypatch):
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
     monkeypatch.setattr(
         odds_sync,
-        "_sync_token_plan",
-        lambda *args, **kwargs: {
+        "_sync_token_group_plan",
+        wrap_token_sync_as_group(lambda *args, **kwargs: {
             "rows": 0,
             "windows": 1,
             "empty": True,
             "error": 0,
             "permanent_error": 0,
             "fully_checked": False,
-        },
+        },),
     )
     monkeypatch.setattr(odds_sync, "_writer_loop", lambda *args, **kwargs: None)
     monkeypatch.setattr(
@@ -261,22 +264,22 @@ def test_sync_odds_empty_results_with_zero_skip_runs_do_not_update_budget(monkey
     budgets = {"tok_zero": 7}
 
     def plan_iter(**kwargs):
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
     monkeypatch.setattr(
         odds_sync,
-        "_sync_token_plan",
-        lambda *args, **kwargs: {
+        "_sync_token_group_plan",
+        wrap_token_sync_as_group(lambda *args, **kwargs: {
             "rows": 0,
             "windows": 1,
             "empty": True,
             "error": 0,
             "permanent_error": 0,
             "fully_checked": False,
-        },
+        },),
     )
     monkeypatch.setattr(odds_sync, "_writer_loop", lambda *args, **kwargs: None)
     monkeypatch.setattr(
@@ -320,7 +323,7 @@ def test_sync_odds_raises_when_writer_thread_records_failure(monkeypatch):
     plan = make_plan("tok_writer")
 
     def plan_iter(**kwargs):
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     def writer_loop(_queue, _rows, _stats, failures):
@@ -330,15 +333,15 @@ def test_sync_odds_raises_when_writer_thread_records_failure(monkeypatch):
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
     monkeypatch.setattr(
         odds_sync,
-        "_sync_token_plan",
-        lambda *args, **kwargs: {
+        "_sync_token_group_plan",
+        wrap_token_sync_as_group(lambda *args, **kwargs: {
             "rows": 0,
             "windows": 1,
             "empty": True,
             "error": 0,
             "permanent_error": 0,
             "fully_checked": False,
-        },
+        },),
     )
     monkeypatch.setattr(odds_sync, "_writer_loop", writer_loop)
     monkeypatch.setattr(odds_sync, "Thread", ImmediateThread)
@@ -368,7 +371,7 @@ def test_sync_odds_progress_bar_total_and_markets_postfix(monkeypatch):
     plans = [make_plan("tok_a"), make_plan("tok_b")]
 
     def plan_iter(**kwargs):
-        for plan in plans:
+        for plan in as_group_plans(plans):
             yield plan
         return (odds_sync.PlanningState(plans=len(plans)), {})
 
@@ -405,7 +408,7 @@ def test_sync_odds_progress_bar_total_and_markets_postfix(monkeypatch):
         lambda **kwargs: {"candidate_tokens": 42, "candidate_markets": 10},
     )
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
-    monkeypatch.setattr(odds_sync, "_sync_token_plan", fake_sync_plan)
+    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan))
     monkeypatch.setattr(
         odds_sync, "save_sync_run_metrics", lambda *args, **kwargs: None
     )
@@ -442,7 +445,7 @@ def test_sync_odds_continues_when_candidate_count_fails(monkeypatch):
     plan = make_plan("tok_a")
 
     def plan_iter(**kwargs):
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     def fake_sync_plan(plan, get_worker_client, write_queue, *rest):
@@ -479,7 +482,7 @@ def test_sync_odds_continues_when_candidate_count_fails(monkeypatch):
 
     monkeypatch.setattr(odds_sync, "count_candidate_market_tokens", _boom)
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
-    monkeypatch.setattr(odds_sync, "_sync_token_plan", fake_sync_plan)
+    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan))
     monkeypatch.setattr(
         odds_sync, "save_sync_run_metrics", lambda *args, **kwargs: None
     )
@@ -517,7 +520,7 @@ def test_sync_odds_pool_worker_exception_queues_retry_state(monkeypatch):
 
     def plan_iter(**kwargs):
         del kwargs
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     def boom(*args, **kwargs):
@@ -542,7 +545,7 @@ def test_sync_odds_pool_worker_exception_queues_retry_state(monkeypatch):
         },
     )
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
-    monkeypatch.setattr(odds_sync, "_sync_token_plan", boom)
+    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(boom))
     monkeypatch.setattr(
         odds_sync, "save_sync_run_metrics", lambda *args, **kwargs: None
     )

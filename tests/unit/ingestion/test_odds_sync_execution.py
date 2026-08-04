@@ -16,11 +16,14 @@ from tests.support.odds_sync_harness import (
     NeverDonePool,
     NoShutdownNeverDonePool,
     NoThread,
+    as_group_plans,
     immediate_executor,
+    make_group_plan,
     make_runtime,
     make_token_plan,
     patch_guardrail_clock,
     raw_snapshot,
+    wrap_token_sync_as_group,
 )
 
 from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
@@ -38,7 +41,7 @@ def test_sync_odds_runs_main_loop(monkeypatch):
     plans = [_plan(), _plan()]
 
     def plan_iter(**kwargs):
-        for p in plans:
+        for p in as_group_plans(plans):
             yield p
 
     monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
@@ -57,7 +60,7 @@ def test_sync_odds_runs_main_loop(monkeypatch):
             "fully_checked": False,
         }
 
-    monkeypatch.setattr(odds_sync, "_sync_token_plan", fake_sync_plan)
+    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan))
 
     monkeypatch.setattr(odds_sync, "Thread", NoThread)
 
@@ -86,7 +89,7 @@ def test_sync_odds_pool_without_shutdown_completes(monkeypatch):
 
     def plan_iter(**kwargs):
         del kwargs
-        for p in plans:
+        for p in as_group_plans(plans):
             yield p
 
     monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
@@ -96,15 +99,15 @@ def test_sync_odds_pool_without_shutdown_completes(monkeypatch):
     monkeypatch.setattr(odds_sync, "save_skipped_tokens", lambda *a, **k: None)
     monkeypatch.setattr(
         odds_sync,
-        "_sync_token_plan",
-        lambda *a, **k: {
+        "_sync_token_group_plan",
+        wrap_token_sync_as_group(lambda *a, **k: {
             "rows": 0,
             "windows": 1,
             "empty": True,
             "error": 0,
             "permanent_error": 0,
             "fully_checked": False,
-        },
+        },),
     )
     monkeypatch.setattr(odds_sync, "Thread", NoThread)
     monkeypatch.setattr(odds_sync, "_writer_loop", lambda *a, **k: None)
@@ -264,7 +267,7 @@ def test_sync_odds_no_progress_hard_timeout_aborts_and_persists_metrics(monkeypa
 
     def plan_iter(**kwargs):
         del kwargs
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     def fake_wait(*args, **kwargs):
@@ -318,7 +321,7 @@ def test_sync_odds_no_progress_timeout_without_shutdown_method(monkeypatch):
 
     def plan_iter(**kwargs):
         del kwargs
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     def fake_wait(*args, **kwargs):
@@ -357,7 +360,7 @@ def test_sync_odds_timeout_transient_finishes_without_abort(monkeypatch):
 
     def plan_iter(**kwargs):
         del kwargs
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     def fake_sync_plan(*args, **kwargs):
@@ -374,7 +377,7 @@ def test_sync_odds_timeout_transient_finishes_without_abort(monkeypatch):
     monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
     monkeypatch.setattr(odds_sync, "snapshot_raw_layer", raw_snapshot)
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
-    monkeypatch.setattr(odds_sync, "_sync_token_plan", fake_sync_plan)
+    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan))
     monkeypatch.setattr(odds_sync, "_writer_loop", lambda *a, **k: None)
     monkeypatch.setattr(odds_sync, "Thread", NoThread)
     monkeypatch.setattr(Queue, "join", lambda self: None)
@@ -405,7 +408,7 @@ def test_sync_odds_waiting_heartbeat_includes_oldest_inflight(monkeypatch):
 
     def plan_iter(**kwargs):
         del kwargs
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     def fake_wait(futures, return_when=None, timeout=None):
@@ -432,7 +435,7 @@ def test_sync_odds_waiting_heartbeat_includes_oldest_inflight(monkeypatch):
     monkeypatch.setattr(odds_sync, "snapshot_raw_layer", raw_snapshot)
     monkeypatch.setattr(odds_sync.time, "monotonic", clock)
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
-    monkeypatch.setattr(odds_sync, "_sync_token_plan", fake_sync_plan)
+    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan))
     monkeypatch.setattr(odds_sync, "_writer_loop", lambda *a, **k: None)
     monkeypatch.setattr(odds_sync, "Thread", NoThread)
     monkeypatch.setattr(Queue, "join", lambda self: None)
@@ -498,7 +501,7 @@ def _run_sync_odds_with_tqdm_capture(monkeypatch, *, is_tty: bool) -> list[dict]
 
     def plan_iter(**kwargs):
         del kwargs
-        for plan in plans:
+        for plan in as_group_plans(plans):
             yield plan
 
     monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
@@ -508,15 +511,15 @@ def _run_sync_odds_with_tqdm_capture(monkeypatch, *, is_tty: bool) -> list[dict]
     monkeypatch.setattr(odds_sync, "save_skipped_tokens", lambda *a, **k: None)
     monkeypatch.setattr(
         odds_sync,
-        "_sync_token_plan",
-        lambda *a, **k: {
+        "_sync_token_group_plan",
+        wrap_token_sync_as_group(lambda *a, **k: {
             "rows": 0,
             "windows": 1,
             "empty": True,
             "error": 0,
             "permanent_error": 0,
             "fully_checked": False,
-        },
+        },),
     )
     monkeypatch.setattr(odds_sync, "Thread", NoThread)
     monkeypatch.setattr(odds_sync, "_writer_loop", lambda *a, **k: None)
@@ -724,8 +727,15 @@ def test_odds_sync_runtime_flat_property_accessors():
     flat_to_nested = {
         "fetch_window_with_auto_split_impl": runtime.execution.fetch_window_with_auto_split_impl,
         "fetch_token_history_with_retry": runtime.execution.fetch_token_history_with_retry,
+        "fetch_batch_token_history_with_retry": (
+            runtime.execution.fetch_batch_token_history_with_retry
+        ),
+        "fetch_group_window_with_auto_split_impl": (
+            runtime.execution.fetch_group_window_with_auto_split_impl
+        ),
         "default_rate_limiter_factory": runtime.execution.default_rate_limiter_factory,
         "sync_token_plan": runtime.execution.sync_token_plan,
+        "sync_token_group_plan": runtime.execution.sync_token_group_plan,
         "count_due_market_token_exclusions": (
             runtime.planning.count_due_market_token_exclusions
         ),
@@ -801,7 +811,7 @@ def test_sync_odds_effective_max_rps_respects_configured_rps_when_auto_tune_max_
     ]
 
     def plan_iter(**kw):
-        for p in plans:
+        for p in as_group_plans(plans):
             yield p
 
     captured_max_rps: list[int] = []
@@ -815,15 +825,15 @@ def test_sync_odds_effective_max_rps_respects_configured_rps_when_auto_tune_max_
     monkeypatch.setattr(odds_sync, "save_skipped_tokens", lambda *a, **k: None)
     monkeypatch.setattr(
         odds_sync,
-        "_sync_token_plan",
-        lambda *a, **k: {
+        "_sync_token_group_plan",
+        wrap_token_sync_as_group(lambda *a, **k: {
             "rows": 0,
             "windows": 1,
             "empty": True,
             "error": 0,
             "permanent_error": 0,
             "fully_checked": False,
-        },
+        },),
     )
     monkeypatch.setattr(Queue, "join", lambda self: None)
     monkeypatch.setattr(odds_sync, "Thread", NoThread)
@@ -871,7 +881,7 @@ def test_sync_odds_auto_tune_max_rps_branch(monkeypatch):
     ]
 
     def plan_iter(**kw):
-        for p in plans:
+        for p in as_group_plans(plans):
             yield p
 
     monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
@@ -880,15 +890,15 @@ def test_sync_odds_auto_tune_max_rps_branch(monkeypatch):
     monkeypatch.setattr(odds_sync, "save_skipped_tokens", lambda *a, **k: None)
     monkeypatch.setattr(
         odds_sync,
-        "_sync_token_plan",
-        lambda *a, **k: {
+        "_sync_token_group_plan",
+        wrap_token_sync_as_group(lambda *a, **k: {
             "rows": 0,
             "windows": 1,
             "empty": True,
             "error": 0,
             "permanent_error": 0,
             "fully_checked": False,
-        },
+        },),
     )
     monkeypatch.setattr(Queue, "join", lambda self: None)
     monkeypatch.setattr(odds_sync, "Thread", NoThread)
@@ -928,7 +938,7 @@ def test_sync_odds_run_summary_includes_planning_context(monkeypatch):
     )
 
     def plan_iter(**kw):
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
@@ -950,15 +960,15 @@ def test_sync_odds_run_summary_includes_planning_context(monkeypatch):
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
     monkeypatch.setattr(
         odds_sync,
-        "_sync_token_plan",
-        lambda *a, **k: {
+        "_sync_token_group_plan",
+        wrap_token_sync_as_group(lambda *a, **k: {
             "rows": 1,
             "windows": 1,
             "empty": False,
             "error": 0,
             "permanent_error": 0,
             "fully_checked": False,
-        },
+        },),
     )
     monkeypatch.setattr(odds_sync, "save_skipped_tokens", lambda *a, **k: None)
     monkeypatch.setattr(
@@ -1030,21 +1040,21 @@ def test_sync_odds_worker_cap_and_rps_branches(monkeypatch):
     )
 
     def plans():
-        yield plan
+        yield make_group_plan(plan)
 
     monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", lambda **k: plans())
     monkeypatch.setattr(
         odds_sync,
-        "_sync_token_plan",
-        lambda *a, **k: {
+        "_sync_token_group_plan",
+        wrap_token_sync_as_group(lambda *a, **k: {
             "rows": 0,
             "windows": 1,
             "empty": True,
             "error": 0,
             "permanent_error": 0,
             "fully_checked": False,
-        },
+        },),
     )
     monkeypatch.setattr(odds_sync, "save_sync_run_metrics", lambda *a, **k: None)
     monkeypatch.setattr(odds_sync, "save_skipped_tokens", lambda *a, **k: None)
@@ -1078,7 +1088,7 @@ def test_sync_odds_soft_warning_then_progress_reset(monkeypatch):
     )
 
     def plans():
-        yield plan
+        yield make_group_plan(plan)
         return (odds_sync.PlanningState(plans=1), {})
 
     wait_state = {"calls": 0}
@@ -1097,15 +1107,15 @@ def test_sync_odds_soft_warning_then_progress_reset(monkeypatch):
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", lambda **k: plans())
     monkeypatch.setattr(
         odds_sync,
-        "_sync_token_plan",
-        lambda *a, **k: {
+        "_sync_token_group_plan",
+        wrap_token_sync_as_group(lambda *a, **k: {
             "rows": 3,
             "windows": 1,
             "empty": False,
             "error": 0,
             "permanent_error": 0,
             "fully_checked": False,
-        },
+        },),
     )
     monkeypatch.setattr(odds_sync, "save_sync_run_metrics", lambda *a, **k: None)
     monkeypatch.setattr(odds_sync, "save_skipped_tokens", lambda *a, **k: None)

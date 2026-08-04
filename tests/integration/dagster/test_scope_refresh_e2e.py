@@ -435,6 +435,32 @@ oddsfox:
         ]
         return rows[:1] if one_point_history else rows
 
+    def fake_fetch_batch_token_history_with_retry(
+        client,
+        token_ids,
+        *,
+        start_ts=None,
+        end_ts=None,
+        fidelity=None,
+        now_ts=None,
+        **kwargs,
+    ):
+        out = {}
+        for token_id in token_ids:
+            rows = fake_fetch_token_history_with_retry(
+                client,
+                token_id,
+                start_ts=start_ts,
+                end_ts=end_ts,
+                fidelity=fidelity,
+                now_ts=now_ts,
+                **kwargs,
+            )
+            if rows is None:
+                return None
+            out[str(token_id)] = rows
+        return out
+
     monkeypatch.setattr(
         "oddsfox_pipeline.ingestion.polymarket.markets.sync.refresh_registry_and_collect_markets_targeted",
         fake_refresh_registry_and_collect_markets_targeted,
@@ -447,6 +473,10 @@ oddsfox:
     monkeypatch.setattr(
         "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_token_history_with_retry",
         fake_fetch_token_history_with_retry,
+    )
+    monkeypatch.setattr(
+        "oddsfox_pipeline.ingestion.polymarket.odds.sync.fetch_batch_token_history_with_retry",
+        fake_fetch_batch_token_history_with_retry,
     )
     monkeypatch.setattr(
         "oddsfox_pipeline.orchestration.polymarket_ops.sync_market_scope_registry",

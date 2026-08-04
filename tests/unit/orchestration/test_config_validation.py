@@ -72,9 +72,18 @@ def test_hourly_odds_config_defaults_to_market_creation_collection():
     assert cfg.window_hours == 720
     assert cfg.history_backfill_days == 0
     assert cfg.routine_interval_hours == 1
+    assert cfg.batch_group_size == 20
+    assert cfg.auto_tune_max_rps == 90
     assert cfg.min_volume is None
     assert cfg.max_volume is None
     assert cfg.ended_market_grace_days is None
+
+
+def test_odds_config_rejects_invalid_batch_group_size():
+    with pytest.raises(ValueError):
+        OddsSyncConfig(batch_group_size=0)
+    with pytest.raises(ValueError):
+        OddsSyncConfig(batch_group_size=21)
 
 
 def test_dbt_build_config_accepts_fixed_scope_selectors():

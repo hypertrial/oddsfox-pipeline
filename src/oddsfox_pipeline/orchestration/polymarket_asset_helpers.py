@@ -63,6 +63,7 @@ def _build_odds_sync_kwargs(
         "max_volume": config.max_volume,
         "history_backfill_days": config.history_backfill_days,
         "empty_token_skip_runs": config.empty_skip_runs,
+        "batch_group_size": config.batch_group_size,
         "routine_interval_hours": config.routine_interval_hours,
         "empty_retry_base_hours": config.empty_retry_base_hours,
         "empty_retry_max_hours": config.empty_retry_max_hours,

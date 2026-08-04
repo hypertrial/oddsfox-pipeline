@@ -209,6 +209,36 @@ def make_token_plan(
     )
 
 
+def make_group_plan(
+    *plans: odds_sync.TokenPlan,
+) -> odds_sync.GroupPlan:
+    from oddsfox_pipeline.ingestion.polymarket.odds.support import GroupPlan
+
+    token_plans = plans or (make_token_plan(),)
+    return GroupPlan(
+        token_plans=tuple(token_plans),
+        group_start_ts=min(plan.start_ts for plan in token_plans),
+        group_end_ts=max(plan.end_ts for plan in token_plans),
+        fidelity=int(token_plans[0].fidelity),
+    )
+
+
+def as_group_plans(plans: list[odds_sync.TokenPlan]) -> list:
+    return [make_group_plan(plan) for plan in plans]
+
+
+def wrap_token_sync_as_group(sync_plan_fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Adapt a per-token fake_sync_plan(plan, ...) to sync_token_group_plan(group, ...)."""
+
+    def sync_group(group, *args, **kwargs):
+        out: dict[str, Any] = {}
+        for plan in group.token_plans:
+            out[plan.token_id] = sync_plan_fn(plan, *args, **kwargs)
+        return out
+
+    return sync_group
+
+
 def noop_wait(futures, timeout=None, return_when=None):
     del timeout, return_when
     return set(futures), set()
@@ -303,7 +333,9 @@ def patch_sync_odds_standard_idle(
     if plan_iter is not None:
         monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
     if sync_plan_fn is not None:
-        monkeypatch.setattr(odds_sync, "_sync_token_plan", sync_plan_fn)
+        monkeypatch.setattr(
+            odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(sync_plan_fn)
+        )
     if saved_skips is not None:
         monkeypatch.setattr(
             odds_sync, "save_skipped_tokens", lambda rows: saved_skips.extend(rows)

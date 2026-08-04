@@ -13,7 +13,7 @@ from oddsfox_pipeline.config.settings import CLOB_API_URL, ODDS_REQUESTS_PER_SEC
 from oddsfox_pipeline.ingestion.polymarket.errors import ClobRequestError
 from oddsfox_pipeline.ingestion.polymarket.odds.deps import OddsSyncRuntime
 from oddsfox_pipeline.ingestion.polymarket.odds.execution import (
-    InflightTokenFuture,
+    InflightGroupFuture,
     checked_at_from_plan,
 )
 from oddsfox_pipeline.ingestion.polymarket.odds.fetch import build_client
@@ -173,7 +173,7 @@ def run_sync_pool(
     guardrail: Any,
     pool: PoolResources,
     *,
-    first_plan: Any,
+    first_group: Any,
     effective_max_rps: int,
     auto_tune_rps: bool,
     auto_tune_window_requests: int,
@@ -196,7 +196,7 @@ def run_sync_pool(
     get_worker_client = pool.get_worker_client
 
     max_inflight = min(max(pool.effective_workers * 8, 64), MAX_INFLIGHT_CAP)
-    futures: Dict[object, InflightTokenFuture] = {}
+    futures: Dict[object, InflightGroupFuture] = {}
     exhausted_plans = False
     aborted = False
     abort_reason: str | None = None
@@ -213,10 +213,10 @@ def run_sync_pool(
     executor_shutdown = False
     try:
 
-        def submit_plan(plan):
+        def submit_group(group):
             future = executor.submit(
-                runtime.sync_token_plan,
-                plan,
+                runtime.sync_token_group_plan,
+                group,
                 get_worker_client,
                 write_queue,
                 params.window_seconds,
@@ -230,11 +230,26 @@ def run_sync_pool(
                 transient_backoff_seconds,
                 on_http_status,
             )
-            futures[future] = InflightTokenFuture(
-                plan=plan, submitted_at=runtime.time_mod.monotonic()
+            futures[future] = InflightGroupFuture(
+                group=group, submitted_at=runtime.time_mod.monotonic()
             )
 
-        submit_plan(first_plan)
+        def record_token_progress(plan, *, force_totals: bool = True):
+            if force_totals:
+                totals["processed_tokens"] += 1
+                completed_markets.add(plan.market_id)
+                totals["distinct_markets"] = len(completed_markets)
+            guardrail.record_progress(
+                work_increment=1,
+                phase="token_future_completed",
+                diagnostics={
+                    "processed_tokens": totals["processed_tokens"],
+                    "token_id_prefix": plan.token_id[:24],
+                    "inflight_futures": len(futures),
+                },
+            )
+
+        submit_group(first_group)
         with runtime.tqdm_mod(
             desc="Syncing odds (price history)",
             unit="token",
@@ -245,7 +260,7 @@ def run_sync_pool(
             while True:
                 while not exhausted_plans and len(futures) < max_inflight:
                     try:
-                        plan = next(plan_iter)
+                        group = next(plan_iter)
                     except StopIteration as done:
                         exhausted_plans = True
                         if done.value:
@@ -259,7 +274,7 @@ def run_sync_pool(
                             )
                         )
                         break
-                    submit_plan(plan)
+                    submit_group(group)
                 if exhausted_plans and not futures:
                     break
                 try:
@@ -294,57 +309,92 @@ def run_sync_pool(
                     continue
                 for future in done_futures:
                     inflight = futures.pop(future)
-                    plan = inflight.plan
-                    totals["processed_tokens"] += 1
-                    completed_markets.add(plan.market_id)
-                    totals["distinct_markets"] = len(completed_markets)
-                    guardrail.record_progress(
-                        work_increment=1,
-                        phase="token_future_completed",
-                        diagnostics={
-                            "processed_tokens": totals["processed_tokens"],
-                            "token_id_prefix": plan.token_id[:24],
-                            "inflight_futures": len(futures),
-                        },
-                    )
+                    group = inflight.group
                     try:
-                        result = future.result()
+                        group_results = future.result()
                     except (
                         CancelledError,
                         ClobRequestError,
                         OSError,
                         RuntimeError,
                     ) as exc:
-                        logger.error("Token %s failed: %s", plan.token_id[:24], exc)
-                        checked_at = checked_at_from_plan(plan)
-                        next_check_at = checked_at + timedelta(
-                            seconds=max(0, params.error_retry_seconds)
+                        logger.error(
+                            "Token group %s failed: %s",
+                            group.token_ids[0][:24] if group.token_ids else "?",
+                            exc,
                         )
-                        write_queue.put(("skipped_tokens", [(plan.token_id, str(exc))]))
-                        write_queue.put(
-                            (
-                                "token_state",
-                                [
-                                    (
-                                        plan.token_id,
-                                        None,
-                                        checked_at,
-                                        next_check_at,
-                                        0,
-                                        False,
-                                    )
-                                ],
+                        for plan in group.token_plans:
+                            checked_at = checked_at_from_plan(plan)
+                            next_check_at = checked_at + timedelta(
+                                seconds=max(0, params.error_retry_seconds)
                             )
-                        )
-                        totals["error"] += 1
-                        pbar.update(1)
+                            write_queue.put(
+                                ("skipped_tokens", [(plan.token_id, str(exc))])
+                            )
+                            write_queue.put(
+                                (
+                                    "token_state",
+                                    [
+                                        (
+                                            plan.token_id,
+                                            None,
+                                            checked_at,
+                                            next_check_at,
+                                            0,
+                                            False,
+                                        )
+                                    ],
+                                )
+                            )
+                            totals["error"] += 1
+                            record_token_progress(plan)
+                            pbar.update(1)
                         continue
-                    totals["rows"] += int(result["rows"])
-                    totals["windows"] += int(result["windows"])
-                    totals["empty"] += 1 if bool(result["empty"]) else 0
-                    totals["error"] += int(result["error"])
-                    totals["permanent_error"] += int(result["permanent_error"])
-                    totals["fully_checked"] += 1 if bool(result["fully_checked"]) else 0
+                    if not isinstance(group_results, dict):
+                        group_results = {}
+                    for plan in group.token_plans:
+                        result = group_results.get(plan.token_id) or {
+                            "rows": 0,
+                            "windows": 0,
+                            "empty": 1,
+                            "error": 1,
+                            "permanent_error": 0,
+                            "fully_checked": False,
+                        }
+                        totals["rows"] += int(result["rows"])
+                        totals["windows"] += int(result["windows"])
+                        totals["empty"] += 1 if bool(result["empty"]) else 0
+                        totals["error"] += int(result["error"])
+                        totals["permanent_error"] += int(result["permanent_error"])
+                        totals["fully_checked"] += (
+                            1 if bool(result["fully_checked"]) else 0
+                        )
+                        record_token_progress(plan)
+                        pbar.update(1)
+                        markets_postfix = (
+                            f"{len(completed_markets)}/{candidate_markets}"
+                            if candidate_markets
+                            else str(len(completed_markets))
+                        )
+                        pbar.set_postfix(
+                            {
+                                "rows": f"{totals['rows']:,}",
+                                "empty": totals["empty"],
+                                "err": totals["error"],
+                                "closed_done": totals["fully_checked"],
+                                "markets": markets_postfix,
+                            },
+                            refresh=True,
+                        )
+                        if progress_callback is not None:
+                            progress_callback(
+                                "token_completed",
+                                {
+                                    "processed_tokens": totals["processed_tokens"],
+                                    "rows": totals["rows"],
+                                    "windows": totals["windows"],
+                                },
+                            )
                     writer_stats["queue_high_watermark"] = max(
                         writer_stats["queue_high_watermark"], write_queue.qsize()
                     )
@@ -360,31 +410,6 @@ def run_sync_pool(
                             threshold_error=auto_tune_error_threshold,
                             min_rps=max(1, int(auto_tune_min_rps)),
                             max_rps=max(1, int(effective_max_rps)),
-                        )
-                    pbar.update(1)
-                    markets_postfix = (
-                        f"{len(completed_markets)}/{candidate_markets}"
-                        if candidate_markets
-                        else str(len(completed_markets))
-                    )
-                    pbar.set_postfix(
-                        {
-                            "rows": f"{totals['rows']:,}",
-                            "empty": totals["empty"],
-                            "err": totals["error"],
-                            "closed_done": totals["fully_checked"],
-                            "markets": markets_postfix,
-                        },
-                        refresh=True,
-                    )
-                    if progress_callback is not None:
-                        progress_callback(
-                            "token_completed",
-                            {
-                                "processed_tokens": totals["processed_tokens"],
-                                "rows": totals["rows"],
-                                "windows": totals["windows"],
-                            },
                         )
     except runtime.no_progress_timeout_error as exc:
         aborted = True

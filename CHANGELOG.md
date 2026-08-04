@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Polymarket hourly odds sync (`polymarket_wc2026_raw_token_odds_history_hourly`)
+  fetches CLOB price history via `POST /batch-prices-history` (up to 20 tokens
+  per call) instead of one `GET /prices-history` per token window. Per-token
+  ledger, telemetry, and full-lifetime collection semantics are unchanged.
+  Configurable as `batch_group_size` (default `20`). Hourly
+  `auto_tune_max_rps` default raised to `90`.
+
 ### Removed
 
 - Unused `POLYMARKET_WC2026_HOURLY_WINDOW_DAYS` setting export and the dead

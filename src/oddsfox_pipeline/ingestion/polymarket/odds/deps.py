@@ -20,8 +20,11 @@ class PlanningRuntime:
 class ExecutionRuntime:
     fetch_window_with_auto_split_impl: Callable[..., Any]
     fetch_token_history_with_retry: Callable[..., Any]
+    fetch_batch_token_history_with_retry: Callable[..., Any]
+    fetch_group_window_with_auto_split_impl: Callable[..., Any]
     default_rate_limiter_factory: Callable[..., Any]
     sync_token_plan: Callable[..., Any]
+    sync_token_group_plan: Callable[..., Any]
 
 
 @dataclass(frozen=True)
@@ -95,12 +98,24 @@ class OddsSyncRuntime:
         return self.execution.fetch_token_history_with_retry
 
     @property
+    def fetch_batch_token_history_with_retry(self) -> Callable[..., Any]:
+        return self.execution.fetch_batch_token_history_with_retry
+
+    @property
+    def fetch_group_window_with_auto_split_impl(self) -> Callable[..., Any]:
+        return self.execution.fetch_group_window_with_auto_split_impl
+
+    @property
     def default_rate_limiter_factory(self) -> Callable[..., Any]:
         return self.execution.default_rate_limiter_factory
 
     @property
     def sync_token_plan(self) -> Callable[..., Any]:
         return self.execution.sync_token_plan
+
+    @property
+    def sync_token_group_plan(self) -> Callable[..., Any]:
+        return self.execution.sync_token_group_plan
 
     @property
     def get_connection(self) -> Callable[..., Any]:

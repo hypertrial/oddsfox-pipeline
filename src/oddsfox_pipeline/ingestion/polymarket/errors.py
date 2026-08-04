@@ -48,3 +48,11 @@ def clob_get(client: Any, endpoint: str, **kwargs: Any) -> Any:
         return client.get(endpoint, **kwargs)
     except requests.RequestException as exc:
         raise _wrap_request_error(exc, ClobRequestError) from exc
+
+
+def clob_post(client: Any, endpoint: str, **kwargs: Any) -> Any:
+    """CLOB HTTP POST with typed transport errors."""
+    try:
+        return client.post(endpoint, **kwargs)
+    except requests.RequestException as exc:
+        raise _wrap_request_error(exc, ClobRequestError) from exc

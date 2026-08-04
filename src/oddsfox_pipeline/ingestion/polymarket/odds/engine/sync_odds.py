@@ -13,6 +13,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.support import (
     DEFAULT_AUTOTUNE_429_THRESHOLD,
     DEFAULT_AUTOTUNE_ERROR_THRESHOLD,
     DEFAULT_AUTOTUNE_WINDOW_REQUESTS,
+    DEFAULT_BATCH_GROUP_SIZE,
     DEFAULT_EMPTY_RETRY_BASE_HOURS,
     DEFAULT_EMPTY_RETRY_MAX_HOURS,
     DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
@@ -71,6 +72,7 @@ def sync_odds(
     history_backfill_days: int = 0,
     empty_token_skip_runs: int = DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
     empty_token_skip_budgets: Dict[str, int] | None = None,
+    batch_group_size: int = DEFAULT_BATCH_GROUP_SIZE,
     routine_interval_hours: int = DEFAULT_ROUTINE_INTERVAL_HOURS,
     empty_retry_base_hours: int = DEFAULT_EMPTY_RETRY_BASE_HOURS,
     empty_retry_max_hours: int = DEFAULT_EMPTY_RETRY_MAX_HOURS,
@@ -115,6 +117,7 @@ def sync_odds(
             history_backfill_days=history_backfill_days,
             empty_token_skip_budgets=empty_token_skip_budgets,
             empty_token_skip_runs=empty_token_skip_runs,
+            batch_group_size=batch_group_size,
         )
         params = normalize_sync_params(
             batch_size=batch_size,
@@ -141,7 +144,7 @@ def sync_odds(
             options=options,
             plan_iterator_factory=plan_iterator_factory,
         )
-        if boot.first_plan is None:
+        if boot.first_group is None:
             return build_noop_sync_result(
                 runtime=runtime,
                 guardrail=guardrail,
@@ -212,7 +215,7 @@ def sync_odds(
             params,
             guardrail,
             pool,
-            first_plan=boot.first_plan,
+            first_group=boot.first_group,
             effective_max_rps=effective_max_rps,
             auto_tune_rps=auto_tune_rps,
             auto_tune_window_requests=auto_tune_window_requests,

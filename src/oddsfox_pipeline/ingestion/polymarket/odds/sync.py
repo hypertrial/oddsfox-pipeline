@@ -30,12 +30,14 @@ from oddsfox_pipeline.ingestion.polymarket.odds.engine import (
     sync_odds as _engine_sync_odds,
 )
 from oddsfox_pipeline.ingestion.polymarket.odds.fetch import (
+    fetch_batch_token_history_with_retry,
     fetch_token_history_with_retry,
 )
 from oddsfox_pipeline.ingestion.polymarket.odds.support import (
     DEFAULT_AUTOTUNE_429_THRESHOLD,
     DEFAULT_AUTOTUNE_ERROR_THRESHOLD,
     DEFAULT_AUTOTUNE_WINDOW_REQUESTS,
+    DEFAULT_BATCH_GROUP_SIZE,
     DEFAULT_EMPTY_RETRY_BASE_HOURS,
     DEFAULT_EMPTY_RETRY_MAX_HOURS,
     DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
@@ -53,6 +55,8 @@ from oddsfox_pipeline.ingestion.polymarket.odds.support import (
     MAX_FLUSH_ROWS_CAP,
     MAX_INFLIGHT_CAP,
     MAX_WORKERS_CAP,
+    GroupPlan,
+    InflightGroupFuture,
     InflightTokenFuture,
     OddsSyncOptions,
     PlanningState,
@@ -117,6 +121,7 @@ _PLAN_OPTION_KEYS = frozenset(
         "history_backfill_days",
         "empty_token_skip_budgets",
         "empty_token_skip_runs",
+        "batch_group_size",
     }
 )
 
@@ -143,9 +148,22 @@ def _fetch_window_with_auto_split(*args, **kwargs):
     return _execution_mod.fetch_window_with_auto_split(*args, **kwargs)
 
 
+def _fetch_group_window_with_auto_split(*args, **kwargs):
+    kwargs.setdefault(
+        "fetch_batch_token_history_fn", fetch_batch_token_history_with_retry
+    )
+    kwargs.setdefault("fetch_token_history_fn", fetch_token_history_with_retry)
+    return _execution_mod.fetch_group_window_with_auto_split(*args, **kwargs)
+
+
 def _sync_token_plan(*args, **kwargs):
     kwargs.setdefault("fetch_window_fn", _fetch_window_with_auto_split)
     return _execution_mod.sync_token_plan(*args, **kwargs)
+
+
+def _sync_token_group_plan(*args, **kwargs):
+    kwargs.setdefault("fetch_group_window_fn", _fetch_group_window_with_auto_split)
+    return _execution_mod.sync_token_group_plan(*args, **kwargs)
 
 
 def _flush_writer_buffers(*args, **kwargs):
@@ -183,8 +201,11 @@ def default_odds_sync_runtime() -> OddsSyncRuntime:
         execution=ExecutionRuntime(
             fetch_window_with_auto_split_impl=_fetch_window_with_auto_split,
             fetch_token_history_with_retry=fetch_token_history_with_retry,
+            fetch_batch_token_history_with_retry=fetch_batch_token_history_with_retry,
+            fetch_group_window_with_auto_split_impl=_fetch_group_window_with_auto_split,
             default_rate_limiter_factory=_default_rate_limiter_factory,
             sync_token_plan=_sync_token_plan,
+            sync_token_group_plan=_sync_token_group_plan,
         ),
         writer=WriterRuntime(
             get_connection=get_connection,

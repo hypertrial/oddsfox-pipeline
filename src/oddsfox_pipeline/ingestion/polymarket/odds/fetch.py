@@ -5,16 +5,23 @@ HTTP helpers for odds ingestion.
 import logging
 import random
 import time
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import requests
 
 from oddsfox_pipeline.config.settings import HTTP_REQUEST_TIMEOUT
-from oddsfox_pipeline.ingestion.polymarket.errors import ClobRequestError, clob_get
+from oddsfox_pipeline.ingestion.polymarket.errors import (
+    ClobRequestError,
+    clob_get,
+    clob_post,
+)
 from oddsfox_pipeline.resources.http import APIClient
 from oddsfox_pipeline.resources.http_retry import is_transient_status
 
 logger = logging.getLogger(__name__)
+
+# Polymarket POST /batch-prices-history markets maxItems.
+MAX_BATCH_MARKETS = 20
 
 
 class PermanentAPIError(Exception):
@@ -61,6 +68,35 @@ def _emit_status_via(hook: Optional[Callable[[int], None]], status: int) -> None
         hook(int(status))
     except Exception:
         logger.debug("Ignoring explicit status hook failure", exc_info=True)
+
+
+def _call_with_transient_retry(
+    callable_fetch,
+    *,
+    transient_retries: int,
+    transient_backoff_base_seconds: float,
+):
+    for attempt in range(transient_retries + 1):
+        result = callable_fetch()
+        if result is not None:
+            return result
+        if attempt < transient_retries:
+            sleep_for = transient_backoff_base_seconds * (2**attempt)
+            if sleep_for > 0:
+                time.sleep(random.uniform(0.5, 1.5) * sleep_for)
+    return None
+
+
+def _parse_history_points(
+    token_id: str, history: object
+) -> List[Tuple[str, int, float]]:
+    if not history or not isinstance(history, list):
+        return []
+    records: List[Tuple[str, int, float]] = []
+    for point in history:
+        if isinstance(point, dict) and "t" in point and "p" in point:
+            records.append((token_id, point["t"], point["p"]))
+    return records
 
 
 def build_client(base_url: str, *, rate_limiter=None) -> APIClient:
@@ -128,12 +164,7 @@ def fetch_token_history(
             logger.debug(f"No history found for token {token_id}")
             return []
 
-        records: List[Tuple] = []
-        for point in history:
-            if "t" in point and "p" in point:
-                records.append((token_id, point["t"], point["p"]))
-
-        return records
+        return _parse_history_points(token_id, history)
     except (requests.Timeout, ClobRequestError, requests.HTTPError) as e:
         if isinstance(e, requests.Timeout) or (
             isinstance(e, ClobRequestError)
@@ -218,20 +249,15 @@ def fetch_token_history_with_retry(
     transient_retries = max(0, int(transient_retries))
     transient_backoff_base_seconds = max(0.0, float(transient_backoff_base_seconds))
 
-    def _call_with_transient_retry(callable_fetch) -> Optional[List[Tuple]]:
-        for attempt in range(transient_retries + 1):
-            result = callable_fetch()
-            if result is not None:
-                return result
-            if attempt < transient_retries:
-                # jittered exponential backoff for transient errors (e.g., 429/5xx)
-                sleep_for = transient_backoff_base_seconds * (2**attempt)
-                if sleep_for > 0:
-                    time.sleep(random.uniform(0.5, 1.5) * sleep_for)
-        return None
+    def _retry(callable_fetch):
+        return _call_with_transient_retry(
+            callable_fetch,
+            transient_retries=transient_retries,
+            transient_backoff_base_seconds=transient_backoff_base_seconds,
+        )
 
     try:
-        return _call_with_transient_retry(
+        return _retry(
             lambda: fetch_token_history(
                 client,
                 token_id,
@@ -255,7 +281,7 @@ def fetch_token_history_with_retry(
         if adjusted_end <= start_ts:
             raise last_error
         try:
-            return _call_with_transient_retry(
+            return _retry(
                 lambda: fetch_token_history(
                     client,
                     token_id,
@@ -272,7 +298,7 @@ def fetch_token_history_with_retry(
 
     # Retry path for interval fetches: drop fidelity, then fall back to max
     try:
-        return _call_with_transient_retry(
+        return _retry(
             lambda: fetch_token_history(
                 client,
                 token_id,
@@ -288,7 +314,7 @@ def fetch_token_history_with_retry(
 
     if interval != "max":
         try:
-            return _call_with_transient_retry(
+            return _retry(
                 lambda: fetch_token_history(
                     client,
                     token_id,
@@ -301,3 +327,146 @@ def fetch_token_history_with_retry(
             raise exc from last_error
 
     raise last_error
+
+
+def fetch_batch_token_history(
+    client: APIClient,
+    token_ids: Sequence[str],
+    *,
+    start_ts: int,
+    end_ts: int,
+    fidelity: int | None = None,
+    status_hook: Optional[Callable[[int], None]] = None,
+) -> Optional[Dict[str, List[Tuple[str, int, float]]]]:
+    """
+    Fetch history for up to 20 tokens via POST /batch-prices-history.
+
+    Returns:
+        Dict mapping token_id -> records, missing keys treated as empty lists.
+        None on transient failure.
+    """
+    markets = [str(token_id) for token_id in token_ids if token_id]
+    if not markets:
+        return {}
+    if len(markets) > MAX_BATCH_MARKETS:
+        raise ValueError(
+            f"batch markets exceeds API maxItems ({MAX_BATCH_MARKETS}): {len(markets)}"
+        )
+    payload: dict = {
+        "markets": markets,
+        "start_ts": int(start_ts),
+        "end_ts": int(end_ts),
+    }
+    if fidelity:
+        payload["fidelity"] = int(fidelity)
+    label = f"batch[{len(markets)}]"
+    try:
+        data = clob_post(client, "/batch-prices-history", json=payload)
+        _emit_status_via(status_hook, 200)
+        history_map = data.get("history") if isinstance(data, dict) else None
+        if not isinstance(history_map, dict):
+            history_map = {}
+        out: Dict[str, List[Tuple[str, int, float]]] = {}
+        for token_id in markets:
+            out[token_id] = _parse_history_points(
+                token_id, history_map.get(token_id, [])
+            )
+        return out
+    except (requests.Timeout, ClobRequestError, requests.HTTPError) as e:
+        if isinstance(e, requests.Timeout) or (
+            isinstance(e, ClobRequestError)
+            and isinstance(e.__cause__, requests.Timeout)
+        ):
+            _emit_status_via(status_hook, -1)
+            logger.warning(
+                "Timeout fetching %s with payload=%s; will retry on next sync",
+                label,
+                payload,
+            )
+            return None
+        status, body = _response_status_and_body(e)
+        _emit_status_via(status_hook, status if status is not None else -1)
+        if _is_transient_client_status(status):
+            logger.warning(
+                "Transient client status %s for %s; will retry on next sync",
+                status,
+                label,
+            )
+            return None
+        if status == 400:
+            raise BadRequestError(
+                f"{status} bad request for {label}: {body}",
+                status=status,
+                body=body,
+                params=payload,
+            ) from e
+        if status and 400 <= status < 500:
+            raise PermanentAPIError(
+                f"{status} client error for {label}: {body}"
+            ) from e
+        logger.error("Failed to process %s: %s", label, e)
+        return None
+    except OSError as e:
+        logger.error("Failed to process %s: %s", label, e)
+        return None
+    except Exception as e:
+        status, body = _response_status_and_body(e)
+        if getattr(e, "response", None) is None:
+            logger.error("Failed to process %s: %s", label, e)
+            return None
+        _emit_status_via(status_hook, status if status is not None else -1)
+        if _is_transient_client_status(status):
+            logger.warning(
+                "Transient client status %s for %s; will retry on next sync",
+                status,
+                label,
+            )
+            return None
+        if status == 400:
+            raise BadRequestError(
+                f"{status} bad request for {label}: {body}",
+                status=status,
+                body=body,
+                params=payload,
+            ) from e
+        if status and 400 <= status < 500:
+            raise PermanentAPIError(
+                f"{status} client error for {label}: {body}"
+            ) from e
+        logger.error("Failed to process %s: %s", label, e)
+        return None
+
+
+def fetch_batch_token_history_with_retry(
+    client,
+    token_ids: Sequence[str],
+    *,
+    start_ts: int,
+    end_ts: int,
+    fidelity: int | None = None,
+    now_ts: int | None = None,
+    transient_retries: int = 0,
+    transient_backoff_base_seconds: float = 0.0,
+    status_hook: Optional[Callable[[int], None]] = None,
+) -> Optional[Dict[str, List[Tuple[str, int, float]]]]:
+    """Fetch batch token history with transient retries (explicit ranges only)."""
+    transient_retries = max(0, int(transient_retries))
+    transient_backoff_base_seconds = max(0.0, float(transient_backoff_base_seconds))
+    effective_end = int(end_ts)
+    if now_ts is not None:
+        effective_end = min(effective_end, int(now_ts))
+    if effective_end <= int(start_ts):
+        return {str(token_id): [] for token_id in token_ids if token_id}
+
+    return _call_with_transient_retry(
+        lambda: fetch_batch_token_history(
+            client,
+            token_ids,
+            start_ts=int(start_ts),
+            end_ts=effective_end,
+            fidelity=fidelity,
+            status_hook=status_hook,
+        ),
+        transient_retries=transient_retries,
+        transient_backoff_base_seconds=transient_backoff_base_seconds,
+    )

@@ -275,6 +275,12 @@ Dagster hourly odds config uses history-oriented option names:
   default this to `0` (collect raw history from market creation).
 - `window_hours`: maximum CLOB fetch window per request. Hourly/full-pipeline jobs
   default this to `720` (30 days) for CLOB chunk sizing.
+- `batch_group_size`: number of token IDs per CLOB `POST /batch-prices-history`
+  call (default `20`, max `20`). Hourly odds groups due tokens into shared
+  window fetches to cut HTTP round-trips.
+- `auto_tune_max_rps`: upper bound for odds RPS auto-tuning. Polymarket hourly /
+  full-pipeline jobs default this to `90` (under the documented CLOB
+  `/prices-history` ceiling of 100 req/s).
 
 Kalshi hourly odds (`kalshi_wc2026_hourly_odds_ingest`,
 `kalshi_wc2026_full_pipeline`) use the same field names with different defaults:

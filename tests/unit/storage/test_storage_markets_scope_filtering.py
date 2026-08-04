@@ -313,9 +313,10 @@ def test_wc2026_hourly_planning_keeps_zero_volume_ended_event_child(duck):
         empty_token_skip_runs=config.empty_skip_runs,
     )
 
-    plans = list(
+    groups = list(
         odds_sync.iter_token_plans_paged(now_ts=1_900_000_000, options=options)
     )
+    plans = [plan for group in groups for plan in group.token_plans]
 
     assert [(plan.market_id, plan.token_id) for plan in plans] == [
         ("zero_volume_child", token_id)
