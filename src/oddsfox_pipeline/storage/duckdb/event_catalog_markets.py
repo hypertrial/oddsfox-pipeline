@@ -184,7 +184,6 @@ def materialize_registry_markets_from_event_catalog(
         if not rows:
             return {"markets_materialized": 0, "token_rows_materialized": 0}
 
-        payloads = [_payload_row_to_gamma_dict(row[:-1]) for row in rows]
         from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
             normalize_market_payloads_for_dlt,
             polymarket_wc2026_markets_source,

@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 from oddsfox_pipeline.orchestration import polymarket_ops as polymarket_ops_mod
 from tests.unit.orchestration.orchestration_test_support import (
-    _DelayedWorkerThread,
     _FakeClock,
     _patch_guardrail_clock,
 )

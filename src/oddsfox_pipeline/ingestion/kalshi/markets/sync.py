@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
-
 from datetime import datetime, timezone
+from typing import Any, Callable
 
 from oddsfox_pipeline.ingestion.kalshi.client import build_client
 from oddsfox_pipeline.ingestion.kalshi.markets.transform import (
