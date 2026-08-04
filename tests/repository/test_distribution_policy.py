@@ -90,7 +90,7 @@ ALLOWED_DATA_LIKE_FILES = {
     "tests/fixtures/market_portrait/match-95-target.yml",
     "tests/fixtures/golden/international_results_wc2026_team_status.csv",
     "tests/fixtures/golden/kalshi_wc2026_hourly_odds.csv",
-    "tests/fixtures/golden/polymarket_wc2026_knockout_token_hourly_odds.csv",
+    "tests/fixtures/golden/polymarket_wc2026_market_hourly_odds.csv",
     "vercel.json",
     "workspace.yaml",
 }

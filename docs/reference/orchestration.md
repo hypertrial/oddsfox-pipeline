@@ -37,11 +37,10 @@ pipelines but are not separate product pipelines.
 Marts are defined once in [Data contracts](data-contracts.md#documented-marts);
 this list maps each pipeline to what it builds.
 
-- **Polymarket WC2026** (`polymarket_wc2026_full_pipeline`): four knockout marts
-  (`polymarket_wc2026_markets`, `polymarket_wc2026_knockout_market_tokens`,
-  `polymarket_wc2026_knockout_markets`, `polymarket_wc2026_knockout_token_hourly_odds`).
-  Rebuilds the shared `international_results_wc2026_matches` and
-  `international_results_wc2026_team_status` marts as inputs.
+- **Polymarket WC2026** (`polymarket_wc2026_full_pipeline`):
+  `polymarket_wc2026_market_hourly_odds`. Rebuilds the shared
+  `international_results_wc2026_matches` and
+  `international_results_wc2026_team_status` marts as inputs for other pipelines.
 - **Kalshi WC2026** (`kalshi_wc2026_full_pipeline`): `kalshi_wc2026_stage_markets`,
   `kalshi_wc2026_stage_market_hourly_odds`, `kalshi_wc2026_group_winner_markets`,
   `kalshi_wc2026_group_winner_market_hourly_odds`. Rebuilds the same shared

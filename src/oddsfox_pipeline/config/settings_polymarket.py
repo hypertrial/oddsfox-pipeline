@@ -36,12 +36,12 @@ MIN_ODDS_FIDELITY_MINUTES = 1
 DEFAULT_ODDS_FIDELITY_MINUTES = 1440
 WC2026_CONTRACT_DEFAULTS = {
     "scope_name": "wc2026",
-    "knockout_min_volume_usd": 5_000.0,
+    "event_min_lifetime_volume_usd": 100_000.0,
     "hourly_window_days": 30,
     "hourly_window_hours": 720,
 }
-POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD = float(
-    WC2026_CONTRACT_DEFAULTS["knockout_min_volume_usd"]
+POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD = float(
+    WC2026_CONTRACT_DEFAULTS["event_min_lifetime_volume_usd"]
 )
 POLYMARKET_WC2026_HOURLY_WINDOW_DAYS = int(
     WC2026_CONTRACT_DEFAULTS["hourly_window_days"]
@@ -90,17 +90,17 @@ def _parse_scope_keyset_closed_env() -> bool | None:
 
 
 def _parse_scope_keyset_volume_min_env() -> float | None:
-    """Default knockout floor; empty/none/null omits volume_min on /events/keyset."""
+    """Default omits volume_min on /events/keyset; registry uses event catalog."""
     raw = os.getenv("POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN")
     if raw is None:
-        return POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD
+        return None
     normalized = str(raw).strip().lower()
     if not normalized or normalized in {"none", "null"}:
         return None
     try:
         return float(normalized)
     except ValueError:
-        return POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD
+        return None
 
 
 POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN = _parse_scope_keyset_volume_min_env()
@@ -153,7 +153,7 @@ __all__ = [
     "POLYMARKET_WC2026_HOURLY_WINDOW_DAYS",
     "POLYMARKET_WC2026_HOURLY_WINDOW_HOURS",
     "POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED",
-    "POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD",
+    "POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD",
     "POLYGON_RPC_PROVIDER_LABEL",
     "POLYGON_RPC_URL",
     "POLYGON_VERIFY_RPC_PROVIDER_LABEL",

@@ -425,8 +425,27 @@ def load_market_scope_registry_stage(
     conn.execute(
         f"""
         INSERT INTO {target}
-        (scope_name, market_id, event_slug, event_id, source, refreshed_at)
-        SELECT scope_name, market_id, event_slug, event_id, source, refreshed_at
+        (
+            scope_name,
+            market_id,
+            event_slug,
+            event_id,
+            source,
+            refreshed_at,
+            event_volume_usd_lifetime_reported,
+            is_event_volume_eligible,
+            first_eligible_at
+        )
+        SELECT
+            scope_name,
+            market_id,
+            event_slug,
+            event_id,
+            source,
+            refreshed_at,
+            event_volume_usd_lifetime_reported,
+            is_event_volume_eligible,
+            first_eligible_at
         FROM (
             SELECT
                 scope_name,
@@ -435,6 +454,9 @@ def load_market_scope_registry_stage(
                 event_id,
                 source,
                 refreshed_at,
+                event_volume_usd_lifetime_reported,
+                is_event_volume_eligible,
+                first_eligible_at,
                 row_number() OVER (
                     PARTITION BY scope_name, market_id
                     ORDER BY refreshed_at DESC, row_order DESC
@@ -452,7 +474,19 @@ def load_market_scope_registry_stage(
               {target}.event_id
           ),
           source=excluded.source,
-          refreshed_at=excluded.refreshed_at
+          refreshed_at=excluded.refreshed_at,
+          event_volume_usd_lifetime_reported=COALESCE(
+              excluded.event_volume_usd_lifetime_reported,
+              {target}.event_volume_usd_lifetime_reported
+          ),
+          is_event_volume_eligible=(
+              coalesce({target}.is_event_volume_eligible, false)
+              OR coalesce(excluded.is_event_volume_eligible, false)
+          ),
+          first_eligible_at=COALESCE(
+              {target}.first_eligible_at,
+              excluded.first_eligible_at
+          )
         """
     )
 

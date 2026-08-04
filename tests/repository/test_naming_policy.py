@@ -74,8 +74,7 @@ EXPECTED_OP_NAMES = {
 EXPECTED_SCRIPT_FILES = {
     "build_polymarket_wc2026_polygon_settlement_release.py",
     "count_polymarket_wc2026_gamma_tag_events.py",
-    "export_polymarket_markets.py",
-    "export_polymarket_wc2026_knockout_hourly_odds.py",
+    "export_polymarket_wc2026_market_hourly_odds.py",
     "repair_polymarket_wc2026_token_sync_ledger.py",
     "sync_polymarket_markets_catalog.py",
 }

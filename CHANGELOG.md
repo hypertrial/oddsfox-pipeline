@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Breaking:** Polymarket WC2026 knockout and catalog marts
+  (`polymarket_wc2026_markets`, `polymarket_wc2026_knockout_market_tokens`,
+  `polymarket_wc2026_knockout_markets`, `polymarket_wc2026_knockout_token_hourly_odds`),
+  knockout observability marts/tests, and export scripts
+  `export_polymarket_markets.py` and
+  `export_polymarket_wc2026_knockout_hourly_odds.py`. Delete local warehouse
+  files (`rm oddsfox.duckdb*`) and rerun quickstart after upgrading.
+
 - **Breaking:** Polymarket WC2026 logical atlas — the seven
   `polymarket_wc2026_logical_*` marts, `polymarket-wc2026-logical-v1` export
   bundle, `polymarket_wc2026_logical_atlas` job, `release/logical_bundle` asset,
@@ -20,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remains for market scope registry refresh.
 
 ### Changed
+
+- **Breaking:** Polymarket WC2026 refocuses on one documented golden mart:
+  `polymarket_wc2026_market_hourly_odds` at grain `(market_id, odds_hour_epoch)`.
+  Admission uses sticky event lifetime volume
+  (`event_min_lifetime_volume_usd = 100000`) from
+  `dbt/seeds/polymarket_wc2026_pipeline_policy.csv`. Export with
+  `scripts/export_polymarket_wc2026_market_hourly_odds.py`.
 
 - `polymarket_wc2026_market_scope_registry_refresh` now materializes the
   `event_catalog` multi-asset neighborhood (plus OpenFootball schedule fixtures)

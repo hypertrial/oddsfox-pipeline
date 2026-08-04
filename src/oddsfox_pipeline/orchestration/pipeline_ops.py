@@ -11,6 +11,7 @@ from typing import Any, Callable
 
 from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     load_market_scope_config,
+    refresh_registry_from_event_catalog,
     refresh_registry_from_events,
     resolve_keyset_tag_slugs,
 )
@@ -44,10 +45,13 @@ def sync_market_scope_registry(
     keyset_closed: bool | None = None,
     keyset_tag_slugs: list[str] | None = None,
     keyset_volume_min: float | None = None,
+    apply_event_volume_eligibility_gate: bool = True,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
-    client = build_client()
     cfg = load_market_scope_config(scope_name=scope_name)
+    if apply_event_volume_eligibility_gate:
+        return refresh_registry_from_event_catalog(config=cfg)
+    client = build_client()
     effective_keyset_tag_slugs = resolve_keyset_tag_slugs(
         keyset_tag_slugs, config=cfg, client=client
     )

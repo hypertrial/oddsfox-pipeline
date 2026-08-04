@@ -110,6 +110,19 @@ _MARKET_SCOPE_REGISTRY = (
     ColumnDef("event_id", "TEXT", "text", dlt_nullable=True),
     ColumnDef("source", "TEXT", "text"),
     ColumnDef("refreshed_at", "TIMESTAMP", "timestamp"),
+    ColumnDef(
+        "event_volume_usd_lifetime_reported",
+        "DOUBLE",
+        "double",
+        dlt_nullable=True,
+    ),
+    ColumnDef(
+        "is_event_volume_eligible",
+        "BOOLEAN",
+        "bool",
+        dlt_nullable=True,
+    ),
+    ColumnDef("first_eligible_at", "TIMESTAMP", "timestamp", dlt_nullable=True),
     ColumnDef("row_order", "BIGINT", "bigint"),
 )
 

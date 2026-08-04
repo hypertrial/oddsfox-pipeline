@@ -1,80 +1,3 @@
-{% macro polymarket_markets_sql(markets_ref, registry_source, scope_name, policy_ref) %}
-with markets as (
-    select
-        market_id,
-        question,
-        category,
-        description,
-        outcomes,
-        volume,
-        is_active,
-        is_closed,
-        created_at,
-        scraped_at,
-        end_date,
-        slug,
-        event_slug,
-        event_id,
-        condition_id,
-        sports_market_type,
-        game_start_time,
-        group_item_title,
-        tags,
-        clob_token_ids,
-        is_resolved,
-        winning_outcome,
-        winning_clob_token_id
-    from {{ markets_ref }}
-),
-
-registry as (
-    select
-        market_id,
-        scope_name
-    from {{ registry_source }}
-    where lower(scope_name) = '{{ scope_name }}'
-),
-
-contract as (
-    select knockout_min_volume_usd
-    from {{ policy_ref }}
-    where scope_name = '{{ scope_name }}'
-)
-
-select
-    markets.market_id,
-    markets.question,
-    markets.category,
-    markets.description,
-    markets.outcomes,
-    markets.volume,
-    markets.is_active,
-    markets.is_closed,
-    markets.created_at,
-    markets.scraped_at,
-    markets.end_date,
-    markets.slug,
-    markets.event_slug,
-    markets.event_id,
-    markets.condition_id,
-    markets.sports_market_type,
-    markets.game_start_time,
-    markets.group_item_title,
-    markets.tags,
-    markets.clob_token_ids,
-    markets.is_resolved,
-    markets.winning_outcome,
-    markets.winning_clob_token_id,
-    registry.scope_name
-from markets
-inner join registry
-    on markets.market_id = registry.market_id
--- costguard: allow cross-join, pipeline policy seed has one row.
-cross join contract
-where coalesce(markets.volume, 0) >= contract.knockout_min_volume_usd
-{% endmacro %}
-
-
 {% macro polymarket_token_working_set_sql(tokens_ref, markets_ref) %}
 select
     t.market_id,
@@ -104,11 +27,15 @@ inner join {{ markets_ref }} as m
 
 
 {% macro polymarket_token_hourly_odds_sql(contract_ref, odds_ref, scope_name) %}
+{% if contract_ref is not none %}
 with contract as (
     select hourly_window_days
     from {{ contract_ref }}
     where scope_name = '{{ scope_name }}'
 ),
+{% else %}
+with
+{% endif %}
 
 source_odds as (
     select
@@ -124,9 +51,11 @@ source_odds as (
         o.price is not null
         and o.odds_timestamp is not null
         and o.odds_timestamp_epoch is not null
+        {% if contract_ref is not none %}
         and o.odds_timestamp >= current_timestamp - (
             (select contract.hourly_window_days from contract) * interval '1 day'
         )
+        {% endif %}
 ),
 
 dirty_hours as (

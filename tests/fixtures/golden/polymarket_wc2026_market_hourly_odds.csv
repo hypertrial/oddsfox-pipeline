@@ -1,0 +1,2 @@
+market_id,clob_token_id,event_id,odds_hour_epoch,close_odds,observed_points,event_volume_usd_lifetime_reported
+pm-wc-arg-win,pm-wc-arg-yes,evt-arg,4070944800,0.7,2,150000.0

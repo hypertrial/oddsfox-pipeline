@@ -16,7 +16,9 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         == dbt_schemas.DBT_SOURCE_POLYMARKET_CATALOG
     )
     assert (
-        dbt_schemas.resolve_source_slug({"name": "polymarket_wc2026_knockout_markets"})
+        dbt_schemas.resolve_source_slug(
+            {"name": "polymarket_wc2026_market_hourly_odds"}
+        )
         == dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026
     )
     assert (
@@ -125,27 +127,15 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
     ) == AssetKey(["polymarket", "wc2026", "intermediate", "token_working_set"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
-        "polymarket_wc2026_markets",
+        "polymarket_wc2026_market_hourly_odds",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
-    ) == AssetKey(["polymarket", "wc2026", "marts", "markets"])
-    assert dbt_schemas.dbt_model_asset_key_for_name(
-        "polymarket_wc2026_knockout_token_hourly_odds",
-        dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
-    ) == AssetKey(["polymarket", "wc2026", "marts", "knockout_token_hourly_odds"])
+    ) == AssetKey(["polymarket", "wc2026", "marts", "market_hourly_odds"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
         "polymarket_wc2026_ingestion_run_observability",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
     ) == AssetKey(
         ["polymarket", "wc2026", "observability", "ingestion_run_observability"]
     )
-    assert dbt_schemas.dbt_model_asset_key_for_name(
-        "polymarket_wc2026_knockout_stage_coverage",
-        dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
-    ) == AssetKey(["polymarket", "wc2026", "observability", "knockout_stage_coverage"])
-    assert dbt_schemas.dbt_model_asset_key_for_name(
-        "polymarket_wc2026_knockout_data_quality",
-        dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
-    ) == AssetKey(["polymarket", "wc2026", "observability", "knockout_data_quality"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
         "other_model",
         dbt_schemas.DBT_FALLBACK_SCHEMA,

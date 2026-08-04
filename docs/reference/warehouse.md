@@ -150,14 +150,15 @@ Schema: `polymarket_wc2026_intermediate`
 
 - `int_polymarket_wc2026_token_working_set`: materialized canonical one-row-per-token
   join of market tokens to market labels, state, and volume.
-- `int_polymarket_wc2026_markets`: markets admitted by the fixed WC2026 scope;
-  one row per `(scope_name, market_id)` with the knockout volume floor from the
-  WC2026 pipeline policy seed.
-- `int_polymarket_wc2026_market_tokens`: WC2026 subset of the token working set.
+- `int_polymarket_wc2026_markets`: markets admitted by the fixed WC2026 scope
+  registry with sticky event-volume eligibility; one row per admitted market with
+  enclosing-event metadata from the event catalog.
+- `int_polymarket_wc2026_event_latest`: latest snapshot per WC2026 event from
+  raw event catalog history.
+- `int_polymarket_wc2026_primary_market_token`: one Yes-outcome CLOB token per
+  admitted market.
 - `int_polymarket_wc2026_token_hourly_odds`: incremental hourly OHLC price fact
-  for raw CLOB tokens in the WC2026 pipeline policy trailing window.
-- `int_polymarket_wc2026_knockout_market_classification`: shared real-team
-  knockout market classifier used by knockout marts and observability.
+  for raw CLOB tokens across full lifetime history.
 - `int_polymarket_wc2026_match_working_set`: match-grain working set for
   minute odds and order-book pipelines.
 - `int_polymarket_wc2026_match_token_minute_odds`: incremental minute-grain
@@ -201,10 +202,6 @@ Schema: `polymarket_wc2026_observability`
 - `polymarket_wc2026_match_minute_odds_quality_issues`: stable current warning or
   error keys with entity IDs, measured values, thresholds, and explanations.
 - `polymarket_wc2026_ingestion_run_observability`: run-level ingestion, market-discovery provenance, and odds-sync telemetry.
-- `polymarket_wc2026_knockout_stage_coverage`: raw classified market coverage vs public scoped tokens by stage,
-  direction, and market status, including hourly completeness metrics.
-- `polymarket_wc2026_knockout_data_quality`: DQ findings for aggregated source-state anomalies, sparse stage/team
-  coverage, actionable stale or missing odds, upstream eliminated-team live lag, and live-team alignment.
 
 Schema: `kalshi_wc2026_observability`
 

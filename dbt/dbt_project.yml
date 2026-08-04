@@ -33,24 +33,18 @@ models:
       intermediate:
         +schema: polymarket_wc2026_intermediate
         +tags: ["intermediate", "wc2026", "polymarket"]
-        int_polymarket_wc2026_market_tokens:
-          +materialized: table
         int_polymarket_wc2026_token_hourly_odds:
           +materialized: incremental
         int_polymarket_wc2026_token_working_set:
+          +materialized: table
+        int_polymarket_wc2026_primary_market_token:
           +materialized: table
       marts:
         +schema: polymarket_wc2026_marts
         +materialized: table
         +tags: ["mart", "core", "wc2026", "polymarket"]
-        polymarket_wc2026_markets:
-          +materialized: view
-        polymarket_wc2026_knockout_market_tokens:
-          +materialized: view
-        polymarket_wc2026_knockout_markets:
-          +materialized: view
-        polymarket_wc2026_knockout_token_hourly_odds:
-          +materialized: view
+        polymarket_wc2026_market_hourly_odds:
+          +materialized: table
       observability:
         +schema: polymarket_wc2026_observability
         +materialized: table

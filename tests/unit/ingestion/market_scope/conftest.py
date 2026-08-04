@@ -5,9 +5,6 @@ from __future__ import annotations
 import pytest
 
 from oddsfox_pipeline.config import settings as config_settings
-from oddsfox_pipeline.config.settings_polymarket import (
-    POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
-)
 from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     predicates as scope_predicates_mod,
 )
@@ -40,7 +37,7 @@ def _market_scope_test_discovery_settings(monkeypatch):
     monkeypatch.setattr(
         config_settings,
         "POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN",
-        POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
+        None,
         raising=False,
     )
     monkeypatch.setattr(

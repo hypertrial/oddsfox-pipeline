@@ -207,6 +207,44 @@ sources:
           - name: ingested_at
             tests: [not_null]
 
+      - name: event_snapshots
+        description: Append-only Gamma event catalog snapshots for WC2026 scope discovery.
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, event_snapshots]
+        columns:
+          - name: event_id
+            tests: [not_null]
+          - name: event_volume_usd_lifetime_reported
+          - name: observed_at
+            tests: [not_null]
+
+      - name: event_market_snapshots
+        description: Append-only event-to-market membership bridge from the event catalog.
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, event_market_memberships]
+        columns:
+          - name: event_id
+            tests: [not_null]
+          - name: market_id
+            tests: [not_null]
+          - name: is_enclosing_event
+            tests: [not_null]
+          - name: observed_at
+            tests: [not_null]
+
+      - name: event_market_payload_snapshots
+        description: Append-only child-market payload snapshots from the WC2026 event catalog.
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, event_catalog]
+        columns:
+          - name: market_id
+            tests: [not_null]
+          - name: observed_at
+            tests: [not_null]
+
   - name: polymarket_wc2026_ops
     description: Polymarket operational DuckDB tables (sync ledger, skips, ingestion run events) written by Python ingestion.
     schema: polymarket_wc2026_ops
@@ -270,6 +308,12 @@ sources:
             description: How the row was discovered (events_api or seed).
           - name: refreshed_at
             description: UTC timestamp when this registry row was last upserted.
+          - name: event_volume_usd_lifetime_reported
+            description: Latest reported enclosing-event lifetime volume in USD.
+          - name: is_event_volume_eligible
+            description: Sticky event-volume admission flag for the enclosing event.
+          - name: first_eligible_at
+            description: UTC timestamp when the enclosing event first crossed the volume floor.
       - name: match_minute_odds_fetch_audit
         description: Append-only per-token audit for dedicated WC2026 minute backfills.
         meta:

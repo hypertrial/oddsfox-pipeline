@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from oddsfox_pipeline.config.settings_polymarket import (
-    POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
-)
 from oddsfox_pipeline.ingestion.polymarket.market_scope import MarketScopeConfig
 
 
@@ -16,7 +13,7 @@ def slug_only_cfg(**kwargs) -> MarketScopeConfig:
         "registry_max_event_pages": None,
         "event_tags": (),
         "keyset_closed": False,
-        "keyset_volume_min": POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
+        "keyset_volume_min": None,
         "keyset_related_tags": False,
         "tag_discovery": False,
         "tag_closure_rounds": 0,

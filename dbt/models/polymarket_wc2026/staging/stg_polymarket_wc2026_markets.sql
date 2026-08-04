@@ -1,5 +1,45 @@
+with latest_payloads as (
+    select
+        market_id,
+        question,
+        category,
+        description,
+        market_resolution_source,
+        outcomes,
+        volume,
+        active,
+        closed,
+        created_at,
+        scraped_at,
+        end_date,
+        slug,
+        event_slug,
+        event_id,
+        event_title,
+        event_start_time,
+        event_finished_time,
+        event_game_id,
+        event_ended,
+        condition_id,
+        sports_market_type,
+        game_start_time,
+        group_item_title,
+        group_item_threshold,
+        line,
+        tags,
+        clob_token_ids,
+        is_resolved,
+        winning_outcome,
+        winning_clob_token_id
+    from {{ source('polymarket_wc2026_raw', 'event_market_payload_snapshots') }}
+    qualify row_number() over (
+        partition by market_id
+        order by observed_at desc
+    ) = 1
+)
+
 select
-    id as market_id,
+    market_id,
     question,
     category,
     description,
@@ -30,4 +70,4 @@ select
     cast(is_resolved as boolean) as is_resolved,
     winning_outcome,
     winning_clob_token_id
-from {{ source('polymarket_wc2026_raw', 'markets') }}
+from latest_payloads

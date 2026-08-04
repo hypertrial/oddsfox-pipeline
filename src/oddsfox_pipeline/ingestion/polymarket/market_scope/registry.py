@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, Iterable, Sequence
 from oddsfox_pipeline.ingestion.polymarket.gamma_events import fetch_gamma_event_by_slug
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
+    build_registry_rows_from_event_catalog,
     get_registry_market_ids,
     upsert_registry_rows,
 )
@@ -336,6 +337,44 @@ def refresh_registry_and_collect_markets_targeted(
         discovery_mode=DISCOVERY_MODE_TARGETED,
         t0=t0,
     )
+
+
+def refresh_registry_from_event_catalog(
+    *,
+    config: MarketScopeConfig | None = None,
+) -> Dict[str, Any]:
+    """Upsert registry rows from landed event catalog snapshots (sticky >= $100k)."""
+    t0 = time.monotonic()
+    cfg = config or load_market_scope_config()
+    seed_rows = _seed_registry_rows(cfg)
+    merged = _dedupe_registry_rows(
+        build_registry_rows_from_event_catalog(
+            scope_name=cfg.scope_name,
+            seed_rows=seed_rows,
+        )
+    )
+    saved = upsert_registry_rows(merged)
+    from oddsfox_pipeline.storage.duckdb.event_catalog_markets import (
+        materialize_registry_markets_from_event_catalog,
+    )
+
+    materialized = materialize_registry_markets_from_event_catalog(
+        scope_name=cfg.scope_name,
+    )
+    by_source = _count_by_source(merged)
+    return {
+        "task": "refresh_market_scope_registry",
+        "registry_rows_upserted": saved,
+        "by_source": by_source,
+        "discovery_mode": "event_catalog",
+        "registry_refreshed": True,
+        "scope_name": cfg.scope_name,
+        "markets_collected": len(merged),
+        "eligible_events": len({row.event_id for row in merged if row.event_id}),
+        "markets_materialized": materialized["markets_materialized"],
+        "token_rows_materialized": materialized["token_rows_materialized"],
+        "duration_seconds": round(time.monotonic() - t0, 3),
+    }
 
 
 def refresh_registry_from_events(

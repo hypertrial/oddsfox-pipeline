@@ -1,8 +1,8 @@
 version: 2
 models:
 - name: stg_polymarket_wc2026_markets
-  description: Normalized market metadata from raw Gamma API landing with stable snake_case
-    field names.
+  description: Normalized market metadata from the latest WC2026 event-catalog market
+    payload snapshots with stable snake_case field names.
   columns:
   - name: market_id
     description: Polymarket market identifier (from raw `id`).

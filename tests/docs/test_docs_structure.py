@@ -223,16 +223,14 @@ def test_shipped_scopes_and_public_marts_remain_documented():
         "polymarket:wc2026",
         "kalshi:wc2026",
         "scripts/run_scope.py",
-        "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets",
-        "polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds",
+        "polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds",
         "polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds",
         "polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds",
         "international_results_wc2026_marts.international_results_wc2026_matches",
         "kalshi_wc2026_marts.kalshi_wc2026_stage_markets",
         "kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds",
-        "is_actionable_live_market",
-        "current_price_status",
-        "price_represents",
+        "event_volume_usd_lifetime_reported",
+        "close_odds",
     ]
 
     for term in required:

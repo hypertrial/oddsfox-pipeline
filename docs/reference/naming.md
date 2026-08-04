@@ -44,7 +44,7 @@ more sources and scopes are added:
 - `polymarket/wc2026/ops/market_scope_registry`
 - `polymarket/wc2026/raw/polygon_settlement_fills`
 - `polymarket/wc2026/release/polygon_settlement_odds_bundle`
-- `polymarket/wc2026/marts/knockout_token_hourly_odds`
+- `polymarket/wc2026/marts/market_hourly_odds`
 - `international_results/wc2026/raw/match_results`
 - `international_results/wc2026/marts/team_status`
 - `kalshi/wc2026/raw/markets`

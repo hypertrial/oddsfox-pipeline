@@ -164,20 +164,20 @@ def test_batch_table_row_counts_reports_missing_and_existing_tables(tmp_path):
 
 def test_dbt_delta_and_formatters():
     before = {
-        "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets": {
+        "polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds": {
             "exists": False,
             "rows": None,
         }
     }
     after = {
-        "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets": {
+        "polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds": {
             "exists": True,
             "rows": 3,
         }
     }
 
     assert delta_dbt_models(before, after) == {
-        "polymarket_wc2026_marts.polymarket_wc2026_knockout_markets": {
+        "polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds": {
             "before": {"exists": False, "rows": None},
             "after": {"exists": True, "rows": 3},
         }
@@ -187,7 +187,7 @@ def test_dbt_delta_and_formatters():
         {"kalshi_wc2026_raw.events_rows": 1}
     )
     assert (
-        "polymarket_wc2026_knockout_markets:exists=True,rows=3"
+        "polymarket_wc2026_market_hourly_odds:exists=True,rows=3"
         in format_dbt_snapshot_log(after)
     )
 

@@ -4,8 +4,7 @@ models:
   - name: int_polymarket_wc2026_markets
     description: >
       WC2026 Polymarket markets admitted by polymarket_wc2026_ops.market_scope_registry
-      at or above the WC2026 pipeline policy volume floor (currently $5,000 USD;
-      re-evaluated each dbt build).
+      for sticky event-volume-eligible enclosing events, joined to latest event metadata.
     tests:
       - no_duplicate_grain:
           arguments:
@@ -65,51 +64,23 @@ models:
       - name: market_volume_usd
         description: Reported market volume from staging metadata.
 
-  - name: int_polymarket_wc2026_market_tokens
+  - name: int_polymarket_wc2026_primary_market_token
     description: >
-      WC2026 token working set: one row per CLOB outcome token whose market
-      belongs to int_polymarket_wc2026_markets.
+      One Yes-outcome CLOB token per admitted WC2026 market used by the golden hourly
+      odds mart.
     columns:
-      - name: clob_token_id
-        description: CLOB outcome token identifier.
-        tests:
-          - not_null
-          - unique
-          - relationships:
-              arguments:
-                to: ref('int_polymarket_wc2026_token_working_set')
-                field: clob_token_id
       - name: market_id
-        description: WC2026 Polymarket market identifier for this token.
-        tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('int_polymarket_wc2026_markets')
-                field: market_id
-      - name: outcome_index
-        description: Zero-based outcome index from the market token mapping.
+        tests: [not_null, unique]
+      - name: clob_token_id
         tests: [not_null]
-      - name: token_updated_at
-        description: UTC timestamp when the raw market_tokens row was last written.
-      - name: question
-        description: Market prompt text from staging markets.
       - name: outcome_label
-        description: Resolved outcome label from the market outcomes array.
-      - name: event_slug
-        description: Event slug for grouping related markets.
-      - name: is_active
-        description: Whether the market is currently active in staging metadata.
-      - name: is_closed
-        description: Whether the market is closed in staging metadata.
-      - name: market_volume_usd
-        description: Reported market volume from staging metadata.
+        tests: [not_null]
 
   - name: int_polymarket_wc2026_token_hourly_odds
     description: >
-      Incremental hourly OHLC price fact for Polymarket CLOB tokens in the
-      WC2026 trailing pipeline policy window. Public knockout marts join this fact to
-      current market/team metadata at query time.
+      Incremental hourly OHLC price fact for Polymarket CLOB tokens across full
+      lifetime history. The golden market hourly odds mart joins this fact to market
+      and event metadata.
     tests:
       - no_duplicate_grain:
           arguments:
@@ -149,177 +120,3 @@ models:
       - name: latest_ingested_at
         description: Latest raw ingestion timestamp represented in this hourly bucket.
 
-  - name: int_polymarket_wc2026_knockout_market_classification
-    description: >
-      Shared WC2026 knockout market classifier used by public knockout marts and
-      observability. One row per real-team knockout market question.
-    tests:
-      - no_duplicate_grain:
-          arguments:
-            grain_columns: [market_id]
-    columns:
-      - name: market_id
-        description: Polymarket market identifier.
-        tests:
-          - not_null
-          - unique
-          - relationships:
-              arguments:
-                to: ref('stg_polymarket_wc2026_markets')
-                field: market_id
-      - name: stage_key
-        description: Normalized WC2026 knockout stage key.
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values:
-                  - winner
-                  - final
-                  - semifinal
-                  - quarterfinal
-                  - round_of_16
-                  - round_of_32
-      - name: market_direction
-        description: Source market wording direction.
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['winner', 'advance', 'elimination']
-      - name: progression_outcome_label
-        description: Stable normalized progression outcome represented by progression-side odds.
-        tests: [not_null]
-      - name: team_name
-        description: Team extracted from the source question.
-        tests: [not_null]
-      - name: canonical_team_name
-        description: Canonical WC2026 team name from the FIFA World Cup fixture/results mart.
-        tests:
-          - not_null
-          - relationships:
-              arguments:
-                to: ref('international_results_wc2026_team_status')
-                field: team_name
-      - name: market_status
-        description: Derived market state; closed wins over active when both source flags are true.
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['resolved', 'closed', 'live', 'inactive']
-
-unit_tests:
-  - name: test_polymarket_wc2026_knockout_classifier_question_patterns
-    model: int_polymarket_wc2026_knockout_market_classification
-    given:
-      - input: ref('stg_polymarket_wc2026_markets')
-        rows:
-          - {
-              market_id: "m-winner",
-              question: "Will Argentina win the 2026 FIFA World Cup?",
-              category: "sports",
-              description: "",
-              outcomes: '["Yes","No"]',
-              volume: 10000.0,
-              is_active: true,
-              is_closed: false,
-              created_at: "2026-01-01 00:00:00",
-              scraped_at: "2026-01-01 00:00:00",
-              end_date: "2026-07-19 00:00:00",
-              slug: "argentina-win-world-cup",
-              event_slug: "world-cup",
-              event_id: "event-1",
-              condition_id: "condition-1",
-              sports_market_type: "outright",
-              game_start_time: null,
-              group_item_title: null,
-              tags: "[]",
-              clob_token_ids: '["yes","no"]',
-              is_resolved: false,
-              winning_outcome: null,
-              winning_clob_token_id: null
-            }
-          - {
-              market_id: "m-r16-elim",
-              question: "Will Mexico be eliminated in the Round of 16 of the World Cup?",
-              category: "sports",
-              description: "",
-              outcomes: '["Yes","No"]',
-              volume: 10000.0,
-              is_active: false,
-              is_closed: true,
-              created_at: "2026-01-01 00:00:00",
-              scraped_at: "2026-01-01 00:00:00",
-              end_date: "2026-07-01 00:00:00",
-              slug: "mexico-r16-elim",
-              event_slug: "world-cup",
-              event_id: "event-2",
-              condition_id: "condition-2",
-              sports_market_type: "stage",
-              game_start_time: null,
-              group_item_title: null,
-              tags: "[]",
-              clob_token_ids: '["yes","no"]',
-              is_resolved: true,
-              winning_outcome: "Yes",
-              winning_clob_token_id: "yes"
-            }
-      - input: ref('international_results_wc2026_team_aliases')
-        rows: []
-      - input: ref('international_results_wc2026_team_status')
-        rows:
-          - {
-              team_name: "Argentina",
-              tournament_status: "active",
-              is_still_alive: true,
-              eliminated_stage_key: null,
-              eliminated_match_date: null,
-              next_match_date: null,
-              next_stage_key: null,
-              matches_played: 0,
-              wins: 0,
-              draws: 0,
-              losses: 0,
-              goals_for: 0,
-              goals_against: 0,
-              latest_completed_match_date: null,
-              latest_completed_stage_key: null
-            }
-          - {
-              team_name: "Mexico",
-              tournament_status: "eliminated",
-              is_still_alive: false,
-              eliminated_stage_key: "round_of_16",
-              eliminated_match_date: "2026-07-01",
-              next_match_date: null,
-              next_stage_key: null,
-              matches_played: 4,
-              wins: 2,
-              draws: 1,
-              losses: 1,
-              goals_for: 5,
-              goals_against: 4,
-              latest_completed_match_date: "2026-07-01",
-              latest_completed_stage_key: "round_of_16"
-            }
-    expect:
-      rows:
-        - {
-            market_id: "m-winner",
-            stage_key: "winner",
-            market_direction: "winner",
-            progression_outcome_label: "win_world_cup",
-            team_name: "Argentina",
-            canonical_team_name: "Argentina",
-            market_status: "live"
-          }
-        - {
-            market_id: "m-r16-elim",
-            stage_key: "round_of_16",
-            market_direction: "elimination",
-            progression_outcome_label: "not_eliminated_in_round_of_16",
-            team_name: "Mexico",
-            canonical_team_name: "Mexico",
-            market_status: "resolved"
-          }

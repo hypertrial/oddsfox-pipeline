@@ -10,8 +10,8 @@ from oddsfox_pipeline.config.settings import (
     KALSHI_WC2026_HOURLY_WINDOW_DAYS,
     KALSHI_WC2026_HOURLY_WINDOW_HOURS,
     MIN_ODDS_FIDELITY_MINUTES,
+    POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
     POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
-    POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
@@ -73,9 +73,7 @@ class MarketsSyncConfig(GuardrailConfig):
     max_event_pages: int | None = None
     keyset_closed: bool | None = None
     keyset_tag_slugs: list[str] | None = None
-    keyset_volume_min: float | None = Field(
-        default=POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD, ge=0
-    )
+    keyset_volume_min: float | None = Field(default=None, ge=0)
     max_pages_without_progress: int | None = None
 
     @field_validator("max_pages_without_progress")
@@ -90,12 +88,11 @@ class MarketScopeRegistryConfig(GuardrailConfig):
     max_event_pages: int | None = None
     keyset_closed: bool | None = None
     keyset_tag_slugs: list[str] | None = None
-    keyset_volume_min: float | None = Field(
-        default=POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD, ge=0
-    )
+    keyset_volume_min: float | None = Field(default=None, ge=0)
     max_pages_without_progress: int | None = None
     skip_if_snapshot_refreshed: bool = True
     force_refresh: bool = False
+    apply_event_volume_eligibility_gate: bool = True
 
     @field_validator("max_pages_without_progress")
     @classmethod
@@ -157,7 +154,7 @@ class OddsSyncConfig(GuardrailConfig):
     short_range_first: bool = True
     market_page_size: int = 2000
     ended_market_grace_days: int | None = Field(default=7, ge=0)
-    min_volume: float | None = Field(default=POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD)
+    min_volume: float | None = Field(default=POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD)
     max_volume: float | None = None
     history_backfill_days: int = Field(default=0, ge=0)
 
@@ -304,6 +301,7 @@ def polymarket_wc2026_match_minute_odds_run_config() -> dict:
         force_refresh=True,
         keyset_closed=True,
         keyset_volume_min=0.0,
+        apply_event_volume_eligibility_gate=False,
         max_pages_without_progress=None,
     )
     dbt = DbtBuildConfig(

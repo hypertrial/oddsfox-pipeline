@@ -151,7 +151,9 @@ Upstream observation buckets are configuration, not ontology terms:
 Shared volume floors, trailing hourly windows, and freshness windows live in
 the `<namespace>_pipeline_policy.csv` seeds (see [Naming](naming.md)):
 
-- `dbt/seeds/polymarket_wc2026_pipeline_policy.csv`
+- `dbt/seeds/polymarket_wc2026_pipeline_policy.csv` — Polymarket WC2026 sticky
+  event admission via `event_min_lifetime_volume_usd` (currently `100000`) and
+  FIFA result-source freshness via `results_freshness_hours`.
 - `dbt/seeds/kalshi_wc2026_pipeline_policy.csv`
 
 Python defaults are checked against those seeds in unit tests.
@@ -184,8 +186,9 @@ overrides.
   `true`/`1`/`closed` → `true`. Empty string or `any`/`all`/`none`/`null`, or
   any other unrecognized value, omits the `closed` parameter entirely (filter
   not applied; scope not narrowed).
-- `POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN`: minimum Gamma keyset volume filter (default
-  `5000`, aligned with the WC2026 knockout pipeline-policy volume floor); shared by dlt and markets sync entrypoints.
+- `POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN`: optional Gamma `/events/keyset`
+  volume filter. Unset omits `volume_min`; event admission uses the event catalog
+  and sticky `event_min_lifetime_volume_usd` floor (currently $100,000 USD).
 - `POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS`
 - `POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY`
 - `POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_ROUNDS`
@@ -200,7 +203,7 @@ The packaged WC2026 event prefixes include `fifwc-` so exact match events are
 discovered deterministically alongside tag discovery. The combined match job
 sets the Gamma keyset volume floor to zero and the odds volume filter to null for exact
 `soccer_team_to_advance` markets; source-specific progression jobs keep their
-normal $5,000 defaults.
+normal event-volume defaults.
 
 ## Kalshi WC2026
 

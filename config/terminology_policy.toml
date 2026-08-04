@@ -103,7 +103,7 @@ extension_jobs = [
 ]
 critical_asset_keys = [
   ["polymarket", "wc2026", "ops", "market_scope_registry"],
-  ["polymarket", "wc2026", "marts", "knockout_token_hourly_odds"],
+  ["polymarket", "wc2026", "marts", "market_hourly_odds"],
   ["polymarket", "wc2026", "marts", "match_minute_odds"],
   ["kalshi", "wc2026", "ops", "market_scope_registry"],
   ["kalshi", "wc2026", "marts", "stage_markets"],

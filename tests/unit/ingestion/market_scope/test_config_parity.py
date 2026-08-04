@@ -9,9 +9,7 @@ import yaml
 
 from oddsfox_pipeline.config.settings_polymarket import (
     DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE,
-    POLYMARKET_WC2026_HOURLY_WINDOW_DAYS,
-    POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
-    POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD,
+    POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
     WC2026_CONTRACT_DEFAULTS,
 )
 from oddsfox_pipeline.ingestion.polymarket.market_scope import load_market_scope_config
@@ -62,7 +60,7 @@ def test_market_scope_keyset_discovery_defaults(monkeypatch) -> None:
     )
 
     assert closed is False
-    assert volume_min == 5000.0
+    assert volume_min is None
 
 
 def test_wc2026_pipeline_policy_seed_matches_python_defaults() -> None:
@@ -71,33 +69,26 @@ def test_wc2026_pipeline_policy_seed_matches_python_defaults() -> None:
     assert len(rows) == 1
     row = rows[0]
     hourly_cfg = HourlyOddsSyncConfig()
-    scope_seed = yaml.safe_load(SCOPE_SEED.read_text(encoding="utf-8")) or {}
-    wc2026_scope = (scope_seed.get("scopes") or {})["wc2026"]
-    env_example = ENV_EXAMPLE.read_text(encoding="utf-8")
 
+    assert set(row.keys()) == {
+        "scope_name",
+        "event_min_lifetime_volume_usd",
+        "results_freshness_hours",
+    }
     assert row["scope_name"] == "wc2026"
     assert row["scope_name"] == WC2026_CONTRACT_DEFAULTS["scope_name"]
     assert (
-        float(row["knockout_min_volume_usd"])
-        == POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD
+        float(row["event_min_lifetime_volume_usd"])
+        == POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD
     )
-    assert (
-        wc2026_scope["keyset_volume_min"] == POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD
-    )
-    expected_env = (
-        "POLYMARKET_WC2026_SCOPE_KEYSET_VOLUME_MIN="
-        f"{int(POLYMARKET_WC2026_KNOCKOUT_MIN_VOLUME_USD)}"
-    )
-    assert expected_env in env_example
+    assert float(row["event_min_lifetime_volume_usd"]) == 100_000.0
+    assert int(row["results_freshness_hours"]) == 12
     # The 30-day pipeline policy is a dbt presentation window. Raw hourly history
     # is collected from market creation so later temporal pipelines can widen
     # their query window without re-fetching.
     assert hourly_cfg.history_backfill_days == 0
     assert hourly_cfg.min_volume is None
     assert hourly_cfg.ended_market_grace_days is None
-    assert int(row["hourly_window_hours"]) == hourly_cfg.window_hours
-    assert int(row["hourly_window_days"]) == POLYMARKET_WC2026_HOURLY_WINDOW_DAYS
-    assert int(row["hourly_window_hours"]) == POLYMARKET_WC2026_HOURLY_WINDOW_HOURS
 
 
 def test_market_scope_keyset_discovery_omit_filters_via_empty_env(monkeypatch) -> None:

@@ -394,6 +394,9 @@ def _materialize_market_scope_registry(
             keyset_closed=config.keyset_closed,
             keyset_tag_slugs=config.keyset_tag_slugs,
             keyset_volume_min=config.keyset_volume_min,
+            apply_event_volume_eligibility_gate=(
+                config.apply_event_volume_eligibility_gate
+            ),
             progress_callback=_registry_progress,
         )
 

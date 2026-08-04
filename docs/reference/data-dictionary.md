@@ -14,14 +14,13 @@ common mistakes.
 
 ## Core Semantics
 
-- Public Polymarket WC2026 knockout prices are normalized to team progression.
-- Winner and reach markets use the Yes token; elimination-framed markets may use
-  the No token.
-- `price_represents = 'progression'` means price columns represent the normalized
-  progression outcome in `progression_outcome_label`.
-- `current_price_status` separates `fresh_live`, `stale_live`, `missing_live`,
-  `historical_closed`, `historical_resolved`, and `inactive`.
-- For current analysis, prefer `is_actionable_live_market` where available.
+- Public Polymarket WC2026 hourly prices are raw Yes-outcome CLOB probabilities
+  in `[0, 1]` from the primary market token.
+- `open_odds`, `high_odds`, `low_odds`, `close_odds`, and `avg_odds` are hourly
+  OHLC aggregates over that Yes token.
+- Admission is sticky at the enclosing-event level:
+  `event_volume_usd_lifetime_reported` must meet the pipeline policy floor
+  (currently $100,000 USD).
 - Kalshi stage marts expose progression prices separately from raw Yes prices.
   Use `progression_*_price` for team-progression analysis.
 - Polygon settlement prices use finalized event-block time and normalized
@@ -30,57 +29,18 @@ common mistakes.
 
 ## Polymarket WC2026 Marts
 
-### `polymarket_wc2026_marts.polymarket_wc2026_markets`
+### `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds`
 
 | Field | Analyst Guidance |
 | --- | --- |
-| Intended use | Platform-wide Polymarket market catalog with identity and metadata (not odds). |
-| Grain | One row per `market_id`. |
-| Identifiers | `market_id`, `event_id`, `event_slug`, `clob_token_ids`. |
-| Time columns | `start_time` (`coalesce(game_start_time, event_start_time)`; nulled when that start is after `end_time`), `end_time` (`end_date`). |
-| Price columns | None. `volume` is reported Gamma USD volume (≥ $100,000). |
-| Recommended filters | Sync via `scripts/sync_polymarket_markets_catalog.py` (`GET /markets/keyset`) first; every market with volume ≥ $100,000 USD is admitted (open + closed). Filter further by `event_slug` or `category`; `tags` is usually null on this Gamma path. |
-| Common joins | Join `market_id` to token/odds marts; parse `outcomes` / `clob_token_ids` JSON for outcome labels. |
-| Common mistakes | Treating this as the $5,000 registry-scoped `int_polymarket_wc2026_markets` intermediate or as a knockout odds snapshot; expecting a separate `resolution_rules` column (`description` holds Gamma prose). |
-
-### `polymarket_wc2026_marts.polymarket_wc2026_knockout_markets`
-
-| Field | Analyst Guidance |
-| --- | --- |
-| Intended use | Current snapshot for WC2026 Polymarket progression-side knockout prices. |
-| Grain | One row per `clob_token_id`. |
-| Identifiers | `market_id`, `clob_token_id`, `condition_id`, `canonical_team_name`, `stage_key`. |
-| Time columns | `current_price_hour_utc`, `current_price_hour_epoch`, `current_price_age_hours`, match-status dates. |
-| Price columns | `current_price`; semantics are `price_represents = 'progression'`. |
-| Recommended filters | Use `is_actionable_live_market` for current live analysis. Use `current_price_status` for freshness buckets. |
-| Common joins | Join `canonical_team_name` to `international_results_wc2026_marts.international_results_wc2026_team_status.team_name`. |
-| Common mistakes | Treating all rows as live; ignoring `current_price_status`; inferring progression from source question text. |
-
-### `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds`
-
-| Field | Analyst Guidance |
-| --- | --- |
-| Intended use | Trailing hourly OHLC time series for progression-side WC2026 knockout odds. |
-| Grain | One row per `clob_token_id`, `odds_hour_epoch`. |
-| Identifiers | `market_id`, `clob_token_id`, `canonical_team_name`, `stage_key`, `progression_outcome_label`. |
-| Time columns | `odds_hour_utc`, `odds_hour_epoch`, `first_observed_at`, `last_observed_at`. |
-| Price columns | `open_price`, `high_price`, `low_price`, `close_price`, `avg_price`. |
-| Recommended filters | Use `price_represents = 'progression'`; filter by `canonical_team_name`, `stage_key`, and `market_status` for focused analyses. |
-| Common joins | Join to `polymarket_wc2026_knockout_markets` on `clob_token_id` for latest price status. |
-| Common mistakes | Comparing source Yes/No labels directly without checking progression semantics. |
-
-### `polymarket_wc2026_marts.polymarket_wc2026_knockout_market_tokens`
-
-| Field | Analyst Guidance |
-| --- | --- |
-| Intended use | token working set and classification for public WC2026 Polymarket progression marts. |
-| Grain | One row per `clob_token_id`. |
-| Identifiers | `market_id`, `clob_token_id`, `outcome_index`, `canonical_team_name`, `stage_key`. |
-| Time columns | Match/team status dates such as `next_match_date` and `latest_completed_match_date`. |
-| Price columns | None; this is a classified token dimension. |
-| Recommended filters | Use for token membership and classification audits, not as a price fact. |
-| Common joins | Join to hourly odds on `clob_token_id`; join to team status on `canonical_team_name`. |
-| Common mistakes | Expecting current prices here; use `polymarket_wc2026_knockout_markets` instead. |
+| Intended use | Golden WC2026 hourly odds mart with market and enclosing-event metadata. |
+| Grain | One row per `market_id`, `odds_hour_epoch`. |
+| Identifiers | `market_id`, `clob_token_id`, `event_id`, `event_slug`, `condition_id`. |
+| Time columns | `odds_hour_utc`, `odds_hour_epoch`, `first_observed_at`, `last_observed_at`, `game_start_time`, `end_time`, `event_start_at`, `event_finished_at`. |
+| Price columns | `open_odds`, `high_odds`, `low_odds`, `close_odds`, `avg_odds`; raw Yes-outcome CLOB probabilities. |
+| Recommended filters | Filter by `event_slug`, `event_id`, `question`, `category`, `tags`, or market status fields (`is_active`, `is_closed`, `is_resolved`). Require `event_volume_usd_lifetime_reported >= 100000` only when auditing eligibility; admitted rows already passed the sticky event floor. |
+| Common joins | Parse `outcomes` for outcome labels; join `event_id` across markets in the same event. For FIFA team context, join market text to `international_results_wc2026_team_status` manually. |
+| Common mistakes | Treating prices as progression-normalized knockout odds; using `clob_token_id` grain when the contract is `(market_id, odds_hour_epoch)`; expecting separate current-price or freshness status columns on this mart. |
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`
 
@@ -129,7 +89,7 @@ it is not an order-event or fixed-interval feed.
 !!! note "Advanced historical pipeline"
 
     The Polygon settlement-minute mart is optional and isolated. Ordinary
-    Polymarket WC2026 knockout and match-minute analysis does not require it.
+    Polymarket WC2026 hourly and match-minute analysis does not require it.
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds`
 

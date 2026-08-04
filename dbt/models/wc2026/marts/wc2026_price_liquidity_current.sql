@@ -35,6 +35,8 @@ select
     token.market_volume_usd as volume,
     token.is_active as active,
     token.is_closed as closed
-from {{ ref('int_polymarket_wc2026_market_tokens') }} as token
+from {{ ref('int_polymarket_wc2026_token_working_set') }} as token
+inner join {{ ref('int_polymarket_wc2026_markets') }} as markets
+    on token.market_id = markets.market_id
 left join prices
     on token.clob_token_id = prices.clob_token_id

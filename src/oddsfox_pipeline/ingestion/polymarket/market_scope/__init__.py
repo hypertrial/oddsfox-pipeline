@@ -43,6 +43,7 @@ from .registry import (
     collect_scope_markets_from_events,
     refresh_registry_and_collect_markets_from_events,
     refresh_registry_and_collect_markets_targeted,
+    refresh_registry_from_event_catalog,
     refresh_registry_from_events,
 )
 from .scan import (
@@ -95,6 +96,7 @@ __all__ = [
     "market_scope_sql",
     "refresh_registry_and_collect_markets_from_events",
     "refresh_registry_and_collect_markets_targeted",
+    "refresh_registry_from_event_catalog",
     "refresh_registry_from_events",
     "resolve_market_scope_discovery",
     "resolve_keyset_crawl_tags",

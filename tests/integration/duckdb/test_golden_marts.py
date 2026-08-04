@@ -130,7 +130,7 @@ def _seed_polymarket_scope(
         )
         values (?, ?, 'sports', '', '["Yes","No"]', 10000.0, true, false,
             timestamp '2099-01-01 00:00:00', timestamp '2099-01-01 00:00:00',
-            timestamp '2099-07-19 00:00:00', ?, ?, 'event-1',
+            timestamp '2099-07-19 00:00:00', ?, ?, 'evt-arg',
             'condition-1', 'outright', null, null, '[]', ?, false, null, null)
         """,
         [market_id, question, market_id, event_slug, f'["{token_id}","{token_id}-no"]'],
@@ -146,10 +146,100 @@ def _seed_polymarket_scope(
     conn.execute(
         f"""
         insert into {polymarket_ops_tbl(scope_name, "market_scope_registry")}
-        (scope_name, market_id, event_slug, event_id, source, refreshed_at)
-        values (?, ?, ?, 'event-1', 'golden', timestamp '2099-01-01 00:00:00')
+        (
+            scope_name,
+            market_id,
+            event_slug,
+            event_id,
+            source,
+            refreshed_at,
+            event_volume_usd_lifetime_reported,
+            is_event_volume_eligible,
+            first_eligible_at
+        )
+        values (
+            ?, ?, ?, 'evt-arg', 'golden', timestamp '2099-01-01 00:00:00',
+            150000.0, true, timestamp '2099-01-01 00:00:00'
+        )
         """,
         [scope_name, market_id, event_slug],
+    )
+    conn.execute(
+        f"""
+        insert into {polymarket_raw_tbl(scope_name, "event_snapshots")}
+        (
+            event_id,
+            event_slug,
+            event_volume_usd_lifetime_reported,
+            tags_json,
+            series_slugs_json,
+            candidate_sources_json,
+            source_market_count,
+            observed_at,
+            source_endpoint
+        )
+        values (
+            'evt-arg', ?, 150000.0, '[]', '[]', '[]', 1,
+            timestamp '2099-01-01 00:00:00', '/events/keyset'
+        )
+        """,
+        [event_slug],
+    )
+    conn.execute(
+        f"""
+        insert into {polymarket_raw_tbl(scope_name, "event_market_snapshots")}
+        (
+            event_id,
+            market_id,
+            source_ordinal,
+            is_enclosing_event,
+            observed_at
+        )
+        values (
+            'evt-arg', ?, 0, true, timestamp '2099-01-01 00:00:00'
+        )
+        """,
+        [market_id],
+    )
+    conn.execute(
+        f"""
+        insert into {polymarket_raw_tbl(scope_name, "event_market_payload_snapshots")}
+        (
+            market_id,
+            question,
+            category,
+            description,
+            outcomes,
+            volume,
+            active,
+            closed,
+            created_at,
+            scraped_at,
+            end_date,
+            slug,
+            event_slug,
+            event_id,
+            condition_id,
+            sports_market_type,
+            clob_token_ids,
+            is_resolved,
+            observed_at
+        )
+        values (
+            ?, ?, 'sports', '', '["Yes","No"]', 10000.0, true, false,
+            timestamp '2099-01-01 00:00:00', timestamp '2099-01-01 00:00:00',
+            timestamp '2099-07-19 00:00:00', ?, ?, 'evt-arg',
+            'condition-1', 'outright', ?, false,
+            timestamp '2099-01-01 00:00:00'
+        )
+        """,
+        [
+            market_id,
+            question,
+            market_id,
+            event_slug,
+            f'["{token_id}","{token_id}-no"]',
+        ],
     )
     conn.executemany(
         f"""
@@ -292,7 +382,7 @@ def test_public_marts_match_golden_rows(
             "--full-refresh",
             "--select",
             "+international_results_wc2026_team_status",
-            "+polymarket_wc2026_knockout_token_hourly_odds",
+            "+polymarket_wc2026_market_hourly_odds",
             "+kalshi_wc2026_stage_market_hourly_odds",
             "+kalshi_wc2026_group_winner_market_hourly_odds",
         ],
@@ -321,16 +411,16 @@ def test_public_marts_match_golden_rows(
             select
                 market_id,
                 clob_token_id,
-                stage_key,
-                market_direction,
-                canonical_team_name,
+                event_id,
                 cast(odds_hour_epoch as varchar) as odds_hour_epoch,
-                cast(close_price as varchar) as close_price,
-                cast(observed_points as varchar) as observed_points
-            from polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds
+                cast(close_odds as varchar) as close_odds,
+                cast(observed_points as varchar) as observed_points,
+                cast(event_volume_usd_lifetime_reported as varchar)
+                    as event_volume_usd_lifetime_reported
+            from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
             order by market_id, clob_token_id, odds_hour_epoch
             """,
-        ) == _expected("polymarket_wc2026_knockout_token_hourly_odds.csv")
+        ) == _expected("polymarket_wc2026_market_hourly_odds.csv")
         assert _dict_rows(
             conn,
             """

@@ -7,23 +7,11 @@ seeds:
       - name: scope_name
         description: Fixed scope name for the WC2026 Polymarket pipeline.
         tests: [not_null, unique]
-      - name: knockout_min_volume_usd
-        description: Minimum reported Polymarket market volume admitted into the knockout public scope.
-        tests: [not_null]
-      - name: hourly_window_days
-        description: Trailing hourly odds window in days.
-        tests: [not_null]
-      - name: hourly_window_hours
-        description: Trailing hourly odds window in hours.
-        tests: [not_null]
-      - name: live_freshness_hours
-        description: Maximum age in hours for a live knockout current price to be fresh.
+      - name: event_min_lifetime_volume_usd
+        description: Minimum reported Polymarket event lifetime volume for sticky admission.
         tests: [not_null]
       - name: results_freshness_hours
         description: Maximum age in hours before the FIFA result source load is stale.
-        tests: [not_null]
-      - name: round_of_32_min_raw_markets_ge_floor
-        description: Warning threshold for raw Round-of-32 market coverage above the knockout volume floor.
         tests: [not_null]
 
   - name: polymarket_wc2026_polygon_settlement_markets

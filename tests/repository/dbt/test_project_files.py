@@ -143,9 +143,7 @@ def test_hourly_odds_materialization_shape():
         intermediate["int_polymarket_wc2026_token_hourly_odds"]["+materialized"]
         == "incremental"
     )
-    assert (
-        marts["polymarket_wc2026_knockout_token_hourly_odds"]["+materialized"] == "view"
-    )
+    assert marts["polymarket_wc2026_market_hourly_odds"]["+materialized"] == "table"
     assert "polymarket_wc2026_graph_" + "token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_hourly_odds" not in marts
     assert "polymarket_wc2026_token_daily_odds" not in marts
@@ -165,55 +163,21 @@ def test_wc2026_pipeline_policy_seed_is_configured_and_documented():
     assert "polymarket_wc2026_pipeline_policy" in documented
 
 
-def test_knockout_classifier_intermediate_exists_and_is_documented():
+def test_event_catalog_intermediate_models_exist_and_are_documented():
     dbt_root = Path(__file__).resolve().parents[3] / "dbt"
     intermediate_root = dbt_root / "models" / "polymarket_wc2026" / "intermediate"
     docs = yaml.safe_load((intermediate_root / "intermediate.yml").read_text())
     documented = {model["name"] for model in docs["models"]}
 
+    assert (intermediate_root / "int_polymarket_wc2026_event_latest.sql").exists()
     assert (
-        intermediate_root / "int_polymarket_wc2026_knockout_market_classification.sql"
+        intermediate_root / "int_polymarket_wc2026_primary_market_token.sql"
     ).exists()
     assert (intermediate_root / "int_polymarket_wc2026_token_hourly_odds.sql").exists()
-    assert "int_polymarket_wc2026_knockout_market_classification" in documented
     assert "int_polymarket_wc2026_token_hourly_odds" in documented
 
 
-def test_knockout_observability_models_are_documented():
-    dbt_root = Path(__file__).resolve().parents[3] / "dbt"
-    observability_root = dbt_root / "models" / "polymarket_wc2026" / "observability"
-    docs = yaml.safe_load((observability_root / "observability.yml").read_text())
-    documented = {model["name"] for model in docs["models"]}
-    dq_columns = {
-        column["name"]
-        for model in docs["models"]
-        if model["name"] == "polymarket_wc2026_knockout_data_quality"
-        for column in model["columns"]
-    }
-    coverage_columns = {
-        column["name"]
-        for model in docs["models"]
-        if model["name"] == "polymarket_wc2026_knockout_stage_coverage"
-        for column in model["columns"]
-    }
-
-    assert (
-        observability_root / "polymarket_wc2026_knockout_stage_coverage.sql"
-    ).exists()
-    assert (observability_root / "polymarket_wc2026_knockout_data_quality.sql").exists()
-    assert "polymarket_wc2026_knockout_stage_coverage" in documented
-    assert "polymarket_wc2026_knockout_data_quality" in documented
-    assert "issue_count" in dq_columns
-    assert {
-        "expected_hourly_rows",
-        "avg_hourly_rows_per_token",
-        "min_hourly_rows_per_token",
-        "max_hourly_rows_per_token",
-        "hourly_completeness_ratio",
-    }.issubset(coverage_columns)
-
-
-def test_knockout_mart_semantic_columns_are_documented():
+def test_market_hourly_odds_mart_columns_are_documented():
     dbt_root = Path(__file__).resolve().parents[3] / "dbt"
     docs = yaml.safe_load(
         (
@@ -224,22 +188,20 @@ def test_knockout_mart_semantic_columns_are_documented():
             / "polymarket_wc2026.yml"
         ).read_text()
     )
-    expected_models = {
-        "polymarket_wc2026_knockout_market_tokens",
-        "polymarket_wc2026_knockout_markets",
-        "polymarket_wc2026_knockout_token_hourly_odds",
-    }
-    for model in docs["models"]:
-        if model["name"] not in expected_models:
-            continue
-        columns = {column["name"] for column in model["columns"]}
-        assert "progression_outcome_label" in columns
-        assert "price_represents" in columns
-        assert "is_active_team_live_market" in columns
-        if model["name"] == "polymarket_wc2026_knockout_markets":
-            assert "is_actionable_live_market" in columns
-        else:
-            assert "is_actionable_live_market" not in columns
+    mart = next(
+        model
+        for model in docs["models"]
+        if model["name"] == "polymarket_wc2026_market_hourly_odds"
+    )
+    columns = {column["name"] for column in mart["columns"]}
+
+    assert {
+        "market_id",
+        "clob_token_id",
+        "odds_hour_epoch",
+        "close_odds",
+        "event_volume_usd_lifetime_reported",
+    } <= columns
 
 
 def test_multi_parent_singular_tests_have_dagster_asset_metadata():

@@ -8,9 +8,8 @@ Run them through `uv run python` so they use the repo environment.
 - `run_scope.py`: run a fixed Dagster step for one or more shipped scopes, such as `polymarket:wc2026` or `kalshi:wc2026`. Namespace aliases such as `polymarket_wc2026` and `kalshi_wc2026` are accepted.
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
 - `export_eloratings_wc2026_team_ratings_freezes.py`: export national-team Elo CSV freezes from `wc2026_marts.team_ratings_history` (`pre_kickoff` = year-end 2025) and `wc2026_marts.team_ratings_current` (`latest_current`) under `artifacts/wc2026_elo_exports/`. Prefer `make export-wc2026-elo-freezes`. Match×team pre-match Elo is `wc2026_marts.team_ratings_pre_match` (not this export); it needs an EloRatings snapshot that includes `match_results`.
-- `sync_polymarket_markets_catalog.py`: sync every Gamma market with volume ≥ $100k via `/markets/keyset` (`volume_num_min`, `after_cursor`; open + closed passes) into `polymarket_catalog_raw.markets`. Required before building the public catalog marts.
-- `export_polymarket_markets.py`: export the public Polymarket market catalog mart (`polymarket_wc2026_markets`) to parquet under `artifacts/polymarket_markets_exports/`. Validates grain, volume floor, timing, and outcomes/CLOB JSON before replacing the artifact.
-- `export_polymarket_wc2026_knockout_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds` to parquet for progression-only WC2026 knockout audits.
+- `sync_polymarket_markets_catalog.py`: sync every Gamma market with volume ≥ $100k via `/markets/keyset` (`volume_num_min`, `after_cursor`; open + closed passes) into `polymarket_catalog_raw.markets`. Optional operator utility; not required for the golden WC2026 hourly mart.
+- `export_polymarket_wc2026_market_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds` to Parquet under `artifacts/polymarket_wc2026_exports/`.
 - `export_polymarket_wc2026_match_minute_odds.py`: write the 104-game match-minute mart to a temporary Parquet, validate its grain, 104/248/496 inventory, proposition mix, timing, elapsed-axis invariants, and immutable results provenance, then atomically replace the prior artifact. It prints completeness, boundary nulls, pair warnings, elapsed range and over-120-minute games, revision/hash, file size, and SHA-256; quality warnings do not fail export.
 - `generate_polymarket_wc2026_polygon_settlement_seed.py`: developer-only
   authoring tool. It downloads the hash-pinned CC0 OpenFootball fixture files
@@ -166,14 +165,14 @@ uv run python scripts/run_scope.py --list
 uv run python scripts/run_scope.py polymarket:wc2026 --step full
 uv run python scripts/run_scope.py polymarket:wc2026 kalshi:wc2026 --step dbt
 uv run python scripts/profile_warehouse.py --snapshot-copy
-uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py
+uv run python scripts/export_polymarket_wc2026_market_hourly_odds.py
 uv run python scripts/export_polymarket_wc2026_match_minute_odds.py
 uv run make export-wc2026-elo-freezes
 
 export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-.runtime}"
 mkdir -p "$ODDSFOX_DATA_DIR/exports"
-uv run python scripts/export_polymarket_wc2026_knockout_hourly_odds.py --snapshot-copy --output "$ODDSFOX_DATA_DIR/exports/wc2026_knockout_hourly.parquet"
-# writes "$ODDSFOX_DATA_DIR/exports/wc2026_knockout_hourly.parquet"
+uv run python scripts/export_polymarket_wc2026_market_hourly_odds.py --snapshot-copy --output "$ODDSFOX_DATA_DIR/exports/wc2026_market_hourly.parquet"
+# writes "$ODDSFOX_DATA_DIR/exports/wc2026_market_hourly.parquet"
 ```
 
 Scripts that call Polymarket APIs need network access and should use conservative request-rate settings.

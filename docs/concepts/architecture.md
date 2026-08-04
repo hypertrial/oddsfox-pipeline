@@ -3,7 +3,7 @@
 OddsFox Pipeline is intentionally local-first: every routine workflow writes to a local
 DuckDB warehouse and is coordinated by jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
-v0.1.x adapters support WC2026 Polymarket knockout marts, Kalshi WC2026 stage
+v0.1.x adapters support WC2026 Polymarket event-gated hourly odds marts, Kalshi WC2026 stage
 and group-winner marts, historical international-results ingestion, analytics
 marts as the supported query API, and the private `wc2026.v1` strategy
 clean-data contract.
@@ -56,7 +56,7 @@ flowchart LR
 
 Text fallback: prediction-market metadata/odds APIs and the FIFA results CSV
 feed DuckDB raw and ops schemas. Dagster runs the ingest and dbt steps. dbt
-publishes local analytics marts for WC2026 knockout odds, Kalshi stage and
+publishes local analytics marts for WC2026 Polymarket hourly odds, Kalshi stage and
 group-winner odds, Polygon settlement history, team scope, and ingestion
 observability. The Polygon release asset writes only an internal audit bundle;
 the allowlisted exporter is a separate offline script. Neither path uploads
@@ -92,32 +92,25 @@ flowchart TD
     ops["polymarket_wc2026_ops"] --> staging
     staging --> token_working_set["int_polymarket_wc2026_token_working_set"]
     staging --> wc2026_markets_int["int_polymarket_wc2026_markets"]
+    staging --> event_latest["int_polymarket_wc2026_event_latest"]
     staging --> odds["stg_polymarket_wc2026_odds"]
     ops --> wc2026_markets_int
-    token_working_set --> wc2026_tokens["int_polymarket_wc2026_market_tokens"]
-    wc2026_markets_int --> wc2026_tokens
-    team_status --> knockout_tokens
-    wc2026_tokens --> knockout_tokens["polymarket_wc2026_knockout_market_tokens"]
+    event_latest --> wc2026_markets_int
+    wc2026_markets_int --> primary_token["int_polymarket_wc2026_primary_market_token"]
     odds --> hourly_fact["int_polymarket_wc2026_token_hourly_odds"]
-    hourly_fact --> knockout_hourly
-    knockout_tokens --> knockout_hourly["polymarket_wc2026_knockout_token_hourly_odds"]
-    knockout_hourly --> knockout_markets["polymarket_wc2026_knockout_markets"]
-    staging --> stage_coverage["polymarket_wc2026_knockout_stage_coverage"]
-    knockout_tokens --> stage_coverage
-    knockout_hourly --> stage_coverage
-    knockout_markets --> data_quality["polymarket_wc2026_knockout_data_quality"]
-    stage_coverage --> data_quality
+    primary_token --> golden["polymarket_wc2026_market_hourly_odds"]
+    wc2026_markets_int --> golden
+    hourly_fact --> golden
     ops --> observability["polymarket_wc2026_ingestion_run_observability"]
     matches --> results_dq["international_results_wc2026_data_quality"]
 ```
 
-Text fallback: staging normalizes raw and ops tables, intermediates establish
-token working sets and WC2026 market scope rows, FIFA result marts provide real
-team status, and Polymarket marts publish cleaned knockout progression-side
-token odds plus latest knockout snapshots. Observability models publish run
-metrics, stage coverage, result inference warnings, and DQ findings for
-live/historical status, active-team live consumption, odds freshness, and sparse
-team coverage.
+Text fallback: staging normalizes raw and ops tables, the registry admits
+sticky event-volume-eligible WC2026 markets, intermediates establish token
+working sets and Yes-outcome primary tokens, and the golden
+`polymarket_wc2026_market_hourly_odds` mart publishes full-lifetime hourly
+Yes-outcome odds with comprehensive market and event metadata. Observability
+models publish run metrics and result inference warnings.
 
 ### Kalshi WC2026
 

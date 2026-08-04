@@ -48,95 +48,69 @@ from polymarket_wc2026_observability.polymarket_wc2026_match_minute_odds_quality
 order by severity, issue_type, fifa_match_id, market_id;
 ```
 
-## Current WC2026 Polymarket Prices
-
-Actionable live progression prices by team and stage:
-
-```sql
-select
-    canonical_team_name,
-    stage_key,
-    progression_outcome_label,
-    current_price,
-    current_price_hour_utc,
-    current_price_status
-from polymarket_wc2026_marts.polymarket_wc2026_knockout_markets
-where is_actionable_live_market
-order by canonical_team_name, stage_rank;
-```
-
-Use `is_actionable_live_market` for current live analysis. Closed, resolved,
-inactive, stale, and missing-price rows remain available for history and
-diagnostics.
-
 ## WC2026 Polymarket Hourly Series
 
-Progression-side hourly OHLC odds for one team and stage:
+Yes-outcome hourly OHLC odds for one event:
 
 ```sql
 select
     odds_hour_utc,
-    canonical_team_name,
-    stage_key,
-    progression_outcome_label,
-    open_price,
-    high_price,
-    low_price,
-    close_price,
+    event_slug,
+    question,
+    open_odds,
+    high_odds,
+    low_odds,
+    close_odds,
     observed_points
-from polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds
-where canonical_team_name = 'United States'
-  and stage_key = 'round_of_16'
-  and price_represents = 'progression'
-order by odds_hour_epoch;
+from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
+where event_slug = 'fifwc-2026-winner'
+order by question, odds_hour_epoch;
 ```
 
-Elimination-framed Polymarket markets may expose the No token as the public
-progression side. Trust `price_represents` and `progression_outcome_label`
-instead of inferring semantics from question text.
+Prices are raw Yes-outcome CLOB probabilities. Parse `outcomes` when you need
+the literal outcome label for the selected token.
 
-## Stale Or Missing WC2026 Live Markets
+## Latest Hourly Close By Market
 
 ```sql
 select
-    canonical_team_name,
-    stage_key,
-    current_price_status,
-    current_price_age_hours,
+    market_id,
+    event_slug,
     question,
-    market_id
-from polymarket_wc2026_marts.polymarket_wc2026_knockout_markets
-where is_active_team_live_market
-  and current_price_status in ('stale_live', 'missing_live')
-order by current_price_status, canonical_team_name, stage_rank;
-```
-
-Follow up with:
-
-```sql
-select *
-from polymarket_wc2026_observability.polymarket_wc2026_knockout_data_quality
-where severity in ('error', 'warn')
-order by severity, issue_key;
+    close_odds,
+    odds_hour_utc,
+    is_active,
+    is_closed,
+    is_resolved
+from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
+qualify row_number() over (
+    partition by market_id
+    order by odds_hour_epoch desc
+) = 1
+order by event_slug, question;
 ```
 
 ## WC2026 Fixtures And Team Status
 
-Join current market prices to tournament state:
+Join hourly odds to tournament state manually when question text or event
+metadata implies a team:
 
 ```sql
 select
-    m.canonical_team_name,
+    odds.event_slug,
+    odds.question,
+    odds.close_odds,
+    t.team_name,
     t.tournament_status,
-    t.next_match_date,
-    t.next_stage_key,
-    m.stage_key,
-    m.current_price
-from polymarket_wc2026_marts.polymarket_wc2026_knockout_markets as m
+    t.next_match_date
+from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds as odds
 inner join international_results_wc2026_marts.international_results_wc2026_team_status as t
-    on m.canonical_team_name = t.team_name
-where m.is_actionable_live_market
-order by m.canonical_team_name, m.stage_rank;
+    on lower(odds.question) like '%' || lower(t.team_name) || '%'
+qualify row_number() over (
+    partition by odds.market_id
+    order by odds.odds_hour_epoch desc
+) = 1
+order by t.team_name, odds.question;
 ```
 
 Inspect fixtures directly:
@@ -255,7 +229,7 @@ Latest hourly data available in each major time-series mart:
 select
     'polymarket_wc2026' as mart,
     max(odds_hour_utc) as latest_hour
-from polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds
+from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
 union all
 select
     'kalshi_stage',
@@ -277,12 +251,14 @@ con = duckdb.connect("oddsfox.duckdb", read_only=True)
 
 df = con.sql("""
     select
-        canonical_team_name,
-        stage_key,
-        current_price
-    from polymarket_wc2026_marts.polymarket_wc2026_knockout_markets
-    where is_actionable_live_market
-    order by canonical_team_name, stage_rank
+        event_slug,
+        question,
+        close_odds,
+        odds_hour_utc
+    from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
+    where is_active
+      and not is_closed
+    order by event_slug, question, odds_hour_epoch desc
 """).df()
 ```
 
@@ -292,10 +268,11 @@ Export one query to CSV:
 con.sql("""
     copy (
         select *
-        from polymarket_wc2026_marts.polymarket_wc2026_knockout_markets
-        where is_actionable_live_market
+        from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
+        where is_active
+          and not is_closed
     )
-    to 'wc2026_actionable_prices.csv' (header, delimiter ',')
+    to 'wc2026_active_market_hourly.csv' (header, delimiter ',')
 """)
 ```
 
@@ -305,9 +282,9 @@ Export to Parquet:
 con.sql("""
     copy (
         select *
-        from polymarket_wc2026_marts.polymarket_wc2026_knockout_token_hourly_odds
+        from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds
     )
-    to 'wc2026_knockout_hourly.parquet'
+    to 'wc2026_market_hourly.parquet'
     (format parquet)
 """)
 ```

@@ -210,7 +210,7 @@ def test_market_scope_keyset_closed_env_branches(
 
 @pytest.mark.parametrize(
     ("raw", "expected"),
-    [("", None), ("none", None), ("2500.5", 2500.5), ("bad", 5000.0)],
+    [("", None), ("none", None), ("2500.5", 2500.5), ("bad", None)],
 )
 def test_market_scope_keyset_volume_min_env_branches(
     monkeypatch, isolated_env, raw, expected

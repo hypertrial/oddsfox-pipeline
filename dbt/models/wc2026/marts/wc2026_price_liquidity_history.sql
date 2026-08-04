@@ -11,6 +11,8 @@ select
     max(hourly.odds_hour_utc) as last_observed_at,
     sum(hourly.observed_points) as observation_count
 from {{ ref('int_polymarket_wc2026_token_hourly_odds') }} as hourly
-inner join {{ ref('int_polymarket_wc2026_market_tokens') }} as token
+inner join {{ ref('int_polymarket_wc2026_token_working_set') }} as token
     on hourly.clob_token_id = token.clob_token_id
+inner join {{ ref('int_polymarket_wc2026_markets') }} as markets
+    on token.market_id = markets.market_id
 group by token.market_id, hourly.clob_token_id, cast(hourly.odds_hour_utc as date)

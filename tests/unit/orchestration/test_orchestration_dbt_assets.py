@@ -160,7 +160,7 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
             AssetKey(["polymarket", "wc2026", "staging", "markets"])
         ).parent_keys
     }
-    assert "polymarket/wc2026/raw/markets" in stg_markets_parents
+    assert "polymarket/wc2026/raw/event_catalog" in stg_markets_parents
     assert not any(parent.startswith("dbt_") for parent in stg_markets_parents)
 
     stg_odds_parents = {

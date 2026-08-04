@@ -14,6 +14,9 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from typing import Any, Iterable
 
+from oddsfox_pipeline.config.settings_polymarket import (
+    POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
+)
 from oddsfox_pipeline.ingestion.polymarket.errors import gamma_get
 from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
     fetch_gamma_event_by_id,
@@ -25,7 +28,6 @@ WC2026_EVENT_TAG = "2026-fifa-world-cup"
 WC2026_RECALL_TAG = "fifa-world-cup"
 WC2026_FIXTURE_SERIES_SLUG = "soccer-fifwc"
 WC2026_RECALL_EVENT_SLUG_PREFIXES = ("2026-fifa-world-cup", "fifwc-")
-LOGICAL_EVENT_VOLUME_MIN_USD = 100_000.0
 SCAN_CONVERGENCE_ATTEMPTS = 3
 
 
@@ -601,7 +603,7 @@ def collect_wc2026_event_catalog(
 
     eligible_events = sum(
         (row["event_volume_usd_lifetime_reported"] or -1)
-        >= LOGICAL_EVENT_VOLUME_MIN_USD
+        >= POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD
         for row in event_rows
     )
     return EventCatalogBatch(
@@ -612,7 +614,7 @@ def collect_wc2026_event_catalog(
         summary={
             "event_tag": event_tag,
             "volume_scan_floor_usd": None,
-            "logical_event_volume_min_usd": LOGICAL_EVENT_VOLUME_MIN_USD,
+            "event_min_lifetime_volume_usd": POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
             "events": len(event_rows),
             "eligible_events_as_observed": eligible_events,
             "event_tags": len(tag_rows),
@@ -640,7 +642,7 @@ def collect_wc2026_event_catalog(
 
 __all__ = [
     "EventCatalogBatch",
-    "LOGICAL_EVENT_VOLUME_MIN_USD",
+    "POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD",
     "SCAN_CONVERGENCE_ATTEMPTS",
     "WC2026_EVENT_TAG",
     "WC2026_FIXTURE_SERIES_SLUG",

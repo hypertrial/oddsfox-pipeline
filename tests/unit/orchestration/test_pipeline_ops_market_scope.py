@@ -27,6 +27,7 @@ def test_sync_market_scope_registry_delegates_to_refresh():
     ):
         out = pipeline_ops.sync_market_scope_registry(
             max_event_pages=3,
+            apply_event_volume_eligibility_gate=False,
             progress_callback=lambda phase, payload: seen.setdefault(
                 "progress", (phase, payload)
             ),
@@ -34,3 +35,13 @@ def test_sync_market_scope_registry_delegates_to_refresh():
     assert out["registry_rows_upserted"] == 1
     assert seen["max_pages"] == 3
     assert callable(seen["progress_callback"])
+
+
+def test_sync_market_scope_registry_defaults_to_event_catalog_refresh():
+    with patch(
+        "oddsfox_pipeline.orchestration.pipeline_ops.refresh_registry_from_event_catalog",
+        return_value={"task": "refresh_market_scope_registry", "registry_rows_upserted": 2},
+    ) as refresh:
+        out = pipeline_ops.sync_market_scope_registry()
+    refresh.assert_called_once()
+    assert out["registry_rows_upserted"] == 2

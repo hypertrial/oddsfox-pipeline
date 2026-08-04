@@ -749,6 +749,14 @@ def bootstrap_polymarket_tables(
         )
         """
     )
+    for column_definition in (
+        "event_volume_usd_lifetime_reported DOUBLE",
+        "is_event_volume_eligible BOOLEAN",
+        "first_eligible_at TIMESTAMP",
+    ):
+        conn.execute(
+            f"ALTER TABLE {scope_reg} ADD COLUMN IF NOT EXISTS {column_definition}"
+        )
 
 
 def bootstrap_all_polymarket_tables(conn: duckdb.DuckDBPyConnection) -> None:

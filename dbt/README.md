@@ -38,13 +38,15 @@ WC2026 scoping is encoded in the model graph and
 `polymarket_wc2026_ops.market_scope_registry`; real-team validation comes from
 `international_results_wc2026_team_status`. There is no dbt scope-selection var.
 
-Public knockout marts:
+Public Polymarket WC2026 mart:
 
-- `polymarket_wc2026_knockout_market_tokens`
-- `polymarket_wc2026_knockout_token_hourly_odds`
-- `polymarket_wc2026_knockout_markets`
+- `polymarket_wc2026_market_hourly_odds`
 - `international_results_wc2026_matches`
 - `international_results_wc2026_team_status`
+
+`polymarket_wc2026_market_hourly_odds` is the documented golden hourly odds
+mart over the private incremental `int_polymarket_wc2026_token_hourly_odds`
+fact.
 
 The stable strategy surface is contract version `wc2026.v1` in
 `wc2026_marts.contract_metadata`. Its concise relation aliases include
@@ -61,8 +63,5 @@ snapshot rows and provenance remain append-only, while strategy-facing marts
 use only the latest ledger-declared complete snapshot for each private source.
 Readiness requires that latest payload to contain rows.
 
-If a local DuckDB file still has deleted broad marts or older relation types,
-reset the local warehouse or drop the affected dbt schemas before rebuilding.
-
-`polymarket_wc2026_knockout_token_hourly_odds` is a public view over the private
-incremental `int_polymarket_wc2026_token_hourly_odds` hourly price fact.
+If a local DuckDB file still has deleted knockout/catalog marts or older relation
+types, reset the local warehouse or drop the affected dbt schemas before rebuilding.
