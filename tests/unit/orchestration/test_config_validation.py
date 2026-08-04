@@ -62,7 +62,7 @@ def test_hourly_odds_config_defaults_to_market_creation_collection():
     cfg = HourlyOddsSyncConfig()
 
     assert cfg.fidelity == 60
-    assert cfg.force is True
+    assert cfg.force is False
     assert cfg.overlap_minutes == 60
     assert cfg.window_hours == 720
     assert cfg.history_backfill_days == 0

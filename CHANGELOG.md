@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Polymarket WC2026 hourly odds default Dagster config now sets `force=false`,
+  so routine runs skip fully-checked closed tokens and only revisit due gaps.
+
 - **Breaking:** Polymarket WC2026 refocuses on one documented golden mart:
   `polymarket_wc2026_market_hourly_odds` at grain `(market_id, odds_hour_epoch)`.
   Admission uses sticky event lifetime volume

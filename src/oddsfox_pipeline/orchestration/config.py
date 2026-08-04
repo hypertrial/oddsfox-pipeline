@@ -180,7 +180,7 @@ class HourlyOddsSyncConfig(OddsSyncConfig):
     """
 
     fidelity: int = Field(default=60, ge=MIN_ODDS_FIDELITY_MINUTES)
-    force: bool = True
+    force: bool = False
     skip_recent_minutes: int = 1
     overlap_minutes: int = 60
     window_hours: int = POLYMARKET_WC2026_HOURLY_WINDOW_HOURS

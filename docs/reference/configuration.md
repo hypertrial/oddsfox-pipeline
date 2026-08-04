@@ -244,6 +244,9 @@ to tighten or relax the guard for a one-off run.
 
 Dagster hourly odds config uses history-oriented option names:
 
+- `force`: when `false` (Polymarket WC2026 hourly/full-pipeline default), routine
+  runs plan only due tokens and skip fully-checked closed markets. Set `true` to
+  revisit every registry token on that run.
 - `rebuild_history`: bypass routine skip planning and rebuild token history.
 - `history_backfill_days`: rebuild only the trailing N days of history. The packaged
   `polymarket_wc2026_hourly_odds_ingest` and `polymarket_wc2026_full_pipeline` jobs
