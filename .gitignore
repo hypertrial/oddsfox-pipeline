@@ -147,6 +147,7 @@ docs/_generated/
 
 # dbt
 dbt/target/
+dbt/dbt/
 dbt/logs/
 dbt/dbt_packages/
 dbt/profiles/.user.yml

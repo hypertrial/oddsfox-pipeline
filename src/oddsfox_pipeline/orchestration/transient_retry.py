@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import socket
-from typing import Callable, TypeVar
 
 from dagster import RetryRequested
 
@@ -13,8 +12,6 @@ _TRANSIENT_EXCEPTIONS = (
     socket.timeout,
     BrokenPipeError,
 )
-
-T = TypeVar("T")
 
 
 def is_transient_pipeline_error(exc: BaseException) -> bool:
@@ -41,27 +38,7 @@ def raise_retry_if_transient(
         raise RetryRequested(max_retries=max_retries) from exc
 
 
-def run_with_transient_retry(
-    fn: Callable[[], T],
-    *,
-    max_retries: int = 2,
-) -> T:
-    last_error: Exception | None = None
-    for attempt in range(max_retries + 1):
-        try:
-            return fn()
-        except RetryRequested:
-            raise
-        except Exception as exc:
-            last_error = exc
-            if not is_transient_pipeline_error(exc) or attempt >= max_retries:
-                raise
-    assert last_error is not None
-    raise last_error
-
-
 __all__ = [
     "is_transient_pipeline_error",
     "raise_retry_if_transient",
-    "run_with_transient_retry",
 ]

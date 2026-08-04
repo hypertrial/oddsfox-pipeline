@@ -10,7 +10,6 @@ from dagster import RetryRequested
 from oddsfox_pipeline.orchestration.transient_retry import (
     is_transient_pipeline_error,
     raise_retry_if_transient,
-    run_with_transient_retry,
 )
 
 
@@ -37,15 +36,3 @@ def test_raise_retry_if_transient_wraps_transient_errors() -> None:
 
     raise_retry_if_transient(ValueError("bad"))
 
-
-def test_run_with_transient_retry_retries_then_succeeds() -> None:
-    attempts = {"count": 0}
-
-    def _flaky() -> str:
-        attempts["count"] += 1
-        if attempts["count"] == 1:
-            raise ConnectionError("reset")
-        return "ok"
-
-    assert run_with_transient_retry(_flaky, max_retries=1) == "ok"
-    assert attempts["count"] == 2
