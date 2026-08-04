@@ -270,6 +270,176 @@ def test_iter_due_market_tokens_skips_ended_markets_after_grace(duck):
     assert counts["ended_market_skip"] == 1
 
 
+def test_iter_due_market_tokens_requires_latest_payload_tokens(duck):
+    """Odds planning must ignore raw market_tokens without payload coverage."""
+    _seed_markets(
+        duck,
+        [
+            (
+                "with_payload",
+                "q",
+                "c",
+                "d",
+                "[]",
+                1.0,
+                True,
+                False,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                None,
+                None,
+                None,
+            ),
+            (
+                "raw_only",
+                "q",
+                "c",
+                "d",
+                "[]",
+                1.0,
+                True,
+                False,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                None,
+                None,
+                None,
+            ),
+        ],
+        [("with_payload", '["tok_payload"]')],
+    )
+    # Divergent enrichment-style raw tokens: market exists in registry/raw but
+    # has no event_market_payload_snapshots row (and an extra token on the
+    # payload market that staging would not expand).
+    markets.save_market_tokens_batch(
+        [
+            ("with_payload", '["tok_payload", "tok_extra_raw"]'),
+            ("raw_only", '["tok_raw_only"]'),
+        ]
+    )
+
+    pages = list(markets.iter_due_market_tokens(page_size=10))
+    tokens = {(row[0], row[1]) for page in pages for row in page}
+    assert tokens == {("with_payload", "tok_payload")}
+
+    force_pages = list(markets.iter_markets_with_tokens(page_size=10, json_array_only=True))
+    force_markets = {row[0]: row[1] for page in force_pages for row in page}
+    assert set(force_markets) == {"with_payload"}
+    assert "tok_extra_raw" not in force_markets["with_payload"]
+    assert "tok_payload" in force_markets["with_payload"]
+
+
+def test_staging_odds_relationship_excludes_raw_only_tokens(duck):
+    """Mirror the dbt odds→market_tokens relationship against payload SoT.
+
+    Reproduces the full-pipeline failure mode: odds_history rows for a
+    registry market that has raw market_tokens but no payload snapshot.
+    """
+    from tests.unit.storage.duckdb_storage_test_support import T_OH, T_PAYLOAD
+
+    payload_tid = "111111111111111111111111111111111"
+    orphan_tid = "222222222222222222222222222222222"
+    _seed_markets(
+        duck,
+        [
+            (
+                "payload_mkt",
+                "q",
+                "c",
+                "d",
+                "[]",
+                1.0,
+                True,
+                False,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                None,
+                None,
+                None,
+            ),
+            (
+                "orphan_mkt",
+                "q",
+                "c",
+                "d",
+                "[]",
+                1.0,
+                True,
+                False,
+                "2024-01-02 00:00:00",
+                "2024-01-02 00:00:00",
+                None,
+                None,
+                None,
+            ),
+        ],
+        [("payload_mkt", f'["{payload_tid}"]')],
+        seed_payloads=True,
+    )
+    markets.save_market_tokens_batch(
+        [
+            ("payload_mkt", f'["{payload_tid}"]'),
+            ("orphan_mkt", f'["{orphan_tid}"]'),
+        ]
+    )
+    with markets.get_connection() as conn:
+        conn.execute(
+            f"""
+            INSERT INTO {T_OH} (clobTokenId, timestamp, price)
+            VALUES (?, 100, 0.4), (?, 100, 0.6), (?, 101, 0.55)
+            """,
+            [payload_tid, orphan_tid, orphan_tid],
+        )
+        # Staging-equivalent: expand latest payloads, then filter odds.
+        orphan_rows = conn.execute(
+            f"""
+            WITH latest_payloads AS (
+              SELECT market_id, clob_token_ids, scraped_at
+              FROM {T_PAYLOAD}
+              QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY market_id ORDER BY observed_at DESC
+              ) = 1
+            ),
+            stg_tokens AS (
+              SELECT json_extract_string(je.value, '$') AS clob_token_id
+              FROM latest_payloads AS markets
+              CROSS JOIN LATERAL json_each(markets.clob_token_ids) AS je
+              WHERE markets.clob_token_ids IS NOT NULL
+                AND left(trim(markets.clob_token_ids), 1) = '['
+            ),
+            stg_odds AS (
+              SELECT o.clobTokenId AS clob_token_id
+              FROM {T_OH} AS o
+              INNER JOIN stg_tokens AS tokens
+                ON o.clobTokenId = tokens.clob_token_id
+            )
+            SELECT COUNT(*) FROM {T_OH} o
+            ANTI JOIN stg_odds s ON o.clobTokenId = s.clob_token_id
+            """
+        ).fetchone()[0]
+        kept = conn.execute(
+            f"""
+            WITH latest_payloads AS (
+              SELECT market_id, clob_token_ids
+              FROM {T_PAYLOAD}
+              QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY market_id ORDER BY observed_at DESC
+              ) = 1
+            ),
+            stg_tokens AS (
+              SELECT json_extract_string(je.value, '$') AS clob_token_id
+              FROM latest_payloads AS markets
+              CROSS JOIN LATERAL json_each(markets.clob_token_ids) AS je
+            )
+            SELECT COUNT(*) FROM {T_OH} o
+            INNER JOIN stg_tokens t ON o.clobTokenId = t.clob_token_id
+            """
+        ).fetchone()[0]
+
+    assert orphan_rows == 2  # both orphan_tid history points filtered out
+    assert kept == 1
+
+
 def test_wc2026_hourly_planning_keeps_zero_volume_ended_event_child(duck):
     token_id = "1234567890abcdef1234567890abcdef12"
     _seed_markets(

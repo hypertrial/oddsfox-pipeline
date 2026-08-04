@@ -24,6 +24,20 @@ def test_staging_markets_is_source_conformed():
     assert "is_market_scope_target" not in lowered
 
 
+def test_staging_odds_filters_to_payload_market_tokens():
+    """Odds/ledger/skips/daily staging must stay inside payload-backed tokens."""
+    staging = DBT_ROOT / "models" / "polymarket_wc2026" / "staging"
+    for name in (
+        "stg_polymarket_wc2026_odds.sql",
+        "stg_polymarket_wc2026_odds_daily.sql",
+        "stg_polymarket_wc2026_sync_ledger.sql",
+        "stg_polymarket_wc2026_token_sync_skips.sql",
+    ):
+        lowered = (staging / name).read_text().lower()
+        assert "ref('stg_polymarket_wc2026_market_tokens')" in lowered
+        assert "inner join" in lowered
+
+
 def test_intermediate_wc2026_markets_owns_scope_logic():
     sql = (
         DBT_ROOT

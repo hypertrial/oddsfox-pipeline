@@ -33,7 +33,9 @@ Schema: `polymarket_wc2026_raw`
 - `markets`: dlt-owned Gamma market landing table with frozen column/type contract.
 - `market_tokens`: one row per market with CLOB token JSON; current batches are
   extracted from the same Gamma payload as `markets` and finalized into this
-  canonical table with `INSERT OR REPLACE`.
+  canonical table with `INSERT OR REPLACE`. Enrichment may temporarily widen
+  this set; hourly odds planning and dbt staging market tokens use the latest
+  `event_market_payload_snapshots.clob_token_ids` catalog instead.
 - `odds_history`: append-only point-in-time CLOB token prices. The composite
   primary key `(clobTokenId, timestamp)` makes replays idempotent; an observed
   source point is never rewritten. Pruning policy is documented under

@@ -38,8 +38,9 @@ models:
   - name: event_id
     description: Parent Gamma event id when present on the market payload.
 - name: stg_polymarket_wc2026_market_tokens
-  description: One row per outcome token; expands raw `clobTokenIds` JSON array with
-    zero-based outcome index.
+  description: One row per outcome token; expands latest event-catalog payload
+    `clob_token_ids` JSON (via `stg_polymarket_wc2026_markets`) with zero-based
+    outcome index.
   tests:
   - no_duplicate_grain:
       arguments:
@@ -64,11 +65,11 @@ models:
     - not_null
     - unique
   - name: updated_at
-    description: UTC timestamp when the raw market_tokens row was last written by
-      ingestion (used for source freshness).
+    description: Payload `scraped_at` from the latest event-market payload snapshot for
+      this market (catalog observation time, not raw market_tokens write time).
 - name: stg_polymarket_wc2026_odds
-  description: Point-in-time odds history for CLOB tokens; one row per recorded price
-    observation from raw odds history.
+  description: Point-in-time odds history for CLOB tokens present in the payload-backed
+    market-token catalog; one row per recorded price observation from raw odds history.
   tests:
   - no_duplicate_grain:
       arguments:

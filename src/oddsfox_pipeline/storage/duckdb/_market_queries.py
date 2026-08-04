@@ -28,6 +28,12 @@ def _market_tokens_tbl() -> str:
     return polymarket_raw_tbl(get_active_polymarket_scope(), "market_tokens")
 
 
+def _payload_snapshots_tbl() -> str:
+    return polymarket_raw_tbl(
+        get_active_polymarket_scope(), "event_market_payload_snapshots"
+    )
+
+
 def _token_sync_ledger_tbl() -> str:
     return polymarket_ops_tbl(get_active_polymarket_scope(), "token_sync_ledger")
 
@@ -42,15 +48,40 @@ def _market_metadata_unresolved_tbl() -> str:
     )
 
 
-def _due_token_join_sql() -> str:
+def _latest_payload_tokens_sql(alias: str = "pt") -> str:
+    """Latest event-catalog payload token rows (matches stg market_tokens SoT)."""
     return f"""
-    FROM {_market_tokens_tbl()} mt
+    (
+      SELECT
+        lp.market_id AS market_id,
+        json_extract_string(je_payload.value, '$') AS clobTokenId,
+        lp.clob_token_ids AS clobTokenIds
+      FROM (
+        SELECT market_id, clob_token_ids
+        FROM {_payload_snapshots_tbl()}
+        QUALIFY ROW_NUMBER() OVER (
+          PARTITION BY market_id ORDER BY observed_at DESC
+        ) = 1
+      ) lp
+      CROSS JOIN LATERAL json_each(lp.clob_token_ids) AS je_payload
+      WHERE lp.clob_token_ids IS NOT NULL
+        AND lp.clob_token_ids != '[]'
+        AND LEFT(LTRIM(lp.clob_token_ids), 1) = '['
+        AND json_extract_string(je_payload.value, '$') IS NOT NULL
+    ) {alias}
+    """
+
+
+def _due_token_join_sql() -> str:
+    # Plan odds only for tokens present on the latest payload snapshot so
+    # planning matches stg_polymarket_wc2026_market_tokens / dbt relationships.
+    return f"""
+    FROM {_latest_payload_tokens_sql("mt")}
     JOIN {_markets_tbl()} m ON mt.market_id = m.id
-    CROSS JOIN LATERAL json_each(mt.clobTokenIds) AS je
     LEFT JOIN {_token_sync_ledger_tbl()} l
-      ON l.clobTokenId = json_extract_string(je.value, '$')
+      ON l.clobTokenId = mt.clobTokenId
     LEFT JOIN {_token_sync_skips_tbl()} s
-      ON s.clobTokenId = json_extract_string(je.value, '$')
+      ON s.clobTokenId = mt.clobTokenId
 """
 
 
@@ -91,10 +122,7 @@ def _due_token_base_where(
 ) -> str:
     """Shared base WHERE predicate for due-token queries; appends to params in place."""
     predicates = [
-        "mt.clobTokenIds IS NOT NULL",
-        "mt.clobTokenIds != '[]'",
-        "LEFT(LTRIM(mt.clobTokenIds), 1) = '['",
-        "json_extract_string(je.value, '$') IS NOT NULL",
+        "mt.clobTokenId IS NOT NULL",
         "s.clobTokenId IS NULL",
         "NOT (COALESCE(m.closed, FALSE) = TRUE AND COALESCE(l.fully_checked, FALSE) = TRUE)",
         "(l.clobTokenId IS NULL OR l.next_check_at IS NULL OR l.next_check_at <= CURRENT_TIMESTAMP)",
@@ -230,14 +258,21 @@ def iter_markets_with_tokens(
     """
     Stream markets that have token mappings in bounded pages.
 
-    This avoids loading the full market-token corpus into memory for large syncs.
+    Token JSON comes from the latest event-catalog payload snapshot so force /
+    rebuild odds planning matches staging market_tokens.
     """
     with active_polymarket_scope(market_scope):
         ensure_duck_db()
         query_parts = [
             f"""
         SELECT mt.market_id, mt.clobTokenIds, m.created_at, m.closed
-        FROM {_market_tokens_tbl()} mt
+        FROM (
+          SELECT market_id, clob_token_ids AS clobTokenIds
+          FROM {_payload_snapshots_tbl()}
+          QUALIFY ROW_NUMBER() OVER (
+            PARTITION BY market_id ORDER BY observed_at DESC
+          ) = 1
+        ) mt
         JOIN {_markets_tbl()} m ON mt.market_id = m.id
         WHERE mt.clobTokenIds IS NOT NULL AND mt.clobTokenIds != '[]'
         """
@@ -275,7 +310,8 @@ def iter_due_market_tokens(
 
     A token is due when it has no ledger row yet or its next_check_at is NULL / in
     the past. Persisted skip reasons and fully checked closed tokens are excluded
-    here so routine runs do not revisit them.
+    here so routine runs do not revisit them. Tokens must appear on the latest
+    event-catalog payload for the market (same catalog SoT as dbt staging).
     """
     with active_polymarket_scope(market_scope):
         ensure_duck_db()
@@ -283,7 +319,7 @@ def iter_due_market_tokens(
         query = f"""
         SELECT
             mt.market_id,
-            json_extract_string(je.value, '$') AS clobTokenId,
+            mt.clobTokenId AS clobTokenId,
             m.created_at,
             m.closed
         {_due_token_join_sql()}
@@ -402,7 +438,13 @@ def count_candidate_market_tokens(
             SELECT
                 COALESCE(SUM(json_array_length(mt.clobTokenIds)), 0),
                 COUNT(*)
-            FROM {_market_tokens_tbl()} mt
+            FROM (
+              SELECT market_id, clob_token_ids AS clobTokenIds
+              FROM {_payload_snapshots_tbl()}
+              QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY market_id ORDER BY observed_at DESC
+              ) = 1
+            ) mt
             JOIN {_markets_tbl()} m ON mt.market_id = m.id
             WHERE {" AND ".join(base_where)}
             {_market_scope_where_clause(market_scope, "m")}

@@ -23,6 +23,7 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket import create_test_marke
 
 T_M = polymarket_wc2026_raw_tbl("markets")
 T_MT = polymarket_wc2026_raw_tbl("market_tokens")
+T_PAYLOAD = polymarket_wc2026_raw_tbl("event_market_payload_snapshots")
 T_OH = polymarket_wc2026_raw_tbl("odds_history")
 T_TOD = polymarket_wc2026_raw_tbl("token_odds_daily")
 T_LED = polymarket_wc2026_ops_tbl("token_sync_ledger")
@@ -146,18 +147,71 @@ def _insert_market_tuple(conn, row: tuple) -> None:
     )
 
 
+def _seed_payload_tokens(
+    conn,
+    token_rows: list[tuple[str, str]],
+    *,
+    observed_at: datetime | None = None,
+) -> None:
+    """Seed latest-style payload snapshots so odds planning matches staging SoT."""
+    stamp = observed_at or datetime.now(timezone.utc)
+    for market_id, clob_token_ids in token_rows:
+        conn.execute(
+            f"""
+            INSERT OR REPLACE INTO {T_PAYLOAD}
+            (
+                market_id,
+                question,
+                category,
+                description,
+                outcomes,
+                volume,
+                active,
+                closed,
+                created_at,
+                scraped_at,
+                end_date,
+                slug,
+                event_slug,
+                event_id,
+                condition_id,
+                sports_market_type,
+                clob_token_ids,
+                is_resolved,
+                observed_at
+            )
+            VALUES (
+                ?, 'Q', 'c', 'd', '["Yes","No"]', 1.0, TRUE, FALSE,
+                ?, ?, NULL, ?, NULL, NULL, 'condition', 'outright',
+                ?, FALSE, ?
+            )
+            """,
+            [
+                str(market_id),
+                stamp,
+                stamp,
+                str(market_id),
+                clob_token_ids,
+                stamp,
+            ],
+        )
+
+
 def _seed_markets(
     duck,
     market_rows=None,
     token_rows=None,
     *,
     register_scope: bool = True,
+    seed_payloads: bool = True,
 ) -> None:
     """Seed markets via direct insert; persist tokens through save_market_tokens_batch."""
     normalized_rows = [_normalize_market_tuple(row) for row in market_rows or ()]
     with duck.get_connection() as conn:
         for row in normalized_rows:
             _insert_market_tuple(conn, row)
+        if token_rows and seed_payloads:
+            _seed_payload_tokens(conn, list(token_rows))
     if token_rows:
         markets.save_market_tokens_batch(token_rows)
     if register_scope and normalized_rows:

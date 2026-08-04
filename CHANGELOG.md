@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ledger, telemetry, and full-lifetime collection semantics are unchanged.
   Configurable as `batch_group_size` (default `20`). Hourly
   `auto_tune_max_rps` default raised to `90`.
+- Polymarket odds planning and staging odds/ledger/skips/daily models now use
+  the latest `event_market_payload_snapshots` token catalog (same SoT as
+  `stg_polymarket_wc2026_market_tokens`), so registry/enrichment-only tokens
+  without payload coverage no longer break dbt relationships.
 
 ### Removed
 

@@ -26,8 +26,10 @@ sources:
             description: Parent Gamma event id when present on the market payload.
       - name: market_tokens
         description: >
-          One row per Polymarket market_id; clobTokenIds holds a JSON array of CLOB outcome token ids for that market
-          (staging expands this into one row per token). Hence market_id is unique at this raw grain.
+          One row per Polymarket market_id; clobTokenIds holds a JSON array of CLOB outcome token ids for that market.
+          Odds planning and dbt staging market tokens now prefer the latest
+          `event_market_payload_snapshots.clob_token_ids` catalog; this raw table
+          remains the enrichment/ops working copy and may temporarily diverge.
         meta:
           dagster:
             asset_key: [polymarket, wc2026, raw, market_metadata_enrichment]
