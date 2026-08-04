@@ -98,7 +98,7 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen --no-default-groups --group test --group python-lint --group dbt-lint --group docs-render
       - name: Cache Playwright browsers
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ github.workspace }}/.cache/runtime/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}-chromium
