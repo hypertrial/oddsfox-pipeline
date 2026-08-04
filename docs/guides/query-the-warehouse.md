@@ -65,7 +65,7 @@ running Dagster/dbt writer.
 
 | Goal | Start Here | Notes |
 | --- | --- | --- |
-| WC2026 Polymarket hourly odds | `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds` | One row per `market_id`, `odds_hour_epoch`; Yes-outcome CLOB prices with market and event metadata. |
+| WC2026 Polymarket hourly odds | `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds` | One row per `market_id`, `odds_hour_epoch`; primary-outcome CLOB prices (`primary_outcome_label`) with market and event metadata. |
 | WC2026 in-game match minutes | `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds` | Dense minute series for all 104 matches; requires the match-minute path, not ordinary hourly ingest alone. |
 | Argentina–Egypt historical L2 depth | `polymarket_wc2026_marts.polymarket_wc2026_match_order_book` | Long-form independent bid/ask levels for both PMXT outcome-token snapshot streams; requires the unscheduled PMXT backfill. |
 | WC2026 fixtures and results | `international_results_wc2026_marts.international_results_wc2026_matches` | One row per `match_id`, with knockout advancer inference; requires Kalshi full pipeline or match-minute ingest, not the Polymarket golden-mart quickstart. |

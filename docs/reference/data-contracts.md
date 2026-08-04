@@ -28,7 +28,7 @@ Schema: `polymarket_wc2026_marts`
 
 | Relation | Grain | Pipeline | Contract |
 | --- | --- | --- | --- |
-| `polymarket_wc2026_market_hourly_odds` | One row per `(market_id, odds_hour_epoch)` | Polymarket WC2026 golden mart | Golden WC2026 hourly odds mart. Every market under a sticky event-volume-eligible WC2026 event (reported lifetime volume at or above the pipeline policy floor, currently $100,000 USD) with Yes-outcome CLOB prices in `[0, 1]`, full lifetime hourly OHLC history, and comprehensive market and enclosing-event metadata. |
+| `polymarket_wc2026_market_hourly_odds` | One row per `(market_id, odds_hour_epoch)` | Polymarket WC2026 golden mart | Golden WC2026 hourly odds mart. Every market under a sticky event-volume-eligible WC2026 event (reported lifetime volume at or above the pipeline policy floor, currently $100,000 USD) with primary-outcome CLOB prices in `[0, 1]` (Yes when present, otherwise `outcome_index` 0), `primary_outcome_label`, full lifetime hourly OHLC history, and comprehensive market and enclosing-event metadata. |
 | `polymarket_wc2026_match_minute_odds` | One row per `(odds_minute_utc, market_id)` | Match-minute odds (isolated) | Dense in-game minute OHLC for 216 group moneyline markets and 32 knockout advance/win markets across FIFA match IDs 1–104. |
 | `polymarket_wc2026_match_order_book` | One row per `(fifa_match_id, market_id, clob_token_id, snapshot_timestamp_ms, snapshot_sha256, book_side, level_rank)` | Match order book; market portrait (isolated) | Every bid and ask level from every PMXT historical L2 snapshot in the reviewed Argentina–Egypt match-95 market window. |
 | `polymarket_wc2026_polygon_settlement_minute_odds` | One row per `(proposition_id, settlement_minute_utc)` | Polygon settlement history (isolated) | Finalized Polygon V2 settlement-time OHLC/VWAP over fixed half-open scheduled windows; exactly 39,120 dense rows. |
@@ -236,9 +236,11 @@ Schema: `kalshi_wc2026_marts`
   report lower lifetime volume.
 - Shared Polymarket WC2026 thresholds live in that seed; dbt models/tests read it
   and Python parity tests assert the Dagster defaults match it.
-- Prices are raw Yes-outcome CLOB probabilities in `[0, 1]` from
-  `int_polymarket_wc2026_primary_market_token`. They are not normalized to team
-  progression, and the mart does not classify knockout stage or canonical team.
+- Prices are raw primary-outcome CLOB probabilities in `[0, 1]` from
+  `int_polymarket_wc2026_primary_market_token` (Yes when present, otherwise
+  `outcome_index` 0). `primary_outcome_label` states what each row's price
+  represents. Prices are not normalized to team progression, and the mart does
+  not classify knockout stage or canonical team.
 - Grain is one row per `(market_id, odds_hour_epoch)` with full lifetime hourly
   history from the private incremental `int_polymarket_wc2026_token_hourly_odds`
   fact. Market and enclosing-event metadata come from
@@ -279,8 +281,9 @@ Schema: `kalshi_wc2026_marts`
 - Source and staging grain.
 - Price sanity and OHLC bounds.
 - WC2026 market scope (`accepted_values` on `scope_name`).
-- Golden mart grain, Yes-outcome token selection, and event lifetime volume floor
-  from the WC2026 pipeline policy seed.
+- Golden mart grain, primary-outcome token selection (Yes preferred, else
+  `outcome_index` 0), and event lifetime volume floor from the WC2026 pipeline
+  policy seed.
 - FIFA World Cup result scope, stage counts, 48-team roster shape, tied knockout
   advancer inference/DQ surfacing, and stale fixture/result source loads.
 - Observability run health (warn-level: latest run error-token regression and history coverage floor).

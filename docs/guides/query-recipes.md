@@ -49,13 +49,14 @@ order by severity, issue_type, fifa_match_id, market_id;
 
 ## WC2026 Polymarket Hourly Series
 
-Yes-outcome hourly OHLC odds for one event:
+Primary-outcome hourly OHLC odds for one event:
 
 ```sql
 select
     odds_hour_utc,
     event_slug,
     question,
+    primary_outcome_label,
     open_odds,
     high_odds,
     low_odds,
@@ -66,8 +67,8 @@ where event_slug = 'fifwc-2026-winner'
 order by question, odds_hour_epoch;
 ```
 
-Prices are raw Yes-outcome CLOB probabilities. Parse `outcomes` when you need
-the literal outcome label for the selected token.
+Prices are raw primary-outcome CLOB probabilities (Yes when present, otherwise
+`outcome_index` 0). Use `primary_outcome_label` for the selected outcome name.
 
 ## Latest Hourly Close By Market
 

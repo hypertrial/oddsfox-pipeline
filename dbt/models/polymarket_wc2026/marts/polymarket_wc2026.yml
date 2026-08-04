@@ -6,8 +6,10 @@ models:
       Golden WC2026 hourly odds mart. One row per (market_id, odds_hour_epoch)
       for every market under a sticky event-volume-eligible WC2026 event
       (lifetime reported volume at or above the pipeline policy floor, currently
-      $100,000 USD). Yes-outcome CLOB prices in [0,1] with comprehensive market
-      and enclosing-event metadata; full lifetime hourly history.
+      $100,000 USD). Primary-outcome CLOB prices in [0,1] (Yes when present,
+      otherwise outcome_index 0) with comprehensive market and enclosing-event
+      metadata; full lifetime hourly history. primary_outcome_label states what
+      each row's price represents.
     tests:
       - no_duplicate_grain:
           arguments:
@@ -25,6 +27,10 @@ models:
       - name: market_id
         tests: [not_null]
       - name: clob_token_id
+        tests: [not_null]
+      - name: primary_outcome_label
+        description: >
+          Label of the selected primary outcome (Yes, Over, a team name, etc.).
         tests: [not_null]
       - name: event_id
         tests: [not_null]

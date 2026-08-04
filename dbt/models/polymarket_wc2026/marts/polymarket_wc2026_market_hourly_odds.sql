@@ -1,6 +1,7 @@
 select
     markets.market_id,
     tokens.clob_token_id,
+    tokens.outcome_label as primary_outcome_label,
     markets.event_id,
     markets.event_slug,
     markets.question,

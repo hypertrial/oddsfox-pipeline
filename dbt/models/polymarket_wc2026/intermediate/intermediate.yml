@@ -66,14 +66,19 @@ models:
 
   - name: int_polymarket_wc2026_primary_market_token
     description: >
-      One Yes-outcome CLOB token per admitted WC2026 market used by the golden hourly
-      odds mart.
+      One primary CLOB token per admitted WC2026 market used by the golden hourly
+      odds mart. Prefers the Yes-labeled outcome when present; otherwise falls
+      back to outcome_index 0 (tiebreak clob_token_id ascending). Covers Yes/No
+      propositions plus advance, totals, spreads, corners, and other non-Yes
+      market types.
     columns:
       - name: market_id
         tests: [not_null, unique]
       - name: clob_token_id
         tests: [not_null]
       - name: outcome_label
+        description: >
+          Label of the selected primary outcome (Yes, Over, a team name, etc.).
         tests: [not_null]
 
   - name: int_polymarket_wc2026_token_hourly_odds
@@ -119,4 +124,27 @@ models:
         tests: [not_null]
       - name: latest_ingested_at
         description: Latest raw ingestion timestamp represented in this hourly bucket.
+
+unit_tests:
+  - name: test_primary_market_token_prefers_yes_and_falls_back_to_outcome_index_zero
+    model: int_polymarket_wc2026_primary_market_token
+    given:
+      - input: ref('int_polymarket_wc2026_token_working_set')
+        rows:
+          - {market_id: moneyline-1, outcome_index: 0, clob_token_id: ml-no, token_updated_at: '2026-07-01 12:00:00', outcome_label: 'No'}
+          - {market_id: moneyline-1, outcome_index: 1, clob_token_id: ml-yes, token_updated_at: '2026-07-01 12:00:00', outcome_label: 'Yes'}
+          - {market_id: advance-1, outcome_index: 0, clob_token_id: portugal-token, token_updated_at: '2026-07-01 12:00:00', outcome_label: Portugal}
+          - {market_id: advance-1, outcome_index: 1, clob_token_id: spain-token, token_updated_at: '2026-07-01 12:00:00', outcome_label: Spain}
+          - {market_id: totals-1, outcome_index: 0, clob_token_id: over-token, token_updated_at: '2026-07-01 12:00:00', outcome_label: Over}
+          - {market_id: totals-1, outcome_index: 1, clob_token_id: under-token, token_updated_at: '2026-07-01 12:00:00', outcome_label: Under}
+      - input: ref('int_polymarket_wc2026_markets')
+        rows:
+          - {market_id: moneyline-1}
+          - {market_id: advance-1}
+          - {market_id: totals-1}
+    expect:
+      rows:
+        - {market_id: moneyline-1, clob_token_id: ml-yes, outcome_label: 'Yes', outcome_index: 1}
+        - {market_id: advance-1, clob_token_id: portugal-token, outcome_label: Portugal, outcome_index: 0}
+        - {market_id: totals-1, clob_token_id: over-token, outcome_label: Over, outcome_index: 0}
 

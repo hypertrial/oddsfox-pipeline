@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Golden mart `polymarket_wc2026_market_hourly_odds` now selects a primary CLOB
+  token for every admitted market: Yes when present, otherwise `outcome_index`
+  0. Adds `primary_outcome_label` so rows state what the price represents
+  (Yes, Over, team name, etc.). Closes coverage for advance, totals, spreads,
+  corners, and other non-Yes market types that previously had upstream hourly
+  history but never reached the mart.
 - Polymarket hourly odds sync (`polymarket_wc2026_raw_token_odds_history_hourly`)
   fetches CLOB price history via `POST /batch-prices-history` (up to 20 tokens
   per call) instead of one `GET /prices-history` per token window. Per-token

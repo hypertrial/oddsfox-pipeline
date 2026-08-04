@@ -111,9 +111,9 @@ flowchart TD
 
 Text fallback: the Polymarket golden mart path normalizes raw and ops tables, the registry admits
 sticky event-volume-eligible WC2026 markets, intermediates establish token
-working sets and Yes-outcome primary tokens, and the golden
+working sets and primary tokens (Yes preferred, else `outcome_index` 0), and the golden
 `polymarket_wc2026_market_hourly_odds` mart publishes full-lifetime hourly
-Yes-outcome odds with comprehensive market and event metadata. Observability
+primary-outcome odds with `primary_outcome_label` and comprehensive market and event metadata. Observability
 models publish run metrics. `international_results_wc2026_*` marts are built on
 Kalshi and match-minute paths only, not the Polymarket golden-mart closure.
 

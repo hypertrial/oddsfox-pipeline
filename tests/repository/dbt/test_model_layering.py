@@ -90,9 +90,22 @@ def test_wc2026_market_hourly_odds_mart_joins_fact_to_market_metadata():
         / "polymarket_wc2026_market_hourly_odds.sql"
     ).read_text()
     lowered = sql.lower()
+    primary_sql = (
+        DBT_ROOT
+        / "models"
+        / "polymarket_wc2026"
+        / "intermediate"
+        / "int_polymarket_wc2026_primary_market_token.sql"
+    ).read_text()
+    primary_lowered = primary_sql.lower()
 
     assert "{{ ref('int_polymarket_wc2026_primary_market_token') }}" in lowered
     assert "{{ ref('int_polymarket_wc2026_token_hourly_odds') }}" in lowered
     assert "{{ ref('int_polymarket_wc2026_markets') }}" in lowered
     assert "{{ ref('polymarket_wc2026_token_hourly_odds') }}" not in lowered
     assert "selected_" not in lowered
+    assert "primary_outcome_label" in lowered
+    assert "market_has_yes" in primary_lowered
+    assert "not market_has_yes" in primary_lowered
+    # Must not hard-filter only to yes as the sole gate (fallback exists).
+    assert "or not market_has_yes" in primary_lowered

@@ -153,8 +153,8 @@ Schema: `polymarket_wc2026_intermediate`
   enclosing-event metadata from the event catalog.
 - `int_polymarket_wc2026_event_latest`: latest snapshot per WC2026 event from
   raw event catalog history.
-- `int_polymarket_wc2026_primary_market_token`: one Yes-outcome CLOB token per
-  admitted market.
+- `int_polymarket_wc2026_primary_market_token`: one primary CLOB token per
+  admitted market (Yes when present, otherwise `outcome_index` 0).
 - `int_polymarket_wc2026_token_hourly_odds`: incremental hourly OHLC price fact
   for raw CLOB tokens across full lifetime history.
 - `int_polymarket_wc2026_match_working_set`: match-grain working set for

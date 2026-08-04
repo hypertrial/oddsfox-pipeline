@@ -20,12 +20,12 @@ common mistakes.
 | --- | --- |
 | Intended use | Golden WC2026 hourly odds mart with market and enclosing-event metadata. |
 | Grain | One row per `market_id`, `odds_hour_epoch`. |
-| Identifiers | `market_id`, `clob_token_id`, `event_id`, `event_slug`, `condition_id`. |
+| Identifiers | `market_id`, `clob_token_id`, `primary_outcome_label`, `event_id`, `event_slug`, `condition_id`. |
 | Time columns | `odds_hour_utc`, `odds_hour_epoch`, `first_observed_at`, `last_observed_at`, `game_start_time`, `end_time`, `event_start_at`, `event_finished_at`. |
-| Price columns | `open_odds`, `high_odds`, `low_odds`, `close_odds`, `avg_odds`; raw Yes-outcome CLOB probabilities. |
-| Recommended filters | Filter by `event_slug`, `event_id`, `question`, `category`, `tags`, or market status fields (`is_active`, `is_closed`, `is_resolved`). Require `event_volume_usd_lifetime_reported >= 100000` only when auditing eligibility; admitted rows already passed the sticky event floor. |
-| Common joins | Parse `outcomes` for outcome labels; join `event_id` across markets in the same event. For FIFA team context, join market text to `international_results_wc2026_team_status` manually. Optional metadata enrichment runs before hourly odds ingest; the mart reflects the latest enriched Gamma fields. For point-in-time child-market metadata beyond the mart columns, join `polymarket_wc2026_raw.event_market_payload_snapshots` on `market_id` (raw layer, not a documented contract). |
-| Common mistakes | Treating prices as progression-normalized knockout odds; using `clob_token_id` grain when the contract is `(market_id, odds_hour_epoch)`; expecting separate current-price or freshness status columns on this mart. |
+| Price columns | `open_odds`, `high_odds`, `low_odds`, `close_odds`, `avg_odds`; raw primary-outcome CLOB probabilities (Yes when present, otherwise `outcome_index` 0). Use `primary_outcome_label` for the selected outcome name. |
+| Recommended filters | Filter by `event_slug`, `event_id`, `question`, `category`, `tags`, `sports_market_type`, `primary_outcome_label`, or market status fields (`is_active`, `is_closed`, `is_resolved`). Require `event_volume_usd_lifetime_reported >= 100000` only when auditing eligibility; admitted rows already passed the sticky event floor. |
+| Common joins | Use `primary_outcome_label` for the selected token label; parse `outcomes` for the full outcome set; join `event_id` across markets in the same event. For FIFA team context, join market text to `international_results_wc2026_team_status` manually. Optional metadata enrichment runs before hourly odds ingest; the mart reflects the latest enriched Gamma fields. For point-in-time child-market metadata beyond the mart columns, join `polymarket_wc2026_raw.event_market_payload_snapshots` on `market_id` (raw layer, not a documented contract). |
+| Common mistakes | Treating prices as progression-normalized knockout odds or as a fixed Yes probability when `primary_outcome_label` is a team/Over/Under label; using `clob_token_id` grain when the contract is `(market_id, odds_hour_epoch)`; expecting separate current-price or freshness status columns on this mart. |
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`
 
