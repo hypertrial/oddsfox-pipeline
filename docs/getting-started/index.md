@@ -77,8 +77,8 @@ Run the fixed WC2026 pipeline from discovery through dbt:
 uv run python scripts/run_scope.py polymarket:wc2026 --step full
 ```
 
-The full run refreshes FIFA results, discovers WC2026 markets, syncs the
-trailing hourly odds window, and builds the public dbt marts.
+The full run discovers WC2026 markets, syncs the trailing hourly odds window,
+and builds `polymarket_wc2026_market_hourly_odds`.
 
 For a staged run or a dry-run preview, use [Run a scope](../guides/run-a-scope.md).
 
@@ -96,8 +96,8 @@ until the manual jobs are healthy.
 ## Confirm success
 
 The first run should create `oddsfox.duckdb`, complete
-`polymarket_wc2026_full_pipeline`, and build relations under
-`polymarket_wc2026_marts` and `international_results_wc2026_marts`.
+`polymarket_wc2026_full_pipeline`, and build
+`polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds`.
 Those local checks verify technical shape; they are not Hypertrial
 certification of data rights or fitness for trading. See
 [Operator responsibilities](../concepts/operator-responsibilities.md).

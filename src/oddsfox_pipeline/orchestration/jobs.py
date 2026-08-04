@@ -25,6 +25,7 @@ from oddsfox_pipeline.orchestration.config import (
     kalshi_wc2026_full_refresh_events_run_config,
     kalshi_wc2026_hourly_odds_run_config,
     polymarket_wc2026_dbt_build_run_config,
+    polymarket_wc2026_full_pipeline_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
     polymarket_wc2026_market_portrait_run_config,
@@ -145,10 +146,16 @@ POLYMARKET_WC2026_POLYGON_SETTLEMENT_RELEASE_SELECTION = AssetSelection.assets(
     POLYMARKET_WC2026_RELEASE_POLYGON_SETTLEMENT_ODDS_BUNDLE
 )
 
-POLYMARKET_WC2026_DBT_SELECTION = build_dbt_asset_selection(
+_POLYMARKET_WC2026_GOLDEN_MART_DBT_GRAPH = build_dbt_asset_selection(
     [oddsfox_dbt],
     dbt_select=POLYMARKET_WC2026_SCOPE.dbt_select,
     dbt_exclude=POLYMARKET_WC2026_SCOPE.dbt_exclude,
+)
+POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION = (
+    _POLYMARKET_WC2026_GOLDEN_MART_DBT_GRAPH.without_checks().downstream(
+        depth=0,
+        include_self=True,
+    )
 )
 
 _POLYMARKET_WC2026_MATCH_MINUTE_DBT_GRAPH = build_dbt_asset_selection(
@@ -230,10 +237,9 @@ POLYMARKET_WC2026_MARKET_PORTRAIT_SELECTION = (
 )
 
 POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
-    INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION
-    | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
+    POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
     | POLYMARKET_WC2026_HOURLY_ODDS_SELECTION
-    | POLYMARKET_WC2026_DBT_SELECTION
+    | POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION
 )
 
 polymarket_wc2026_market_scope_registry_refresh = define_asset_job(
@@ -254,7 +260,7 @@ polymarket_wc2026_hourly_odds_ingest = define_asset_job(
 
 polymarket_wc2026_dbt_build = define_asset_job(
     POLYMARKET_WC2026_SCOPE.dbt_job_name,
-    selection=POLYMARKET_WC2026_DBT_SELECTION,
+    selection=POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_dbt_build_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
@@ -321,11 +327,7 @@ polymarket_wc2026_full_pipeline = define_asset_job(
     POLYMARKET_WC2026_SCOPE.full_job_name,
     selection=POLYMARKET_WC2026_FULL_PIPELINE_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
-    config=_merge_run_configs(
-        polymarket_wc2026_full_refresh_events_run_config(),
-        polymarket_wc2026_hourly_odds_run_config(),
-        polymarket_wc2026_dbt_build_run_config(),
-    ),
+    config=polymarket_wc2026_full_pipeline_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
 )
 

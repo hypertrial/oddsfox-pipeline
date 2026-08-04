@@ -21,7 +21,7 @@ paid or narrow credentials, single-target manifests.
 
 | Pipeline | Entry job(s) | Steps | Schedule | CI dbt gate | Maturity |
 | --- | --- | --- | --- | --- | --- |
-| Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` (`+tag:polymarket,tag:wc2026`) | Production |
+| Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` (`dbt-build` excluding isolated tags) | Production |
 | Kalshi WC2026 | `kalshi_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` (`+tag:kalshi`) | Production |
 | Polygon settlement history | `polymarket_wc2026_polygon_settlement_backfill` → `_release` → standalone exporter | Backfill scan, audit release, offline export | None | `dbt-polygon-settlement-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Match-minute odds | `polymarket_wc2026_match_minute_odds_backfill` | Results refresh, minute fetch, dbt | None | Minute mart in ordinary `ci-fast` / `dbt-build-ci` | Mature, isolated |
@@ -29,8 +29,8 @@ paid or narrow credentials, single-target manifests.
 | Market portrait | `polymarket_wc2026_market_portrait_backfill` | Order book + trades scan, portrait bundle build | None | `dbt-market-portrait-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 
 Supporting ingestion jobs (`international_results_historical_ingest`,
-`international_results_wc2026_match_results_ingest`) feed WC2026 production
-pipelines but are not separate product pipelines.
+`international_results_wc2026_match_results_ingest`) feed Kalshi and match-minute
+WC2026 pipelines but are not separate product pipelines.
 
 ## Pipeline outputs
 
@@ -38,9 +38,10 @@ Marts are defined once in [Data contracts](data-contracts.md#documented-marts);
 this list maps each pipeline to what it builds.
 
 - **Polymarket WC2026** (`polymarket_wc2026_full_pipeline`):
-  `polymarket_wc2026_market_hourly_odds`. Rebuilds the shared
-  `international_results_wc2026_matches` and
-  `international_results_wc2026_team_status` marts as inputs for other pipelines.
+  `polymarket_wc2026_market_hourly_odds`. Dagster `dbt` and `full` steps build
+  only the golden mart closure (`+polymarket_wc2026_market_hourly_odds`); use
+  dedicated backfill jobs for match-minute, order-book, portrait, and Polygon
+  settlement marts.
 - **Kalshi WC2026** (`kalshi_wc2026_full_pipeline`): `kalshi_wc2026_stage_markets`,
   `kalshi_wc2026_stage_market_hourly_odds`, `kalshi_wc2026_group_winner_markets`,
   `kalshi_wc2026_group_winner_market_hourly_odds`. Rebuilds the same shared
@@ -97,7 +98,7 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
 
 **Entry point**
 
-- `polymarket_wc2026_full_pipeline`: results, registry, odds, and dbt.
+- `polymarket_wc2026_full_pipeline`: registry, odds, and golden-mart dbt.
 
 **Steps**
 
@@ -105,9 +106,10 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   catalog (with OpenFootball fixtures), market scope registry refresh, and
   metadata enrichment.
 - `polymarket_wc2026_hourly_odds_ingest`: trailing hourly token-odds refresh.
-- `polymarket_wc2026_dbt_build`: WC2026 and international-results dbt build.
-  Default run config uses incremental dbt (`full_refresh=False`); set
-  `full_refresh=True` in Dagster run config for a one-off full rebuild.
+- `polymarket_wc2026_dbt_build`: golden-mart dbt build
+  (`+polymarket_wc2026_market_hourly_odds`). Default run config uses
+  incremental dbt (`full_refresh=False`); set `full_refresh=True` in Dagster run
+  config for a one-off full rebuild.
 
 **Isolated: Polygon settlement**
 
@@ -216,9 +218,10 @@ unrelated Polymarket tests.
   fixture semantics come only from the reviewed dbt seed at runtime. It scans
   finalized Polygon logs and stores normalized economic legs without wallets,
   order hashes, signatures, raw event payloads, oracle prose, or RPC URLs.
-- The ordinary Polymarket dbt/full jobs exclude `tag:polygon_settlement` and
-  `tag:pmxt_order_book`; only their dedicated backfills or replay-backed
-  validation targets build them.
+- The ordinary Polymarket dbt/full jobs build only
+  `+polymarket_wc2026_market_hourly_odds` and exclude `tag:polygon_settlement`,
+  `tag:pmxt_order_book`, and `tag:market_portrait`; only dedicated backfills or
+  replay-backed validation targets build those graphs.
 
 ### Kalshi WC2026
 

@@ -251,6 +251,17 @@ def polymarket_wc2026_dbt_build_run_config() -> dict:
     return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}
 
 
+def polymarket_wc2026_full_pipeline_run_config() -> dict:
+    ops: dict = {}
+    for cfg in (
+        polymarket_wc2026_full_refresh_events_run_config(),
+        polymarket_wc2026_hourly_odds_run_config(),
+        polymarket_wc2026_dbt_build_run_config(),
+    ):
+        ops.update(cfg["ops"])
+    return {"ops": ops}
+
+
 def polymarket_wc2026_full_refresh_events_run_config() -> dict:
     markets_cfg = MarketsSyncConfig(
         discovery_mode="full_keyset",

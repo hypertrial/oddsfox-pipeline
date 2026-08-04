@@ -33,8 +33,8 @@ exports. See [Operator responsibilities](../concepts/operator-responsibilities.m
 ## Confirm Success
 
 After a first Polymarket WC2026 full run you should have `oddsfox.duckdb` with
-relations under `polymarket_wc2026_marts` and
-`international_results_wc2026_marts`. Those local checks verify technical shape;
+`polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds`. Those local
+checks verify technical shape;
 they are not Hypertrial certification of data rights or fitness for trading.
 See [Operator responsibilities](../concepts/operator-responsibilities.md).
 Query with [Query the warehouse](../guides/query-the-warehouse.md) or hand off

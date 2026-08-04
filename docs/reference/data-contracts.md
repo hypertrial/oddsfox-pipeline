@@ -350,8 +350,8 @@ Schema: `international_results_wc2026_marts`
 
 | Relation | Grain | Pipeline | Contract |
 | --- | --- | --- | --- |
-| `international_results_wc2026_matches` | One row per `match_id` | Shared (Polymarket WC2026, Kalshi WC2026, match-minute odds) | Clean WC2026 FIFA World Cup fixture/result rows from `martj42/international_results`, including stage, status, score, inferred knockout advancer metadata, and immutable source revision/hash provenance. |
-| `international_results_wc2026_team_status` | One row per `team_name` | Shared (Polymarket WC2026, Kalshi WC2026) | Canonical 48-team WC2026 roster and current tournament status derived from fixture/result rows. |
+| `international_results_wc2026_matches` | One row per `match_id` | Shared (Kalshi WC2026, match-minute odds) | Clean WC2026 FIFA World Cup fixture/result rows from `martj42/international_results`, including stage, status, score, inferred knockout advancer metadata, and immutable source revision/hash provenance. |
+| `international_results_wc2026_team_status` | One row per `team_name` | Shared (Kalshi WC2026) | Canonical 48-team WC2026 roster and current tournament status derived from fixture/result rows. |
 
 Schema: `kalshi_wc2026_marts`
 
@@ -394,20 +394,22 @@ Schema: `kalshi_wc2026_marts`
 - WC2026 match/result rows come from `martj42/international_results` at the
   immutable Git revision pinned during ingest (`source_revision`, `source_url` on
   each row), filtered to `tournament = 'FIFA World Cup'` and `match_date` between
-  `2026-06-11` and `2026-07-19`. The Polymarket full pipeline still refreshes
-  those marts for Kalshi and match-minute consumers, but they do not filter the
-  golden hourly mart.
+  `2026-06-11` and `2026-07-19`. The golden hourly mart does not depend on those
+  marts; refresh them with `international_results_wc2026_match_results_ingest`
+  or the Kalshi/match-minute pipelines when needed.
 - `international_results_wc2026_data_quality` emits a warning when the latest
   fixture/result source load is older than the pipeline policy freshness window.
 - Use `polymarket_wc2026_market_scope_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
   `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline` for WC2026
-  Dagster operations.
+  Dagster operations. `polymarket_wc2026_dbt_build` and
+  `polymarket_wc2026_full_pipeline` select `+polymarket_wc2026_market_hourly_odds`
+  only.
 - Use `kalshi_wc2026_market_scope_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
   and `kalshi_wc2026_full_pipeline` for Kalshi WC2026 Dagster operations.
   `kalshi_wc2026_full_pipeline` also runs `international_results_wc2026_match_results_ingest`
   and a scoped dbt build (`+tag:kalshi`, including `international_results` parents).
   `international_results_wc2026_match_results_ingest` refreshes only the FIFA
-  World Cup fixture/result source and is included in the Polymarket WC2026 full pipeline.
+  World Cup fixture/result source.
 - `scripts/export_polymarket_wc2026_market_hourly_odds.py` is the supported
   offline export for the golden mart.
 - Raw hourly collection is a separate temporal-foundation branch. An existing

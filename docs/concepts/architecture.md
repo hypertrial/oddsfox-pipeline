@@ -151,9 +151,11 @@ result or determine rights in operator inputs or outputs.
 
 ## Operating Model
 
-- `polymarket_wc2026_full_pipeline` is the one-click full manual WC2026 pipeline.
+- `polymarket_wc2026_full_pipeline` is the one-click full manual WC2026 pipeline
+  (registry, hourly odds, and golden-mart dbt only).
 - `international_results_wc2026_match_results_ingest` refreshes fixture/results
-  and also runs inside the WC2026 full pipeline.
+  for Kalshi and match-minute pipelines; it is not part of the Polymarket full
+  pipeline.
 - `international_results_historical_ingest` refreshes public 2006+ matches,
   shootouts, and goalscorers; its daily schedule is stopped by default.
 - `polymarket_wc2026_hourly_odds_ingest` is the hourly Polymarket odds job

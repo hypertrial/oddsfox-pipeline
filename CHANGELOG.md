@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Polymarket WC2026 hourly odds default Dagster config now sets `force=false`,
   so routine runs skip fully-checked closed tokens and only revisit due gaps.
 
+- **Breaking:** `polymarket_wc2026_dbt_build` and `polymarket_wc2026_full_pipeline`
+  now build only the golden mart closure (`+polymarket_wc2026_market_hourly_odds`).
+  They no longer ingest `international_results` or build match-minute, order-book,
+  portrait, or other sibling Polymarket WC2026 marts. Use the dedicated backfill
+  jobs for those surfaces.
+
 - **Breaking:** Polymarket WC2026 refocuses on one documented golden mart:
   `polymarket_wc2026_market_hourly_odds` at grain `(market_id, odds_hour_epoch)`.
   Admission uses sticky event lifetime volume

@@ -24,7 +24,6 @@ selector and does not accept arbitrary dbt selectors.
 === "Polymarket WC2026"
 
     ```bash
-    .venv/bin/python -m dagster job execute -m oddsfox_pipeline.orchestration.definitions -j international_results_wc2026_match_results_ingest
     uv run python scripts/run_scope.py polymarket:wc2026 --step market_scope_registry
     uv run python scripts/run_scope.py polymarket:wc2026 --step odds
     uv run python scripts/run_scope.py polymarket:wc2026 --step dbt
@@ -39,9 +38,10 @@ selector and does not accept arbitrary dbt selectors.
     uv run python scripts/run_scope.py kalshi:wc2026 --step dbt
     ```
 
-For WC2026 scopes, refresh
+For Kalshi and match-minute scopes, refresh
 `international_results_wc2026_match_results_ingest` before a staged dbt run so
-real-team validation inputs are current.
+real-team validation inputs are current. The Polymarket golden-mart path does not
+require that ingest step.
 
 ## Run multiple dbt scopes
 

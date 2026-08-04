@@ -13,8 +13,13 @@ from oddsfox_pipeline.orchestration.config import (
     OddsSyncConfig,
     PolygonSettlementReleaseConfig,
     PolygonSettlementSyncConfig,
+    polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
     polymarket_wc2026_polygon_settlement_release_run_config,
+)
+from oddsfox_pipeline.orchestration.shipped_scopes import (
+    POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT,
+    POLYMARKET_WC2026_SCOPE,
 )
 
 
@@ -83,6 +88,14 @@ def test_dbt_build_config_accepts_fixed_scope_selectors():
     assert cfg.dbt_select == "+tag:polymarket,tag:wc2026"
     assert cfg.dbt_exclude == "tag:kalshi"
     assert cfg.expected_duckdb_path is None
+
+
+def test_polymarket_dbt_build_run_config_targets_golden_mart():
+    cfg = polymarket_wc2026_dbt_build_run_config()["ops"]["oddsfox_dbt"]["config"]
+
+    assert cfg["dbt_select"] == POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT
+    assert cfg["dbt_exclude"] == POLYMARKET_WC2026_SCOPE.dbt_exclude
+    assert "tag:market_portrait" in cfg["dbt_exclude"]
 
 
 def test_match_order_book_config_enforces_pmxt_limits():

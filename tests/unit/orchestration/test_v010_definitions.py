@@ -5,6 +5,7 @@ import yaml
 from dagster import AssetKey, DefaultScheduleStatus, build_schedule_context
 
 from oddsfox_pipeline.orchestration.config import (
+    polymarket_wc2026_full_pipeline_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
     polymarket_wc2026_market_portrait_run_config,
@@ -14,10 +15,14 @@ from oddsfox_pipeline.orchestration.config import (
 )
 from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.jobs import (
+    POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION,
     POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION,
     POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_SELECTION,
     POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_SELECTION,
     _merge_run_configs,
+)
+from oddsfox_pipeline.orchestration.shipped_scopes import (
+    POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT,
 )
 from oddsfox_pipeline.orchestration.schedules import (
     polymarket_wc2026_hourly_odds_schedule,
@@ -259,6 +264,17 @@ def test_match_minute_dbt_selection_does_not_leak_sibling_model_checks():
     assert {check.asset_key for check in selected_checks} <= selected_assets
 
 
+def test_golden_mart_dbt_selection_does_not_leak_sibling_model_checks():
+    graph = defs.resolve_asset_graph()
+    selected_assets = POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION.resolve(graph)
+    selected_checks = POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION.resolve_checks(
+        graph
+    )
+
+    assert selected_checks
+    assert {check.asset_key for check in selected_checks} <= selected_assets
+
+
 def test_match_order_book_job_is_isolated_and_unscheduled():
     config = polymarket_wc2026_match_order_book_run_config()["ops"]
     raw = config["polymarket_wc2026_raw_match_order_book_snapshots"]["config"]
@@ -457,12 +473,21 @@ def test_wc2026_full_pipeline_includes_registry_and_hourly_odds():
         "raw",
         "token_odds_history_hourly",
     ) in selected
+    assert ("polymarket", "wc2026", "marts", "market_hourly_odds") in selected
+    assert ("international_results", "wc2026", "raw", "match_results") not in selected
+    assert ("polymarket", "wc2026", "raw", "match_trades") not in selected
+    assert ("polymarket", "wc2026", "marts", "match_trades") not in selected
+    assert ("polymarket", "wc2026", "marts", "match_minute_odds") not in selected
 
     config = polymarket_wc2026_full_refresh_events_run_config()["ops"]
     assert (
         config["polymarket_wc2026_raw_market_metadata_enrichment"]["config"]["force"]
         is True
     )
+    full_config = polymarket_wc2026_full_pipeline_run_config()["ops"]["oddsfox_dbt"][
+        "config"
+    ]
+    assert full_config["dbt_select"] == POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT
 
 
 def test_scoped_dbt_jobs_select_only_their_expected_scope_assets():
@@ -485,6 +510,7 @@ def test_scoped_dbt_jobs_select_only_their_expected_scope_assets():
     assert not any(key[:2] == ("polymarket", "wc2026") for key in kalshi)
 
     assert wc2026
-    assert any(key[:2] == ("international_results", "wc2026") for key in wc2026)
+    assert not any(key[:2] == ("international_results", "wc2026") for key in wc2026)
     assert any(key[:2] == ("polymarket", "wc2026") for key in wc2026)
+    assert ("polymarket", "wc2026", "marts", "market_hourly_odds") in wc2026
     assert not any(key[:2] == ("kalshi", "wc2026") for key in wc2026)
