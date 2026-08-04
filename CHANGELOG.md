@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Sticky Polymarket market-scope registry admission no longer drops an enclosing
+  event when a newer non-enclosing related-event bridge exists for the same
+  `market_id`.
+- Kalshi HTTP client builds with `retries=0` so urllib3 `status_forcelist`
+  cannot turn 429 responses into status-less `RetryError` before Kalshi's own
+  backoff sees them. `APIClient(retries<=0)` mounts a plain zero-retry adapter.
+- Wrapped `requests.exceptions.ChunkedEncodingError` is classified as a
+  transient pipeline error for Dagster retry.
+- Kalshi dbt source `events` `asset_key` points at `kalshi/wc2026/raw/events`
+  (was incorrectly wired to `raw/markets`).
+- Event-catalog partition checkpoints clear immediately after a successful
+  warehouse merge, before sync-run metrics, so a metrics failure cannot leave
+  stale recovery checkpoints.
+- Docs: CLOB `fidelity=60` is one observation bucket per 60 minutes (hourly),
+  not per minute.
+
 ### Changed
 
 - Routine Polymarket WC2026 registry refresh / full pipeline event-catalog runs

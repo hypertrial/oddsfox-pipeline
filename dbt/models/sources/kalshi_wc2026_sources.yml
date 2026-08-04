@@ -9,7 +9,7 @@ sources:
         description: Raw Kalshi event metadata from the public trade API.
         meta:
           dagster:
-            asset_key: [kalshi, wc2026, raw, markets]
+            asset_key: [kalshi, wc2026, raw, events]
         loaded_at_field: scraped_at
         freshness:
           warn_after: {count: 18, period: hour}

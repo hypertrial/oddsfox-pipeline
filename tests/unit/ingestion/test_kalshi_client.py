@@ -19,6 +19,11 @@ def test_build_client_uses_kalshi_api_url_and_rate_limiter():
     assert c.base_url.endswith("/trade-api/v2")
     assert c.rate_limiter is not None
     assert c.rate_limiter.get_rate() == 3.0
+    # retries=0 so status_forcelist cannot strip 429 from HTTPError.
+    adapter = c.session.get_adapter("https://")
+    max_retries = adapter.max_retries
+    assert getattr(max_retries, "total", max_retries) in (0, False)
+    assert not getattr(max_retries, "status_forcelist", None)
 
 
 def test_build_client_allows_unlimited_when_rps_zero():

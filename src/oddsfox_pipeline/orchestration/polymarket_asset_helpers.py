@@ -645,6 +645,8 @@ def _materialize_event_catalog(
                 conn=conn,
             )
             ensure_indexes_fn(conn, scope_name=scope_name)
+        # Clear recovery checkpoints only after the warehouse merge succeeds.
+        _clear_checkpoints()
         guardrail_snapshot = guardrail.snapshot()
         summary = dict(batch.summary)
         summary.update(
@@ -654,8 +656,6 @@ def _materialize_event_catalog(
             }
         )
         save_sync_run_metrics_fn("event_catalog", summary, scope_name=scope_name)
-        # Clear recovery checkpoints only after the warehouse merge succeeds.
-        _clear_checkpoints()
         context.log.info("WC2026 event catalog: %s", summary)
     except Exception as exc:
         save_asset_failure_metrics(

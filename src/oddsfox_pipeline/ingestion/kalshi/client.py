@@ -24,7 +24,9 @@ def build_client(requests_per_second: int | None = None) -> APIClient:
     )
     limiter = RateLimiter(float(rps)) if rps and rps > 0 else None
     validate_outbound_https_url(KALSHI_API_URL)
-    return APIClient(base_url=KALSHI_API_URL, rate_limiter=limiter)
+    # Own 429 backoff in _get_with_429_backoff; do not let urllib3 status_forcelist
+    # convert 429 into a status-less RetryError.
+    return APIClient(base_url=KALSHI_API_URL, rate_limiter=limiter, retries=0)
 
 
 def _get_with_429_backoff(

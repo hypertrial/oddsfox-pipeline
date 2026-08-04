@@ -80,7 +80,7 @@ Then rerun the quickstart.
   orphaned runs failed and retry from the last successful step.
 - Transient connection or 5xx failures on network-heavy assets may raise Dagster
   `RetryRequested` for a bounded automatic retry. Wrapped Gamma/CLOB read
-  timeouts are classified as transient.
+  timeouts and chunked-encoding failures are classified as transient.
 - A retried `polymarket_wc2026_raw_event_catalog` crawl resumes already-converged
   partitions from `polymarket_wc2026_ops.event_catalog_scan_checkpoint` instead
   of restarting every partition from page 0. Checkpoints clear after a successful

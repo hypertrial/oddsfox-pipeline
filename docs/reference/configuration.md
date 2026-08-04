@@ -143,8 +143,8 @@ configuration.
 
 Upstream observation buckets are configuration, not ontology terms:
 
-- Hourly CLOB odds jobs use `fidelity=60` (one observation bucket per minute of
-  wall clock inside each request window; the warehouse fact is still hourly).
+- Hourly CLOB odds jobs use `fidelity=60` (one observation bucket per 60 minutes
+  of wall clock inside each request window; the warehouse fact is still hourly).
 - Match-minute odds use fixed CLOB `fidelity=1` for exact game windows.
 - Kalshi hourly candlesticks align to the same hourly schedule cadence.
 

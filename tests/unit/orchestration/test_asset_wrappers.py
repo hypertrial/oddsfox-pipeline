@@ -213,6 +213,52 @@ def test_event_catalog_never_widens_legacy_odds_registry(monkeypatch):
     assert not hasattr(assets_mod, "upsert_registry_rows")
 
 
+def test_event_catalog_clears_checkpoints_before_metrics(monkeypatch):
+    """Merge success must clear recovery checkpoints even if metrics later fail."""
+    order: list[str] = []
+    batch = SimpleNamespace(
+        event_snapshots=({"event_id": "e1"},),
+        event_tag_snapshots=(),
+        event_market_snapshots=(),
+        market_payloads=(),
+        summary={"observed_at": "2026-08-02T00:00:00Z"},
+    )
+
+    @contextmanager
+    def connection():
+        yield MagicMock()
+
+    monkeypatch.setattr(assets_mod, "collect_wc2026_event_catalog", lambda **_: batch)
+    monkeypatch.setattr(
+        assets_mod,
+        "normalize_market_payloads_for_dlt",
+        lambda rows, *, observed_at: [],
+    )
+    monkeypatch.setattr(assets_mod, "merge_event_catalog_batch", lambda **_kwargs: None)
+    monkeypatch.setattr(assets_mod, "get_connection", connection)
+    monkeypatch.setattr(assets_mod, "ensure_polymarket_indexes", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        helpers_mod,
+        "clear_event_catalog_partition_checkpoints",
+        lambda *_a, **_k: order.append("clear"),
+    )
+
+    def _metrics(*_a, **_k):
+        order.append("metrics")
+        raise RuntimeError("metrics boom")
+
+    monkeypatch.setattr(assets_mod, "save_sync_run_metrics", _metrics)
+    monkeypatch.setattr(
+        helpers_mod, "save_asset_failure_metrics", lambda *_a, **_k: None
+    )
+
+    fn = polymarket_wc2026_raw_event_catalog.op.compute_fn.decorated_fn
+    with pytest.raises(RuntimeError, match="metrics boom"):
+        list(fn(MagicMock(), orch_config.MarketScopeRegistryConfig()))
+
+    assert order == ["clear", "metrics"]
+
+
 def test_event_catalog_asset_replay_uses_one_canonical_observation_time(
     monkeypatch, duck
 ):

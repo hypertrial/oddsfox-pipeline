@@ -22,11 +22,11 @@ from oddsfox_pipeline.orchestration.jobs import (
     POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_SELECTION,
     _merge_run_configs,
 )
-from oddsfox_pipeline.orchestration.shipped_scopes import (
-    POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT,
-)
 from oddsfox_pipeline.orchestration.schedules import (
     polymarket_wc2026_hourly_odds_schedule,
+)
+from oddsfox_pipeline.orchestration.shipped_scopes import (
+    POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT,
 )
 
 
@@ -271,9 +271,7 @@ def test_match_minute_dbt_selection_does_not_leak_sibling_model_checks():
 def test_golden_mart_dbt_selection_does_not_leak_sibling_model_checks():
     graph = defs.resolve_asset_graph()
     selected_assets = POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION.resolve(graph)
-    selected_checks = POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION.resolve_checks(
-        graph
-    )
+    selected_checks = POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION.resolve_checks(graph)
 
     assert selected_checks
     assert {check.asset_key for check in selected_checks} <= selected_assets
@@ -337,7 +335,9 @@ def test_event_catalog_recall_audit_job_is_isolated_and_unscheduled():
         "polymarket_wc2026_event_catalog_recall_audit"
     ).asset_layer.selected_asset_keys
     assert AssetKey(["polymarket", "wc2026", "raw", "event_catalog"]) in selected
-    assert AssetKey(["polymarket", "wc2026", "ops", "market_scope_registry"]) in selected
+    assert (
+        AssetKey(["polymarket", "wc2026", "ops", "market_scope_registry"]) in selected
+    )
     assert all(
         schedule.job_name != "polymarket_wc2026_event_catalog_recall_audit"
         for schedule in defs.schedules
@@ -409,6 +409,26 @@ def test_polymarket_source_dagster_asset_keys_exist_in_definitions():
     defs_asset_keys = {tuple(key.path) for key in defs.resolve_all_asset_keys()}
     missing = yaml_asset_keys - defs_asset_keys
     assert not missing, f"missing Dagster assets for dbt source metadata: {missing}"
+
+
+def test_kalshi_events_source_asset_key_points_at_raw_events():
+    sources = Path(__file__).resolve().parents[3] / "dbt" / "models" / "sources"
+    data = yaml.safe_load((sources / "kalshi_wc2026_sources.yml").read_text())
+    tables = {
+        table["name"]: tuple(table["meta"]["dagster"]["asset_key"])
+        for table in data["sources"][0]["tables"]
+    }
+    assert tables["events"] == ("kalshi", "wc2026", "raw", "events")
+    assert tables["markets"] == ("kalshi", "wc2026", "raw", "markets")
+
+    parents = {
+        key.to_user_string()
+        for key in defs.resolve_asset_graph()
+        .get(AssetKey(["kalshi", "wc2026", "staging", "events"]))
+        .parent_keys
+    }
+    assert "kalshi/wc2026/raw/events" in parents
+    assert "kalshi/wc2026/raw/markets" not in parents
 
 
 def test_hourly_schedule_targets_hourly_job_and_config():

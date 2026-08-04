@@ -66,16 +66,22 @@ class APIClient:
         self.rate_limit_lock = Lock()
         self.rate_limiter = rate_limiter
         self.request_timeout = request_timeout
-        retry = Retry(
-            total=retries,
-            read=retries,
-            connect=retries,
-            other=retries,
-            backoff_factor=backoff_factor,
-            status_forcelist=tuple(sorted(TRANSIENT_HTTP_STATUSES)),
-            allowed_methods=["GET", "POST", "PUT", "DELETE"],
-        )
-        adapter = HTTPAdapter(max_retries=retry)
+        if retries <= 0:
+            # status_forcelist Retry(total=0) still turns 429/5xx into RetryError
+            # with response=None; callers that own status-based backoff need the
+            # raw HTTPError. PMXT remounts the same way.
+            adapter = HTTPAdapter(max_retries=0)
+        else:
+            retry = Retry(
+                total=retries,
+                read=retries,
+                connect=retries,
+                other=retries,
+                backoff_factor=backoff_factor,
+                status_forcelist=tuple(sorted(TRANSIENT_HTTP_STATUSES)),
+                allowed_methods=["GET", "POST", "PUT", "DELETE"],
+            )
+            adapter = HTTPAdapter(max_retries=retry)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
         self.delay = 1.0 / requests_per_second if requests_per_second else 0

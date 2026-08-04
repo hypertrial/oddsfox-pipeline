@@ -263,3 +263,17 @@ def test_rate_limiter_wait_zero_sleep_loops_without_sleep(monkeypatch):
     )
     rl.wait()
     assert all(s <= 0.0 for s in sleeps)
+
+
+def test_api_client_retries_zero_does_not_mount_status_forcelist():
+    client = APIClient(base_url="https://example.invalid", retries=0)
+    max_retries = client.session.get_adapter("https://").max_retries
+    assert getattr(max_retries, "total", max_retries) in (0, False)
+    assert not getattr(max_retries, "status_forcelist", None)
+
+
+def test_api_client_positive_retries_mounts_status_forcelist():
+    client = APIClient(base_url="https://example.invalid", retries=3)
+    forcelist = client.session.get_adapter("https://").max_retries.status_forcelist
+    assert 429 in forcelist
+    assert 503 in forcelist

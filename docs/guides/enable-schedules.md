@@ -10,10 +10,10 @@ and dbt jobs complete successfully against the intended warehouse.
 | `polymarket_wc2026_hourly_odds_schedule` | `polymarket_wc2026_hourly_odds_ingest` | `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED` |
 | `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED` |
 
-Polymarket hourly odds use CLOB `fidelity=60` (one bucket per minute inside the
-request window). Kalshi hourly odds use trade API candlesticks with
-`period_interval=60` (one hourly bucket). Both schedules are stopped by default. Polygon
-settlement jobs remain unscheduled.
+Polymarket hourly odds use CLOB `fidelity=60` (one observation bucket per
+60 minutes). Kalshi hourly odds use trade API candlesticks with
+`period_interval=60` (one hourly bucket). Both schedules are stopped by default.
+Polygon settlement jobs remain unscheduled.
 
 ## Enable one source
 

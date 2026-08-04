@@ -206,6 +206,44 @@ def test_build_registry_rows_excludes_markets_that_left_enclosing_event(
     assert rows == []
 
 
+def test_build_registry_rows_keeps_enclosing_when_newer_related_bridge_exists(
+    event_catalog_db,
+) -> None:
+    with event_catalog_db.get_connection() as conn:
+        _insert_event_snapshot(
+            conn,
+            event_id="evt-enclosing",
+            volume=150_000.0,
+            observed_at=OBSERVED_1,
+        )
+        _insert_event_snapshot(
+            conn,
+            event_id="evt-related",
+            volume=150_000.0,
+            observed_at=OBSERVED_1,
+        )
+        _insert_event_market_snapshot(
+            conn,
+            event_id="evt-enclosing",
+            market_id="m-shared",
+            observed_at=OBSERVED_1,
+            is_enclosing_event=True,
+        )
+        _insert_event_market_snapshot(
+            conn,
+            event_id="evt-related",
+            market_id="m-shared",
+            observed_at=OBSERVED_2,
+            is_enclosing_event=False,
+        )
+        rows = build_registry_rows_from_event_catalog(
+            event_min_volume_usd=POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
+        )
+
+    assert {row.market_id for row in rows} == {"m-shared"}
+    assert rows[0].event_id == "evt-enclosing"
+
+
 def test_prune_stale_event_catalog_registry_rows_removes_vanished_markets(
     event_catalog_db,
 ) -> None:

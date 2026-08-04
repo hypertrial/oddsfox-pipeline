@@ -39,7 +39,9 @@ def test_is_transient_pipeline_error_classifies_network_and_http() -> None:
 def test_is_transient_pipeline_error_classifies_requests_timeouts() -> None:
     assert is_transient_pipeline_error(requests.exceptions.ConnectionError("reset"))
     assert is_transient_pipeline_error(requests.exceptions.Timeout("timed out"))
-    assert is_transient_pipeline_error(requests.exceptions.ReadTimeout("read timed out"))
+    assert is_transient_pipeline_error(
+        requests.exceptions.ReadTimeout("read timed out")
+    )
     assert is_transient_pipeline_error(
         requests.exceptions.ConnectTimeout("connect timed out")
     )
@@ -65,6 +67,18 @@ def test_is_transient_pipeline_error_classifies_wrapped_clob_timeout() -> None:
     wrapped = _wrap_request_error(cause, ClobRequestError)
     assert isinstance(wrapped, ClobRequestError)
     assert is_transient_pipeline_error(wrapped)
+
+
+def test_is_transient_pipeline_error_classifies_wrapped_chunked_encoding() -> None:
+    cause = requests.exceptions.ChunkedEncodingError(
+        "Connection broken: IncompleteRead(0 bytes read)"
+    )
+    wrapped = _wrap_request_error(cause, GammaRequestError)
+    assert isinstance(wrapped, GammaRequestError)
+    assert wrapped.__cause__ is cause
+    assert is_transient_pipeline_error(wrapped)
+    with pytest.raises(RetryRequested):
+        raise_retry_if_transient(wrapped)
 
 
 def test_is_transient_pipeline_error_rejects_non_transient_wrapped_request() -> None:

@@ -259,6 +259,10 @@ def _load_enclosing_market_memberships(
         return []
     event_market_snapshots = polymarket_raw_tbl(scope_name, "event_market_snapshots")
     placeholders = ", ".join("?" for _ in eligible_event_ids)
+    # Latest membership is per (event_id, market_id). Related non-enclosing
+    # bridges must not veto a still-current enclosing membership on another
+    # eligible event. When several eligible events currently enclose a market,
+    # keep the newest enclosing pair for the registry primary key.
     rows = conn.execute(
         f"""
         SELECT event_id, market_id
@@ -266,16 +270,27 @@ def _load_enclosing_market_memberships(
             SELECT
                 event_id,
                 market_id,
-                is_enclosing_event,
                 row_number() OVER (
                     PARTITION BY market_id
                     ORDER BY observed_at DESC
-                ) AS rn
-            FROM {event_market_snapshots}
-            WHERE event_id IN ({placeholders})
+                ) AS market_rn
+            FROM (
+                SELECT
+                    event_id,
+                    market_id,
+                    is_enclosing_event,
+                    observed_at,
+                    row_number() OVER (
+                        PARTITION BY event_id, market_id
+                        ORDER BY observed_at DESC
+                    ) AS event_market_rn
+                FROM {event_market_snapshots}
+                WHERE event_id IN ({placeholders})
+            )
+            WHERE event_market_rn = 1
+              AND is_enclosing_event
         )
-        WHERE rn = 1
-          AND is_enclosing_event
+        WHERE market_rn = 1
         """,
         list(eligible_event_ids),
     ).fetchall()

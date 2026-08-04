@@ -17,6 +17,7 @@ _TRANSIENT_EXCEPTIONS = (
     BrokenPipeError,
     requests.exceptions.ConnectionError,
     requests.exceptions.Timeout,
+    requests.exceptions.ChunkedEncodingError,
 )
 
 
