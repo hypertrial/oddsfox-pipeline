@@ -76,11 +76,32 @@ Then rerun the quickstart.
 
 - Lower `MARKETS_REQUESTS_PER_SECOND` or `ODDS_REQUESTS_PER_SECOND`.
 - Re-run the failed job; token sync state is ledgered.
+- Dagster `run_monitoring` and `run_retries` in `dagster_instance.yaml` mark
+  orphaned runs failed and retry from the last successful step.
+- Transient connection or 5xx failures on network-heavy assets may raise Dagster
+  `RetryRequested` for a bounded automatic retry.
 - Check `polymarket_wc2026_ops.ingestion_run_events` and
   `polymarket_wc2026_ops.sync_run_metrics` for WC2026 run payloads.
+- Summarize the latest task outcomes locally:
+
+```bash
+uv run python scripts/run_health.py --limit 20
+```
+
 - If the latest sync metrics include `ingestion_run_event_append_failed`, the
   ingestion run continued but the append-only telemetry event failed to land;
   inspect `ingestion_run_event_append_error` and rerun after fixing storage.
+
+## Interrupted dbt incremental hourly odds
+
+`int_polymarket_wc2026_token_hourly_odds` uses `delete+insert`. If a prior
+Polymarket hourly-odds `oddsfox_dbt` run was killed mid-build, the next
+non-`full_refresh` build that selects that model detects the interrupted flag in
+`scrape_metadata`, runs a targeted `--full-refresh` for that model, then
+continues the ordinary build. Kalshi-only and other isolated dbt selects do not
+arm or recover this flag. If builds still look stale, rerun
+`polymarket_wc2026_dbt_build` with `full_refresh: true`
+in run config.
 
 ## Polygon Settlement RPC Failures
 

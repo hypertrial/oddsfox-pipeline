@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable, Dict
 
 from oddsfox_pipeline.config.settings import (
@@ -39,6 +40,8 @@ from .bootstrap import (
 )
 from .finalize import finalize_sync_odds_run
 from .pool import PoolResources, run_sync_pool, setup_rate_limiting, setup_writer
+
+logger = logging.getLogger(__name__)
 
 
 def sync_odds(
@@ -84,6 +87,7 @@ def sync_odds(
     no_progress_soft_timeout_seconds: int | None = 900,
     no_progress_hard_timeout_seconds: int | None = 2700,
     progress_poll_seconds: int = 5,
+    progress_logger: Any | None = None,
     writer_chunk_rows: int = DEFAULT_WRITER_CHUNK_ROWS,
     writer_flush_rows: int = DEFAULT_WRITER_FLUSH_ROWS,
     min_split_window_minutes: int = DEFAULT_MIN_SPLIT_WINDOW_MINUTES,
@@ -125,6 +129,7 @@ def sync_odds(
         )
         guardrail = setup_guardrail(
             runtime,
+            logger=progress_logger or logger,
             progress_log_interval_seconds=progress_log_interval_seconds,
             no_progress_soft_timeout_seconds=no_progress_soft_timeout_seconds,
             no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,

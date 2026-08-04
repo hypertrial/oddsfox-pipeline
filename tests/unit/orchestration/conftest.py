@@ -88,6 +88,26 @@ def orchestration_test_guards(request, monkeypatch, reset_connection_globals):
         lambda **_kwargs: {},
     )
     monkeypatch.setattr(dbt_build_mod, "Thread", _ImmediateThread)
+    monkeypatch.setattr(dbt_build_mod, "ensure_duck_db", lambda: None)
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "mark_polymarket_token_hourly_odds_incremental_in_progress",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "clear_polymarket_token_hourly_odds_incremental_in_progress",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "polymarket_token_hourly_odds_incremental_recovery_needed",
+        lambda: False,
+    )
+    monkeypatch.setattr(dbt_build_mod, "save_sync_run_metrics", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        dbt_build_mod, "save_asset_failure_metrics", lambda *_a, **_k: None
+    )
 
     with patch("time.sleep", lambda *_a, **_k: None):
         yield

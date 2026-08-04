@@ -14,12 +14,14 @@ from oddsfox_pipeline.naming import (
 )
 from oddsfox_pipeline.orchestration import polymarket_ops as ops
 from oddsfox_pipeline.orchestration.config import OddsSyncConfig
+from oddsfox_pipeline.orchestration.failure_metrics import save_asset_failure_metrics
 from oddsfox_pipeline.orchestration.raw_snapshot_helpers import (
     _DLT_PIPELINE_BY_PATH,
     _raw_snapshot_metadata,
     _run_with_raw_snapshot,
     get_cached_dlt_pipeline,
 )
+from oddsfox_pipeline.orchestration.transient_retry import raise_retry_if_transient
 from oddsfox_pipeline.storage.duckdb.connection import active_duckdb_path
 from oddsfox_pipeline.storage.duckdb.observability import (
     delta_raw_layer,
@@ -69,6 +71,7 @@ def _build_odds_sync_kwargs(
         "no_progress_soft_timeout_seconds": config.no_progress_soft_timeout_seconds,
         "no_progress_hard_timeout_seconds": config.no_progress_hard_timeout_seconds,
         "progress_poll_seconds": config.progress_poll_seconds,
+        "progress_logger": None,
     }
     if plan_iterator_factory is not None:
         sync_kwargs["plan_iterator_factory"] = plan_iterator_factory
@@ -167,10 +170,20 @@ def _materialize_odds_sync(
         market_scope=market_scope,
         plan_iterator_factory=plan_iterator_factory,
     )
-    run_summary, _, _, _, raw_metadata = run_with_raw_snapshot_fn(
-        config.raw_snapshot_level,
-        lambda _pre: sync_odds_fn(**sync_kwargs),
-    )
+    sync_kwargs["progress_logger"] = context.log
+    try:
+        run_summary, _, _, _, raw_metadata = run_with_raw_snapshot_fn(
+            config.raw_snapshot_level,
+            lambda _pre: sync_odds_fn(**sync_kwargs),
+        )
+    except Exception as exc:
+        save_asset_failure_metrics(
+            "sync_odds",
+            exc,
+            scope_name=market_scope,
+        )
+        raise_retry_if_transient(exc)
+        raise
     metadata = _odds_sync_metadata(config, run_summary, raw_metadata)
     return MaterializeResult(metadata=metadata)
 
@@ -239,61 +252,70 @@ def _run_raw_markets(
         },
         force_log=True,
     )
-    pipeline = get_polymarket_dlt_pipeline(
-        scope_name=scope_name,
-        active_duckdb_path_fn=active_duckdb_path_fn,
-        dlt_module=dlt_resource,
-    )
-    if pipeline.has_pending_data:
-        package_label = asset_name.removesuffix("_markets")
-        context.log.info(
-            "Clearing pending dlt packages for %s before extract",
-            package_label,
+    try:
+        pipeline = get_polymarket_dlt_pipeline(
+            scope_name=scope_name,
+            active_duckdb_path_fn=active_duckdb_path_fn,
+            dlt_module=dlt_resource,
         )
-        pipeline.drop_pending_packages()
-    collection = collect_market_scope_payload_fn(
-        discovery_mode=discovery_mode,
-        force_full_discovery=config.force_full_discovery,
-        scope_name=scope_name,
-        refresh_registry=config.refresh_registry,
-        max_event_pages=config.max_event_pages,
-        max_pages_without_progress=(
-            DEFAULT_MAX_PAGES_WITHOUT_PROGRESS
-            if config.max_pages_without_progress is None
-            else config.max_pages_without_progress
-        ),
-        keyset_closed=config.keyset_closed,
-        keyset_tag_slugs=config.keyset_tag_slugs,
-        keyset_volume_min=config.keyset_volume_min,
-        progress_callback=_markets_progress,
-    )
-    dlt_source = source_fn(rows=collection["market_rows"])
-    yield from dlt_resource.run(
-        context=context,
-        dlt_pipeline=pipeline,
-        dlt_source=dlt_source,
-    )
-    save_market_tokens_batch_fn(collection["token_rows"], scope_name=scope_name)
-    run_summary = dict(collection["run_summary"])
-    guardrail_snapshot = guardrail.snapshot()
-    run_summary.update(
-        {
-            "soft_warning_count": guardrail_snapshot.get("soft_warning_count", 0),
-            "max_idle_seconds": guardrail_snapshot.get("max_idle_seconds", 0.0),
-        }
-    )
-    save_sync_run_metrics_fn("sync_markets", run_summary, scope_name=scope_name)
-    guardrail.record_progress(
-        work_increment=0,
-        phase="sync_markets_complete",
-        diagnostics={
-            "total_fetched": run_summary.get("total_fetched"),
-            "aborted": run_summary.get("aborted", False),
-        },
-        force_log=True,
-    )
-    with get_connection_fn() as conn:
-        ensure_indexes_fn(conn, scope_name=scope_name)
+        if pipeline.has_pending_data:
+            package_label = asset_name.removesuffix("_markets")
+            context.log.info(
+                "Clearing pending dlt packages for %s before extract",
+                package_label,
+            )
+            pipeline.drop_pending_packages()
+        collection = collect_market_scope_payload_fn(
+            discovery_mode=discovery_mode,
+            force_full_discovery=config.force_full_discovery,
+            scope_name=scope_name,
+            refresh_registry=config.refresh_registry,
+            max_event_pages=config.max_event_pages,
+            max_pages_without_progress=(
+                DEFAULT_MAX_PAGES_WITHOUT_PROGRESS
+                if config.max_pages_without_progress is None
+                else config.max_pages_without_progress
+            ),
+            keyset_closed=config.keyset_closed,
+            keyset_tag_slugs=config.keyset_tag_slugs,
+            keyset_volume_min=config.keyset_volume_min,
+            progress_callback=_markets_progress,
+        )
+        dlt_source = source_fn(rows=collection["market_rows"])
+        yield from dlt_resource.run(
+            context=context,
+            dlt_pipeline=pipeline,
+            dlt_source=dlt_source,
+        )
+        save_market_tokens_batch_fn(collection["token_rows"], scope_name=scope_name)
+        run_summary = dict(collection["run_summary"])
+        guardrail_snapshot = guardrail.snapshot()
+        run_summary.update(
+            {
+                "soft_warning_count": guardrail_snapshot.get("soft_warning_count", 0),
+                "max_idle_seconds": guardrail_snapshot.get("max_idle_seconds", 0.0),
+            }
+        )
+        save_sync_run_metrics_fn("sync_markets", run_summary, scope_name=scope_name)
+        guardrail.record_progress(
+            work_increment=0,
+            phase="sync_markets_complete",
+            diagnostics={
+                "total_fetched": run_summary.get("total_fetched"),
+                "aborted": run_summary.get("aborted", False),
+            },
+            force_log=True,
+        )
+        with get_connection_fn() as conn:
+            ensure_indexes_fn(conn, scope_name=scope_name)
+    except Exception as exc:
+        save_asset_failure_metrics(
+            "sync_markets",
+            exc,
+            scope_name=scope_name,
+        )
+        raise_retry_if_transient(exc)
+        raise
 
 
 def _materialize_raw_markets_snapshot(
@@ -406,12 +428,21 @@ def _materialize_market_scope_registry(
             progress_callback=_registry_progress,
         )
 
-    run_summary, _, _, _, raw_metadata = _run_with_raw_snapshot(
-        config.raw_snapshot_level,
-        _sync_registry,
-        snapshot_raw_layer_fn=snapshot_raw_layer_fn,
-        delta_raw_layer_fn=delta_raw_layer_fn,
-    )
+    try:
+        run_summary, _, _, _, raw_metadata = _run_with_raw_snapshot(
+            config.raw_snapshot_level,
+            _sync_registry,
+            snapshot_raw_layer_fn=snapshot_raw_layer_fn,
+            delta_raw_layer_fn=delta_raw_layer_fn,
+        )
+    except Exception as exc:
+        save_asset_failure_metrics(
+            "sync_market_scope_registry",
+            exc,
+            scope_name=scope_name,
+        )
+        raise_retry_if_transient(exc)
+        raise
     return MaterializeResult(metadata=raw_metadata)
 
 
@@ -452,24 +483,33 @@ def _materialize_metadata_enrichment(
         guardrail.check(phase=phase, diagnostics=payload)
 
     pre = snapshot_raw_layer_fn(level=config.raw_snapshot_level)
-    backfill_summaries = [
-        enrich_market_metadata_fn(
-            batch_size=config.batch_size,
-            max_markets=config.max_markets,
-            force=config.force,
-            include_tokens=True,
-            include_slugs=config.include_slugs,
-            include_event_slugs=config.include_event_slugs,
-            include_end_dates=config.include_end_dates,
-            progress_callback=_metadata_progress,
-            progress_every_n_batches=config.progress_log_interval_batches,
-            gamma_requests_per_second=config.gamma_requests_per_second,
-            market_scope=scope_name,
-            event_slug_fallback_max_pages=config.event_slug_fallback_max_pages,
-            event_slug_fallback_max_pages_without_progress=config.event_slug_fallback_max_pages_without_progress,
-            event_slug_fallback_progress_every_pages=config.event_slug_fallback_progress_pages,
+    try:
+        backfill_summaries = [
+            enrich_market_metadata_fn(
+                batch_size=config.batch_size,
+                max_markets=config.max_markets,
+                force=config.force,
+                include_tokens=True,
+                include_slugs=config.include_slugs,
+                include_event_slugs=config.include_event_slugs,
+                include_end_dates=config.include_end_dates,
+                progress_callback=_metadata_progress,
+                progress_every_n_batches=config.progress_log_interval_batches,
+                gamma_requests_per_second=config.gamma_requests_per_second,
+                market_scope=scope_name,
+                event_slug_fallback_max_pages=config.event_slug_fallback_max_pages,
+                event_slug_fallback_max_pages_without_progress=config.event_slug_fallback_max_pages_without_progress,
+                event_slug_fallback_progress_every_pages=config.event_slug_fallback_progress_pages,
+            )
+        ]
+    except Exception as exc:
+        save_asset_failure_metrics(
+            "metadata_enrichment",
+            exc,
+            scope_name=scope_name,
         )
-    ]
+        raise_retry_if_transient(exc)
+        raise
     orphan_market_tokens_removed = delete_orphan_market_tokens_fn(scope_name=scope_name)
     if orphan_market_tokens_removed:
         context.log.info(
@@ -490,6 +530,120 @@ def _materialize_metadata_enrichment(
     )
 
 
+def _materialize_event_catalog(
+    context: AssetExecutionContext,
+    config: Any,
+    *,
+    asset_name: str,
+    scope_name: str,
+    collect_event_catalog_fn: Callable[..., Any],
+    merge_event_catalog_batch_fn: Callable[..., Any],
+    normalize_market_payloads_fn: Callable[..., Any],
+    ensure_indexes_fn: Callable[..., Any],
+    get_connection_fn: Callable[[], Any],
+    save_sync_run_metrics_fn: Callable[..., Any],
+    event_catalog_key: Any,
+    event_snapshots_key: Any,
+    event_memberships_key: Any,
+) -> Any:
+    guardrail = ops.ProgressGuardrail(
+        asset=asset_name,
+        logger=context.log,
+        progress_log_interval_seconds=config.progress_log_interval_seconds,
+        no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
+        no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
+        work_log_interval=config.progress_log_interval_pages,
+    )
+    last_work = 0
+
+    def _catalog_progress(phase: str, payload: dict[str, Any]) -> None:
+        nonlocal last_work
+        work = int(payload.get("events_page") or 0)
+        increment = max(0, work - last_work)
+        last_work = work
+        guardrail.record_progress(
+            work_increment=increment,
+            phase=phase,
+            diagnostics=payload,
+        )
+        guardrail.check(phase=phase, diagnostics=payload)
+
+    context.log.info(
+        "%s start (max_event_pages=%s, progress_log_interval_pages=%s, "
+        "progress_log_interval_seconds=%s, no_progress_soft_timeout_seconds=%s, "
+        "no_progress_hard_timeout_seconds=%s)",
+        asset_name,
+        config.max_event_pages,
+        config.progress_log_interval_pages,
+        config.progress_log_interval_seconds,
+        config.no_progress_soft_timeout_seconds,
+        config.no_progress_hard_timeout_seconds,
+    )
+    guardrail.record_progress(
+        work_increment=0,
+        phase="start",
+        diagnostics={"scope_name": scope_name},
+        force_log=True,
+    )
+    try:
+        batch = collect_event_catalog_fn(
+            max_pages=config.max_event_pages,
+            progress_callback=_catalog_progress,
+        )
+        market_rows = normalize_market_payloads_fn(
+            batch.market_payloads,
+            observed_at=batch.summary["observed_at"],
+        )
+        with get_connection_fn() as conn:
+            merge_event_catalog_batch_fn(
+                event_rows=batch.event_snapshots,
+                tag_rows=batch.event_tag_snapshots,
+                event_market_rows=batch.event_market_snapshots,
+                market_rows=market_rows,
+                conn=conn,
+            )
+            ensure_indexes_fn(conn, scope_name=scope_name)
+        guardrail_snapshot = guardrail.snapshot()
+        summary = dict(batch.summary)
+        summary.update(
+            {
+                "soft_warning_count": guardrail_snapshot.get("soft_warning_count", 0),
+                "max_idle_seconds": guardrail_snapshot.get("max_idle_seconds", 0.0),
+            }
+        )
+        save_sync_run_metrics_fn("event_catalog", summary, scope_name=scope_name)
+        context.log.info("WC2026 event catalog: %s", summary)
+    except Exception as exc:
+        save_asset_failure_metrics(
+            "event_catalog",
+            exc,
+            scope_name=scope_name,
+        )
+        raise_retry_if_transient(exc)
+        raise
+
+    yield MaterializeResult(
+        asset_key=event_snapshots_key,
+        metadata={
+            "events": len(batch.event_snapshots),
+            "event_tags": len(batch.event_tag_snapshots),
+            "observed_at": batch.summary["observed_at"],
+        },
+    )
+    yield MaterializeResult(
+        asset_key=event_memberships_key,
+        metadata={
+            "event_markets": len(batch.event_market_snapshots),
+            "unique_markets": len(batch.market_payloads),
+            "observed_at": batch.summary["observed_at"],
+        },
+    )
+    yield MaterializeResult(
+        asset_key=event_catalog_key,
+        metadata=batch.summary,
+    )
+
+
 def get_polymarket_dlt_pipeline(
     *,
     scope_name: str = SCOPE_WC2026,
@@ -507,6 +661,7 @@ def get_polymarket_dlt_pipeline(
 __all__ = [
     "_DLT_PIPELINE_BY_PATH",
     "_build_odds_sync_kwargs",
+    "_materialize_event_catalog",
     "_materialize_market_scope_registry",
     "_materialize_metadata_enrichment",
     "_materialize_odds_sync",

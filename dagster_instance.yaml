@@ -6,3 +6,15 @@ telemetry:
 # DuckDB lock contention or slow disks. See docs/reference/commands.md (dagster-dev).
 code_servers:
   local_startup_timeout: 300
+
+# Mark orphaned runs (SIGKILL/OOM/laptop sleep) as failed so operators can retry.
+# No max_runtime_seconds: long backfills (match-minute, PMXT, Polygon) may exceed
+# any fixed cap; orphan detection uses heartbeat/poll only.
+run_monitoring:
+  enabled: true
+  poll_interval_seconds: 30
+
+# Retry failed runs from the last successful step; raw ingest upserts make replay safe.
+run_retries:
+  enabled: true
+  max_retries: 2

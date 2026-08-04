@@ -399,6 +399,14 @@ def sync_match_minute_odds_history(
                 )
             fetched.append(result)
             guardrail.record_progress(
+                work_increment=1,
+                phase="fetch_token",
+                diagnostics={
+                    "token_id": plan.token_id,
+                    "status": result.fetch_status,
+                },
+            )
+            guardrail.check(
                 phase="fetch_token",
                 diagnostics={
                     "token_id": plan.token_id,

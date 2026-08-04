@@ -269,6 +269,32 @@ The international-results schedule runs daily at 02:15 UTC; the Polymarket and
 Kalshi hourly schedules run on the hour. All remain stopped unless their
 dedicated env flags are enabled.
 
+## Run monitoring and retries
+
+Local Dagster instances load `dagster_instance.yaml` with:
+
+- `run_monitoring.enabled: true` — orphaned runs (SIGKILL, OOM, laptop sleep) are
+  marked failed instead of staying in `STARTED` forever. No instance-level
+  `max_runtime_seconds` cap so long backfills are not killed mid-run.
+- `run_retries.enabled: true` with `max_retries: 2` — failed runs retry from the
+  last successful step (`FROM_FAILURE`). Raw ingest upserts and the odds
+  `token_sync_ledger` make replay safe. Step-level `RetryRequested` retries can
+  stack with instance run retries on transient network failures.
+
+Long-running assets emit `progress_guardrail` heartbeats via `ProgressGuardrail`.
+`polymarket_wc2026_raw_event_catalog`, `sync_markets`, metadata enrichment, and
+`oddsfox_dbt` are guarded; hourly odds logs guardrail output through Dagster
+`context.log`.
+
+Failed asset runs persist failure metrics (canonical `status=failed`, with any
+prior summary status under `failure_status`) to
+`{source}_{scope}_ops.sync_run_metrics` and append to `ingestion_run_events`.
+Inspect recent health with:
+
+```bash
+uv run python scripts/run_health.py
+```
+
 ## Landing and finalization
 
 Canonical raw and ops table schemas are the operator and dbt boundary. dlt

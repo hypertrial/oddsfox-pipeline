@@ -256,6 +256,36 @@ def get_sync_run_metrics(
     return parsed if isinstance(parsed, dict) else None
 
 
+POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL = (
+    "int_polymarket_wc2026_token_hourly_odds"
+)
+_POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL = (
+    POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL
+)
+_DBT_INCREMENTAL_IN_PROGRESS_KEY = (
+    f"dbt:incremental:{_POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL}:in_progress"
+)
+
+
+def mark_polymarket_token_hourly_odds_incremental_in_progress(
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> None:
+    _metadata_set(_DBT_INCREMENTAL_IN_PROGRESS_KEY, "1", conn)
+
+
+def clear_polymarket_token_hourly_odds_incremental_in_progress(
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> None:
+    _metadata_set(_DBT_INCREMENTAL_IN_PROGRESS_KEY, "0", conn)
+
+
+def polymarket_token_hourly_odds_incremental_recovery_needed(
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> bool:
+    raw = _metadata_get(_DBT_INCREMENTAL_IN_PROGRESS_KEY, conn)
+    return raw is not None and raw.lower() in ("1", "true", "yes")
+
+
 _MARKET_SCOPE_DISCOVERY_PREFIX = "market_scope_discovery:"
 
 
@@ -315,6 +345,10 @@ __all__ = [
     "get_backfill_fully_checked",
     "set_backfill_fully_checked",
     "get_sync_run_metrics",
+    "POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL",
+    "clear_polymarket_token_hourly_odds_incremental_in_progress",
+    "mark_polymarket_token_hourly_odds_incremental_in_progress",
+    "polymarket_token_hourly_odds_incremental_recovery_needed",
     "get_market_scope_discovery_fully_checked",
     "get_market_scope_discovery_scope_config_hash",
     "save_sync_run_metrics",

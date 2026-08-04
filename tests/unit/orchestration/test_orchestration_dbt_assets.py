@@ -1009,3 +1009,86 @@ def test_stream_dbt_build_ignores_non_dict_heartbeat(monkeypatch):
             heartbeat_diagnostics_fn=lambda: None,
         )
     )
+
+
+def test_stream_dbt_build_runs_targeted_recovery_full_refresh(monkeypatch):
+    from unittest.mock import MagicMock
+
+    captured_args: list[list[str]] = []
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            captured_args.append(list(args))
+            invocation = MagicMock()
+            invocation.stream = lambda: iter(["event"])
+            invocation.process = MagicMock(returncode=0)
+            return invocation
+
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "polymarket_token_hourly_odds_incremental_recovery_needed",
+        lambda: True,
+    )
+    cleared = {"count": 0}
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "clear_polymarket_token_hourly_odds_incremental_in_progress",
+        lambda: cleared.__setitem__("count", cleared["count"] + 1),
+    )
+
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=MagicMock(),
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(
+                dbt_select="+polymarket_wc2026_market_hourly_odds",
+            ),
+        )
+    )
+    assert captured_args[0] == [
+        "build",
+        "--select",
+        "int_polymarket_wc2026_token_hourly_odds",
+        "--full-refresh",
+    ]
+    assert captured_args[1][0] == "build"
+    assert cleared["count"] >= 2
+
+
+def test_stream_dbt_build_skips_polymarket_recovery_for_kalshi_select(monkeypatch):
+    from unittest.mock import MagicMock
+
+    captured_args: list[list[str]] = []
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            captured_args.append(list(args))
+            invocation = MagicMock()
+            invocation.stream = lambda: iter(["event"])
+            invocation.process = MagicMock(returncode=0)
+            return invocation
+
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "polymarket_token_hourly_odds_incremental_recovery_needed",
+        lambda: True,
+    )
+    marked = {"count": 0}
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "mark_polymarket_token_hourly_odds_incremental_in_progress",
+        lambda: marked.__setitem__("count", marked["count"] + 1),
+    )
+
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=MagicMock(),
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(dbt_select="+tag:kalshi"),
+        )
+    )
+    assert len(captured_args) == 1
+    assert captured_args[0][0] == "build"
+    assert marked["count"] == 0

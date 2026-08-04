@@ -71,6 +71,7 @@ def normalize_sync_params(
 def setup_guardrail(
     runtime: OddsSyncRuntime,
     *,
+    logger: Any = logger,
     progress_log_interval_seconds: int,
     no_progress_soft_timeout_seconds: int | None,
     no_progress_hard_timeout_seconds: int | None,

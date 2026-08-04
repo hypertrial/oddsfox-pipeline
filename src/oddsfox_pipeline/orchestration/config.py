@@ -86,6 +86,7 @@ class MarketsSyncConfig(GuardrailConfig):
 
 
 class MarketScopeRegistryConfig(GuardrailConfig):
+    progress_log_interval_pages: int = Field(default=10, ge=1)
     max_event_pages: int | None = None
     keyset_closed: bool | None = None
     keyset_tag_slugs: list[str] | None = None

@@ -12,7 +12,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from oddsfox_pipeline.config.settings_polymarket import (
     POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
@@ -397,6 +397,7 @@ def collect_wc2026_event_catalog(
     observed_at: datetime | None = None,
     max_pages: int | None = None,
     event_tag: str = WC2026_EVENT_TAG,
+    progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
 ) -> EventCatalogBatch:
     """Collect audited WC2026 candidates across complete Gamma partitions."""
     http = client or build_client()
@@ -434,6 +435,7 @@ def collect_wc2026_event_catalog(
                     # Passing even a zero floor asks Gamma to omit unknown-volume
                     # rows, which would make that audit population invisible.
                     keyset_volume_min=None,
+                    progress_callback=progress_callback,
                     progress_task=(
                         f"wc2026_event_catalog_{source}_{state}_attempt_{attempt}"
                     ),

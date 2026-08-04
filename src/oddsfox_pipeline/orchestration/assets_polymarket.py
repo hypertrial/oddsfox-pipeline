@@ -188,44 +188,20 @@ def polymarket_wc2026_raw_event_catalog(
     config: MarketScopeRegistryConfig,
 ):
     """Persist converged event snapshots and every child market independently."""
-    batch = collect_wc2026_event_catalog(max_pages=config.max_event_pages)
-    market_rows = normalize_market_payloads_for_dlt(
-        batch.market_payloads,
-        observed_at=batch.summary["observed_at"],
-    )
-    with get_connection() as conn:
-        merge_event_catalog_batch(
-            event_rows=batch.event_snapshots,
-            tag_rows=batch.event_tag_snapshots,
-            event_market_rows=batch.event_market_snapshots,
-            market_rows=market_rows,
-            conn=conn,
-        )
-        ensure_polymarket_indexes(conn, scope_name=POLYMARKET_WC2026_SCOPE_NAME)
-
-    save_sync_run_metrics(
-        "event_catalog", batch.summary, scope_name=POLYMARKET_WC2026_SCOPE_NAME
-    )
-    context.log.info("WC2026 event catalog: %s", batch.summary)
-    yield MaterializeResult(
-        asset_key=POLYMARKET_WC2026_RAW_EVENT_SNAPSHOTS,
-        metadata={
-            "events": len(batch.event_snapshots),
-            "event_tags": len(batch.event_tag_snapshots),
-            "observed_at": batch.summary["observed_at"],
-        },
-    )
-    yield MaterializeResult(
-        asset_key=POLYMARKET_WC2026_RAW_EVENT_MARKET_MEMBERSHIPS,
-        metadata={
-            "event_markets": len(batch.event_market_snapshots),
-            "unique_markets": len(batch.market_payloads),
-            "observed_at": batch.summary["observed_at"],
-        },
-    )
-    yield MaterializeResult(
-        asset_key=POLYMARKET_WC2026_RAW_EVENT_CATALOG,
-        metadata=batch.summary,
+    yield from asset_helpers._materialize_event_catalog(
+        context,
+        config,
+        asset_name="polymarket_wc2026_raw_event_catalog",
+        scope_name=POLYMARKET_WC2026_SCOPE_NAME,
+        collect_event_catalog_fn=collect_wc2026_event_catalog,
+        merge_event_catalog_batch_fn=merge_event_catalog_batch,
+        normalize_market_payloads_fn=normalize_market_payloads_for_dlt,
+        ensure_indexes_fn=ensure_polymarket_indexes,
+        get_connection_fn=get_connection,
+        save_sync_run_metrics_fn=save_sync_run_metrics,
+        event_catalog_key=POLYMARKET_WC2026_RAW_EVENT_CATALOG,
+        event_snapshots_key=POLYMARKET_WC2026_RAW_EVENT_SNAPSHOTS,
+        event_memberships_key=POLYMARKET_WC2026_RAW_EVENT_MARKET_MEMBERSHIPS,
     )
 
 
