@@ -2,20 +2,30 @@ from __future__ import annotations
 
 import socket
 
+import requests
 from dagster import RetryRequested
 
 from oddsfox_pipeline.resources.http_retry import is_transient_status
 
+# Builtin network types plus requests' own hierarchy. Gamma/CLOB wrap those as
+# GammaRequestError/ClobRequestError with the original on __cause__, so
+# classification must check both the outer and the cause.
 _TRANSIENT_EXCEPTIONS = (
     ConnectionError,
     TimeoutError,
     socket.timeout,
     BrokenPipeError,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
 )
 
 
+def _matches_transient_type(exc: BaseException | None) -> bool:
+    return exc is not None and isinstance(exc, _TRANSIENT_EXCEPTIONS)
+
+
 def is_transient_pipeline_error(exc: BaseException) -> bool:
-    if isinstance(exc, _TRANSIENT_EXCEPTIONS):
+    if _matches_transient_type(exc) or _matches_transient_type(exc.__cause__):
         return True
     status = getattr(exc, "status_code", None)
     if status is not None and is_transient_status(int(status)):

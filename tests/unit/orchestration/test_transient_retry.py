@@ -3,10 +3,16 @@ from __future__ import annotations
 import socket
 
 import pytest
+import requests
 
 pytest.importorskip("dagster")
 from dagster import RetryRequested
 
+from oddsfox_pipeline.ingestion.polymarket.errors import (
+    ClobRequestError,
+    GammaRequestError,
+    _wrap_request_error,
+)
 from oddsfox_pipeline.orchestration.transient_retry import (
     is_transient_pipeline_error,
     raise_retry_if_transient,
@@ -30,9 +36,47 @@ def test_is_transient_pipeline_error_classifies_network_and_http() -> None:
     assert not is_transient_pipeline_error(PermissionError("denied"))
 
 
+def test_is_transient_pipeline_error_classifies_requests_timeouts() -> None:
+    assert is_transient_pipeline_error(requests.exceptions.ConnectionError("reset"))
+    assert is_transient_pipeline_error(requests.exceptions.Timeout("timed out"))
+    assert is_transient_pipeline_error(requests.exceptions.ReadTimeout("read timed out"))
+    assert is_transient_pipeline_error(
+        requests.exceptions.ConnectTimeout("connect timed out")
+    )
+
+
+def test_is_transient_pipeline_error_classifies_wrapped_gamma_read_timeout() -> None:
+    # Mirrors the live failure: urllib3 ReadTimeoutError -> requests ConnectionError
+    # -> GammaRequestError via gamma_get/_wrap_request_error (no response object).
+    cause = requests.exceptions.ConnectionError(
+        "HTTPSConnectionPool(host='gamma-api.polymarket.com', port=443): "
+        "Read timed out."
+    )
+    wrapped = _wrap_request_error(cause, GammaRequestError)
+    assert isinstance(wrapped, GammaRequestError)
+    assert wrapped.__cause__ is cause
+    assert is_transient_pipeline_error(wrapped)
+    with pytest.raises(RetryRequested):
+        raise_retry_if_transient(wrapped)
+
+
+def test_is_transient_pipeline_error_classifies_wrapped_clob_timeout() -> None:
+    cause = requests.exceptions.ReadTimeout("Read timed out.")
+    wrapped = _wrap_request_error(cause, ClobRequestError)
+    assert isinstance(wrapped, ClobRequestError)
+    assert is_transient_pipeline_error(wrapped)
+
+
+def test_is_transient_pipeline_error_rejects_non_transient_wrapped_request() -> None:
+    # A Gamma wrap of a non-network requests error must not become transient
+    # just because it is a RequestException subclass.
+    cause = requests.exceptions.InvalidURL("bad url")
+    wrapped = _wrap_request_error(cause, GammaRequestError)
+    assert not is_transient_pipeline_error(wrapped)
+
+
 def test_raise_retry_if_transient_wraps_transient_errors() -> None:
     with pytest.raises(RetryRequested):
         raise_retry_if_transient(ConnectionError("reset"))
 
     raise_retry_if_transient(ValueError("bad"))
-
