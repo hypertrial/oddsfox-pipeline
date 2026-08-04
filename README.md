@@ -44,7 +44,8 @@ duckdb oddsfox.duckdb
 ```
 
 Analyst rules of thumb: query `*_marts` first; use `*_observability` for trust
-checks; prefer `is_actionable_live_market`, then inspect `current_price_status`.
+checks. On Kalshi current marts, prefer `is_actionable_live_market`, then inspect
+`current_price_status`.
 
 ## Architecture
 

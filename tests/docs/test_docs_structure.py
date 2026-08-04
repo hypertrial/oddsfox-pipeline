@@ -367,3 +367,40 @@ def test_github_templates_exist():
         ".github/PULL_REQUEST_TEMPLATE.md",
     ]:
         assert (REPO_ROOT / target).is_file(), target
+
+
+def test_orchestration_ci_dbt_gate_column_matches_make():
+    orchestration = (DOCS_DIR / "reference/orchestration.md").read_text()
+    makefile = makefile_text()
+    ordinary_build = makefile.split("\ndbt-build dbt-test:", 1)[1].split("\n\n", 1)[0]
+    portrait_row = next(
+        line
+        for line in orchestration.splitlines()
+        if line.startswith("| Market portrait")
+    )
+
+    assert "ci-fast` → `dbt-lint" in orchestration
+    assert "dbt-build` excluding isolated tags" not in orchestration
+    assert "ci-fast` (`+tag:kalshi`)" not in orchestration
+    assert "Minute mart in ordinary `ci-fast`" not in orchestration
+    assert "excluded from ordinary `dbt-build-ci`)" not in portrait_row
+    assert "still compile in ordinary `dbt-build-ci`" in portrait_row
+    assert "--exclude tag:polygon_settlement tag:pmxt_order_book" in ordinary_build
+    assert "tag:market_portrait" not in ordinary_build
+
+
+def test_default_docs_scope_kalshi_live_columns():
+    for path in (
+        REPO_ROOT / "README.md",
+        DOCS_DIR / "guides/day-two-operations.md",
+    ):
+        text = path.read_text()
+        if "is_actionable_live_market" not in text:
+            continue
+        window = text[
+            max(0, text.index("is_actionable_live_market") - 80) : text.index(
+                "is_actionable_live_market"
+            )
+            + 120
+        ]
+        assert "Kalshi" in window, path

@@ -14,19 +14,21 @@ Canonical vocabulary lives in [Terminology](terminology.md).
 Entry-point jobs are pipelines; narrower jobs run one step of a pipeline. See
 [Terminology](terminology.md#execution) for the distinction.
 
-**Maturity tiers:** **Production** — scheduled-capable, full `ci-fast` dbt gate,
-primary quickstart path. **Mature, isolated** — own CI lane and documented
-data-boundary isolation, not immaturity. **Experimental** — opt-in backfill,
-paid or narrow credentials, single-target manifests.
+**Maturity tiers:** **Production** — scheduled-capable, included in automatic
+`ci-fast` (Python/docs checks + `dbt-lint`), primary quickstart path. Model
+builds and inventory proofs live in `dbt-build-ci` / isolated `dbt-*-ci` lanes
+and `release-gate`, not under `ci-fast`. **Mature, isolated** — own CI lane and
+documented data-boundary isolation, not immaturity. **Experimental** — opt-in
+backfill, paid or narrow credentials, single-target manifests.
 
 | Pipeline | Entry job(s) | Steps | Schedule | CI dbt gate | Maturity |
 | --- | --- | --- | --- | --- | --- |
-| Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` (`dbt-build` excluding isolated tags) | Production |
-| Kalshi WC2026 | `kalshi_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` (`+tag:kalshi`) | Production |
+| Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` → `dbt-lint`; model build in `dbt-build-ci` (excludes `tag:polygon_settlement` / `tag:pmxt_order_book`) | Production |
+| Kalshi WC2026 | `kalshi_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` → `dbt-lint`; `+tag:kalshi` builds in `dbt-build-ci` / `release-gate` | Production |
 | Polygon settlement history | `polymarket_wc2026_polygon_settlement_backfill` → `_release` → standalone exporter | Backfill scan, audit release, offline export | None | `dbt-polygon-settlement-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
-| Match-minute odds | `polymarket_wc2026_match_minute_odds_backfill` | Results refresh, minute fetch, dbt | None | Minute mart in ordinary `ci-fast` / `dbt-build-ci` | Mature, isolated |
+| Match-minute odds | `polymarket_wc2026_match_minute_odds_backfill` | Results refresh, minute fetch, dbt | None | `dbt-match-minute-ci` (also compiles in ordinary `dbt-build-ci`; inventory proofs are the isolated lane) | Mature, isolated |
 | Match order book | `polymarket_wc2026_match_order_book_backfill` | PMXT order-book scan, dbt | None | `dbt-match-order-book-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
-| Market portrait | `polymarket_wc2026_market_portrait_backfill` | Order book + trades scan, portrait bundle build | None | `dbt-market-portrait-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
+| Market portrait | `polymarket_wc2026_market_portrait_backfill` | Order book + trades scan, portrait bundle build | None | `dbt-market-portrait-ci` (`tag:market_portrait` trade marts still compile in ordinary `dbt-build-ci`; order-book dual-tagged models follow `tag:pmxt_order_book` exclusion) | Mature, isolated |
 
 Supporting ingestion jobs (`international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`) feed Kalshi and match-minute

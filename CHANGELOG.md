@@ -36,6 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Kalshi market/candlestick normalize maps live `volume_fp` /
+  `open_interest_fp` (fixed-point contract counts) into warehouse `volume` /
+  `open_interest`, with legacy integer-field fallback. Replay cassette updated
+  to the live field shape.
+- Docs: orchestration pipeline registry CI dbt gate column now matches Make /
+  GitHub (`ci-fast` → `dbt-lint`; model builds / inventory in `dbt-build-ci` and
+  isolated lanes; market-portrait exclusion wording corrected).
+- Docs: README and day-two live-column guidance scoped to Kalshi current marts
+  (`is_actionable_live_market` / `current_price_status`).
+
 - Sticky Polymarket market-scope registry admission no longer drops an enclosing
   event when a newer non-enclosing related-event bridge exists for the same
   `market_id`.

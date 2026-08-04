@@ -203,6 +203,8 @@ def test_kalshi_events_markets_and_candlesticks_replay_contract():
     assert event_row["series_ticker"] == "KXMENWORLDCUP"
     assert market_row["market_ticker"] == "KXWCSTAGEOFELIM-26ARG-R16"
     assert market_row["series_ticker"] == "KXWCSTAGEOFELIM"
+    assert market_row["volume"] == 120
+    assert market_row["open_interest"] == 42
     assert candle_rows == [
         {
             "market_ticker": "KXWCSTAGEOFELIM-26ARG-R16",

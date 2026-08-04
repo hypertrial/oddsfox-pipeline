@@ -27,8 +27,9 @@ uv run python scripts/run_scope.py polymarket:wc2026 --step dbt
 1. Prefer read-only inspection:
    `uv run python scripts/profile_warehouse.py`
 2. Check matching `*_data_quality` and `*_ingestion_run_observability` relations.
-3. For live analysis, prefer `is_actionable_live_market` and inspect
-   `current_price_status` in the documented marts.
+3. For live Kalshi analysis, prefer `is_actionable_live_market` and inspect
+   `current_price_status` on `kalshi_wc2026_stage_markets` /
+   `kalshi_wc2026_group_winner_markets` (not Polymarket hourly marts).
 
 ## Lock Hygiene
 

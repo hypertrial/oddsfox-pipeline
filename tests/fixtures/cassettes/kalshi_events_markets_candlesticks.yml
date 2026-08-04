@@ -20,7 +20,7 @@ interactions:
       uri: https://api.elections.kalshi.com/trade-api/v2/markets?event_ticker=KXWCSTAGEOFELIM-26ARG&limit=200
     response:
       body:
-        string: '{"markets":[{"ticker":"KXWCSTAGEOFELIM-26ARG-R16","event_ticker":"KXWCSTAGEOFELIM-26ARG","title":"Argentina eliminated in round of 16?","subtitle":"Synthetic replay fixture","yes_sub_title":"Round of 16","no_sub_title":"Later","status":"active","market_type":"binary","open_time":"2026-01-01T00:00:00Z","close_time":"2026-07-19T00:00:00Z","expiration_time":"2026-07-20T00:00:00Z","volume":120,"open_interest":42,"last_price_dollars":"0.67"}],"cursor":null}'
+        string: '{"markets":[{"ticker":"KXWCSTAGEOFELIM-26ARG-R16","event_ticker":"KXWCSTAGEOFELIM-26ARG","title":"Argentina eliminated in round of 16?","subtitle":"Synthetic replay fixture","yes_sub_title":"Round of 16","no_sub_title":"Later","status":"active","market_type":"binary","open_time":"2026-01-01T00:00:00Z","close_time":"2026-07-19T00:00:00Z","expiration_time":"2026-07-20T00:00:00Z","volume_fp":"120.00","open_interest_fp":"42.00","last_price_dollars":"0.67"}],"cursor":null}'
       headers:
         Content-Type:
           - application/json
@@ -34,7 +34,7 @@ interactions:
       uri: https://api.elections.kalshi.com/trade-api/v2/series/KXMENWORLDCUP/markets/KXWCSTAGEOFELIM-26ARG-R16/candlesticks?start_ts=4070941200&end_ts=4070948400&period_interval=60
     response:
       body:
-        string: '{"candlesticks":[{"end_period_ts":4070944800,"price":{"open_dollars":"0.61","high_dollars":"0.68","low_dollars":"0.60","close_dollars":"0.67","mean_dollars":"0.64"},"volume":12}]}'
+        string: '{"candlesticks":[{"end_period_ts":4070944800,"price":{"open_dollars":"0.61","high_dollars":"0.68","low_dollars":"0.60","close_dollars":"0.67","mean_dollars":"0.64"},"volume_fp":"12.00"}]}'
       headers:
         Content-Type:
           - application/json

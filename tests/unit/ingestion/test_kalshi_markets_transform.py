@@ -49,6 +49,59 @@ def test_normalize_market_row_derives_series_ticker_from_event_ticker():
     assert row["occurrence_datetime"] == datetime(2026, 7, 14, 19)
 
 
+def test_normalize_market_row_prefers_fixed_point_volume_and_open_interest():
+    row = transform.normalize_market_row(
+        {
+            "ticker": "KXMENWORLDCUP-26-FR",
+            "event_ticker": "KXMENWORLDCUP-26",
+            "volume_fp": "73322535.94",
+            "open_interest_fp": "39250715.64",
+            "volume": 1,
+            "open_interest": 2,
+            "last_price_dollars": "0.0010",
+        },
+        scraped_at=datetime(2026, 1, 1),
+    )
+
+    assert row["volume"] == 73_322_536
+    assert row["open_interest"] == 39_250_716
+    assert row["last_price_dollars"] == "0.0010"
+
+
+def test_normalize_candlestick_rows_prefers_fixed_point_volume():
+    rows = transform.normalize_candlestick_rows(
+        "KXMENWORLDCUP-26-FR",
+        [
+            {
+                "end_period_ts": 1_700_000_000,
+                "price": {"close_dollars": "0.4"},
+                "volume_fp": "12.50",
+                "volume": 99,
+            }
+        ],
+        refreshed_at=datetime(2026, 1, 1),
+    )
+
+    assert rows[0]["volume"] == 13
+
+
+def test_normalize_market_row_falls_back_when_fixed_point_is_invalid():
+    row = transform.normalize_market_row(
+        {
+            "ticker": "T",
+            "event_ticker": "E-1",
+            "volume_fp": "not-a-count",
+            "open_interest_fp": "",
+            "volume": 120,
+            "open_interest": 42,
+        },
+        scraped_at=datetime(2026, 1, 1),
+    )
+
+    assert row["volume"] == 120
+    assert row["open_interest"] == 42
+
+
 def test_normalize_candlestick_rows_skips_missing_end_period_ts():
     refreshed = datetime(2026, 1, 1, 0, 0, 0)
     rows = transform.normalize_candlestick_rows(

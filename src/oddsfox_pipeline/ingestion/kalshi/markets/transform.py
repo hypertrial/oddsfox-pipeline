@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 
@@ -67,8 +68,10 @@ def normalize_market_row(
         "close_time": _parse_ts(market.get("close_time")),
         "expiration_time": _parse_ts(market.get("expiration_time")),
         "occurrence_datetime": _parse_ts(market.get("occurrence_datetime")),
-        "volume": market.get("volume"),
-        "open_interest": market.get("open_interest"),
+        "volume": _count_field(market, fp_key="volume_fp", legacy_key="volume"),
+        "open_interest": _count_field(
+            market, fp_key="open_interest_fp", legacy_key="open_interest"
+        ),
         "last_price_dollars": market.get("last_price_dollars"),
         "scraped_at": scraped,
     }
@@ -109,11 +112,28 @@ def normalize_candlestick_rows(
                 "low_price": _price_field(price, "low_dollars"),
                 "close_price": _price_field(price, "close_dollars"),
                 "avg_price": _price_field(price, "mean_dollars"),
-                "volume": candle.get("volume"),
+                "volume": _count_field(candle, fp_key="volume_fp", legacy_key="volume"),
                 "refreshed_at": refreshed,
             }
         )
     return rows
+
+
+def _count_field(
+    payload: dict[str, Any], *, fp_key: str, legacy_key: str
+) -> int | None:
+    # ponytail: bigint warehouse columns; round fixed-point contract counts
+    # (0.01 granularity) half-up. Widen to decimal if fractional contract
+    # precision becomes an analyst requirement.
+    for key in (fp_key, legacy_key):
+        raw = payload.get(key)
+        if raw is None or raw == "":
+            continue
+        try:
+            return int(Decimal(str(raw)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        except (InvalidOperation, TypeError, ValueError, ArithmeticError):
+            continue
+    return None
 
 
 def _price_field(price: dict[str, Any], key: str) -> float | None:
