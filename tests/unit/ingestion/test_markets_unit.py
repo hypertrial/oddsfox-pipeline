@@ -57,18 +57,18 @@ def test_extract_event_slug_variants():
 def test_parse_gamma_datetime_converts_offset_datetimes_to_naive_utc():
     from datetime import datetime, timedelta, timezone
 
-    assert transform._parse_gamma_datetime_value("2026-07-14T19:00:00+02:00") == datetime(
-        2026, 7, 14, 17, 0
-    )
+    assert transform._parse_gamma_datetime_value(
+        "2026-07-14T19:00:00+02:00"
+    ) == datetime(2026, 7, 14, 17, 0)
     assert transform._parse_gamma_datetime_value(
         datetime(2026, 7, 14, 19, 0, tzinfo=timezone(timedelta(hours=2)))
     ) == datetime(2026, 7, 14, 17, 0)
     assert transform._parse_gamma_datetime_value("2026-07-14T19:00:00Z") == datetime(
         2026, 7, 14, 19, 0
     )
-    assert transform._parse_gamma_datetime_value(datetime(2026, 7, 14, 19, 0)) == datetime(
-        2026, 7, 14, 19, 0
-    )
+    assert transform._parse_gamma_datetime_value(
+        datetime(2026, 7, 14, 19, 0)
+    ) == datetime(2026, 7, 14, 19, 0)
 
 
 def test_process_markets_dataframe_empty():

@@ -149,9 +149,7 @@ def test_scoped_dbt_relations_filters_kalshi_scope(monkeypatch):
     assert not any(schema.startswith("polymarket_wc2026_") for schema, _ in relations)
 
 
-def test_dbt_model_parent_names_does_not_sticky_cache_empty_miss(
-    tmp_path, monkeypatch
-):
+def test_dbt_model_parent_names_does_not_sticky_cache_empty_miss(tmp_path, monkeypatch):
     missing = tmp_path / "missing" / "manifest.json"
     present = tmp_path / "present" / "manifest.json"
     present.parent.mkdir(parents=True)
@@ -225,9 +223,7 @@ def test_order_book_scope_excludes_trade_only_models():
 
 
 def test_match_minute_exclude_covers_working_set_and_token_minute_models():
-    names = {
-        model for _, model in obs._scoped_dbt_relations(None, "tag:match_minute")
-    }
+    names = {model for _, model in obs._scoped_dbt_relations(None, "tag:match_minute")}
     assert "int_polymarket_wc2026_match_working_set" not in names
     assert "int_polymarket_wc2026_match_token_minute_odds" not in names
     assert "polymarket_wc2026_match_minute_odds" not in names

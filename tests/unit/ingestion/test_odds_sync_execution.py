@@ -135,9 +135,14 @@ def test_sync_odds_group_runtime_error_schedules_retry_without_permanent_skip(
     real_put = Queue.put
 
     def capturing_put(self, item, *args, **kwargs):
-        if isinstance(item, tuple) and item and item[0] in (
-            "skipped_tokens",
-            "token_state",
+        if (
+            isinstance(item, tuple)
+            and item
+            and item[0]
+            in (
+                "skipped_tokens",
+                "token_state",
+            )
         ):
             recorded.append(item)
         return real_put(self, item, *args, **kwargs)

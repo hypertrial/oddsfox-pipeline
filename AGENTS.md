@@ -12,7 +12,8 @@ markets, plus FIFA fixture/results sources for official identity and real-team
 validation.
 Stack: **Dagster** (orchestration), **dlt** (market landing), **dbt** +
 **DuckDB** (warehouse/analytics), **uv** (deps), **Ruff** + **sqlfluff**
-(lint), **pytest** (tests).
+(lint), **pytest** (tests). Prefer **Polars** over Pandas for dataframe work;
+Pandas is banned (Ruff `TID251` + `tests/repository/test_dependency_policy.py`).
 
 ## Setup
 
