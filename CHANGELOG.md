@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `scripts/export_marts_parquet.py` (`make export-marts-parquet`) exports every
-  present table in the shipped `*_marts` schemas to Parquet under
+  present table or view in the shipped `*_marts` schemas to Parquet under
   `artifacts/marts_exports/<utc>/`.
 
 ### Changed
@@ -45,6 +45,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `EXPECTED_GROUP_PROPOSITIONS` / `EXPECTED_KNOCKOUT_PROPOSITIONS`.
 
 ### Fixed
+
+- `export_marts_parquet` discovers DuckDB views as well as base tables, so Kalshi
+  marts (materialized as views) are included in the all-marts dump.
+- Kalshi `_parse_ts` converts offset-aware datetimes to naive UTC instead of
+  stripping the offset and keeping local wall time.
+- Event-catalog partition checkpoints reuse only `complete=true` caches;
+  incomplete early-stop partitions are rescanned on retry (including exhaustive
+  recall audits).
 
 - Dagster dbt snapshot tag inference no longer treats `match_trade*` models as
   `tag:pmxt_order_book` (they are `tag:market_portrait`); also infers

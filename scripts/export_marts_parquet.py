@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Export every present ``*_marts`` table from the local DuckDB warehouse to Parquet.
 
-Discovers base tables in the shipped mart schemas (Polymarket WC2026, Kalshi
-WC2026, international-results WC2026, and ``wc2026_marts``) and writes one
-Parquet file per table under a timestamped output directory.
+Discovers base tables and views in the shipped mart schemas (Polymarket WC2026,
+Kalshi WC2026, international-results WC2026, and ``wc2026_marts``) and writes
+one Parquet file per relation under a timestamped output directory.
 
 This is a local operator dump. It includes isolated pipeline marts when they
 exist in the warehouse (match-minute, order book, market portrait, Polygon
@@ -55,7 +55,7 @@ def list_mart_tables(
         f"""
         select table_schema, table_name
         from information_schema.tables
-        where table_type = 'BASE TABLE'
+        where table_type in ('BASE TABLE', 'VIEW')
           and table_schema in ({placeholders})
         order by table_schema, table_name
         """,

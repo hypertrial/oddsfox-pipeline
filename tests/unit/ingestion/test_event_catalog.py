@@ -555,6 +555,42 @@ def test_partition_checkpoint_replay_and_save(
     assert any(partition == "exact_2026_tag:closed" for partition, _, _ in saved)
 
 
+def test_incomplete_partition_checkpoint_is_rescanned(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_series(monkeypatch)
+    fetches: list[str] = []
+    event = _event()
+    seeded = {
+        "wc2026_event_slug_prefix_recall:open": {
+            "stable_events": {"1": event},
+            "scan_summary": {
+                "complete": False,
+                "early_stopped": True,
+                "stable": True,
+            },
+        }
+    }
+
+    def pages(*_args: Any, **kwargs: Any):
+        fetches.append(str(kwargs["progress_task"]))
+        yield [event], EventsPageMeta(pages_done=1, truncated=False)
+
+    monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
+    batch = catalog.collect_wc2026_event_catalog(
+        client=object(),
+        include_slug_prefix_recall=True,
+        slug_prefix_recall_max_pages_without_progress=None,
+        load_checkpoint_fn=lambda: seeded,
+    )
+
+    assert any("wc2026_event_slug_prefix_recall_open" in task for task in fetches)
+    slug_open = batch.summary["scan_partitions"]["wc2026_event_slug_prefix_recall:open"]
+    assert slug_open["complete"] is True
+    assert slug_open.get("early_stopped") is False
+    assert batch.summary["all_scan_partitions_complete"] is True
+
+
 def test_partition_checkpoint_kept_when_later_partition_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

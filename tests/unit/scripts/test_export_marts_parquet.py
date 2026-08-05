@@ -36,17 +36,11 @@ def test_export_all_marts_writes_one_parquet_per_table(tmp_path: Path) -> None:
             values ('m1', 1), ('m2', 2)
             """
         )
+        # Kalshi marts are dbt views in production; export must include them.
         conn.execute(
             """
-            create table kalshi_wc2026_marts.kalshi_wc2026_stage_markets (
-                market_ticker varchar
-            )
-            """
-        )
-        conn.execute(
-            """
-            insert into kalshi_wc2026_marts.kalshi_wc2026_stage_markets
-            values ('T1')
+            create view kalshi_wc2026_marts.kalshi_wc2026_stage_markets as
+            select 'T1' as market_ticker
             """
         )
         # Staging/non-mart schemas must be ignored.

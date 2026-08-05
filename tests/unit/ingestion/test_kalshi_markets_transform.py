@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from oddsfox_pipeline.ingestion.kalshi.markets import transform
 
@@ -47,6 +47,19 @@ def test_normalize_market_row_derives_series_ticker_from_event_ticker():
     assert row["last_price_dollars"] == "0.12"
     assert row["volume"] == 1000
     assert row["occurrence_datetime"] == datetime(2026, 7, 14, 19)
+
+
+def test_parse_ts_converts_offset_datetimes_to_naive_utc():
+    assert transform._parse_ts("2026-07-14T19:00:00+02:00") == datetime(
+        2026, 7, 14, 17, 0
+    )
+    assert transform._parse_ts(
+        datetime(2026, 7, 14, 19, 0, tzinfo=timezone(timedelta(hours=2)))
+    ) == datetime(2026, 7, 14, 17, 0)
+    assert transform._parse_ts("2026-07-14T19:00:00Z") == datetime(2026, 7, 14, 19, 0)
+    assert transform._parse_ts(datetime(2026, 7, 14, 19, 0)) == datetime(
+        2026, 7, 14, 19, 0
+    )
 
 
 def test_normalize_market_row_prefers_fixed_point_volume_and_open_interest():

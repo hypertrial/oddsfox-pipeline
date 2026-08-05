@@ -7,11 +7,17 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 
+def _as_naive_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def _parse_ts(value: Any) -> datetime | None:
     if value is None or value == "":
         return None
     if isinstance(value, datetime):
-        return value.replace(tzinfo=None)
+        return _as_naive_utc(value)
     if isinstance(value, (int, float)):
         return datetime.fromtimestamp(float(value), tz=timezone.utc).replace(
             tzinfo=None
@@ -22,7 +28,7 @@ def _parse_ts(value: Any) -> datetime | None:
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     try:
-        return datetime.fromisoformat(text).replace(tzinfo=None)
+        return _as_naive_utc(datetime.fromisoformat(text))
     except ValueError:
         return None
 

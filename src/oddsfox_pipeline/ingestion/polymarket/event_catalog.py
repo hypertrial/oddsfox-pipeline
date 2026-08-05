@@ -441,7 +441,13 @@ def collect_wc2026_event_catalog(
             if isinstance(cached, dict):
                 cached_events = cached.get("stable_events")
                 cached_summary = cached.get("scan_summary")
-                if isinstance(cached_events, dict) and isinstance(cached_summary, dict):
+                # Incomplete early-stop caches must be rescanned so exhaustive
+                # recall audits can converge to all_scan_partitions_complete.
+                if (
+                    isinstance(cached_events, dict)
+                    and isinstance(cached_summary, dict)
+                    and cached_summary.get("complete") is True
+                ):
                     _apply_partition_result(
                         source, partition, cached_events, cached_summary
                     )

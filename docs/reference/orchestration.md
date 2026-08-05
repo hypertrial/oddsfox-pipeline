@@ -215,8 +215,9 @@ unrelated Polymarket tests.
   consecutive pages with no local slug-prefix matches and marks the partition
   `complete=false`. Partition-level checkpoints in
   `polymarket_wc2026_ops.event_catalog_scan_checkpoint` let a retried crawl
-  skip already-converged partitions; checkpoints clear after a successful
-  warehouse merge. Set `reset_event_catalog_checkpoint=true` to discard them
+  skip already-complete partitions (`complete=true`); incomplete early-stop
+  caches are rescanned. Checkpoints clear after a successful warehouse merge.
+  Set `reset_event_catalog_checkpoint=true` to discard them
   before a crawl.
 - `ops/market_scope_registry` rebuilds sticky event-volume admission from
   landed event-catalog snapshots, prunes stale `event_catalog` registry rows,

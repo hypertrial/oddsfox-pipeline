@@ -81,11 +81,12 @@ Then rerun the quickstart.
 - Transient connection or 5xx failures on network-heavy assets may raise Dagster
   `RetryRequested` for a bounded automatic retry. Wrapped Gamma/CLOB read
   timeouts and chunked-encoding failures are classified as transient.
-- A retried `polymarket_wc2026_raw_event_catalog` crawl resumes already-converged
-  partitions from `polymarket_wc2026_ops.event_catalog_scan_checkpoint` instead
-  of restarting every partition from page 0. Checkpoints clear after a successful
-  warehouse merge. Set `reset_event_catalog_checkpoint=true` in run config to
-  discard checkpoints.
+- A retried `polymarket_wc2026_raw_event_catalog` crawl resumes already-complete
+  partitions (`complete=true`) from
+  `polymarket_wc2026_ops.event_catalog_scan_checkpoint` instead of restarting
+  every partition from page 0; incomplete early-stop caches are rescanned.
+  Checkpoints clear after a successful warehouse merge. Set
+  `reset_event_catalog_checkpoint=true` in run config to discard checkpoints.
 - Routine full-pipeline / registry-refresh runs skip the platform-wide
   slug-prefix recall scan. For a rare completeness re-check, run
   `uv run make event-catalog-recall-audit`.
