@@ -224,6 +224,15 @@ def test_order_book_scope_excludes_trade_only_models():
     assert "polymarket_wc2026_match_order_book_states" in names
 
 
+def test_match_minute_exclude_covers_working_set_and_token_minute_models():
+    names = {
+        model for _, model in obs._scoped_dbt_relations(None, "tag:match_minute")
+    }
+    assert "int_polymarket_wc2026_match_working_set" not in names
+    assert "int_polymarket_wc2026_match_token_minute_odds" not in names
+    assert "polymarket_wc2026_match_minute_odds" not in names
+
+
 def test_market_portrait_scope_includes_trade_models():
     relations = obs._scoped_dbt_relations(
         dbt_select="+tag:pmxt_order_book +tag:market_portrait",

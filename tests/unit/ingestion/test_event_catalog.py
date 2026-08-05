@@ -254,6 +254,13 @@ def test_catalog_fetches_dangling_events_and_preserves_all_memberships(
         (row["event_id"], row["source_ordinal"], row["is_enclosing_event"])
         for row in batch.event_market_snapshots
     ] == [("1", 1, True), ("2", 0, False)]
+    from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
+        normalize_market_payloads_for_dlt,
+    )
+
+    normalized = normalize_market_payloads_for_dlt(batch.market_payloads)[0]
+    assert normalized["event_id"] == "1"
+    assert normalized["event_slug"] == "event-1"
 
 
 def test_catalog_rejects_missing_dangling_event(

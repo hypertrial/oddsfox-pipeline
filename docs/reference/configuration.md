@@ -291,6 +291,9 @@ Dagster hourly odds config uses history-oriented option names:
 Kalshi hourly odds (`kalshi_wc2026_hourly_odds_ingest`,
 `kalshi_wc2026_full_pipeline`) use the same field names with different defaults:
 
+- `force`: when `false` (Kalshi WC2026 hourly/full-pipeline default), routine
+  runs select only ledger-due markets. Set `true` to revisit every registry
+  market on that run.
 - `history_backfill_days`: rebuild only the trailing N days of candlestick
   history. Kalshi hourly/full-pipeline jobs default this to `63` (aligned with
   `KALSHI_WC2026_HOURLY_WINDOW_DAYS` and the Kalshi pipeline-policy seed),

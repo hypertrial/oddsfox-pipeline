@@ -213,7 +213,11 @@ def _event_market_rows(
             {
                 **market,
                 "events": [
-                    {"id": item["event_id"], "slug": item["event_slug"]}
+                    {
+                        "id": item["event_id"],
+                        "slug": item["event_slug"],
+                        "is_enclosing_event": item["event_id"] == event_id,
+                    }
                     for item in memberships
                 ],
                 "eventTitle": event.get("title"),

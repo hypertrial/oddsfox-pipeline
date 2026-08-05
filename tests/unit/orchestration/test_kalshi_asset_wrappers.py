@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
 from dagster import AssetKey, AssetSpec
 
 from oddsfox_pipeline.orchestration import assets_kalshi_wc2026 as assets_mod
@@ -307,6 +308,71 @@ def test_materialize_kalshi_candlesticks_sync_builds_metadata(monkeypatch):
     assert result.metadata["force"].value is True
     assert result.metadata["markets_synced"].value == 2
     assert result.metadata["rows_written"].value == 5
+
+
+def test_materialize_kalshi_candlesticks_sync_persists_failure_metrics(monkeypatch):
+    from oddsfox_pipeline.orchestration import kalshi_asset_helpers as helpers
+
+    calls: list[tuple] = []
+
+    def save_failure(task, exc, **kwargs):
+        calls.append((task, type(exc).__name__, kwargs))
+
+    monkeypatch.setattr(helpers, "save_asset_failure_metrics", save_failure)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        helpers.materialize_kalshi_candlesticks_sync(
+            MagicMock(log=MagicMock()),
+            orch_config.KalshiHourlyOddsSyncConfig(),
+            scope_name="wc2026",
+            sync_fn=lambda **_k: (_ for _ in ()).throw(RuntimeError("boom")),
+            run_with_raw_snapshot_fn=lambda _level, fn: (fn({}), {}, {}, {}, {}),
+        )
+
+    assert calls == [
+        (
+            "sync_kalshi_candlesticks",
+            "RuntimeError",
+            {"scope_name": "wc2026", "source": "kalshi"},
+        )
+    ]
+
+
+def test_materialize_kalshi_market_scope_registry_persists_failure_metrics(
+    monkeypatch,
+):
+    from oddsfox_pipeline.orchestration import kalshi_asset_helpers as helpers
+
+    calls: list[tuple] = []
+
+    def save_failure(task, exc, **kwargs):
+        calls.append((task, type(exc).__name__, kwargs))
+
+    monkeypatch.setattr(helpers, "save_asset_failure_metrics", save_failure)
+    monkeypatch.setattr(
+        helpers,
+        "_run_with_raw_snapshot",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        helpers._materialize_market_scope_registry(
+            MagicMock(log=MagicMock()),
+            orch_config.KalshiMarketScopeRegistryConfig(force_refresh=True),
+            scope_name="wc2026",
+            sync_task_name="sync_kalshi_markets",
+            get_sync_run_metrics_fn=lambda *_a, **_k: None,
+            snapshot_refreshed_scope_name_fn=lambda _metrics: None,
+            sync_market_scope_registry_fn=lambda: {"registry_rows_upserted": 1},
+        )
+
+    assert calls == [
+        (
+            "sync_kalshi_markets",
+            "RuntimeError",
+            {"scope_name": "wc2026", "source": "kalshi"},
+        )
+    ]
 
 
 def test_dlt_translator_returns_base_spec_for_unknown_resource(monkeypatch):

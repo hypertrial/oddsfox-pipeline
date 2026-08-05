@@ -328,9 +328,9 @@ def run_sync_pool(
                             next_check_at = checked_at + timedelta(
                                 seconds=max(0, params.error_retry_seconds)
                             )
-                            write_queue.put(
-                                ("skipped_tokens", [(plan.token_id, str(exc))])
-                            )
+                            # Transient group failures schedule retry only.
+                            # Permanent skips are written by the per-token
+                            # execution path (BadRequest/PermanentAPIError).
                             write_queue.put(
                                 (
                                     "token_state",

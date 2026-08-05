@@ -483,7 +483,7 @@ class KalshiHourlyOddsSyncConfig(GuardrailConfig):
         default=KALSHI_WC2026_HOURLY_WINDOW_DAYS,
         ge=0,
     )
-    force: bool = True
+    force: bool = False
     routine_interval_hours: int = Field(default=1, ge=1)
 
 

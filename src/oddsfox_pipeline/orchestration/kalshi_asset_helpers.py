@@ -4,12 +4,15 @@ from typing import Any, Callable
 
 from dagster import AssetExecutionContext, MaterializeResult, MetadataValue
 
+from oddsfox_pipeline.naming import SOURCE_KALSHI
 from oddsfox_pipeline.orchestration import kalshi_ops as ops
 from oddsfox_pipeline.orchestration.config import KalshiHourlyOddsSyncConfig
+from oddsfox_pipeline.orchestration.failure_metrics import save_asset_failure_metrics
 from oddsfox_pipeline.orchestration.raw_snapshot_helpers import (
     _raw_snapshot_metadata,
     _run_with_raw_snapshot,
 )
+from oddsfox_pipeline.orchestration.transient_retry import raise_retry_if_transient
 from oddsfox_pipeline.storage.duckdb.observability import (
     delta_raw_layer,
     snapshot_raw_layer,
@@ -57,10 +60,20 @@ def materialize_kalshi_candlesticks_sync(
             progress_callback=_progress,
         )
 
-    run_summary, _, _, _, raw_metadata = run_with_raw_snapshot_fn(
-        config.raw_snapshot_level,
-        _run,
-    )
+    try:
+        run_summary, _, _, _, raw_metadata = run_with_raw_snapshot_fn(
+            config.raw_snapshot_level,
+            _run,
+        )
+    except Exception as exc:
+        save_asset_failure_metrics(
+            "sync_kalshi_candlesticks",
+            exc,
+            scope_name=scope_name,
+            source=SOURCE_KALSHI,
+        )
+        raise_retry_if_transient(exc)
+        raise
     metadata = {
         "window_hours": MetadataValue.int(config.window_hours),
         "force": MetadataValue.bool(config.force),
@@ -124,12 +137,22 @@ def _materialize_market_scope_registry(
     def _sync_registry(_pre: dict[str, Any]) -> dict[str, Any]:
         return sync_market_scope_registry_fn()
 
-    run_summary, _, _, raw_delta, raw_metadata = _run_with_raw_snapshot(
-        config.raw_snapshot_level,
-        _sync_registry,
-        snapshot_raw_layer_fn=snapshot_raw_layer_fn,
-        delta_raw_layer_fn=delta_raw_layer_fn,
-    )
+    try:
+        run_summary, _, _, raw_delta, raw_metadata = _run_with_raw_snapshot(
+            config.raw_snapshot_level,
+            _sync_registry,
+            snapshot_raw_layer_fn=snapshot_raw_layer_fn,
+            delta_raw_layer_fn=delta_raw_layer_fn,
+        )
+    except Exception as exc:
+        save_asset_failure_metrics(
+            sync_task_name,
+            exc,
+            scope_name=scope_name,
+            source=SOURCE_KALSHI,
+        )
+        raise_retry_if_transient(exc)
+        raise
     context.log.info("Kalshi registry refresh delta: %s", raw_delta)
     return MaterializeResult(metadata=raw_metadata)
 

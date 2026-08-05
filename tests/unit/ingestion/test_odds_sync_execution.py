@@ -127,6 +127,60 @@ def test_sync_odds_pool_without_shutdown_completes(monkeypatch):
     assert summary["aborted"] is False
 
 
+def test_sync_odds_group_runtime_error_schedules_retry_without_permanent_skip(
+    monkeypatch,
+):
+    plans = [_plan()]
+    recorded: list[tuple] = []
+    real_put = Queue.put
+
+    def capturing_put(self, item, *args, **kwargs):
+        if isinstance(item, tuple) and item and item[0] in (
+            "skipped_tokens",
+            "token_state",
+        ):
+            recorded.append(item)
+        return real_put(self, item, *args, **kwargs)
+
+    def plan_iter(**kwargs):
+        del kwargs
+        for p in as_group_plans(plans):
+            yield p
+
+    monkeypatch.setattr(Queue, "put", capturing_put)
+    monkeypatch.setattr(odds_sync, "ensure_duck_db", lambda: None)
+    monkeypatch.setattr(odds_sync, "snapshot_raw_layer", raw_snapshot)
+    monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
+    monkeypatch.setattr(odds_sync, "save_sync_run_metrics", lambda *a, **k: None)
+    monkeypatch.setattr(odds_sync, "save_skipped_tokens", lambda *a, **k: None)
+    monkeypatch.setattr(
+        odds_sync,
+        "_sync_token_group_plan",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    monkeypatch.setattr(odds_sync, "Thread", NoThread)
+    monkeypatch.setattr(odds_sync, "_writer_loop", lambda *a, **k: None)
+    monkeypatch.setattr(Queue, "join", lambda self: None)
+
+    with patch.object(odds_sync, "ThreadPoolExecutor", ImmediatePoolNoShutdown):
+        odds_sync.sync_odds(
+            max_workers=1,
+            auto_tune_rps=False,
+            persist_run_metrics=False,
+            error_retry_minutes=15,
+        )
+
+    assert not any(op == "skipped_tokens" for op, _ in recorded)
+    token_states = [payload for op, payload in recorded if op == "token_state"]
+    assert token_states
+    token_id, _latest, _checked, next_check_at, _empty, fully_checked = token_states[0][
+        0
+    ]
+    assert token_id == plans[0].token_id
+    assert next_check_at is not None
+    assert fully_checked is False
+
+
 def test_writer_loop_smoke(monkeypatch, tmp_path):
     monkeypatch.delenv("DUCKDB_PATH", raising=False)
     monkeypatch.setenv("DUCKDB_NAME", str(tmp_path / "wl.duckdb"))

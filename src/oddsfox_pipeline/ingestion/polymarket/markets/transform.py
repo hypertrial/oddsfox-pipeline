@@ -7,7 +7,7 @@ responsibility focused.
 """
 
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Dict, List
 
 import polars as pl
@@ -37,23 +37,43 @@ def _jsonify_optional_nested_value(value) -> str | None:
     return str(value)
 
 
-def extract_event_slug(events) -> str:
-    """Extract event slug from the events field."""
+def _preferred_event(events) -> dict | None:
+    """Prefer the enclosing event when marked; otherwise the first dict entry."""
     events = _normalize_nested_value(events)
-    if events is None:
+    if not isinstance(events, list):
         return None
-    if isinstance(events, list) and len(events) > 0:
-        first_event = events[0]
-        if isinstance(first_event, dict):
-            return first_event.get("slug")
-    return None
+    enclosing = next(
+        (
+            event
+            for event in events
+            if isinstance(event, dict) and event.get("is_enclosing_event")
+        ),
+        None,
+    )
+    if enclosing is not None:
+        return enclosing
+    return next((event for event in events if isinstance(event, dict)), None)
+
+
+def extract_event_slug(events) -> str:
+    """Extract enclosing (or first) event slug from the events field."""
+    preferred = _preferred_event(events)
+    if preferred is None:
+        return None
+    return preferred.get("slug")
+
+
+def _as_naive_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def _parse_gamma_datetime_value(value) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
-        return value.replace(tzinfo=None) if value.tzinfo else value
+        return _as_naive_utc(value)
     if isinstance(value, date) and not isinstance(value, datetime):
         return datetime.combine(value, datetime.min.time())
     text = str(value).strip()
@@ -74,7 +94,7 @@ def _parse_gamma_datetime_value(value) -> datetime | None:
             parsed = datetime.strptime(clean, "%Y-%m-%d %H:%M:%S")
         except ValueError:
             return None
-    return parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+    return _as_naive_utc(parsed)
 
 
 def _parse_gamma_datetime_expr(column: str, *, alias: str) -> pl.Expr:
@@ -92,16 +112,12 @@ def _parse_gamma_datetime_from_expr(expr: pl.Expr, *, alias: str) -> pl.Expr:
 
 
 def extract_event_id(events) -> str:
-    """Extract parent event id from the events field."""
-    events = _normalize_nested_value(events)
-    if events is None:
+    """Extract enclosing (or first) parent event id from the events field."""
+    preferred = _preferred_event(events)
+    if preferred is None:
         return None
-    if isinstance(events, list) and len(events) > 0:
-        first_event = events[0]
-        if isinstance(first_event, dict):
-            raw = first_event.get("id")
-            return str(raw) if raw is not None else None
-    return None
+    raw = preferred.get("id")
+    return str(raw) if raw is not None else None
 
 
 def process_markets_dataframe(markets_list: List[Dict]) -> pl.DataFrame:

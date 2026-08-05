@@ -57,6 +57,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Kalshi hourly/full-pipeline jobs default `force=false` so candlestick ledger
+  due filtering and `routine_interval_hours` apply (matching Polymarket).
+- Polymarket hourly/daily/ledger staging timestamps use
+  `to_timestamp(...) at time zone 'UTC'` so hour buckets stay UTC under
+  half-hour session timezones.
+- Event-catalog market payloads mark enclosing events; market transform prefers
+  `is_enclosing_event` when extracting `event_id` / `event_slug`.
+- Polymarket odds pool group failures schedule ledger retry without writing
+  permanent `token_sync_skips`.
+- Polymarket Gamma datetime parsing converts offset-aware values to naive UTC
+  (aligned with Kalshi/odds planning).
+- Historical international-results shootout/goalscorer joins fail closed on
+  ambiguous `(date, home, away)` matches instead of picking `min(match_id)`.
+- Kalshi candlestick/registry asset helpers persist hard-failure sync metrics.
+- Observability `tag:match_minute` inference covers `match_working_set` and
+  `match_token_minute` intermediates.
+
 - `export_marts_parquet` discovers DuckDB views as well as base tables, so Kalshi
   marts (materialized as views) are included in the all-marts dump.
 - Kalshi `_parse_ts` converts offset-aware datetimes to naive UTC instead of

@@ -439,7 +439,11 @@ def _infer_dbt_model_tags(schema: str, model: str) -> frozenset[str]:
         tags.update({"wc2026", "wc2026_strategy"})
     if "polygon_settlement" in model:
         tags.add("polygon_settlement")
-    if "match_minute" in model:
+    if (
+        "match_minute" in model
+        or "match_working_set" in model
+        or "match_token_minute" in model
+    ):
         tags.add("match_minute")
     if "match_order_book" in model or model.startswith(
         "stg_polymarket_wc2026_match_order_book"

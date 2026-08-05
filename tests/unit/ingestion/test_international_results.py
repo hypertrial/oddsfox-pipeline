@@ -319,6 +319,40 @@ def test_historical_results_parse_and_persist_referential_snapshot(
         ).fetchone() == ("Argentina", "Argentina", True)
 
 
+def test_historical_results_fail_closed_on_ambiguous_shootout_match() -> None:
+    with pytest.raises(HistoricalResultsError, match="ambiguous shootout match"):
+        parse_historical_csvs(
+            results_csv=(
+                "date,home_team,away_team,home_score,away_score,tournament,city,country,neutral\n"
+                "2010-06-01,Alpha,Beta,1,0,Friendly,City0,CA,FALSE\n"
+                "2010-06-01,Alpha,Beta,2,2,Other Cup,City1,CB,TRUE\n"
+            ),
+            shootouts_csv=(
+                "date,home_team,away_team,winner,first_shooter\n"
+                "2010-06-01,Alpha,Beta,Alpha,Beta\n"
+            ),
+            goalscorers_csv=(
+                "date,home_team,away_team,team,scorer,minute,own_goal,penalty\n"
+            ),
+        )
+
+
+def test_historical_results_fail_closed_on_ambiguous_goalscorer_match() -> None:
+    with pytest.raises(HistoricalResultsError, match="ambiguous goalscorer match"):
+        parse_historical_csvs(
+            results_csv=(
+                "date,home_team,away_team,home_score,away_score,tournament,city,country,neutral\n"
+                "2010-06-01,Alpha,Beta,1,0,Friendly,City0,CA,FALSE\n"
+                "2010-06-01,Alpha,Beta,2,2,Other Cup,City1,CB,TRUE\n"
+            ),
+            shootouts_csv="date,home_team,away_team,winner,first_shooter\n",
+            goalscorers_csv=(
+                "date,home_team,away_team,team,scorer,minute,own_goal,penalty\n"
+                "2010-06-01,Alpha,Beta,Alpha,Someone,10,FALSE,FALSE\n"
+            ),
+        )
+
+
 def test_historical_results_rejects_upstream_header_change() -> None:
     with pytest.raises(HistoricalResultsError, match="schema changed"):
         parse_historical_csvs(

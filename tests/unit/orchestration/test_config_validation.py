@@ -79,6 +79,23 @@ def test_hourly_odds_config_defaults_to_market_creation_collection():
     assert cfg.ended_market_grace_days is None
 
 
+def test_kalshi_hourly_odds_config_defaults_to_ledger_due_planning():
+    from oddsfox_pipeline.orchestration.config import (
+        KalshiHourlyOddsSyncConfig,
+        kalshi_wc2026_hourly_odds_run_config,
+    )
+
+    cfg = KalshiHourlyOddsSyncConfig()
+    assert cfg.force is False
+    assert cfg.routine_interval_hours == 1
+    assert (
+        kalshi_wc2026_hourly_odds_run_config()["ops"][
+            "kalshi_wc2026_raw_market_candlesticks_hourly"
+        ]["config"]["force"]
+        is False
+    )
+
+
 def test_odds_config_rejects_invalid_batch_group_size():
     with pytest.raises(ValueError):
         OddsSyncConfig(batch_group_size=0)

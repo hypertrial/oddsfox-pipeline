@@ -88,8 +88,8 @@ models:
           to: ref('stg_polymarket_wc2026_market_tokens')
           field: clob_token_id
   - name: odds_timestamp
-    description: Wall-clock timestamp for the odds observation (derived from raw epoch
-      seconds).
+    description: Naive UTC wall-clock timestamp for the odds observation (derived from
+      raw epoch seconds via `to_timestamp(...) at time zone 'UTC'`).
   - name: odds_timestamp_epoch
     description: Unix epoch seconds for the odds observation as stored in raw history.
     tests:
@@ -138,12 +138,14 @@ models:
     description: Raw epoch timestamp of the first observation contributing to this
       daily row.
   - name: first_observed_at
-    description: Timestamp of the first observation contributing to this daily row.
+    description: Naive UTC timestamp of the first observation contributing to this
+      daily row.
   - name: last_timestamp
     description: Raw epoch timestamp of the last observation contributing to this
       daily row.
   - name: last_observed_at
-    description: Timestamp of the last observation contributing to this daily row.
+    description: Naive UTC timestamp of the last observation contributing to this
+      daily row.
   - name: refreshed_at
     description: UTC timestamp when this token-day aggregate row was last rebuilt
       by ingestion.
@@ -164,8 +166,8 @@ models:
     description: Raw epoch seconds of the last successful sync boundary recorded for
       this token.
   - name: last_sync_at
-    description: Wall-clock timestamp of the last sync boundary (`last_sync_timestamp`
-      converted).
+    description: Naive UTC timestamp of the last sync boundary (`last_sync_timestamp`
+      converted via `to_timestamp(...) at time zone 'UTC'`).
   - name: last_checked_at
     description: UTC timestamp when odds sync last evaluated this token, regardless
       of whether new rows were found.

@@ -18,6 +18,19 @@ def test_extract_event_id_variants():
     assert transform.extract_event_id([{"id": 42}]) == "42"
     assert transform.extract_event_id([{"id": None}]) is None
     assert transform.extract_event_id([["not-a-dict"]]) is None
+    assert (
+        transform.extract_event_id(
+            [
+                {"id": "other", "slug": "other-event"},
+                {
+                    "id": "enclosing",
+                    "slug": "enclosing-event",
+                    "is_enclosing_event": True,
+                },
+            ]
+        )
+        == "enclosing"
+    )
 
 
 def test_extract_event_slug_variants():
@@ -26,6 +39,36 @@ def test_extract_event_slug_variants():
     assert transform.extract_event_slug([{"slug": "e"}]) == "e"
     assert transform.extract_event_slug("x") is None
     assert transform.extract_event_slug([["not", "a", "dict"]]) is None
+    assert (
+        transform.extract_event_slug(
+            [
+                {"id": "other", "slug": "other-event"},
+                {
+                    "id": "enclosing",
+                    "slug": "enclosing-event",
+                    "is_enclosing_event": True,
+                },
+            ]
+        )
+        == "enclosing-event"
+    )
+
+
+def test_parse_gamma_datetime_converts_offset_datetimes_to_naive_utc():
+    from datetime import datetime, timedelta, timezone
+
+    assert transform._parse_gamma_datetime_value("2026-07-14T19:00:00+02:00") == datetime(
+        2026, 7, 14, 17, 0
+    )
+    assert transform._parse_gamma_datetime_value(
+        datetime(2026, 7, 14, 19, 0, tzinfo=timezone(timedelta(hours=2)))
+    ) == datetime(2026, 7, 14, 17, 0)
+    assert transform._parse_gamma_datetime_value("2026-07-14T19:00:00Z") == datetime(
+        2026, 7, 14, 19, 0
+    )
+    assert transform._parse_gamma_datetime_value(datetime(2026, 7, 14, 19, 0)) == datetime(
+        2026, 7, 14, 19, 0
+    )
 
 
 def test_process_markets_dataframe_empty():

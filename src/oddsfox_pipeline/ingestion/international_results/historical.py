@@ -171,9 +171,16 @@ def parse_historical_csvs(
         if not candidates:
             dropped_shootouts += 1
             continue
+        if len(candidates) != 1:
+            raise HistoricalResultsError(
+                "ambiguous shootout match for "
+                f"{match_date.isoformat()} "
+                f"{_clean(raw['home_team'])} vs {_clean(raw['away_team'])}: "
+                f"{len(candidates)} candidates"
+            )
         shootouts.append(
             {
-                "match_id": min(candidates),
+                "match_id": candidates[0],
                 "shootout_winner": _optional_text(raw["winner"]),
                 "shootout_first_shooter": _optional_text(raw["first_shooter"]),
                 "source_url": SHOOTOUTS_URL,
@@ -198,7 +205,14 @@ def parse_historical_csvs(
         if not candidates:
             dropped_goalscorers += 1
             continue
-        match_id = min(candidates)
+        if len(candidates) != 1:
+            raise HistoricalResultsError(
+                "ambiguous goalscorer match for "
+                f"{match_date.isoformat()} "
+                f"{_clean(raw['home_team'])} vs {_clean(raw['away_team'])}: "
+                f"{len(candidates)} candidates"
+            )
+        match_id = candidates[0]
         goalscorers.append(
             {
                 "goal_event_id": _hash_parts(
