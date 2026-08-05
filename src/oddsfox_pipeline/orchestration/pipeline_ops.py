@@ -6,7 +6,6 @@ real callables re-exported by that facade.
 
 from __future__ import annotations
 
-from threading import Thread
 from typing import Any, Callable
 
 from oddsfox_pipeline.ingestion.polymarket.market_scope import (
@@ -69,7 +68,6 @@ def sync_market_scope_registry(
 
 __all__ = [
     "ProgressGuardrail",
-    "Thread",
     "enrich_market_metadata",
     "delta_dbt_models",
     "delta_raw_layer",

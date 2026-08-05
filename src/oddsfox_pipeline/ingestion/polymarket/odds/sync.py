@@ -94,7 +94,6 @@ _parse_cutoff_date = _planning_mod.parse_cutoff_date
 _build_single_token_plan = _planning_mod.build_single_token_plan
 _iter_windows = _execution_mod.iter_windows
 _default_rate_limiter_factory = _execution_mod.default_rate_limiter_factory
-_checked_at_from_plan = _execution_mod.checked_at_from_plan
 _empty_retry_next_check = _execution_mod.empty_retry_next_check
 _is_interval_too_long_error = _execution_mod.is_interval_too_long_error
 _dynamic_writer_flush_rows = _writer_mod.dynamic_writer_flush_rows

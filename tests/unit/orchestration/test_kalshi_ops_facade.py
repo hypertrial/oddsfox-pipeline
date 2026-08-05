@@ -13,7 +13,6 @@ pytestmark = pytest.mark.facade
 
 _PIPELINE_OPS_REEXPORTS = (
     "ProgressGuardrail",
-    "Thread",
     "delta_dbt_models",
     "delta_raw_layer",
     "format_dbt_snapshot_log",

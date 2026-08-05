@@ -9,7 +9,6 @@ from __future__ import annotations
 from oddsfox_pipeline.orchestration import pipeline_ops as _ops
 
 ProgressGuardrail = _ops.ProgressGuardrail
-Thread = _ops.Thread
 enrich_market_metadata = _ops.enrich_market_metadata
 delta_dbt_models = _ops.delta_dbt_models
 delta_raw_layer = _ops.delta_raw_layer
@@ -27,7 +26,6 @@ sync_match_minute_odds_history = _ops.sync_match_minute_odds_history
 
 __all__ = [
     "ProgressGuardrail",
-    "Thread",
     "enrich_market_metadata",
     "delta_dbt_models",
     "delta_raw_layer",

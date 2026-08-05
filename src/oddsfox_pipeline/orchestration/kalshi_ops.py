@@ -10,7 +10,6 @@ from oddsfox_pipeline.ingestion.kalshi.series_scope.registry import (
 from oddsfox_pipeline.orchestration import pipeline_ops as _ops
 
 ProgressGuardrail = _ops.ProgressGuardrail
-Thread = _ops.Thread
 delta_dbt_models = _ops.delta_dbt_models
 delta_raw_layer = _ops.delta_raw_layer
 format_dbt_snapshot_log = _ops.format_dbt_snapshot_log
@@ -38,7 +37,6 @@ def sync_kalshi_candlesticks(**kwargs):
 
 __all__ = [
     "ProgressGuardrail",
-    "Thread",
     "delta_dbt_models",
     "delta_raw_layer",
     "format_dbt_snapshot_log",
