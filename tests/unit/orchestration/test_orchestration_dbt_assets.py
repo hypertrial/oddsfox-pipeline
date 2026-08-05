@@ -1128,6 +1128,65 @@ def test_polymarket_token_hourly_odds_incremental_in_scope_for_subset_keys():
         context=MagicMock(is_subset=True, selected_asset_keys=selected),
         is_subset=True,
     )
+    assert not _polymarket_token_hourly_odds_incremental_in_scope(
+        config=cfg,
+        context=MagicMock(is_subset=True, selected_asset_keys=set()),
+        is_subset=True,
+    )
+    assert not _polymarket_token_hourly_odds_incremental_in_scope(
+        config=cfg,
+        context=MagicMock(
+            is_subset=True,
+            selected_asset_keys={"unrelated/model"},
+        ),
+        is_subset=True,
+    )
+
+    for selector in ("tag:polygon_settlement", "tag:pmxt_order_book"):
+        assert not _polymarket_token_hourly_odds_incremental_in_scope(
+            config=DbtBuildConfig(dbt_select=selector),
+            context=MagicMock(is_subset=False),
+            is_subset=False,
+        )
+    assert not _polymarket_token_hourly_odds_incremental_in_scope(
+        config=DbtBuildConfig(dbt_select="unrelated_model"),
+        context=MagicMock(is_subset=False),
+        is_subset=False,
+    )
+
+
+def test_run_dbt_cli_to_completion_rejects_nonzero_exit():
+    invocation = MagicMock()
+    invocation.stream.return_value = iter(())
+    invocation.process.returncode = 2
+    dbt = MagicMock()
+    dbt.cli.return_value = invocation
+
+    with pytest.raises(RuntimeError, match="exit code 2"):
+        dbt_build_mod._run_dbt_cli_to_completion(
+            context=MagicMock(),
+            dbt=dbt,
+            build_args=["build"],
+        )
+
+
+def test_stream_dbt_build_subset_without_exclude_uses_plain_build():
+    invocation = MagicMock()
+    invocation.stream.return_value = iter(())
+    invocation.process.returncode = 0
+    dbt = MagicMock()
+    dbt.cli.return_value = invocation
+
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=MagicMock(is_subset=True, selected_asset_keys=set()),
+            dbt=dbt,
+            config=orch_config.DbtBuildConfig(dbt_exclude=None),
+        )
+    )
+
+    assert dbt.cli.call_args.args[0] == ["build"]
 
 
 def test_stream_dbt_build_persists_failure_metrics_on_recovery_error(monkeypatch):

@@ -35,9 +35,11 @@ def test_refresh_path_recovers_after_second_writer_flush_failure(
         run_dbt=False,
     )
     with connection.get_connection() as conn:
+        # Batched group fetch queues both tokens' odds in one writer item, so the
+        # first flush commits both points before the injected second flush fails.
         assert conn.execute(
             'select count(*) from "polymarket_wc2026_raw"."odds_history"'
-        ).fetchone() == (1,)
+        ).fetchone() == (2,)
         assert conn.execute(
             'select count(*) from "polymarket_wc2026_ops"."token_sync_ledger"'
         ).fetchone() == (0,)

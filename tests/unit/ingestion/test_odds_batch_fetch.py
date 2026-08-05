@@ -16,7 +16,12 @@ from tests.support.odds_sync_harness import (
 from oddsfox_pipeline.ingestion.polymarket.odds import execution as odds_exec
 from oddsfox_pipeline.ingestion.polymarket.odds import fetch as odds_fetch
 from oddsfox_pipeline.ingestion.polymarket.odds.planning import group_token_plans
-from oddsfox_pipeline.ingestion.polymarket.odds.support import GroupPlan, TokenPlan
+from oddsfox_pipeline.ingestion.polymarket.odds.support import (
+    GroupPlan,
+    InflightTokenFuture,
+    TokenPlan,
+    build_inflight_future_diagnostics,
+)
 
 
 def _history_point(t: int, p: float = 0.5) -> dict:
@@ -101,6 +106,104 @@ def test_fetch_batch_token_history_with_retry_empty_range():
         end_ts=50,
     )
     assert out == {valid_token_id(): []}
+
+
+def test_fetch_batch_token_history_empty_and_malformed_history_map():
+    assert (
+        odds_fetch.fetch_batch_token_history(
+            MagicMock(), ["", None], start_ts=1, end_ts=2
+        )
+        == {}
+    )
+    client = MagicMock()
+    client.post.return_value = {"history": ["not", "a", "mapping"]}
+    tid = valid_token_id("malformed")
+    assert odds_fetch.fetch_batch_token_history(
+        client, [tid], start_ts=1, end_ts=2
+    ) == {tid: []}
+
+
+def test_fetch_batch_token_history_transport_and_os_errors():
+    tid = valid_token_id("transport")
+    client = MagicMock()
+    client.post.side_effect = requests.Timeout("slow")
+    assert (
+        odds_fetch.fetch_batch_token_history(client, [tid], start_ts=1, end_ts=2)
+        is None
+    )
+
+    response = MagicMock(status_code=302, text="redirect")
+    client.post.side_effect = requests.HTTPError(response=response)
+    assert (
+        odds_fetch.fetch_batch_token_history(client, [tid], start_ts=1, end_ts=2)
+        is None
+    )
+
+    client.post.side_effect = OSError("network")
+    assert (
+        odds_fetch.fetch_batch_token_history(client, [tid], start_ts=1, end_ts=2)
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "status,expected",
+    [
+        (None, None),
+        (503, None),
+        (302, None),
+        (400, odds_fetch.BadRequestError),
+        (403, odds_fetch.PermanentAPIError),
+    ],
+)
+def test_fetch_batch_token_history_generic_response_errors(status, expected):
+    class ResponseError(Exception):
+        def __init__(self, status_code):
+            if status_code is not None:
+                self.response = MagicMock(status_code=status_code, text="body")
+
+    client = MagicMock()
+    client.post.side_effect = ResponseError(status)
+
+    def call():
+        return odds_fetch.fetch_batch_token_history(
+            client, [valid_token_id("generic")], start_ts=1, end_ts=2
+        )
+
+    if expected is None:
+        assert call() is None
+    else:
+        with pytest.raises(expected):
+            call()
+
+
+def test_fetch_batch_token_history_with_retry_clamps_and_fetches(monkeypatch):
+    tid = valid_token_id("clamp")
+    calls = []
+
+    def fetch(*_args, **kwargs):
+        calls.append(kwargs)
+        return {tid: []}
+
+    monkeypatch.setattr(odds_fetch, "fetch_batch_token_history", fetch)
+    result = odds_fetch.fetch_batch_token_history_with_retry(
+        MagicMock(),
+        [tid],
+        start_ts=1,
+        end_ts=100,
+        now_ts=50,
+        transient_retries=1,
+    )
+
+    assert result == {tid: []}
+    assert calls == [
+        {
+            "start_ts": 1,
+            "end_ts": 50,
+            "fidelity": None,
+            "status_hook": None,
+        }
+    ]
 
 
 def test_group_token_plans_caps_and_preserves_count():
@@ -319,3 +422,178 @@ def test_batch_and_single_paths_produce_identical_rows():
         assert isinstance(value, list)
         batch_rows.extend(value)
     assert sorted(single_rows) == sorted(batch_rows)
+
+
+def test_fetch_group_window_empty_zero_span_and_transient_results():
+    tid = valid_token_id("empty")
+    assert (
+        odds_exec.fetch_group_window_with_auto_split(MagicMock(), [], 0, 10, 60, 1)
+        == {}
+    )
+    assert odds_exec.fetch_group_window_with_auto_split(
+        MagicMock(), [tid], 10, 10, 60, 1
+    ) == {tid: []}
+
+    for invalid_batch in (None, []):
+        out = odds_exec.fetch_group_window_with_auto_split(
+            MagicMock(),
+            [tid],
+            0,
+            10,
+            60,
+            1,
+            fetch_batch_token_history_fn=lambda *_a, **_k: invalid_batch,
+        )
+        assert out == {tid: None}
+
+
+def test_fetch_group_window_fallback_can_return_transient():
+    tid = valid_token_id("transient")
+
+    def bad_batch(*_args, **_kwargs):
+        raise odds_fetch.BadRequestError("bad", body="invalid market", status=400)
+
+    out = odds_exec.fetch_group_window_with_auto_split(
+        MagicMock(),
+        [tid],
+        0,
+        10,
+        60,
+        1,
+        fetch_batch_token_history_fn=bad_batch,
+        fetch_token_history_fn=lambda *_a, **_k: None,
+    )
+
+    assert out == {tid: None}
+
+
+def test_sync_token_group_plan_batch_bad_request_marks_all_permanent():
+    tid_a = valid_token_id("bad-a")
+    tid_b = valid_token_id("bad-b")
+    group = make_group_plan(
+        TokenPlan(tid_a, "m1", False, 1, 0, 20, 60),
+        TokenPlan(tid_b, "m2", False, 1, 0, 20, 60),
+    )
+    q: Queue = Queue()
+
+    def bad_batch(*_args, **_kwargs):
+        raise odds_fetch.BadRequestError("bad batch", status=400)
+
+    results = odds_exec.sync_token_group_plan(
+        group,
+        lambda: MagicMock(),
+        q,
+        window_seconds=10,
+        writer_chunk_rows=1,
+        min_split_window_seconds=1,
+        fetch_group_window_fn=bad_batch,
+    )
+
+    assert all(result["permanent_error"] == 1 for result in results.values())
+    assert any(op == "skipped_tokens" for op, _ in list(q.queue))
+
+
+def test_sync_token_group_plan_transient_then_rows_breaks_contiguity():
+    tid_none = valid_token_id("none")
+    tid_rows = valid_token_id("rows")
+    group = GroupPlan(
+        token_plans=(
+            TokenPlan(tid_none, "m1", False, 1, 0, 20, 60),
+            TokenPlan(tid_rows, "m2", False, 1, 0, 20, 60),
+        ),
+        group_start_ts=0,
+        group_end_ts=20,
+        fidelity=60,
+    )
+    q: Queue = Queue()
+    calls = 0
+
+    def fetch_group(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return {tid_none: None, tid_rows: None}
+        return {
+            tid_none: [],
+            tid_rows: [(tid_rows, 15, 0.4), (tid_rows, 99, 0.9)],
+        }
+
+    results = odds_exec.sync_token_group_plan(
+        group,
+        MagicMock(),
+        q,
+        window_seconds=10,
+        writer_chunk_rows=1,
+        min_split_window_seconds=1,
+        fetch_group_window_fn=fetch_group,
+    )
+
+    assert results[tid_none]["error"] == 1
+    assert results[tid_rows]["rows"] == 1
+    assert results[tid_rows]["error"] == 1
+    assert any(op == "odds" for op, _ in list(q.queue))
+
+
+def test_sync_token_group_plan_non_mapping_batch_is_transient():
+    tid = valid_token_id("non-map")
+    results = odds_exec.sync_token_group_plan(
+        make_group_plan(TokenPlan(tid, "m", False, 1, 0, 10, 60)),
+        MagicMock(),
+        Queue(),
+        window_seconds=10,
+        writer_chunk_rows=10,
+        min_split_window_seconds=1,
+        fetch_group_window_fn=lambda *_a, **_k: [],
+    )
+
+    assert results[tid]["error"] == 1
+
+
+def test_sync_token_group_plan_skips_non_overlapping_and_empty_groups():
+    tid = valid_token_id("later")
+    group = GroupPlan(
+        token_plans=(TokenPlan(tid, "m", False, 1, 30, 40, 60),),
+        group_start_ts=0,
+        group_end_ts=20,
+        fidelity=60,
+    )
+    assert (
+        odds_exec.sync_token_group_plan(
+            group,
+            MagicMock(),
+            Queue(),
+            window_seconds=10,
+            writer_chunk_rows=1,
+            min_split_window_seconds=1,
+        )[tid]["windows"]
+        == 0
+    )
+
+    empty_group = GroupPlan(
+        token_plans=(),
+        group_start_ts=0,
+        group_end_ts=10,
+        fidelity=60,
+    )
+    assert (
+        odds_exec.sync_token_group_plan(
+            empty_group,
+            MagicMock(),
+            Queue(),
+            window_seconds=10,
+            writer_chunk_rows=1,
+            min_split_window_seconds=1,
+        )
+        == {}
+    )
+
+
+def test_inflight_diagnostics_supports_single_token_future():
+    plan = make_token_plan(valid_token_id("single"))
+    diagnostics = build_inflight_future_diagnostics(
+        {object(): InflightTokenFuture(plan=plan, submitted_at=2.0)},
+        now=5.0,
+    )
+
+    assert diagnostics["oldest_inflight_seconds"] == 3.0
+    assert diagnostics["oldest_inflight"][0]["market_id"] == plan.market_id

@@ -220,3 +220,36 @@ def test_finalize_registry_collect_meta_branches(monkeypatch) -> None:
     )
     assert "keyset_closed" not in reg2
     assert "keyset_closed" not in meta2
+
+
+def test_scan_accumulator_merges_optional_metadata_and_ignores_missing_ids():
+    from oddsfox_pipeline.ingestion.polymarket.market_scope.scan import (
+        _ScanAccumulator,
+    )
+
+    base = MarketScopeEventsScanResult(
+        registry_rows=(),
+        raw_markets=({}, {"id": "base"}),
+        pages_done=1,
+        truncated=False,
+        discovered_slugs=(),
+    )
+    accumulator = _ScanAccumulator.from_result(base)
+    accumulator.merge(
+        MarketScopeEventsScanResult(
+            registry_rows=(),
+            raw_markets=({}, {"id": "next"}),
+            pages_done=2,
+            truncated=True,
+            discovered_slugs=("slug",),
+            crawl_tag_slugs=("crawl",),
+            scope_tag_slugs=("scope",),
+            tag_sources=(("crawl", ("seed",)),),
+        )
+    )
+
+    result = accumulator.to_result()
+    assert {market["id"] for market in result.raw_markets} == {"base", "next"}
+    assert result.crawl_tag_slugs == ("crawl",)
+    assert result.scope_tag_slugs == ("scope",)
+    assert result.tag_sources == (("crawl", ("seed",)),)

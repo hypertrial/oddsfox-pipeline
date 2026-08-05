@@ -1,7 +1,7 @@
 # Orchestration reference
 
 This reference lists the fixed Dagster assets, jobs, scope behavior, schedules,
-and persistence boundaries shipped by OddsFox Pipeline `v0.1.x`.
+and persistence boundaries shipped by OddsFox Pipeline `v0.2.x`.
 
 For procedures, use [Run a scope](../guides/run-a-scope.md),
 [Enable schedules](../guides/enable-schedules.md), and
@@ -283,7 +283,7 @@ expand the same `+` ancestry from the local dbt manifest when present.
 | `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | Stopped |
 
 `polymarket_wc2026_hourly_odds_ingest` remains a manual job only; WC2026
-Polymarket events are complete and the hourly schedule was removed in v0.1.x.
+Polymarket events are complete and the hourly schedule was removed in v0.1.x / v0.2.x.
 
 The match-minute backfill has no schedule or environment enable flag.
 The PMXT match-order-book backfill has no schedule or environment enable flag.

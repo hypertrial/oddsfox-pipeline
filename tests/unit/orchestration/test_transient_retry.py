@@ -35,6 +35,13 @@ def test_is_transient_pipeline_error_classifies_network_and_http() -> None:
     assert not is_transient_pipeline_error(FileNotFoundError("missing warehouse"))
     assert not is_transient_pipeline_error(PermissionError("denied"))
 
+    response_error = ValueError("response")
+    response_error.response = type("Response", (), {"status_code": 503})()
+    assert is_transient_pipeline_error(response_error)
+
+    response_error.response = type("Response", (), {"status_code": 404})()
+    assert not is_transient_pipeline_error(response_error)
+
 
 def test_is_transient_pipeline_error_classifies_requests_timeouts() -> None:
     assert is_transient_pipeline_error(requests.exceptions.ConnectionError("reset"))

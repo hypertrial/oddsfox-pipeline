@@ -125,6 +125,31 @@ def test_join_under_base_accepts_relative_path(monkeypatch):
     )
 
 
+def test_join_under_base_accepts_relative_path_on_empty_base_path(monkeypatch):
+    _mock_public_dns(monkeypatch)
+
+    assert join_under_base("https://example.com", "data/file.csv") == (
+        "https://example.com/data/file.csv"
+    )
+
+
+def test_join_under_base_accepts_relative_path_under_trailing_slash_base(monkeypatch):
+    _mock_public_dns(monkeypatch)
+
+    assert join_under_base("https://example.com/root/", "data/file.csv") == (
+        "https://example.com/root/data/file.csv"
+    )
+
+
+def test_join_under_base_keeps_path_suffix_that_rstrip_charset_would_eat(monkeypatch):
+    _mock_public_dns(monkeypatch)
+
+    # rstrip("/") must not use a charset that also strips trailing "X".
+    assert join_under_base("https://example.com/rooX", "file.csv") == (
+        "https://example.com/rooX/file.csv"
+    )
+
+
 def test_join_under_base_accepts_same_origin_absolute_href(monkeypatch):
     _mock_public_dns(monkeypatch)
 

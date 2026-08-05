@@ -12,6 +12,7 @@ from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     clear_registry,
     get_registry_event_slugs,
     get_registry_market_ids,
+    prune_stale_event_catalog_registry_rows,
     registry_market_count,
     upsert_registry_rows,
 )
@@ -19,6 +20,28 @@ from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
 
 def test_upsert_empty_rows_is_noop(duck):
     assert upsert_registry_rows([]) == 0
+
+
+def test_prune_event_catalog_registry_with_no_active_markets(duck):
+    upsert_registry_rows(
+        [
+            RegistryRow(
+                "m1",
+                "event-a",
+                "e1",
+                "event_catalog",
+                scope_name="wc2026",
+            )
+        ]
+    )
+
+    assert (
+        prune_stale_event_catalog_registry_rows(
+            scope_name="wc2026", active_market_ids=[]
+        )
+        == 1
+    )
+    assert get_registry_market_ids() == []
 
 
 def test_clear_registry_default_scope(duck):

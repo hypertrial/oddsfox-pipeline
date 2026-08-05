@@ -31,7 +31,7 @@ and [dbt/README.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/dbt
 
 ## Design Decisions
 
-v0.1.x intentionally has no warehouse migrations, no runtime scope selector, and
+v0.2.x intentionally has no warehouse migrations, no runtime scope selector, and
 an isolated Polygon path. Read [Design decisions](../concepts/decisions.md)
 before proposing compatibility shims. Use [Terminology](../reference/terminology.md)
 for product vocabulary (pipeline, working set, marts vs strategy

@@ -706,3 +706,35 @@ def test_connect_uses_configured_extension_directory(
 
     assert configured == str(extension_directory.resolve())
     assert extension_directory.is_dir()
+
+
+def test_polymarket_schema_helpers_skip_wc2026_only_tables_for_other_scope():
+    conn = MagicMock()
+    conn.execute.return_value.fetchone.return_value = (0,)
+
+    polymarket_schema.ensure_polymarket_indexes(conn, scope_name="other")
+    polymarket_schema.bootstrap_polymarket_tables(conn, scope_name="other")
+
+    executed_sql = " ".join(
+        str(call.args[0]) for call in conn.execute.call_args_list if call.args
+    )
+    assert "event_snapshots" not in executed_sql
+    assert "polygon_settlement_fills" not in executed_sql
+
+
+def test_init_duckdb_rechecks_initialized_state_inside_lock(monkeypatch, tmp_path):
+    class Lock:
+        def __enter__(self):
+            connection._SCHEMA_INITIALIZED = True
+
+        def __exit__(self, *_args):
+            return False
+
+    monkeypatch.setattr(connection, "_SCHEMA_INITIALIZED", False)
+    monkeypatch.setattr(connection, "_SCHEMA_BOOTSTRAP_LOCK", Lock())
+    monkeypatch.setattr(
+        connection, "_sync_active_duckdb_path", lambda: tmp_path / "db.duckdb"
+    )
+
+    connection.init_duck_db()
+    assert connection._SCHEMA_INITIALIZED is True

@@ -6,7 +6,7 @@ release artifacts contain no bundled production datasets or operator data.
 Hypertrial operates no hosted production pipeline or data service; operators
 supply and control their own data. `THIRD_PARTY_NOTICES.md` is the authoritative
 scope statement.
-Version `0.1.x` ships a WC2026 Polymarket pipeline for FIFA World Cup
+Version `0.2.x` ships a WC2026 Polymarket pipeline for FIFA World Cup
 2026 markets and odds, a Kalshi WC2026 pipeline for stage and group-winner
 markets, plus FIFA fixture/results sources for official identity and real-team
 validation.
@@ -51,9 +51,9 @@ work that touches naming or prose, run `make check-terminology` (also part of
 “graph odds/export,” universe phrases, or other forbidden identifiers listed
 there.
 
-## No legacy support (v0.1.x)
+## No legacy support (v0.2.x)
 
-OddsFox Pipeline is v0.1.x — too new for a supported legacy surface, migration path, or
+OddsFox Pipeline is v0.2.x — too new for a supported legacy surface, migration path, or
 backward-compatibility layer unless the task explicitly requests one.
 
 - **Remove and replace** old APIs, config values, warehouse layouts, and marts;
@@ -71,7 +71,7 @@ backward-compatibility layer unless the task explicitly requests one.
 Do not add `legacy`, `compat`, `deprecated`, or `migration` code paths unless
 the user explicitly asks. Do not preserve removed config values (e.g.
 `wc2026_legacy`) or reintroduce removed marts/APIs. Do not document long-term
-semver stability; v0.1.x may break between releases.
+semver stability; v0.2.x may break between releases.
 
 ## Quality gate (run before finishing work)
 
@@ -279,7 +279,7 @@ event-catalog recall-audit job is also unscheduled. The
 technical exporter is standalone and unscheduled.
 Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 
-**Market scope:** v0.1.x ships fixed Dagster/dbt graphs for `wc2026` on
+**Market scope:** v0.2.x ships fixed Dagster/dbt graphs for `wc2026` on
 Polymarket and `wc2026` on Kalshi. Polymarket scope helpers may load other
 slug-like seed entries for tests and future work, but Dagster asset configs do
 not accept a runtime scope selector. See
@@ -316,7 +316,7 @@ MIT-licensed project data. See `THIRD_PARTY_NOTICES.md`.
   / WAL/SHM files, parquet/CSV exports, source documents, or other local
   artifacts (see [`.gitignore`](.gitignore)).
 - Invent commands outside the Makefile; if a check is missing, add a Makefile target rather than documenting one-off scripts as the gate.
-- Add runtime scope such as soccer context, simulations, allocation, or web integration without explicit product direction; v0.1.x ships fixed WC2026 Polymarket and Kalshi ingest and warehouse graphs only.
+- Add runtime scope such as soccer context, simulations, allocation, or web integration without explicit product direction; v0.2.x ships fixed WC2026 Polymarket and Kalshi ingest and warehouse graphs only.
 - Add legacy, compat, deprecated, or migration shims unless the task explicitly requests backward compatibility.
 
 ## Pull requests

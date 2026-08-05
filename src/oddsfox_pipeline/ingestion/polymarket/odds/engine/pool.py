@@ -234,11 +234,10 @@ def run_sync_pool(
                 group=group, submitted_at=runtime.time_mod.monotonic()
             )
 
-        def record_token_progress(plan, *, force_totals: bool = True):
-            if force_totals:
-                totals["processed_tokens"] += 1
-                completed_markets.add(plan.market_id)
-                totals["distinct_markets"] = len(completed_markets)
+        def record_token_progress(plan):
+            totals["processed_tokens"] += 1
+            completed_markets.add(plan.market_id)
+            totals["distinct_markets"] = len(completed_markets)
             guardrail.record_progress(
                 work_increment=1,
                 phase="token_future_completed",

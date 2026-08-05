@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing. OddsFox Pipeline is an open-source,
 local-first prediction-market data pipeline built with Dagster, dlt, dbt, and
-DuckDB. Version `0.1.x` ships WC2026 Polymarket and Kalshi WC2026 pipelines,
+DuckDB. Version `0.2.x` ships WC2026 Polymarket and Kalshi WC2026 pipelines,
 plus a small FIFA fixture/results source for real-team scope validation.
 
 ## Development setup
@@ -68,7 +68,7 @@ Quality gates, targeted Make commands, and layout guardrails live in
 
 ## Versioning expectations
 
-OddsFox Pipeline is v0.1.x — the project is too new to carry backward-compatibility
+OddsFox Pipeline is v0.2.x — the project is too new to carry backward-compatibility
 burden by default.
 
 - Breaking changes are acceptable when they simplify the pipeline.

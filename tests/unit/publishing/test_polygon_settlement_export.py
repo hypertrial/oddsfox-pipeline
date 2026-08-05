@@ -1095,6 +1095,15 @@ def test_small_validation_helpers_cover_invalid_inputs(tmp_path: Path) -> None:
         export._validate_export_files(output)
 
 
+def test_git_head_sha_wraps_subprocess_failure(monkeypatch, tmp_path):
+    def unavailable(*_args, **_kwargs):
+        raise OSError("git unavailable")
+
+    monkeypatch.setattr(bundle_io.subprocess, "run", unavailable)
+    with pytest.raises(RuntimeError, match="resolve commit"):
+        bundle_io.git_head_sha(tmp_path, resolve_error="resolve commit")
+
+
 def test_export_rejects_symlinked_audit_input(
     monkeypatch,
     tmp_path: Path,

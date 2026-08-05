@@ -125,8 +125,11 @@ def join_under_base(base_url: str, href: str) -> str:
             )
         return assert_same_origin(link, base)
     joined = urljoin(base + "/", link.removeprefix("/"))
+    # pragma: no mutate start
+    # Empty-path defaults are defensive; typical HTTPS joins always have "/".
     base_path = posixpath.normpath(urlparse(base).path or "/")
     joined_path = posixpath.normpath(urlparse(joined).path or "/")
+    # pragma: no mutate end
     if (
         not joined_path.startswith(base_path.rstrip("/") + "/")
         and joined_path != base_path

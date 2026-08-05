@@ -132,7 +132,7 @@ def refresh_registry_and_collect(
             on_error=_on_event_error,
         )
         for item in collected:
-            if item is None:
+            if item is None:  # pragma: no cover - map_bounded filters None results
                 continue
             events.append(item.event)
             markets.extend(item.markets)

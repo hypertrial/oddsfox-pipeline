@@ -191,6 +191,8 @@ def test_builds_complete_immutable_internal_audit_bundle(
     provenance["rpc_url"] = "https://rpc.example/secret"
     provenance["generator_commit"] = "0" * 40
     provenance["block_ranges"][0]["provider_response"] = "not public"
+    provenance["verification_rpc_provider_label"] = "secondary"
+    provenance["verification_rpc_provider_origin"] = None
     spec = PolygonSettlementAuditSpec(dataset_version="1.0.0")
     summary = build_polygon_settlement_audit_release(
         release_connection,
@@ -237,6 +239,7 @@ def test_builds_complete_immutable_internal_audit_bundle(
     assert provenance_json["scan_id"] == "scan-1"
     assert provenance_json["seed_version"] == "1.0.0"
     assert provenance_json["generator_commit"] == "f" * 40
+    assert provenance_json["verification_rpc_provider_label"] == "secondary"
     assert provenance_json["source_revisions"]["fifa_match_number_schedule"] == {
         "revision": publishing.FIFA_SCHEDULE_REVISION,
         "sha256": publishing.FIFA_SCHEDULE_SHA256,
@@ -706,6 +709,22 @@ def test_release_row_validation_rejects_every_public_contract_break(
     # Axis coverage failure without materializing 39,120 rows.
     failures = []
     publishing._validate_mart_global_inventory([mart_row], [market], failures)
+    _assert_failures(failures)
+
+    failures = []
+    publishing._validate_mart_global_inventory(
+        [{**mart_row, "proposition_id": "unknown"}],
+        [market],
+        failures,
+    )
+    assert any("unknown mart proposition" in failure for failure in failures)
+
+    failures = []
+    publishing._validate_mart_global_inventory(
+        [{**mart_row, "home_team": "Different"}],
+        [market],
+        failures,
+    )
     _assert_failures(failures)
 
     failures = []

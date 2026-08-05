@@ -102,16 +102,7 @@ def test_sync_odds_pool_without_shutdown_completes(monkeypatch):
     monkeypatch.setattr(
         odds_sync,
         "_sync_token_group_plan",
-        wrap_token_sync_as_group(
-            lambda *a, **k: {
-                "rows": 0,
-                "windows": 1,
-                "empty": True,
-                "error": 0,
-                "permanent_error": 0,
-                "fully_checked": False,
-            },
-        ),
+        lambda *a, **k: [],
     )
     monkeypatch.setattr(odds_sync, "Thread", NoThread)
     monkeypatch.setattr(odds_sync, "_writer_loop", lambda *a, **k: None)

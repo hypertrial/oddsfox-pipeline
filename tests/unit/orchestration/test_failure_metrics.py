@@ -21,6 +21,13 @@ def test_build_failure_metrics_includes_summary_and_extra() -> None:
     assert payload["error_message"] == "boom"
     assert payload["asset"] == "sync_odds"
 
+    class _NoStatus(Exception):
+        summary = {"status": None, "tokens": 1}
+
+    no_status = build_failure_metrics(_NoStatus("boom"))
+    assert "failure_status" not in no_status
+    assert no_status["tokens"] == 1
+
 
 def test_save_asset_failure_metrics_delegates_to_save_fn() -> None:
     captured: list[tuple[str, dict]] = []

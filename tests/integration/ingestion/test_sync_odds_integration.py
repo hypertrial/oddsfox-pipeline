@@ -581,9 +581,11 @@ def test_sync_odds_pool_worker_exception_queues_retry_state(monkeypatch):
         rate_limiter_factory=lambda r: None,
     )
 
+    # Transient pool failures schedule ledger retry only; permanent skips are
+    # written by the per-token BadRequest/PermanentAPIError path.
     skip_puts = [item for item in puts if item and item[0] == "skipped_tokens"]
     state_puts = [item for item in puts if item and item[0] == "token_state"]
-    assert skip_puts == [("skipped_tokens", [(plan.token_id, "worker blew up")])]
+    assert skip_puts == []
     assert len(state_puts) == 1
     state_row = state_puts[0][1][0]
     assert state_row[0] == plan.token_id

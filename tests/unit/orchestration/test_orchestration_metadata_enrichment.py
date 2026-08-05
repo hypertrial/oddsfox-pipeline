@@ -289,3 +289,194 @@ def test_metadata_enrichment_guardrail_poll_checks_and_raises_worker_errors(
                     }
                 },
             )
+
+
+def test_market_scope_registry_helper_persists_failure_metrics(monkeypatch):
+    from oddsfox_pipeline.orchestration import config as orch_config
+    from oddsfox_pipeline.orchestration import (
+        polymarket_asset_helpers_registry as helpers,
+    )
+
+    failures = []
+    monkeypatch.setattr(
+        helpers,
+        "save_asset_failure_metrics",
+        lambda task, exc, **kwargs: failures.append((task, str(exc), kwargs)),
+    )
+    monkeypatch.setattr(
+        helpers,
+        "_run_with_raw_snapshot",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        helpers._materialize_market_scope_registry(
+            MagicMock(log=MagicMock()),
+            orch_config.MarketScopeRegistryConfig(force_refresh=True),
+            scope_name="wc2026",
+            get_sync_run_metrics_fn=lambda *_a, **_k: None,
+            snapshot_refreshed_scope_name_fn=lambda _metrics: None,
+            sync_market_scope_registry_fn=lambda **_k: {},
+        )
+
+    assert failures == [
+        (
+            "sync_market_scope_registry",
+            "boom",
+            {"scope_name": "wc2026"},
+        )
+    ]
+
+
+def test_event_catalog_helper_exercises_checkpoint_callbacks(monkeypatch):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    from dagster import AssetKey
+
+    from oddsfox_pipeline.orchestration import config as orch_config
+    from oddsfox_pipeline.orchestration import (
+        polymarket_asset_helpers_registry as helpers,
+    )
+
+    calls = []
+    conn = object()
+
+    @contextmanager
+    def connection():
+        yield conn
+
+    monkeypatch.setattr(
+        helpers,
+        "load_event_catalog_partition_checkpoints",
+        lambda active, **kwargs: calls.append(("load", active, kwargs)) or {},
+    )
+    monkeypatch.setattr(
+        helpers,
+        "save_event_catalog_partition_checkpoint",
+        lambda active, *args, **kwargs: calls.append(("save", active, args, kwargs)),
+    )
+    monkeypatch.setattr(
+        helpers,
+        "clear_event_catalog_partition_checkpoints",
+        lambda active, **kwargs: calls.append(("clear", active, kwargs)),
+    )
+
+    def collect(**kwargs):
+        kwargs["progress_callback"]("page", {"events_page": 2})
+        kwargs["load_checkpoint_fn"]()
+        kwargs["save_checkpoint_fn"]("partition", {"e": {}}, {"complete": True})
+        return SimpleNamespace(
+            market_payloads=[{"id": "m"}],
+            event_snapshots=[{"id": "e"}],
+            event_tag_snapshots=[{"id": "tag"}],
+            event_market_snapshots=[{"id": "membership"}],
+            summary={"observed_at": "2026-01-01", "events": 1},
+        )
+
+    results = list(
+        helpers._materialize_event_catalog(
+            MagicMock(log=MagicMock()),
+            orch_config.MarketScopeRegistryConfig(reset_event_catalog_checkpoint=True),
+            asset_name="event_catalog",
+            scope_name="wc2026",
+            collect_event_catalog_fn=collect,
+            merge_event_catalog_batch_fn=lambda **_kwargs: None,
+            normalize_market_payloads_fn=lambda rows, **_kwargs: rows,
+            ensure_indexes_fn=lambda *_a, **_k: None,
+            get_connection_fn=connection,
+            save_sync_run_metrics_fn=lambda *_a, **_k: None,
+            event_catalog_key=AssetKey("catalog"),
+            event_snapshots_key=AssetKey("snapshots"),
+            event_memberships_key=AssetKey("memberships"),
+        )
+    )
+
+    assert len(results) == 3
+    assert [call[0] for call in calls] == ["clear", "load", "save", "clear"]
+
+
+def test_raw_markets_helper_persists_failure_metrics(monkeypatch):
+    from oddsfox_pipeline.orchestration import config as orch_config
+    from oddsfox_pipeline.orchestration import (
+        polymarket_asset_helpers_markets as helpers,
+    )
+
+    failures = []
+    monkeypatch.setattr(
+        helpers, "get_polymarket_dlt_pipeline", lambda **_kwargs: MagicMock()
+    )
+    monkeypatch.setattr(
+        helpers,
+        "save_asset_failure_metrics",
+        lambda task, exc, **kwargs: failures.append((task, str(exc), kwargs)),
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        list(
+            helpers._run_raw_markets(
+                MagicMock(log=MagicMock()),
+                orch_config.MarketsSyncConfig(),
+                MagicMock(),
+                asset_name="polymarket_wc2026_raw_markets",
+                scope_name="wc2026",
+                discovery_mode="full_keyset",
+                source_fn=lambda **_kwargs: object(),
+                collect_market_scope_payload_fn=lambda **_kwargs: (_ for _ in ()).throw(
+                    RuntimeError("boom")
+                ),
+                save_market_tokens_batch_fn=lambda *_a, **_k: None,
+                save_sync_run_metrics_fn=lambda *_a, **_k: None,
+                get_connection_fn=MagicMock(),
+                ensure_indexes_fn=lambda *_a, **_k: None,
+            )
+        )
+
+    assert failures == [("sync_markets", "boom", {"scope_name": "wc2026"})]
+
+
+def test_raw_markets_helper_records_collection_progress(monkeypatch):
+    from contextlib import contextmanager
+
+    from oddsfox_pipeline.orchestration import config as orch_config
+    from oddsfox_pipeline.orchestration import (
+        polymarket_asset_helpers_markets as helpers,
+    )
+
+    pipeline = MagicMock(has_pending_data=False)
+    monkeypatch.setattr(
+        helpers, "get_polymarket_dlt_pipeline", lambda **_kwargs: pipeline
+    )
+
+    @contextmanager
+    def connection():
+        yield object()
+
+    def collect(**kwargs):
+        kwargs["progress_callback"]("events", {"events_page": 2})
+        return {
+            "market_rows": [],
+            "token_rows": [],
+            "run_summary": {"total_fetched": 0},
+        }
+
+    dlt_resource = MagicMock()
+    dlt_resource.run.return_value = iter(())
+    list(
+        helpers._run_raw_markets(
+            MagicMock(log=MagicMock()),
+            orch_config.MarketsSyncConfig(),
+            dlt_resource,
+            asset_name="polymarket_wc2026_raw_markets",
+            scope_name="wc2026",
+            discovery_mode="full_keyset",
+            source_fn=lambda **_kwargs: object(),
+            collect_market_scope_payload_fn=collect,
+            save_market_tokens_batch_fn=lambda *_a, **_k: None,
+            save_sync_run_metrics_fn=lambda *_a, **_k: None,
+            get_connection_fn=connection,
+            ensure_indexes_fn=lambda *_a, **_k: None,
+        )
+    )
+
+    pipeline.drop_pending_packages.assert_not_called()

@@ -407,7 +407,7 @@ def _selector_groups(
     groups: list[tuple[frozenset[str], bool]] = []
     for part in selector.split():
         stripped = part.strip()
-        if not stripped:
+        if not stripped:  # pragma: no cover - str.split omits empty fields
             continue
         include_ancestors = stripped.startswith("+")
         token = stripped.lstrip("+")

@@ -202,7 +202,7 @@ def fetch_group_window_with_auto_split(
         if s_ts >= e_ts:
             continue
         active_markets = [token_id for token_id in markets if token_id in active]
-        if not active_markets:
+        if not active_markets:  # pragma: no cover - while guard requires active
             break
         try:
             chunk_map = fetch_batch_token_history_fn(

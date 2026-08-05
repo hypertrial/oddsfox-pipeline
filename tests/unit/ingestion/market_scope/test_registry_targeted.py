@@ -434,3 +434,173 @@ def test_targeted_progress_callbacks_ignore_failures(monkeypatch, tmp_path):
         progress_callback=_boom,
     )
     assert summary["discovery_mode"] == "targeted"
+
+
+def test_collect_markets_from_registry_covers_progress_and_callback_failure(
+    monkeypatch,
+):
+    cfg = MarketScopeConfig(
+        event_slugs=("slug-a",),
+        event_slug_prefixes=(),
+        market_ids=("1001",),
+        registry_max_event_pages=None,
+    )
+    monkeypatch.setattr(scope_registry_mod, "load_market_scope_config", lambda: cfg)
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "fetch_gamma_event_by_slug",
+        lambda *_a: {
+            "id": "ev-a",
+            "slug": "slug-a",
+            "markets": [{"id": "2001"}],
+        },
+    )
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "get_registry_market_ids",
+        lambda _scope_name: ["3001"],
+    )
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "_fetch_markets_batch_resilient",
+        lambda *_a, **_k: [
+            {
+                "id": "1001",
+                "events": [{"id": "ev-a", "slug": "slug-a"}],
+            }
+        ],
+    )
+    progress = []
+
+    markets, meta = scope_registry_mod.collect_markets_from_registry(
+        MagicMock(),
+        progress_callback=lambda phase, payload: progress.append((phase, payload)),
+    )
+
+    assert {market["id"] for market in markets} == {"1001", "2001"}
+    assert meta["discovery_mode"] == "registry_collect"
+    assert meta["registry_refreshed"] is False
+    assert meta["api_requests"] == 2
+    assert [phase for phase, _ in progress] == [
+        "market_scope_event_by_slug",
+        "market_scope_markets_by_id",
+    ]
+
+    markets, _ = scope_registry_mod.collect_markets_from_registry(
+        MagicMock(),
+        config=cfg,
+        progress_callback=lambda *_a: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    assert markets
+
+    monkeypatch.setattr(
+        scope_registry_mod, "fetch_gamma_event_by_slug", lambda *_a: None
+    )
+    markets, _ = scope_registry_mod.collect_markets_from_registry(
+        MagicMock(), config=cfg
+    )
+    assert [market["id"] for market in markets] == ["1001"]
+
+    empty_cfg = MarketScopeConfig(
+        event_slugs=(),
+        event_slug_prefixes=(),
+        market_ids=(),
+        registry_max_event_pages=None,
+    )
+    monkeypatch.setattr(
+        scope_registry_mod, "get_registry_market_ids", lambda _scope_name: []
+    )
+    assert (
+        scope_registry_mod.collect_markets_from_registry(MagicMock(), config=empty_cfg)[
+            0
+        ]
+        == []
+    )
+
+
+def test_refresh_registry_from_event_catalog(monkeypatch):
+    from oddsfox_pipeline.storage.duckdb import event_catalog_markets
+    from oddsfox_pipeline.storage.duckdb.market_scope_registry import RegistryRow
+
+    cfg = MarketScopeConfig(
+        event_slugs=(),
+        event_slug_prefixes=(),
+        market_ids=("seed-1",),
+        registry_max_event_pages=None,
+    )
+    event_row = RegistryRow(
+        scope_name=cfg.scope_name,
+        market_id="market-1",
+        event_slug="event-a",
+        event_id="event-1",
+        source="event_catalog",
+    )
+    seen_active_ids = []
+    monkeypatch.setattr(scope_registry_mod, "load_market_scope_config", lambda: cfg)
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "build_registry_rows_from_event_catalog",
+        lambda **kwargs: [*kwargs["seed_rows"], event_row],
+    )
+    monkeypatch.setattr(
+        scope_registry_mod, "upsert_registry_rows", lambda rows: len(rows)
+    )
+    monkeypatch.setattr(
+        scope_registry_mod,
+        "prune_stale_event_catalog_registry_rows",
+        lambda **kwargs: seen_active_ids.extend(kwargs["active_market_ids"]) or 2,
+    )
+    monkeypatch.setattr(
+        event_catalog_markets,
+        "materialize_registry_markets_from_event_catalog",
+        lambda **_kwargs: {
+            "markets_materialized": 1,
+            "token_rows_materialized": 2,
+        },
+    )
+
+    summary = scope_registry_mod.refresh_registry_from_event_catalog()
+
+    assert summary["registry_rows_upserted"] == 2
+    assert summary["registry_rows_pruned"] == 2
+    assert summary["by_source"] == {"seed": 1, "event_catalog": 1}
+    assert summary["eligible_events"] == 1
+    assert summary["markets_materialized"] == 1
+    assert summary["token_rows_materialized"] == 2
+    assert seen_active_ids == ["market-1"]
+
+    explicit = scope_registry_mod.refresh_registry_from_event_catalog(config=cfg)
+    assert explicit["scope_name"] == cfg.scope_name
+
+
+def test_collect_market_scope_payload_without_registry_refresh(monkeypatch):
+    from oddsfox_pipeline.ingestion.polymarket.markets import sync as markets_sync
+
+    cfg = MarketScopeConfig(
+        event_slugs=(),
+        event_slug_prefixes=(),
+        market_ids=(),
+        registry_max_event_pages=None,
+    )
+    monkeypatch.setattr(markets_sync, "load_market_scope_config", lambda **_k: cfg)
+    monkeypatch.setattr(
+        markets_sync,
+        "collect_markets_from_registry",
+        lambda *_a, **_k: (
+            [],
+            {"registry_refreshed": False, "api_requests": 1},
+        ),
+    )
+
+    result = markets_sync.collect_market_scope_payload(
+        client_factory=MagicMock,
+        refresh_registry=False,
+    )
+
+    assert result["registry_summary"] == {
+        "task": "collect_markets_from_registry",
+        "registry_refreshed": False,
+        "scope_name": "wc2026",
+        "markets_collected": 0,
+    }
+    assert result["run_summary"]["registry_refreshed"] is False

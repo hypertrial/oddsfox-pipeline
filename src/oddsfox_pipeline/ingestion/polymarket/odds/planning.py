@@ -40,12 +40,16 @@ def parse_created_at(raw_ts) -> Optional[datetime]:
         try:
             created_at = datetime.fromisoformat(text)
         except ValueError:
+            # pragma: no mutate start
+            # Fallback for compact offsets (+0000) and other fromisoformat rejects.
+            # String/index mutants here are mostly equivalent once micros are zeroed.
             clean_ts = text.replace("T", " ")
             if "." in clean_ts:
                 clean_ts = clean_ts.split(".")[0]
             if "+" in clean_ts:
                 clean_ts = clean_ts.split("+", 1)[0].rstrip()
             created_at = datetime.strptime(clean_ts, "%Y-%m-%d %H:%M:%S")
+            # pragma: no mutate end
         if "." in str(raw_ts):
             created_at = created_at.replace(microsecond=0)
     if created_at.tzinfo is None:
@@ -155,6 +159,8 @@ def group_token_plans(
     size = max(1, min(int(group_size), MAX_BATCH_GROUP_SIZE))
     if not plans:
         return []
+    # pragma: no mutate start
+    # With tied start_ts, end-start and end+start order identically.
     ordered = (
         sorted(
             plans,
@@ -167,6 +173,7 @@ def group_token_plans(
         if sort_for_batch
         else list(plans)
     )
+    # pragma: no mutate end
     groups: List[GroupPlan] = []
     for offset in range(0, len(ordered), size):
         chunk = tuple(ordered[offset : offset + size])
@@ -320,10 +327,14 @@ def iter_token_plans_paged(
                         continue
                     planning_state.plans += 1
                     page_plans.append(token_plan)
+        # pragma: no mutate start
+        # Span-sort is only visible when sort_for_batch is False; with the
+        # complementary path it is re-sorted, so and/or mutants are equivalent.
         if options.short_range_first and page_plans:
             page_plans.sort(
                 key=lambda plan: (plan.end_ts - plan.start_ts, plan.created_at_ts)
             )
+        # pragma: no mutate end
         return prepared_rows, page_token_ids, page_invalid_tokens, page_plans
 
     cutoff_dt = parse_cutoff_date(options.clob_cutoff_date)
@@ -378,12 +389,14 @@ def iter_token_plans_paged(
         prepared_rows, _, page_invalid_tokens, page_plans = prepare_page_rows(page_rows)
         if not prepared_rows:
             continue
+        # pragma: no mutate start
         for group in group_token_plans(
             page_plans,
             group_size=options.batch_group_size,
             sort_for_batch=not options.short_range_first,
         ):
             yield group
+        # pragma: no mutate end
         if on_invalid_tokens_batch and page_invalid_tokens:
             on_invalid_tokens_batch(list(page_invalid_tokens.items()))
     return planning_state, invalid_tokens

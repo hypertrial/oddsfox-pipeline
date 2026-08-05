@@ -92,7 +92,7 @@ as execution. Strategy consumers use private `wc2026.v1` separately.
 
 ## Supported local scopes
 
-Version `0.1.x` supports Polymarket FIFA World Cup 2026 (golden mart:
+Version `0.2.x` supports Polymarket FIFA World Cup 2026 (golden mart:
 `polymarket_wc2026_market_hourly_odds`) and Kalshi WC2026 stage and
 group-winner markets. FIFA fixture/results ingestion runs in the Kalshi full
 pipeline and isolated match-minute path, not the default Polymarket quickstart.

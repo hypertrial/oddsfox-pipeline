@@ -18,6 +18,10 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
 from oddsfox_pipeline.storage.duckdb.schemas.kalshi import create_test_kalshi_raw_tables
 
 
+def test_empty_candlestick_ledger_state_batch_is_noop():
+    assert kalshi_candlesticks.upsert_candlestick_ledger_states_batch([]) is None
+
+
 def _seed_registry_and_market(duck, *, market_ticker="KXWC-MKT1", open_time=None):
     with duck.get_connection() as conn:
         create_test_kalshi_raw_tables(conn)

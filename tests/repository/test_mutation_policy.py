@@ -21,7 +21,6 @@ TARGETS = [
     "src/oddsfox_pipeline/ingestion/polymarket/market_scope/predicates.py",
     "src/oddsfox_pipeline/ingestion/polymarket/markets/persistence.py",
     "src/oddsfox_pipeline/ingestion/polymarket/odds/planning.py",
-    "src/oddsfox_pipeline/ingestion/polymarket/polygon_settlement_normalize.py",
 ]
 TESTS = [
     "tests/unit/resources/test_outbound_url.py",
@@ -29,7 +28,6 @@ TESTS = [
     "tests/unit/ingestion/market_scope/test_predicates.py",
     "tests/unit/ingestion/test_market_persistence.py",
     "tests/unit/ingestion/test_odds_planning.py",
-    "tests/unit/ingestion/polygon_settlement/test_normalize.py",
 ]
 
 

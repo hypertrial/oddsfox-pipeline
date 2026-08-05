@@ -1,7 +1,7 @@
 # Development
 
 Use this page when changing code, dbt models, docs, or orchestration behavior.
-OddsFox Pipeline is a prediction-market pipeline; v0.1.x development touches the
+OddsFox Pipeline is a prediction-market pipeline; v0.2.x development touches the
 Polymarket WC2026 and Kalshi WC2026 adapters, marts, and orchestration. For a short contributor map, start with
 [Contributors](../audiences/contributors.md). For operator setup, start with
 [Quickstart](../getting-started/index.md).
@@ -94,7 +94,7 @@ Costguard finding before switching a model to table or incremental.
 
 ## Adding A Scope
 
-OddsFox Pipeline v0.1.x ships fixed scopes, not a runtime scope selector. Add a scope by
+OddsFox Pipeline v0.2.x ships fixed scopes, not a runtime scope selector. Add a scope by
 making the static surfaces explicit and letting the guard tests catch drift:
 
 1. Add the source discovery seed entry, for example in the Polymarket or Kalshi
@@ -126,7 +126,7 @@ when settings reload from disk. See
 ## Pull Request Expectations
 
 - Keep PRs focused and update docs for behavior or operator workflow changes.
-- Breaking changes are OK in v0.1.x; document them in CHANGELOG and data
+- Breaking changes are OK in v0.2.x; document them in CHANGELOG and data
   contracts — do not add legacy fallbacks unless the PR explicitly scopes compat
   work.
 - Add or update tests for changed behavior.

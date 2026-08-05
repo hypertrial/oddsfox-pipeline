@@ -20,6 +20,8 @@ from oddsfox_pipeline.orchestration.jobs import (
     POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION,
     POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_SELECTION,
     POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_SELECTION,
+    _merge_dbt_build_config,
+    _merge_op_config,
     _merge_run_configs,
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (
@@ -212,6 +214,51 @@ def test_wc2026_jobs_do_not_expose_scope_config():
     assert legacy_key not in set(_nested_keys(hourly_config))
     assert legacy_key not in set(_nested_keys(full_config))
     assert "oddsfox_dbt" in full_config
+
+
+def test_merge_dbt_build_config_deduplicates_selects_and_excludes():
+    merged = _merge_dbt_build_config(
+        {
+            "dbt_select": "+first shared",
+            "dbt_exclude": "tag:one shared",
+            "full_refresh": False,
+        },
+        {
+            "dbt_select": "shared +second",
+            "dbt_exclude": "shared tag:two",
+            "full_refresh": True,
+        },
+    )
+
+    assert merged == {
+        "dbt_select": "+first shared +second",
+        "dbt_exclude": "tag:one shared tag:two",
+        "full_refresh": True,
+    }
+    assert _merge_dbt_build_config({"x": 1}, {"y": 2}) == {"x": 1, "y": 2}
+
+
+def test_merge_op_config_handles_empty_dbt_and_plain_configs():
+    incoming = {"config": {"dbt_select": "+model", "enabled": True}}
+    assert _merge_op_config(None, incoming) == incoming
+    assert _merge_op_config(
+        {"config": {"dbt_exclude": "tag:skip", "enabled": False}},
+        incoming,
+    ) == {
+        "config": {
+            "dbt_select": "+model",
+            "dbt_exclude": "tag:skip",
+            "enabled": True,
+        }
+    }
+    assert _merge_op_config(
+        {"config": "old", "tags": {"a": "1"}},
+        {"config": "new"},
+    ) == {"config": "new", "tags": {"a": "1"}}
+    assert _merge_op_config(
+        {"config": {"enabled": False}},
+        {"config": {"enabled": True}},
+    ) == {"config": {"enabled": True}}
 
 
 def test_match_minute_job_is_closed_untruncated_and_unscheduled():

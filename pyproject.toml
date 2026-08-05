@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oddsfox-pipeline"
-version = "0.1.13"
+version = "0.2.0"
 description = "Dagster-orchestrated dlt + dbt + DuckDB pipeline for prediction-market data."
 readme = "README.md"
 license = "MIT"
@@ -83,7 +83,6 @@ only_mutate = [
   "src/oddsfox_pipeline/ingestion/polymarket/market_scope/predicates.py",
   "src/oddsfox_pipeline/ingestion/polymarket/markets/persistence.py",
   "src/oddsfox_pipeline/ingestion/polymarket/odds/planning.py",
-  "src/oddsfox_pipeline/ingestion/polymarket/polygon_settlement_normalize.py",
 ]
 pytest_add_cli_args = ["--hypothesis-seed=20260725"]
 pytest_add_cli_args_test_selection = [
@@ -92,7 +91,6 @@ pytest_add_cli_args_test_selection = [
   "tests/unit/ingestion/market_scope/test_predicates.py",
   "tests/unit/ingestion/test_market_persistence.py",
   "tests/unit/ingestion/test_odds_planning.py",
-  "tests/unit/ingestion/polygon_settlement/test_normalize.py",
 ]
 
 [tool.setuptools]

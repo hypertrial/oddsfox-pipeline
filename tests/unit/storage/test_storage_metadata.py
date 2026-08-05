@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 
+import duckdb
 from tests.unit.storage.duckdb_storage_test_support import T_PRE
 
 import oddsfox_pipeline.storage.duckdb.metadata as metadata
@@ -326,3 +327,110 @@ def test_event_catalog_partition_checkpoint_rejects_blank_key(duck):
     with metadata.get_connection() as conn:
         with pytest.raises(ValueError, match="partition_key"):
             metadata.save_event_catalog_partition_checkpoint(conn, "  ", {}, {})
+
+
+def test_save_kalshi_metrics_tolerates_missing_history_table(monkeypatch):
+    class Conn:
+        def execute(self, sql, *_args, **_kwargs):
+            if "SELECT history_json" in sql:
+                raise RuntimeError("missing")
+            return self
+
+    monkeypatch.setattr(metadata, "ensure_duck_db", lambda: None)
+    metadata.save_sync_run_metrics(
+        "task",
+        {"ok": True},
+        source="kalshi",
+        scope_name="wc2026",
+        conn=Conn(),
+    )
+
+
+def test_save_kalshi_metrics_parses_and_repairs_history(monkeypatch):
+    class Result:
+        def __init__(self, row=None):
+            self.row = row
+
+        def fetchone(self):
+            return self.row
+
+    class Conn:
+        def __init__(self, history):
+            self.history = history
+            self.inserted = None
+
+        def execute(self, sql, params=None):
+            if "SELECT history_json" in sql:
+                return Result((self.history,))
+            self.inserted = params
+            return Result()
+
+    monkeypatch.setattr(metadata, "ensure_duck_db", lambda: None)
+    valid = Conn('[{"old": 1}, "drop"]')
+    metadata.save_sync_run_metrics(
+        "task",
+        {"new": 2},
+        source="kalshi",
+        scope_name="wc2026",
+        history_limit=1,
+        conn=valid,
+    )
+    assert json.loads(valid.inserted[-1]) == [
+        {"new": 2, "timestamp": valid.inserted[1].isoformat()}
+    ]
+
+    corrupt = Conn("{")
+    metadata.save_sync_run_metrics(
+        "task",
+        {"new": 3},
+        source="kalshi",
+        scope_name="wc2026",
+        history_limit=0,
+        conn=corrupt,
+    )
+    assert len(json.loads(corrupt.inserted[-1])) == 1
+
+    non_list = Conn("{}")
+    metadata.save_sync_run_metrics(
+        "task",
+        {"new": 4},
+        source="kalshi",
+        scope_name="wc2026",
+        conn=non_list,
+    )
+    assert len(json.loads(non_list.inserted[-1])) == 1
+
+
+def test_event_catalog_checkpoint_load_skips_bad_rows_and_missing_table():
+    with duckdb.connect(":memory:") as conn:
+        assert metadata.load_event_catalog_partition_checkpoints(conn) == {}
+        metadata.clear_event_catalog_partition_checkpoints(conn)
+
+        conn.execute("CREATE SCHEMA polymarket_wc2026_ops")
+        conn.execute(
+            """
+            CREATE TABLE polymarket_wc2026_ops.event_catalog_scan_checkpoint (
+                partition_key VARCHAR,
+                stable_events_json VARCHAR,
+                scan_summary_json VARCHAR
+            )
+            """
+        )
+        conn.executemany(
+            """
+            INSERT INTO polymarket_wc2026_ops.event_catalog_scan_checkpoint
+            VALUES (?, ?, ?)
+            """,
+            [
+                ("bad-json", "{", "{}"),
+                ("wrong-shape", "[]", "{}"),
+                ("valid", '{"event": {"id": "event"}}', '{"complete": true}'),
+            ],
+        )
+
+        assert metadata.load_event_catalog_partition_checkpoints(conn) == {
+            "valid": {
+                "stable_events": {"event": {"id": "event"}},
+                "scan_summary": {"complete": True},
+            }
+        }

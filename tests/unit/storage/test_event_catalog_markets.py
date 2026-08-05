@@ -4,6 +4,8 @@ from unittest.mock import MagicMock
 from oddsfox_pipeline.storage.duckdb import event_catalog_markets as ecm
 from oddsfox_pipeline.storage.duckdb.event_catalog_markets import (
     _PAYLOAD_COLUMNS,
+    _format_gamma_timestamp,
+    _parse_json_list,
     _payload_row_to_gamma_dict,
     materialize_registry_markets_from_event_catalog,
 )
@@ -68,6 +70,27 @@ def test_payload_row_to_gamma_dict_maps_snapshot_fields_to_gamma_shape():
     assert gamma["events"] == [{"slug": "event-slug", "id": "evt-1"}]
 
 
+def test_event_catalog_payload_scalar_normalizers_and_missing_event():
+    assert _format_gamma_timestamp(None) is None
+    assert _format_gamma_timestamp(" value ") == "value"
+    assert _format_gamma_timestamp(" ") is None
+    assert _format_gamma_timestamp(datetime(2026, 1, 2).date()).endswith(".000Z")
+    assert _format_gamma_timestamp(42) == "42"
+
+    assert _parse_json_list(None) is None
+    assert _parse_json_list([1]) == [1]
+    assert _parse_json_list(" ") is None
+    assert _parse_json_list("[bad") == "[bad"
+    assert _parse_json_list('{"a": 1}') == '{"a": 1}'
+    assert _parse_json_list("plain") == "plain"
+    assert _parse_json_list(42) == 42
+
+    values = tuple(
+        None if column != "market_id" else "m" for column in _PAYLOAD_COLUMNS
+    )
+    assert _payload_row_to_gamma_dict(values)["events"] is None
+
+
 def test_materialize_registry_markets_from_event_catalog_empty(duck):
     result = materialize_registry_markets_from_event_catalog(scope_name="wc2026")
     assert result == {"markets_materialized": 0, "token_rows_materialized": 0}
@@ -124,7 +147,7 @@ def test_materialize_registry_markets_from_event_catalog_runs_pipeline(
             ],
         )
 
-    pipeline = MagicMock(has_pending_data=False)
+    pipeline = MagicMock(has_pending_data=True)
     saved_tokens: list = []
     import oddsfox_pipeline.storage.duckdb.dlt_batch as dlt_batch_mod
 
@@ -143,5 +166,10 @@ def test_materialize_registry_markets_from_event_catalog_runs_pipeline(
 
     assert result["markets_materialized"] == 1
     assert result["token_rows_materialized"] >= 1
+    pipeline.drop_pending_packages.assert_called_once_with()
     assert pipeline.run.called
     assert saved_tokens
+
+    pipeline.has_pending_data = False
+    materialize_registry_markets_from_event_catalog(scope_name="wc2026")
+    pipeline.drop_pending_packages.assert_called_once_with()

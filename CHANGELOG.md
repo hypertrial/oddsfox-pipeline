@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-05
+
 ### Added
 
 - `scripts/export_marts_parquet.py` (`make export-marts-parquet`) exports every
@@ -18,26 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Polymarket asset helpers split into
   `polymarket_asset_helpers_{markets,registry,odds}` with a barrel re-export.
 
-### Fixed
-
-- Kalshi candlestick due filtering compares naive-UTC `next_check_at` walls to
-  `CURRENT_TIMESTAMP AT TIME ZONE 'UTC'` so session timezones no longer skip or
-  pull markets early.
-- Polymarket `token_sync_ledger` NULL/NULL cursor upserts keep `NULL` instead of
-  materializing BIGINT min (which broke `to_timestamp` in staging).
-- Metadata enrich and markets-API scan prefer `is_enclosing_event` the same way
-  market transform does.
-- Gamma/odds ISO datetime parsing truncates >6 fractional digits before
-  `fromisoformat` so trailing offsets are not dropped.
-- `wc2026.v1` `contract_fingerprint` includes `team_ratings_pre_match`,
-  `base_camp_venues`, `international_matches`, and `third_place_slot_assignments`.
-- Match order-book inventory requires FIFA match 95 with 1 market / 2 tokens
-  (aligned with the documented mart contract and singular inventory test).
-- Orchestration docs: only Kalshi has a schedule env enable flag; international
-  results stays hard-stopped at definition load.
+- `scripts/bootstrap_dbt_ci_duckdb.py`, `scripts/gate_timing.py`, Playwright
+  browser caching in Manual Full Validation, and unified uv cache path
+  `.cache/runtime/uv`.
 
 ### Changed
 
+- Focused Mutmut gate drops `polygon_settlement_normalize` so the gate matches
+  the documented mutation surface (outbound URL, raw snapshots, market-scope
+  predicates, market persistence, and odds planning).
 - Dagster dbt warehouse snapshots expand `+` selectors via the dbt manifest
   parent graph (missing manifest falls back to non-expanded matching).
 - Path-keyed Polymarket/Kalshi dlt pipeline caches live in
@@ -61,108 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `stg_polymarket_wc2026_market_tokens`), so registry/enrichment-only tokens
   without payload coverage no longer break dbt relationships.
 
-### Removed
-
-- `polymarket_wc2026_hourly_odds_schedule` and
-  `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`. WC2026 Polymarket events are
-  complete; use manual `polymarket_wc2026_hourly_odds_ingest` or
-  `polymarket_wc2026_full_pipeline` for one-off refreshes.
-- Unused `POLYMARKET_WC2026_HOURLY_WINDOW_DAYS` setting export and the dead
-  Polymarket hourly dbt macro `contract_ref` / `hourly_window_days` branch
-  (lifetime history; Kalshi retention window is unchanged).
-- Unused `validate_git_sha` helper and unused Polygon seed split constants
-  `EXPECTED_GROUP_PROPOSITIONS` / `EXPECTED_KNOCKOUT_PROPOSITIONS`.
-
-### Fixed
-
-- Kalshi hourly/full-pipeline jobs default `force=false` so candlestick ledger
-  due filtering and `routine_interval_hours` apply (matching Polymarket).
-- Polymarket hourly/daily/ledger staging timestamps use
-  `to_timestamp(...) at time zone 'UTC'` so hour buckets stay UTC under
-  half-hour session timezones.
-- Event-catalog market payloads mark enclosing events; market transform prefers
-  `is_enclosing_event` when extracting `event_id` / `event_slug`.
-- Polymarket odds pool group failures schedule ledger retry without writing
-  permanent `token_sync_skips`.
-- Polymarket Gamma datetime parsing converts offset-aware values to naive UTC
-  (aligned with Kalshi/odds planning).
-- Historical international-results shootout/goalscorer joins fail closed on
-  ambiguous `(date, home, away)` matches instead of picking `min(match_id)`.
-- Kalshi candlestick/registry asset helpers persist hard-failure sync metrics.
-- Observability `tag:match_minute` inference covers `match_working_set` and
-  `match_token_minute` intermediates.
-
-- `export_marts_parquet` discovers DuckDB views as well as base tables, so Kalshi
-  marts (materialized as views) are included in the all-marts dump.
-- Kalshi `_parse_ts` converts offset-aware datetimes to naive UTC instead of
-  stripping the offset and keeping local wall time.
-- Event-catalog partition checkpoints reuse only `complete=true` caches;
-  incomplete early-stop partitions are rescanned on retry (including exhaustive
-  recall audits).
-
-- Dagster dbt snapshot tag inference no longer treats `match_trade*` models as
-  `tag:pmxt_order_book` (they are `tag:market_portrait`); also infers
-  `match_minute` and `wc2026_strategy` so excludes match real dbt tags.
-- `snapshot_dbt_models` looks up strategy marts by their DuckDB aliases
-  (`team_ratings_current`, `fixtures`, …) instead of always reporting the
-  `wc2026_*` node names as missing.
-
-- Kalshi market/candlestick normalize maps live `volume_fp` /
-  `open_interest_fp` (fixed-point contract counts) into warehouse `volume` /
-  `open_interest`, with legacy integer-field fallback. Replay cassette updated
-  to the live field shape.
-- Docs: orchestration pipeline registry CI dbt gate column now matches Make /
-  GitHub (`ci-fast` → `dbt-lint`; model builds / inventory in `dbt-build-ci` and
-  isolated lanes; market-portrait exclusion wording corrected).
-- Docs: README and day-two live-column guidance scoped to Kalshi current marts
-  (`is_actionable_live_market` / `current_price_status`).
-
-- Sticky Polymarket market-scope registry admission no longer drops an enclosing
-  event when a newer non-enclosing related-event bridge exists for the same
-  `market_id`.
-- Kalshi HTTP client builds with `retries=0` so urllib3 `status_forcelist`
-  cannot turn 429 responses into status-less `RetryError` before Kalshi's own
-  backoff sees them. `APIClient(retries<=0)` mounts a plain zero-retry adapter.
-- Wrapped `requests.exceptions.ChunkedEncodingError` is classified as a
-  transient pipeline error for Dagster retry.
-- Kalshi dbt source `events` `asset_key` points at `kalshi/wc2026/raw/events`
-  (was incorrectly wired to `raw/markets`).
-- Event-catalog partition checkpoints clear immediately after a successful
-  warehouse merge, before sync-run metrics, so a metrics failure cannot leave
-  stale recovery checkpoints.
-- Docs: CLOB `fidelity=60` is one observation bucket per 60 minutes (hourly),
-  not per minute.
-
-### Changed
-
 - Routine Polymarket WC2026 registry refresh / full pipeline event-catalog runs
   skip the platform-wide slug-prefix recall scan (`include_slug_prefix_recall=
   false`). Tag and series partitions stay exhaustive. Use the unscheduled
   `polymarket_wc2026_event_catalog_recall_audit` job (`make event-catalog-recall-audit`)
   for a rare completeness re-check. Partition-level checkpoints resume interrupted
   crawls; slug-prefix recall can early-stop after consecutive empty match pages.
-
-### Removed
-
-- **Breaking:** Polymarket WC2026 knockout and catalog marts
-  (`polymarket_wc2026_markets`, `polymarket_wc2026_knockout_market_tokens`,
-  `polymarket_wc2026_knockout_markets`, `polymarket_wc2026_knockout_token_hourly_odds`),
-  knockout observability marts/tests, and export scripts
-  `export_polymarket_markets.py` and
-  `export_polymarket_wc2026_knockout_hourly_odds.py`. Delete local warehouse
-  files (`rm oddsfox.duckdb*`) and rerun quickstart after upgrading.
-
-- **Breaking:** Polymarket WC2026 logical atlas — the seven
-  `polymarket_wc2026_logical_*` marts, `polymarket-wc2026-logical-v1` export
-  bundle, `polymarket_wc2026_logical_atlas` job, `release/logical_bundle` asset,
-  `raw/reviewed_event_membership` asset, related dbt models/seeds/tests, and
-  scripts `export_polymarket_wc2026_logical_bundle.py`,
-  `materialize_polymarket_wc2026_logical_fixture.py`, and
-  `build_hosted_artifacts.py`. Shared event-catalog ingestion
-  (`raw/event_catalog`, `raw/event_snapshots`, `raw/event_market_memberships`)
-  remains for market scope registry refresh.
-
-### Changed
 
 - Polymarket WC2026 hourly odds default Dagster config now sets `force=false`,
   so routine runs skip fully-checked closed tokens and only revisit due gaps.
@@ -207,90 +102,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   market portrait. Added `dbt-match-order-book-ci`, `dbt-market-portrait-ci`,
   and `market-portrait-target-validate` release-gate lanes plus synthetic
   portrait/trades replay fixtures.
-
-### Fixed
-
-- Polymarket Gamma market transform now accepts RFC3339 offset timestamps,
-  coalesces `volumeNum` from `volume`, and honors `endDateIso` when `endDate` is
-  absent.
-- Event-catalog registry refresh stamps per-market `scraped_at`, admits membership
-  from the latest enclosing snapshot only, and prunes stale `event_catalog`
-  registry rows after rebuild.
-- Routine `raw/markets` no longer mutates the event-catalog registry
-  (`refresh_registry=false`); metadata enrichment runs inline with guardrail
-  checks instead of a daemon side thread.
-- Kalshi market landing stamps one shared `scraped_at` per sync batch.
-- Elo pre-kickoff export filters `snapshot_scope = '2025'` so duplicate year-end
-  scopes do not emit duplicate team rows.
-
-- `init_duck_db()` again syncs the active DuckDB path before the initialized
-  fast-path return, so `DUCKDB_PATH` / `DUCKDB_NAME` swaps still re-bootstrap
-  under the schema bootstrap lock.
-- `profile_warehouse.py` `--refresh` now propagates `--duckdb-path` to Polymarket
-  sync and dbt subprocesses instead of mutating the settings-default warehouse.
-- Polygon settlement scan status JSON is stored under
-  `BASE_DIR/.cache/polygon_settlement/status/` instead of a hardcoded checkout
-  path.
-- `polymarket_wc2026_full_pipeline` (and other jobs using `_merge_run_configs`)
-  now unions `dbt_select` and `dbt_exclude` when combining `oddsfox_dbt` run
-  configs instead of last-write-wins over the whole op config.
-- Kalshi hourly candlestick sync now honors Dagster `history_backfill_days` and
-  `routine_interval_hours` run-config fields instead of ignoring them.
-- `parse_created_at()` accepts ISO-8601 timestamps ending in `Z` or `+00:00`
-  without fractional seconds.
-- Empty `DUCKDB_PATH` now falls back to `DUCKDB_NAME` like the connection
-  resolver, instead of treating the empty string as a literal path.
-- Unrecognized `POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED` values now omit the
-  closed filter instead of coercing to `false`.
-- Kalshi `map_bounded` now skips per-item transient failures instead of
-  aborting the whole candlestick sync or registry refresh batch.
-- Polymarket market-discovery progress guardrails now read `events_page` and
-  record per-page deltas instead of always reporting zero work.
-- Kalshi and Polymarket progress guardrails now record per-callback work
-  deltas instead of inflating cumulative totals.
-- `wc2026_results` now tolerates a one-day fixture/result date drift when
-  joining international results.
-- `fetch_token_history()` honors explicit `start_ts=0` epoch timestamps.
-- Warehouse profiler numeric classification now covers DuckDB unsigned integer
-  types (`USMALLINT`, `UINTEGER`, `UBIGINT`).
-- Match-minute knockout working-set joins now allow up to one day of kickoff
-  drift instead of a 60-second cutoff that silently dropped mapped markets.
-- Kalshi `hour_start_utc` now stores the hourly candlestick bucket start
-  (`end_period_ts - 3600`) instead of the inclusive period end timestamp.
-- `wc2026_results` keeps one-day date tolerance for team-identity joins but
-  requires exact dates for knockout city-only attribution.
-- Kalshi QF/SF/FL `progression_outcome_label` values now use the
-  `not_eliminated_in_*` convention aligned with price inversion.
-- Order-book backfill progress callbacks now record progress before enforcing
-  hard no-progress timeouts.
-- Release-gate match-order-book and market-portrait lanes now use isolated
-  dbt runtime roots instead of sharing one target directory.
-- `count_polymarket_wc2026_gamma_tag_events.py` now forwards
-  `keyset_related_tags` to Gamma keyset requests.
-- `release-gate-coverage-prep` now prepares dbt state under the coverage
-  runtime root used by coverage shards.
-- `join_under_base()` now rejects relative hrefs that escape the base path via
-  `../` segments.
-
-### Removed
-
-- Polymarket US midterms 2026 pipeline (`polymarket_us_midterms_2026_*` jobs,
-  schedules, dbt graph, and `POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED`).
-- Cross-platform WC2026 knockout match pipeline (`wc2026_knockout_match_odds_full_pipeline`,
-  `wc2026_marts.wc2026_knockout_match_hourly_odds`, related observability, and
-  `WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED`).
-- Docker packaging and publication: Dockerfile(s), `.dockerignore`, container
-  smoke Make targets, GHCR multi-arch publish/sign steps, and the Docker image
-  guide. OddsFox Pipeline is macOS-first; distribution smoke stays on
-  `make package-smoke`.
-- Retired first-party terminology identifiers and prose from the compact
-  cutover (see [Terminology](docs/reference/terminology.md) deprecated table):
-  `token_universe` / `match_market_universe` model names and “market/token/
-  validated universe” phrases, ScopeStep `market_registry`, `publish_current`,
-  `scope_class`, and related graph-export product names. Operators with older
-  warehouses delete `oddsfox.duckdb*` and rebuild.
-
-### Changed
 
 - Routine scoped dbt jobs (`polymarket_wc2026_dbt_build`,
   `kalshi_wc2026_dbt_build`, and
@@ -363,12 +174,195 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   duplicated in the release / Manual Full `dbt-quality` sequence because
   `integration-dbt-cov` already executes them.
 
-### Added
+### Removed
 
-- `scripts/bootstrap_dbt_ci_duckdb.py`, `scripts/gate_timing.py`, Playwright
-  browser caching in Manual Full Validation, and unified uv cache path
-  `.cache/runtime/uv`.
+- `polymarket_wc2026_hourly_odds_schedule` and
+  `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`. WC2026 Polymarket events are
+  complete; use manual `polymarket_wc2026_hourly_odds_ingest` or
+  `polymarket_wc2026_full_pipeline` for one-off refreshes.
+- Unused `POLYMARKET_WC2026_HOURLY_WINDOW_DAYS` setting export and the dead
+  Polymarket hourly dbt macro `contract_ref` / `hourly_window_days` branch
+  (lifetime history; Kalshi retention window is unchanged).
+- Unused `validate_git_sha` helper and unused Polygon seed split constants
+  `EXPECTED_GROUP_PROPOSITIONS` / `EXPECTED_KNOCKOUT_PROPOSITIONS`.
 
+- **Breaking:** Polymarket WC2026 knockout and catalog marts
+  (`polymarket_wc2026_markets`, `polymarket_wc2026_knockout_market_tokens`,
+  `polymarket_wc2026_knockout_markets`, `polymarket_wc2026_knockout_token_hourly_odds`),
+  knockout observability marts/tests, and export scripts
+  `export_polymarket_markets.py` and
+  `export_polymarket_wc2026_knockout_hourly_odds.py`. Delete local warehouse
+  files (`rm oddsfox.duckdb*`) and rerun quickstart after upgrading.
+
+- **Breaking:** Polymarket WC2026 logical atlas — the seven
+  `polymarket_wc2026_logical_*` marts, `polymarket-wc2026-logical-v1` export
+  bundle, `polymarket_wc2026_logical_atlas` job, `release/logical_bundle` asset,
+  `raw/reviewed_event_membership` asset, related dbt models/seeds/tests, and
+  scripts `export_polymarket_wc2026_logical_bundle.py`,
+  `materialize_polymarket_wc2026_logical_fixture.py`, and
+  `build_hosted_artifacts.py`. Shared event-catalog ingestion
+  (`raw/event_catalog`, `raw/event_snapshots`, `raw/event_market_memberships`)
+  remains for market scope registry refresh.
+
+- Polymarket US midterms 2026 pipeline (`polymarket_us_midterms_2026_*` jobs,
+  schedules, dbt graph, and `POLYMARKET_US_MIDTERMS_2026_HOURLY_ODDS_SCHEDULE_ENABLED`).
+- Cross-platform WC2026 knockout match pipeline (`wc2026_knockout_match_odds_full_pipeline`,
+  `wc2026_marts.wc2026_knockout_match_hourly_odds`, related observability, and
+  `WC2026_KNOCKOUT_MATCH_ODDS_HOURLY_SCHEDULE_ENABLED`).
+- Docker packaging and publication: Dockerfile(s), `.dockerignore`, container
+  smoke Make targets, GHCR multi-arch publish/sign steps, and the Docker image
+  guide. OddsFox Pipeline is macOS-first; distribution smoke stays on
+  `make package-smoke`.
+- Retired first-party terminology identifiers and prose from the compact
+  cutover (see [Terminology](docs/reference/terminology.md) deprecated table):
+  `token_universe` / `match_market_universe` model names and “market/token/
+  validated universe” phrases, ScopeStep `market_registry`, `publish_current`,
+  `scope_class`, and related graph-export product names. Operators with older
+  warehouses delete `oddsfox.duckdb*` and rebuild.
+
+### Fixed
+
+- Match-minute CI seed writes `event_market_payload_snapshots` so
+  `stg_polymarket_wc2026_markets` (payload SoT) can build the synthetic
+  104/248/496 contract after the markets staging cutover.
+- Restore 100% statement/branch coverage for `release-gate` (unit + Dagster +
+  dbt shards) after post-0.1.13 gaps in registry collect, odds fetch/execution,
+  jobs config merge, and related helpers.
+- Kalshi candlestick due filtering compares naive-UTC `next_check_at` walls to
+  `CURRENT_TIMESTAMP AT TIME ZONE 'UTC'` so session timezones no longer skip or
+  pull markets early.
+- Polymarket `token_sync_ledger` NULL/NULL cursor upserts keep `NULL` instead of
+  materializing BIGINT min (which broke `to_timestamp` in staging).
+- Metadata enrich and markets-API scan prefer `is_enclosing_event` the same way
+  market transform does.
+- Gamma/odds ISO datetime parsing truncates >6 fractional digits before
+  `fromisoformat` so trailing offsets are not dropped.
+- `wc2026.v1` `contract_fingerprint` includes `team_ratings_pre_match`,
+  `base_camp_venues`, `international_matches`, and `third_place_slot_assignments`.
+- Match order-book inventory requires FIFA match 95 with 1 market / 2 tokens
+  (aligned with the documented mart contract and singular inventory test).
+- Orchestration docs: only Kalshi has a schedule env enable flag; international
+  results stays hard-stopped at definition load.
+
+- Kalshi hourly/full-pipeline jobs default `force=false` so candlestick ledger
+  due filtering and `routine_interval_hours` apply (matching Polymarket).
+- Polymarket hourly/daily/ledger staging timestamps use
+  `to_timestamp(...) at time zone 'UTC'` so hour buckets stay UTC under
+  half-hour session timezones.
+- Event-catalog market payloads mark enclosing events; market transform prefers
+  `is_enclosing_event` when extracting `event_id` / `event_slug`.
+- Polymarket odds pool group failures schedule ledger retry without writing
+  permanent `token_sync_skips`.
+- Polymarket Gamma datetime parsing converts offset-aware values to naive UTC
+  (aligned with Kalshi/odds planning).
+- Historical international-results shootout/goalscorer joins fail closed on
+  ambiguous `(date, home, away)` matches instead of picking `min(match_id)`.
+- Kalshi candlestick/registry asset helpers persist hard-failure sync metrics.
+- Observability `tag:match_minute` inference covers `match_working_set` and
+  `match_token_minute` intermediates.
+
+- `export_marts_parquet` discovers DuckDB views as well as base tables, so Kalshi
+  marts (materialized as views) are included in the all-marts dump.
+- Kalshi `_parse_ts` converts offset-aware datetimes to naive UTC instead of
+  stripping the offset and keeping local wall time.
+- Event-catalog partition checkpoints reuse only `complete=true` caches;
+  incomplete early-stop partitions are rescanned on retry (including exhaustive
+  recall audits).
+
+- Dagster dbt snapshot tag inference no longer treats `match_trade*` models as
+  `tag:pmxt_order_book` (they are `tag:market_portrait`); also infers
+  `match_minute` and `wc2026_strategy` so excludes match real dbt tags.
+- `snapshot_dbt_models` looks up strategy marts by their DuckDB aliases
+  (`team_ratings_current`, `fixtures`, …) instead of always reporting the
+  `wc2026_*` node names as missing.
+
+- Kalshi market/candlestick normalize maps live `volume_fp` /
+  `open_interest_fp` (fixed-point contract counts) into warehouse `volume` /
+  `open_interest`, with legacy integer-field fallback. Replay cassette updated
+  to the live field shape.
+- Docs: orchestration pipeline registry CI dbt gate column now matches Make /
+  GitHub (`ci-fast` → `dbt-lint`; model builds / inventory in `dbt-build-ci` and
+  isolated lanes; market-portrait exclusion wording corrected).
+- Docs: README and day-two live-column guidance scoped to Kalshi current marts
+  (`is_actionable_live_market` / `current_price_status`).
+
+- Sticky Polymarket market-scope registry admission no longer drops an enclosing
+  event when a newer non-enclosing related-event bridge exists for the same
+  `market_id`.
+- Kalshi HTTP client builds with `retries=0` so urllib3 `status_forcelist`
+  cannot turn 429 responses into status-less `RetryError` before Kalshi's own
+  backoff sees them. `APIClient(retries<=0)` mounts a plain zero-retry adapter.
+- Wrapped `requests.exceptions.ChunkedEncodingError` is classified as a
+  transient pipeline error for Dagster retry.
+- Kalshi dbt source `events` `asset_key` points at `kalshi/wc2026/raw/events`
+  (was incorrectly wired to `raw/markets`).
+- Event-catalog partition checkpoints clear immediately after a successful
+  warehouse merge, before sync-run metrics, so a metrics failure cannot leave
+  stale recovery checkpoints.
+- Docs: CLOB `fidelity=60` is one observation bucket per 60 minutes (hourly),
+  not per minute.
+
+- Polymarket Gamma market transform now accepts RFC3339 offset timestamps,
+  coalesces `volumeNum` from `volume`, and honors `endDateIso` when `endDate` is
+  absent.
+- Event-catalog registry refresh stamps per-market `scraped_at`, admits membership
+  from the latest enclosing snapshot only, and prunes stale `event_catalog`
+  registry rows after rebuild.
+- Routine `raw/markets` no longer mutates the event-catalog registry
+  (`refresh_registry=false`); metadata enrichment runs inline with guardrail
+  checks instead of a daemon side thread.
+- Kalshi market landing stamps one shared `scraped_at` per sync batch.
+- Elo pre-kickoff export filters `snapshot_scope = '2025'` so duplicate year-end
+  scopes do not emit duplicate team rows.
+
+- `init_duck_db()` again syncs the active DuckDB path before the initialized
+  fast-path return, so `DUCKDB_PATH` / `DUCKDB_NAME` swaps still re-bootstrap
+  under the schema bootstrap lock.
+- `profile_warehouse.py` `--refresh` now propagates `--duckdb-path` to Polymarket
+  sync and dbt subprocesses instead of mutating the settings-default warehouse.
+- Polygon settlement scan status JSON is stored under
+  `BASE_DIR/.cache/polygon_settlement/status/` instead of a hardcoded checkout
+  path.
+- `polymarket_wc2026_full_pipeline` (and other jobs using `_merge_run_configs`)
+  now unions `dbt_select` and `dbt_exclude` when combining `oddsfox_dbt` run
+  configs instead of last-write-wins over the whole op config.
+- Kalshi hourly candlestick sync now honors Dagster `history_backfill_days` and
+  `routine_interval_hours` run-config fields instead of ignoring them.
+- `parse_created_at()` accepts ISO-8601 timestamps ending in `Z` or `+00:00`
+  without fractional seconds.
+- Empty `DUCKDB_PATH` now falls back to `DUCKDB_NAME` like the connection
+  resolver, instead of treating the empty string as a literal path.
+- Unrecognized `POLYMARKET_WC2026_SCOPE_KEYSET_CLOSED` values now omit the
+  closed filter instead of coercing to `false`.
+- Kalshi `map_bounded` now skips per-item transient failures instead of
+  aborting the whole candlestick sync or registry refresh batch.
+- Polymarket market-discovery progress guardrails now read `events_page` and
+  record per-page deltas instead of always reporting zero work.
+- Kalshi and Polymarket progress guardrails now record per-callback work
+  deltas instead of inflating cumulative totals.
+- `wc2026_results` now tolerates a one-day fixture/result date drift when
+  joining international results.
+- `fetch_token_history()` honors explicit `start_ts=0` epoch timestamps.
+- Warehouse profiler numeric classification now covers DuckDB unsigned integer
+  types (`USMALLINT`, `UINTEGER`, `UBIGINT`).
+- Match-minute knockout working-set joins now allow up to one day of kickoff
+  drift instead of a 60-second cutoff that silently dropped mapped markets.
+- Kalshi `hour_start_utc` now stores the hourly candlestick bucket start
+  (`end_period_ts - 3600`) instead of the inclusive period end timestamp.
+- `wc2026_results` keeps one-day date tolerance for team-identity joins but
+  requires exact dates for knockout city-only attribution.
+- Kalshi QF/SF/FL `progression_outcome_label` values now use the
+  `not_eliminated_in_*` convention aligned with price inversion.
+- Order-book backfill progress callbacks now record progress before enforcing
+  hard no-progress timeouts.
+- Release-gate match-order-book and market-portrait lanes now use isolated
+  dbt runtime roots instead of sharing one target directory.
+- `count_polymarket_wc2026_gamma_tag_events.py` now forwards
+  `keyset_related_tags` to Gamma keyset requests.
+- `release-gate-coverage-prep` now prepares dbt state under the coverage
+  runtime root used by coverage shards.
+- `join_under_base()` now rejects relative hrefs that escape the base path via
+  `../` segments.
 ## [0.1.13] - 2026-08-02
 
 ### Added
@@ -1005,7 +999,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: lint, tests, docs build, dbt parse, and dbt build.
 - Schedules disabled by default; opt-in via `.env` for live ingestion.
 
-[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.13...HEAD
+[Unreleased]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.13...v0.2.0
 [0.1.13]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/hypertrial/oddsfox-pipeline/compare/v0.1.10...v0.1.11

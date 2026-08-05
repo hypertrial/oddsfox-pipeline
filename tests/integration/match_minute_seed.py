@@ -86,6 +86,11 @@ def _insert_market(
     no_token: str,
 ) -> tuple[str, str]:
     markets = polymarket_raw_tbl(SCOPE_WC2026, "markets")
+    payloads = polymarket_raw_tbl(SCOPE_WC2026, "event_market_payload_snapshots")
+    question = f"{event_title} - {group_item_title}"
+    outcomes_json = json.dumps(outcomes)
+    token_ids = json.dumps([yes_token, no_token])
+    condition_id = f"condition-{market_id}"
     conn.execute(
         f"""
         INSERT INTO {markets} (
@@ -104,8 +109,8 @@ def _insert_market(
         """,
         [
             market_id,
-            f"{event_title} - {group_item_title}",
-            json.dumps(outcomes),
+            question,
+            outcomes_json,
             started,
             started,
             finished,
@@ -115,10 +120,47 @@ def _insert_market(
             event_title,
             started,
             finished,
-            f"condition-{market_id}",
+            condition_id,
             sports_market_type,
             group_item_title,
-            json.dumps([yes_token, no_token]),
+            token_ids,
+        ],
+    )
+    # stg_polymarket_wc2026_markets reads payload snapshots, not markets.
+    conn.execute(
+        f"""
+        INSERT INTO {payloads} (
+            market_id, question, category, description, outcomes, volume,
+            active, closed, created_at, scraped_at, end_date, slug, event_slug,
+            event_id, event_title, event_start_time, event_finished_time,
+            event_ended, condition_id, sports_market_type, group_item_title,
+            clob_token_ids, is_resolved, tags, observed_at
+        ) VALUES (
+            ?, ?, 'sports', '', ?, 1000.0, false, true,
+            ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, true,
+            ?, ?, ?, ?,
+            false, '[]', ?
+        )
+        """,
+        [
+            market_id,
+            question,
+            outcomes_json,
+            started,
+            started,
+            finished,
+            market_id,
+            event_slug,
+            event_id,
+            event_title,
+            started,
+            finished,
+            condition_id,
+            sports_market_type,
+            group_item_title,
+            token_ids,
+            started,
         ],
     )
     return yes_token, no_token

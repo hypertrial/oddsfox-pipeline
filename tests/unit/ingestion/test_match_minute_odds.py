@@ -537,3 +537,44 @@ def test_sync_reports_audit_and_publication_storage_failures(
     assert raised.value.summary["status"] == expected_status
     assert raised.value.summary["error_type"] == "RuntimeError"
     conn.close()
+
+
+def test_sync_checks_guardrail_while_waiting_for_fetch(monkeypatch):
+    conn = duckdb.connect(":memory:")
+    start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    plan = match_minute.MatchMinuteTokenPlan(
+        market_id="market",
+        token_id="token",
+        started_at=start,
+        finished_at=start + timedelta(minutes=1),
+    )
+    monkeypatch.setattr(
+        match_minute, "select_match_minute_token_plans", lambda _: [plan]
+    )
+    real_wait = match_minute.wait
+    calls = 0
+
+    def wait_once(pending, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return set(), pending
+        return real_wait(pending, **kwargs)
+
+    monkeypatch.setattr(match_minute, "wait", wait_once)
+    summary = match_minute.sync_match_minute_odds_history(
+        conn,
+        workers=1,
+        requests_per_second=1000,
+        client_factory=object,
+        fetch_window_fn=lambda *_: [("token", int(start.timestamp()), 0.5)],
+        persist_fn=lambda *_a, **_k: None,
+        audit_persist_fn=lambda *_a, **_k: None,
+        no_progress_soft_timeout_seconds=None,
+        no_progress_hard_timeout_seconds=None,
+        progress_poll_seconds=1,
+    )
+
+    assert summary["tokens"] == 1
+    assert calls >= 2
+    conn.close()

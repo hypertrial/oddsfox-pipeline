@@ -667,6 +667,7 @@ def test_market_metadata_unresolved_cooldown_suppresses_event_slug_retry(duck):
 
 def test_fetch_market_ids_no_limit(duck):
     assert isinstance(markets._fetch_market_ids("SELECT 1 WHERE 1=0", limit=None), list)
+    assert markets._fetch_market_ids("SELECT 'm'", limit=1) == ["m"]
 
 
 def test_storage_duckdb_package_import():

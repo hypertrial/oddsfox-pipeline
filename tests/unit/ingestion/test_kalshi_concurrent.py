@@ -15,6 +15,7 @@ def test_map_bounded_skips_failed_workers():
         return item
 
     assert map_bounded([1, 2, 3], worker, max_workers=2) == [1, 3]
+    assert map_bounded([], worker) == []
 
 
 def test_map_bounded_invokes_on_error_for_failed_workers():

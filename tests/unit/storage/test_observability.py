@@ -431,3 +431,86 @@ def test_snapshot_raw_layer_full_tolerates_missing_odds_history(
 
     assert snapshot["polymarket_wc2026_raw.odds_history_missing"] is True
     assert snapshot["odds_history_max_ts"] is None
+
+
+def test_observability_batch_count_fallbacks_and_empty_input():
+    assert obs._batch_table_row_counts(object(), ()) == {}
+
+    class ExistsQueryFails:
+        def execute(self, *_args, **_kwargs):
+            raise duckdb.Error("metadata query failed")
+
+    assert obs._batch_table_row_counts(ExistsQueryFails(), (("schema", "table"),)) == {
+        ("schema", "table"): (False, None)
+    }
+
+    class CountQueryFails:
+        calls = 0
+
+        def execute(self, *_args, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return self
+            raise duckdb.Error("count query failed")
+
+        def fetchall(self):
+            return [("schema", "table", True)]
+
+    assert obs._batch_table_row_counts(CountQueryFails(), (("schema", "table"),)) == {
+        ("schema", "table"): (False, None)
+    }
+
+
+def test_observability_timestamp_manifest_and_selector_edge_branches(
+    tmp_path, monkeypatch
+):
+    class NoneTimestamp:
+        def execute(self, *_args, **_kwargs):
+            return self
+
+        def fetchone(self):
+            return None
+
+    assert obs._scalar_max_timestamp(NoneTimestamp(), "select") is None
+
+    monkeypatch.delenv("DBT_TARGET_PATH", raising=False)
+    assert obs._resolve_dbt_manifest_path() == (
+        obs.DBT_PROJECT_DIR / "target" / "manifest.json"
+    )
+
+    monkeypatch.setenv("DBT_TARGET_PATH", "relative-target")
+    assert (
+        obs._resolve_dbt_manifest_path()
+        == (obs.DBT_PROJECT_DIR / "relative-target").resolve() / "manifest.json"
+    )
+
+    bad_nodes = tmp_path / "bad-nodes.json"
+    bad_nodes.write_text('{"nodes": []}', encoding="utf-8")
+    assert (
+        obs._dbt_model_parent_names_cached(str(bad_nodes), bad_nodes.stat().st_mtime)
+        == {}
+    )
+
+    mixed_nodes = tmp_path / "mixed-nodes.json"
+    mixed_nodes.write_text(
+        json.dumps(
+            {
+                "nodes": {
+                    "source.project.name": {},
+                    "model.project.bad": [],
+                    "model.project.good": {"depends_on": {"nodes": []}},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert obs._dbt_model_parent_names_cached(
+        str(mixed_nodes), mixed_nodes.stat().st_mtime
+    ) == {"good": frozenset()}
+
+    malformed = tmp_path / "malformed.json"
+    malformed.write_text("{", encoding="utf-8")
+    monkeypatch.setattr(obs, "_resolve_dbt_manifest_path", lambda: malformed)
+    assert obs._dbt_model_parent_names() == {}
+
+    assert obs._selector_groups("+ ,,") == ()

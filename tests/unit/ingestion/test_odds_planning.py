@@ -880,6 +880,7 @@ def test_parse_created_at_preserves_all_supported_timestamp_semantics():
     assert parsed_aware == expected
     assert parsed_aware.tzinfo is timezone.utc
     assert odds_sync._parse_created_at("2026-07-18T17:01:02") == expected
+    assert odds_sync._parse_created_at("2026-07-18T17:01:02Z") == expected
     assert odds_sync._parse_created_at("2026-07-18 17:01:02.987654") == expected
     # >6 fractional digits must keep the offset (wall clock is not UTC).
     assert odds_sync._parse_created_at(
@@ -888,6 +889,57 @@ def test_parse_created_at_preserves_all_supported_timestamp_semantics():
     assert odds_sync._parse_created_at(
         "2024-06-11T15:00:00.123456789+05:00"
     ) == datetime(2024, 6, 11, 10, 0, 0, tzinfo=timezone.utc)
+    # Compact offsets fail fromisoformat and must hit the strptime fallback.
+    assert odds_sync._parse_created_at("2026-07-18T17:01:02.999+0000") == expected
+    assert odds_sync._parse_created_at("2026-07-18T17:01:02.bad") == expected
+
+
+def test_parse_created_at_fallback_without_fraction_or_offset(monkeypatch):
+    from oddsfox_pipeline.ingestion.polymarket.odds import planning
+
+    real_datetime = planning.datetime
+
+    class RejectIsoDatetime:
+        @staticmethod
+        def fromisoformat(_value):
+            raise ValueError("force fallback")
+
+        strptime = staticmethod(real_datetime.strptime)
+
+    monkeypatch.setattr(planning, "datetime", RejectIsoDatetime)
+    assert planning.parse_created_at("2026-07-18 17:01:02") == real_datetime(
+        2026, 7, 18, 17, 1, 2, tzinfo=timezone.utc
+    )
+    assert planning.parse_created_at("2026-07-18 17:01:02+0000") == real_datetime(
+        2026, 7, 18, 17, 1, 2, tzinfo=timezone.utc
+    )
+
+
+def test_group_token_plans_sorts_by_window_unless_disabled():
+    from oddsfox_pipeline.ingestion.polymarket.odds.planning import group_token_plans
+
+    late = TokenPlan("b" * 33 + "12", "m", False, 1, 50, 100, 60)
+    early = TokenPlan("a" * 33 + "12", "m", False, 1, 10, 100, 60)
+    sorted_groups = group_token_plans([late, early], group_size=1)
+    assert [p.token_id for g in sorted_groups for p in g.token_plans] == [
+        early.token_id,
+        late.token_id,
+    ]
+    unsorted_groups = group_token_plans(
+        [late, early], group_size=1, sort_for_batch=False
+    )
+    assert [p.token_id for g in unsorted_groups for p in g.token_plans] == [
+        late.token_id,
+        early.token_id,
+    ]
+    # group_size floors at 1 so a zero-size request still yields one plan per group.
+    assert len(group_token_plans([early, late], group_size=1)) == 2
+    assert len(group_token_plans([early], group_size=0)) == 1
+    assert group_token_plans([]) == []
+    grouped = group_token_plans([early, late], group_size=2)[0]
+    assert grouped.group_start_ts == 10
+    assert grouped.group_end_ts == 100
+    assert grouped.fidelity == 60
 
 
 def test_parse_cutoff_date_has_exact_fallback_and_operational_log(caplog):

@@ -1,6 +1,6 @@
 # tests
 
-This subtree validates OddsFox Pipeline. Version `0.1.x`
+This subtree validates OddsFox Pipeline. Version `0.2.x`
 ships WC2026 Polymarket and Kalshi ingestion, marts, and orchestration.
 
 See [OddsFox Pipeline docs](../docs/index.md) for setup and runbook commands.
