@@ -172,6 +172,7 @@ def test_readme_links_to_canonical_docs_and_live_reload():
         "uv run make docs-serve",
         "http://127.0.0.1:8000",
         "(docs/getting-started/index.md)",
+        "(docs/guides/first-query.md)",
         "(docs/guides/query-the-warehouse.md)",
         "(docs/guides/query-recipes.md)",
         "(docs/reference/data-dictionary.md)",
@@ -285,6 +286,73 @@ def test_integrators_hub_checklist_covers_polygon_boundary():
     assert "strategy-contracts.md" in integrators
 
 
+def test_advanced_pipelines_links_child_guides():
+    page = (DOCS_DIR / "guides/advanced-pipelines.md").read_text()
+    for target in (
+        "recreate-match-minute-mart.md",
+        "recreate-match-order-book-mart.md",
+        "recreate-polygon-settlement-mart.md",
+        "market-portrait.md",
+        "orchestration.md#pipeline-registry",
+    ):
+        assert target in page, target
+
+
+def test_first_query_covers_analyst_journey():
+    page = (DOCS_DIR / "guides/first-query.md").read_text()
+    assert "read_only=True" in page
+    assert "*_marts" in page
+    assert "observability" in page.lower()
+    assert "polymarket_wc2026_market_hourly_odds" in page
+
+
+def test_integrators_expansion():
+    page = (DOCS_DIR / "audiences/integrators.md").read_text()
+    assert "contract_metadata" in page
+    assert "Anti-pattern" in page or "anti-pattern" in page.lower()
+    assert "from wc2026_marts.contract_metadata" in page
+    assert "Consumption contract" in page
+
+
+def test_troubleshooting_symptom_index():
+    page = (DOCS_DIR / "guides/troubleshooting.md").read_text()
+    assert "## Symptom index" in page
+    assert "DuckDB Lock Errors" in page
+    assert "dbt Cannot Find Profile" in page
+    assert "Could not set lock" in page
+
+
+def test_kalshi_quickstart_tab():
+    page = (DOCS_DIR / "getting-started/index.md").read_text()
+    assert '=== "Kalshi WC2026"' in page
+    assert "kalshi:wc2026" in page
+    assert "is_actionable_live_market" in page
+    assert '=== "Polymarket WC2026"' in page
+
+
+def test_glossary_nav_shortcut_wording():
+    glossary = (DOCS_DIR / "concepts/glossary.md").read_text()
+    nav = (REPO_ROOT / "mkdocs.yml").read_text()
+    assert "shortcuts" in glossary.lower()
+    assert "normative" in glossary.lower()
+    assert "Analyst shortcuts: concepts/glossary.md" in nav
+
+
+def test_development_human_gate_summary():
+    page = (DOCS_DIR / "development/index.md").read_text()
+    assert "Quality gates (human summary)" in page
+    assert "test-dev" in page
+    assert "ci-fast" in page
+    assert "release-gate" in page
+
+
+def test_homepage_recent_releases():
+    homepage = (DOCS_DIR / "index.md").read_text()
+    assert "## Recent releases" in homepage
+    assert "development/changelog.md" in homepage
+    assert "primary_outcome_label" in homepage
+
+
 def test_terminology_reference_is_documented_and_linked():
     terminology = (DOCS_DIR / "reference/terminology.md").read_text()
     glossary = (DOCS_DIR / "concepts/glossary.md").read_text()
@@ -326,6 +394,8 @@ def test_brand_assets_and_compact_styles_exist():
     assert css.count("@font-face") == 2
     assert ".of-hero" in css
     assert ".of-task-grid" in css
+    assert ".of-personas" in css
+    assert ".of-persona--analyst" in css
     assert ".md-search" not in css
     assert ".md-footer" not in css
     assert "::-webkit-scrollbar" not in css

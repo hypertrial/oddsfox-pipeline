@@ -4,6 +4,23 @@ Use this page when a local run fails. Most fixes assume schedules are disabled
 and only one process is writing to the DuckDB warehouse. The runbooks cover both
 the shipped Polymarket WC2026 scope (`wc2026`).
 
+## Symptom index
+
+| Symptom | First action | Section |
+| --- | --- | --- |
+| `Could not set lock` / database locked | Stop Dagster and shells; retry | [DuckDB Lock Errors](#duckdb-lock-errors) |
+| dbt profile/parse errors | `uv run make dbt-parse` | [dbt Cannot Find Profile](#dbt-cannot-find-profile) |
+| `ContainerInjectableContextMangled` on markets | Pull latest; rerun markets asset | [dlt ContainerInjectableContextMangled](#dlt-containerinjectablecontextmangled) |
+| dlt schema conflict on markets | `DROP TABLE` + rerun markets | [dlt Market Schema Conflict](#dlt-market-schema-conflict) |
+| Stale market metadata after snapshot | Materialize markets first | [Markets vs Snapshot Responsibilities](#markets-vs-snapshot-responsibilities) |
+| Broken/stale warehouse | `rm oddsfox.duckdb*` + quickstart | [Stale Warehouse](#stale-warehouse) |
+| API timeouts / 5xx | Lower RPS; rerun job | [API or Network Failures](#api-or-network-failures) |
+| Interrupted Polymarket hourly dbt | Rerun dbt build / full_refresh | [Interrupted dbt incremental hourly odds](#interrupted-dbt-incremental-hourly-odds) |
+| Polygon RPC / finalized errors | Check RPC config; rerun backfill | [Polygon Settlement RPC Failures](#polygon-settlement-rpc-failures) |
+| Polygon mart missing after ordinary dbt | Use `dbt-polygon-settlement-ci` | [Polygon dbt Graph Is Missing](#polygon-dbt-graph-is-missing) |
+| Tests wrote to production warehouse | Fix `DUCKDB_PATH` in `.env` | [Tests Writing To Production Warehouse](#tests-writing-to-production-warehouse) |
+| Success but repo-root DB empty | `DUCKDB_PATH` points elsewhere | [Warehouse Writes Land in a Different Checkout](#warehouse-writes-land-in-a-different-checkout) |
+
 ## DuckDB Lock Errors
 
 Only one read-write connection can hold the DuckDB file.

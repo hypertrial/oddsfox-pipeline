@@ -90,6 +90,20 @@ as execution. Strategy consumers use private `wc2026.v1` separately.
 
 </div>
 
+## Recent releases
+
+Highlights from `0.2.0`:
+
+- Golden mart `polymarket_wc2026_market_hourly_odds` selects a primary CLOB
+  token for every admitted market and publishes `primary_outcome_label`.
+- Polymarket hourly odds sync fetches CLOB price history via batched
+  `POST /batch-prices-history`.
+- `make export-marts-parquet` exports present `*_marts` relations to Parquet.
+- Kalshi candlestick sync and series-scope registry refresh surface partial
+  failure counts without changing fail-open partial-success behavior.
+
+[Full changelog](development/changelog.md).
+
 ## Supported local scopes
 
 Version `0.2.x` supports Polymarket FIFA World Cup 2026 (golden mart:

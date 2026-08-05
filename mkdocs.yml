@@ -81,6 +81,8 @@ nav:
       - Quickstart: getting-started/index.md
       - Choose a scope: getting-started/choose-a-scope.md
   - Guides:
+      - First query: guides/first-query.md
+      - Advanced pipelines: guides/advanced-pipelines.md
       - Run a scope: guides/run-a-scope.md
       - Query the warehouse: guides/query-the-warehouse.md
       - Query recipes: guides/query-recipes.md
@@ -109,7 +111,7 @@ nav:
       - Scope and non-goals: concepts/scope-and-non-goals.md
       - Operator responsibilities: concepts/operator-responsibilities.md
       - FAQ: concepts/faq.md
-      - Glossary: concepts/glossary.md
+      - Analyst shortcuts: concepts/glossary.md
       - Design decisions: concepts/decisions.md
       - Integration: concepts/integration.md
   - Development:

@@ -1,8 +1,12 @@
 # Quickstart
 
-Use this guide to complete a safe first Polymarket WC2026 run in a local
-DuckDB warehouse. Schedules stay disabled until the manual pipeline and dbt
-models are healthy.
+<p class="of-personas" markdown><span class="of-persona of-persona--operator">Operator</span></p>
+
+Use this guide to complete a safe first WC2026 run in a local DuckDB warehouse.
+Schedules stay disabled until the manual pipeline and dbt models are healthy.
+For step-by-step first runs of either shipped scope, use the tabs below. To
+compare scopes or pick advanced pipelines, see
+[Choose a scope](choose-a-scope.md).
 
 ## Install
 
@@ -69,20 +73,78 @@ PMXT configuration is needed for quickstart.
     this first run. Validate it offline with
     `uv run make dbt-polygon-settlement-ci`, or follow
     [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md)
-    when you explicitly want that dataset.
+    when you explicitly want that dataset. See
+    [Advanced pipelines](../guides/advanced-pipelines.md) for other isolated paths.
 
-## Run the first pipeline
+## Choose your first scope
 
-Run the fixed WC2026 pipeline from discovery through dbt:
+=== "Polymarket WC2026"
 
-```bash
-uv run python scripts/run_scope.py polymarket:wc2026 --step full
-```
+    ### Run the first pipeline
 
-The full run discovers WC2026 markets, syncs the trailing hourly odds window,
-and builds `polymarket_wc2026_market_hourly_odds`.
+    Run the fixed WC2026 pipeline from discovery through dbt:
 
-For a staged run or a dry-run preview, use [Run a scope](../guides/run-a-scope.md).
+    ```bash
+    uv run python scripts/run_scope.py polymarket:wc2026 --step full
+    ```
+
+    The full run discovers WC2026 markets, syncs the trailing hourly odds window,
+    and builds `polymarket_wc2026_market_hourly_odds`.
+
+    For a staged run or a dry-run preview, use [Run a scope](../guides/run-a-scope.md).
+
+    ### Confirm success
+
+    The first run should create `oddsfox.duckdb`, complete
+    `polymarket_wc2026_full_pipeline`, and build
+    `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds`.
+    Those local checks verify technical shape; they are not Hypertrial
+    certification of data rights or fitness for trading. See
+    [Operator responsibilities](../concepts/operator-responsibilities.md).
+
+=== "Kalshi WC2026"
+
+    ### Run the first pipeline
+
+    Kalshi needs no API credentials. The full run refreshes FIFA results inputs,
+    syncs stage and group-winner markets, and builds the Kalshi marts:
+
+    ```bash
+    uv run python scripts/run_scope.py kalshi:wc2026 --step full
+    ```
+
+    For a staged run or a dry-run preview, use [Run a scope](../guides/run-a-scope.md).
+
+    ### Confirm success
+
+    The first run should create `oddsfox.duckdb` and build:
+
+    - `kalshi_wc2026_marts.kalshi_wc2026_stage_markets`
+    - `kalshi_wc2026_marts.kalshi_wc2026_group_winner_markets`
+    - `international_results_wc2026_marts.international_results_wc2026_matches`
+
+    Those local checks verify technical shape; they are not Hypertrial
+    certification of data rights or fitness for trading. See
+    [Operator responsibilities](../concepts/operator-responsibilities.md).
+
+    ### First analyst query
+
+    Prefer live rows with `is_actionable_live_market`:
+
+    ```sql
+    select
+        canonical_team_name,
+        stage_key,
+        progression_outcome_label,
+        progression_price,
+        current_price_status,
+        market_ticker
+    from kalshi_wc2026_marts.kalshi_wc2026_stage_markets
+    where is_actionable_live_market
+    order by canonical_team_name, stage_rank;
+    ```
+
+    More examples live in [Query recipes](../guides/query-recipes.md#kalshi-stage-markets).
 
 ## Start Dagster
 
@@ -94,15 +156,6 @@ uv run make dagster-dev
 
 Open the URL printed in the terminal. Leave the hourly schedules disabled
 until the manual jobs are healthy.
-
-## Confirm success
-
-The first run should create `oddsfox.duckdb`, complete
-`polymarket_wc2026_full_pipeline`, and build
-`polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds`.
-Those local checks verify technical shape; they are not Hypertrial
-certification of data rights or fitness for trading. See
-[Operator responsibilities](../concepts/operator-responsibilities.md).
 
 Next, return to the [Operators](../audiences/operators.md) hub,
 [choose another shipped scope](choose-a-scope.md),

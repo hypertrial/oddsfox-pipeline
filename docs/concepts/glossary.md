@@ -1,8 +1,10 @@
 # Glossary
 
-Short analyst and operator shortcuts. Normative definitions live in
-[Terminology](../reference/terminology.md). Identifier encodings live in
-[Naming](../reference/naming.md).
+!!! note "Not the normative vocabulary"
+
+    This page lists analyst/operator **shortcuts** only. For the 34 global terms
+    and retirement rules, use [Terminology](../reference/terminology.md).
+    Identifier encodings live in [Naming](../reference/naming.md).
 
 ## Analyst Semantics
 

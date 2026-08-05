@@ -1,6 +1,11 @@
 # Recreate local marts
 
-This index covers three optional advanced marts:
+This page is the shared setup for match-minute and Polygon rebuilds (SSD layout,
+runtime dirs, and operator-local seeds). Start at
+[Advanced pipelines](advanced-pipelines.md) to confirm you need an isolated path
+before continuing.
+
+Optional advanced marts covered here:
 
 - `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`
 - `polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds`

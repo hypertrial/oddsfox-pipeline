@@ -2,7 +2,8 @@
 
 Use this page to select one of the two fixed source and market scopes shipped
 by OddsFox Pipeline `v0.2.x`. Dagster asset configs do not accept arbitrary runtime
-scope selectors.
+scope selectors. For step-by-step first runs, see the
+[Quickstart](index.md) tabs.
 
 | Scope | Source | Public output | Credentials |
 | --- | --- | --- | --- |
@@ -13,8 +14,7 @@ The manual WC2026 Polygon settlement-history pipeline is not a third
 `run_scope.py` scope. It is an isolated historical backfill that needs a
 complete operator-local market manifest at the tracked seed path (header-only
 in git), a configured Polygon JSON-RPC, and its own unscheduled job and dbt
-tag. See
-[Run a scope](../guides/run-a-scope.md#run-the-isolated-polygon-settlement-history).
+tag. See [Advanced pipelines](../guides/advanced-pipelines.md).
 
 ## Run a full scope
 
@@ -40,14 +40,12 @@ uv run python scripts/run_scope.py --list
 
 ## Beyond `run_scope.py`
 
-These fixed jobs are not chooser refs:
-
-| Pipeline / job | Guide |
-| --- | --- |
-| Isolated Polygon settlement history | [Recreate Polygon settlement mart](../guides/recreate-polygon-settlement-mart.md) |
-| Match-minute odds (mature, isolated) | [Recreate local marts](../guides/recreate-local-marts.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
-| Match order book (mature, isolated) | [Recreate PMXT order-book mart](../guides/recreate-match-order-book-mart.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
-| Market portrait (mature, isolated) | [Market portrait](../reference/market-portrait.md); [Pipeline registry](../reference/orchestration.md#pipeline-registry) |
+Match-minute odds, PMXT order-book history, market portrait, and Polygon
+settlement history are not chooser refs. Start at
+[Advanced pipelines](../guides/advanced-pipelines.md) for the decision tree,
+maturity tiers, and links to each recreate guide. The
+[Pipeline registry](../reference/orchestration.md#pipeline-registry) lists
+entry jobs and CI gates.
 
 Next, read [Run a scope](../guides/run-a-scope.md) for staged execution or
 [Data contracts](../reference/data-contracts.md) for the exact documented marts.

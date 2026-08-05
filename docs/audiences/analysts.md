@@ -19,8 +19,10 @@ dataset.
     `duckdb.connect(..., read_only=True)` in notebooks so you do not compete
     with a writer.
 
-    Continue with [Query the warehouse](../guides/query-the-warehouse.md) for
-    table chooser, trust rules, and query rules.
+    For a linear first session, start with
+    [First query](../guides/first-query.md). Continue with
+    [Query the warehouse](../guides/query-the-warehouse.md) for the full table
+    chooser, trust rules, and query rules.
 
 === "No — need a run first"
 
@@ -64,8 +66,17 @@ Practical join rules:
 
 | Goal | Page |
 | --- | --- |
+| Linear first session | [First query](../guides/first-query.md) |
 | Shortest query path and table chooser | [Query the warehouse](../guides/query-the-warehouse.md) |
 | Copy-paste SQL and Python | [Query recipes](../guides/query-recipes.md) |
 | Grain, filters, and common mistakes | [Data dictionary](../reference/data-dictionary.md) |
 | Formal contract guarantees | [Data contracts](../reference/data-contracts.md) |
 | Term definitions | [Terminology](../reference/terminology.md) |
+
+## See also
+
+- [First query](../guides/first-query.md)
+- [Query the warehouse](../guides/query-the-warehouse.md)
+- [Query recipes](../guides/query-recipes.md)
+- [Data dictionary](../reference/data-dictionary.md)
+- [Analyst shortcuts](../concepts/glossary.md)

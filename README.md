@@ -23,7 +23,7 @@ boundaries and [Terminology](docs/reference/terminology.md) for the compact
 
 | Reader | First step |
 | --- | --- |
-| Analysts | [Analysts hub](docs/audiences/analysts.md), then [Query the warehouse](docs/guides/query-the-warehouse.md), [Query recipes](docs/guides/query-recipes.md), and the [Data dictionary](docs/reference/data-dictionary.md). |
+| Analysts | [Analysts hub](docs/audiences/analysts.md), then [First query](docs/guides/first-query.md), [Query the warehouse](docs/guides/query-the-warehouse.md), [Query recipes](docs/guides/query-recipes.md), and the [Data dictionary](docs/reference/data-dictionary.md). |
 | Operators | [Operators hub](docs/audiences/operators.md), then [Quickstart](docs/getting-started/index.md). |
 | Contributors | [Contributors hub](docs/audiences/contributors.md), [Development guide](docs/development/index.md), and [CONTRIBUTING.md](CONTRIBUTING.md). |
 | Integrators | [Integrators hub](docs/audiences/integrators.md), [Terminology](docs/reference/terminology.md), [Integration](docs/concepts/integration.md), and [Data contracts](docs/reference/data-contracts.md). |

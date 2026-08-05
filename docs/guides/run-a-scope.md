@@ -59,10 +59,7 @@ external sources and write to the selected warehouse.
 
 ## Isolated advanced pipelines
 
-Polygon settlement and PMXT order-book histories are outside `run_scope.py` and
-are never scheduled. See:
-
-- [Recreate the Polygon settlement mart](recreate-polygon-settlement-mart.md)
-- [Recreate the PMXT order-book mart](recreate-match-order-book-mart.md)
-
-After either path, [validate the run](validate-and-recover.md).
+Match-minute odds, PMXT order-book history, market portrait, and Polygon
+settlement history are outside `run_scope.py` and are never scheduled. Start at
+[Advanced pipelines](advanced-pipelines.md) for the decision tree and recreate
+guides, then [validate the run](validate-and-recover.md).

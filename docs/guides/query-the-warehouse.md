@@ -1,10 +1,13 @@
 # Query the warehouse
 
+<p class="of-personas" markdown><span class="of-persona of-persona--analyst">Analyst</span></p>
+
 Use this page when you want to query OddsFox Pipeline data, not operate it.
 OddsFox Pipeline ships code and local warehouse tooling, not a hosted dataset.
-Analysts query the DuckDB file produced by a local or self-managed run. For the
-full analyst map, start with [Analysts](../audiences/analysts.md). Term
-definitions live in the [Glossary](../concepts/glossary.md).
+Analysts query the DuckDB file produced by a local or self-managed run. For a
+linear first session, see [First query](first-query.md). For the full analyst
+map, start with [Analysts](../audiences/analysts.md). Term shortcuts live in
+[Analyst shortcuts](../concepts/glossary.md).
 
 !!! note "Reference ladder"
 

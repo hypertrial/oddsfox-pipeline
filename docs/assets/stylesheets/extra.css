@@ -208,6 +208,55 @@
   font-weight: 650;
 }
 
+.of-personas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+}
+
+.of-persona {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  border-radius: 999px;
+  font-family: var(--md-code-font);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.of-persona--analyst {
+  color: #67e8f9;
+  border-color: rgb(103 232 249 / 35%);
+  background: rgb(103 232 249 / 10%);
+}
+
+.of-persona--operator {
+  color: #86efac;
+  border-color: rgb(134 239 172 / 35%);
+  background: rgb(134 239 172 / 10%);
+}
+
+.of-persona--contributor {
+  color: #fcd34d;
+  border-color: rgb(252 211 77 / 35%);
+  background: rgb(252 211 77 / 10%);
+}
+
+.of-persona--integrator {
+  color: #c4b5fd;
+  border-color: rgb(196 181 253 / 35%);
+  background: rgb(196 181 253 / 10%);
+}
+
+.of-see-also {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 0.05rem solid var(--md-default-fg-color--lightest);
+}
+
 @media screen and (max-width: 60em) {
   .of-hero {
     grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.45fr);

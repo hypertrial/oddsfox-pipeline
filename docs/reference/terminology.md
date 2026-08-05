@@ -146,7 +146,7 @@ Concrete contract IDs live in local docs:
 | Scope reference, namespace, pipeline-policy seed names | [Naming](naming.md) |
 | API fidelity, threshold windows | [Configuration](configuration.md) |
 | Raw layer / raw snapshot collector format | [Strategy contracts](strategy-contracts.md), [Warehouse](warehouse.md) |
-| Analyst column shortcuts | [Glossary](../concepts/glossary.md) |
+| Analyst column shortcuts | [Analyst shortcuts](../concepts/glossary.md) |
 
 ## Frozen exceptions
 
@@ -183,5 +183,5 @@ These names stay as written:
 
 ## See also
 
-- [Glossary](../concepts/glossary.md)
+- [Analyst shortcuts](../concepts/glossary.md)
 - [Orchestration](orchestration.md)

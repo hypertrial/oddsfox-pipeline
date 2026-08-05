@@ -1,5 +1,7 @@
 # Development
 
+<p class="of-personas" markdown><span class="of-persona of-persona--contributor">Contributor</span></p>
+
 Use this page when changing code, dbt models, docs, or orchestration behavior.
 OddsFox Pipeline is a prediction-market pipeline; v0.2.x development touches the
 Polymarket WC2026 and Kalshi WC2026 adapters, marts, and orchestration. For a short contributor map, start with
@@ -26,6 +28,22 @@ flags, and docs-browser setup.
 Quality gates, targeted Make commands, Costguard install, coverage rules, and
 layout guardrails live in
 [AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md).
+
+### Quality gates (human summary)
+
+| When | Command |
+| --- | --- |
+| Fast dev loop | `uv run make test-dev` |
+| Before ordinary push | `uv run make ci-fast` |
+| Major-version publish prep | `uv run make release-gate` |
+| Touching Polygon graph | `uv run make dbt-polygon-settlement-ci` |
+| Touching match-minute | `uv run make dbt-match-minute-ci` |
+| Touching order book | `uv run make dbt-match-order-book-ci` |
+| Touching market portrait | `uv run make dbt-market-portrait-ci` |
+| Docs edit | `uv run make docs-check` |
+
+Exhaustive gate topology remains in
+[AGENTS.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/AGENTS.md#quality-gate-run-before-finishing-work).
 
 Dagster dbt assets enable dbt source tests as asset checks. Row-count and
 column metadata fetching is available through `DbtBuildConfig` but stays
