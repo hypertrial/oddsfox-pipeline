@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/export_marts_parquet.py` (`make export-marts-parquet`) exports every
+  present table in the shipped `*_marts` schemas to Parquet under
+  `artifacts/marts_exports/<utc>/`.
+
 ### Changed
 
 - Golden mart `polymarket_wc2026_market_hourly_odds` now selects a primary CLOB
@@ -28,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- `polymarket_wc2026_hourly_odds_schedule` and
+  `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`. WC2026 Polymarket events are
+  complete; use manual `polymarket_wc2026_hourly_odds_ingest` or
+  `polymarket_wc2026_full_pipeline` for one-off refreshes.
 - Unused `POLYMARKET_WC2026_HOURLY_WINDOW_DAYS` setting export and the dead
   Polymarket hourly dbt macro `contract_ref` / `hourly_window_days` branch
   (lifetime history; Kalshi retention window is unchanged).
@@ -35,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `EXPECTED_GROUP_PROPOSITIONS` / `EXPECTED_KNOCKOUT_PROPOSITIONS`.
 
 ### Fixed
+
+- Dagster dbt snapshot tag inference no longer treats `match_trade*` models as
+  `tag:pmxt_order_book` (they are `tag:market_portrait`); also infers
+  `match_minute` and `wc2026_strategy` so excludes match real dbt tags.
+- `snapshot_dbt_models` looks up strategy marts by their DuckDB aliases
+  (`team_ratings_current`, `fixtures`, …) instead of always reporting the
+  `wc2026_*` node names as missing.
 
 - Kalshi market/candlestick normalize maps live `volume_fp` /
   `open_interest_fp` (fixed-point contract counts) into warehouse `volume` /

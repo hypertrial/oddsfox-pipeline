@@ -2,7 +2,7 @@ import importlib
 from pathlib import Path
 
 import yaml
-from dagster import AssetKey, DefaultScheduleStatus, build_schedule_context
+from dagster import AssetKey, DefaultScheduleStatus
 
 from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_event_catalog_recall_audit_run_config,
@@ -22,9 +22,6 @@ from oddsfox_pipeline.orchestration.jobs import (
     POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_SELECTION,
     _merge_run_configs,
 )
-from oddsfox_pipeline.orchestration.schedules import (
-    polymarket_wc2026_hourly_odds_schedule,
-)
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT,
 )
@@ -40,19 +37,11 @@ def _polymarket_sources_paths() -> list[Path]:
     ]
 
 
-def _polymarket_sources_path() -> Path:
-    return _polymarket_sources_paths()[0]
-
-
 def _reload_schedules_module(
     monkeypatch,
     *,
-    hourly: bool = False,
     kalshi_hourly: bool = False,
 ):
-    monkeypatch.setenv(
-        "POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED", "true" if hourly else "false"
-    )
     monkeypatch.setenv(
         "KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED",
         "true" if kalshi_hourly else "false",
@@ -431,22 +420,10 @@ def test_kalshi_events_source_asset_key_points_at_raw_events():
     assert "kalshi/wc2026/raw/markets" not in parents
 
 
-def test_hourly_schedule_targets_hourly_job_and_config():
-    assert polymarket_wc2026_hourly_odds_schedule.default_status == (
-        DefaultScheduleStatus.STOPPED
-    )
-    assert (
-        polymarket_wc2026_hourly_odds_schedule.job_name
-        == "polymarket_wc2026_hourly_odds_ingest"
-    )
-
-    context = build_schedule_context()
-    run_config = (
-        polymarket_wc2026_hourly_odds_schedule.evaluate_tick(context)
-        .run_requests[0]
-        .run_config
-    )
-    cfg = run_config["ops"]["polymarket_wc2026_raw_token_odds_history_hourly"]["config"]
+def test_hourly_odds_run_config_defaults():
+    cfg = polymarket_wc2026_hourly_odds_run_config()["ops"][
+        "polymarket_wc2026_raw_token_odds_history_hourly"
+    ]["config"]
     assert cfg["fidelity"] == 60
     assert cfg["overlap_minutes"] == 60
     assert cfg["window_hours"] == 720
@@ -454,14 +431,6 @@ def test_hourly_schedule_targets_hourly_job_and_config():
     assert cfg["min_volume"] is None
     assert cfg["max_volume"] is None
     assert cfg["ended_market_grace_days"] is None
-
-
-def test_hourly_schedule_enabled_by_env(monkeypatch):
-    schedules_mod = _reload_schedules_module(monkeypatch, hourly=True)
-
-    assert schedules_mod.polymarket_wc2026_hourly_odds_schedule.default_status == (
-        DefaultScheduleStatus.RUNNING
-    )
 
 
 def test_kalshi_hourly_schedule_enabled_by_env(monkeypatch):

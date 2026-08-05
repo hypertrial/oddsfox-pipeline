@@ -1,8 +1,7 @@
 # Day-Two Operations
 
 Use this guide after a successful first scope run. The manual cadence below is
-operational guidance, not Dagster schedule configuration. Keep schedule flags
-false until you intentionally enable them (see [Schedules](#schedules)).
+operational guidance, not Dagster schedule configuration.
 
 ## Suggested manual cadence
 

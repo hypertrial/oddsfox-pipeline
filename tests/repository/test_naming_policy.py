@@ -186,12 +186,10 @@ def test_public_schedule_is_source_first_and_targets_source_first_job():
     assert {schedule.name for schedule in defs.schedules} == {
         "international_results_daily_schedule",
         "kalshi_wc2026_hourly_odds_schedule",
-        "polymarket_wc2026_hourly_odds_schedule",
     }
     assert {schedule.job_name for schedule in defs.schedules} == {
         "international_results_historical_ingest",
         "kalshi_wc2026_hourly_odds_ingest",
-        "polymarket_wc2026_hourly_odds_ingest",
     }
 
 

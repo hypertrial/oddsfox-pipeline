@@ -13,7 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
   KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED: "false"
 jobs:
   static-docs:

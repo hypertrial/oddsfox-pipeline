@@ -26,12 +26,14 @@ The default warehouse is `oddsfox.duckdb` in the repository root.
 
 ## Keep schedules disabled
 
-Confirm these values in `.env`:
+Confirm this value in `.env`:
 
 ```dotenv
-POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
+
+Polymarket WC2026 has no Dagster schedule. Use manual jobs such as
+`polymarket_wc2026_full_pipeline` when you need a one-off refresh.
 
 Kalshi uses the public trade API. Polymarket CLOB credentials are optional
 unless the selected live job explicitly requires authentication.

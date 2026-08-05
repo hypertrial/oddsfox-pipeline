@@ -145,6 +145,42 @@ def test_scoped_dbt_relations_filters_kalshi_scope():
     assert not any(schema.startswith("polymarket_wc2026_") for schema, _ in relations)
 
 
+def test_order_book_scope_excludes_trade_only_models():
+    relations = obs._scoped_dbt_relations(
+        dbt_select="+tag:pmxt_order_book",
+        dbt_exclude=None,
+    )
+    names = {model for _, model in relations}
+    assert "polymarket_wc2026_match_order_book" in names
+    assert "polymarket_wc2026_match_trades" not in names
+    assert "int_polymarket_wc2026_match_trade_publication_gate" not in names
+    assert "polymarket_wc2026_match_order_book_states" in names
+
+
+def test_market_portrait_scope_includes_trade_models():
+    relations = obs._scoped_dbt_relations(
+        dbt_select="+tag:pmxt_order_book +tag:market_portrait",
+        dbt_exclude=None,
+    )
+    names = {model for _, model in relations}
+    assert "polymarket_wc2026_match_trades" in names
+    assert "int_polymarket_wc2026_match_trade_publication_gate" in names
+
+
+def test_snapshot_dbt_models_uses_wc2026_mart_aliases(tmp_path):
+    with duckdb.connect(str(tmp_path / "alias.duckdb")) as conn:
+        conn.execute("CREATE SCHEMA wc2026_marts")
+        conn.execute(
+            "CREATE TABLE wc2026_marts.team_ratings_current AS SELECT 1 AS rank"
+        )
+        snapshot = snapshot_dbt_models(conn=conn)
+
+    assert snapshot["wc2026_marts.wc2026_team_ratings_current"] == {
+        "exists": True,
+        "rows": 1,
+    }
+
+
 def test_batch_table_row_counts_reports_missing_and_existing_tables(tmp_path):
     with duckdb.connect(str(tmp_path / "batch.duckdb")) as conn:
         conn.execute("CREATE SCHEMA polymarket_wc2026_raw")

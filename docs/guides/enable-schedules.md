@@ -7,21 +7,22 @@ and dbt jobs complete successfully against the intended warehouse.
 
 | Schedule | Target job | `.env` flag |
 | --- | --- | --- |
-| `polymarket_wc2026_hourly_odds_schedule` | `polymarket_wc2026_hourly_odds_ingest` | `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED` |
 | `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED` |
 
-Polymarket hourly odds use CLOB `fidelity=60` (one observation bucket per
-60 minutes). Kalshi hourly odds use trade API candlesticks with
-`period_interval=60` (one hourly bucket). Both schedules are stopped by default.
-Polygon settlement jobs remain unscheduled.
+Kalshi hourly odds use trade API candlesticks with `period_interval=60` (one
+hourly bucket). The schedule is stopped by default. Polygon settlement jobs
+remain unscheduled.
 
-## Enable one source
+Polymarket WC2026 has no Dagster schedule. WC2026 Polymarket events are
+complete; run `polymarket_wc2026_hourly_odds_ingest` or
+`polymarket_wc2026_full_pipeline` manually when you need a one-off refresh.
 
-Change only the required `.env` value. Example for Polymarket WC2026 only:
+## Enable Kalshi hourly odds
+
+Change only the required `.env` value:
 
 ```dotenv
-POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=true
-KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
+KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=true
 ```
 
 Restart `uv run make dagster-dev` after changing schedule configuration, then

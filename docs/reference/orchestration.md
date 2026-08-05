@@ -23,7 +23,7 @@ backfill, paid or narrow credentials, single-target manifests.
 
 | Pipeline | Entry job(s) | Steps | Schedule | CI dbt gate | Maturity |
 | --- | --- | --- | --- | --- | --- |
-| Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` → `dbt-lint`; model build in `dbt-build-ci` (excludes `tag:polygon_settlement` / `tag:pmxt_order_book`) | Production |
+| Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | None | `ci-fast` → `dbt-lint`; model build in `dbt-build-ci` (excludes `tag:polygon_settlement` / `tag:pmxt_order_book`) | Production |
 | Kalshi WC2026 | `kalshi_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` → `dbt-lint`; `+tag:kalshi` builds in `dbt-build-ci` / `release-gate` | Production |
 | Polygon settlement history | `polymarket_wc2026_polygon_settlement_backfill` → `_release` → standalone exporter | Backfill scan, audit release, offline export | None | `dbt-polygon-settlement-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Match-minute odds | `polymarket_wc2026_match_minute_odds_backfill` | Results refresh, minute fetch, dbt | None | `dbt-match-minute-ci` (also compiles in ordinary `dbt-build-ci`; inventory proofs are the isolated lane) | Mature, isolated |
@@ -275,8 +275,10 @@ unrelated Polymarket tests.
 | Schedule | Job | Default |
 | --- | --- | --- |
 | `international_results_daily_schedule` | `international_results_historical_ingest` | Stopped |
-| `polymarket_wc2026_hourly_odds_schedule` | `polymarket_wc2026_hourly_odds_ingest` | Stopped |
 | `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | Stopped |
+
+`polymarket_wc2026_hourly_odds_ingest` remains a manual job only; WC2026
+Polymarket events are complete and the hourly schedule was removed in v0.1.x.
 
 The match-minute backfill has no schedule or environment enable flag.
 The PMXT match-order-book backfill has no schedule or environment enable flag.
@@ -285,9 +287,9 @@ The Polygon settlement backfill and audit-release jobs likewise have no schedule
 or environment enable flag. The technical exporter is standalone and
 unscheduled. None of these paths uploads or distributes data.
 
-The international-results schedule runs daily at 02:15 UTC; the Polymarket and
-Kalshi hourly schedules run on the hour. All remain stopped unless their
-dedicated env flags are enabled.
+The international-results schedule runs daily at 02:15 UTC; the Kalshi hourly
+schedule runs on the hour. Both remain stopped unless their dedicated env flags
+are enabled.
 
 ## Run monitoring and retries
 

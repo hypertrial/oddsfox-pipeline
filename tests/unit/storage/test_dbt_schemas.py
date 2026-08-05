@@ -187,3 +187,18 @@ def test_expected_dbt_relations_cover_models_and_seeds():
 
     assert not missing
     assert "kalshi_wc2026_ingestion_run_observability" in expected_names
+
+
+def test_wc2026_mart_aliases_cover_aliased_models():
+    aliased = set()
+    for path in (ROOT / "dbt" / "models" / "wc2026" / "marts").glob("*.sql"):
+        text = path.read_text(encoding="utf-8")
+        if "alias=" in text.split("\n", 1)[0]:
+            aliased.add(path.stem)
+    assert aliased == set(dbt_schemas.WC2026_MART_RELATION_ALIASES)
+    assert (
+        dbt_schemas.dbt_physical_relation_name(
+            dbt_schemas.WC2026_MARTS_SCHEMA, "wc2026_fixtures"
+        )
+        == "fixtures"
+    )

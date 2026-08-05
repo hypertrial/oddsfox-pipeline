@@ -81,7 +81,6 @@ def isolated_env(monkeypatch, tmp_path):
         "MARKETS_REQUESTS_PER_SECOND",
         "HTTP_CONNECT_TIMEOUT_SECONDS",
         "HTTP_READ_TIMEOUT_SECONDS",
-        "POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED",
     ):
         monkeypatch.delenv(key, raising=False)
     db = tmp_path / "test.duckdb"

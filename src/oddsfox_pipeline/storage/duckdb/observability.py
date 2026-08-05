@@ -18,7 +18,10 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     polymarket_wc2026_ops_tbl,
     polymarket_wc2026_raw_tbl,
 )
-from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import DBT_EXPECTED_RELATIONS
+from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
+    DBT_EXPECTED_RELATIONS,
+    dbt_physical_relation_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -336,15 +339,17 @@ def _infer_dbt_model_tags(schema: str, model: str) -> frozenset[str]:
     if schema.startswith("openfootball_wc2026_"):
         tags.update({"wc2026", "openfootball"})
     if schema.startswith("wc2026_") or model.startswith(("int_wc2026_", "wc2026_")):
-        tags.add("wc2026")
+        tags.update({"wc2026", "wc2026_strategy"})
     if "polygon_settlement" in model:
         tags.add("polygon_settlement")
-    if (
-        "match_order_book" in model
-        or "match_trade" in model
-        or model.startswith("stg_polymarket_wc2026_match_order_book")
+    if "match_minute" in model:
+        tags.add("match_minute")
+    if "match_order_book" in model or model.startswith(
+        "stg_polymarket_wc2026_match_order_book"
     ):
         tags.add("pmxt_order_book")
+    if "match_trade" in model or "match_order_book_states" in model:
+        tags.add("market_portrait")
     return frozenset(tags)
 
 
@@ -402,10 +407,15 @@ def snapshot_dbt_models(
     relations = _scoped_dbt_relations(dbt_select, dbt_exclude)
 
     def _fill(c) -> None:
-        counts = _batch_table_row_counts(c, relations)
+        physical_relations = tuple(
+            (schema, dbt_physical_relation_name(schema, model))
+            for schema, model in relations
+        )
+        counts = _batch_table_row_counts(c, physical_relations)
         for schema, model in relations:
+            physical = dbt_physical_relation_name(schema, model)
             key = f"{schema}.{model}"
-            exists, row_count = counts.get((schema, model), (False, None))
+            exists, row_count = counts.get((schema, physical), (False, None))
             if exists:
                 out[key] = {
                     "exists": True,

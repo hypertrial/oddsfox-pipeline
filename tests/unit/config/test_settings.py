@@ -183,9 +183,9 @@ def test_optional_env_number_helpers_and_date_fallback(monkeypatch, isolated_env
 
 
 def test_env_bool_parses_truthy_and_falsey_values(monkeypatch, isolated_env):
-    monkeypatch.setenv("POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED", "true")
+    monkeypatch.setenv("KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED", "true")
     settings = reload_all_settings_modules()
-    assert settings.POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED is True
+    assert settings.KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED is True
 
 
 @pytest.mark.parametrize(

@@ -24,7 +24,6 @@ cp .env.example .env
 Default warehouse: `oddsfox.duckdb` in the repo root. Keep schedules disabled in local dev and CI unless intentionally running live ingestion:
 
 ```dotenv
-POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 ```
 
@@ -270,9 +269,9 @@ Key jobs: `international_results_historical_ingest`,
 `kalshi_wc2026_market_scope_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
 `kalshi_wc2026_dbt_build`, `kalshi_wc2026_full_pipeline`.
 
-Schedules target `polymarket_wc2026_hourly_odds_ingest` and
-`kalshi_wc2026_hourly_odds_ingest`; all are **stopped by default**.
+Schedules target `kalshi_wc2026_hourly_odds_ingest`; it is **stopped by default**.
 The daily `international_results_daily_schedule` is also stopped by default.
+Polymarket WC2026 has no Dagster schedule; use manual jobs when needed.
 The PMXT order-book backfill, Polygon settlement backfill, and audit-release
 jobs are unscheduled and have no schedule-enable environment flags. The
 event-catalog recall-audit job is also unscheduled. The

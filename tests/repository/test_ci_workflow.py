@@ -12,7 +12,6 @@ pytestmark = pytest.mark.repo_check
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEDULE_FLAGS = {
-    "POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED": "false",
     "KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED": "false",
 }
 

@@ -208,9 +208,6 @@ keeps normal event-volume defaults.
 ## Kalshi WC2026
 
 - `KALSHI_REQUESTS_PER_SECOND`: Kalshi trade API request pace (default `5`).
-- `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly
-  `kalshi_wc2026_hourly_odds_ingest` schedule (hourly `period_interval=60`
-  candlesticks).
 
 Kalshi uses the public HTTPS trade API at `external-api.kalshi.com`. No API key,
 secret, or passphrase is required for local docs, dbt, or mocked tests.
@@ -296,10 +293,11 @@ The old minute-grain schedule-oriented names are not accepted in v0.1.x.
 
 ## Schedules
 
-- `POLYMARKET_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `polymarket_wc2026_hourly_odds_ingest` schedule (`fidelity=60`).
 - `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED`: enables the hourly `kalshi_wc2026_hourly_odds_ingest` schedule (hourly `period_interval=60` candlesticks).
 
-All schedule flags default to `false`.
+The schedule flag defaults to `false`. Polymarket WC2026 has no Dagster schedule;
+use `polymarket_wc2026_hourly_odds_ingest` or `polymarket_wc2026_full_pipeline`
+manually when needed.
 
 `polymarket_wc2026_polygon_settlement_backfill` and
 `polymarket_wc2026_polygon_settlement_release` are manual-only jobs. They have

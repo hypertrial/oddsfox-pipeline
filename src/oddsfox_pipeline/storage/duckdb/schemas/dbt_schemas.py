@@ -382,6 +382,40 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
 )
 
 
+# Strategy marts set config(alias=...); DuckDB physical names omit the wc2026_ prefix.
+WC2026_MART_RELATION_ALIASES: Final[dict[str, str]] = {
+    "wc2026_base_camp_venues": "base_camp_venues",
+    "wc2026_club_strength_current": "club_strength_current",
+    "wc2026_club_strength_history": "club_strength_history",
+    "wc2026_club_strength_snapshot": "club_strength_snapshot",
+    "wc2026_contract_metadata": "contract_metadata",
+    "wc2026_event_state_timing": "event_state_timing",
+    "wc2026_fixtures": "fixtures",
+    "wc2026_international_matches": "international_matches",
+    "wc2026_player_features": "player_features",
+    "wc2026_price_liquidity_current": "price_liquidity_current",
+    "wc2026_price_liquidity_history": "price_liquidity_history",
+    "wc2026_results": "results",
+    "wc2026_source_provenance": "source_provenance",
+    "wc2026_squad_player_features": "squad_player_features",
+    "wc2026_team_identities": "team_identities",
+    "wc2026_team_ratings_current": "team_ratings_current",
+    "wc2026_team_ratings_history": "team_ratings_history",
+    "wc2026_team_ratings_pre_match": "team_ratings_pre_match",
+    "wc2026_third_place_lookup": "third_place_lookup",
+    "wc2026_third_place_slot_assignments": "third_place_slot_assignments",
+    "wc2026_travel_features": "travel_features",
+    "wc2026_venue_markets": "venue_markets",
+}
+
+
+def dbt_physical_relation_name(schema: str, model_name: str) -> str:
+    """Return the DuckDB table/view name for a dbt model inventory entry."""
+    if schema == WC2026_MARTS_SCHEMA:
+        return WC2026_MART_RELATION_ALIASES.get(model_name, model_name)
+    return model_name
+
+
 def qualified_relation(schema: str, model_name: str) -> str:
     return f"{schema}.{model_name}"
 
@@ -670,6 +704,8 @@ __all__ = [
     "DBT_FALLBACK_SCHEMA",
     "DBT_EXPECTED_RELATIONS",
     "DBT_MODELED_SCHEMAS",
+    "WC2026_MART_RELATION_ALIASES",
+    "dbt_physical_relation_name",
     "DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026",
     "DBT_SOURCE_KALSHI_WC2026",
     "DBT_SOURCE_OPENFOOTBALL_WC2026",

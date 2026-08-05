@@ -428,6 +428,19 @@ def test_export_wc2026_elo_freezes_runs_the_freeze_script():
     assert "export_eloratings_wc2026_team_ratings_freezes.py" in recipe
 
 
+def test_export_marts_parquet_runs_the_marts_export_script():
+    proc = subprocess.run(
+        ["make", "-n", "export-marts-parquet"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    recipe = proc.stdout
+    assert "export_marts_parquet.py" in recipe
+
+
 def test_runtime_and_temporary_storage_default_below_the_checkout():
     makefile = makefile_text()
 

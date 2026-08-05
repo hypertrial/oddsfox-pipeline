@@ -49,7 +49,6 @@ from oddsfox_pipeline.orchestration.jobs import (
 from oddsfox_pipeline.orchestration.schedules import (
     international_results_daily_schedule,
     kalshi_wc2026_hourly_odds_schedule,
-    polymarket_wc2026_hourly_odds_schedule,
 )
 
 defs = Definitions(
@@ -95,7 +94,6 @@ defs = Definitions(
     schedules=[
         international_results_daily_schedule,
         kalshi_wc2026_hourly_odds_schedule,
-        polymarket_wc2026_hourly_odds_schedule,
     ],
     resources={
         "dbt": DbtCliResource(

@@ -163,8 +163,8 @@ result or determine rights in operator inputs or outputs.
   pipeline.
 - `international_results_historical_ingest` refreshes public 2006+ matches,
   shootouts, and goalscorers; its daily schedule is stopped by default.
-- `polymarket_wc2026_hourly_odds_ingest` is the hourly Polymarket odds job
-  (`fidelity=60`).
+- `polymarket_wc2026_hourly_odds_ingest` is the manual Polymarket odds job
+  (`fidelity=60`); it has no Dagster schedule.
 - `kalshi_wc2026_full_pipeline` is the one-click full manual Kalshi WC2026
   pipeline (FIFA results refresh, Kalshi ingest, and `+tag:kalshi` dbt selection
   inside the combined job config).
