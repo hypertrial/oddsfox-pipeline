@@ -19,6 +19,7 @@ the shipped Polymarket WC2026 scope (`wc2026`).
 | Polygon RPC / finalized errors | Check RPC config; rerun backfill | [Polygon Settlement RPC Failures](#polygon-settlement-rpc-failures) |
 | Polygon mart missing after ordinary dbt | Use `dbt-polygon-settlement-ci` | [Polygon dbt Graph Is Missing](#polygon-dbt-graph-is-missing) |
 | Tests wrote to production warehouse | Fix `DUCKDB_PATH` in `.env` | [Tests Writing To Production Warehouse](#tests-writing-to-production-warehouse) |
+| Synthetic `evt-A` / `m-shared` in warehouse | Stop writers; apply registry hygiene cleanup | [Tests Writing To Production Warehouse](#tests-writing-to-production-warehouse) |
 | Success but repo-root DB empty | `DUCKDB_PATH` points elsewhere | [Warehouse Writes Land in a Different Checkout](#warehouse-writes-land-in-a-different-checkout) |
 
 ## DuckDB Lock Errors
@@ -194,13 +195,31 @@ uv run make compact-warehouse
 Symptom: unexpected rows appear in `oddsfox.duckdb` after `make test`.
 
 Cause: `.env` sets `DUCKDB_PATH` to the real warehouse and some tests only
-override `DUCKDB_NAME`, which loses to `DUCKDB_PATH` precedence.
+override `DUCKDB_NAME`, which loses to `DUCKDB_PATH` precedence. Ad-hoc repro
+scripts that call `ensure_duck_db()` without isolating the path can also write
+synthetic IDs.
+
+Fingerprint of synthetic contamination seen in the wild:
+
+- `event_snapshots` / registry rows with `event_id` in (`evt-A`, `evt-B`)
+- registry `market_id = m-shared` with `source = event_catalog` and volume
+  `$150000`
 
 Fix:
 
 1. Remove or comment out `DUCKDB_PATH` in `.env` for local test runs, or
 2. Use the shared `duck` fixture / `isolate_duckdb_test_env()` pattern in new
    storage tests (see [Development](../development/index.md)).
+3. Stop writers, then dry-run and apply registry hygiene cleanup:
+
+```bash
+uv run make cleanup-polymarket-wc2026-registry-hygiene
+uv run make cleanup-polymarket-wc2026-registry-hygiene APPLY=1
+```
+
+The cleanup deletes synthetic catalog rows and ineligible `events_api` /
+`markets_api` orphans. Rebuild the golden mart afterward if you need a fresh
+export.
 
 ## Warehouse Writes Land in a Different Checkout
 

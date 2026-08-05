@@ -167,6 +167,7 @@ def _event_market_rows(
     event_slug = _text(event.get("slug"))
     if event_id is None:
         return [], []
+    event_tags = event.get("tags")
     bridge: list[dict[str, Any]] = []
     markets: list[dict[str, Any]] = []
     for market in event.get("markets") or []:
@@ -209,24 +210,26 @@ def _event_market_rows(
                     "observed_at": observed_at,
                 }
             )
-        markets.append(
-            {
-                **market,
-                "events": [
-                    {
-                        "id": item["event_id"],
-                        "slug": item["event_slug"],
-                        "is_enclosing_event": item["event_id"] == event_id,
-                    }
-                    for item in memberships
-                ],
-                "eventTitle": event.get("title"),
-                "eventStartTime": event.get("startTime") or event.get("startDate"),
-                "eventFinishedTime": event.get("finishedTimestamp"),
-                "eventGameId": event.get("gameId"),
-                "eventEnded": event.get("ended"),
-            }
-        )
+        market_payload = {
+            **market,
+            "events": [
+                {
+                    "id": item["event_id"],
+                    "slug": item["event_slug"],
+                    "is_enclosing_event": item["event_id"] == event_id,
+                }
+                for item in memberships
+            ],
+            "eventTitle": event.get("title"),
+            "eventStartTime": event.get("startTime") or event.get("startDate"),
+            "eventFinishedTime": event.get("finishedTimestamp"),
+            "eventGameId": event.get("gameId"),
+            "eventEnded": event.get("ended"),
+        }
+        # Gamma nest market payloads omit tags; inherit enclosing event tags.
+        if not market.get("tags") and event_tags:
+            market_payload["tags"] = event_tags
+        markets.append(market_payload)
     return bridge, markets
 
 
@@ -492,9 +495,10 @@ def collect_wc2026_event_catalog(
                         event_id = _text(event.get("id"))
                         if event_id is None:
                             continue
+                        # related_tags expands Gamma page breadth only; local
+                        # membership still requires tag / series / slug-prefix.
                         matches_source = (
-                            (related_tags)
-                            or (
+                            (
                                 tag_slug is not None
                                 and tag_slug.lower() in _event_tag_slugs(event)
                             )

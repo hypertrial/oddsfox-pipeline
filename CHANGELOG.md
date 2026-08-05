@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/cleanup_polymarket_wc2026_registry_hygiene.py`
+  (`make cleanup-polymarket-wc2026-registry-hygiene`) dry-runs or applies deletion
+  of synthetic catalog contamination (`evt-A` / `evt-B` / `m-shared`) and
+  ineligible `events_api` / `markets_api` registry orphans.
+- `is_numeric_polymarket_id` helper; catalog merge and sticky registry build skip
+  non-numeric Polymarket event/market IDs.
+
+### Changed
+
+- Related-tag event-catalog recall still expands Gamma page breadth, but local
+  membership now requires tag / series / slug-prefix match (no related-only
+  short-circuit).
+- Catalog and scan market payloads inherit enclosing-event tags when Gamma omits
+  market-level tags.
+- Catalog refresh prunes ineligible `events_api` / `markets_api` registry rows.
+- Observability `market_tokens_without_history` casts token IDs to `VARCHAR` so
+  the anti-join no longer over-counts.
+- Data contracts and troubleshooting document resolution/status nulls, empty
+  CLOB history, and synthetic warehouse contamination cleanup.
+
 ## [0.2.0] - 2026-08-05
 
 ### Added

@@ -11,6 +11,7 @@ from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
     RegistryRow,
     build_registry_rows_from_event_catalog,
     get_registry_market_ids,
+    prune_ineligible_api_registry_rows,
     prune_stale_event_catalog_registry_rows,
     upsert_registry_rows,
 )
@@ -439,6 +440,7 @@ def refresh_registry_from_event_catalog(
             row.market_id for row in merged if row.source == "event_catalog"
         ],
     )
+    pruned_api = prune_ineligible_api_registry_rows(scope_name=cfg.scope_name)
     from oddsfox_pipeline.storage.duckdb.event_catalog_markets import (
         materialize_registry_markets_from_event_catalog,
     )
@@ -450,7 +452,9 @@ def refresh_registry_from_event_catalog(
     return {
         "task": "refresh_market_scope_registry",
         "registry_rows_upserted": saved,
-        "registry_rows_pruned": pruned,
+        "registry_rows_pruned": pruned + pruned_api,
+        "registry_rows_pruned_event_catalog": pruned,
+        "registry_rows_pruned_ineligible_api": pruned_api,
         "by_source": by_source,
         "discovery_mode": "event_catalog",
         "registry_refreshed": True,

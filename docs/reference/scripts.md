@@ -10,6 +10,7 @@ Run them through `uv run python` so they use the repo environment.
 - `export_eloratings_wc2026_team_ratings_freezes.py`: export national-team Elo CSV freezes from `wc2026_marts.team_ratings_history` (`pre_kickoff` = year-end 2025) and `wc2026_marts.team_ratings_current` (`latest_current`) under `artifacts/wc2026_elo_exports/`. Prefer `make export-wc2026-elo-freezes`. Match×team pre-match Elo is `wc2026_marts.team_ratings_pre_match` (not this export); it needs an EloRatings snapshot that includes `match_results`.
 - `sync_polymarket_markets_catalog.py`: sync every Gamma market with volume ≥ $100k via `/markets/keyset` (`volume_num_min`, `after_cursor`; open + closed passes) into `polymarket_catalog_raw.markets`. Optional operator utility; not required for the golden WC2026 hourly mart.
 - `export_polymarket_wc2026_market_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds` to Parquet under `artifacts/polymarket_wc2026_exports/`.
+- `cleanup_polymarket_wc2026_registry_hygiene.py`: dry-run (default) or `--apply` deletion of synthetic catalog contamination (`evt-A` / `evt-B` / `m-shared`) and ineligible `events_api` / `markets_api` registry orphans. Prefer `make cleanup-polymarket-wc2026-registry-hygiene` (set `APPLY=1` to write). Stop Dagster and other DuckDB writers first.
 - `export_marts_parquet.py`: export every present table or view in the shipped `*_marts` schemas (Polymarket, Kalshi, international-results, `wc2026_marts`) to Parquet under `artifacts/marts_exports/<utc>/`. Prefer `make export-marts-parquet`. Includes isolated marts when built; for the allowlisted Polygon technical dossier use the dedicated Polygon exporter.
 - `export_polymarket_wc2026_match_minute_odds.py`: write the 104-game match-minute mart to a temporary Parquet, validate its grain, 104/248/496 inventory, proposition mix, timing, elapsed-axis invariants, and immutable results provenance, then atomically replace the prior artifact. It prints completeness, boundary nulls, pair warnings, elapsed range and over-120-minute games, revision/hash, file size, and SHA-256; quality warnings do not fail export.
 - `generate_polymarket_wc2026_market_portrait_target.py`: generate a non-credit-consuming PMXT target candidate YAML from the warehouse working set for operator review. Calls Gamma for fresh identities. Output defaults to `.cache/market_portrait_targets/match-<fifa_match_id>.yml`.
@@ -55,6 +56,7 @@ Makefile shortcuts (stop Dagster and other writers first):
 
 ```bash
 make prune-odds-history          # default 365-day retention; add --dry-run via script directly
+make cleanup-polymarket-wc2026-registry-hygiene  # dry-run; APPLY=1 to delete synthetic/API orphans
 make compact-warehouse           # reclaim dead space after rebuilds or pruning
 make runtime-dirs                # create SSD-local temp and cache directories
 make dbt-prepare                 # shared dbt deps/parse into DBT_TARGET_PATH

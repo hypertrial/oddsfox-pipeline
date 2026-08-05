@@ -272,7 +272,7 @@ def test_event_catalog_asset_replay_uses_one_canonical_observation_time(
     observed_at = "2026-08-02T10:05:00+00:00"
     event = {column: None for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"}
     event.update(
-        event_id="event-replay",
+        event_id="940001",
         event_slug="event-replay",
         event_title="World Cup replay event",
         event_volume_usd_lifetime_reported=120_000.0,
@@ -288,8 +288,8 @@ def test_event_catalog_asset_replay_uses_one_canonical_observation_time(
         event_tag_snapshots=(),
         event_market_snapshots=(
             {
-                "event_id": "event-replay",
-                "market_id": "market-replay",
+                "event_id": "940001",
+                "market_id": "940002",
                 "source_ordinal": 0,
                 "is_enclosing_event": True,
                 "observed_at": observed_at,
@@ -297,11 +297,11 @@ def test_event_catalog_asset_replay_uses_one_canonical_observation_time(
         ),
         market_payloads=(
             {
-                "id": "market-replay",
+                "id": "940002",
                 "question": "Will the replay market resolve Yes?",
                 "outcomes": ["Yes", "No"],
                 "clobTokenIds": ["yes", "no"],
-                "events": [{"id": "event-replay", "slug": "event-replay"}],
+                "events": [{"id": "940001", "slug": "event-replay"}],
             },
         ),
         summary={"observed_at": observed_at},
@@ -319,7 +319,7 @@ def test_event_catalog_asset_replay_uses_one_canonical_observation_time(
             """
             select market_id, scraped_at, observed_at
             from polymarket_wc2026_raw.event_market_payload_snapshots
-            where market_id = 'market-replay'
+            where market_id = '940002'
             """
         ).fetchall()
 

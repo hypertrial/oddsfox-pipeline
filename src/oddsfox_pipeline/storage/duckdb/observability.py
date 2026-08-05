@@ -64,7 +64,7 @@ _TAB_SKP = polymarket_wc2026_ops_tbl("token_sync_skips")
 
 _MARKET_TOKEN_IDS_CTE = f"""
 WITH market_token_ids AS (
-    SELECT DISTINCT json_extract_string(je.value, '$') AS token_id
+    SELECT DISTINCT CAST(json_extract_string(je.value, '$') AS VARCHAR) AS token_id
     FROM {_TAB_MT} mt
     CROSS JOIN LATERAL json_each(mt.clobTokenIds) AS je
     WHERE mt.clobTokenIds IS NOT NULL
@@ -259,7 +259,7 @@ def snapshot_raw_layer(conn=None, *, level: str = "full") -> dict[str, Any]:
             SELECT COUNT(*)
             FROM market_token_ids m
             LEFT JOIN (
-                SELECT DISTINCT clobTokenId AS token_id
+                SELECT DISTINCT CAST(clobTokenId AS VARCHAR) AS token_id
                 FROM {_TAB_OH}
                 WHERE clobTokenId IS NOT NULL
             ) h ON h.token_id = m.token_id
@@ -272,7 +272,7 @@ def snapshot_raw_layer(conn=None, *, level: str = "full") -> dict[str, Any]:
             + f"""
             SELECT COUNT(*)
             FROM (
-                SELECT DISTINCT clobTokenId AS token_id
+                SELECT DISTINCT CAST(clobTokenId AS VARCHAR) AS token_id
                 FROM {_TAB_OH}
                 WHERE clobTokenId IS NOT NULL
             ) h

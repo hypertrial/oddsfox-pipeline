@@ -6,13 +6,16 @@ import logging
 from typing import Any, Iterable, Sequence
 
 from oddsfox_pipeline.ingestion.polymarket.errors import GammaRequestError
+from oddsfox_pipeline.ingestion.polymarket.polymarket_ids import (
+    is_numeric_polymarket_id,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def _is_gamma_market_id(market_id: str) -> bool:
     """Gamma /markets?id=... expects numeric Polymarket market IDs."""
-    return bool(str(market_id or "").strip().isdigit())
+    return is_numeric_polymarket_id(market_id)
 
 
 def _gamma_market_ids(market_ids: Iterable[str]) -> list[str]:

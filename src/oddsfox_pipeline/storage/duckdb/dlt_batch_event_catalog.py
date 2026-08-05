@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from typing import Any
 
 import duckdb
 
+from oddsfox_pipeline.ingestion.polymarket.polymarket_ids import (
+    is_numeric_polymarket_id,
+)
 from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.dlt_batch import _with_row_order, load_stage_rows
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
@@ -23,6 +27,8 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
     EVENT_SNAPSHOT_COLUMNS,
     EVENT_TAG_SNAPSHOT_COLUMNS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _assert_append_only_snapshot(
@@ -193,6 +199,55 @@ def merge_event_catalog_batch(
         relation_observed_at_values = {row.get("observed_at") for row in rows}
         if relation_observed_at_values and relation_observed_at_values != {observed_at}:
             raise ValueError(f"{label} must share event_rows observed_at")
+    for row in market_rows:
+        if not str(row.get("id") or "").strip():
+            raise ValueError("market_rows must contain non-empty id values")
+
+    skipped_events = [
+        str(row.get("event_id") or "")
+        for row in event_rows
+        if not is_numeric_polymarket_id(str(row.get("event_id") or ""))
+    ]
+    event_rows = [
+        row
+        for row in event_rows
+        if is_numeric_polymarket_id(str(row.get("event_id") or ""))
+    ]
+    if not event_rows:
+        raise ValueError(
+            "event_rows must contain at least one numeric Polymarket event_id"
+        )
+    allowed_event_ids = {str(row["event_id"]) for row in event_rows}
+    tag_rows = [
+        row for row in tag_rows if str(row.get("event_id") or "") in allowed_event_ids
+    ]
+    skipped_bridges = [
+        f"{row.get('event_id')}/{row.get('market_id')}"
+        for row in event_market_rows
+        if not is_numeric_polymarket_id(str(row.get("event_id") or ""))
+        or not is_numeric_polymarket_id(str(row.get("market_id") or ""))
+    ]
+    event_market_rows = [
+        row
+        for row in event_market_rows
+        if is_numeric_polymarket_id(str(row.get("event_id") or ""))
+        and is_numeric_polymarket_id(str(row.get("market_id") or ""))
+    ]
+    skipped_markets = [
+        str(row.get("id") or "")
+        for row in market_rows
+        if not is_numeric_polymarket_id(str(row.get("id") or ""))
+    ]
+    market_rows = [
+        row for row in market_rows if is_numeric_polymarket_id(str(row.get("id") or ""))
+    ]
+    skipped = [*skipped_events, *skipped_bridges, *skipped_markets]
+    if skipped:
+        logger.warning(
+            "Skipping non-numeric event catalog IDs: %s",
+            skipped[:20] if len(skipped) > 20 else skipped,
+        )
+
     market_payload_rows: list[dict[str, Any]] = []
     for row in market_rows:
         market_id = str(row.get("id") or "").strip()

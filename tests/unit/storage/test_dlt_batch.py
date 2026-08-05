@@ -267,8 +267,8 @@ def test_event_catalog_persists_market_payload_snapshot_and_records_removal(
             column: None for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"
         }
         row.update(
-            event_id="event-1",
-            event_slug="event-1",
+            event_id="910001",
+            event_slug="910001",
             event_title="World Cup event",
             event_volume_usd_lifetime_reported=120_000.0,
             tags_json='["2026-fifa-world-cup"]',
@@ -284,7 +284,7 @@ def test_event_catalog_persists_market_payload_snapshot_and_records_removal(
         column: None for column in EVENT_CATALOG_MARKET_COLUMNS if column != "row_order"
     }
     market.update(
-        id="market-1",
+        id="920001",
         question="Will A win?",
         outcomes='["Yes","No"]',
         volume=1.0,
@@ -300,8 +300,8 @@ def test_event_catalog_persists_market_payload_snapshot_and_records_removal(
             tag_rows=[],
             event_market_rows=[
                 {
-                    "event_id": "event-1",
-                    "market_id": "market-1",
+                    "event_id": "910001",
+                    "market_id": "920001",
                     "source_ordinal": 0,
                     "is_enclosing_event": True,
                     "observed_at": observed_1,
@@ -340,7 +340,7 @@ def test_event_catalog_persists_market_payload_snapshot_and_records_removal(
             """
         ).fetchone()[0]
 
-    assert payload == ("market-1", "Will A win?", datetime(2026, 8, 1))
+    assert payload == ("920001", "Will A win?", datetime(2026, 8, 1))
     assert markets_after == markets_before
     assert latest_links == 0
 
@@ -349,8 +349,8 @@ def test_event_catalog_leaves_dlt_owned_market_target_untouched(duck):
     observed_at = "2026-08-02T00:00:00"
     event = {column: None for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"}
     event.update(
-        event_id="event-upgrade",
-        event_slug="event-upgrade",
+        event_id="910002",
+        event_slug="910002",
         event_title="World Cup upgrade event",
         event_volume_usd_lifetime_reported=120_000.0,
         tags_json='["2026-fifa-world-cup"]',
@@ -364,7 +364,7 @@ def test_event_catalog_leaves_dlt_owned_market_target_untouched(duck):
         column: None for column in EVENT_CATALOG_MARKET_COLUMNS if column != "row_order"
     }
     market.update(
-        id="market-upgrade",
+        id="920002",
         question="Total goals O/U 2.5?",
         market_resolution_source="Official FIFA results",
         outcomes='["Over","Under"]',
@@ -372,7 +372,7 @@ def test_event_catalog_leaves_dlt_owned_market_target_untouched(duck):
         scraped_at=observed_at,
         group_item_threshold="2.5",
         line=2.5,
-        neg_risk_market_id="neg-risk-set-1",
+        neg_risk_market_id="930001",
         neg_risk_request_id="neg-risk-request-1",
         neg_risk_other=False,
     )
@@ -409,7 +409,7 @@ def test_event_catalog_leaves_dlt_owned_market_target_untouched(duck):
             select market_resolution_source, group_item_threshold, line,
                 neg_risk_market_id, neg_risk_request_id, neg_risk_other
             from polymarket_wc2026_raw.event_market_payload_snapshots
-            where market_id = 'market-upgrade'
+            where market_id = '920002'
             """
         ).fetchone()
 
@@ -418,7 +418,7 @@ def test_event_catalog_leaves_dlt_owned_market_target_untouched(duck):
         "Official FIFA results",
         "2.5",
         2.5,
-        "neg-risk-set-1",
+        "930001",
         "neg-risk-request-1",
         False,
     )
@@ -428,8 +428,8 @@ def test_event_catalog_payload_snapshot_is_idempotent_at_observation_grain(duck)
     observed_at = "2026-08-02T00:00:00"
     event = {column: None for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"}
     event.update(
-        event_id="event-no-key",
-        event_slug="event-no-key",
+        event_id="910003",
+        event_slug="910003",
         event_title="World Cup no-key event",
         event_volume_usd_lifetime_reported=120_000.0,
         tags_json='["2026-fifa-world-cup"]',
@@ -443,7 +443,7 @@ def test_event_catalog_payload_snapshot_is_idempotent_at_observation_grain(duck)
         column: None for column in EVENT_CATALOG_MARKET_COLUMNS if column != "row_order"
     }
     market.update(
-        id="market-no-key",
+        id="920003",
         question="Stable observation",
         outcomes='["Yes","No"]',
         volume=20.0,
@@ -464,19 +464,19 @@ def test_event_catalog_payload_snapshot_is_idempotent_at_observation_grain(duck)
             """
             select market_id, question, volume
             from polymarket_wc2026_raw.event_market_payload_snapshots
-            where market_id = 'market-no-key'
+            where market_id = '920003'
             """
         ).fetchall()
 
-    assert rows == [("market-no-key", "Stable observation", 20.0)]
+    assert rows == [("920003", "Stable observation", 20.0)]
 
 
 def test_event_catalog_rejects_divergent_rows_within_one_observation(duck):
     observed_at = "2026-08-02T00:00:00"
     event = {column: None for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"}
     event.update(
-        event_id="event-stage-divergence",
-        event_slug="event-stage-divergence",
+        event_id="910004",
+        event_slug="910004",
         event_title="World Cup event",
         event_volume_usd_lifetime_reported=120_000.0,
         tags_json='["2026-fifa-world-cup"]',
@@ -502,7 +502,7 @@ def test_event_catalog_rejects_divergent_rows_within_one_observation(duck):
                 """
             select count(*)
             from polymarket_wc2026_raw.event_snapshots
-            where event_id = 'event-stage-divergence'
+            where event_id = '910004'
             """
             ).fetchone()[0]
             == 0
@@ -524,8 +524,8 @@ def test_event_catalog_replay_rejects_divergence_and_preserves_history_and_metri
     observed_at = "2026-08-02T00:00:00"
     event = {column: None for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"}
     event.update(
-        event_id="event-append-only",
-        event_slug="event-append-only",
+        event_id="910005",
+        event_slug="910005",
         event_title="World Cup append-only event",
         event_volume_usd_lifetime_reported=120_000.0,
         tags_json='["2026-fifa-world-cup"]',
@@ -536,7 +536,7 @@ def test_event_catalog_replay_rejects_divergence_and_preserves_history_and_metri
         source_endpoint="/events/keyset",
     )
     tag = {
-        "event_id": "event-append-only",
+        "event_id": "910005",
         "tag_key": "tag-wc2026",
         "tag_id": "tag-wc2026",
         "tag_slug": "2026-fifa-world-cup",
@@ -544,8 +544,8 @@ def test_event_catalog_replay_rejects_divergence_and_preserves_history_and_metri
         "observed_at": observed_at,
     }
     bridge = {
-        "event_id": "event-append-only",
-        "market_id": "market-append-only",
+        "event_id": "910005",
+        "market_id": "920005",
         "source_ordinal": 0,
         "is_enclosing_event": True,
         "observed_at": observed_at,
@@ -554,7 +554,7 @@ def test_event_catalog_replay_rejects_divergence_and_preserves_history_and_metri
         column: None for column in EVENT_CATALOG_MARKET_COLUMNS if column != "row_order"
     }
     market.update(
-        id="market-append-only",
+        id="920005",
         question="Will the append-only market resolve Yes?",
         outcomes='["Yes","No"]',
         volume=10.0,
@@ -658,10 +658,10 @@ def test_event_catalog_replay_rejects_omissions_and_preserves_history_and_metric
         )
         return row
 
-    events = [event("event-append-only", 1), event("event-second", 0)]
+    events = [event("910005", 1), event("910009", 0)]
     tags = [
         {
-            "event_id": "event-append-only",
+            "event_id": "910005",
             "tag_key": "tag-wc2026",
             "tag_id": "tag-wc2026",
             "tag_slug": "2026-fifa-world-cup",
@@ -671,8 +671,8 @@ def test_event_catalog_replay_rejects_omissions_and_preserves_history_and_metric
     ]
     bridges = [
         {
-            "event_id": "event-append-only",
-            "market_id": "market-append-only",
+            "event_id": "910005",
+            "market_id": "920005",
             "source_ordinal": 0,
             "is_enclosing_event": True,
             "observed_at": observed_at,
@@ -682,7 +682,7 @@ def test_event_catalog_replay_rejects_omissions_and_preserves_history_and_metric
         column: None for column in EVENT_CATALOG_MARKET_COLUMNS if column != "row_order"
     }
     market.update(
-        id="market-append-only",
+        id="920005",
         question="Will the append-only market resolve Yes?",
         outcomes='["Yes","No"]',
         volume=10.0,
@@ -743,8 +743,8 @@ def test_event_catalog_replay_rejects_addition_to_originally_empty_relation(duck
     observed_at = "2026-08-02T00:00:00"
     event = {column: None for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"}
     event.update(
-        event_id="event-empty-tags",
-        event_slug="event-empty-tags",
+        event_id="910006",
+        event_slug="910006",
         event_title="World Cup event",
         event_volume_usd_lifetime_reported=120_000.0,
         tags_json="[]",
@@ -755,7 +755,7 @@ def test_event_catalog_replay_rejects_addition_to_originally_empty_relation(duck
         source_endpoint="/events/keyset",
     )
     added_tag = {
-        "event_id": "event-empty-tags",
+        "event_id": "910006",
         "tag_key": "late-tag",
         "tag_id": "late-tag",
         "tag_slug": "late-tag",
@@ -782,7 +782,7 @@ def test_event_catalog_replay_rejects_addition_to_originally_empty_relation(duck
         tags = conn.execute(
             """
             select * from polymarket_wc2026_raw.event_tag_snapshots
-            where event_id = 'event-empty-tags'
+            where event_id = '910006'
             """
         ).fetchall()
 
@@ -793,8 +793,8 @@ def test_event_catalog_rejects_mixed_observation_times_before_writes(duck):
     observed_at = "2026-08-02T00:00:00"
     event = {column: None for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"}
     event.update(
-        event_id="event-rollback",
-        event_slug="event-rollback",
+        event_id="910007",
+        event_slug="910007",
         event_title="World Cup rollback event",
         event_volume_usd_lifetime_reported=120_000.0,
         tags_json='["2026-fifa-world-cup"]',
@@ -804,7 +804,7 @@ def test_event_catalog_rejects_mixed_observation_times_before_writes(duck):
         observed_at=observed_at,
         source_endpoint="/events/keyset",
     )
-    other_event = {**event, "event_id": "event-other", "observed_at": "2026-08-03"}
+    other_event = {**event, "event_id": "910008", "observed_at": "2026-08-03"}
 
     with duck.get_connection() as conn:
         with pytest.raises(ValueError, match="share one non-null observed_at"):
@@ -819,7 +819,7 @@ def test_event_catalog_rejects_mixed_observation_times_before_writes(duck):
             """
             select event_id
             from polymarket_wc2026_raw.event_snapshots
-            where event_id in ('event-rollback', 'event-other')
+            where event_id in ('910007', '910008')
             """
         ).fetchall()
 

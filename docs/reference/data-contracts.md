@@ -227,9 +227,12 @@ Schema: `kalshi_wc2026_marts`
   Shared Kalshi thresholds live in `dbt/seeds/kalshi_wc2026_pipeline_policy.csv`.
 - Polymarket WC2026 production contract: `polymarket_wc2026_market_hourly_odds`
   (golden mart). It includes every market under a sticky event-volume-eligible
-  WC2026 event from `polymarket_wc2026_ops.market_scope_registry`. Match-minute,
-  order-book, and Polygon settlement marts are isolated pipelines documented
-  above but not built by the golden-mart full job.
+  WC2026 event from `polymarket_wc2026_ops.market_scope_registry` that also has
+  primary-token hourly CLOB history. Eligible registry children with empty CLOB
+  history are expected (never-traded props under high-volume events) and are
+  absent from the mart by join design. Match-minute, order-book, and Polygon
+  settlement marts are isolated pipelines documented above but not built by the
+  golden-mart full job.
 - The current event admission floor is `event_min_lifetime_volume_usd = 100000`
   in `dbt/seeds/polymarket_wc2026_pipeline_policy.csv`. Eligibility is sticky:
   once an event crosses the floor it remains admitted even if later snapshots
@@ -241,6 +244,15 @@ Schema: `kalshi_wc2026_marts`
   `outcome_index` 0). `primary_outcome_label` states what each row's price
   represents. Prices are not normalized to team progression, and the mart does
   not classify knockout stage or canonical team.
+- `is_resolved`, `winning_outcome`, and `winning_clob_token_id` may be null:
+  Gamma `/events/keyset` and nested market payloads used by WC2026 sync do not
+  supply those fields. Prefer Polygon settlement for hard resolution economics.
+- `is_active` and `is_closed` are independent Gamma flags. `active = true` with
+  `closed = true` is common on closed markets and is not a pipeline bug.
+- Market-level `tags` / `category` are often null on Gamma WC nest payloads;
+  prefer `event_tags` from the enclosing event. When market tags are absent at
+  catalog materialization, the pipeline copies enclosing-event tags onto the
+  market payload.
 - Grain is one row per `(market_id, odds_hour_epoch)` with full lifetime hourly
   history from the private incremental `int_polymarket_wc2026_token_hourly_odds`
   fact. Market and enclosing-event metadata come from

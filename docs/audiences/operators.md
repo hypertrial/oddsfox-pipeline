@@ -53,6 +53,7 @@ maturity tiers.
 | Enable hourly schedules | [Enable schedules](../guides/enable-schedules.md) |
 | Shared rebuild setup (minute + Polygon) | [Recreate local marts](../guides/recreate-local-marts.md) |
 | Golden mart Parquet export | [Scripts](../reference/scripts.md) (`export_polymarket_wc2026_market_hourly_odds.py`) |
+| Registry hygiene cleanup | [Scripts](../reference/scripts.md) / [Troubleshooting](../guides/troubleshooting.md#tests-writing-to-production-warehouse) (`cleanup-polymarket-wc2026-registry-hygiene`) |
 | Configuration reference | [Configuration](../reference/configuration.md) |
 
 ## See also

@@ -73,6 +73,7 @@ def _collect_from_events(
             continue
         discovered_slugs.add(event_slug)
         event_id = str(event.get("id") or "") or None
+        event_tags = event.get("tags")
         for market in event.get("markets") or []:
             if not isinstance(market, dict):
                 continue
@@ -101,6 +102,8 @@ def _collect_from_events(
                 "eventGameId": event.get("gameId"),
                 "eventEnded": event.get("ended"),
             }
+            if not market.get("tags") and event_tags:
+                market["tags"] = event_tags
             markets.append(market)
 
     return MarketScopeEventsScanResult(

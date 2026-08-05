@@ -12,9 +12,11 @@ from oddsfox_pipeline.config.settings_polymarket import (
 )
 from oddsfox_pipeline.storage.duckdb.connection import get_connection
 from oddsfox_pipeline.storage.duckdb.market_scope_registry import (
+    RegistryRow,
     build_registry_rows_from_event_catalog,
     clear_registry,
     get_registry_market_ids,
+    prune_ineligible_api_registry_rows,
     prune_stale_event_catalog_registry_rows,
     upsert_registry_rows,
 )
@@ -92,14 +94,14 @@ def test_build_registry_rows_skips_events_below_volume_floor(event_catalog_db) -
     with event_catalog_db.get_connection() as conn:
         _insert_event_snapshot(
             conn,
-            event_id="evt-low",
+            event_id="100001",
             volume=50_000.0,
             observed_at=OBSERVED_1,
         )
         _insert_event_market_snapshot(
             conn,
-            event_id="evt-low",
-            market_id="m-low",
+            event_id="100001",
+            market_id="200001",
             observed_at=OBSERVED_1,
         )
         rows = build_registry_rows_from_event_catalog(
@@ -113,20 +115,20 @@ def test_build_registry_rows_admits_eligible_event_markets(event_catalog_db) -> 
     with event_catalog_db.get_connection() as conn:
         _insert_event_snapshot(
             conn,
-            event_id="evt-high",
+            event_id="100002",
             volume=150_000.0,
             observed_at=OBSERVED_1,
         )
         _insert_event_market_snapshot(
             conn,
-            event_id="evt-high",
-            market_id="m-1",
+            event_id="100002",
+            market_id="200002",
             observed_at=OBSERVED_1,
         )
         _insert_event_market_snapshot(
             conn,
-            event_id="evt-high",
-            market_id="m-2",
+            event_id="100002",
+            market_id="200003",
             observed_at=OBSERVED_1,
             row_order=1,
         )
@@ -134,7 +136,7 @@ def test_build_registry_rows_admits_eligible_event_markets(event_catalog_db) -> 
             event_min_volume_usd=POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
         )
 
-    assert {row.market_id for row in rows} == {"m-1", "m-2"}
+    assert {row.market_id for row in rows} == {"200002", "200003"}
     assert all(row.source == "event_catalog" for row in rows)
     assert all(row.is_event_volume_eligible for row in rows)
 
@@ -145,14 +147,14 @@ def test_build_registry_rows_keeps_sticky_eligibility_after_volume_drops(
     with event_catalog_db.get_connection() as conn:
         _insert_event_snapshot(
             conn,
-            event_id="evt-sticky",
+            event_id="100003",
             volume=150_000.0,
             observed_at=OBSERVED_1,
         )
         _insert_event_market_snapshot(
             conn,
-            event_id="evt-sticky",
-            market_id="m-sticky",
+            event_id="100003",
+            market_id="200004",
             observed_at=OBSERVED_1,
         )
         upsert_registry_rows(
@@ -162,7 +164,7 @@ def test_build_registry_rows_keeps_sticky_eligibility_after_volume_drops(
         )
         _insert_event_snapshot(
             conn,
-            event_id="evt-sticky",
+            event_id="100003",
             volume=25_000.0,
             observed_at=OBSERVED_2,
             row_order=1,
@@ -171,7 +173,7 @@ def test_build_registry_rows_keeps_sticky_eligibility_after_volume_drops(
             event_min_volume_usd=POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
         )
 
-    assert [row.market_id for row in rows] == ["m-sticky"]
+    assert [row.market_id for row in rows] == ["200004"]
     assert rows[0].is_event_volume_eligible
 
 
@@ -181,21 +183,21 @@ def test_build_registry_rows_excludes_markets_that_left_enclosing_event(
     with event_catalog_db.get_connection() as conn:
         _insert_event_snapshot(
             conn,
-            event_id="evt-leave",
+            event_id="100004",
             volume=150_000.0,
             observed_at=OBSERVED_1,
         )
         _insert_event_market_snapshot(
             conn,
-            event_id="evt-leave",
-            market_id="m-leave",
+            event_id="100004",
+            market_id="200005",
             observed_at=OBSERVED_1,
             is_enclosing_event=True,
         )
         _insert_event_market_snapshot(
             conn,
-            event_id="evt-leave",
-            market_id="m-leave",
+            event_id="100004",
+            market_id="200005",
             observed_at=OBSERVED_2,
             is_enclosing_event=False,
         )
@@ -212,27 +214,27 @@ def test_build_registry_rows_keeps_enclosing_when_newer_related_bridge_exists(
     with event_catalog_db.get_connection() as conn:
         _insert_event_snapshot(
             conn,
-            event_id="evt-enclosing",
+            event_id="100005",
             volume=150_000.0,
             observed_at=OBSERVED_1,
         )
         _insert_event_snapshot(
             conn,
-            event_id="evt-related",
+            event_id="100006",
             volume=150_000.0,
             observed_at=OBSERVED_1,
         )
         _insert_event_market_snapshot(
             conn,
-            event_id="evt-enclosing",
-            market_id="m-shared",
+            event_id="100005",
+            market_id="200006",
             observed_at=OBSERVED_1,
             is_enclosing_event=True,
         )
         _insert_event_market_snapshot(
             conn,
-            event_id="evt-related",
-            market_id="m-shared",
+            event_id="100006",
+            market_id="200006",
             observed_at=OBSERVED_2,
             is_enclosing_event=False,
         )
@@ -240,8 +242,56 @@ def test_build_registry_rows_keeps_enclosing_when_newer_related_bridge_exists(
             event_min_volume_usd=POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
         )
 
-    assert {row.market_id for row in rows} == {"m-shared"}
-    assert rows[0].event_id == "evt-enclosing"
+    assert {row.market_id for row in rows} == {"200006"}
+    assert rows[0].event_id == "100005"
+
+
+def test_build_registry_rows_skips_non_numeric_synthetic_ids(event_catalog_db) -> None:
+    with event_catalog_db.get_connection() as conn:
+        _insert_event_snapshot(
+            conn,
+            event_id="evt-A",
+            volume=150_000.0,
+            observed_at=OBSERVED_1,
+        )
+        _insert_event_market_snapshot(
+            conn,
+            event_id="evt-A",
+            market_id="m-shared",
+            observed_at=OBSERVED_1,
+        )
+        rows = build_registry_rows_from_event_catalog(
+            event_min_volume_usd=POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
+        )
+
+    assert rows == []
+
+
+def test_prune_ineligible_api_registry_rows_keeps_eligible_catalog(
+    event_catalog_db,
+) -> None:
+    upsert_registry_rows(
+        [
+            RegistryRow(
+                market_id="200010",
+                event_slug="fifwc-ok",
+                event_id="100010",
+                source="event_catalog",
+                is_event_volume_eligible=True,
+                event_volume_usd_lifetime_reported=150_000.0,
+            ),
+            RegistryRow(
+                market_id="200011",
+                event_slug="bieber-noise",
+                event_id="100011",
+                source="events_api",
+                is_event_volume_eligible=False,
+            ),
+        ]
+    )
+    pruned = prune_ineligible_api_registry_rows(scope_name="wc2026")
+    assert pruned == 1
+    assert get_registry_market_ids() == ["200010"]
 
 
 def test_prune_stale_event_catalog_registry_rows_removes_vanished_markets(
@@ -250,20 +300,20 @@ def test_prune_stale_event_catalog_registry_rows_removes_vanished_markets(
     with event_catalog_db.get_connection() as conn:
         _insert_event_snapshot(
             conn,
-            event_id="evt-prune",
+            event_id="100007",
             volume=150_000.0,
             observed_at=OBSERVED_1,
         )
         _insert_event_market_snapshot(
             conn,
-            event_id="evt-prune",
-            market_id="m-a",
+            event_id="100007",
+            market_id="200007",
             observed_at=OBSERVED_1,
         )
         _insert_event_market_snapshot(
             conn,
-            event_id="evt-prune",
-            market_id="m-b",
+            event_id="100007",
+            market_id="200008",
             observed_at=OBSERVED_1,
             row_order=1,
         )
@@ -272,7 +322,9 @@ def test_prune_stale_event_catalog_registry_rows_removes_vanished_markets(
                 event_min_volume_usd=POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
             )
         )
-        conn.execute(f"delete from {T_EVENT_MARKET_SNAPSHOTS} where market_id = 'm-b'")
+        conn.execute(
+            f"delete from {T_EVENT_MARKET_SNAPSHOTS} where market_id = '200008'"
+        )
         active_rows = build_registry_rows_from_event_catalog(
             event_min_volume_usd=POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
         )
@@ -283,4 +335,4 @@ def test_prune_stale_event_catalog_registry_rows_removes_vanished_markets(
         )
 
     assert pruned == 1
-    assert get_registry_market_ids() == ["m-a"]
+    assert get_registry_market_ids() == ["200007"]

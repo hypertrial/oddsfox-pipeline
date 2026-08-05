@@ -433,6 +433,44 @@ def test_snapshot_raw_layer_full_tolerates_missing_odds_history(
     assert snapshot["odds_history_max_ts"] is None
 
 
+def test_market_tokens_without_history_casts_token_ids(
+    tmp_path, monkeypatch, isolated_env
+):
+    import oddsfox_pipeline.storage.duckdb.connection as conn_mod
+
+    db_path = tmp_path / "obs-token-cast.duckdb"
+    monkeypatch.delenv("DUCKDB_PATH", raising=False)
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    conn_mod.reset_duckdb_connection_state()
+    init_duck_db()
+
+    with duckdb.connect(str(db_path)) as conn:
+        conn.execute(
+            """
+            insert into polymarket_wc2026_raw.market_tokens
+                (market_id, clobTokenIds, updated_at)
+            values
+                ('1', '["111","222","333"]', current_timestamp)
+            """
+        )
+        # Insert odds history with numeric-looking token ids (string column).
+        conn.execute(
+            """
+            insert into polymarket_wc2026_raw.odds_history
+                (clobTokenId, timestamp, price, ingested_at)
+            values
+                ('111', 1, 0.5, current_timestamp),
+                ('222', 2, 0.6, current_timestamp)
+            """
+        )
+        snapshot = snapshot_raw_layer(conn=conn, level="full")
+
+    assert snapshot["market_tokens_distinct_tokens"] == 3
+    assert snapshot["odds_history_distinct_tokens"] == 2
+    assert snapshot["market_tokens_without_history"] == 1
+    assert snapshot["history_tokens_without_market_tokens"] == 0
+
+
 def test_observability_batch_count_fallbacks_and_empty_input():
     assert obs._batch_table_row_counts(object(), ()) == {}
 

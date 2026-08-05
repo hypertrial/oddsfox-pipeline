@@ -407,11 +407,11 @@ def test_slug_prefix_recall_uses_unfiltered_keyset_and_local_filter(
     )
 
 
-def test_related_tag_recall_accepts_related_only_event_as_candidate(
+def test_related_tag_recall_rejects_off_scope_related_only_event(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _patch_series(monkeypatch)
-    related = _event("related", related_event_id="related")
+    related = _event("900001", related_event_id="900001")
     related["slug"] = "unrelated-event"
     related["tags"] = [{"id": "tag-soccer", "slug": "soccer"}]
     related["series"] = []
@@ -425,10 +425,7 @@ def test_related_tag_recall_accepts_related_only_event_as_candidate(
     monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
     batch = catalog.collect_wc2026_event_catalog(client=object())
 
-    assert {row["event_id"] for row in batch.event_snapshots} == {"related"}
-    row = batch.event_snapshots[0]
-    assert row["candidate_sources_json"] == '["related_2026_tag_recall"]'
-    assert catalog.WC2026_EVENT_TAG not in row["tags_json"]
+    assert batch.event_snapshots == ()
     related_requests = [
         request for request in requests if request["keyset_related_tags"]
     ]
@@ -437,6 +434,57 @@ def test_related_tag_recall_accepts_related_only_event_as_candidate(
         request["keyset_tag_slug"] == catalog.WC2026_EVENT_TAG
         for request in related_requests
     )
+
+
+def test_related_tag_recall_keeps_related_event_with_wc_tag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_series(monkeypatch)
+    related = _event("900002", related_event_id="900002")
+    related["slug"] = "related-but-tagged"
+    requests: list[dict[str, Any]] = []
+
+    def pages(*_args: Any, **kwargs: Any):
+        requests.append(kwargs)
+        events = [related] if kwargs["keyset_related_tags"] else []
+        yield events, EventsPageMeta(pages_done=1, truncated=False)
+
+    monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
+    batch = catalog.collect_wc2026_event_catalog(client=object())
+
+    assert {row["event_id"] for row in batch.event_snapshots} == {"900002"}
+    assert batch.event_snapshots[0]["candidate_sources_json"] == (
+        '["related_2026_tag_recall"]'
+    )
+
+
+def test_event_market_rows_inherits_event_tags_when_market_tags_absent() -> None:
+    observed_at = datetime(2026, 8, 2, tzinfo=timezone.utc)
+    event_tags = [
+        {"id": "tag-1", "slug": catalog.WC2026_EVENT_TAG},
+        {"id": "tag-2", "slug": "soccer"},
+    ]
+    _, markets = catalog._event_market_rows(
+        {
+            "id": "1",
+            "slug": "event-1",
+            "tags": event_tags,
+            "markets": [{"id": "market-1"}],
+        },
+        observed_at,
+    )
+    assert markets[0]["tags"] == event_tags
+
+    _, markets_keep = catalog._event_market_rows(
+        {
+            "id": "1",
+            "slug": "event-1",
+            "tags": event_tags,
+            "markets": [{"id": "market-2", "tags": [{"id": "m", "slug": "custom"}]}],
+        },
+        observed_at,
+    )
+    assert markets_keep[0]["tags"] == [{"id": "m", "slug": "custom"}]
 
 
 def test_include_slug_prefix_recall_false_skips_slug_partitions(

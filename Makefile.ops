@@ -87,6 +87,11 @@ export-wc2026-elo-freezes:
 export-marts-parquet:
 	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_marts_parquet.py
 
+# Dry-run by default. Pass APPLY=1 to delete synthetic/off-scope registry noise.
+# Stop Dagster and other DuckDB writers first.
+cleanup-polymarket-wc2026-registry-hygiene:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/cleanup_polymarket_wc2026_registry_hygiene.py $(if $(filter 1 true TRUE,$(APPLY)),--apply,)
+
 local-marts-rebuild: runtime-dirs match-minute-inputs-validate polygon-settlement-seed-validate
 	@test -n "$(MATCH_MINUTE_REBUILD_DUCKDB_PATH)" || (echo "MATCH_MINUTE_REBUILD_DUCKDB_PATH is required" >&2; exit 2)
 	@test -n "$(POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH)" || (echo "POLYGON_SETTLEMENT_REBUILD_DUCKDB_PATH is required" >&2; exit 2)

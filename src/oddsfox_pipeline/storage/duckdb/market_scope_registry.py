@@ -9,6 +9,9 @@ from typing import Any, List, Sequence
 from oddsfox_pipeline.config.settings_polymarket import (
     POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
 )
+from oddsfox_pipeline.ingestion.polymarket.polymarket_ids import (
+    is_numeric_polymarket_id,
+)
 from oddsfox_pipeline.ingestion.polymarket.scope_sql import DEFAULT_MARKET_SCOPE
 from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_connection
 from oddsfox_pipeline.storage.duckdb.dlt_batch import load_market_scope_registry_stage
@@ -87,6 +90,34 @@ def prune_stale_event_catalog_registry_rows(
                 """,
                 [scope, *active_ids],
             )
+    return int(count_row[0]) if count_row and count_row[0] is not None else 0
+
+
+def prune_ineligible_api_registry_rows(*, scope_name: str) -> int:
+    """Drop events_api/markets_api rows that are not volume-eligible."""
+    ensure_duck_db()
+    scope = _normalize_scope(scope_name)
+    registry = _registry_tbl(scope)
+    with get_connection() as conn:
+        count_row = conn.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM {registry}
+            WHERE scope_name = ?
+              AND source IN ('events_api', 'markets_api')
+              AND NOT coalesce(is_event_volume_eligible, false)
+            """,
+            [scope],
+        ).fetchone()
+        conn.execute(
+            f"""
+            DELETE FROM {registry}
+            WHERE scope_name = ?
+              AND source IN ('events_api', 'markets_api')
+              AND NOT coalesce(is_event_volume_eligible, false)
+            """,
+            [scope],
+        )
     return int(count_row[0]) if count_row and count_row[0] is not None else 0
 
 
@@ -317,6 +348,8 @@ def build_registry_rows_from_event_catalog(
     eligible_events: dict[str, dict[str, Any]] = {}
     for event in latest_events:
         event_id = event["event_id"]
+        if not is_numeric_polymarket_id(event_id):
+            continue
         volume = event.get("event_volume_usd_lifetime_reported")
         was_eligible, first_at = existing.get(event_id, (False, None))
         meets_floor = volume is not None and float(volume) >= event_min_volume_usd
@@ -339,13 +372,19 @@ def build_registry_rows_from_event_catalog(
 
     rows: list[RegistryRow] = []
     for membership in memberships:
-        event = eligible_events[membership["event_id"]]
+        market_id = membership["market_id"]
+        event_id = membership["event_id"]
+        if not is_numeric_polymarket_id(market_id) or not is_numeric_polymarket_id(
+            event_id
+        ):
+            continue
+        event = eligible_events[event_id]
         rows.append(
             RegistryRow(
                 scope_name=scope,
-                market_id=membership["market_id"],
+                market_id=market_id,
                 event_slug=event.get("event_slug"),
-                event_id=membership["event_id"],
+                event_id=event_id,
                 source="event_catalog",
                 event_volume_usd_lifetime_reported=event.get(
                     "event_volume_usd_lifetime_reported"
@@ -354,7 +393,16 @@ def build_registry_rows_from_event_catalog(
                 first_eligible_at=event.get("first_eligible_at"),
             )
         )
-    rows.extend(seed_rows)
+    rows.extend(
+        row
+        for row in seed_rows
+        if is_numeric_polymarket_id(row.market_id)
+        and (
+            row.event_id is None
+            or str(row.event_id).strip() == ""
+            or is_numeric_polymarket_id(row.event_id)
+        )
+    )
     return rows
 
 
@@ -364,6 +412,7 @@ __all__ = [
     "clear_registry",
     "get_registry_event_slugs",
     "get_registry_market_ids",
+    "prune_ineligible_api_registry_rows",
     "prune_stale_event_catalog_registry_rows",
     "registry_market_count",
     "upsert_registry_rows",
