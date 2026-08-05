@@ -7,12 +7,16 @@ from unittest.mock import MagicMock
 
 import pytest
 import requests
+from tests.support.odds_sync_harness import (
+    make_group_plan,
+    make_token_plan,
+    valid_token_id,
+)
 
 from oddsfox_pipeline.ingestion.polymarket.odds import execution as odds_exec
 from oddsfox_pipeline.ingestion.polymarket.odds import fetch as odds_fetch
 from oddsfox_pipeline.ingestion.polymarket.odds.planning import group_token_plans
 from oddsfox_pipeline.ingestion.polymarket.odds.support import GroupPlan, TokenPlan
-from tests.support.odds_sync_harness import make_group_plan, make_token_plan, valid_token_id
 
 
 def _history_point(t: int, p: float = 0.5) -> dict:

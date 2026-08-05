@@ -17,6 +17,25 @@ def test_map_bounded_skips_failed_workers():
     assert map_bounded([1, 2, 3], worker, max_workers=2) == [1, 3]
 
 
+def test_map_bounded_invokes_on_error_for_failed_workers():
+    errors: list[tuple[int, Exception]] = []
+
+    def worker(item: int) -> int:
+        if item == 2:
+            raise requests.exceptions.ConnectionError("simulated")
+        return item
+
+    assert map_bounded(
+        [1, 2, 3],
+        worker,
+        max_workers=2,
+        on_error=lambda item, exc: errors.append((item, exc)),
+    ) == [1, 3]
+    assert len(errors) == 1
+    assert errors[0][0] == 2
+    assert isinstance(errors[0][1], requests.exceptions.ConnectionError)
+
+
 def test_sync_hourly_candlesticks_continues_after_market_failure(monkeypatch):
     monkeypatch.setattr(
         candlesticks_sync,
@@ -59,6 +78,8 @@ def test_sync_hourly_candlesticks_continues_after_market_failure(monkeypatch):
 
     assert metrics["markets_total"] == 3
     assert metrics["empty_markets"] == 2
+    assert metrics["markets_failed"] == 1
+    assert metrics["failed_market_tickers"] == ["KXWC-MKT1"]
 
 
 @pytest.mark.parametrize(

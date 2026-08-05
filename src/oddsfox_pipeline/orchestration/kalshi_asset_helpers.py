@@ -2,37 +2,18 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-import dlt
 from dagster import AssetExecutionContext, MaterializeResult, MetadataValue
 
-from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_KALSHI, schema_name
 from oddsfox_pipeline.orchestration import kalshi_ops as ops
 from oddsfox_pipeline.orchestration.config import KalshiHourlyOddsSyncConfig
 from oddsfox_pipeline.orchestration.raw_snapshot_helpers import (
-    _DLT_PIPELINE_BY_PATH,
     _raw_snapshot_metadata,
     _run_with_raw_snapshot,
-    get_cached_dlt_pipeline,
 )
-from oddsfox_pipeline.storage.duckdb.connection import active_duckdb_path
 from oddsfox_pipeline.storage.duckdb.observability import (
     delta_raw_layer,
     snapshot_raw_layer,
 )
-
-
-def get_kalshi_dlt_pipeline(
-    *,
-    scope_name: str = SCOPE_WC2026,
-    active_duckdb_path_fn: Callable[[], Any] = active_duckdb_path,
-    dlt_module: Any = dlt,
-) -> dlt.Pipeline:
-    dataset_name = schema_name(SOURCE_KALSHI, scope_name, "raw")
-    return get_cached_dlt_pipeline(
-        dataset_name=dataset_name,
-        active_duckdb_path_fn=active_duckdb_path_fn,
-        dlt_module=dlt_module,
-    )
 
 
 def materialize_kalshi_candlesticks_sync(
@@ -154,10 +135,8 @@ def _materialize_market_scope_registry(
 
 
 __all__ = [
-    "_DLT_PIPELINE_BY_PATH",
     "_materialize_market_scope_registry",
     "_raw_snapshot_metadata",
     "_run_with_raw_snapshot",
-    "get_kalshi_dlt_pipeline",
     "materialize_kalshi_candlesticks_sync",
 ]

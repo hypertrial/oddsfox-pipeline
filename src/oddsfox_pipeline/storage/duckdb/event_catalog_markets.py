@@ -188,7 +188,7 @@ def materialize_registry_markets_from_event_catalog(
             normalize_market_payloads_for_dlt,
             polymarket_wc2026_markets_source,
         )
-        from oddsfox_pipeline.orchestration.polymarket_asset_helpers import (
+        from oddsfox_pipeline.storage.duckdb.dlt_batch import (
             get_polymarket_dlt_pipeline,
         )
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from hashlib import blake2b
 from typing import Any
 
@@ -11,7 +11,12 @@ import dlt
 import duckdb
 import pyarrow as pa
 
-from oddsfox_pipeline.naming import SCOPE_WC2026
+from oddsfox_pipeline.naming import (
+    SCOPE_WC2026,
+    SOURCE_KALSHI,
+    SOURCE_POLYMARKET,
+    schema_name,
+)
 from oddsfox_pipeline.storage.duckdb import connection as duckdb_connection
 from oddsfox_pipeline.storage.duckdb.polymarket_scope import get_active_polymarket_scope
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
@@ -42,11 +47,80 @@ DLT_STRICT_SCHEMA_CONTRACT = {
 
 _PIPELINES: dict[tuple[str, str], dlt.Pipeline] = {}
 _BATCH_PIPELINE_RUN_ID = f"{os.getpid():x}"
+_DLT_PIPELINE_BY_PATH: dict[str, dlt.Pipeline] = {}
 
 
 def reset_dlt_batch_pipelines() -> None:
     """Clear cached pipelines; useful when tests swap DUCKDB_NAME."""
     _PIPELINES.clear()
+    _DLT_PIPELINE_BY_PATH.clear()
+
+
+def _dlt_pipeline_name(dataset_name: str) -> str:
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    if worker:
+        return f"{dataset_name}_{worker}_landing"
+    return f"{dataset_name}_landing"
+
+
+def get_cached_dlt_pipeline(
+    *,
+    dataset_name: str,
+    active_duckdb_path_fn: Callable[[], Any],
+    dlt_module: Any = dlt,
+    pipeline_cache: dict[str, dlt.Pipeline] | None = None,
+) -> dlt.Pipeline:
+    cache = _DLT_PIPELINE_BY_PATH if pipeline_cache is None else pipeline_cache
+    db_path = str(active_duckdb_path_fn())
+    cache_key = f"{db_path}:{dataset_name}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    pipe = dlt_module.pipeline(
+        pipeline_name=_dlt_pipeline_name(dataset_name),
+        destination=dlt_module.destinations.duckdb(credentials=db_path),
+        dataset_name=dataset_name,
+    )
+    cache[cache_key] = pipe
+    return pipe
+
+
+def get_polymarket_dlt_pipeline(
+    *,
+    scope_name: str = SCOPE_WC2026,
+    active_duckdb_path_fn: Callable[[], Any] | None = None,
+    dlt_module: Any = dlt,
+) -> dlt.Pipeline:
+    path_fn = (
+        duckdb_connection.active_duckdb_path
+        if active_duckdb_path_fn is None
+        else active_duckdb_path_fn
+    )
+    dataset_name = schema_name(SOURCE_POLYMARKET, scope_name, "raw")
+    return get_cached_dlt_pipeline(
+        dataset_name=dataset_name,
+        active_duckdb_path_fn=path_fn,
+        dlt_module=dlt_module,
+    )
+
+
+def get_kalshi_dlt_pipeline(
+    *,
+    scope_name: str = SCOPE_WC2026,
+    active_duckdb_path_fn: Callable[[], Any] | None = None,
+    dlt_module: Any = dlt,
+) -> dlt.Pipeline:
+    path_fn = (
+        duckdb_connection.active_duckdb_path
+        if active_duckdb_path_fn is None
+        else active_duckdb_path_fn
+    )
+    dataset_name = schema_name(SOURCE_KALSHI, scope_name, "raw")
+    return get_cached_dlt_pipeline(
+        dataset_name=dataset_name,
+        active_duckdb_path_fn=path_fn,
+        dlt_module=dlt_module,
+    )
 
 
 def _pipeline(schema: str) -> dlt.Pipeline:
@@ -503,7 +577,12 @@ __all__ = [
     "EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS",
     "MATCH_MINUTE_ODDS_HISTORY_COLUMNS",
     "MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS",
+    "_DLT_PIPELINE_BY_PATH",
+    "_dlt_pipeline_name",
     "append_ingestion_run_event_stage",
+    "get_cached_dlt_pipeline",
+    "get_kalshi_dlt_pipeline",
+    "get_polymarket_dlt_pipeline",
     "load_market_tokens_stage",
     "load_odds_history_stage",
     "load_stage_rows",

@@ -10,6 +10,7 @@ from oddsfox_pipeline.config.settings import (
     KALSHI_WC2026_HOURLY_WINDOW_DAYS,
     KALSHI_WC2026_HOURLY_WINDOW_HOURS,
     MIN_ODDS_FIDELITY_MINUTES,
+    ODDS_REQUESTS_PER_SECOND,
     POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
     POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
 )
@@ -143,7 +144,7 @@ class OddsSyncConfig(GuardrailConfig):
     fidelity: int = Field(
         default=DEFAULT_ODDS_FIDELITY_MINUTES, ge=MIN_ODDS_FIDELITY_MINUTES
     )
-    requests_per_second: int | None = 40
+    requests_per_second: int | None = ODDS_REQUESTS_PER_SECOND
     auto_tune_rps: bool = True
     auto_tune_max_rps: int | None = Field(default=60, ge=1)
     force: bool = False

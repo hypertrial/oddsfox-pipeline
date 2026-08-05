@@ -191,8 +191,17 @@ overrides.
   and sticky `event_min_lifetime_volume_usd` floor (currently $100,000 USD).
 - `POLYMARKET_WC2026_SCOPE_KEYSET_RELATED_TAGS`
 - `POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY`
+- `POLYMARKET_WC2026_SCOPE_TAG_DISCOVERY_KEYWORDS`: comma-separated keyword
+  overrides for tag discovery. Unset uses the packaged seed keywords.
 - `POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_ROUNDS`
 - `POLYMARKET_WC2026_SCOPE_TAG_CRAWL_MAX`
+- `POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_KEYWORD_GATE`: when true (default), tag
+  closure only keeps crawled tags that match discovery keywords.
+- `POLYMARKET_WC2026_SCOPE_TAG_CRAWL_DENYLIST`: comma-separated tag slugs
+  excluded from tag crawl expansion.
+- `POLYMARKET_WC2026_SCOPE_REGISTRY_MAX_EVENT_PAGES`: optional hard cap on
+  registry event-catalog pagination. Unset leaves the default uncapped
+  (operator/job config may still bound pages).
 
 The seed file `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml`
 is the default scope source. Pipeline-policy thresholds for this namespace are

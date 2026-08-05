@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -12,6 +13,9 @@ from oddsfox_pipeline.ingestion.kalshi.client import (
     fetch_markets_for_event,
 )
 from oddsfox_pipeline.ingestion.kalshi.concurrent import map_bounded
+from oddsfox_pipeline.ingestion.kalshi.markets.transform import (
+    _series_ticker_from_market,
+)
 from oddsfox_pipeline.ingestion.kalshi.series_scope.config import (
     KalshiMarketScopeConfig,
     load_market_scope_config,
@@ -39,16 +43,6 @@ class _EventCollection:
     markets: list[dict[str, Any]]
     registry_rows: list[KalshiRegistryRow]
     api_requests: int
-
-
-def _series_ticker_from_market(market: dict[str, Any]) -> str:
-    ticker = str(market.get("ticker") or "")
-    event_ticker = str(market.get("event_ticker") or "")
-    if event_ticker and "-" in event_ticker:
-        return event_ticker.split("-", 1)[0]
-    if ticker and "-" in ticker:
-        return ticker.split("-", 1)[0]
-    return ""
 
 
 def _collect_event_markets(
@@ -111,6 +105,13 @@ def refresh_registry_and_collect(
     markets: list[dict[str, Any]] = []
     registry_rows: list[KalshiRegistryRow] = []
     api_requests = 0
+    events_failed = 0
+    failed_lock = threading.Lock()
+
+    def _on_event_error(_event: dict[str, Any], _exc: Exception) -> None:
+        nonlocal events_failed
+        with failed_lock:
+            events_failed += 1
 
     for series_ticker in cfg.series_tickers:
         series_events = fetch_events_for_series(
@@ -128,6 +129,7 @@ def refresh_registry_and_collect(
                 cfg=cfg,
                 progress_callback=progress_callback,
             ),
+            on_error=_on_event_error,
         )
         for item in collected:
             if item is None:
@@ -143,6 +145,7 @@ def refresh_registry_and_collect(
         "scope_name": cfg.scope_name,
         "series_tickers": list(cfg.series_tickers),
         "events_collected": len(events),
+        "events_failed": events_failed,
         "markets_collected": len(markets),
         "registry_rows": len(registry_rows),
         "registry_upserted": upserted,

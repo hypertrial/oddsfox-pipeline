@@ -12,9 +12,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/export_marts_parquet.py` (`make export-marts-parquet`) exports every
   present table or view in the shipped `*_marts` schemas to Parquet under
   `artifacts/marts_exports/<utc>/`.
+- Kalshi candlestick sync and series-scope registry refresh surface partial
+  failure counts (`markets_failed` / `failed_market_tickers`, `events_failed`)
+  without changing fail-open partial-success behavior.
+- Polymarket asset helpers split into
+  `polymarket_asset_helpers_{markets,registry,odds}` with a barrel re-export.
 
 ### Changed
 
+- Dagster dbt warehouse snapshots expand `+` selectors via the dbt manifest
+  parent graph (missing manifest falls back to non-expanded matching).
+- Path-keyed Polymarket/Kalshi dlt pipeline caches live in
+  `storage/duckdb/dlt_batch.py` (landing callers no longer import orchestration).
+- Docs: `configuration.md` documents the remaining
+  `POLYMARKET_WC2026_SCOPE_*` tag-discovery / keyset / registry-cap env vars.
 - Golden mart `polymarket_wc2026_market_hourly_odds` now selects a primary CLOB
   token for every admitted market: Yes when present, otherwise `outcome_index`
   0. Adds `primary_outcome_label` so rows state what the price represents

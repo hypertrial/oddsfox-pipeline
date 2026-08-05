@@ -111,7 +111,9 @@ def test_sync_odds_covers_invalid_token_persist_worker_cache_and_budget_updates(
         },
     )
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
-    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan))
+    monkeypatch.setattr(
+        odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan)
+    )
     monkeypatch.setattr(
         odds_sync, "save_sync_run_metrics", lambda *args, **kwargs: None
     )
@@ -216,14 +218,16 @@ def test_sync_odds_final_rate_absent_when_limiter_has_no_rate_attr(monkeypatch):
     monkeypatch.setattr(
         odds_sync,
         "_sync_token_group_plan",
-        wrap_token_sync_as_group(lambda *args, **kwargs: {
-            "rows": 0,
-            "windows": 1,
-            "empty": True,
-            "error": 0,
-            "permanent_error": 0,
-            "fully_checked": False,
-        },),
+        wrap_token_sync_as_group(
+            lambda *args, **kwargs: {
+                "rows": 0,
+                "windows": 1,
+                "empty": True,
+                "error": 0,
+                "permanent_error": 0,
+                "fully_checked": False,
+            },
+        ),
     )
     monkeypatch.setattr(odds_sync, "_writer_loop", lambda *args, **kwargs: None)
     monkeypatch.setattr(
@@ -272,14 +276,16 @@ def test_sync_odds_empty_results_with_zero_skip_runs_do_not_update_budget(monkey
     monkeypatch.setattr(
         odds_sync,
         "_sync_token_group_plan",
-        wrap_token_sync_as_group(lambda *args, **kwargs: {
-            "rows": 0,
-            "windows": 1,
-            "empty": True,
-            "error": 0,
-            "permanent_error": 0,
-            "fully_checked": False,
-        },),
+        wrap_token_sync_as_group(
+            lambda *args, **kwargs: {
+                "rows": 0,
+                "windows": 1,
+                "empty": True,
+                "error": 0,
+                "permanent_error": 0,
+                "fully_checked": False,
+            },
+        ),
     )
     monkeypatch.setattr(odds_sync, "_writer_loop", lambda *args, **kwargs: None)
     monkeypatch.setattr(
@@ -334,14 +340,16 @@ def test_sync_odds_raises_when_writer_thread_records_failure(monkeypatch):
     monkeypatch.setattr(
         odds_sync,
         "_sync_token_group_plan",
-        wrap_token_sync_as_group(lambda *args, **kwargs: {
-            "rows": 0,
-            "windows": 1,
-            "empty": True,
-            "error": 0,
-            "permanent_error": 0,
-            "fully_checked": False,
-        },),
+        wrap_token_sync_as_group(
+            lambda *args, **kwargs: {
+                "rows": 0,
+                "windows": 1,
+                "empty": True,
+                "error": 0,
+                "permanent_error": 0,
+                "fully_checked": False,
+            },
+        ),
     )
     monkeypatch.setattr(odds_sync, "_writer_loop", writer_loop)
     monkeypatch.setattr(odds_sync, "Thread", ImmediateThread)
@@ -408,7 +416,9 @@ def test_sync_odds_progress_bar_total_and_markets_postfix(monkeypatch):
         lambda **kwargs: {"candidate_tokens": 42, "candidate_markets": 10},
     )
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
-    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan))
+    monkeypatch.setattr(
+        odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan)
+    )
     monkeypatch.setattr(
         odds_sync, "save_sync_run_metrics", lambda *args, **kwargs: None
     )
@@ -482,7 +492,9 @@ def test_sync_odds_continues_when_candidate_count_fails(monkeypatch):
 
     monkeypatch.setattr(odds_sync, "count_candidate_market_tokens", _boom)
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
-    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan))
+    monkeypatch.setattr(
+        odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(fake_sync_plan)
+    )
     monkeypatch.setattr(
         odds_sync, "save_sync_run_metrics", lambda *args, **kwargs: None
     )
@@ -545,7 +557,9 @@ def test_sync_odds_pool_worker_exception_queues_retry_state(monkeypatch):
         },
     )
     monkeypatch.setattr(odds_sync, "iter_token_plans_paged", plan_iter)
-    monkeypatch.setattr(odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(boom))
+    monkeypatch.setattr(
+        odds_sync, "_sync_token_group_plan", wrap_token_sync_as_group(boom)
+    )
     monkeypatch.setattr(
         odds_sync, "save_sync_run_metrics", lambda *args, **kwargs: None
     )

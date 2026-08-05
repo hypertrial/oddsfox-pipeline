@@ -8,8 +8,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 from oddsfox_pipeline.ingestion.polymarket.odds.support import (
     DEFAULT_BATCH_GROUP_SIZE,
     DEFAULT_EMPTY_TOKEN_SKIP_RUNS,
-    GroupPlan,
     MAX_BATCH_GROUP_SIZE,
+    GroupPlan,
     OddsSyncOptions,
     PlanningState,
     TokenPlan,

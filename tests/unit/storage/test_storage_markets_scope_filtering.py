@@ -322,7 +322,9 @@ def test_iter_due_market_tokens_requires_latest_payload_tokens(duck):
     tokens = {(row[0], row[1]) for page in pages for row in page}
     assert tokens == {("with_payload", "tok_payload")}
 
-    force_pages = list(markets.iter_markets_with_tokens(page_size=10, json_array_only=True))
+    force_pages = list(
+        markets.iter_markets_with_tokens(page_size=10, json_array_only=True)
+    )
     force_markets = {row[0]: row[1] for page in force_pages for row in page}
     assert set(force_markets) == {"with_payload"}
     assert "tok_extra_raw" not in force_markets["with_payload"]

@@ -192,7 +192,8 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
 
 The full pipeline refreshes FIFA results, Kalshi markets and candlesticks, then
 builds `+tag:kalshi` including `international_results` parents while excluding
-unrelated Polymarket tests.
+unrelated Polymarket tests. Dagster warehouse snapshots for scoped dbt jobs
+expand the same `+` ancestry from the local dbt manifest when present.
 
 ## Scope behavior
 
@@ -256,6 +257,9 @@ unrelated Polymarket tests.
 - The registry admits fixed WC2026 stage and group-winner markets. `KXWCADVANCE`
   is registered for raw ingestion only; no Kalshi dbt mart consumes it yet.
 - `raw/market_candlesticks_hourly` syncs hourly public-trade-API candlesticks.
+  Successful sync metrics include `markets_failed` / `failed_market_tickers`
+  when individual markets error under bounded concurrency (partial success is
+  still accepted). Registry refresh metrics similarly surface `events_failed`.
 
 ### Canonical WC2026 fixtures
 

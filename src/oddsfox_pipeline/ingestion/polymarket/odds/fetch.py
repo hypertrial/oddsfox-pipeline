@@ -401,9 +401,7 @@ def fetch_batch_token_history(
                 params=payload,
             ) from e
         if status and 400 <= status < 500:
-            raise PermanentAPIError(
-                f"{status} client error for {label}: {body}"
-            ) from e
+            raise PermanentAPIError(f"{status} client error for {label}: {body}") from e
         logger.error("Failed to process %s: %s", label, e)
         return None
     except OSError as e:
@@ -430,9 +428,7 @@ def fetch_batch_token_history(
                 params=payload,
             ) from e
         if status and 400 <= status < 500:
-            raise PermanentAPIError(
-                f"{status} client error for {label}: {body}"
-            ) from e
+            raise PermanentAPIError(f"{status} client error for {label}: {body}") from e
         logger.error("Failed to process %s: %s", label, e)
         return None
 

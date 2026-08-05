@@ -31,6 +31,7 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     active_duckdb_path,
     get_connection,
 )
+from oddsfox_pipeline.storage.duckdb.dlt_batch import get_kalshi_dlt_pipeline
 from oddsfox_pipeline.storage.duckdb.metadata import (
     get_sync_run_metrics,
     save_sync_run_metrics,
@@ -73,7 +74,7 @@ class KalshiWc2026DltTranslator(DagsterDltTranslator):
         return spec
 
 
-_KALSHI_DLT_PIPELINE = asset_helpers.get_kalshi_dlt_pipeline(
+_KALSHI_DLT_PIPELINE = get_kalshi_dlt_pipeline(
     active_duckdb_path_fn=active_duckdb_path,
     dlt_module=dlt,
 )
@@ -120,7 +121,7 @@ def kalshi_wc2026_raw_markets(
         guardrail.check(phase=phase, diagnostics=payload)
 
     context.log.info("kalshi_wc2026_raw_markets start")
-    pipeline = asset_helpers.get_kalshi_dlt_pipeline(
+    pipeline = get_kalshi_dlt_pipeline(
         scope_name=KALSHI_WC2026_SCOPE_NAME,
         active_duckdb_path_fn=active_duckdb_path,
         dlt_module=dlt,

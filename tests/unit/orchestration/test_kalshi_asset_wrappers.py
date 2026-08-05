@@ -14,6 +14,7 @@ from oddsfox_pipeline.orchestration.assets import (
     kalshi_wc2026_raw_markets,
     kalshi_wc2026_raw_markets_snapshot,
 )
+from oddsfox_pipeline.storage.duckdb import dlt_batch as dlt_batch_mod
 
 
 def test_get_kalshi_dlt_pipeline_uses_path_cache(monkeypatch):
@@ -30,14 +31,14 @@ def test_get_kalshi_dlt_pipeline_uses_path_cache(monkeypatch):
             created.append(kwargs)
             return object()
 
-    assets_mod.asset_helpers._DLT_PIPELINE_BY_PATH.clear()
+    dlt_batch_mod._DLT_PIPELINE_BY_PATH.clear()
     monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
-    first = assets_mod.asset_helpers.get_kalshi_dlt_pipeline(
+    first = dlt_batch_mod.get_kalshi_dlt_pipeline(
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
         dlt_module=FakeDlt,
     )
-    second = assets_mod.asset_helpers.get_kalshi_dlt_pipeline(
+    second = dlt_batch_mod.get_kalshi_dlt_pipeline(
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
         dlt_module=FakeDlt,
     )
@@ -46,14 +47,14 @@ def test_get_kalshi_dlt_pipeline_uses_path_cache(monkeypatch):
     assert len(created) == 1
     assert created[0]["pipeline_name"] == "kalshi_wc2026_raw_landing"
 
-    assets_mod.asset_helpers._DLT_PIPELINE_BY_PATH.clear()
+    dlt_batch_mod._DLT_PIPELINE_BY_PATH.clear()
     monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw2")
-    assets_mod.asset_helpers.get_kalshi_dlt_pipeline(
+    dlt_batch_mod.get_kalshi_dlt_pipeline(
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
         dlt_module=FakeDlt,
     )
     assert created[-1]["pipeline_name"] == "kalshi_wc2026_raw_gw2_landing"
-    assets_mod.asset_helpers._DLT_PIPELINE_BY_PATH.clear()
+    dlt_batch_mod._DLT_PIPELINE_BY_PATH.clear()
 
 
 def test_kalshi_dlt_translator_rewrites_markets_asset_key(monkeypatch):
@@ -97,7 +98,7 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
         yield conn
 
     monkeypatch.setattr(
-        assets_mod.asset_helpers,
+        assets_mod,
         "get_kalshi_dlt_pipeline",
         lambda **_kwargs: pipeline,
     )
@@ -333,7 +334,7 @@ def test_dlt_asset_skips_pending_package_drop_when_clean(monkeypatch):
         yield conn
 
     monkeypatch.setattr(
-        assets_mod.asset_helpers,
+        assets_mod,
         "get_kalshi_dlt_pipeline",
         lambda **_kwargs: pipeline,
     )

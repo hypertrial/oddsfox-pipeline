@@ -1,11 +1,9 @@
-"""Shared raw-layer snapshot and dlt pipeline cache helpers."""
+"""Shared raw-layer snapshot helpers."""
 
 from __future__ import annotations
 
-import os
 from typing import Any, Callable
 
-import dlt
 from dagster import MetadataValue
 
 from oddsfox_pipeline.storage.duckdb.observability import (
@@ -69,43 +67,8 @@ def _run_with_raw_snapshot(
     )
 
 
-_DLT_PIPELINE_BY_PATH: dict[str, dlt.Pipeline] = {}
-
-
-def _dlt_pipeline_name(dataset_name: str) -> str:
-    worker = os.environ.get("PYTEST_XDIST_WORKER")
-    if worker:
-        return f"{dataset_name}_{worker}_landing"
-    return f"{dataset_name}_landing"
-
-
-def get_cached_dlt_pipeline(
-    *,
-    dataset_name: str,
-    active_duckdb_path_fn: Callable[[], Any],
-    dlt_module: Any = dlt,
-    pipeline_cache: dict[str, dlt.Pipeline] | None = None,
-) -> dlt.Pipeline:
-    cache = _DLT_PIPELINE_BY_PATH if pipeline_cache is None else pipeline_cache
-    db_path = str(active_duckdb_path_fn())
-    cache_key = f"{db_path}:{dataset_name}"
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
-    pipe = dlt_module.pipeline(
-        pipeline_name=_dlt_pipeline_name(dataset_name),
-        destination=dlt_module.destinations.duckdb(credentials=db_path),
-        dataset_name=dataset_name,
-    )
-    cache[cache_key] = pipe
-    return pipe
-
-
 __all__ = [
-    "_DLT_PIPELINE_BY_PATH",
-    "_dlt_pipeline_name",
     "_raw_snapshot_metadata",
     "_run_with_raw_snapshot",
     "_snapshot_refreshed_scope_name",
-    "get_cached_dlt_pipeline",
 ]

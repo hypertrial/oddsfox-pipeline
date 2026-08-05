@@ -21,7 +21,6 @@ from oddsfox_pipeline.ingestion.polymarket.odds.support import (
 )
 
 
-
 def _flatten_token_plans(groups):
     """Expand GroupPlans yielded by iter_token_plans_paged into TokenPlans."""
     out = []
@@ -272,22 +271,24 @@ def test_iter_token_plans_paged_force_passes_ended_market_grace():
     def due_pages(**kwargs):
         raise AssertionError(f"unexpected due iterator call: {kwargs}")
 
-    plans = _flatten_token_plans(list(
-        odds_sync.iter_token_plans_paged(
-            now_ts=1_900_000_000,
-            clob_cutoff_date="2023-01-01",
-            fidelity=1440,
-            force=True,
-            rebuild_history=False,
-            overlap_minutes=0,
-            skip_recent_minutes=0,
-            market_page_size=10,
-            ended_market_grace_days=7,
-            iter_markets_with_tokens_fn=full_pages,
-            iter_due_market_tokens_fn=due_pages,
-            get_token_sync_snapshot_fn=lambda token_ids, **kwargs: ({}, set(), {}),
+    plans = _flatten_token_plans(
+        list(
+            odds_sync.iter_token_plans_paged(
+                now_ts=1_900_000_000,
+                clob_cutoff_date="2023-01-01",
+                fidelity=1440,
+                force=True,
+                rebuild_history=False,
+                overlap_minutes=0,
+                skip_recent_minutes=0,
+                market_page_size=10,
+                ended_market_grace_days=7,
+                iter_markets_with_tokens_fn=full_pages,
+                iter_due_market_tokens_fn=due_pages,
+                get_token_sync_snapshot_fn=lambda token_ids, **kwargs: ({}, set(), {}),
+            )
         )
-    ))
+    )
 
     assert len(plans) == 1
     assert full_calls
@@ -380,34 +381,36 @@ def test_iter_token_plans_paged_due_only_uses_due_iterator_and_scheduler_state()
         called["full"] += 1
         yield []
 
-    plans = _flatten_token_plans(list(
-        odds_sync.iter_token_plans_paged(
-            now_ts=1_900_000_000,
-            clob_cutoff_date="2023-01-01",
-            fidelity=1440,
-            force=False,
-            rebuild_history=False,
-            overlap_minutes=0,
-            skip_recent_minutes=0,
-            market_page_size=10,
-            iter_due_market_tokens_fn=due_pages,
-            iter_markets_with_tokens_fn=full_pages,
-            count_due_market_token_exclusions_fn=lambda **kwargs: {
-                "scope_skip": 0,
-                "ended_market_skip": 0,
-            },
-            get_token_sync_snapshot_fn=lambda *args, **kwargs: (
-                {token_id: 100},
-                set(),
-                {},
-                {
-                    token_id: odds_sync.TokenSyncSchedulerState(
-                        empty_run_streak=2,
-                    )
+    plans = _flatten_token_plans(
+        list(
+            odds_sync.iter_token_plans_paged(
+                now_ts=1_900_000_000,
+                clob_cutoff_date="2023-01-01",
+                fidelity=1440,
+                force=False,
+                rebuild_history=False,
+                overlap_minutes=0,
+                skip_recent_minutes=0,
+                market_page_size=10,
+                iter_due_market_tokens_fn=due_pages,
+                iter_markets_with_tokens_fn=full_pages,
+                count_due_market_token_exclusions_fn=lambda **kwargs: {
+                    "scope_skip": 0,
+                    "ended_market_skip": 0,
                 },
-            ),
+                get_token_sync_snapshot_fn=lambda *args, **kwargs: (
+                    {token_id: 100},
+                    set(),
+                    {},
+                    {
+                        token_id: odds_sync.TokenSyncSchedulerState(
+                            empty_run_streak=2,
+                        )
+                    },
+                ),
+            )
         )
-    ))
+    )
     assert called == {"due": 1, "full": 0}
     assert len(plans) == 1
     assert plans[0].token_id == token_id
@@ -757,18 +760,22 @@ def test_iter_token_plans_paged_allowlist_and_denylist_skip_tokens():
         "get_token_sync_snapshot_fn": sync_snapshot,
     }
 
-    allowlisted = _flatten_token_plans(list(
-        odds_sync.iter_token_plans_paged(
-            **common,
-            token_id_allowlist={tok_keep},
+    allowlisted = _flatten_token_plans(
+        list(
+            odds_sync.iter_token_plans_paged(
+                **common,
+                token_id_allowlist={tok_keep},
+            )
         )
-    ))
-    denied = _flatten_token_plans(list(
-        odds_sync.iter_token_plans_paged(
-            **common,
-            token_id_denylist={tok_skip},
+    )
+    denied = _flatten_token_plans(
+        list(
+            odds_sync.iter_token_plans_paged(
+                **common,
+                token_id_denylist={tok_skip},
+            )
         )
-    ))
+    )
 
     assert [plan.token_id for plan in allowlisted] == [tok_keep]
     assert [plan.token_id for plan in denied] == [tok_keep]

@@ -1,3 +1,5 @@
+import json
+
 import duckdb
 import pytest
 
@@ -135,7 +137,9 @@ def test_snapshot_dbt_models_reports_missing_relations(tmp_path):
     }
 
 
-def test_scoped_dbt_relations_filters_kalshi_scope():
+def test_scoped_dbt_relations_filters_kalshi_scope(monkeypatch):
+    # Isolate tag filtering from live-manifest ancestor expansion.
+    monkeypatch.setattr(obs, "_dbt_model_parent_names", lambda: {})
     relations = obs._scoped_dbt_relations(
         dbt_select="+tag:kalshi",
         dbt_exclude="tag:polymarket",
@@ -143,6 +147,69 @@ def test_scoped_dbt_relations_filters_kalshi_scope():
     assert relations
     assert all(schema.startswith("kalshi_wc2026_") for schema, _ in relations)
     assert not any(schema.startswith("polymarket_wc2026_") for schema, _ in relations)
+
+
+def test_dbt_model_parent_names_does_not_sticky_cache_empty_miss(
+    tmp_path, monkeypatch
+):
+    missing = tmp_path / "missing" / "manifest.json"
+    present = tmp_path / "present" / "manifest.json"
+    present.parent.mkdir(parents=True)
+    present.write_text(
+        json.dumps(
+            {
+                "nodes": {
+                    "model.oddsfox.child": {
+                        "name": "child",
+                        "depends_on": {"nodes": ["model.oddsfox.parent"]},
+                    },
+                    "model.oddsfox.parent": {
+                        "name": "parent",
+                        "depends_on": {"nodes": []},
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(obs, "_resolve_dbt_manifest_path", lambda: missing)
+    assert obs._dbt_model_parent_names() == {}
+    monkeypatch.setattr(obs, "_resolve_dbt_manifest_path", lambda: present)
+    parents = obs._dbt_model_parent_names()
+    assert parents["child"] == frozenset({"parent"})
+
+
+def test_scoped_dbt_relations_expands_plus_selector_ancestors(monkeypatch):
+    monkeypatch.setattr(
+        obs,
+        "_dbt_model_parent_names",
+        lambda: {
+            "polymarket_wc2026_market_hourly_odds": frozenset(
+                {"int_polymarket_wc2026_token_hourly_odds"}
+            ),
+            "int_polymarket_wc2026_token_hourly_odds": frozenset(
+                {"stg_polymarket_wc2026_odds"}
+            ),
+        },
+    )
+    exact_names = {
+        model
+        for _, model in obs._scoped_dbt_relations(
+            dbt_select="polymarket_wc2026_market_hourly_odds"
+        )
+    }
+    assert "polymarket_wc2026_market_hourly_odds" in exact_names
+    assert "stg_polymarket_wc2026_odds" not in exact_names
+
+    plus_names = {
+        model
+        for _, model in obs._scoped_dbt_relations(
+            dbt_select="+polymarket_wc2026_market_hourly_odds"
+        )
+    }
+    assert "polymarket_wc2026_market_hourly_odds" in plus_names
+    assert "int_polymarket_wc2026_token_hourly_odds" in plus_names
+    assert "stg_polymarket_wc2026_odds" in plus_names
 
 
 def test_order_book_scope_excludes_trade_only_models():

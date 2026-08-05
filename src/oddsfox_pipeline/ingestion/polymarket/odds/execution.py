@@ -172,7 +172,9 @@ def fetch_group_window_with_auto_split(
     transient: set[str] = set()
     active = set(markets)
 
-    def _apply_per_token_fallback(window_ids: Sequence[str], s_ts: int, e_ts: int) -> None:
+    def _apply_per_token_fallback(
+        window_ids: Sequence[str], s_ts: int, e_ts: int
+    ) -> None:
         fallback = _fallback_group_window_per_token(
             client,
             window_ids,

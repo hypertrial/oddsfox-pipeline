@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from datetime import datetime
-from typing import Any
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Mapping
 
 import duckdb
 
+from oddsfox_pipeline.config.settings import DBT_PROJECT_DIR
 from oddsfox_pipeline.storage.duckdb.connection import (
     INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
     KALSHI_WC2026_OPS_SCHEMA,
@@ -308,19 +313,111 @@ def _qualified(schema: str, name: str) -> str:
     return f'"{schema}"."{name}"'
 
 
-def _selector_groups(selector: str | None) -> tuple[frozenset[str], ...]:
+def _resolve_dbt_manifest_path() -> Path:
+    raw = os.getenv("DBT_TARGET_PATH")
+    if not raw:
+        return DBT_PROJECT_DIR / "target" / "manifest.json"
+    path = Path(raw).expanduser()
+    target = path if path.is_absolute() else (DBT_PROJECT_DIR / path).resolve()
+    return target / "manifest.json"
+
+
+@lru_cache(maxsize=8)
+def _dbt_model_parent_names_cached(
+    path_key: str, mtime: float
+) -> Mapping[str, frozenset[str]]:
+    """Parse parent edges from a readable dbt manifest (keyed by path+mtime)."""
+    path = Path(path_key)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    parents: dict[str, set[str]] = {}
+    nodes = data.get("nodes") if isinstance(data, dict) else None
+    if not isinstance(nodes, dict):
+        return {}
+    for node_id, node in nodes.items():
+        if not isinstance(node_id, str) or not node_id.startswith("model."):
+            continue
+        if not isinstance(node, dict):
+            continue
+        name = str(node.get("name") or node_id.rsplit(".", 1)[-1])
+        deps = node.get("depends_on", {})
+        dep_nodes = deps.get("nodes", []) if isinstance(deps, dict) else []
+        parent_names = {
+            dep.rsplit(".", 1)[-1]
+            for dep in dep_nodes
+            if isinstance(dep, str) and dep.startswith("model.")
+        }
+        parents[name] = parent_names
+    return {name: frozenset(values) for name, values in parents.items()}
+
+
+def _dbt_model_parent_names() -> Mapping[str, frozenset[str]]:
+    """Return model_name -> immediate parent model names from the dbt manifest.
+
+    Missing or unreadable manifests yield an empty map so selector matching
+    falls back to the non-expanded (strip-``+``) behavior. Empty misses are
+    not sticky: a later successful parse (new path/mtime) is reloaded.
+    """
+    path = _resolve_dbt_manifest_path()
+    try:
+        mtime = path.stat().st_mtime
+    except OSError as exc:
+        logger.warning(
+            "dbt manifest unavailable for selector ancestry at %s (%s); "
+            "using non-expanded selectors",
+            path,
+            exc,
+        )
+        return {}
+    try:
+        return _dbt_model_parent_names_cached(str(path.resolve()), mtime)
+    except (OSError, json.JSONDecodeError, TypeError, UnicodeError) as exc:
+        logger.warning(
+            "dbt manifest unavailable for selector ancestry at %s (%s); "
+            "using non-expanded selectors",
+            path,
+            exc,
+        )
+        return {}
+
+
+def _transitive_parent_names(
+    model: str, parent_map: Mapping[str, frozenset[str]]
+) -> frozenset[str]:
+    seen: set[str] = set()
+    stack = list(parent_map.get(model, ()))
+    while stack:
+        parent = stack.pop()
+        if parent in seen:
+            continue
+        seen.add(parent)
+        stack.extend(parent_map.get(parent, ()))
+    return frozenset(seen)
+
+
+def _selector_groups(
+    selector: str | None,
+) -> tuple[tuple[frozenset[str], bool], ...]:
+    """Parse a dbt selector into (AND-token set, include_ancestors) groups.
+
+    Space-separated parts are OR'd by callers. A leading ``+`` on a part marks
+    that group for ancestor expansion when a dbt manifest is available.
+    """
     if not selector:
         return ()
-    groups: list[frozenset[str]] = []
+    groups: list[tuple[frozenset[str], bool]] = []
     for part in selector.split():
-        token = part.strip().lstrip("+")
+        stripped = part.strip()
+        if not stripped:
+            continue
+        include_ancestors = stripped.startswith("+")
+        token = stripped.lstrip("+")
         if not token:
             continue
         and_tokens = frozenset(
             piece.strip() for piece in token.split(",") if piece.strip()
         )
         if and_tokens:
-            groups.append(and_tokens)
+            groups.append((and_tokens, include_ancestors))
     return tuple(groups)
 
 
@@ -361,27 +458,49 @@ def _token_matches_model(
     return token == model or model.startswith(token) or schema.startswith(token)
 
 
-def _relation_matches_selector_groups(
+def _relation_matches_tokens(
     schema: str,
     model: str,
-    groups: tuple[frozenset[str], ...],
+    tokens: frozenset[str],
 ) -> bool:
-    if not groups:
-        return True
     tags = _infer_dbt_model_tags(schema, model)
-    return any(
-        all(_token_matches_model(token, schema, model, tags) for token in group)
-        for group in groups
-    )
+    return all(_token_matches_model(token, schema, model, tags) for token in tokens)
+
+
+def _relations_for_selector_groups(
+    groups: tuple[tuple[frozenset[str], bool], ...],
+) -> set[tuple[str, str]] | None:
+    """Return selected relations, or None when the selector is empty (all)."""
+    if not groups:
+        return None
+    needs_ancestors = any(include for _, include in groups)
+    parent_map = _dbt_model_parent_names() if needs_ancestors else {}
+    relations_by_model: dict[str, list[tuple[str, str]]] = {}
+    for schema, model in DBT_EXPECTED_RELATIONS:
+        relations_by_model.setdefault(model, []).append((schema, model))
+
+    selected: set[tuple[str, str]] = set()
+    for tokens, include_ancestors in groups:
+        direct = {
+            (schema, model)
+            for schema, model in DBT_EXPECTED_RELATIONS
+            if _relation_matches_tokens(schema, model, tokens)
+        }
+        selected |= direct
+        if include_ancestors and parent_map:
+            for _, model in direct:
+                for ancestor in _transitive_parent_names(model, parent_map):
+                    selected.update(relations_by_model.get(ancestor, ()))
+    return selected
 
 
 def _scoped_dbt_relations(
     dbt_select: str | None = None,
     dbt_exclude: str | None = None,
 ) -> tuple[tuple[str, str], ...]:
-    select_groups = _selector_groups(dbt_select)
+    selected = _relations_for_selector_groups(_selector_groups(dbt_select))
     exclude_tokens = [
-        token for group in _selector_groups(dbt_exclude) for token in group
+        token for tokens, _ in _selector_groups(dbt_exclude) for token in tokens
     ]
     relations: list[tuple[str, str]] = []
     for schema, model in DBT_EXPECTED_RELATIONS:
@@ -390,7 +509,7 @@ def _scoped_dbt_relations(
             _token_matches_model(token, schema, model, tags) for token in exclude_tokens
         ):
             continue
-        if not _relation_matches_selector_groups(schema, model, select_groups):
+        if selected is not None and (schema, model) not in selected:
             continue
         relations.append((schema, model))
     return tuple(relations)

@@ -9,6 +9,12 @@ import pytest
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
 from oddsfox_pipeline.orchestration import config as orch_config
 from oddsfox_pipeline.orchestration import polymarket_asset_helpers as helpers_mod
+from oddsfox_pipeline.orchestration import (
+    polymarket_asset_helpers_markets as markets_helpers,
+)
+from oddsfox_pipeline.orchestration import (
+    polymarket_asset_helpers_registry as registry_helpers,
+)
 from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_event_catalog,
@@ -16,6 +22,7 @@ from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_raw_markets_snapshot,
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
+from oddsfox_pipeline.storage.duckdb import dlt_batch as dlt_batch_mod
 from oddsfox_pipeline.storage.duckdb.dlt_batch import EVENT_SNAPSHOT_COLUMNS
 
 
@@ -33,14 +40,14 @@ def test_get_polymarket_dlt_pipeline_uses_path_cache(monkeypatch):
             created.append(kwargs)
             return object()
 
-    helpers_mod._DLT_PIPELINE_BY_PATH.clear()
+    dlt_batch_mod._DLT_PIPELINE_BY_PATH.clear()
     monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
 
-    first = helpers_mod.get_polymarket_dlt_pipeline(
+    first = dlt_batch_mod.get_polymarket_dlt_pipeline(
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
         dlt_module=FakeDlt,
     )
-    second = helpers_mod.get_polymarket_dlt_pipeline(
+    second = dlt_batch_mod.get_polymarket_dlt_pipeline(
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
         dlt_module=FakeDlt,
     )
@@ -49,13 +56,13 @@ def test_get_polymarket_dlt_pipeline_uses_path_cache(monkeypatch):
     assert len(created) == 1
     assert created[0]["pipeline_name"] == "polymarket_wc2026_raw_landing"
 
-    helpers_mod._DLT_PIPELINE_BY_PATH.clear()
-    other_scope = helpers_mod.get_polymarket_dlt_pipeline(
+    dlt_batch_mod._DLT_PIPELINE_BY_PATH.clear()
+    other_scope = dlt_batch_mod.get_polymarket_dlt_pipeline(
         scope_name="custom-scope",
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
         dlt_module=FakeDlt,
     )
-    wc2026 = helpers_mod.get_polymarket_dlt_pipeline(
+    wc2026 = dlt_batch_mod.get_polymarket_dlt_pipeline(
         scope_name="wc2026",
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
         dlt_module=FakeDlt,
@@ -63,9 +70,9 @@ def test_get_polymarket_dlt_pipeline_uses_path_cache(monkeypatch):
     assert other_scope is not wc2026
     assert len(created) == 3
 
-    helpers_mod._DLT_PIPELINE_BY_PATH.clear()
+    dlt_batch_mod._DLT_PIPELINE_BY_PATH.clear()
     monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw2")
-    helpers_mod.get_polymarket_dlt_pipeline(
+    dlt_batch_mod.get_polymarket_dlt_pipeline(
         active_duckdb_path_fn=lambda: "/tmp/cache.duckdb",
         dlt_module=FakeDlt,
     )
@@ -84,7 +91,7 @@ def test_dlt_asset_clears_pending_packages_and_indexes(monkeypatch):
         yield conn
 
     monkeypatch.setattr(
-        assets_mod.asset_helpers,
+        markets_helpers,
         "get_polymarket_dlt_pipeline",
         lambda **_kwargs: pipeline,
     )
@@ -238,7 +245,7 @@ def test_event_catalog_clears_checkpoints_before_metrics(monkeypatch):
     monkeypatch.setattr(assets_mod, "get_connection", connection)
     monkeypatch.setattr(assets_mod, "ensure_polymarket_indexes", lambda *_a, **_k: None)
     monkeypatch.setattr(
-        helpers_mod,
+        registry_helpers,
         "clear_event_catalog_partition_checkpoints",
         lambda *_a, **_k: order.append("clear"),
     )
@@ -249,7 +256,7 @@ def test_event_catalog_clears_checkpoints_before_metrics(monkeypatch):
 
     monkeypatch.setattr(assets_mod, "save_sync_run_metrics", _metrics)
     monkeypatch.setattr(
-        helpers_mod, "save_asset_failure_metrics", lambda *_a, **_k: None
+        registry_helpers, "save_asset_failure_metrics", lambda *_a, **_k: None
     )
 
     fn = polymarket_wc2026_raw_event_catalog.op.compute_fn.decorated_fn

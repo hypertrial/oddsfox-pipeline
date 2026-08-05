@@ -100,4 +100,39 @@ def test_refresh_registry_and_collect_reports_api_request_count(monkeypatch, duc
     assert request_counts == {"events": 1, "markets": 2}
     assert result.summary["api_requests"] == 3
     assert result.summary["events_collected"] == 2
+    assert result.summary["events_failed"] == 0
     assert result.summary["markets_collected"] == 2
+
+
+def test_refresh_registry_and_collect_counts_failed_events(monkeypatch, duck):
+    cfg = KalshiMarketScopeConfig(
+        scope_name="wc2026",
+        series_tickers=("KXWC",),
+        excluded_market_suffixes={"KXWC": ()},
+    )
+    client = MagicMock()
+
+    def fake_events(_client, series_ticker, *, progress_callback=None):
+        return [
+            {"event_ticker": "KXWC-EVT1"},
+            {"event_ticker": "KXWC-EVT2"},
+        ]
+
+    def fake_markets(_client, event_ticker, *, progress_callback=None):
+        if event_ticker == "KXWC-EVT2":
+            raise RuntimeError("simulated")
+        return [
+            {
+                "ticker": f"{event_ticker}-MKT",
+                "event_ticker": event_ticker,
+            }
+        ]
+
+    monkeypatch.setattr(series_registry, "fetch_events_for_series", fake_events)
+    monkeypatch.setattr(series_registry, "fetch_markets_for_event", fake_markets)
+
+    result = series_registry.refresh_registry_and_collect(client, config=cfg)
+
+    assert result.summary["events_collected"] == 1
+    assert result.summary["events_failed"] == 1
+    assert result.summary["markets_collected"] == 1

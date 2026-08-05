@@ -108,6 +108,14 @@ def sync_hourly_candlesticks(
             end_at=end_at,
         ),
     )
+    # Derive failures on the main thread (map_bounded drops raised workers).
+    result_tickers = {result.market_ticker for result in results}
+    failed_market_tickers = [
+        str(market.get("market_ticker") or "")
+        for market in markets
+        if str(market.get("market_ticker") or "")
+        and str(market.get("market_ticker") or "") not in result_tickers
+    ]
     all_candlesticks: list[dict[str, Any]] = []
     ledger_states: list[tuple[str, bool, bool, int | None]] = []
     for result in results:
@@ -148,6 +156,8 @@ def sync_hourly_candlesticks(
         "markets_total": len(markets),
         "markets_synced": markets_synced,
         "empty_markets": empty_markets,
+        "markets_failed": len(failed_market_tickers),
+        "failed_market_tickers": list(failed_market_tickers),
         "rows_written": rows_written,
         "force": force,
     }

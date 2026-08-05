@@ -100,7 +100,7 @@ oddsfox:
     for module in (assets_mod, kalshi_assets_mod):
         if module is kalshi_assets_mod:
             monkeypatch.setattr(
-                module.asset_helpers,
+                module,
                 "get_kalshi_dlt_pipeline",
                 lambda **_kwargs: pipeline,
             )
@@ -130,8 +130,10 @@ oddsfox:
                 lambda **_kwargs: {"registry_rows_upserted": 0},
             )
         else:
+            import oddsfox_pipeline.orchestration.polymarket_asset_helpers_markets as markets_helpers
+
             monkeypatch.setattr(
-                module.asset_helpers,
+                markets_helpers,
                 "get_polymarket_dlt_pipeline",
                 lambda **_kwargs: pipeline,
             )

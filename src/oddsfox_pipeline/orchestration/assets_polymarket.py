@@ -42,6 +42,7 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     active_duckdb_path,
     get_connection,
 )
+from oddsfox_pipeline.storage.duckdb.dlt_batch import get_polymarket_dlt_pipeline
 from oddsfox_pipeline.storage.duckdb.dlt_batch_event_catalog import (
     merge_event_catalog_batch,
 )
@@ -104,7 +105,7 @@ class PolymarketWc2026DltTranslator(DagsterDltTranslator):
         )
 
 
-_POLYMARKET_DLT_PIPELINE = asset_helpers.get_polymarket_dlt_pipeline(
+_POLYMARKET_DLT_PIPELINE = get_polymarket_dlt_pipeline(
     active_duckdb_path_fn=active_duckdb_path,
     dlt_module=dlt,
 )

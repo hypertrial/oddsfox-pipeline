@@ -466,24 +466,15 @@ def test_reset_duckdb_connection_state_clears_active_path(
 
 def test_reset_orchestration_dlt_pipeline_caches_clears_and_skips(monkeypatch):
     import oddsfox_pipeline.storage.duckdb.connection as conn
-    from oddsfox_pipeline.orchestration import (
-        kalshi_asset_helpers,
-        polymarket_asset_helpers,
-    )
+    from oddsfox_pipeline.storage.duckdb import dlt_batch as dlt_batch_mod
 
-    poly_cache = polymarket_asset_helpers._DLT_PIPELINE_BY_PATH
-    kalshi_cache = kalshi_asset_helpers._DLT_PIPELINE_BY_PATH
-    poly_cache.clear()
-    kalshi_cache.clear()
-    poly_cache["p"] = object()
-    monkeypatch.setattr(kalshi_asset_helpers, "_DLT_PIPELINE_BY_PATH", None)
+    cache = dlt_batch_mod._DLT_PIPELINE_BY_PATH
+    cache.clear()
+    cache["p"] = object()
 
     conn.reset_orchestration_dlt_pipeline_caches()
 
-    assert poly_cache == {}
-    assert kalshi_asset_helpers._DLT_PIPELINE_BY_PATH is None
-    # teardown restores the real Kalshi cache attribute; keep it empty.
-    kalshi_cache.clear()
+    assert cache == {}
 
 
 def test_get_connection_retries_transient_lock(monkeypatch, tmp_path, isolated_env):
