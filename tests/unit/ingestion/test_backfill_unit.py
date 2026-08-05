@@ -42,7 +42,6 @@ def duck_ready(monkeypatch):
 
 
 def test_chunk_helpers():
-    assert bf_gamma._chunk_market_ids(["a", "b", "c"], 2) == [["a", "b"], ["c"]]
     mc = MagicMock()
     mc.get.return_value = []
     bf_gamma._fetch_markets_batch(mc, ["1"], include_events=True)

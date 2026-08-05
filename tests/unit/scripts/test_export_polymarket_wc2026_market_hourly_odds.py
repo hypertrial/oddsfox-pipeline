@@ -13,14 +13,13 @@ def _load_export_module():
     sys.path.insert(0, str(scripts_dir))
     from export_polymarket_wc2026_market_hourly_odds import (
         export_polymarket_wc2026_market_hourly_odds,
-        mart_exists,
     )
 
-    return export_polymarket_wc2026_market_hourly_odds, mart_exists
+    return export_polymarket_wc2026_market_hourly_odds
 
 
 def test_export_polymarket_wc2026_market_hourly_odds_round_trip(tmp_path: Path) -> None:
-    export_polymarket_wc2026_market_hourly_odds, mart_exists = _load_export_module()
+    export_polymarket_wc2026_market_hourly_odds = _load_export_module()
     out_path = tmp_path / "polymarket_wc2026_market_hourly_odds.parquet"
     conn = duckdb.connect()
     try:
@@ -43,7 +42,6 @@ def test_export_polymarket_wc2026_market_hourly_odds_round_trip(tmp_path: Path) 
             values ('m1', 'tok-a', 'evt-1', 1782604800, 0.42, 2)
             """
         )
-        assert mart_exists(conn) is True
         assert export_polymarket_wc2026_market_hourly_odds(conn, out_path) == 1
         got = conn.execute("select * from read_parquet(?)", [str(out_path)]).fetchall()
     finally:

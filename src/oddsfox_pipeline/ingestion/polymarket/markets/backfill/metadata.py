@@ -33,7 +33,6 @@ from ._gamma import (
     DEFAULT_EVENT_SLUG_FALLBACK_MAX_NO_PROGRESS_PAGES,
     DEFAULT_EVENT_SLUG_FALLBACK_MAX_PAGES,
     ProgressCallback,
-    _chunk_market_ids,
     _duration_since,
     _fetch_markets_batch,
     _gamma_client,
@@ -260,7 +259,10 @@ def enrich_market_metadata(
         "events_fallback_truncated": False,
         "events_fallback_remaining_ids": 0,
     }
-    chunks = _chunk_market_ids(market_ids, batch_size)
+    chunks = [
+        list(market_ids[i : i + batch_size])
+        for i in range(0, len(market_ids), batch_size)
+    ]
     total_batches = len(chunks)
     loop_started = time.monotonic()
     use_tqdm = sys.stderr.isatty()

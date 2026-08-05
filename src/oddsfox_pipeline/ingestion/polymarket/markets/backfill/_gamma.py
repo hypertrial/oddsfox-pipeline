@@ -31,12 +31,6 @@ def _duration_since(start: float) -> float:
     return round(time.monotonic() - start, 3)
 
 
-def _chunk_market_ids(market_ids: Sequence[str], chunk_size: int) -> List[List[str]]:
-    return [
-        market_ids[i : i + chunk_size] for i in range(0, len(market_ids), chunk_size)
-    ]
-
-
 def _fetch_markets_batch(
     client: APIClient, chunk: Sequence[str], include_events: bool = False
 ) -> list:
@@ -69,7 +63,10 @@ def _process_market_chunks(
     processed = processed_start
     saved = 0
     api_requests = 0
-    chunks = _chunk_market_ids(market_ids, batch_size)
+    chunks = [
+        list(market_ids[i : i + batch_size])
+        for i in range(0, len(market_ids), batch_size)
+    ]
     total_batches = len(chunks)
     loop_started = time.monotonic()
 

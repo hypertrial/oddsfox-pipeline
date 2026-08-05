@@ -15,8 +15,7 @@ import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _bootstrap import ensure_src_on_path
-from _export_common import mart_exists as _mart_exists
-from _export_common import qualified_mart_name, snapshot_duckdb_files
+from _export_common import mart_exists, qualified_mart_name, snapshot_duckdb_files
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
 from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
@@ -27,15 +26,11 @@ MART_SCHEMA: Final = POLYMARKET_WC2026_MARTS_SCHEMA
 MART_NAME: Final = "polymarket_wc2026_market_hourly_odds"
 
 
-def mart_exists(conn: duckdb.DuckDBPyConnection) -> bool:
-    return _mart_exists(conn, MART_SCHEMA, MART_NAME)
-
-
 def export_polymarket_wc2026_market_hourly_odds(
     conn: duckdb.DuckDBPyConnection,
     output_path: Path,
 ) -> int:
-    if not mart_exists(conn):
+    if not mart_exists(conn, MART_SCHEMA, MART_NAME):
         raise LookupError(f"Missing {MART_SCHEMA}.{MART_NAME}. Run dbt build first.")
     rel = qualified_mart_name(MART_SCHEMA, MART_NAME)
     output_path = output_path.resolve()

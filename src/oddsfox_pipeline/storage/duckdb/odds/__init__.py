@@ -1,8 +1,7 @@
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from oddsfox_pipeline.storage.duckdb.connection import ensure_duck_db, get_connection
 from oddsfox_pipeline.storage.duckdb.odds._common import (
-    _TOKEN_STATE_CHUNK_SIZE,
     TokenSyncSchedulerState,
     _chunked,
     _epoch_to_utc_date,
@@ -28,8 +27,6 @@ from oddsfox_pipeline.storage.duckdb.odds.odds_writes import (
 __all__ = [
     "_chunked",
     "_epoch_to_utc_date",
-    "_TOKEN_STATE_CHUNK_SIZE",
-    "date",
     "datetime",
     "ensure_duck_db",
     "get_connection",
