@@ -1,1 +1,1 @@
-from oddsfox_pipeline.config.settings import *
+"""OddsFox Pipeline configuration package."""

@@ -24,7 +24,7 @@ from oddsfox_pipeline.orchestration.config import (
     KalshiMarketScopeRegistryConfig,
     KalshiMarketsSyncConfig,
 )
-from oddsfox_pipeline.orchestration.snapshot_helpers import (
+from oddsfox_pipeline.orchestration.raw_snapshot_helpers import (
     _snapshot_refreshed_scope_name,
 )
 from oddsfox_pipeline.storage.duckdb.connection import (

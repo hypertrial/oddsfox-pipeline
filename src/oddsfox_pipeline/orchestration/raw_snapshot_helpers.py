@@ -14,6 +14,11 @@ from oddsfox_pipeline.storage.duckdb.observability import (
 )
 
 
+def _snapshot_refreshed_scope_name(snapshot_metrics: dict[str, Any]) -> str | None:
+    scope_name = snapshot_metrics.get("scope_name")
+    return str(scope_name) if scope_name else None
+
+
 def _raw_snapshot_metadata(
     pre: dict[str, Any],
     post: dict[str, Any],
@@ -101,5 +106,6 @@ __all__ = [
     "_dlt_pipeline_name",
     "_raw_snapshot_metadata",
     "_run_with_raw_snapshot",
+    "_snapshot_refreshed_scope_name",
     "get_cached_dlt_pipeline",
 ]
