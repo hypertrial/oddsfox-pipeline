@@ -8,7 +8,7 @@ live in [Data dictionary](data-dictionary.md). Analysts should start with
 than this page.
 
 The local warehouse is DuckDB. By default it is `oddsfox.duckdb` in the repo
-root. OddsFox Pipeline is designed for prediction-market data; the v0.1.x warehouse
+root. OddsFox Pipeline is designed for prediction-market data; the v0.2.x warehouse
 schemas and relation names are source-specific because adapters ship in parallel.
 
 ## Raw layer

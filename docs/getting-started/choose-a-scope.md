@@ -1,7 +1,7 @@
 # Choose a scope
 
 Use this page to select one of the two fixed source and market scopes shipped
-by OddsFox Pipeline `v0.1.x`. Dagster asset configs do not accept arbitrary runtime
+by OddsFox Pipeline `v0.2.x`. Dagster asset configs do not accept arbitrary runtime
 scope selectors.
 
 | Scope | Source | Public output | Credentials |

@@ -17,7 +17,7 @@ The default warehouse is `oddsfox.duckdb` in the repository root.
 
 !!! warning "Reset warehouses from older layouts"
 
-    OddsFox Pipeline `v0.1.x` does not maintain warehouse migrations. If this checkout
+    OddsFox Pipeline `v0.2.x` does not maintain warehouse migrations. If this checkout
     replaces an older layout, delete the local warehouse before continuing:
 
     ```bash

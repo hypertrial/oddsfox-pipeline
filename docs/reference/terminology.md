@@ -5,7 +5,7 @@ Identifier construction lives in [Naming](naming.md). Product contract IDs,
 atlas semantics, and analyst shortcuts live in the local docs linked below.
 
 Breaking identifier renames and prose cleanup follow these definitions. There
-are no compatibility aliases in `v0.1.x`; operators with older warehouses
+are no compatibility aliases in `v0.2.x`; operators with older warehouses
 delete `oddsfox.duckdb*` and rebuild.
 
 Machine-readable inventory and retirement rules live in the repository at

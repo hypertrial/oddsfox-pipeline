@@ -11,7 +11,7 @@ For the operator checklist, see
 
 - Source code, dbt models, jobs, operator scripts, and documentation
   for local macOS-first operation.
-- Two fixed `run_scope.py` market scopes in `v0.1.x`:
+- Two fixed `run_scope.py` market scopes in `v0.2.x`:
   `polymarket:wc2026` and `kalshi:wc2026`.
 - FIFA fixture/results and OpenFootball schedule ingestion for Kalshi WC2026 and
   match-minute real-team validation; not required for the Polymarket golden-mart

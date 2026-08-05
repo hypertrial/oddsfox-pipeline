@@ -3,7 +3,7 @@
 OddsFox Pipeline is intentionally local-first: every routine workflow writes to a local
 DuckDB warehouse and is coordinated by jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
-v0.1.x adapters support WC2026 Polymarket event-gated hourly odds marts, Kalshi WC2026 stage
+v0.2.x adapters support WC2026 Polymarket event-gated hourly odds marts, Kalshi WC2026 stage
 and group-winner marts, historical international-results ingestion, analytics
 marts as the supported query API, and the private `wc2026.v1` strategy
 clean-data contract.
@@ -26,9 +26,9 @@ Current WC2026 implementation:
 
 ```mermaid
 flowchart LR
-    gamma["Prediction-market metadata API<br/>Polymarket Gamma in v0.1.x"] --> dlt["dlt market landing"]
-    clob["Prediction-market odds API<br/>Polymarket CLOB in v0.1.x"] --> odds["Python odds sync"]
-    kalshi_api["Prediction-market metadata/odds API<br/>Kalshi trade API in v0.1.x"] --> kalshi_sync["Python candlestick sync"]
+    gamma["Prediction-market metadata API<br/>Polymarket Gamma in v0.2.x"] --> dlt["dlt market landing"]
+    clob["Prediction-market odds API<br/>Polymarket CLOB in v0.2.x"] --> odds["Python odds sync"]
+    kalshi_api["Prediction-market metadata/odds API<br/>Kalshi trade API in v0.2.x"] --> kalshi_sync["Python candlestick sync"]
     results["Public football CSV/TXT feeds"] --> result_sync["Python CSV sync"]
     seed["Operator-local Polygon WC2026 manifest"] --> polygon_sync["Finalized Polygon V2 log sync"]
     polygon_rpc["Polygon JSON-RPC"] --> polygon_sync

@@ -301,7 +301,7 @@ Mart, asset, job, script, and schema names now use the source-first
 `polymarket/wc2026/...`; jobs, op config keys, scripts, dbt relations, and
 DuckDB schemas use flat `polymarket_wc2026_*` names.
 
-There are no compatibility views, env aliases, or migration shims in v0.1.x.
+There are no compatibility views, env aliases, or migration shims in v0.2.x.
 Delete old local warehouse files (`rm oddsfox.duckdb*`) and rerun quickstart
 after upgrading from older layouts.
 

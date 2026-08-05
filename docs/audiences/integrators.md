@@ -14,7 +14,7 @@ not execution orders. Canonical vocabulary lives in
 2. **Pin versions** — read `wc2026_marts.contract_metadata` where present and
    track
    [CHANGELOG.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CHANGELOG.md).
-   `v0.1.x` mart layouts may break between releases.
+   `v0.2.x` mart layouts may break between releases.
 3. **Strategy / raw.v1 consumers** — if you load private canonical snapshots or
    the strategy clean-data set (`wc2026.v1`), fail closed on readiness using
    [Strategy contracts](../reference/strategy-contracts.md). Ordinary public

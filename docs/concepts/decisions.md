@@ -1,6 +1,6 @@
 # Design Decisions
 
-These are intentional `v0.1.x` product choices. Prefer deleting and replacing
+These are intentional `v0.2.x` product choices. Prefer deleting and replacing
 over compatibility layers unless a change explicitly scopes legacy work.
 
 ## Local-First, No Hosted Data Service
@@ -12,7 +12,7 @@ See [Scope and non-goals](scope-and-non-goals.md).
 
 ## No Warehouse Migrations
 
-Layout and mart contracts may break between `0.1.x` releases. Operators with an
+Layout and mart contracts may break between `0.2.x` releases. Operators with an
 older DuckDB file should delete `oddsfox.duckdb*` and rebuild.
 
 Why: the project is too new to carry a migration surface; reset is smaller and

@@ -23,7 +23,7 @@ Vocabulary: [Terminology](../reference/terminology.md).
 
 ## Versioning Expectations
 
-OddsFox Pipeline is `v0.1.x`. Public marts and Dagster asset keys may break
+OddsFox Pipeline is `v0.2.x`. Public marts and Dagster asset keys may break
 between releases. Breaking changes belong in
 [CHANGELOG.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/CHANGELOG.md)
 and [Data contracts](../reference/data-contracts.md). Do not assume long-term

@@ -42,7 +42,7 @@ Kalshi needs none; Polymarket CLOB credentials are optional; Polygon JSON-RPC is
 
 ## Can I use Postgres instead of DuckDB?
 
-No — local DuckDB is the supported `v0.1.x` warehouse.
+No — local DuckDB is the supported `v0.2.x` warehouse.
 
 ## Are warehouse migrations supported?
 

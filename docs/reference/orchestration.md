@@ -283,7 +283,7 @@ expand the same `+` ancestry from the local dbt manifest when present.
 | `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | Stopped |
 
 `polymarket_wc2026_hourly_odds_ingest` remains a manual job only; WC2026
-Polymarket events are complete and the hourly schedule was removed in v0.1.x / v0.2.x.
+Polymarket events are complete and the hourly schedule was removed in v0.2.x.
 
 The match-minute backfill has no schedule or environment enable flag.
 The PMXT match-order-book backfill has no schedule or environment enable flag.

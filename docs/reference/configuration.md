@@ -3,7 +3,7 @@
 Use `.env.example` as the source of local overrides.
 For first-run steps, see [Quickstart](../getting-started/index.md).
 
-Most settings are adapter-specific. In v0.1.x, that means the shipped WC2026
+Most settings are adapter-specific. In v0.2.x, that means the shipped WC2026
 Polymarket pipeline, the Kalshi WC2026 pipeline, the fixed FIFA results CSV
 used for team validation, and the OpenFootball mirror of FIFA schedule
 fixtures.
@@ -166,7 +166,7 @@ Python defaults are checked against those seeds in unit tests.
 
 `src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml` is the
 scope source. The packaged seed contains `wc2026`, and the shipped jobs,
-assets, and dbt graphs are fixed per scope in v0.1.x.
+assets, and dbt graphs are fixed per scope in v0.2.x.
 
 Polymarket scope helper code accepts any slug-like scope that exists in the
 seed file, which keeps tests and future adapter work seed-backed instead of
@@ -301,7 +301,7 @@ Kalshi hourly odds (`kalshi_wc2026_hourly_odds_ingest`,
 - `routine_interval_hours`: expected hours between routine runs for skip
   planning and ledger state. Kalshi hourly jobs default this to `1`.
 
-The old minute-grain schedule-oriented names are not accepted in v0.1.x.
+The old minute-grain schedule-oriented names are not accepted in v0.2.x.
 
 ## Schedules
 
@@ -322,5 +322,5 @@ schedule or enable flag. Its only credential is the optional-until-needed
 `PMXT_API_KEY`.
 
 The neutral `wc2026_*` schemas are a breaking local warehouse layout change.
-v0.1.x has no compatibility aliases or migration path; see
+v0.2.x has no compatibility aliases or migration path; see
 [Terminology](terminology.md).
