@@ -18,6 +18,7 @@ issues as (
 select
     count(distinct snapshots.scan_id) as published_scans,
     count(distinct snapshots.fifa_match_id) as mapped_games,
+    min(snapshots.fifa_match_id) as fifa_match_id,
     count(distinct snapshots.market_id) as mapped_markets,
     count(distinct snapshots.clob_token_id) as mapped_tokens,
     count(

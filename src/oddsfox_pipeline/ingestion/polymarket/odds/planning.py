@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -25,6 +26,9 @@ from oddsfox_pipeline.storage.duckdb import (
 
 logger = logging.getLogger(__name__)
 
+# Truncate >6 fractional digits so fromisoformat keeps a trailing offset.
+_ISO_FRAC_OVERFLOW = re.compile(r"(\.\d{6})\d+")
+
 
 def parse_created_at(raw_ts) -> Optional[datetime]:
     if not raw_ts:
@@ -32,7 +36,7 @@ def parse_created_at(raw_ts) -> Optional[datetime]:
     if isinstance(raw_ts, datetime):
         created_at = raw_ts
     else:
-        text = str(raw_ts).strip().replace("Z", "+00:00")
+        text = _ISO_FRAC_OVERFLOW.sub(r"\1", str(raw_ts).strip().replace("Z", "+00:00"))
         try:
             created_at = datetime.fromisoformat(text)
         except ValueError:

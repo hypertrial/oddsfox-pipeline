@@ -32,11 +32,13 @@ def get_registry_markets_for_sync(
     ledger = kalshi_ops_tbl(scope, "candlestick_sync_ledger")
     due_filter = ""
     if not force:
+        # Compare naive-UTC ledger walls to a UTC timestamp, not session-local
+        # CURRENT_TIMESTAMP (DuckDB session TZ would skew due filtering).
         due_filter = """
         AND (
             l.market_ticker IS NULL
             OR l.next_check_at IS NULL
-            OR l.next_check_at <= CURRENT_TIMESTAMP
+            OR l.next_check_at <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
         )
         """
     with get_connection() as conn:

@@ -285,17 +285,16 @@ issues as (
         'inventory' as issue_key,
         'error' as severity,
         1 as affected_rows,
-        'expected one match and either a 3-market group or 1-market knockout role inventory' as details
+        'expected FIFA match 95 with 1 advance market and 2 tokens' as details
     from inventory
     where
         snapshot_count = 0
         or scan_count != 1
         or manifest_count != 1
         or match_count != 1
-        or (
-            (fifa_match_id <= 72 and (market_count != 3 or token_count != 3))
-            or (fifa_match_id >= 73 and (market_count != 1 or token_count != 2))
-        )
+        or fifa_match_id != 95
+        or market_count != 1
+        or token_count != 2
 
     union all
 

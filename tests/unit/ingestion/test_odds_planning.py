@@ -881,6 +881,13 @@ def test_parse_created_at_preserves_all_supported_timestamp_semantics():
     assert parsed_aware.tzinfo is timezone.utc
     assert odds_sync._parse_created_at("2026-07-18T17:01:02") == expected
     assert odds_sync._parse_created_at("2026-07-18 17:01:02.987654") == expected
+    # >6 fractional digits must keep the offset (wall clock is not UTC).
+    assert odds_sync._parse_created_at(
+        "2024-06-11T15:00:00.123456789-05:00"
+    ) == datetime(2024, 6, 11, 20, 0, 0, tzinfo=timezone.utc)
+    assert odds_sync._parse_created_at(
+        "2024-06-11T15:00:00.123456789+05:00"
+    ) == datetime(2024, 6, 11, 10, 0, 0, tzinfo=timezone.utc)
 
 
 def test_parse_cutoff_date_has_exact_fallback_and_operational_log(caplog):

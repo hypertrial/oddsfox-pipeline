@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Optional, Tuple
 
+from oddsfox_pipeline.ingestion.polymarket.markets.transform import _preferred_event
+
 
 def _extract_tokens_record(market_id: str, market: dict) -> Optional[Tuple[str, str]]:
     clob_token_ids = market.get("clobTokenIds")
@@ -28,13 +30,10 @@ def _extract_slug_record(market_id: str, market: dict) -> Optional[Tuple[str, st
 def _extract_event_slug_record(
     market_id: str, market: dict
 ) -> Optional[Tuple[str, str]]:
-    events = market.get("events")
-    if not isinstance(events, list) or not events:
+    preferred = _preferred_event(market.get("events"))
+    if preferred is None:
         return None
-    first_event = events[0]
-    if not isinstance(first_event, dict):
-        return None
-    event_slug = first_event.get("slug")
+    event_slug = preferred.get("slug")
     if not event_slug:
         return None
     return event_slug, market_id

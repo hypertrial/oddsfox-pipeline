@@ -292,9 +292,10 @@ The Polygon settlement backfill and audit-release jobs likewise have no schedule
 or environment enable flag. The technical exporter is standalone and
 unscheduled. None of these paths uploads or distributes data.
 
-The international-results schedule runs daily at 02:15 UTC; the Kalshi hourly
-schedule runs on the hour. Both remain stopped unless their dedicated env flags
-are enabled.
+The international-results schedule runs daily at 02:15 UTC and is always
+stopped at definition load (start it in the Dagster UI if needed). The Kalshi
+hourly schedule runs on the hour and remains stopped unless
+`KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=true`.
 
 ## Run monitoring and retries
 

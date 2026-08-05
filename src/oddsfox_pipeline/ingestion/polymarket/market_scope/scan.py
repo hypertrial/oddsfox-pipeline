@@ -31,14 +31,16 @@ DEFAULT_MAX_PAGES_WITHOUT_PROGRESS = 25
 
 
 def _event_slug_from_market(market: dict[str, Any]) -> tuple[str | None, str | None]:
-    events = market.get("events")
-    if not isinstance(events, list) or not events:
+    # Lazy import: markets.__init__ pulls market_scope via sync.
+    from oddsfox_pipeline.ingestion.polymarket.markets.transform import (
+        _preferred_event,
+    )
+
+    preferred = _preferred_event(market.get("events"))
+    if preferred is None:
         return None, None
-    first = events[0]
-    if not isinstance(first, dict):
-        return None, None
-    slug = (first.get("slug") or "").strip().lower() or None
-    event_id = str(first.get("id") or "") or None
+    slug = (preferred.get("slug") or "").strip().lower() or None
+    event_id = str(preferred.get("id") or "") or None
     return slug, event_id
 
 

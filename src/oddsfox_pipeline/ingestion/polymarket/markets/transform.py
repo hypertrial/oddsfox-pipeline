@@ -7,10 +7,14 @@ responsibility focused.
 """
 
 import json
+import re
 from datetime import date, datetime, timezone
 from typing import Dict, List
 
 import polars as pl
+
+# Truncate >6 fractional digits so fromisoformat keeps a trailing offset.
+_ISO_FRAC_OVERFLOW = re.compile(r"(\.\d{6})\d+")
 
 
 def _normalize_nested_value(value):
@@ -81,7 +85,7 @@ def _parse_gamma_datetime_value(value) -> datetime | None:
         return None
     if len(text) == 10 and text[4] == "-" and text[7] == "-":
         return datetime.strptime(text, "%Y-%m-%d")
-    normalized = text.replace("Z", "+00:00")
+    normalized = _ISO_FRAC_OVERFLOW.sub(r"\1", text.replace("Z", "+00:00"))
     try:
         parsed = datetime.fromisoformat(normalized)
     except ValueError:

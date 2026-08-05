@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+
 from oddsfox_pipeline.storage.duckdb import kalshi_candlesticks
 from oddsfox_pipeline.storage.duckdb.kalshi_market_scope_registry import (
     KalshiRegistryRow,
@@ -69,6 +71,58 @@ def test_get_registry_markets_for_sync_respects_ledger_due_filter(duck):
 
     assert [row["market_ticker"] for row in due] == ["KXWC-DUE"]
     assert {row["market_ticker"] for row in forced} == {"KXWC-DUE", "KXWC-SKIP"}
+
+
+@pytest.mark.parametrize(
+    "session_tz",
+    ["UTC", "America/Los_Angeles", "Asia/Tokyo", "Europe/Warsaw"],
+)
+def test_get_registry_markets_for_sync_due_filter_uses_utc_walls(
+    duck, session_tz, monkeypatch
+):
+    from datetime import timedelta, timezone
+
+    import oddsfox_pipeline.storage.duckdb.connection as duck_connection
+
+    _seed_registry_and_market(duck, market_ticker="KXWC-PAST")
+    _seed_registry_and_market(duck, market_ticker="KXWC-FUT")
+    ledger = kalshi_ops_tbl("wc2026", "candlestick_sync_ledger")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    with duck.get_connection() as conn:
+        conn.execute(
+            f"""
+            INSERT OR REPLACE INTO {ledger} (
+                market_ticker, fully_checked, last_checked_at, next_check_at
+            )
+            VALUES
+                (?, FALSE, ?, ?),
+                (?, FALSE, ?, ?)
+            """,
+            [
+                "KXWC-PAST",
+                now,
+                now - timedelta(hours=1),
+                "KXWC-FUT",
+                now,
+                now + timedelta(hours=2),
+            ],
+        )
+
+    # get_connection() opens a fresh session each time; force the session TZ on
+    # every new writable connection so this actually exercises non-UTC hosts.
+    real_open = duck_connection.open_writable_duckdb_connection
+
+    def open_with_session_tz(path, *args, **kwargs):
+        conn = real_open(path, *args, **kwargs)
+        conn.execute(f"SET TimeZone='{session_tz}'")
+        return conn
+
+    monkeypatch.setattr(
+        duck_connection, "open_writable_duckdb_connection", open_with_session_tz
+    )
+
+    due = kalshi_candlesticks.get_registry_markets_for_sync(scope_name="wc2026")
+    assert [row["market_ticker"] for row in due] == ["KXWC-PAST"]
 
 
 def test_save_candlesticks_batch_noop_and_upsert(duck):

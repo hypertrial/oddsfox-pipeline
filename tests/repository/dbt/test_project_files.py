@@ -265,3 +265,62 @@ def test_kalshi_wc2026_models_are_documented():
     assert "kalshi_wc2026_group_winner_market_hourly_odds" in documented_marts
     assert "kalshi_wc2026_stage_markets" in documented_marts
     assert "kalshi_wc2026_group_winner_markets" in documented_marts
+
+
+def test_wc2026_contract_fingerprint_covers_documented_strategy_relations():
+    dbt_root = Path(__file__).resolve().parents[3] / "dbt"
+    fingerprint_sql = (
+        dbt_root / "models" / "wc2026" / "marts" / "wc2026_contract_metadata.sql"
+    ).read_text(encoding="utf-8")
+    # Exact pipe-delimited reconstruction so substring collisions
+    # (team_ratings vs team_ratings_pre_match) cannot mask a missing token.
+    md5_block = fingerprint_sql.split("md5(", 1)[1].split(
+        ") as contract_fingerprint", 1
+    )[0]
+    tokens = "".join(re.findall(r"'([^']*)'", md5_block)).split("|")
+    required = (
+        "wc2026.v1",
+        "fixtures",
+        "results",
+        "team_identities",
+        "player_features",
+        "squad_player_features",
+        "team_ratings",
+        "team_ratings_pre_match",
+        "club_strength",
+        "base_camp_venues",
+        "travel_features",
+        "venue_markets",
+        "price_liquidity",
+        "event_state_timing",
+        "international_matches",
+        "third_place_slot_assignments",
+        "source_provenance",
+    )
+    assert tokens == list(required)
+
+
+def test_match_order_book_inventory_requires_fifa_match_95():
+    dbt_root = Path(__file__).resolve().parents[3] / "dbt"
+    quality = (
+        dbt_root
+        / "models"
+        / "polymarket_wc2026"
+        / "observability"
+        / "polymarket_wc2026_match_order_book_quality_issues.sql"
+    ).read_text(encoding="utf-8")
+    inventory = (
+        dbt_root / "tests" / "assert_polymarket_wc2026_match_order_book_inventory.sql"
+    ).read_text(encoding="utf-8")
+    data_quality = (
+        dbt_root
+        / "models"
+        / "polymarket_wc2026"
+        / "observability"
+        / "polymarket_wc2026_match_order_book_data_quality.sql"
+    ).read_text(encoding="utf-8")
+
+    assert "fifa_match_id != 95" in quality
+    assert "fifa_match_id <= 72" not in quality
+    assert "fifa_match_id != 95" in inventory
+    assert "as fifa_match_id" in data_quality

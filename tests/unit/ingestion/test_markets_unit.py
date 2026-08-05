@@ -69,6 +69,36 @@ def test_parse_gamma_datetime_converts_offset_datetimes_to_naive_utc():
     assert transform._parse_gamma_datetime_value(
         datetime(2026, 7, 14, 19, 0)
     ) == datetime(2026, 7, 14, 19, 0)
+    # >6 fractional digits must not drop a trailing offset.
+    assert transform._parse_gamma_datetime_value(
+        "2024-06-11T15:00:00.123456789-05:00"
+    ) == datetime(2024, 6, 11, 20, 0, 0, 123456)
+    assert transform._parse_gamma_datetime_value(
+        "2024-06-11T15:00:00.123456789+05:00"
+    ) == datetime(2024, 6, 11, 10, 0, 0, 123456)
+
+
+def test_enclosing_event_preference_shared_across_extract_and_scan():
+    from oddsfox_pipeline.ingestion.polymarket.market_scope.scan import (
+        _event_slug_from_market,
+    )
+    from oddsfox_pipeline.ingestion.polymarket.markets.backfill._extract import (
+        _extract_event_slug_record,
+    )
+
+    payload = {
+        "events": [
+            {"id": "related", "slug": "related-event", "is_enclosing_event": False},
+            {
+                "id": "enclosing",
+                "slug": "enclosing-event",
+                "is_enclosing_event": True,
+            },
+        ]
+    }
+    assert transform.extract_event_slug(payload["events"]) == "enclosing-event"
+    assert _extract_event_slug_record("m1", payload) == ("enclosing-event", "m1")
+    assert _event_slug_from_market(payload) == ("enclosing-event", "enclosing")
 
 
 def test_process_markets_dataframe_empty():

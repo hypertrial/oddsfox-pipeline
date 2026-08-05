@@ -339,6 +339,26 @@ def test_save_token_sync_state_batch_clears_next_check_when_fully_checked(duck):
     assert row[3] is True
 
 
+def test_save_token_sync_state_batch_preserves_null_cursor_on_null_null_merge(duck):
+    tid = "c" * 33 + "12"
+    checked_at = odds_mod.datetime(2024, 1, 1, tzinfo=odds_mod.timezone.utc)
+    with odds_mod.get_connection() as conn:
+        conn.execute(
+            f"INSERT INTO {T_LED} (clobTokenId, last_sync_timestamp) VALUES (?, NULL)",
+            [tid],
+        )
+    odds_mod.save_token_sync_state_batch(
+        [(tid, None, checked_at, checked_at, 0, False)]
+    )
+    with odds_mod.get_connection() as conn:
+        val = conn.execute(
+            f"SELECT last_sync_timestamp FROM {T_LED} WHERE clobTokenId = ?",
+            [tid],
+        ).fetchone()[0]
+    # Staging uses to_timestamp(last_sync_timestamp); BIGINT min must not appear.
+    assert val is None
+
+
 def test_save_skipped_tokens_preserves_created_at_on_reason_change(duck):
     tid = "p" * 33 + "12"
     odds_mod.save_skipped_tokens([(tid, "first")])

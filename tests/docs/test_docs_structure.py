@@ -387,6 +387,9 @@ def test_orchestration_ci_dbt_gate_column_matches_make():
     assert "still compile in ordinary `dbt-build-ci`" in portrait_row
     assert "--exclude tag:polygon_settlement tag:pmxt_order_book" in ordinary_build
     assert "tag:market_portrait" not in ordinary_build
+    assert "KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=true" in orchestration
+    assert "dedicated env flags" not in orchestration
+    assert "stopped at definition load" in orchestration
 
 
 def test_default_docs_scope_kalshi_live_columns():

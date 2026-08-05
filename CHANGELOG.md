@@ -18,6 +18,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Polymarket asset helpers split into
   `polymarket_asset_helpers_{markets,registry,odds}` with a barrel re-export.
 
+### Fixed
+
+- Kalshi candlestick due filtering compares naive-UTC `next_check_at` walls to
+  `CURRENT_TIMESTAMP AT TIME ZONE 'UTC'` so session timezones no longer skip or
+  pull markets early.
+- Polymarket `token_sync_ledger` NULL/NULL cursor upserts keep `NULL` instead of
+  materializing BIGINT min (which broke `to_timestamp` in staging).
+- Metadata enrich and markets-API scan prefer `is_enclosing_event` the same way
+  market transform does.
+- Gamma/odds ISO datetime parsing truncates >6 fractional digits before
+  `fromisoformat` so trailing offsets are not dropped.
+- `wc2026.v1` `contract_fingerprint` includes `team_ratings_pre_match`,
+  `base_camp_venues`, `international_matches`, and `third_place_slot_assignments`.
+- Match order-book inventory requires FIFA match 95 with 1 market / 2 tokens
+  (aligned with the documented mart contract and singular inventory test).
+- Orchestration docs: only Kalshi has a schedule env enable flag; international
+  results stays hard-stopped at definition load.
+
 ### Changed
 
 - Dagster dbt warehouse snapshots expand `+` selectors via the dbt manifest

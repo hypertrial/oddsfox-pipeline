@@ -40,16 +40,27 @@ def token_sync_skips_tbl(scope_name: str | None = None) -> str:
     )
 
 
+def _sql_monotonic_ledger_timestamp() -> str:
+    # GREATEST needs a non-NULL sentinel for one-sided NULL merges, but both-NULL
+    # must stay NULL so dbt to_timestamp(last_sync_timestamp) does not see
+    # BIGINT min.
+    return f"""CASE
+        WHEN token_sync_ledger.last_sync_timestamp IS NULL
+            AND excluded.last_sync_timestamp IS NULL THEN NULL
+        ELSE GREATEST(
+            COALESCE(token_sync_ledger.last_sync_timestamp, {_LEDGER_TS_SENTINEL}),
+            COALESCE(excluded.last_sync_timestamp, {_LEDGER_TS_SENTINEL})
+        )
+    END"""
+
+
 def sql_upsert_ledger_last_sync(scope_name: str | None = None) -> str:
     tab = token_sync_ledger_tbl(scope_name)
     return f"""
 INSERT INTO {tab} (clobTokenId, last_sync_timestamp)
 VALUES (?, ?)
 ON CONFLICT(clobTokenId) DO UPDATE SET
-    last_sync_timestamp = GREATEST(
-        COALESCE(token_sync_ledger.last_sync_timestamp, {_LEDGER_TS_SENTINEL}),
-        COALESCE(excluded.last_sync_timestamp, {_LEDGER_TS_SENTINEL})
-    )
+    last_sync_timestamp = {_sql_monotonic_ledger_timestamp()}
 """
 
 
@@ -66,10 +77,7 @@ INSERT INTO {tab} (
 )
 VALUES (?, ?, ?, ?, ?, ?)
 ON CONFLICT(clobTokenId) DO UPDATE SET
-    last_sync_timestamp = GREATEST(
-        COALESCE(token_sync_ledger.last_sync_timestamp, {_LEDGER_TS_SENTINEL}),
-        COALESCE(excluded.last_sync_timestamp, {_LEDGER_TS_SENTINEL})
-    ),
+    last_sync_timestamp = {_sql_monotonic_ledger_timestamp()},
     last_checked_at = COALESCE(excluded.last_checked_at, token_sync_ledger.last_checked_at),
     next_check_at = CASE
         WHEN COALESCE(excluded.fully_checked, FALSE) THEN NULL
