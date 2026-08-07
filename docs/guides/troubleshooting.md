@@ -26,6 +26,11 @@ the shipped Polymarket WC2026 scope (`wc2026`).
 
 Only one read-write connection can hold the DuckDB file.
 
+Minute-odds match/futures CLOB fetch releases the warehouse lock while calling
+Polymarket; only plan selection and publish borrow DuckDB. If a canceled run
+left an orphan Python worker holding `oddsfox.duckdb`, kill that PID (or stop
+Dagster) before relaunching.
+
 Fix:
 
 1. Stop Dagster and any Python shells using the warehouse.

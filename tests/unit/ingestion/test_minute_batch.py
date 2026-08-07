@@ -126,3 +126,50 @@ def test_execute_minute_fetches_with_batch_calls_fetch_group_window_fn():
     assert single_calls == []
     assert [result.fetch_status for result in results] == ["success", "success"]
     assert [result.plan.token_id for result in results] == ["tok-1", "tok-2"]
+
+
+def test_borrow_duckdb_connection_requires_exactly_one_source():
+    from contextlib import nullcontext
+
+    import pytest
+
+    with pytest.raises(ValueError, match="exactly one"):
+        with minute_batch.borrow_duckdb_connection():
+            pass
+    with pytest.raises(ValueError, match="exactly one"):
+        with minute_batch.borrow_duckdb_connection(
+            object(), connection_factory=lambda: nullcontext(object())
+        ):
+            pass
+
+
+def test_borrow_duckdb_connection_releases_factory_between_phases():
+    from contextlib import contextmanager
+
+    open_depth = {"n": 0}
+    observed: list[int] = []
+
+    @contextmanager
+    def factory():
+        open_depth["n"] += 1
+        try:
+            yield "conn"
+        finally:
+            open_depth["n"] -= 1
+
+    with minute_batch.borrow_duckdb_connection(connection_factory=factory) as active:
+        assert active == "conn"
+        assert open_depth["n"] == 1
+    observed.append(open_depth["n"])
+    with minute_batch.borrow_duckdb_connection(connection_factory=factory) as active:
+        assert active == "conn"
+        assert open_depth["n"] == 1
+    observed.append(open_depth["n"])
+    assert observed == [0, 0]
+
+
+def test_borrow_duckdb_connection_yields_passed_conn_without_closing():
+    sentinel = object()
+    with minute_batch.borrow_duckdb_connection(sentinel) as active:
+        assert active is sentinel
+

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import duckdb
@@ -133,6 +134,51 @@ def test_select_futures_minute_token_plans_requires_registry_eligible_futures():
             futures_minute.select_futures_minute_token_plans(conn)
     finally:
         conn.close()
+
+
+def test_sync_futures_minute_odds_history_releases_duckdb_during_fetch():
+    conn = _futures_inventory_connection()
+    open_counts: list[int] = []
+    open_depth = {"n": 0}
+    point_ts = int(datetime(2026, 6, 11, tzinfo=timezone.utc).timestamp())
+
+    @contextmanager
+    def connection_factory():
+        open_depth["n"] += 1
+        try:
+            yield conn
+        finally:
+            open_depth["n"] -= 1
+
+    def fetch_window(
+        _client,
+        token_id,
+        start_ts,
+        end_ts,
+        *_args,
+        **_kwargs,
+    ):
+        open_counts.append(open_depth["n"])
+        if int(start_ts) <= point_ts <= int(end_ts):
+            return [(token_id, point_ts, 0.55)]
+        return []
+
+    try:
+        summary = futures_minute.sync_futures_minute_odds_history(
+            connection_factory=connection_factory,
+            workers=1,
+            batch_group_size=1,
+            client_factory=lambda: object(),
+            fetch_window_fn=fetch_window,
+            persist_fn=lambda *_a, **_k: None,
+            audit_persist_fn=lambda *_a, **_k: None,
+        )
+    finally:
+        conn.close()
+
+    assert summary["status"] == "published"
+    assert open_counts
+    assert all(count == 0 for count in open_counts)
 
 
 def test_sync_futures_minute_odds_history_publishes_on_full_success():

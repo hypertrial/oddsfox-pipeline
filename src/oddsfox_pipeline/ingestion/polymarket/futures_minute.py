@@ -27,6 +27,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     DEFAULT_MINUTE_WINDOW_HOURS,
     DEFAULT_MINUTE_WORKERS,
     MinuteFetchResult,
+    borrow_duckdb_connection,
     execute_minute_fetches,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
@@ -228,8 +229,9 @@ def _to_futures_fetch_result(result: MinuteFetchResult) -> FuturesMinuteFetchRes
 
 
 def sync_futures_minute_odds_history(
-    conn: duckdb.DuckDBPyConnection,
+    conn: duckdb.DuckDBPyConnection | None = None,
     *,
+    connection_factory: Callable[..., Any] | None = None,
     log: Any = logger,
     workers: int = DEFAULT_MINUTE_WORKERS,
     requests_per_second: int = DEFAULT_MINUTE_REQUESTS_PER_SECOND,
@@ -256,12 +258,18 @@ def sync_futures_minute_odds_history(
     Illiquid futures tokens often return no in-window CLOB points. Treat ``empty``
     as a non-blocking audit outcome. Fail closed only on ``error`` / ``cancelled``,
     or when zero tokens succeed.
+
+    Pass ``connection_factory`` (for example ``get_connection``) so DuckDB is
+    borrowed only for plan selection and publish, not during CLOB fetch.
     """
-    plans = select_futures_minute_token_plans(
-        conn,
-        tournament_start_utc=tournament_start_utc,
-        tournament_end_utc=tournament_end_utc,
-    )
+    with borrow_duckdb_connection(
+        conn, connection_factory=connection_factory
+    ) as active:
+        plans = select_futures_minute_token_plans(
+            active,
+            tournament_start_utc=tournament_start_utc,
+            tournament_end_utc=tournament_end_utc,
+        )
     fetch_run_id = str(uuid4())
     fetched = [
         _to_futures_fetch_result(result)
@@ -325,57 +333,62 @@ def sync_futures_minute_odds_history(
         **{f"{status}_tokens": count for status, count in status_counts.items()},
         "rows": sum(len(result.history) for result in fetched),
     }
-    try:
-        audit_persist_fn(audit_rows, conn)
-    except Exception as exc:
-        summary.update(status="audit_error", error_type=exc.__class__.__name__)
-        raise FuturesMinuteSyncError(str(exc), summary) from exc
 
     hard_failures = [
         result
         for result in fetched
         if result.fetch_status in {"error", "cancelled"}
     ]
-    if hard_failures:
-        first = hard_failures[0]
-        summary["status"] = "fetch_failed"
-        raise FuturesMinuteSyncError(
-            first.error_message or "CLOB fetch failed", summary
-        )
-
     success = [result for result in fetched if result.fetch_status == "success"]
-    if not success:
-        summary["status"] = "fetch_failed"
-        raise FuturesMinuteSyncError(
-            "No successful futures-minute CLOB history to publish", summary
-        )
-    if status_counts["empty"]:
-        log.info(
-            "Futures-minute empty in-window history for %s token(s); publishing %s",
-            status_counts["empty"],
-            len(success),
-        )
 
-    ingested_at = datetime.now(timezone.utc)
-    rows = [
-        {
-            "market_id": result.plan.market_id,
-            "clobTokenId": token_id,
-            "timestamp": timestamp,
-            "price": price,
-            "fidelity_minutes": 1,
-            "window_start_at": result.plan.started_at,
-            "window_end_at": result.plan.finished_at,
-            "ingested_at": ingested_at,
-        }
-        for result in success
-        for token_id, timestamp, price in result.history
-    ]
-    try:
-        persist_fn(rows, conn, fetch_run_id=fetch_run_id)
-    except Exception as exc:
-        summary.update(status="publish_error", error_type=exc.__class__.__name__)
-        raise FuturesMinuteSyncError(str(exc), summary) from exc
+    with borrow_duckdb_connection(
+        conn, connection_factory=connection_factory
+    ) as active:
+        try:
+            audit_persist_fn(audit_rows, active)
+        except Exception as exc:
+            summary.update(status="audit_error", error_type=exc.__class__.__name__)
+            raise FuturesMinuteSyncError(str(exc), summary) from exc
+
+        if hard_failures:
+            first = hard_failures[0]
+            summary["status"] = "fetch_failed"
+            raise FuturesMinuteSyncError(
+                first.error_message or "CLOB fetch failed", summary
+            )
+
+        if not success:
+            summary["status"] = "fetch_failed"
+            raise FuturesMinuteSyncError(
+                "No successful futures-minute CLOB history to publish", summary
+            )
+        if status_counts["empty"]:
+            log.info(
+                "Futures-minute empty in-window history for %s token(s); publishing %s",
+                status_counts["empty"],
+                len(success),
+            )
+
+        ingested_at = datetime.now(timezone.utc)
+        rows = [
+            {
+                "market_id": result.plan.market_id,
+                "clobTokenId": token_id,
+                "timestamp": timestamp,
+                "price": price,
+                "fidelity_minutes": 1,
+                "window_start_at": result.plan.started_at,
+                "window_end_at": result.plan.finished_at,
+                "ingested_at": ingested_at,
+            }
+            for result in success
+            for token_id, timestamp, price in result.history
+        ]
+        try:
+            persist_fn(rows, active, fetch_run_id=fetch_run_id)
+        except Exception as exc:
+            summary.update(status="publish_error", error_type=exc.__class__.__name__)
+            raise FuturesMinuteSyncError(str(exc), summary) from exc
     summary["status"] = "published"
     summary["raw_published_tokens"] = len(success)
     return summary

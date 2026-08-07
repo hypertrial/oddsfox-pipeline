@@ -173,9 +173,10 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   close/resolution time). Neither path shares the hourly `token_sync_ledger`.
   Match-minute still fail-closes unless every in-game token succeeds; futures
   minute audits empty in-window CLOB history and publishes success tokens only
-  (hard `error`/`cancelled`, or an all-empty run, still fail). Both legs use
-  the same batch/auto-tune/window-chunk/Arrow-stage stack as
-  hourly odds (via `odds/minute_batch.py`); futures spans are pre-chunked into
+  (hard `error`/`cancelled`, or an all-empty run, still fail). Both legs borrow
+  DuckDB only for plan selection and publish (warehouse lock released during
+  CLOB fetch) and share the same batch/auto-tune/window-chunk/Arrow-stage stack
+  as hourly odds (via `odds/minute_batch.py`); futures spans are pre-chunked into
   24h windows before CLOB calls so tournament-length fidelity=1 history does
   not rely on deep recursive auto-split alone.
   dbt builds `+polymarket_wc2026_market_minute_odds_data_quality`

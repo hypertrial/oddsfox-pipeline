@@ -25,6 +25,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     DEFAULT_MINUTE_WINDOW_HOURS,
     DEFAULT_MINUTE_WORKERS,
     MinuteFetchResult,
+    borrow_duckdb_connection,
     execute_minute_fetches,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
@@ -260,8 +261,9 @@ def _to_match_fetch_result(result: MinuteFetchResult) -> MatchMinuteFetchResult:
 
 
 def sync_match_minute_odds_history(
-    conn: duckdb.DuckDBPyConnection,
+    conn: duckdb.DuckDBPyConnection | None = None,
     *,
+    connection_factory: Callable[..., Any] | None = None,
     log: Any = logger,
     workers: int = DEFAULT_MINUTE_WORKERS,
     requests_per_second: int = DEFAULT_MINUTE_REQUESTS_PER_SECOND,
@@ -281,8 +283,15 @@ def sync_match_minute_odds_history(
     persist_fn: Callable[..., Any] = load_match_minute_odds_history_stage,
     audit_persist_fn: Callable[..., Any] = load_match_minute_fetch_audit,
 ) -> dict[str, Any]:
-    """Refetch all bounded windows, then publish only after every token succeeds."""
-    plans = select_match_minute_token_plans(conn)
+    """Refetch all bounded windows, then publish only after every token succeeds.
+
+    Pass ``connection_factory`` (for example ``get_connection``) so DuckDB is
+    borrowed only for plan selection and publish, not during CLOB fetch.
+    """
+    with borrow_duckdb_connection(
+        conn, connection_factory=connection_factory
+    ) as active:
+        plans = select_match_minute_token_plans(active)
     fetch_run_id = str(uuid4())
     fetched = [
         _to_match_fetch_result(result)
@@ -347,38 +356,44 @@ def sync_match_minute_odds_history(
         **{f"{status}_tokens": count for status, count in status_counts.items()},
         "rows": sum(len(result.history) for result in fetched),
     }
-    try:
-        audit_persist_fn(audit_rows, conn)
-    except Exception as exc:
-        summary.update(status="audit_error", error_type=exc.__class__.__name__)
-        raise MatchMinuteSyncError(str(exc), summary) from exc
-
     failures = [result for result in fetched if result.fetch_status != "success"]
-    if failures:
-        first = failures[0]
-        summary["status"] = "fetch_failed"
-        raise MatchMinuteSyncError(first.error_message or "CLOB fetch failed", summary)
 
-    ingested_at = datetime.now(timezone.utc)
-    rows = [
-        {
-            "market_id": result.plan.market_id,
-            "clobTokenId": token_id,
-            "timestamp": timestamp,
-            "price": price,
-            "fidelity_minutes": 1,
-            "window_start_at": result.plan.started_at,
-            "window_end_at": result.plan.finished_at,
-            "ingested_at": ingested_at,
-        }
-        for result in fetched
-        for token_id, timestamp, price in result.history
-    ]
-    try:
-        persist_fn(rows, conn, fetch_run_id=fetch_run_id)
-    except Exception as exc:
-        summary.update(status="publish_error", error_type=exc.__class__.__name__)
-        raise MatchMinuteSyncError(str(exc), summary) from exc
+    with borrow_duckdb_connection(
+        conn, connection_factory=connection_factory
+    ) as active:
+        try:
+            audit_persist_fn(audit_rows, active)
+        except Exception as exc:
+            summary.update(status="audit_error", error_type=exc.__class__.__name__)
+            raise MatchMinuteSyncError(str(exc), summary) from exc
+
+        if failures:
+            first = failures[0]
+            summary["status"] = "fetch_failed"
+            raise MatchMinuteSyncError(
+                first.error_message or "CLOB fetch failed", summary
+            )
+
+        ingested_at = datetime.now(timezone.utc)
+        rows = [
+            {
+                "market_id": result.plan.market_id,
+                "clobTokenId": token_id,
+                "timestamp": timestamp,
+                "price": price,
+                "fidelity_minutes": 1,
+                "window_start_at": result.plan.started_at,
+                "window_end_at": result.plan.finished_at,
+                "ingested_at": ingested_at,
+            }
+            for result in fetched
+            for token_id, timestamp, price in result.history
+        ]
+        try:
+            persist_fn(rows, active, fetch_run_id=fetch_run_id)
+        except Exception as exc:
+            summary.update(status="publish_error", error_type=exc.__class__.__name__)
+            raise MatchMinuteSyncError(str(exc), summary) from exc
     summary["status"] = "published"
     summary["raw_published_tokens"] = len(fetched)
     return summary

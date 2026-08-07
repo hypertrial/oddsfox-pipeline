@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Minute-odds match/futures syncs borrow DuckDB only for plan selection and
+  publish, releasing the warehouse lock during long CLOB fetches so concurrent
+  Dagster steps are not blocked by a stale futures worker.
 - Futures-minute sync no longer fail-closes on empty in-window CLOB history;
   empty tokens are audited and skipped while success tokens publish. Hard
   `error`/`cancelled` (or all-empty) still fail the run. Publish inventory and

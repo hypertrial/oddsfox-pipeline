@@ -13,10 +13,11 @@ import logging
 import math
 from collections import defaultdict
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import Lock, local
-from typing import Any, Callable, Protocol, Sequence
+from typing import Any, Callable, Iterator, Protocol, Sequence
 
 from oddsfox_pipeline.config.settings import CLOB_API_URL, ODDS_REQUESTS_PER_SECOND
 from oddsfox_pipeline.ingestion.polymarket.odds.execution import (
@@ -45,6 +46,27 @@ class MinutePlanLike(Protocol):
     token_id: str
     started_at: datetime
     finished_at: datetime
+
+
+@contextmanager
+def borrow_duckdb_connection(
+    conn: Any | None = None,
+    *,
+    connection_factory: Callable[[], AbstractContextManager[Any]] | None = None,
+) -> Iterator[Any]:
+    """Open a DuckDB connection for one sync phase, then release it.
+
+    Production minute assets pass ``connection_factory=get_connection`` so the
+    warehouse file lock is not held across long CLOB fetches. Unit tests may
+    keep passing a single in-memory ``conn`` for the whole sync.
+    """
+    if (conn is None) == (connection_factory is None):
+        raise ValueError("Provide exactly one of conn or connection_factory")
+    if connection_factory is not None:
+        with connection_factory() as active:
+            yield active
+        return
+    yield conn
 
 
 @dataclass(frozen=True)
@@ -579,6 +601,7 @@ __all__ = [
     "MIN_SPLIT_WINDOW_SECONDS",
     "MinuteFetchResult",
     "MinutePlanLike",
+    "borrow_duckdb_connection",
     "execute_minute_fetches",
     "fetch_minute_plan",
     "fetch_minute_plan_group",

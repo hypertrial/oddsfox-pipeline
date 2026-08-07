@@ -307,26 +307,25 @@ def polymarket_wc2026_raw_match_token_odds_history_minute(
     config: MatchMinuteOddsSyncConfig,
 ) -> MaterializeResult:
     try:
-        with get_connection() as conn:
-            summary = ops.sync_match_minute_odds_history(
-                conn,
-                log=context.log,
-                workers=config.workers,
-                requests_per_second=config.requests_per_second,
-                batch_group_size=config.batch_group_size,
-                window_hours=config.window_hours,
-                auto_tune_rps=config.auto_tune_rps,
-                auto_tune_max_rps=config.auto_tune_max_rps,
-                transient_retries=config.transient_retries,
-                transient_backoff_seconds=config.transient_backoff_seconds,
-                progress_log_interval_seconds=config.progress_log_interval_seconds,
-                no_progress_soft_timeout_seconds=(
-                    config.no_progress_soft_timeout_seconds
-                ),
-                no_progress_hard_timeout_seconds=(
-                    config.no_progress_hard_timeout_seconds
-                ),
-            )
+        summary = ops.sync_match_minute_odds_history(
+            connection_factory=get_connection,
+            log=context.log,
+            workers=config.workers,
+            requests_per_second=config.requests_per_second,
+            batch_group_size=config.batch_group_size,
+            window_hours=config.window_hours,
+            auto_tune_rps=config.auto_tune_rps,
+            auto_tune_max_rps=config.auto_tune_max_rps,
+            transient_retries=config.transient_retries,
+            transient_backoff_seconds=config.transient_backoff_seconds,
+            progress_log_interval_seconds=config.progress_log_interval_seconds,
+            no_progress_soft_timeout_seconds=(
+                config.no_progress_soft_timeout_seconds
+            ),
+            no_progress_hard_timeout_seconds=(
+                config.no_progress_hard_timeout_seconds
+            ),
+        )
     except Exception as exc:
         failure = dict(getattr(exc, "summary", {}))
         failure.setdefault("status", "preflight_error")
@@ -360,26 +359,25 @@ def polymarket_wc2026_raw_futures_token_odds_history_minute(
     config: FuturesMinuteOddsSyncConfig,
 ) -> MaterializeResult:
     try:
-        with get_connection() as conn:
-            summary = ops.sync_futures_minute_odds_history(
-                conn,
-                log=context.log,
-                workers=config.workers,
-                requests_per_second=config.requests_per_second,
-                batch_group_size=config.batch_group_size,
-                window_hours=config.window_hours,
-                auto_tune_rps=config.auto_tune_rps,
-                auto_tune_max_rps=config.auto_tune_max_rps,
-                transient_retries=config.transient_retries,
-                transient_backoff_seconds=config.transient_backoff_seconds,
-                progress_log_interval_seconds=config.progress_log_interval_seconds,
-                no_progress_soft_timeout_seconds=(
-                    config.no_progress_soft_timeout_seconds
-                ),
-                no_progress_hard_timeout_seconds=(
-                    config.no_progress_hard_timeout_seconds
-                ),
-            )
+        summary = ops.sync_futures_minute_odds_history(
+            connection_factory=get_connection,
+            log=context.log,
+            workers=config.workers,
+            requests_per_second=config.requests_per_second,
+            batch_group_size=config.batch_group_size,
+            window_hours=config.window_hours,
+            auto_tune_rps=config.auto_tune_rps,
+            auto_tune_max_rps=config.auto_tune_max_rps,
+            transient_retries=config.transient_retries,
+            transient_backoff_seconds=config.transient_backoff_seconds,
+            progress_log_interval_seconds=config.progress_log_interval_seconds,
+            no_progress_soft_timeout_seconds=(
+                config.no_progress_soft_timeout_seconds
+            ),
+            no_progress_hard_timeout_seconds=(
+                config.no_progress_hard_timeout_seconds
+            ),
+        )
     except Exception as exc:
         failure = dict(getattr(exc, "summary", {}))
         failure.setdefault("status", "preflight_error")

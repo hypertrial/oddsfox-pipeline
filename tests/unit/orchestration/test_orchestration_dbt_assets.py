@@ -235,16 +235,11 @@ def test_dbt_assets_definition_streams_build_events(monkeypatch):
 
 
 def test_match_minute_asset_materializes_sync_summary(monkeypatch):
+    from oddsfox_pipeline.orchestration import assets_polymarket
     from oddsfox_pipeline.orchestration.assets import (
         polymarket_wc2026_raw_match_token_odds_history_minute,
     )
 
-    connection = MagicMock()
-    connection.__enter__.return_value = "connection"
-    monkeypatch.setattr(
-        "oddsfox_pipeline.orchestration.assets_polymarket.get_connection",
-        lambda: connection,
-    )
     sync = MagicMock(return_value={"games": 104, "markets": 248, "tokens": 496})
     monkeypatch.setattr(
         "oddsfox_pipeline.orchestration.polymarket_ops.sync_match_minute_odds_history",
@@ -263,7 +258,7 @@ def test_match_minute_asset_materializes_sync_summary(monkeypatch):
     )
 
     sync.assert_called_once_with(
-        "connection",
+        connection_factory=assets_polymarket.get_connection,
         log=context.log,
         workers=config.workers,
         requests_per_second=config.requests_per_second,
@@ -290,12 +285,6 @@ def test_match_minute_asset_records_failure_summary(monkeypatch):
         polymarket_wc2026_raw_match_token_odds_history_minute,
     )
 
-    connection = MagicMock()
-    connection.__enter__.return_value = "connection"
-    monkeypatch.setattr(
-        "oddsfox_pipeline.orchestration.assets_polymarket.get_connection",
-        lambda: connection,
-    )
     monkeypatch.setattr(
         "oddsfox_pipeline.orchestration.polymarket_ops.sync_match_minute_odds_history",
         MagicMock(side_effect=RuntimeError("preflight failed")),
