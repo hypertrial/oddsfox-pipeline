@@ -271,7 +271,17 @@ def _finalize_token_result(
     permanent_error: bool = False,
 ) -> tuple[Dict[str, int | bool], tuple]:
     if permanent_error:
-        state_row = (plan.token_id, plan.end_ts, checked_at, None, 0, False)
+        # Preserve contiguous progress already fetched; do not jump to end_ts
+        # past unstored or abandoned remaining windows.
+        if max_contiguous_seen_ts > plan.start_ts:
+            cursor_ts: int | None = max_contiguous_seen_ts
+        elif rows_fetched == 0 and contiguous_checked_until_ts > plan.start_ts:
+            cursor_ts = contiguous_checked_until_ts
+        elif rows_fetched > 0:
+            cursor_ts = max_seen_ts
+        else:
+            cursor_ts = None
+        state_row = (plan.token_id, cursor_ts, checked_at, None, 0, False)
         return (
             {
                 "rows": rows_fetched,
@@ -285,7 +295,7 @@ def _finalize_token_result(
         )
     if had_transient_error:
         if max_contiguous_seen_ts > plan.start_ts:
-            cursor_ts: int | None = max_contiguous_seen_ts
+            cursor_ts = max_contiguous_seen_ts
         elif rows_fetched == 0 and contiguous_checked_until_ts > plan.start_ts:
             cursor_ts = contiguous_checked_until_ts
         else:
@@ -383,18 +393,26 @@ def sync_token_plan(
             )
         except (BadRequestError, PermanentAPIError) as exc:
             reason = str(exc)
-            write_queue.put(("skipped_tokens", [(token_id, reason)]))
-            write_queue.put(
-                ("token_state", [(token_id, plan.end_ts, checked_at, None, 0, False)])
+            if odds_buffer:
+                write_queue.put(("odds", odds_buffer))
+            result, state_row = _finalize_token_result(
+                plan=plan,
+                checked_at=checked_at,
+                rows_fetched=rows_fetched,
+                windows_processed=windows_processed,
+                had_transient_error=False,
+                max_seen_ts=max_seen_ts,
+                max_contiguous_seen_ts=max_contiguous_seen_ts,
+                contiguous_checked_until_ts=contiguous_checked_until_ts,
+                routine_interval_seconds=routine_interval_seconds,
+                empty_retry_base_seconds=empty_retry_base_seconds,
+                empty_retry_max_seconds=empty_retry_max_seconds,
+                error_retry_seconds=error_retry_seconds,
+                permanent_error=True,
             )
-            return {
-                "rows": rows_fetched,
-                "windows": windows_processed,
-                "empty": rows_fetched == 0,
-                "error": 1,
-                "permanent_error": 1,
-                "fully_checked": False,
-            }
+            write_queue.put(("skipped_tokens", [(token_id, reason)]))
+            write_queue.put(("token_state", [state_row]))
+            return result
         if chunk is None:
             had_transient_error = True
             contiguous_windows_ok = False

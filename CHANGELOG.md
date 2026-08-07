@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Permanent mid-plan CLOB errors in `sync_token_plan` flush already-fetched odds
+  and advance the ledger cursor from contiguous progress instead of jumping to
+  `end_ts` while discarding the buffer.
+- Unified minute-odds backfill selects
+  `+polymarket_wc2026_market_minute_odds_data_quality` so publication DQ is built
+  with the mart (matching the recreate guide and CI contract).
+
 ### Added
 
 - Isolated Polymarket WC2026 unified minute-odds pipeline

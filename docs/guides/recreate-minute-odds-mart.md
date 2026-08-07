@@ -53,11 +53,12 @@ staging for the all-success raw replace. Discovery includes open markets so
 in-tournament futures are eligible; match selection still requires closed game
 markets for the 104/248/496 inventory.
 
-Then dbt builds `+polymarket_wc2026_market_minute_odds` (tagged `minute_odds`),
-producing:
+Then dbt builds `+polymarket_wc2026_market_minute_odds_data_quality`
+(tagged `minute_odds`), producing the mart and its observability row:
 
 ```text
 polymarket_wc2026_marts.polymarket_wc2026_market_minute_odds
+polymarket_wc2026_observability.polymarket_wc2026_market_minute_odds_data_quality
 ```
 
 Inspect health with:

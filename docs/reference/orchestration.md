@@ -175,8 +175,9 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   hourly odds (via `odds/minute_batch.py`); futures spans are pre-chunked into
   24h windows before CLOB calls so tournament-length fidelity=1 history does
   not rely on deep recursive auto-split alone.
-  dbt builds `+polymarket_wc2026_market_minute_odds` (`tag:minute_odds`), producing
-  `polymarket_wc2026_market_minute_odds`. Run `uv run make minute-odds-backfill`
+  dbt builds `+polymarket_wc2026_market_minute_odds_data_quality`
+  (`tag:minute_odds`), producing `polymarket_wc2026_market_minute_odds` and its
+  data-quality observability row. Run `uv run make minute-odds-backfill`
   after the schedule overlay is validated. No schedule.
 
 **Isolated: Match order book**

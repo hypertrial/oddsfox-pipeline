@@ -404,7 +404,7 @@ def polymarket_wc2026_minute_odds_run_config() -> dict:
     ops["oddsfox_dbt"] = {
         "config": DbtBuildConfig(
             full_refresh=False,
-            dbt_select="+polymarket_wc2026_market_minute_odds",
+            dbt_select="+polymarket_wc2026_market_minute_odds_data_quality",
             dbt_exclude=None,
         ).model_dump()
     }

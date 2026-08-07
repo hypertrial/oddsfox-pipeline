@@ -12,7 +12,10 @@ pytest.importorskip("duckdb")
 from tests.support.odds_sync_harness import make_plan
 
 from oddsfox_pipeline.ingestion.polymarket.odds import sync as odds_sync
-from oddsfox_pipeline.ingestion.polymarket.odds.fetch import BadRequestError
+from oddsfox_pipeline.ingestion.polymarket.odds.fetch import (
+    BadRequestError,
+    PermanentAPIError,
+)
 
 
 def test_sync_token_plan_empty_then_rows_flushes_and_marks_closed():
@@ -207,7 +210,7 @@ def test_sync_token_plan_permanent_error_puts_skip():
         end_ts=50,
         fidelity=1440,
     )
-    odds_sync._sync_token_plan(
+    result = odds_sync._sync_token_plan(
         plan,
         MagicMock(),
         q,
@@ -220,6 +223,60 @@ def test_sync_token_plan_permanent_error_puts_skip():
     while not q.empty():
         items.append(q.get_nowait())
     assert items
+    assert result["permanent_error"] == 1
+    assert any(item[0] == "skipped_tokens" for item in items)
+    assert any(
+        item[0] == "token_state"
+        and item[1][0][0] == plan.token_id
+        and item[1][0][1] is None
+        for item in items
+    )
+    assert not any(item[0] == "odds" for item in items)
+
+
+def test_sync_token_plan_permanent_after_rows_flushes_odds_and_keeps_cursor():
+    """Successful windows must land before a later permanent error skips the token."""
+    token_id = "w" * 33 + "12"
+    queue = Queue()
+    plan = odds_sync.TokenPlan(
+        token_id=token_id,
+        market_id="m",
+        is_closed=False,
+        created_at_ts=1,
+        start_ts=0,
+        end_ts=5000,
+        fidelity=60,
+    )
+    calls = {"n": 0}
+
+    def fetch_window(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return [(token_id, 1000, 0.4), (token_id, 1400, 0.5)]
+        raise PermanentAPIError("gone")
+
+    result = odds_sync._sync_token_plan(
+        plan,
+        object(),
+        queue,
+        window_seconds=1000,
+        writer_chunk_rows=10000,
+        min_split_window_seconds=1,
+        fetch_window_fn=fetch_window,
+    )
+
+    items = []
+    while not queue.empty():
+        items.append(queue.get_nowait())
+
+    odds_rows = [row for item in items if item[0] == "odds" for row in item[1]]
+    state = next(item[1][0] for item in items if item[0] == "token_state")
+    assert result["rows"] == 2
+    assert result["permanent_error"] == 1
+    assert odds_rows == [(token_id, 1000, 0.4), (token_id, 1400, 0.5)]
+    assert state[0] == token_id
+    assert state[1] == 1400
+    assert any(item[0] == "skipped_tokens" for item in items)
 
 
 def test_sync_token_plan_transient_and_cursor_branches():

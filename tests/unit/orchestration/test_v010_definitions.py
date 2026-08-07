@@ -316,7 +316,7 @@ def test_minute_odds_job_reuses_match_minute_and_adds_futures_leg():
     assert futures["window_hours"] == 24
     assert futures["auto_tune_rps"] is True
     assert futures["auto_tune_max_rps"] == 90
-    assert dbt["dbt_select"] == "+polymarket_wc2026_market_minute_odds"
+    assert dbt["dbt_select"] == "+polymarket_wc2026_market_minute_odds_data_quality"
     assert dbt["dbt_exclude"] is None
     selected = defs.resolve_job_def(
         "polymarket_wc2026_minute_odds_backfill"
@@ -329,6 +329,13 @@ def test_minute_odds_job_reuses_match_minute_and_adds_futures_leg():
         AssetKey(["polymarket", "wc2026", "raw", "futures_token_odds_history_minute"])
         in selected
     )
+    assert (
+        AssetKey(
+            ["polymarket", "wc2026", "observability", "market_minute_odds_data_quality"]
+        )
+        in selected
+    )
+    assert AssetKey(["polymarket", "wc2026", "marts", "market_minute_odds"]) in selected
     assert all(
         schedule.job_name != "polymarket_wc2026_minute_odds_backfill"
         for schedule in defs.schedules
@@ -342,6 +349,12 @@ def test_minute_odds_dbt_selection_does_not_leak_sibling_model_checks():
 
     assert selected_checks
     assert {check.asset_key for check in selected_checks} <= selected_assets
+    assert (
+        AssetKey(
+            ["polymarket", "wc2026", "observability", "market_minute_odds_data_quality"]
+        )
+        in selected_assets
+    )
 
 
 def test_match_minute_dbt_selection_does_not_leak_sibling_model_checks():

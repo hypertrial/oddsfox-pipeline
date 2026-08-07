@@ -184,7 +184,7 @@ POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION = (
 
 _POLYMARKET_WC2026_MINUTE_ODDS_DBT_GRAPH = build_dbt_asset_selection(
     [oddsfox_dbt],
-    dbt_select="+polymarket_wc2026_market_minute_odds",
+    dbt_select="+polymarket_wc2026_market_minute_odds_data_quality",
 )
 POLYMARKET_WC2026_MINUTE_ODDS_DBT_SELECTION = (
     _POLYMARKET_WC2026_MINUTE_ODDS_DBT_GRAPH.without_checks().downstream(
