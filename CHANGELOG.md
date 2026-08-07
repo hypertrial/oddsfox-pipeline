@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Futures/match-minute publish builds the Arrow stage table directly from fetch
+  results (no per-row Python dict materialization), cutting the multi-minute
+  silent stall observed on large futures publishes.
 - Futures-minute sync logs DuckDB audit/publish phases (fetch handoff, audit
   write, Arrow stage, raw snapshot replace, commit) so large publishes are not
   silent in Dagster.

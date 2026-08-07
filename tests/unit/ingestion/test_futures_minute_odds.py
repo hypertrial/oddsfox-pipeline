@@ -183,6 +183,8 @@ def test_sync_futures_minute_odds_history_releases_duckdb_during_fetch():
 
 
 def test_sync_futures_minute_odds_history_publishes_on_full_success():
+    import pyarrow as pa
+
     conn = _futures_inventory_connection()
     audit_rows: list[dict] = []
     published: list[tuple] = []
@@ -204,7 +206,7 @@ def test_sync_futures_minute_odds_history_publishes_on_full_success():
         audit_rows.extend(rows)
 
     def persist(rows, _conn, *, fetch_run_id):
-        published.append((fetch_run_id, len(rows)))
+        published.append((fetch_run_id, rows))
 
     try:
         summary = futures_minute.sync_futures_minute_odds_history(
@@ -223,8 +225,12 @@ def test_sync_futures_minute_odds_history_publishes_on_full_success():
     assert summary["tokens"] == 2
     assert summary["success_tokens"] == 2
     assert len(audit_rows) == 2
-    assert published and published[0][1] == 2
-
+    assert published
+    fetch_run_id, table = published[0]
+    assert isinstance(table, pa.Table)
+    assert table.num_rows == 2
+    assert "clob_token_id" in table.column_names
+    assert fetch_run_id == summary["fetch_run_id"]
 
 def test_sync_futures_minute_odds_history_publishes_success_and_skips_empty():
     conn = _futures_inventory_connection()

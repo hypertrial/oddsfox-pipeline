@@ -54,8 +54,9 @@ It runs both raw legs:
    `moneyline` / `soccer_team_to_advance`.
 
 Both legs share the hourly odds fetch stack: CLOB batch POST (≤20 tokens),
-24-hour window pre-chunking, workers/RPS 40 with auto-tune up to 90, and Arrow
-staging for the all-success raw replace. Discovery includes open markets so
+24-hour window pre-chunking, workers/RPS 40 with auto-tune up to 90, and a
+single-pass columnar Arrow stage build (no per-row dict materialization) for
+the raw replace. Discovery includes open markets so
 in-tournament futures are eligible; match selection still requires closed game
 markets for the 104/248/496 inventory.
 

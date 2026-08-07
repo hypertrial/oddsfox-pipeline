@@ -26,6 +26,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     DEFAULT_MINUTE_WORKERS,
     MinuteFetchResult,
     borrow_duckdb_connection,
+    build_minute_history_arrow_table,
     execute_minute_fetches,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
@@ -375,22 +376,9 @@ def sync_match_minute_odds_history(
             )
 
         ingested_at = datetime.now(timezone.utc)
-        rows = [
-            {
-                "market_id": result.plan.market_id,
-                "clobTokenId": token_id,
-                "timestamp": timestamp,
-                "price": price,
-                "fidelity_minutes": 1,
-                "window_start_at": result.plan.started_at,
-                "window_end_at": result.plan.finished_at,
-                "ingested_at": ingested_at,
-            }
-            for result in fetched
-            for token_id, timestamp, price in result.history
-        ]
+        table = build_minute_history_arrow_table(fetched, ingested_at=ingested_at)
         try:
-            persist_fn(rows, active, fetch_run_id=fetch_run_id)
+            persist_fn(table, active, fetch_run_id=fetch_run_id)
         except Exception as exc:
             summary.update(status="publish_error", error_type=exc.__class__.__name__)
             raise MatchMinuteSyncError(str(exc), summary) from exc

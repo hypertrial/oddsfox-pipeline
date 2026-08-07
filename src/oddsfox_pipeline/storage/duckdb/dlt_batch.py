@@ -245,40 +245,16 @@ def _load_odds_history_stage_arrow(
     return qualified
 
 
-def _load_minute_odds_history_stage_arrow(
+def _replace_minute_odds_stage_from_table(
     conn: duckdb.DuckDBPyConnection,
-    rows: Sequence[dict[str, Any]],
+    table: pa.Table,
     *,
     schema: str,
     stage_table: str,
 ) -> str:
-    """Replace a minute-odds stage table on ``conn`` without a dlt round-trip."""
-    if not rows:
+    """Register an Arrow table and replace the DuckDB minute-odds stage relation."""
+    if table.num_rows == 0:
         raise ValueError("rows must not be empty")
-    ordered = _with_row_order(rows)
-    table = pa.table(
-        {
-            "market_id": pa.array(
-                [row["market_id"] for row in ordered], type=pa.string()
-            ),
-            "clob_token_id": pa.array(
-                [row["clobTokenId"] for row in ordered], type=pa.string()
-            ),
-            "timestamp": pa.array(
-                [row["timestamp"] for row in ordered], type=pa.int64()
-            ),
-            "price": pa.array([row["price"] for row in ordered], type=pa.float64()),
-            "fidelity_minutes": pa.array(
-                [row["fidelity_minutes"] for row in ordered], type=pa.int32()
-            ),
-            "window_start_at": [row["window_start_at"] for row in ordered],
-            "window_end_at": [row["window_end_at"] for row in ordered],
-            "ingested_at": [row["ingested_at"] for row in ordered],
-            "row_order": pa.array(
-                [row["row_order"] for row in ordered], type=pa.int64()
-            ),
-        }
-    )
     qualified = polymarket_q(schema, stage_table)
     conn.register("_oddsfox_minute_odds_stage_arrow", table)
     try:
@@ -289,6 +265,58 @@ def _load_minute_odds_history_stage_arrow(
     finally:
         conn.unregister("_oddsfox_minute_odds_stage_arrow")
     return qualified
+
+
+def _load_minute_odds_history_stage_arrow(
+    conn: duckdb.DuckDBPyConnection,
+    rows: Sequence[dict[str, Any]] | pa.Table,
+    *,
+    schema: str,
+    stage_table: str,
+) -> str:
+    """Replace a minute-odds stage table on ``conn`` without a dlt round-trip."""
+    if isinstance(rows, pa.Table):
+        return _replace_minute_odds_stage_from_table(
+            conn, rows, schema=schema, stage_table=stage_table
+        )
+    if not rows:
+        raise ValueError("rows must not be empty")
+    market_ids: list[Any] = []
+    clob_token_ids: list[Any] = []
+    timestamps: list[Any] = []
+    prices: list[Any] = []
+    fidelity_minutes: list[Any] = []
+    window_starts: list[Any] = []
+    window_ends: list[Any] = []
+    ingested_ats: list[Any] = []
+    row_orders: list[int] = []
+    for idx, row in enumerate(rows):
+        market_ids.append(row["market_id"])
+        clob_token_ids.append(row["clobTokenId"])
+        timestamps.append(row["timestamp"])
+        prices.append(row["price"])
+        fidelity_minutes.append(row["fidelity_minutes"])
+        window_starts.append(row["window_start_at"])
+        window_ends.append(row["window_end_at"])
+        ingested_ats.append(row["ingested_at"])
+        row_orders.append(idx)
+    timestamp_type = pa.timestamp("us", tz="UTC")
+    table = pa.table(
+        {
+            "market_id": pa.array(market_ids, type=pa.string()),
+            "clob_token_id": pa.array(clob_token_ids, type=pa.string()),
+            "timestamp": pa.array(timestamps, type=pa.int64()),
+            "price": pa.array(prices, type=pa.float64()),
+            "fidelity_minutes": pa.array(fidelity_minutes, type=pa.int32()),
+            "window_start_at": pa.array(window_starts, type=timestamp_type),
+            "window_end_at": pa.array(window_ends, type=timestamp_type),
+            "ingested_at": pa.array(ingested_ats, type=timestamp_type),
+            "row_order": pa.array(row_orders, type=pa.int64()),
+        }
+    )
+    return _replace_minute_odds_stage_from_table(
+        conn, table, schema=schema, stage_table=stage_table
+    )
 
 
 def load_odds_history_stage(
@@ -393,7 +421,7 @@ def load_match_minute_fetch_audit(
 
 
 def load_match_minute_odds_history_stage(
-    rows: Sequence[dict[str, Any]],
+    rows: Sequence[dict[str, Any]] | pa.Table,
     conn: duckdb.DuckDBPyConnection,
     *,
     fetch_run_id: str,
@@ -506,7 +534,7 @@ def load_futures_minute_fetch_audit(
 
 
 def load_futures_minute_odds_history_stage(
-    rows: Sequence[dict[str, Any]],
+    rows: Sequence[dict[str, Any]] | pa.Table,
     conn: duckdb.DuckDBPyConnection,
     *,
     fetch_run_id: str,
@@ -518,9 +546,10 @@ def load_futures_minute_odds_history_stage(
     only those rows flip ``raw_published``.
     """
     target = polymarket_raw_tbl(SCOPE_WC2026, "futures_minute_odds_history")
+    row_count = len(rows)
     logger.info(
         "Futures-minute Arrow stage loading %s rows (fetch_run_id=%s)",
-        len(rows),
+        row_count,
         fetch_run_id,
     )
     stage = _load_minute_odds_history_stage_arrow(

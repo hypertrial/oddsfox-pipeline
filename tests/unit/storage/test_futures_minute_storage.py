@@ -155,3 +155,67 @@ def test_futures_minute_publish_allows_empty_audit_siblings(duck):
             ).fetchone()[0]
             == 1
         )
+
+
+def test_futures_minute_raw_replace_accepts_arrow_table(duck):
+    import pyarrow as pa
+
+    now = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    table = pa.table(
+        {
+            "market_id": pa.array(["market"], type=pa.string()),
+            "clob_token_id": pa.array(["token"], type=pa.string()),
+            "timestamp": pa.array([100], type=pa.int64()),
+            "price": pa.array([0.4], type=pa.float64()),
+            "fidelity_minutes": pa.array([1], type=pa.int32()),
+            "window_start_at": pa.array(
+                [now], type=pa.timestamp("us", tz="UTC")
+            ),
+            "window_end_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
+            "ingested_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
+            "row_order": pa.array([0], type=pa.int64()),
+        }
+    )
+    audit = {
+        "fetch_run_id": "run-arrow",
+        "market_id": "market",
+        "clobTokenId": "token",
+        "fetch_status": "success",
+        "raw_published": False,
+        "fidelity_minutes": 1,
+        "exact_window_start_at": now,
+        "exact_window_end_at": now,
+        "request_start_epoch": 100,
+        "request_end_epoch": 100,
+        "source_row_count": 1,
+        "window_row_count": 1,
+        "window_history_sha256": "a" * 64,
+        "source_endpoint": "https://clob.polymarket.com/prices-history",
+        "fetch_started_at": now,
+        "fetch_finished_at": now,
+        "error_type": None,
+        "error_message": None,
+    }
+
+    with duck.get_connection() as conn:
+        load_futures_minute_fetch_audit([audit], conn)
+        load_futures_minute_odds_history_stage(
+            table, conn, fetch_run_id="run-arrow"
+        )
+        prices = conn.execute(
+            """
+            select price
+            from polymarket_wc2026_raw.futures_minute_odds_history
+            order by timestamp
+            """
+        ).fetchall()
+        published = conn.execute(
+            """
+            select raw_published
+            from polymarket_wc2026_ops.futures_minute_odds_fetch_audit
+            where fetch_run_id = 'run-arrow'
+            """
+        ).fetchone()[0]
+
+    assert prices == [(0.4,)]
+    assert published is True

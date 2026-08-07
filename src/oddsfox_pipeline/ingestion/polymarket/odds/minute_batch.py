@@ -8,6 +8,7 @@ preserving their all-success atomic publish contract.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import logging
 import math
@@ -18,6 +19,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from threading import Lock, local
 from typing import Any, Callable, Iterator, Protocol, Sequence
+
+import pyarrow as pa
 
 from oddsfox_pipeline.config.settings import CLOB_API_URL, ODDS_REQUESTS_PER_SECOND
 from oddsfox_pipeline.ingestion.polymarket.odds.execution import (
@@ -40,12 +43,19 @@ DEFAULT_MINUTE_AUTO_TUNE_MAX_RPS = 90
 MIN_SPLIT_WINDOW_SECONDS = 300
 FIDELITY_MINUTES = 1
 
+_MINUTE_TIMESTAMP_TYPE = pa.timestamp("us", tz="UTC")
+
 
 class MinutePlanLike(Protocol):
     market_id: str
     token_id: str
     started_at: datetime
     finished_at: datetime
+
+
+class MinuteHistoryResultLike(Protocol):
+    plan: MinutePlanLike
+    history: Sequence[tuple[str, int, float]]
 
 
 @contextmanager
@@ -82,6 +92,59 @@ class MinuteFetchResult:
     fetch_finished_at: datetime
     error_type: str | None = None
     error_message: str | None = None
+
+
+def build_minute_history_arrow_table(
+    results: Sequence[MinuteHistoryResultLike],
+    *,
+    ingested_at: datetime,
+    fidelity_minutes: int = FIDELITY_MINUTES,
+) -> pa.Table:
+    """Build the minute-odds stage Arrow table without per-row Python dicts.
+
+    Skips results with empty history. Raises ``ValueError`` when no points remain.
+    """
+    filtered = [result for result in results if result.history]
+    if not filtered:
+        raise ValueError("rows must not be empty")
+
+    total_rows = sum(len(result.history) for result in filtered)
+    market_ids = list(
+        itertools.chain.from_iterable(
+            [result.plan.market_id] * len(result.history) for result in filtered
+        )
+    )
+    window_starts = list(
+        itertools.chain.from_iterable(
+            [result.plan.started_at] * len(result.history) for result in filtered
+        )
+    )
+    window_ends = list(
+        itertools.chain.from_iterable(
+            [result.plan.finished_at] * len(result.history) for result in filtered
+        )
+    )
+    token_ids, timestamps, prices = zip(
+        *itertools.chain.from_iterable(result.history for result in filtered),
+        strict=True,
+    )
+    return pa.table(
+        {
+            "market_id": pa.array(market_ids, type=pa.string()),
+            "clob_token_id": pa.array(token_ids, type=pa.string()),
+            "timestamp": pa.array(timestamps, type=pa.int64()),
+            "price": pa.array(prices, type=pa.float64()),
+            "fidelity_minutes": pa.array(
+                [fidelity_minutes] * total_rows, type=pa.int32()
+            ),
+            "window_start_at": pa.array(window_starts, type=_MINUTE_TIMESTAMP_TYPE),
+            "window_end_at": pa.array(window_ends, type=_MINUTE_TIMESTAMP_TYPE),
+            "ingested_at": pa.array(
+                [ingested_at] * total_rows, type=_MINUTE_TIMESTAMP_TYPE
+            ),
+            "row_order": pa.array(range(total_rows), type=pa.int64()),
+        }
+    )
 
 
 def sanitize_error_message(exc: Exception) -> str:
@@ -600,8 +663,10 @@ __all__ = [
     "FIDELITY_MINUTES",
     "MIN_SPLIT_WINDOW_SECONDS",
     "MinuteFetchResult",
+    "MinuteHistoryResultLike",
     "MinutePlanLike",
     "borrow_duckdb_connection",
+    "build_minute_history_arrow_table",
     "execute_minute_fetches",
     "fetch_minute_plan",
     "fetch_minute_plan_group",

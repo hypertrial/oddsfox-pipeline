@@ -173,3 +173,146 @@ def test_borrow_duckdb_connection_yields_passed_conn_without_closing():
     with minute_batch.borrow_duckdb_connection(sentinel) as active:
         assert active is sentinel
 
+
+def test_build_minute_history_arrow_table_flattens_and_broadcasts():
+    import pyarrow as pa
+    import pytest
+
+    start_a = datetime(2026, 6, 11, tzinfo=timezone.utc)
+    end_a = start_a + timedelta(days=1)
+    start_b = datetime(2026, 6, 12, tzinfo=timezone.utc)
+    end_b = start_b + timedelta(hours=6)
+    ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    results = [
+        minute_batch.MinuteFetchResult(
+            plan=_plan("tok-a", start=start_a, end=end_a),
+            fetch_status="success",
+            history=(("tok-a", 100, 0.1), ("tok-a", 160, 0.2)),
+            request_start_epoch=100,
+            request_end_epoch=200,
+            source_row_count=2,
+            history_sha256="a" * 64,
+            fetch_started_at=ingested_at,
+            fetch_finished_at=ingested_at,
+        ),
+        minute_batch.MinuteFetchResult(
+            plan=_plan("tok-empty", start=start_a, end=end_a),
+            fetch_status="empty",
+            history=(),
+            request_start_epoch=100,
+            request_end_epoch=200,
+            source_row_count=0,
+            history_sha256=None,
+            fetch_started_at=ingested_at,
+            fetch_finished_at=ingested_at,
+            error_type="EmptyHistory",
+            error_message="empty",
+        ),
+        minute_batch.MinuteFetchResult(
+            plan=_plan("tok-b", start=start_b, end=end_b),
+            fetch_status="success",
+            history=(("tok-b", 200, 0.9),),
+            request_start_epoch=200,
+            request_end_epoch=300,
+            source_row_count=1,
+            history_sha256="b" * 64,
+            fetch_started_at=ingested_at,
+            fetch_finished_at=ingested_at,
+        ),
+    ]
+
+    table = minute_batch.build_minute_history_arrow_table(
+        results, ingested_at=ingested_at
+    )
+
+    assert table.num_rows == 3
+    assert table.column_names == [
+        "market_id",
+        "clob_token_id",
+        "timestamp",
+        "price",
+        "fidelity_minutes",
+        "window_start_at",
+        "window_end_at",
+        "ingested_at",
+        "row_order",
+    ]
+    assert table.schema.field("clob_token_id").type == pa.string()
+    assert table.schema.field("timestamp").type == pa.int64()
+    assert table.schema.field("price").type == pa.float64()
+    assert table.schema.field("fidelity_minutes").type == pa.int32()
+    assert table.schema.field("window_start_at").type == pa.timestamp("us", tz="UTC")
+    assert table.schema.field("window_end_at").type == pa.timestamp("us", tz="UTC")
+    assert table.schema.field("ingested_at").type == pa.timestamp("us", tz="UTC")
+    assert table.schema.field("row_order").type == pa.int64()
+    assert table["clob_token_id"].to_pylist() == ["tok-a", "tok-a", "tok-b"]
+    assert table["timestamp"].to_pylist() == [100, 160, 200]
+    assert table["price"].to_pylist() == [0.1, 0.2, 0.9]
+    assert table["market_id"].to_pylist() == ["m-tok-a", "m-tok-a", "m-tok-b"]
+    assert table["fidelity_minutes"].to_pylist() == [1, 1, 1]
+    assert table["row_order"].to_pylist() == [0, 1, 2]
+    assert table["window_start_at"].to_pylist() == [start_a, start_a, start_b]
+    assert table["window_end_at"].to_pylist() == [end_a, end_a, end_b]
+    assert table["ingested_at"].to_pylist() == [ingested_at, ingested_at, ingested_at]
+
+    with pytest.raises(ValueError, match="rows must not be empty"):
+        minute_batch.build_minute_history_arrow_table(
+            [results[1]], ingested_at=ingested_at
+        )
+
+
+def test_build_minute_history_arrow_table_matches_dict_rows_at_moderate_scale():
+    ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    results = []
+    expected_rows = []
+    for token_idx in range(40):
+        start = datetime(2026, 6, 11, tzinfo=timezone.utc) + timedelta(hours=token_idx)
+        end = start + timedelta(hours=2)
+        history = tuple(
+            (f"tok-{token_idx}", 1_000 + token_idx * 100 + point, 0.01 * point)
+            for point in range(50)
+        )
+        results.append(
+            minute_batch.MinuteFetchResult(
+                plan=_plan(f"tok-{token_idx}", start=start, end=end),
+                fetch_status="success",
+                history=history,
+                request_start_epoch=int(start.timestamp()),
+                request_end_epoch=int(end.timestamp()),
+                source_row_count=len(history),
+                history_sha256="c" * 64,
+                fetch_started_at=ingested_at,
+                fetch_finished_at=ingested_at,
+            )
+        )
+        for token_id, timestamp, price in history:
+            expected_rows.append(
+                {
+                    "market_id": f"m-tok-{token_idx}",
+                    "clob_token_id": token_id,
+                    "timestamp": timestamp,
+                    "price": price,
+                    "fidelity_minutes": 1,
+                    "window_start_at": start,
+                    "window_end_at": end,
+                    "ingested_at": ingested_at,
+                }
+            )
+
+    table = minute_batch.build_minute_history_arrow_table(
+        results, ingested_at=ingested_at
+    )
+    assert table.num_rows == 2000
+    assert table["row_order"].to_pylist() == list(range(2000))
+    actual = table.to_pylist()
+    for idx, expected in enumerate(expected_rows):
+        row = actual[idx]
+        assert row["market_id"] == expected["market_id"]
+        assert row["clob_token_id"] == expected["clob_token_id"]
+        assert row["timestamp"] == expected["timestamp"]
+        assert row["price"] == expected["price"]
+        assert row["fidelity_minutes"] == expected["fidelity_minutes"]
+        assert row["window_start_at"] == expected["window_start_at"]
+        assert row["window_end_at"] == expected["window_end_at"]
+        assert row["ingested_at"] == expected["ingested_at"]
+        assert row["row_order"] == idx

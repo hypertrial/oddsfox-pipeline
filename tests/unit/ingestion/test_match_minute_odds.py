@@ -423,7 +423,7 @@ def test_sync_is_atomic_and_does_not_use_hourly_ledger(monkeypatch):
         fetch_window_fn=lambda *_a, **_k: [
             ("token", int(plan.started_at.timestamp()), 0.5)
         ],
-        persist_fn=lambda rows, _, **_kwargs: persisted.extend(rows),
+        persist_fn=lambda rows, _, **_kwargs: persisted.extend(rows.to_pylist()),
         audit_persist_fn=lambda rows, _: audited.extend(rows),
     )
 
@@ -472,7 +472,7 @@ def test_sync_reuses_default_worker_client(monkeypatch):
         fetch_window_fn=lambda _client, token, *_args, **_kwargs: [
             (token, int(start.timestamp()), 0.5)
         ],
-        persist_fn=lambda rows, _, **_kwargs: persisted.extend(rows),
+        persist_fn=lambda rows, _, **_kwargs: persisted.extend(rows.to_pylist()),
         audit_persist_fn=lambda rows, _: audited.extend(rows),
     )
 
