@@ -298,19 +298,53 @@ def test_match_minute_job_is_closed_untruncated_and_unscheduled():
     )
 
 
+def test_minute_odds_run_config_includes_catalog_when_refresh_enabled(monkeypatch):
+    import oddsfox_pipeline.orchestration.config as orch_config
+
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", True
+    )
+    ops = orch_config.polymarket_wc2026_minute_odds_run_config()["ops"]
+    markets = ops["polymarket_wc2026_raw_markets"]["config"]
+    registry = ops["polymarket_wc2026_ops_market_scope_registry"]["config"]
+    assert markets["keyset_closed"] is None
+    assert markets["force_full_discovery"] is True
+    assert registry["force_refresh"] is True
+    assert registry["apply_event_volume_eligibility_gate"] is True
+    assert "polymarket_wc2026_raw_event_catalog" in ops
+    assert "polymarket_wc2026_raw_futures_token_odds_history_minute" in ops
+
+
+def test_minute_odds_run_config_skips_catalog_when_refresh_disabled(monkeypatch):
+    import oddsfox_pipeline.orchestration.config as orch_config
+
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
+    )
+    ops = orch_config.polymarket_wc2026_minute_odds_run_config()["ops"]
+    assert "polymarket_wc2026_raw_markets" not in ops
+    assert "polymarket_wc2026_raw_event_catalog" not in ops
+    assert "polymarket_wc2026_ops_market_scope_registry" not in ops
+    assert "polymarket_wc2026_raw_market_metadata_enrichment" not in ops
+    assert "polymarket_wc2026_raw_match_token_odds_history_minute" in ops
+    assert "polymarket_wc2026_raw_futures_token_odds_history_minute" in ops
+    assert ops["oddsfox_dbt"]["config"]["dbt_select"] == (
+        "+polymarket_wc2026_market_minute_odds_data_quality"
+    )
+
+
 def test_minute_odds_job_reuses_match_minute_and_adds_futures_leg():
+    from oddsfox_pipeline.config.settings import (
+        POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG,
+    )
+
     config = polymarket_wc2026_minute_odds_run_config()["ops"]
-    markets = config["polymarket_wc2026_raw_markets"]["config"]
-    registry = config["polymarket_wc2026_ops_market_scope_registry"]["config"]
     futures = config["polymarket_wc2026_raw_futures_token_odds_history_minute"][
         "config"
     ]
     dbt = config["oddsfox_dbt"]["config"]
 
     assert "polymarket_wc2026_raw_match_token_odds_history_minute" in config
-    assert markets["keyset_closed"] is None
-    assert registry["keyset_closed"] is None
-    assert registry["apply_event_volume_eligibility_gate"] is True
     assert futures["requests_per_second"] == 40
     assert futures["batch_group_size"] == 20
     assert futures["window_hours"] == 24
@@ -336,6 +370,18 @@ def test_minute_odds_job_reuses_match_minute_and_adds_futures_leg():
         in selected
     )
     assert AssetKey(["polymarket", "wc2026", "marts", "market_minute_odds"]) in selected
+    catalog_key = AssetKey(["polymarket", "wc2026", "raw", "event_catalog"])
+    if POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG:
+        markets = config["polymarket_wc2026_raw_markets"]["config"]
+        registry = config["polymarket_wc2026_ops_market_scope_registry"]["config"]
+        assert markets["keyset_closed"] is None
+        assert registry["keyset_closed"] is None
+        assert registry["apply_event_volume_eligibility_gate"] is True
+        assert catalog_key in selected
+        assert "polymarket_wc2026_raw_event_catalog" in config
+    else:
+        assert catalog_key not in selected
+        assert "polymarket_wc2026_raw_event_catalog" not in config
     assert all(
         schedule.job_name != "polymarket_wc2026_minute_odds_backfill"
         for schedule in defs.schedules

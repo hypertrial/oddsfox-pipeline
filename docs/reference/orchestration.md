@@ -177,8 +177,12 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   not rely on deep recursive auto-split alone.
   dbt builds `+polymarket_wc2026_market_minute_odds_data_quality`
   (`tag:minute_odds`), producing `polymarket_wc2026_market_minute_odds` and its
-  data-quality observability row. Run `uv run make minute-odds-backfill`
-  after the schedule overlay is validated. No schedule.
+  data-quality observability row. By default the job also refreshes the shared
+  markets/event-catalog/registry; set
+  `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG=false` (and restart Dagster) to
+  reuse an already-landed warehouse catalog on odds/dbt reruns. Run
+  `uv run make minute-odds-backfill` after the schedule overlay is validated. No
+  schedule.
 
 **Isolated: Match order book**
 

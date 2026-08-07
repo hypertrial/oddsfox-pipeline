@@ -13,6 +13,7 @@ from oddsfox_pipeline.config.settings import (
     ODDS_REQUESTS_PER_SECOND,
     POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
     POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
+    POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG,
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
@@ -376,28 +377,38 @@ def polymarket_wc2026_minute_odds_run_config() -> dict:
     ops = dict(base["ops"])
     # Include open markets so in-tournament futures are discoverable; match-minute
     # selection still requires closed game markets for the 104/248/496 contract.
-    markets = MarketsSyncConfig(
-        discovery_mode="full_keyset",
-        refresh_registry=True,
-        force_full_discovery=True,
-        keyset_closed=None,
-        keyset_volume_min=0.0,
-        max_pages_without_progress=None,
-    )
-    registry = MarketScopeRegistryConfig(
-        force_refresh=True,
-        keyset_closed=None,
-        keyset_volume_min=0.0,
-        apply_event_volume_eligibility_gate=True,
-        max_pages_without_progress=None,
-        include_slug_prefix_recall=True,
-        slug_prefix_recall_max_pages_without_progress=None,
-    )
-    ops["polymarket_wc2026_raw_markets"] = {"config": markets.model_dump()}
-    ops["polymarket_wc2026_raw_event_catalog"] = {"config": registry.model_dump()}
-    ops["polymarket_wc2026_ops_market_scope_registry"] = {
-        "config": registry.model_dump()
-    }
+    if POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG:
+        markets = MarketsSyncConfig(
+            discovery_mode="full_keyset",
+            refresh_registry=True,
+            force_full_discovery=True,
+            keyset_closed=None,
+            keyset_volume_min=0.0,
+            max_pages_without_progress=None,
+        )
+        registry = MarketScopeRegistryConfig(
+            force_refresh=True,
+            keyset_closed=None,
+            keyset_volume_min=0.0,
+            apply_event_volume_eligibility_gate=True,
+            max_pages_without_progress=None,
+            include_slug_prefix_recall=True,
+            slug_prefix_recall_max_pages_without_progress=None,
+        )
+        ops["polymarket_wc2026_raw_markets"] = {"config": markets.model_dump()}
+        ops["polymarket_wc2026_raw_event_catalog"] = {"config": registry.model_dump()}
+        ops["polymarket_wc2026_ops_market_scope_registry"] = {
+            "config": registry.model_dump()
+        }
+    else:
+        # Reuse warehouse catalog/registry from a prior refresh; drop discovery ops.
+        for key in (
+            "polymarket_wc2026_raw_markets",
+            "polymarket_wc2026_raw_event_catalog",
+            "polymarket_wc2026_ops_market_scope_registry",
+            "polymarket_wc2026_raw_market_metadata_enrichment",
+        ):
+            ops.pop(key, None)
     ops["polymarket_wc2026_raw_futures_token_odds_history_minute"] = {
         "config": FuturesMinuteOddsSyncConfig().model_dump()
     }

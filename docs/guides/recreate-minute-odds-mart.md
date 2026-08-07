@@ -26,6 +26,12 @@ Do not continue until the command prints:
 
 ## Create the unified minute-odds mart
 
+Default job config refreshes the shared Polymarket event catalog and registry
+before minute fetch. After a successful catalog land, set
+`POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG=false` in `.env` and restart
+Dagster to skip rediscovery on odds/dbt reruns (see
+[Configuration](../reference/configuration.md#unified-minute-odds)).
+
 ```bash
 uv run make minute-odds-backfill
 ```

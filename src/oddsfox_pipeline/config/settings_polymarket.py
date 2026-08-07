@@ -145,6 +145,14 @@ def _parse_scope_tag_crawl_denylist() -> tuple[str, ...]:
 
 POLYMARKET_WC2026_SCOPE_TAG_CRAWL_DENYLIST = _parse_scope_tag_crawl_denylist()
 
+# Unified minute-odds backfill: when false, skip markets/event-catalog/registry
+# assets and reuse the warehouse catalog from a prior refresh (restart Dagster
+# after changing). Default true keeps first-run discovery exhaustive.
+POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG = _env_bool(
+    "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG",
+    True,
+)
+
 __all__ = [
     "CLOB_API_URL",
     "GAMMA_API_URL",
@@ -180,5 +188,6 @@ __all__ = [
     "POLYMARKET_WC2026_SCOPE_TAG_CLOSURE_KEYWORD_GATE",
     "POLYMARKET_WC2026_SCOPE_TAG_CRAWL_DENYLIST",
     "POLYMARKET_WC2026_SCOPE_TAG_CRAWL_MAX",
+    "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG",
     "WC2026_CONTRACT_DEFAULTS",
 ]

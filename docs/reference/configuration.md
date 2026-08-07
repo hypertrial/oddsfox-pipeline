@@ -311,6 +311,13 @@ The schedule flag defaults to `false`. Polymarket WC2026 has no Dagster schedule
 use `polymarket_wc2026_hourly_odds_ingest` or `polymarket_wc2026_full_pipeline`
 manually when needed.
 
+## Unified minute odds
+
+- `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG`: when `true` (default),
+  `polymarket_wc2026_minute_odds_backfill` refreshes markets, event catalog, and
+  registry before minute fetch. Set `false` to reuse an already-landed warehouse
+  catalog on odds/dbt reruns. Restart `uv run make dagster-dev` after changing.
+
 `polymarket_wc2026_polygon_settlement_backfill` and
 `polymarket_wc2026_polygon_settlement_release` are manual-only jobs. They have
 no schedule or enable flag, and the release job writes only a local immutable
