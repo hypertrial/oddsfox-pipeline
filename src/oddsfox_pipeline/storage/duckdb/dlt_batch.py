@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Callable, Sequence
 from hashlib import blake2b
@@ -39,6 +40,8 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
     MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS,
     ODDS_HISTORY_COLUMNS,
 )
+
+logger = logging.getLogger(__name__)
 
 DLT_STRICT_SCHEMA_CONTRACT = {
     "tables": "evolve",
@@ -515,6 +518,11 @@ def load_futures_minute_odds_history_stage(
     only those rows flip ``raw_published``.
     """
     target = polymarket_raw_tbl(SCOPE_WC2026, "futures_minute_odds_history")
+    logger.info(
+        "Futures-minute Arrow stage loading %s rows (fetch_run_id=%s)",
+        len(rows),
+        fetch_run_id,
+    )
     stage = _load_minute_odds_history_stage_arrow(
         conn,
         rows,
@@ -522,6 +530,11 @@ def load_futures_minute_odds_history_stage(
         stage_table="stage_futures_minute_odds_history_v1",
     )
     audit = polymarket_ops_tbl(SCOPE_WC2026, "futures_minute_odds_fetch_audit")
+    logger.info(
+        "Futures-minute Arrow stage ready; replacing raw snapshot "
+        "(fetch_run_id=%s)",
+        fetch_run_id,
+    )
     conn.execute("BEGIN TRANSACTION")
     try:
         stage_tokens = int(
@@ -582,6 +595,12 @@ def load_futures_minute_odds_history_stage(
     except Exception:
         conn.execute("ROLLBACK")
         raise
+    logger.info(
+        "Futures-minute raw snapshot replace committed "
+        "(%s tokens, fetch_run_id=%s)",
+        stage_tokens,
+        fetch_run_id,
+    )
 
 
 def merge_match_order_book_snapshots(

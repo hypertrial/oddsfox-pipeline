@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Futures-minute sync logs DuckDB audit/publish phases (fetch handoff, audit
+  write, Arrow stage, raw snapshot replace, commit) so large publishes are not
+  silent in Dagster.
 - Related-tag event-catalog recall still expands Gamma page breadth, but local
   membership now requires tag / series / slug-prefix match (no related-only
   short-circuit).

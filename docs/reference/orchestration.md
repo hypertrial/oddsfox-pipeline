@@ -173,7 +173,9 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   close/resolution time). Neither path shares the hourly `token_sync_ledger`.
   Match-minute still fail-closes unless every in-game token succeeds; futures
   minute audits empty in-window CLOB history and publishes success tokens only
-  (hard `error`/`cancelled`, or an all-empty run, still fail). Both legs borrow
+  (hard `error`/`cancelled`, or an all-empty run, still fail). Futures publish
+  logs audit write, Arrow stage load, and raw snapshot replace/commit so large
+  DuckDB publishes are visible in Dagster. Both legs borrow
   DuckDB only for plan selection and publish (warehouse lock released during
   CLOB fetch) and share the same batch/auto-tune/window-chunk/Arrow-stage stack
   as hourly odds (via `odds/minute_batch.py`); futures spans are pre-chunked into

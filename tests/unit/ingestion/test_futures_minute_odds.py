@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 import duckdb
 import pytest
@@ -229,6 +230,7 @@ def test_sync_futures_minute_odds_history_publishes_success_and_skips_empty():
     conn = _futures_inventory_connection()
     audit_rows: list[dict] = []
     published: list[tuple] = []
+    log = MagicMock()
     point_ts = int(datetime(2026, 6, 11, tzinfo=timezone.utc).timestamp())
 
     def fetch_window(
@@ -248,6 +250,7 @@ def test_sync_futures_minute_odds_history_publishes_success_and_skips_empty():
     try:
         summary = futures_minute.sync_futures_minute_odds_history(
             conn,
+            log=log,
             workers=2,
             batch_group_size=1,
             client_factory=lambda: object(),
@@ -267,6 +270,15 @@ def test_sync_futures_minute_odds_history_publishes_success_and_skips_empty():
     assert summary["raw_published_tokens"] == 1
     assert {row["fetch_status"] for row in audit_rows} == {"success", "empty"}
     assert published and published[0][1] == 1
+    info_messages = [call.args[0] % call.args[1:] for call in log.info.call_args_list]
+    assert any(
+        "Futures CLOB fetch done; entering DuckDB audit/publish" in msg
+        for msg in info_messages
+    )
+    assert any("writing fetch audit" in msg for msg in info_messages)
+    assert any("staging/publishing" in msg for msg in info_messages)
+    assert any("empty in-window history" in msg for msg in info_messages)
+    assert any("Futures-minute published" in msg for msg in info_messages)
 
 
 def test_sync_futures_minute_odds_history_fail_closed_when_all_empty():

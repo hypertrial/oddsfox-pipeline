@@ -341,9 +341,24 @@ def sync_futures_minute_odds_history(
     ]
     success = [result for result in fetched if result.fetch_status == "success"]
 
+    log.info(
+        "Futures CLOB fetch done; entering DuckDB audit/publish "
+        "(success=%s empty=%s error=%s cancelled=%s rows=%s fetch_run_id=%s)",
+        status_counts["success"],
+        status_counts["empty"],
+        status_counts["error"],
+        status_counts["cancelled"],
+        summary["rows"],
+        fetch_run_id,
+    )
+
     with borrow_duckdb_connection(
         conn, connection_factory=connection_factory
     ) as active:
+        log.info(
+            "Futures-minute writing fetch audit (%s token(s)) to DuckDB",
+            len(audit_rows),
+        )
         try:
             audit_persist_fn(audit_rows, active)
         except Exception as exc:
@@ -384,6 +399,11 @@ def sync_futures_minute_odds_history(
             for result in success
             for token_id, timestamp, price in result.history
         ]
+        log.info(
+            "Futures-minute staging/publishing %s token(s) (%s rows) to DuckDB",
+            len(success),
+            len(rows),
+        )
         try:
             persist_fn(rows, active, fetch_run_id=fetch_run_id)
         except Exception as exc:
@@ -391,6 +411,11 @@ def sync_futures_minute_odds_history(
             raise FuturesMinuteSyncError(str(exc), summary) from exc
     summary["status"] = "published"
     summary["raw_published_tokens"] = len(success)
+    log.info(
+        "Futures-minute published %s token(s) (%s rows) to DuckDB",
+        len(success),
+        len(rows),
+    )
     return summary
 
 
