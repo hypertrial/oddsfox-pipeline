@@ -26,6 +26,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_hourly_odds_run_config,
     polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
+    polymarket_wc2026_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
     polymarket_wc2026_polygon_settlement_release_run_config,
@@ -64,6 +65,7 @@ EXPECTED_OP_NAMES = {
     "polymarket_wc2026_raw_market_metadata_enrichment",
     "polymarket_wc2026_raw_token_odds_history_hourly",
     "polymarket_wc2026_raw_match_token_odds_history_minute",
+    "polymarket_wc2026_raw_futures_token_odds_history_minute",
     "polymarket_wc2026_raw_match_order_book_snapshots",
     "polymarket_wc2026_raw_match_trades",
     "polymarket_wc2026_raw_polygon_settlement_fills",
@@ -210,6 +212,7 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         assets.polymarket_wc2026_raw_market_metadata_enrichment.op.name,
         assets.polymarket_wc2026_raw_token_odds_history_hourly.op.name,
         assets.polymarket_wc2026_raw_match_token_odds_history_minute.op.name,
+        assets.polymarket_wc2026_raw_futures_token_odds_history_minute.op.name,
         assets.polymarket_wc2026_raw_match_order_book_snapshots.op.name,
         assets.polymarket_wc2026_raw_match_trades.op.name,
         assets.polymarket_wc2026_raw_polygon_settlement_fills.op.name,
@@ -220,6 +223,7 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         set(polymarket_wc2026_full_refresh_events_run_config()["ops"])
         | set(polymarket_wc2026_hourly_odds_run_config()["ops"])
         | set(polymarket_wc2026_match_minute_odds_run_config()["ops"])
+        | set(polymarket_wc2026_minute_odds_run_config()["ops"])
         | set(polymarket_wc2026_match_order_book_run_config()["ops"])
         | set(polymarket_wc2026_market_portrait_run_config()["ops"])
         | set(polymarket_wc2026_polygon_settlement_backfill_run_config()["ops"])

@@ -39,6 +39,7 @@ _MART_SUBJECTS = (
 )
 _ISOLATED_DBT_SELECT_MARKERS = (
     "match_minute",
+    "minute_odds",
     "polygon_settlement",
     "pmxt_order_book",
     "market_portrait",

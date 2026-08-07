@@ -69,7 +69,7 @@ POLYMARKET_WC2026_SCOPE = ScopeSpec(
     full_job_name="polymarket_wc2026_full_pipeline",
     dbt_select=POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT,
     dbt_exclude=(
-        "tag:match_minute tag:wc2026_strategy wc2026_fixtures "
+        "tag:match_minute tag:minute_odds tag:wc2026_strategy wc2026_fixtures "
         "wc2026_schedule_matches wc2026_team_canonical_aliases "
         "tag:polygon_settlement tag:pmxt_order_book tag:market_portrait"
     ),

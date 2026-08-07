@@ -66,6 +66,18 @@ _MATCH_MINUTE_ODDS_HISTORY = (
     ColumnDef("row_order", "BIGINT", "bigint"),
 )
 
+_FUTURES_MINUTE_ODDS_HISTORY = (
+    ColumnDef("market_id", "TEXT", "text", ddl_not_null=True),
+    ColumnDef("clobTokenId", "TEXT", "text", ddl_not_null=True),
+    ColumnDef("timestamp", "BIGINT", "bigint", ddl_not_null=True),
+    ColumnDef("price", "DOUBLE", "double", ddl_not_null=True),
+    ColumnDef("fidelity_minutes", "INTEGER", "bigint", ddl_not_null=True),
+    ColumnDef("window_start_at", "TIMESTAMP", "timestamp", ddl_not_null=True),
+    ColumnDef("window_end_at", "TIMESTAMP", "timestamp", ddl_not_null=True),
+    ColumnDef("ingested_at", "TIMESTAMP", "timestamp", ddl_not_null=True),
+    ColumnDef("row_order", "BIGINT", "bigint"),
+)
+
 _MATCH_ORDER_BOOK_SNAPSHOT = (
     ColumnDef("scan_id", "TEXT", "text", ddl_not_null=True),
     ColumnDef("manifest_sha256", "TEXT", "text", ddl_not_null=True),
@@ -238,6 +250,7 @@ _EVENT_MARKET_PAYLOAD_SNAPSHOT = (
 MARKET_TOKEN_COLUMNS = columns_to_dlt(_MARKET_TOKEN)
 ODDS_HISTORY_COLUMNS = columns_to_dlt(_ODDS_HISTORY)
 MATCH_MINUTE_ODDS_HISTORY_COLUMNS = columns_to_dlt(_MATCH_MINUTE_ODDS_HISTORY)
+FUTURES_MINUTE_ODDS_HISTORY_COLUMNS = columns_to_dlt(_FUTURES_MINUTE_ODDS_HISTORY)
 MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS = columns_to_dlt(_MATCH_ORDER_BOOK_SNAPSHOT)
 INGESTION_RUN_EVENT_COLUMNS = columns_to_dlt(_INGESTION_RUN_EVENT)
 MARKET_SCOPE_REGISTRY_COLUMNS = columns_to_dlt(_MARKET_SCOPE_REGISTRY)
@@ -260,6 +273,7 @@ _DLT_COLUMNS_BY_RELATION: dict[str, dict[str, dict[str, Any]]] = {
     "market_tokens": MARKET_TOKEN_COLUMNS,
     "odds_history": ODDS_HISTORY_COLUMNS,
     "match_minute_odds_history": MATCH_MINUTE_ODDS_HISTORY_COLUMNS,
+    "futures_minute_odds_history": FUTURES_MINUTE_ODDS_HISTORY_COLUMNS,
     "match_order_book_snapshots": MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS,
     "ingestion_run_events": INGESTION_RUN_EVENT_COLUMNS,
     "market_scope_registry": MARKET_SCOPE_REGISTRY_COLUMNS,
@@ -273,6 +287,7 @@ _DDL_COLUMNS_BY_RELATION: dict[str, tuple[ColumnDef, ...]] = {
     "market_tokens": _MARKET_TOKEN,
     "odds_history": _ODDS_HISTORY,
     "match_minute_odds_history": _MATCH_MINUTE_ODDS_HISTORY,
+    "futures_minute_odds_history": _FUTURES_MINUTE_ODDS_HISTORY,
     "match_order_book_snapshots": _MATCH_ORDER_BOOK_SNAPSHOT,
     "ingestion_run_events": _INGESTION_RUN_EVENT,
     "market_scope_registry": _MARKET_SCOPE_REGISTRY,
@@ -313,6 +328,7 @@ __all__ = [
     "MARKET_SCOPE_REGISTRY_COLUMNS",
     "MARKET_TOKEN_COLUMNS",
     "MATCH_MINUTE_ODDS_HISTORY_COLUMNS",
+    "FUTURES_MINUTE_ODDS_HISTORY_COLUMNS",
     "MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS",
     "ODDS_HISTORY_COLUMNS",
     "_DDL_COLUMNS_BY_RELATION",

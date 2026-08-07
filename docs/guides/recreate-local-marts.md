@@ -8,6 +8,7 @@ before continuing.
 Optional advanced marts covered here:
 
 - `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds`
+- `polymarket_wc2026_marts.polymarket_wc2026_market_minute_odds`
 - `polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds`
 - `polymarket_wc2026_marts.polymarket_wc2026_match_order_book`
 
@@ -39,6 +40,7 @@ See [Operator responsibilities](../concepts/operator-responsibilities.md).
 | Goal | Guide |
 | --- | --- |
 | Match-minute mart only | [Recreate match-minute mart](recreate-match-minute-mart.md) |
+| Unified minute-odds mart | [Recreate minute-odds mart](recreate-minute-odds-mart.md) |
 | Polygon settlement mart only | [Recreate Polygon settlement mart](recreate-polygon-settlement-mart.md) |
 | PMXT order-book mart only | [Recreate match-order-book mart](recreate-match-order-book-mart.md) |
 | Both minute marts from public sources | Complete shared setup below, then both minute child guides |

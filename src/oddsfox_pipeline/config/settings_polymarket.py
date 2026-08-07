@@ -38,12 +38,22 @@ WC2026_CONTRACT_DEFAULTS = {
     "scope_name": "wc2026",
     "event_min_lifetime_volume_usd": 100_000.0,
     "hourly_window_hours": 720,
+    # Inclusive tournament span for futures-market minute windows
+    # (opening match day through final day; see data-contracts.md).
+    "tournament_start_utc": "2026-06-11T00:00:00+00:00",
+    "tournament_end_utc": "2026-07-19T23:59:59+00:00",
 }
 POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD = float(
     WC2026_CONTRACT_DEFAULTS["event_min_lifetime_volume_usd"]
 )
 POLYMARKET_WC2026_HOURLY_WINDOW_HOURS = int(
     WC2026_CONTRACT_DEFAULTS["hourly_window_hours"]
+)
+POLYMARKET_WC2026_TOURNAMENT_START_UTC = str(
+    WC2026_CONTRACT_DEFAULTS["tournament_start_utc"]
+)
+POLYMARKET_WC2026_TOURNAMENT_END_UTC = str(
+    WC2026_CONTRACT_DEFAULTS["tournament_end_utc"]
 )
 DEFAULT_POLYMARKET_WC2026_MARKET_SCOPE = str(WC2026_CONTRACT_DEFAULTS["scope_name"])
 POLYMARKET_WC2026_SCOPE_EVENT_SLUGS = os.getenv(
@@ -144,6 +154,8 @@ __all__ = [
     "MARKETS_REQUESTS_PER_SECOND",
     "POLYMARKET_WC2026_HOURLY_WINDOW_HOURS",
     "POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD",
+    "POLYMARKET_WC2026_TOURNAMENT_END_UTC",
+    "POLYMARKET_WC2026_TOURNAMENT_START_UTC",
     "POLYGON_RPC_PROVIDER_LABEL",
     "POLYGON_RPC_URL",
     "POLYGON_VERIFY_RPC_PROVIDER_LABEL",

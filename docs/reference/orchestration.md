@@ -23,10 +23,11 @@ backfill, paid or narrow credentials, single-target manifests.
 
 | Pipeline | Entry job(s) | Steps | Schedule | CI dbt gate | Maturity |
 | --- | --- | --- | --- | --- | --- |
-| Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | None | `ci-fast` → `dbt-lint`; model build in `dbt-build-ci` (excludes `tag:polygon_settlement` / `tag:pmxt_order_book`) | Production |
+| Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | None | `ci-fast` → `dbt-lint`; model build in `dbt-build-ci` (excludes `tag:polygon_settlement` / `tag:pmxt_order_book` / `tag:minute_odds`) | Production |
 | Kalshi WC2026 | `kalshi_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` → `dbt-lint`; `+tag:kalshi` builds in `dbt-build-ci` / `release-gate` | Production |
 | Polygon settlement history | `polymarket_wc2026_polygon_settlement_backfill` → `_release` → standalone exporter | Backfill scan, audit release, offline export | None | `dbt-polygon-settlement-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Match-minute odds | `polymarket_wc2026_match_minute_odds_backfill` | Results refresh, minute fetch, dbt | None | `dbt-match-minute-ci` (also compiles in ordinary `dbt-build-ci`; inventory proofs are the isolated lane) | Mature, isolated |
+| Minute odds (unified) | `polymarket_wc2026_minute_odds_backfill` | Match-minute + futures-minute fetch, unified dbt | None | `dbt-minute-odds-ci` (excluded from ordinary `dbt-build-ci` via `tag:minute_odds`) | Mature, isolated |
 | Match order book | `polymarket_wc2026_match_order_book_backfill` | PMXT order-book scan, dbt | None | `dbt-match-order-book-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Market portrait | `polymarket_wc2026_market_portrait_backfill` | Order book + trades scan, portrait bundle build | None | `dbt-market-portrait-ci` (`tag:market_portrait` trade marts still compile in ordinary `dbt-build-ci`; order-book dual-tagged models follow `tag:pmxt_order_book` exclusion) | Mature, isolated |
 
@@ -55,6 +56,10 @@ this list maps each pipeline to what it builds.
 - **Match-minute odds** (`polymarket_wc2026_match_minute_odds_backfill`):
   `polymarket_wc2026_match_minute_odds`. Rebuilds the shared
   `international_results_wc2026_matches` mart as an input.
+- **Minute odds (unified)** (`polymarket_wc2026_minute_odds_backfill`):
+  `polymarket_wc2026_market_minute_odds`. Reuses the match-minute raw path for
+  game markets and adds a futures-minute raw path for all other
+  registry-eligible WC2026 markets over the tournament span.
 - **Match order book** (`polymarket_wc2026_match_order_book_backfill`):
   `polymarket_wc2026_match_order_book`.
 - **Market portrait** (`polymarket_wc2026_market_portrait_backfill`): no
@@ -74,19 +79,20 @@ this list maps each pipeline to what it builds.
 7. `polymarket/wc2026/raw/market_metadata_enrichment`
 8. `polymarket/wc2026/raw/token_odds_history_hourly`
 9. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
-10. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
-11. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
-12. `international_results/historical/raw/snapshot`
-13. `international_results/wc2026/raw/match_results`
-14. `openfootball/wc2026/raw/schedule_fixtures`
-15. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
-16. `kalshi/wc2026/raw/markets`
-17. `kalshi/wc2026/raw/markets_snapshot`
-18. `kalshi/wc2026/ops/market_scope_registry`
-19. `kalshi/wc2026/raw/market_candlesticks_hourly`
-20. dbt model assets under the matching
+10. `polymarket/wc2026/raw/futures_token_odds_history_minute` (dedicated unified minute backfill only)
+11. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
+12. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
+13. `international_results/historical/raw/snapshot`
+14. `international_results/wc2026/raw/match_results`
+15. `openfootball/wc2026/raw/schedule_fixtures`
+16. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
+17. `kalshi/wc2026/raw/markets`
+18. `kalshi/wc2026/raw/markets_snapshot`
+19. `kalshi/wc2026/ops/market_scope_registry`
+20. `kalshi/wc2026/raw/market_candlesticks_hourly`
+21. dbt model assets under the matching
     `{staging,intermediate,marts,observability}` namespaces.
-21. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
+22. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
 
 Flat Dagster op names preserve the same source-first order, for example
 `polymarket_wc2026_raw_token_odds_history_hourly`.
@@ -149,10 +155,29 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   Gamma events without a volume floor, validates result alignment and the
   104/248/496 inventory, fetches exact game windows at CLOB `fidelity=1`, then
   runs dbt. The results refresh first resolves and downloads an immutable Git
-  revision. Minute fetches append 496 audit rows; only an all-success run
+  revision.   Minute fetches append 496 audit rows; only an all-success run
   atomically replaces raw history and marks those audits published.
+  Fetch throughput matches the hourly odds path: CLOB batch POST (≤20
+  tokens), 24h preemptive window chunks, workers/RPS 40 with auto-tune to 90,
+  and Arrow staging for the publish replace (still no hourly ledger; each run
+  is a full bounded refetch).
   Run `uv run make match-minute-live-smoke` for the disposable live acceptance
   check; it is intentionally absent from CI and all schedules.
+
+**Isolated: Minute odds (unified)**
+
+- `polymarket_wc2026_minute_odds_backfill`: one-time or rerunnable unified
+  minute-grain backfill. It runs the match-minute raw path for game markets and
+  a separate futures-minute raw path for every other registry-eligible WC2026
+  market (tournament span `[2026-06-11, 2026-07-19]`, capped by each market's
+  close/resolution time). Neither path shares the hourly `token_sync_ledger`.
+  Both legs use the same batch/auto-tune/window-chunk/Arrow-stage stack as
+  hourly odds (via `odds/minute_batch.py`); futures spans are pre-chunked into
+  24h windows before CLOB calls so tournament-length fidelity=1 history does
+  not rely on deep recursive auto-split alone.
+  dbt builds `+polymarket_wc2026_market_minute_odds` (`tag:minute_odds`), producing
+  `polymarket_wc2026_market_minute_odds`. Run `uv run make minute-odds-backfill`
+  after the schedule overlay is validated. No schedule.
 
 **Isolated: Match order book**
 
@@ -243,7 +268,7 @@ expand the same `+` ancestry from the local dbt manifest when present.
   order hashes, signatures, raw event payloads, oracle prose, or RPC URLs.
 - The ordinary Polymarket dbt/full jobs build only
   `+polymarket_wc2026_market_hourly_odds` and exclude
-  `tag:match_minute tag:wc2026_strategy wc2026_fixtures wc2026_schedule_matches
+  `tag:match_minute tag:minute_odds tag:wc2026_strategy wc2026_fixtures wc2026_schedule_matches
   wc2026_team_canonical_aliases tag:polygon_settlement tag:pmxt_order_book
   tag:market_portrait` (see `POLYMARKET_WC2026_SCOPE.dbt_exclude` in
   `src/oddsfox_pipeline/orchestration/shipped_scopes.py`); only dedicated
@@ -286,6 +311,7 @@ expand the same `+` ancestry from the local dbt manifest when present.
 Polymarket events are complete and the hourly schedule was removed in v0.2.x.
 
 The match-minute backfill has no schedule or environment enable flag.
+The unified minute-odds backfill has no schedule or environment enable flag.
 The PMXT match-order-book backfill has no schedule or environment enable flag.
 The market-portrait backfill has no schedule or environment enable flag.
 The Polygon settlement backfill and audit-release jobs likewise have no schedule

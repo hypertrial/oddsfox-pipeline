@@ -31,6 +31,7 @@ from oddsfox_pipeline.orchestration.config import (
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
     MatchMinuteOddsSyncConfig,
+    FuturesMinuteOddsSyncConfig,
     MetadataEnrichmentConfig,
 )
 from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
@@ -88,6 +89,9 @@ POLYMARKET_WC2026_RAW_TOKEN_ODDS_HISTORY_HOURLY = asset_key(
 )
 POLYMARKET_WC2026_RAW_MATCH_TOKEN_ODDS_HISTORY_MINUTE = asset_key(
     SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "match_token_odds_history_minute"
+)
+POLYMARKET_WC2026_RAW_FUTURES_TOKEN_ODDS_HISTORY_MINUTE = asset_key(
+    SOURCE_POLYMARKET, SCOPE_WC2026, "raw", "futures_token_odds_history_minute"
 )
 
 
@@ -309,6 +313,10 @@ def polymarket_wc2026_raw_match_token_odds_history_minute(
                 log=context.log,
                 workers=config.workers,
                 requests_per_second=config.requests_per_second,
+                batch_group_size=config.batch_group_size,
+                window_hours=config.window_hours,
+                auto_tune_rps=config.auto_tune_rps,
+                auto_tune_max_rps=config.auto_tune_max_rps,
                 transient_retries=config.transient_retries,
                 transient_backoff_seconds=config.transient_backoff_seconds,
                 progress_log_interval_seconds=config.progress_log_interval_seconds,
@@ -331,6 +339,59 @@ def polymarket_wc2026_raw_match_token_odds_history_minute(
         raise
     save_sync_run_metrics(
         "match_minute_odds",
+        summary,
+        scope_name=POLYMARKET_WC2026_SCOPE_NAME,
+    )
+    return MaterializeResult(metadata=summary)
+
+
+@multi_asset(
+    name="polymarket_wc2026_raw_futures_token_odds_history_minute",
+    specs=[
+        AssetSpec(
+            key=POLYMARKET_WC2026_RAW_FUTURES_TOKEN_ODDS_HISTORY_MINUTE,
+            deps=[POLYMARKET_WC2026_RAW_MARKET_METADATA_BACKFILL],
+        )
+    ],
+    group_name="ingestion",
+)
+def polymarket_wc2026_raw_futures_token_odds_history_minute(
+    context: AssetExecutionContext,
+    config: FuturesMinuteOddsSyncConfig,
+) -> MaterializeResult:
+    try:
+        with get_connection() as conn:
+            summary = ops.sync_futures_minute_odds_history(
+                conn,
+                log=context.log,
+                workers=config.workers,
+                requests_per_second=config.requests_per_second,
+                batch_group_size=config.batch_group_size,
+                window_hours=config.window_hours,
+                auto_tune_rps=config.auto_tune_rps,
+                auto_tune_max_rps=config.auto_tune_max_rps,
+                transient_retries=config.transient_retries,
+                transient_backoff_seconds=config.transient_backoff_seconds,
+                progress_log_interval_seconds=config.progress_log_interval_seconds,
+                no_progress_soft_timeout_seconds=(
+                    config.no_progress_soft_timeout_seconds
+                ),
+                no_progress_hard_timeout_seconds=(
+                    config.no_progress_hard_timeout_seconds
+                ),
+            )
+    except Exception as exc:
+        failure = dict(getattr(exc, "summary", {}))
+        failure.setdefault("status", "preflight_error")
+        failure.setdefault("error_type", exc.__class__.__name__)
+        save_sync_run_metrics(
+            "futures_minute_odds",
+            failure,
+            scope_name=POLYMARKET_WC2026_SCOPE_NAME,
+        )
+        raise
+    save_sync_run_metrics(
+        "futures_minute_odds",
         summary,
         scope_name=POLYMARKET_WC2026_SCOPE_NAME,
     )

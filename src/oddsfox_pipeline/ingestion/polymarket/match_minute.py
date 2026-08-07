@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
-import math
 import re
 import unicodedata
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from threading import local
 from typing import Any, Callable, Iterable
 from uuid import uuid4
 
@@ -19,11 +15,18 @@ import duckdb
 
 from oddsfox_pipeline.config.settings import CLOB_API_URL
 from oddsfox_pipeline.ingestion.polymarket.odds.execution import (
+    fetch_group_window_with_auto_split,
     fetch_window_with_auto_split,
 )
-from oddsfox_pipeline.ingestion.polymarket.odds.fetch import build_client
-from oddsfox_pipeline.resources.http import RateLimiter
-from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
+from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
+    DEFAULT_MINUTE_AUTO_TUNE_MAX_RPS,
+    DEFAULT_MINUTE_BATCH_GROUP_SIZE,
+    DEFAULT_MINUTE_REQUESTS_PER_SECOND,
+    DEFAULT_MINUTE_WINDOW_HOURS,
+    DEFAULT_MINUTE_WORKERS,
+    MinuteFetchResult,
+    execute_minute_fetches,
+)
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
     load_match_minute_fetch_audit,
     load_match_minute_odds_history_stage,
@@ -68,10 +71,6 @@ class MatchMinuteSyncError(RuntimeError):
     def __init__(self, message: str, summary: dict[str, Any]):
         super().__init__(message)
         self.summary = summary
-
-
-def _sanitize_error_message(exc: Exception) -> str:
-    return " ".join(str(exc).split())[:500]
 
 
 def _json_list(value: Any) -> list[str]:
@@ -236,101 +235,40 @@ def select_match_minute_token_plans(
     return plans
 
 
-def _fetch_plan(
-    plan: MatchMinuteTokenPlan,
-    client: Any,
-    fetch_window_fn: Callable[..., Any],
-    *,
-    transient_retries: int,
-    transient_backoff_seconds: float,
-) -> MatchMinuteFetchResult:
-    fetch_started_at = datetime.now(timezone.utc)
-    source_row_count = 0
-    exact_start = plan.started_at.timestamp()
-    exact_end = plan.finished_at.timestamp()
-    padded_start = (math.floor(exact_start) // 60) * 60
-    padded_end = math.ceil(math.ceil(exact_end) / 60) * 60
-    try:
-        rows = fetch_window_fn(
-            client,
-            plan.token_id,
-            padded_start,
-            padded_end,
-            1,
-            300,
-            transient_retries,
-            transient_backoff_seconds,
+def _to_match_fetch_result(result: MinuteFetchResult) -> MatchMinuteFetchResult:
+    plan = result.plan
+    if not isinstance(plan, MatchMinuteTokenPlan):
+        plan = MatchMinuteTokenPlan(
+            market_id=plan.market_id,
+            token_id=plan.token_id,
+            started_at=plan.started_at,
+            finished_at=plan.finished_at,
         )
-        if rows is None:
-            raise RuntimeError(f"Transient CLOB failure for token {plan.token_id}")
-        raw_rows = list(rows)
-        source_row_count = len(raw_rows)
-        normalized = sorted(
-            (
-                (str(token), int(timestamp), float(price))
-                for token, timestamp, price in raw_rows
-            ),
-            key=lambda row: (row[1], row[0], row[2]),
-        )
-        filtered = tuple(
-            row for row in normalized if exact_start <= row[1] <= exact_end
-        )
-        if not filtered:
-            return MatchMinuteFetchResult(
-                plan=plan,
-                fetch_status="empty",
-                history=(),
-                request_start_epoch=padded_start,
-                request_end_epoch=padded_end,
-                source_row_count=source_row_count,
-                in_game_history_sha256=None,
-                fetch_started_at=fetch_started_at,
-                fetch_finished_at=datetime.now(timezone.utc),
-                error_type="EmptyHistory",
-                error_message=(f"Empty in-game CLOB history for token {plan.token_id}"),
-            )
-        if any(token != plan.token_id for token, _, _ in filtered):
-            raise ValueError(f"CLOB returned a mismatched token for {plan.token_id}")
-        if any(not 0.0 <= price <= 1.0 for _, _, price in filtered):
-            raise ValueError(
-                f"CLOB returned an invalid probability for {plan.token_id}"
-            )
-        history_sha256 = hashlib.sha256(
-            json.dumps(filtered, separators=(",", ":")).encode("utf-8")
-        ).hexdigest()
-        return MatchMinuteFetchResult(
-            plan=plan,
-            fetch_status="success",
-            history=filtered,
-            request_start_epoch=padded_start,
-            request_end_epoch=padded_end,
-            source_row_count=source_row_count,
-            in_game_history_sha256=history_sha256,
-            fetch_started_at=fetch_started_at,
-            fetch_finished_at=datetime.now(timezone.utc),
-        )
-    except Exception as exc:
-        return MatchMinuteFetchResult(
-            plan=plan,
-            fetch_status="error",
-            history=(),
-            request_start_epoch=padded_start,
-            request_end_epoch=padded_end,
-            source_row_count=source_row_count,
-            in_game_history_sha256=None,
-            fetch_started_at=fetch_started_at,
-            fetch_finished_at=datetime.now(timezone.utc),
-            error_type=exc.__class__.__name__,
-            error_message=_sanitize_error_message(exc),
-        )
+    return MatchMinuteFetchResult(
+        plan=plan,
+        fetch_status=result.fetch_status,
+        history=result.history,
+        request_start_epoch=result.request_start_epoch,
+        request_end_epoch=result.request_end_epoch,
+        source_row_count=result.source_row_count,
+        in_game_history_sha256=result.history_sha256,
+        fetch_started_at=result.fetch_started_at,
+        fetch_finished_at=result.fetch_finished_at,
+        error_type=result.error_type,
+        error_message=result.error_message,
+    )
 
 
 def sync_match_minute_odds_history(
     conn: duckdb.DuckDBPyConnection,
     *,
     log: Any = logger,
-    workers: int = 20,
-    requests_per_second: int = 20,
+    workers: int = DEFAULT_MINUTE_WORKERS,
+    requests_per_second: int = DEFAULT_MINUTE_REQUESTS_PER_SECOND,
+    batch_group_size: int = DEFAULT_MINUTE_BATCH_GROUP_SIZE,
+    window_hours: int = DEFAULT_MINUTE_WINDOW_HOURS,
+    auto_tune_rps: bool = True,
+    auto_tune_max_rps: int | None = DEFAULT_MINUTE_AUTO_TUNE_MAX_RPS,
     transient_retries: int = 2,
     transient_backoff_seconds: float = 0.25,
     progress_log_interval_seconds: int = 60,
@@ -339,96 +277,39 @@ def sync_match_minute_odds_history(
     progress_poll_seconds: int = 5,
     client_factory: Callable[[], Any] | None = None,
     fetch_window_fn: Callable[..., Any] = fetch_window_with_auto_split,
+    fetch_group_window_fn: Callable[..., Any] = fetch_group_window_with_auto_split,
     persist_fn: Callable[..., Any] = load_match_minute_odds_history_stage,
     audit_persist_fn: Callable[..., Any] = load_match_minute_fetch_audit,
 ) -> dict[str, Any]:
     """Refetch all bounded windows, then publish only after every token succeeds."""
     plans = select_match_minute_token_plans(conn)
     fetch_run_id = str(uuid4())
-    limiter = RateLimiter(requests_per_second)
-    worker_state = local()
-
-    def client() -> Any:
-        value = getattr(worker_state, "client", None)
-        if value is None:
-            value = (
-                client_factory()
-                if client_factory
-                else build_client(CLOB_API_URL, rate_limiter=limiter)
-            )
-            worker_state.client = value
-        return value
-
-    def fetch(plan: MatchMinuteTokenPlan):
-        return _fetch_plan(
-            plan,
-            client(),
-            fetch_window_fn,
+    fetched = [
+        _to_match_fetch_result(result)
+        for result in execute_minute_fetches(
+            plans,
+            asset_name="polymarket_wc2026_match_minute_odds_backfill",
+            log=log,
+            workers=workers,
+            requests_per_second=requests_per_second,
+            batch_group_size=batch_group_size,
+            window_hours=window_hours,
+            auto_tune_rps=auto_tune_rps,
+            auto_tune_max_rps=auto_tune_max_rps,
             transient_retries=transient_retries,
             transient_backoff_seconds=transient_backoff_seconds,
+            progress_log_interval_seconds=progress_log_interval_seconds,
+            no_progress_soft_timeout_seconds=no_progress_soft_timeout_seconds,
+            no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,
+            progress_poll_seconds=progress_poll_seconds,
+            client_factory=client_factory,
+            fetch_window_fn=fetch_window_fn,
+            fetch_group_window_fn=fetch_group_window_fn,
+            empty_error_message_fn=(
+                lambda p: f"Empty in-game CLOB history for token {p.token_id}"
+            ),
         )
-
-    guardrail = ProgressGuardrail(
-        asset="polymarket_wc2026_match_minute_odds_backfill",
-        logger=log,
-        progress_log_interval_seconds=progress_log_interval_seconds,
-        no_progress_soft_timeout_seconds=no_progress_soft_timeout_seconds,
-        no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,
-        work_log_interval=25,
-    )
-    fetched: list[MatchMinuteFetchResult] = []
-    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        futures = {pool.submit(fetch, plan): plan for plan in plans}
-        pending = set(futures.keys())
-        while pending:
-            done, pending = wait(
-                pending,
-                timeout=max(1, progress_poll_seconds),
-                return_when=FIRST_COMPLETED,
-            )
-            if not done:
-                guardrail.check(
-                    phase="fetch_token_wait",
-                    diagnostics={"inflight_futures": len(pending)},
-                )
-                continue
-            for future in done:
-                plan = futures[future]
-                try:
-                    result = future.result()
-                except Exception as exc:  # pragma: no cover - defensive worker boundary
-                    now = datetime.now(timezone.utc)
-                    result = MatchMinuteFetchResult(
-                        plan=plan,
-                        fetch_status="error",
-                        history=(),
-                        request_start_epoch=int(plan.started_at.timestamp()),
-                        request_end_epoch=int(plan.finished_at.timestamp()),
-                        source_row_count=0,
-                        in_game_history_sha256=None,
-                        fetch_started_at=now,
-                        fetch_finished_at=now,
-                        error_type=exc.__class__.__name__,
-                        error_message=_sanitize_error_message(exc),
-                    )
-                fetched.append(result)
-                guardrail.record_progress(
-                    work_increment=1,
-                    phase="fetch_token",
-                    diagnostics={
-                        "token_id": plan.token_id,
-                        "status": result.fetch_status,
-                    },
-                )
-                guardrail.check(
-                    phase="fetch_token",
-                    diagnostics={
-                        "token_id": plan.token_id,
-                        "status": result.fetch_status,
-                    },
-                )
-
-    fetched.sort(key=lambda result: result.plan.token_id)
+    ]
     audit_rows = [
         {
             "fetch_run_id": fetch_run_id,

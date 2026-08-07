@@ -203,8 +203,23 @@ class HourlyOddsSyncConfig(OddsSyncConfig):
 
 
 class MatchMinuteOddsSyncConfig(GuardrailConfig):
-    workers: int = Field(default=20, ge=1, le=100)
-    requests_per_second: int = Field(default=20, ge=1)
+    workers: int = Field(default=40, ge=1, le=100)
+    requests_per_second: int = Field(default=40, ge=1)
+    batch_group_size: int = Field(default=20, ge=1, le=20)
+    window_hours: int = Field(default=24, ge=1)
+    auto_tune_rps: bool = True
+    auto_tune_max_rps: int | None = Field(default=90, ge=1)
+    transient_retries: int = Field(default=2, ge=0)
+    transient_backoff_seconds: float = Field(default=0.25, ge=0)
+
+
+class FuturesMinuteOddsSyncConfig(GuardrailConfig):
+    workers: int = Field(default=40, ge=1, le=100)
+    requests_per_second: int = Field(default=40, ge=1)
+    batch_group_size: int = Field(default=20, ge=1, le=20)
+    window_hours: int = Field(default=24, ge=1)
+    auto_tune_rps: bool = True
+    auto_tune_max_rps: int | None = Field(default=90, ge=1)
     transient_retries: int = Field(default=2, ge=0)
     transient_backoff_seconds: float = Field(default=0.25, ge=0)
 
@@ -353,6 +368,47 @@ def polymarket_wc2026_match_minute_odds_run_config() -> dict:
             "oddsfox_dbt": {"config": dbt.model_dump()},
         }
     }
+
+
+def polymarket_wc2026_minute_odds_run_config() -> dict:
+    """Unified minute-odds backfill: match windows + futures tournament span."""
+    base = polymarket_wc2026_match_minute_odds_run_config()
+    ops = dict(base["ops"])
+    # Include open markets so in-tournament futures are discoverable; match-minute
+    # selection still requires closed game markets for the 104/248/496 contract.
+    markets = MarketsSyncConfig(
+        discovery_mode="full_keyset",
+        refresh_registry=True,
+        force_full_discovery=True,
+        keyset_closed=None,
+        keyset_volume_min=0.0,
+        max_pages_without_progress=None,
+    )
+    registry = MarketScopeRegistryConfig(
+        force_refresh=True,
+        keyset_closed=None,
+        keyset_volume_min=0.0,
+        apply_event_volume_eligibility_gate=True,
+        max_pages_without_progress=None,
+        include_slug_prefix_recall=True,
+        slug_prefix_recall_max_pages_without_progress=None,
+    )
+    ops["polymarket_wc2026_raw_markets"] = {"config": markets.model_dump()}
+    ops["polymarket_wc2026_raw_event_catalog"] = {"config": registry.model_dump()}
+    ops["polymarket_wc2026_ops_market_scope_registry"] = {
+        "config": registry.model_dump()
+    }
+    ops["polymarket_wc2026_raw_futures_token_odds_history_minute"] = {
+        "config": FuturesMinuteOddsSyncConfig().model_dump()
+    }
+    ops["oddsfox_dbt"] = {
+        "config": DbtBuildConfig(
+            full_refresh=False,
+            dbt_select="+polymarket_wc2026_market_minute_odds",
+            dbt_exclude=None,
+        ).model_dump()
+    }
+    return {"ops": ops}
 
 
 def polymarket_wc2026_event_catalog_recall_audit_run_config() -> dict:

@@ -97,6 +97,37 @@ sources:
                     values: [1]
           - name: ingested_at
             description: UTC timestamp when the bounded backfill was persisted.
+      - name: futures_minute_odds_history
+        description: >
+          Exact-window, one-minute CLOB observations for registry-eligible WC2026
+          futures markets (non-match working-set) over the tournament span.
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, futures_token_odds_history_minute]
+        loaded_at_field: ingested_at
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [clobTokenId, timestamp]
+                where: clobTokenId is not null and timestamp is not null
+        columns:
+          - name: market_id
+            description: Selected Polymarket market identifier.
+            tests: [not_null]
+          - name: clobTokenId
+            description: Selected outcome token identifier.
+            tests: [not_null]
+          - name: timestamp
+            description: Source observation epoch second.
+            tests: [not_null]
+          - name: fidelity_minutes
+            description: Requested CLOB fidelity, fixed to one minute.
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: [1]
+          - name: ingested_at
+            description: UTC timestamp when the bounded backfill was persisted.
       - name: match_order_book_snapshots
         description: Canonical full-depth PMXT snapshots for approved WC2026 match markets; unpublished scan rows remain private.
         config:
@@ -321,6 +352,28 @@ sources:
         meta:
           dagster:
             asset_key: [polymarket, wc2026, raw, match_token_odds_history_minute]
+        tests:
+          - no_duplicate_grain:
+              arguments:
+                grain_columns: [fetch_run_id, clobTokenId]
+        columns:
+          - name: fetch_run_id
+            tests: [not_null]
+          - name: clobTokenId
+            tests: [not_null]
+          - name: fetch_status
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['success', 'empty', 'error', 'cancelled']
+          - name: raw_published
+            tests: [not_null]
+      - name: futures_minute_odds_fetch_audit
+        description: Append-only per-token audit for dedicated WC2026 futures-minute backfills.
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, futures_token_odds_history_minute]
         tests:
           - no_duplicate_grain:
               arguments:

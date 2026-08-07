@@ -34,6 +34,10 @@ match-minute-live-smoke: match-minute-inputs-validate
 	cd "$(REPO_ROOT)/.cache" && $(MATCH_MINUTE_LIVE_SMOKE_ENV) "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_match_minute_odds_backfill
 	$(RUN_IN_REPO) $(MATCH_MINUTE_LIVE_SMOKE_ENV) "$(PYTHON)" -c "import duckdb; conn = duckdb.connect('$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)', read_only=True); row = conn.execute('select mapped_games, mapped_markets, mapped_group_markets, mapped_knockout_markets, mapped_tokens, international_results_games, international_results_mapped_games, international_results_mapped_source_games, international_results_revisions, international_results_payload_hashes, international_results_provenance_issues, latest_fetch_run_status, latest_fetch_audited_tokens, latest_fetch_success_tokens, latest_fetch_empty_tokens, latest_fetch_error_tokens, latest_fetch_cancelled_tokens, latest_fetch_published_tokens, latest_fetch_hash_issues, elapsed_axis_issue_markets, error_issue_count, blocking_issue_keys from polymarket_wc2026_observability.polymarket_wc2026_match_minute_odds_data_quality').fetchone(); expected = (104, 248, 216, 32, 496, 104, 104, 104, 1, 1, 0, 'published', 496, 496, 0, 0, 0, 496, 0, 0, 0, None); assert row == expected, row; print(row)"
 
+minute-odds-backfill: match-minute-inputs-validate
+	@echo "Running unified WC2026 minute-odds backfill (match windows + futures tournament span)."
+	cd "$(REPO_ROOT)/.cache" && "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_minute_odds_backfill
+
 match-order-book-live-smoke: runtime-dirs
 	@"$(PYTHON)" -c "from oddsfox_pipeline.config.settings import PMXT_API_KEY; assert PMXT_API_KEY, 'PMXT_API_KEY is required; this target consumes PMXT credits'"
 	@if test "$(MATCH_ORDER_BOOK_LIVE_SMOKE_RESET)" = "true"; then rm -f "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)" "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH).wal" "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)-wal" "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)-shm"; fi

@@ -31,6 +31,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_hourly_odds_run_config,
     polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
+    polymarket_wc2026_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
 )
@@ -132,6 +133,15 @@ POLYMARKET_WC2026_MATCH_MINUTE_RAW_SELECTION = AssetSelection.assets(
     ),
 )
 
+POLYMARKET_WC2026_FUTURES_MINUTE_RAW_SELECTION = AssetSelection.assets(
+    asset_key(
+        SOURCE_POLYMARKET,
+        SCOPE_WC2026,
+        "raw",
+        "futures_token_odds_history_minute",
+    ),
+)
+
 POLYMARKET_WC2026_MATCH_ORDER_BOOK_RAW_SELECTION = AssetSelection.assets(
     POLYMARKET_WC2026_RAW_MATCH_ORDER_BOOK_SNAPSHOTS
 )
@@ -167,6 +177,17 @@ _POLYMARKET_WC2026_MATCH_MINUTE_DBT_GRAPH = build_dbt_asset_selection(
 # expansion can otherwise include relationship tests for sibling model branches.
 POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION = (
     _POLYMARKET_WC2026_MATCH_MINUTE_DBT_GRAPH.without_checks().downstream(
+        depth=0,
+        include_self=True,
+    )
+)
+
+_POLYMARKET_WC2026_MINUTE_ODDS_DBT_GRAPH = build_dbt_asset_selection(
+    [oddsfox_dbt],
+    dbt_select="+polymarket_wc2026_market_minute_odds",
+)
+POLYMARKET_WC2026_MINUTE_ODDS_DBT_SELECTION = (
+    _POLYMARKET_WC2026_MINUTE_ODDS_DBT_GRAPH.without_checks().downstream(
         depth=0,
         include_self=True,
     )
@@ -225,6 +246,15 @@ POLYMARKET_WC2026_MATCH_MINUTE_SELECTION = (
     | POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION
 )
 
+POLYMARKET_WC2026_MINUTE_ODDS_SELECTION = (
+    INTERNATIONAL_RESULTS_WC2026_MATCH_RESULTS_SELECTION
+    | OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION
+    | POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
+    | POLYMARKET_WC2026_MATCH_MINUTE_RAW_SELECTION
+    | POLYMARKET_WC2026_FUTURES_MINUTE_RAW_SELECTION
+    | POLYMARKET_WC2026_MINUTE_ODDS_DBT_SELECTION
+)
+
 POLYMARKET_WC2026_MATCH_ORDER_BOOK_SELECTION = (
     OPENFOOTBALL_WC2026_SCHEDULE_FIXTURES_SELECTION
     | POLYMARKET_WC2026_MATCH_ORDER_BOOK_RAW_SELECTION
@@ -280,6 +310,14 @@ polymarket_wc2026_match_minute_odds_backfill = define_asset_job(
     selection=POLYMARKET_WC2026_MATCH_MINUTE_SELECTION,
     executor_def=_ANALYTICS_BUILD_EXECUTOR,
     config=polymarket_wc2026_match_minute_odds_run_config(),
+    tags=_POLYMARKET_WC2026_TAGS,
+)
+
+polymarket_wc2026_minute_odds_backfill = define_asset_job(
+    "polymarket_wc2026_minute_odds_backfill",
+    selection=POLYMARKET_WC2026_MINUTE_ODDS_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_wc2026_minute_odds_run_config(),
     tags=_POLYMARKET_WC2026_TAGS,
 )
 

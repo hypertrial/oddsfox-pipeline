@@ -154,6 +154,9 @@ def bootstrap_polymarket_tables(
         scope_name, "event_market_payload_snapshots"
     )
     match_minute_audit = polymarket_ops_tbl(scope_name, "match_minute_odds_fetch_audit")
+    futures_minute_audit = polymarket_ops_tbl(
+        scope_name, "futures_minute_odds_fetch_audit"
+    )
     conn.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {sm} (
@@ -243,6 +246,7 @@ def bootstrap_polymarket_tables(
     conn.execute(f"ALTER TABLE {oh} ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMP")
     if scope_name == SCOPE_WC2026:
         mmoh = polymarket_raw_tbl(scope_name, "match_minute_odds_history")
+        fmoh = polymarket_raw_tbl(scope_name, "futures_minute_odds_history")
         order_book_snapshots = polymarket_raw_tbl(
             scope_name, "match_order_book_snapshots"
         )
@@ -290,6 +294,52 @@ def bootstrap_polymarket_tables(
                 in_game_history_sha256 TEXT CHECK (
                     in_game_history_sha256 IS NULL
                     OR regexp_full_match(in_game_history_sha256, '[0-9a-f]{{64}}')
+                ),
+                source_endpoint TEXT NOT NULL,
+                fetch_started_at TIMESTAMP NOT NULL,
+                fetch_finished_at TIMESTAMP NOT NULL,
+                error_type TEXT,
+                error_message TEXT CHECK (
+                    error_message IS NULL OR length(error_message) <= 500
+                ),
+                CHECK (exact_window_start_at <= exact_window_end_at),
+                CHECK (request_start_epoch <= request_end_epoch),
+                CHECK (fetch_started_at <= fetch_finished_at),
+                PRIMARY KEY (fetch_run_id, clobTokenId)
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {fmoh} (
+                {polymarket_raw_ddl_body("futures_minute_odds_history")},
+                CHECK (fidelity_minutes = 1),
+                PRIMARY KEY (clobTokenId, timestamp)
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {futures_minute_audit} (
+                fetch_run_id TEXT NOT NULL,
+                market_id TEXT NOT NULL,
+                clobTokenId TEXT NOT NULL,
+                fetch_status TEXT NOT NULL CHECK (
+                    fetch_status IN ('success', 'empty', 'error', 'cancelled')
+                ),
+                raw_published BOOLEAN NOT NULL DEFAULT FALSE,
+                fidelity_minutes INTEGER NOT NULL CHECK (fidelity_minutes = 1),
+                exact_window_start_at TIMESTAMP NOT NULL,
+                exact_window_end_at TIMESTAMP NOT NULL,
+                request_start_epoch BIGINT NOT NULL,
+                request_end_epoch BIGINT NOT NULL,
+                source_row_count INTEGER NOT NULL CHECK (source_row_count >= 0),
+                window_row_count INTEGER NOT NULL CHECK (
+                    window_row_count >= 0 AND window_row_count <= source_row_count
+                ),
+                window_history_sha256 TEXT CHECK (
+                    window_history_sha256 IS NULL
+                    OR regexp_full_match(window_history_sha256, '[0-9a-f]{{64}}')
                 ),
                 source_endpoint TEXT NOT NULL,
                 fetch_started_at TIMESTAMP NOT NULL,

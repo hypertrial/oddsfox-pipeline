@@ -201,10 +201,11 @@ def test_fast_and_coverage_tests_parallelize_only_the_safe_collection():
         "integration-dbt",
         "dbt-polygon-settlement-ci",
         "dbt-match-minute-ci",
+        "dbt-minute-odds-ci",
         "dbt-build-ci",
     ]
     pipelines_deterministic = _target_recipe(makefile, "pipelines-deterministic")
-    assert pipelines_deterministic.count("-j1") == 5
+    assert pipelines_deterministic.count("-j1") == 6
 
 
 def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
@@ -266,6 +267,7 @@ def test_local_gates_preserve_validation_without_duplicate_parse_or_tests():
         "release-gate-dbt-polygon",
         "release-gate-dbt-match-order-book",
         "release-gate-dbt-match-minute",
+        "release-gate-dbt-minute-odds",
         "release-gate-dbt-market-portrait",
     ]
     assert _target_prerequisites(makefile, "release-gate-dbt-quality") == [

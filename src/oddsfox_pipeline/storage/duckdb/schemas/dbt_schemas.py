@@ -74,6 +74,7 @@ POLYMARKET_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "polymarket_wc2026_match_order_book_data_quality",
     "polymarket_wc2026_match_order_book_quality_issues",
     "polymarket_wc2026_match_minute_odds_data_quality",
+    "polymarket_wc2026_market_minute_odds_data_quality",
     "polymarket_wc2026_polygon_settlement_data_quality",
     "polymarket_wc2026_polygon_settlement_quality_issues",
     "polymarket_wc2026_polygon_settlement_token_coverage",
@@ -185,6 +186,14 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_WC2026_STAGING_SCHEMA,
+        "stg_polymarket_wc2026_futures_minute_odds_history",
+    ),
+    (
+        POLYMARKET_WC2026_STAGING_SCHEMA,
+        "stg_polymarket_wc2026_futures_minute_fetch_audit",
+    ),
+    (
+        POLYMARKET_WC2026_STAGING_SCHEMA,
         "stg_polymarket_wc2026_match_order_book_snapshots",
     ),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_market_tokens"),
@@ -243,6 +252,14 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_futures_token_minute_odds",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
+        "int_polymarket_wc2026_token_minute_odds",
+    ),
+    (
+        POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
         "int_polymarket_wc2026_match_order_book_levels",
     ),
     (
@@ -295,6 +312,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_WC2026_MARTS_SCHEMA,
+        "polymarket_wc2026_market_minute_odds",
+    ),
+    (
+        POLYMARKET_WC2026_MARTS_SCHEMA,
         "polymarket_wc2026_match_order_book",
     ),
     (
@@ -316,6 +337,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
         "polymarket_wc2026_match_minute_odds_data_quality",
+    ),
+    (
+        POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+        "polymarket_wc2026_market_minute_odds_data_quality",
     ),
     (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,

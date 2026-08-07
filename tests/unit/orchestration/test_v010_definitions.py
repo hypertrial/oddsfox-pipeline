@@ -12,6 +12,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
+    polymarket_wc2026_minute_odds_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
@@ -19,6 +20,7 @@ from oddsfox_pipeline.orchestration.jobs import (
     POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION,
     POLYMARKET_WC2026_MATCH_MINUTE_DBT_SELECTION,
     POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_SELECTION,
+    POLYMARKET_WC2026_MINUTE_ODDS_DBT_SELECTION,
     POLYMARKET_WC2026_POLYGON_SETTLEMENT_DBT_SELECTION,
     _merge_dbt_build_config,
     _merge_op_config,
@@ -68,6 +70,7 @@ def test_definitions_expose_v010_jobs_only():
         "polymarket_wc2026_market_scope_registry_refresh",
         "polymarket_wc2026_event_catalog_recall_audit",
         "polymarket_wc2026_match_minute_odds_backfill",
+        "polymarket_wc2026_minute_odds_backfill",
         "polymarket_wc2026_match_order_book_backfill",
         "polymarket_wc2026_market_portrait_backfill",
         "polymarket_wc2026_polygon_settlement_backfill",
@@ -293,6 +296,52 @@ def test_match_minute_job_is_closed_untruncated_and_unscheduled():
         schedule.job_name != "polymarket_wc2026_match_minute_odds_backfill"
         for schedule in defs.schedules
     )
+
+
+def test_minute_odds_job_reuses_match_minute_and_adds_futures_leg():
+    config = polymarket_wc2026_minute_odds_run_config()["ops"]
+    markets = config["polymarket_wc2026_raw_markets"]["config"]
+    registry = config["polymarket_wc2026_ops_market_scope_registry"]["config"]
+    futures = config["polymarket_wc2026_raw_futures_token_odds_history_minute"][
+        "config"
+    ]
+    dbt = config["oddsfox_dbt"]["config"]
+
+    assert "polymarket_wc2026_raw_match_token_odds_history_minute" in config
+    assert markets["keyset_closed"] is None
+    assert registry["keyset_closed"] is None
+    assert registry["apply_event_volume_eligibility_gate"] is True
+    assert futures["requests_per_second"] == 40
+    assert futures["batch_group_size"] == 20
+    assert futures["window_hours"] == 24
+    assert futures["auto_tune_rps"] is True
+    assert futures["auto_tune_max_rps"] == 90
+    assert dbt["dbt_select"] == "+polymarket_wc2026_market_minute_odds"
+    assert dbt["dbt_exclude"] is None
+    selected = defs.resolve_job_def(
+        "polymarket_wc2026_minute_odds_backfill"
+    ).asset_layer.selected_asset_keys
+    assert (
+        AssetKey(["polymarket", "wc2026", "raw", "match_token_odds_history_minute"])
+        in selected
+    )
+    assert (
+        AssetKey(["polymarket", "wc2026", "raw", "futures_token_odds_history_minute"])
+        in selected
+    )
+    assert all(
+        schedule.job_name != "polymarket_wc2026_minute_odds_backfill"
+        for schedule in defs.schedules
+    )
+
+
+def test_minute_odds_dbt_selection_does_not_leak_sibling_model_checks():
+    graph = defs.resolve_asset_graph()
+    selected_assets = POLYMARKET_WC2026_MINUTE_ODDS_DBT_SELECTION.resolve(graph)
+    selected_checks = POLYMARKET_WC2026_MINUTE_ODDS_DBT_SELECTION.resolve_checks(graph)
+
+    assert selected_checks
+    assert {check.asset_key for check in selected_checks} <= selected_assets
 
 
 def test_match_minute_dbt_selection_does_not_leak_sibling_model_checks():

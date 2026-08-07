@@ -36,9 +36,11 @@ _RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
     (POLYMARKET_WC2026_RAW_SCHEMA, "market_tokens"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "odds_history"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "match_minute_odds_history"),
+    (POLYMARKET_WC2026_RAW_SCHEMA, "futures_minute_odds_history"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "token_odds_daily"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "market_scope_registry"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "match_minute_odds_fetch_audit"),
+    (POLYMARKET_WC2026_OPS_SCHEMA, "futures_minute_odds_fetch_audit"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "token_sync_ledger"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "token_sync_skips"),
     (POLYMARKET_WC2026_OPS_SCHEMA, "ingestion_run_events"),
@@ -445,6 +447,12 @@ def _infer_dbt_model_tags(schema: str, model: str) -> frozenset[str]:
         or "match_token_minute" in model
     ):
         tags.add("match_minute")
+    if (
+        "futures_minute" in model
+        or "market_minute_odds" in model
+        or model == "int_polymarket_wc2026_token_minute_odds"
+    ):
+        tags.add("minute_odds")
     if "match_order_book" in model or model.startswith(
         "stg_polymarket_wc2026_match_order_book"
     ):

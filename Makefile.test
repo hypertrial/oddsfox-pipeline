@@ -72,4 +72,5 @@ pipelines-deterministic:
 	$(MAKE) -j1 integration-dbt
 	$(MAKE) -j1 dbt-polygon-settlement-ci
 	$(MAKE) -j1 dbt-match-minute-ci
+	$(MAKE) -j1 dbt-minute-odds-ci
 	$(MAKE) -j1 dbt-build-ci

@@ -1,6 +1,17 @@
 version: 2
 
 models:
+  - name: polymarket_wc2026_market_minute_odds_data_quality
+    description: >
+      Compact health row for the unified market-minute odds mart covering match
+      and futures minute sources.
+    config:
+      tags: [minute_odds]
+    columns:
+      - name: mart_rows
+        tests: [not_null]
+      - name: blocking_issue_keys
+
   - name: polymarket_wc2026_match_minute_token_coverage
     description: Latest fetch and raw-observation coverage at one row per mapped token.
     tests:

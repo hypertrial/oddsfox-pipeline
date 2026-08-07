@@ -226,6 +226,7 @@ def test_shipped_scopes_and_public_marts_remain_documented():
         "scripts/run_scope.py",
         "polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds",
         "polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds",
+        "polymarket_wc2026_marts.polymarket_wc2026_market_minute_odds",
         "polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds",
         "international_results_wc2026_marts.international_results_wc2026_matches",
         "kalshi_wc2026_marts.kalshi_wc2026_stage_markets",
@@ -241,8 +242,9 @@ def test_shipped_scopes_and_public_marts_remain_documented():
 def test_local_mart_recreation_guide_keeps_complete_operator_runbook():
     index = (DOCS_DIR / "guides/recreate-local-marts.md").read_text()
     match_minute = (DOCS_DIR / "guides/recreate-match-minute-mart.md").read_text()
+    minute_odds = (DOCS_DIR / "guides/recreate-minute-odds-mart.md").read_text()
     polygon = (DOCS_DIR / "guides/recreate-polygon-settlement-mart.md").read_text()
-    combined = "\n".join((index, match_minute, polygon))
+    combined = "\n".join((index, match_minute, minute_odds, polygon))
 
     assert "recreate-match-minute-mart.md" in index
     assert "recreate-polygon-settlement-mart.md" in index
@@ -251,6 +253,8 @@ def test_local_mart_recreation_guide_keeps_complete_operator_runbook():
 
     assert "uv run make match-minute-inputs-validate" in match_minute
     assert "uv run make match-minute-live-smoke" in match_minute
+    assert "uv run make minute-odds-backfill" in minute_odds
+    assert "polymarket_wc2026_market_minute_odds" in minute_odds
     assert "30,936 rows" in index
     assert ".cache/match_minute_live_smoke.duckdb" in index
 
@@ -290,6 +294,7 @@ def test_advanced_pipelines_links_child_guides():
     page = (DOCS_DIR / "guides/advanced-pipelines.md").read_text()
     for target in (
         "recreate-match-minute-mart.md",
+        "recreate-minute-odds-mart.md",
         "recreate-match-order-book-mart.md",
         "recreate-polygon-settlement-mart.md",
         "market-portrait.md",

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Isolated Polymarket WC2026 unified minute-odds pipeline
+  (`polymarket_wc2026_minute_odds_backfill`, `make minute-odds-backfill`,
+  `dbt-minute-odds-ci`): match-window minute history plus futures tournament-span
+  minute history into `polymarket_wc2026_market_minute_odds` (`tag:minute_odds`).
+- Futures-minute raw/audit tables and shared `odds/minute_batch.py` fetch stack
+  (CLOB batch POST, 24h window chunks, RPS auto-tune, Arrow stage publish).
 - `scripts/cleanup_polymarket_wc2026_registry_hygiene.py`
   (`make cleanup-polymarket-wc2026-registry-hygiene`) dry-runs or applies deletion
   of synthetic catalog contamination (`evt-A` / `evt-B` / `m-shared`) and

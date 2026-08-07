@@ -35,6 +35,7 @@ _NON_SCOPE_JOB_NAMES = {
     "international_results_wc2026_match_results_ingest",
     "polymarket_wc2026_event_catalog_recall_audit",
     "polymarket_wc2026_match_minute_odds_backfill",
+    "polymarket_wc2026_minute_odds_backfill",
     "polymarket_wc2026_match_order_book_backfill",
     "polymarket_wc2026_market_portrait_backfill",
     "polymarket_wc2026_polygon_settlement_backfill",
@@ -249,6 +250,16 @@ oddsfox:
             "markets": 248,
             "tokens": 496,
             "rows": 496,
+        },
+    )
+    monkeypatch.setattr(
+        assets_mod.ops,
+        "sync_futures_minute_odds_history",
+        lambda *_args, **_kwargs: {
+            "markets": 1,
+            "tokens": 2,
+            "rows": 2,
+            "status": "published",
         },
     )
     monkeypatch.setattr(

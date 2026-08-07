@@ -257,6 +257,8 @@ def test_match_minute_selection_defensive_acceptance_counts(
 
 
 def test_fetch_plan_pads_request_but_filters_exact_window():
+    from oddsfox_pipeline.ingestion.polymarket.odds import minute_batch
+
     plan = match_minute.MatchMinuteTokenPlan(
         market_id="market",
         token_id="token",
@@ -265,7 +267,7 @@ def test_fetch_plan_pads_request_but_filters_exact_window():
     )
     calls = []
 
-    def fetch(*args):
+    def fetch(*args, **_kwargs):
         calls.append(args)
         return [
             ("token", int(plan.started_at.timestamp()) - 1, 0.1),
@@ -274,12 +276,14 @@ def test_fetch_plan_pads_request_but_filters_exact_window():
             ("token", int(plan.finished_at.timestamp()) + 1, 0.4),
         ]
 
-    result = match_minute._fetch_plan(  # noqa: SLF001
+    result = minute_batch.fetch_minute_plan(
         plan,
         object(),
         fetch,
         transient_retries=2,
         transient_backoff_seconds=0.25,
+        window_seconds=86_400,
+        empty_error_message=f"Empty in-game CLOB history for token {plan.token_id}",
     )
 
     assert result.fetch_status == "success"
@@ -291,24 +295,30 @@ def test_fetch_plan_pads_request_but_filters_exact_window():
 
 
 def test_fetch_plan_rejects_empty_in_game_history():
+    from oddsfox_pipeline.ingestion.polymarket.odds import minute_batch
+
     plan = match_minute.MatchMinuteTokenPlan(
         market_id="market",
         token_id="token",
         started_at=datetime(2026, 7, 1, tzinfo=timezone.utc),
         finished_at=datetime(2026, 7, 1, 0, 1, tzinfo=timezone.utc),
     )
-    result = match_minute._fetch_plan(  # noqa: SLF001
+    result = minute_batch.fetch_minute_plan(
         plan,
         object(),
-        lambda *_: [],
+        lambda *_args, **_kwargs: [],
         transient_retries=0,
         transient_backoff_seconds=0,
+        window_seconds=86_400,
+        empty_error_message=f"Empty in-game CLOB history for token {plan.token_id}",
     )
     assert result.fetch_status == "empty"
     assert result.error_message and "Empty in-game" in result.error_message
 
 
 def test_fetch_plan_history_hash_is_order_independent_and_errors_are_sanitized():
+    from oddsfox_pipeline.ingestion.polymarket.odds import minute_batch
+
     plan = match_minute.MatchMinuteTokenPlan(
         market_id="market",
         token_id="token",
@@ -320,30 +330,33 @@ def test_fetch_plan_history_hash_is_order_independent_and_errors_are_sanitized()
         ("token", int(plan.started_at.timestamp()) + 30, 0.5),
     ]
 
-    first = match_minute._fetch_plan(  # noqa: SLF001
+    first = minute_batch.fetch_minute_plan(
         plan,
         object(),
-        lambda *_: rows,
+        lambda *_args, **_kwargs: rows,
         transient_retries=0,
         transient_backoff_seconds=0,
+        window_seconds=86_400,
     )
-    second = match_minute._fetch_plan(  # noqa: SLF001
+    second = minute_batch.fetch_minute_plan(
         plan,
         object(),
-        lambda *_: list(reversed(rows)),
+        lambda *_args, **_kwargs: list(reversed(rows)),
         transient_retries=0,
         transient_backoff_seconds=0,
+        window_seconds=86_400,
     )
-    failed = match_minute._fetch_plan(  # noqa: SLF001
+    failed = minute_batch.fetch_minute_plan(
         plan,
         object(),
-        lambda *_: (_ for _ in ()).throw(RuntimeError("bad\n  history")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("bad\n  history")),
         transient_retries=0,
         transient_backoff_seconds=0,
+        window_seconds=86_400,
     )
 
     assert first.history == second.history
-    assert first.in_game_history_sha256 == second.in_game_history_sha256
+    assert first.history_sha256 == second.history_sha256
     assert failed.error_message == "bad history"
 
 
@@ -358,18 +371,21 @@ def test_fetch_plan_history_hash_is_order_independent_and_errors_are_sanitized()
 def test_fetch_plan_rejects_failed_or_invalid_history(
     history, message, source_row_count
 ):
+    from oddsfox_pipeline.ingestion.polymarket.odds import minute_batch
+
     plan = match_minute.MatchMinuteTokenPlan(
         market_id="market",
         token_id="token",
         started_at=datetime(2026, 7, 3, tzinfo=timezone.utc),
         finished_at=datetime(2026, 7, 3, 0, 1, tzinfo=timezone.utc),
     )
-    result = match_minute._fetch_plan(  # noqa: SLF001
+    result = minute_batch.fetch_minute_plan(
         plan,
         object(),
-        lambda *_: history,
+        lambda *_args, **_kwargs: history,
         transient_retries=0,
         transient_backoff_seconds=0,
+        window_seconds=86_400,
     )
     assert result.fetch_status == "error"
     assert result.error_message and message in result.error_message
@@ -402,8 +418,11 @@ def test_sync_is_atomic_and_does_not_use_hourly_ledger(monkeypatch):
         conn,
         workers=1,
         requests_per_second=1000,
+        batch_group_size=1,
         client_factory=object,
-        fetch_window_fn=lambda *_: [("token", int(plan.started_at.timestamp()), 0.5)],
+        fetch_window_fn=lambda *_a, **_k: [
+            ("token", int(plan.started_at.timestamp()), 0.5)
+        ],
         persist_fn=lambda rows, _, **_kwargs: persisted.extend(rows),
         audit_persist_fn=lambda rows, _: audited.extend(rows),
     )
@@ -419,6 +438,8 @@ def test_sync_is_atomic_and_does_not_use_hourly_ledger(monkeypatch):
 
 
 def test_sync_reuses_default_worker_client(monkeypatch):
+    from oddsfox_pipeline.ingestion.polymarket.odds import minute_batch
+
     conn = duckdb.connect(":memory:")
     start = datetime(2026, 7, 1, tzinfo=timezone.utc)
     plans = [
@@ -440,14 +461,15 @@ def test_sync_reuses_default_worker_client(monkeypatch):
         clients.append((args, kwargs, value))
         return value
 
-    monkeypatch.setattr(match_minute, "build_client", build_client)
+    monkeypatch.setattr(minute_batch, "build_client", build_client)
     persisted = []
     audited = []
     match_minute.sync_match_minute_odds_history(
         conn,
         workers=1,
         requests_per_second=1000,
-        fetch_window_fn=lambda _client, token, *_args: [
+        batch_group_size=1,
+        fetch_window_fn=lambda _client, token, *_args, **_kwargs: [
             (token, int(start.timestamp()), 0.5)
         ],
         persist_fn=lambda rows, _, **_kwargs: persisted.extend(rows),
@@ -482,8 +504,9 @@ def test_sync_audits_all_tokens_and_never_publishes_after_fetch_failure(monkeypa
             conn,
             workers=0,
             requests_per_second=1000,
+            batch_group_size=1,
             client_factory=object,
-            fetch_window_fn=lambda *_: None,
+            fetch_window_fn=lambda *_a, **_k: None,
             persist_fn=lambda *_: pytest.fail("failed fetch must not persist"),
             audit_persist_fn=lambda rows, _: audited.extend(rows),
         )
@@ -520,8 +543,11 @@ def test_sync_reports_audit_and_publication_storage_failures(
             conn,
             workers=1,
             requests_per_second=1000,
+            batch_group_size=1,
             client_factory=object,
-            fetch_window_fn=lambda *_: [("token", int(start.timestamp()), 0.5)],
+            fetch_window_fn=lambda *_a, **_k: [
+                ("token", int(start.timestamp()), 0.5)
+            ],
             audit_persist_fn=(
                 (lambda *_: fail("audit write failed"))
                 if failing_layer == "audit"
@@ -540,6 +566,8 @@ def test_sync_reports_audit_and_publication_storage_failures(
 
 
 def test_sync_checks_guardrail_while_waiting_for_fetch(monkeypatch):
+    from oddsfox_pipeline.ingestion.polymarket.odds import minute_batch
+
     conn = duckdb.connect(":memory:")
     start = datetime(2026, 7, 1, tzinfo=timezone.utc)
     plan = match_minute.MatchMinuteTokenPlan(
@@ -551,7 +579,7 @@ def test_sync_checks_guardrail_while_waiting_for_fetch(monkeypatch):
     monkeypatch.setattr(
         match_minute, "select_match_minute_token_plans", lambda _: [plan]
     )
-    real_wait = match_minute.wait
+    real_wait = minute_batch.wait
     calls = 0
 
     def wait_once(pending, **kwargs):
@@ -561,13 +589,14 @@ def test_sync_checks_guardrail_while_waiting_for_fetch(monkeypatch):
             return set(), pending
         return real_wait(pending, **kwargs)
 
-    monkeypatch.setattr(match_minute, "wait", wait_once)
+    monkeypatch.setattr(minute_batch, "wait", wait_once)
     summary = match_minute.sync_match_minute_odds_history(
         conn,
         workers=1,
         requests_per_second=1000,
+        batch_group_size=1,
         client_factory=object,
-        fetch_window_fn=lambda *_: [("token", int(start.timestamp()), 0.5)],
+        fetch_window_fn=lambda *_a, **_k: [("token", int(start.timestamp()), 0.5)],
         persist_fn=lambda *_a, **_k: None,
         audit_persist_fn=lambda *_a, **_k: None,
         no_progress_soft_timeout_seconds=None,

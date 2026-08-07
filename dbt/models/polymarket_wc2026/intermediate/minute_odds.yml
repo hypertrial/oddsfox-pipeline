@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: int_polymarket_wc2026_futures_token_minute_odds
+    description: >
+      Minute OHLC for registry-eligible WC2026 futures (non-match) tokens over
+      each token's tournament-span window.
+    config:
+      tags: [minute_odds]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_minute_epoch]
+    columns:
+      - name: clob_token_id
+        tests: [not_null]
+      - name: odds_minute_utc
+        tests: [not_null]
+      - name: odds_minute_epoch
+        tests: [not_null]
+
+  - name: int_polymarket_wc2026_token_minute_odds
+    description: >
+      Unified minute OHLC for match-window and futures-tournament-span tokens.
+      Prefer match source on any accidental (clob_token_id, odds_minute_epoch) clash.
+    config:
+      tags: [minute_odds]
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, odds_minute_epoch]
+    columns:
+      - name: clob_token_id
+        tests: [not_null]
+      - name: odds_minute_epoch
+        tests: [not_null]
+      - name: minute_source
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['match', 'futures']
