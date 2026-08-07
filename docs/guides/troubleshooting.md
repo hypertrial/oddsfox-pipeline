@@ -28,13 +28,27 @@ Only one read-write connection can hold the DuckDB file.
 
 Minute-odds match/futures CLOB fetch releases the warehouse lock while calling
 Polymarket; only plan selection and publish borrow DuckDB. If a canceled run
-left an orphan Python worker holding `oddsfox.duckdb`, kill that PID (or stop
-Dagster) before relaunching.
+or a restarted `dagster-dev` left an orphan Python worker holding
+`oddsfox.duckdb`, kill that PID before relaunching — a new run will fail with
+`Could not set lock` until the orphan is gone.
+
+Find and clear the holder (from the repo root, or use `$DUCKDB_PATH` if set):
+
+```bash
+lsof "${DUCKDB_PATH:-oddsfox.duckdb}"
+# note the PID (often an old multiprocessing spawn_main worker)
+kill <pid>
+# if it does not exit promptly:
+kill -9 <pid>
+```
+
+Orphans often show parent PID `1` (`launchd`) after Dagster was restarted while
+a long publish was still in memory.
 
 Fix:
 
-1. Stop Dagster and any Python shells using the warehouse.
-2. Retry the job.
+1. Kill any `lsof` holders on the warehouse file (or stop Dagster and shells using it).
+2. Retry the job (use a new launch; do not rely on an auto-retry of a lock-failed run).
 3. Use `scripts/profile_warehouse.py --snapshot-copy` for read-only inspection while another process is active.
 
 ## dbt Cannot Find Profile

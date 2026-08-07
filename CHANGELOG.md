@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Troubleshooting DuckDB lock errors documents how to find and kill orphan
+  warehouse holders after a canceled run or `dagster-dev` restart (`lsof` +
+  kill; prefer a new launch over auto-retry).
 - Futures/match-minute publish builds the Arrow stage table directly from fetch
   results (no per-row Python dict materialization), cutting the multi-minute
   silent stall observed on large futures publishes.
