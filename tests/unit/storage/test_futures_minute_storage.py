@@ -91,3 +91,67 @@ def test_futures_minute_raw_replace_is_exact_idempotent_and_isolated(duck):
             "select count(*) from polymarket_wc2026_raw.odds_history"
         ).fetchone()[0]
         assert hourly == 0
+
+
+def test_futures_minute_publish_allows_empty_audit_siblings(duck):
+    now = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    success_row = {
+        "market_id": "market-a",
+        "clobTokenId": "token-a",
+        "timestamp": 100,
+        "price": 0.4,
+        "fidelity_minutes": 1,
+        "window_start_at": now,
+        "window_end_at": now,
+        "ingested_at": now,
+    }
+
+    def audit(token_id: str, status: str) -> dict[str, object]:
+        return {
+            "fetch_run_id": "run-empty-ok",
+            "market_id": f"market-{token_id[-1]}",
+            "clobTokenId": token_id,
+            "fetch_status": status,
+            "raw_published": False,
+            "fidelity_minutes": 1,
+            "exact_window_start_at": now,
+            "exact_window_end_at": now,
+            "request_start_epoch": 100,
+            "request_end_epoch": 100,
+            "source_row_count": 1 if status == "success" else 0,
+            "window_row_count": 1 if status == "success" else 0,
+            "window_history_sha256": "a" * 64 if status == "success" else None,
+            "source_endpoint": "https://clob.polymarket.com/prices-history",
+            "fetch_started_at": now,
+            "fetch_finished_at": now,
+            "error_type": None if status == "success" else "EmptyHistory",
+            "error_message": None
+            if status == "success"
+            else f"Empty in-window CLOB history for token {token_id}",
+        }
+
+    with duck.get_connection() as conn:
+        load_futures_minute_fetch_audit(
+            [audit("token-a", "success"), audit("token-b", "empty")], conn
+        )
+        load_futures_minute_odds_history_stage(
+            [success_row], conn, fetch_run_id="run-empty-ok"
+        )
+        published = conn.execute(
+            """
+            select clobTokenId, fetch_status, raw_published
+            from polymarket_wc2026_ops.futures_minute_odds_fetch_audit
+            where fetch_run_id = 'run-empty-ok'
+            order by clobTokenId
+            """
+        ).fetchall()
+        assert published == [
+            ("token-a", "success", True),
+            ("token-b", "empty", False),
+        ]
+        assert (
+            conn.execute(
+                "select count(*) from polymarket_wc2026_raw.futures_minute_odds_history"
+            ).fetchone()[0]
+            == 1
+        )

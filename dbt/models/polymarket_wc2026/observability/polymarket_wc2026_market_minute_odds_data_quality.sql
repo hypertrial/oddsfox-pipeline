@@ -35,6 +35,10 @@ latest_futures_audit as (
     select
         count(*) as latest_audit_rows,
         count(*) filter (where fetch_status = 'success') as latest_success_rows,
+        count(*) filter (where fetch_status = 'empty') as latest_empty_rows,
+        count(*) filter (
+            where fetch_status in ('error', 'cancelled')
+        ) as latest_hard_failure_rows,
         count(*) filter (where raw_published) as latest_published_rows
     from {{ ref('stg_polymarket_wc2026_futures_minute_fetch_audit') }}
     where fetch_run_id = (
@@ -52,6 +56,8 @@ checks as (
         match_tokens.match_tokens_with_prices,
         latest_futures_audit.latest_audit_rows,
         latest_futures_audit.latest_success_rows,
+        latest_futures_audit.latest_empty_rows,
+        latest_futures_audit.latest_hard_failure_rows,
         latest_futures_audit.latest_published_rows,
         unified.mart_rows > 0 as has_mart_rows,
         unified.mart_markets > 0 as has_mart_markets,
@@ -61,10 +67,10 @@ checks as (
         unified.futures_source_rows > 0 as has_futures_rows,
         (
             latest_futures_audit.latest_audit_rows > 0
-            and latest_futures_audit.latest_success_rows
-            = latest_futures_audit.latest_audit_rows
+            and latest_futures_audit.latest_success_rows > 0
+            and latest_futures_audit.latest_hard_failure_rows = 0
             and latest_futures_audit.latest_published_rows
-            = latest_futures_audit.latest_audit_rows
+            = latest_futures_audit.latest_success_rows
         ) as futures_audit_healthy
     from unified
     cross join futures_tokens

@@ -87,5 +87,5 @@ warehouse through the
 | --- | --- |
 | `supply a complete operator-local 104-match schedule` | Same as match-minute: exactly 104 IDs `1..104`. |
 | `No registry-eligible WC2026 futures markets` | Registry refresh must admit non-match markets under the volume eligibility gate. |
-| Futures fetch empty/error | CLOB may lack history for long windows; retry transient failures or rebuild from a completed raw warehouse. |
+| Futures fetch empty/error | Empty in-window CLOB history is audited and skipped on publish; hard `error`/`cancelled` fail the run. Retry transient failures or rebuild from a completed raw warehouse. |
 | `blocking_issue_keys` not null | Inspect the observability row and match-minute / futures audit tables. |

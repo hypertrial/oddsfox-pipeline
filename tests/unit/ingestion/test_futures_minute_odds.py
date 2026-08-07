@@ -179,7 +179,51 @@ def test_sync_futures_minute_odds_history_publishes_on_full_success():
     assert published and published[0][1] == 2
 
 
-def test_sync_futures_minute_odds_history_fail_closed_on_empty():
+def test_sync_futures_minute_odds_history_publishes_success_and_skips_empty():
+    conn = _futures_inventory_connection()
+    audit_rows: list[dict] = []
+    published: list[tuple] = []
+    point_ts = int(datetime(2026, 6, 11, tzinfo=timezone.utc).timestamp())
+
+    def fetch_window(
+        _client,
+        token_id,
+        start_ts,
+        end_ts,
+        *_args,
+        **_kwargs,
+    ):
+        if token_id.endswith("-no"):
+            return []
+        if int(start_ts) <= point_ts <= int(end_ts):
+            return [(token_id, point_ts, 0.55)]
+        return []
+
+    try:
+        summary = futures_minute.sync_futures_minute_odds_history(
+            conn,
+            workers=2,
+            batch_group_size=1,
+            client_factory=lambda: object(),
+            fetch_window_fn=fetch_window,
+            persist_fn=lambda rows, _conn, *, fetch_run_id: published.append(
+                (fetch_run_id, len(rows))
+            ),
+            audit_persist_fn=lambda rows, _conn: audit_rows.extend(rows),
+        )
+    finally:
+        conn.close()
+
+    assert summary["status"] == "published"
+    assert summary["tokens"] == 2
+    assert summary["success_tokens"] == 1
+    assert summary["empty_tokens"] == 1
+    assert summary["raw_published_tokens"] == 1
+    assert {row["fetch_status"] for row in audit_rows} == {"success", "empty"}
+    assert published and published[0][1] == 1
+
+
+def test_sync_futures_minute_odds_history_fail_closed_when_all_empty():
     conn = _futures_inventory_connection()
 
     def fetch_window(*_args, **_kwargs):
@@ -201,6 +245,31 @@ def test_sync_futures_minute_odds_history_fail_closed_on_empty():
 
     assert excinfo.value.summary["status"] == "fetch_failed"
     assert excinfo.value.summary["empty_tokens"] == 2
+    assert "No successful futures-minute" in str(excinfo.value)
+
+
+def test_sync_futures_minute_odds_history_fail_closed_on_error():
+    conn = _futures_inventory_connection()
+
+    def fetch_window(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    try:
+        with pytest.raises(futures_minute.FuturesMinuteSyncError) as excinfo:
+            futures_minute.sync_futures_minute_odds_history(
+                conn,
+                workers=1,
+                batch_group_size=1,
+                client_factory=lambda: object(),
+                fetch_window_fn=fetch_window,
+                persist_fn=lambda *_a, **_k: None,
+                audit_persist_fn=lambda *_a, **_k: None,
+            )
+    finally:
+        conn.close()
+
+    assert excinfo.value.summary["status"] == "fetch_failed"
+    assert excinfo.value.summary["error_tokens"] == 2
 
 
 def test_sync_futures_minute_odds_history_publishes_via_batch_path():
@@ -254,7 +323,51 @@ def test_sync_futures_minute_odds_history_publishes_via_batch_path():
     assert published and published[0][1] == 2
 
 
-def test_sync_futures_minute_odds_history_batch_fail_closed_on_empty():
+def test_sync_futures_minute_odds_history_batch_publishes_with_partial_empty():
+    conn = _futures_inventory_connection()
+    audit_rows: list[dict] = []
+    published: list[tuple] = []
+    point_ts = int(datetime(2026, 6, 12, tzinfo=timezone.utc).timestamp())
+    emitted: set[str] = set()
+
+    def fetch_group(_client, token_ids, window_start, window_end, *_args):
+        out: dict[str, list] = {}
+        for token_id in token_ids:
+            if (
+                token_id.endswith("-yes")
+                and token_id not in emitted
+                and int(window_start) <= point_ts <= int(window_end)
+            ):
+                out[token_id] = [(token_id, point_ts, 0.61)]
+                emitted.add(token_id)
+            else:
+                out[token_id] = []
+        return out
+
+    try:
+        summary = futures_minute.sync_futures_minute_odds_history(
+            conn,
+            workers=1,
+            batch_group_size=20,
+            client_factory=lambda: object(),
+            fetch_group_window_fn=fetch_group,
+            persist_fn=lambda rows, _conn, *, fetch_run_id: published.append(
+                (fetch_run_id, len(rows))
+            ),
+            audit_persist_fn=lambda rows, _conn: audit_rows.extend(rows),
+        )
+    finally:
+        conn.close()
+
+    assert summary["status"] == "published"
+    assert summary["success_tokens"] == 1
+    assert summary["empty_tokens"] == 1
+    assert summary["raw_published_tokens"] == 1
+    assert published and published[0][1] == 1
+    assert {row["fetch_status"] for row in audit_rows} == {"success", "empty"}
+
+
+def test_sync_futures_minute_odds_history_batch_fail_closed_when_all_empty():
     conn = _futures_inventory_connection()
 
     def fetch_group(*_args, **_kwargs):

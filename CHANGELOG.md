@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Futures-minute sync no longer fail-closes on empty in-window CLOB history;
+  empty tokens are audited and skipped while success tokens publish. Hard
+  `error`/`cancelled` (or all-empty) still fail the run. Publish inventory and
+  market-minute DQ treat empty audit siblings as healthy.
 - Permanent mid-plan CLOB errors in `sync_token_plan` flush already-fetched odds
   and advance the ledger cursor from contiguous progress instead of jumping to
   `end_ts` while discarding the buffer.

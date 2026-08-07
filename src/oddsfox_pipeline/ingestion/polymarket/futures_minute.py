@@ -251,7 +251,12 @@ def sync_futures_minute_odds_history(
     tournament_start_utc: str = POLYMARKET_WC2026_TOURNAMENT_START_UTC,
     tournament_end_utc: str = POLYMARKET_WC2026_TOURNAMENT_END_UTC,
 ) -> dict[str, Any]:
-    """Refetch all futures windows, then publish only after every token succeeds."""
+    """Refetch all futures windows; empty history is audited and skipped on publish.
+
+    Illiquid futures tokens often return no in-window CLOB points. Treat ``empty``
+    as a non-blocking audit outcome. Fail closed only on ``error`` / ``cancelled``,
+    or when zero tokens succeed.
+    """
     plans = select_futures_minute_token_plans(
         conn,
         tournament_start_utc=tournament_start_utc,
@@ -326,12 +331,29 @@ def sync_futures_minute_odds_history(
         summary.update(status="audit_error", error_type=exc.__class__.__name__)
         raise FuturesMinuteSyncError(str(exc), summary) from exc
 
-    failures = [result for result in fetched if result.fetch_status != "success"]
-    if failures:
-        first = failures[0]
+    hard_failures = [
+        result
+        for result in fetched
+        if result.fetch_status in {"error", "cancelled"}
+    ]
+    if hard_failures:
+        first = hard_failures[0]
         summary["status"] = "fetch_failed"
         raise FuturesMinuteSyncError(
             first.error_message or "CLOB fetch failed", summary
+        )
+
+    success = [result for result in fetched if result.fetch_status == "success"]
+    if not success:
+        summary["status"] = "fetch_failed"
+        raise FuturesMinuteSyncError(
+            "No successful futures-minute CLOB history to publish", summary
+        )
+    if status_counts["empty"]:
+        log.info(
+            "Futures-minute empty in-window history for %s token(s); publishing %s",
+            status_counts["empty"],
+            len(success),
         )
 
     ingested_at = datetime.now(timezone.utc)
@@ -346,7 +368,7 @@ def sync_futures_minute_odds_history(
             "window_end_at": result.plan.finished_at,
             "ingested_at": ingested_at,
         }
-        for result in fetched
+        for result in success
         for token_id, timestamp, price in result.history
     ]
     try:
@@ -355,7 +377,7 @@ def sync_futures_minute_odds_history(
         summary.update(status="publish_error", error_type=exc.__class__.__name__)
         raise FuturesMinuteSyncError(str(exc), summary) from exc
     summary["status"] = "published"
-    summary["raw_published_tokens"] = len(fetched)
+    summary["raw_published_tokens"] = len(success)
     return summary
 
 

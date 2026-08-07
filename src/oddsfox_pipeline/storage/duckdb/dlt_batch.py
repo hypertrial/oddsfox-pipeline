@@ -508,7 +508,12 @@ def load_futures_minute_odds_history_stage(
     *,
     fetch_run_id: str,
 ) -> None:
-    """Atomically replace the complete bounded WC2026 futures-minute snapshot."""
+    """Atomically replace the complete bounded WC2026 futures-minute snapshot.
+
+    Empty in-window audit rows are allowed in the same fetch run; only
+    unpublished ``success`` tokens must match the staged token inventory, and
+    only those rows flip ``raw_published``.
+    """
     target = polymarket_raw_tbl(SCOPE_WC2026, "futures_minute_odds_history")
     stage = _load_minute_odds_history_stage_arrow(
         conn,
@@ -524,22 +529,22 @@ def load_futures_minute_odds_history_stage(
                 f"SELECT count(DISTINCT clob_token_id) FROM {stage}"
             ).fetchone()[0]
         )
-        audit_inventory = conn.execute(
-            f"""
-            SELECT
-                count(*),
-                count(*) FILTER (
+        success_unpublished = int(
+            conn.execute(
+                f"""
+                SELECT count(*) FILTER (
                     WHERE fetch_status = 'success' AND NOT raw_published
                 )
-            FROM {audit}
-            WHERE fetch_run_id = ?
-            """,
-            [fetch_run_id],
-        ).fetchone()
-        if audit_inventory != (stage_tokens, stage_tokens):
+                FROM {audit}
+                WHERE fetch_run_id = ?
+                """,
+                [fetch_run_id],
+            ).fetchone()[0]
+        )
+        if success_unpublished != stage_tokens:
             raise RuntimeError(
                 f"Fetch audit inventory does not match {stage_tokens} staged tokens "
-                f"for run {fetch_run_id}: {audit_inventory}"
+                f"for run {fetch_run_id}: success_unpublished={success_unpublished}"
             )
         conn.execute(f"DELETE FROM {target}")
         conn.execute(
@@ -560,7 +565,12 @@ def load_futures_minute_odds_history_stage(
             """
         )
         updated = conn.execute(
-            f"UPDATE {audit} SET raw_published = TRUE WHERE fetch_run_id = ?",
+            f"""
+            UPDATE {audit}
+            SET raw_published = TRUE
+            WHERE fetch_run_id = ?
+              AND fetch_status = 'success'
+            """,
             [fetch_run_id],
         ).fetchone()[0]
         if int(updated) != stage_tokens:  # pragma: no cover - guarded above
