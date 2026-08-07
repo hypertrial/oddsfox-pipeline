@@ -7,9 +7,9 @@ preserving their all-success atomic publish contract.
 
 from __future__ import annotations
 
+import array
 import hashlib
 import itertools
-import json
 import logging
 import math
 from collections import defaultdict
@@ -21,6 +21,7 @@ from threading import Lock, local
 from typing import Any, Callable, Iterator, Protocol, Sequence
 
 import pyarrow as pa
+import pyarrow.compute as pc
 
 from oddsfox_pipeline.config.settings import CLOB_API_URL, ODDS_REQUESTS_PER_SECOND
 from oddsfox_pipeline.ingestion.polymarket.odds.execution import (
@@ -102,47 +103,69 @@ def build_minute_history_arrow_table(
 ) -> pa.Table:
     """Build the minute-odds stage Arrow table without per-row Python dicts.
 
+    Broadcasts per-token scalars via Arrow ``take`` / ``repeat`` instead of
+    building ``total_rows``-length Python lists. Offset arrays use ``int32``,
+    so this path supports at most ``2**31 - 1`` (~2.1B) rows.
+
     Skips results with empty history. Raises ``ValueError`` when no points remain.
     """
     filtered = [result for result in results if result.history]
     if not filtered:
         raise ValueError("rows must not be empty")
 
-    total_rows = sum(len(result.history) for result in filtered)
-    market_ids = list(
-        itertools.chain.from_iterable(
-            [result.plan.market_id] * len(result.history) for result in filtered
-        )
+    counts = [len(result.history) for result in filtered]
+    total_rows = sum(counts)
+
+    offsets = pa.array(
+        itertools.chain([0], itertools.accumulate(counts)), type=pa.int32()
     )
-    window_starts = list(
-        itertools.chain.from_iterable(
-            [result.plan.started_at] * len(result.history) for result in filtered
-        )
+    placeholder = pa.nulls(total_rows, type=pa.int8())
+    parent_idx = pc.list_parent_indices(
+        pa.ListArray.from_arrays(offsets, placeholder)
     )
-    window_ends = list(
-        itertools.chain.from_iterable(
-            [result.plan.finished_at] * len(result.history) for result in filtered
-        )
+
+    small_market_ids = pa.array(
+        [result.plan.market_id for result in filtered], type=pa.string()
     )
-    token_ids, timestamps, prices = zip(
-        *itertools.chain.from_iterable(result.history for result in filtered),
-        strict=True,
+    small_token_ids = pa.array(
+        [result.plan.token_id for result in filtered], type=pa.string()
     )
+    small_starts = pa.array(
+        [result.plan.started_at for result in filtered], type=_MINUTE_TIMESTAMP_TYPE
+    )
+    small_ends = pa.array(
+        [result.plan.finished_at for result in filtered], type=_MINUTE_TIMESTAMP_TYPE
+    )
+
+    # Only timestamp/price are genuinely per-row; token is validated ==
+    # plan.token_id in _finalize_history, so it doesn't need per-row extraction.
+    timestamps: list[int] = []
+    prices: list[float] = []
+    append_ts, append_px = timestamps.append, prices.append
+    for result in filtered:
+        for _token, ts, price in result.history:
+            append_ts(ts)
+            append_px(price)
+
+    row_order = pc.subtract(
+        pc.cumulative_sum(pa.repeat(1, total_rows)), 1
+    ).cast(pa.int64())
+
     return pa.table(
         {
-            "market_id": pa.array(market_ids, type=pa.string()),
-            "clob_token_id": pa.array(token_ids, type=pa.string()),
+            "market_id": small_market_ids.take(parent_idx),
+            "clob_token_id": small_token_ids.take(parent_idx),
             "timestamp": pa.array(timestamps, type=pa.int64()),
             "price": pa.array(prices, type=pa.float64()),
-            "fidelity_minutes": pa.array(
-                [fidelity_minutes] * total_rows, type=pa.int32()
+            "fidelity_minutes": pa.repeat(fidelity_minutes, total_rows).cast(
+                pa.int32()
             ),
-            "window_start_at": pa.array(window_starts, type=_MINUTE_TIMESTAMP_TYPE),
-            "window_end_at": pa.array(window_ends, type=_MINUTE_TIMESTAMP_TYPE),
-            "ingested_at": pa.array(
-                [ingested_at] * total_rows, type=_MINUTE_TIMESTAMP_TYPE
+            "window_start_at": small_starts.take(parent_idx),
+            "window_end_at": small_ends.take(parent_idx),
+            "ingested_at": pa.repeat(
+                pa.scalar(ingested_at, type=_MINUTE_TIMESTAMP_TYPE), total_rows
             ),
-            "row_order": pa.array(range(total_rows), type=pa.int64()),
+            "row_order": row_order,
         }
     )
 
@@ -204,7 +227,12 @@ def _finalize_history(
     fetch_started_at: datetime,
     empty_error_message: str,
 ) -> MinuteFetchResult:
-    filtered = tuple(row for row in raw_rows if exact_start <= row[1] <= exact_end)
+    filtered = tuple(
+        sorted(
+            (row for row in raw_rows if exact_start <= row[1] <= exact_end),
+            key=lambda row: (row[1], row[0], row[2]),
+        )
+    )
     if not filtered:
         return MinuteFetchResult(
             plan=plan,
@@ -223,8 +251,12 @@ def _finalize_history(
         raise ValueError(f"CLOB returned a mismatched token for {plan.token_id}")
     if any(not 0.0 <= price <= 1.0 for _, _, price in filtered):
         raise ValueError(f"CLOB returned an invalid probability for {plan.token_id}")
+    # Typed buffers avoid JSON-serializing every (token, ts, price) row. Token is
+    # constant across filtered rows (validated above), so hash it once.
+    ts_bytes = array.array("q", (row[1] for row in filtered)).tobytes()
+    price_bytes = array.array("d", (row[2] for row in filtered)).tobytes()
     history_sha256 = hashlib.sha256(
-        json.dumps(filtered, separators=(",", ":")).encode("utf-8")
+        plan.token_id.encode("utf-8") + ts_bytes + price_bytes
     ).hexdigest()
     return MinuteFetchResult(
         plan=plan,
@@ -280,9 +312,11 @@ def fetch_minute_plan(
             chunk = list(rows)
             source_row_count += len(chunk)
             collected.extend(_normalize_rows(chunk))
+        # Window chunks are disjoint and ascending; each chunk is already
+        # normalized+sorted, so collected is already globally sorted.
         return _finalize_history(
             plan=plan,
-            raw_rows=_normalize_rows(collected),
+            raw_rows=collected,
             exact_start=exact_start,
             exact_end=exact_end,
             padded_start=padded_start,
@@ -435,10 +469,12 @@ def fetch_minute_plan_group(
             else f"Empty in-window CLOB history for token {token_id}"
         )
         try:
+            # Per-window slices are already normalized before extend; windows are
+            # disjoint and ascending, so accumulated[token_id] is sorted.
             results.append(
                 _finalize_history(
                     plan=plan,
-                    raw_rows=_normalize_rows(accumulated[token_id]),
+                    raw_rows=accumulated[token_id],
                     exact_start=exact_start,
                     exact_end=exact_end,
                     padded_start=padded_start,

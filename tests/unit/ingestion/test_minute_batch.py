@@ -316,3 +316,244 @@ def test_build_minute_history_arrow_table_matches_dict_rows_at_moderate_scale():
         assert row["window_end_at"] == expected["window_end_at"]
         assert row["ingested_at"] == expected["ingested_at"]
         assert row["row_order"] == idx
+
+
+def _reference_minute_history_arrow_table(results, *, ingested_at, fidelity_minutes=1):
+    """Legacy list-broadcast builder used as an equality oracle for the vectorized path."""
+    import itertools
+
+    import pyarrow as pa
+
+    filtered = [result for result in results if result.history]
+    total_rows = sum(len(result.history) for result in filtered)
+    market_ids = list(
+        itertools.chain.from_iterable(
+            [result.plan.market_id] * len(result.history) for result in filtered
+        )
+    )
+    window_starts = list(
+        itertools.chain.from_iterable(
+            [result.plan.started_at] * len(result.history) for result in filtered
+        )
+    )
+    window_ends = list(
+        itertools.chain.from_iterable(
+            [result.plan.finished_at] * len(result.history) for result in filtered
+        )
+    )
+    token_ids, timestamps, prices = zip(
+        *itertools.chain.from_iterable(result.history for result in filtered),
+        strict=True,
+    )
+    timestamp_type = pa.timestamp("us", tz="UTC")
+    return pa.table(
+        {
+            "market_id": pa.array(market_ids, type=pa.string()),
+            "clob_token_id": pa.array(token_ids, type=pa.string()),
+            "timestamp": pa.array(timestamps, type=pa.int64()),
+            "price": pa.array(prices, type=pa.float64()),
+            "fidelity_minutes": pa.array(
+                [fidelity_minutes] * total_rows, type=pa.int32()
+            ),
+            "window_start_at": pa.array(window_starts, type=timestamp_type),
+            "window_end_at": pa.array(window_ends, type=timestamp_type),
+            "ingested_at": pa.array(
+                [ingested_at] * total_rows, type=timestamp_type
+            ),
+            "row_order": pa.array(range(total_rows), type=pa.int64()),
+        }
+    )
+
+
+def test_build_minute_history_arrow_table_matches_reference_with_uneven_lengths():
+    ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    results = []
+    # Mix empty, length-1, and longer histories so offset/take math is exercised.
+    lengths = [0, 1, 2, 7, 1, 0, 64, 3, 100, 1] * 120  # 1200 tokens
+    for token_idx, length in enumerate(lengths):
+        start = datetime(2026, 6, 11, tzinfo=timezone.utc) + timedelta(minutes=token_idx)
+        end = start + timedelta(hours=1 + (token_idx % 5))
+        history = tuple(
+            (f"tok-{token_idx}", 10_000 + token_idx * 1_000 + point, 0.001 * point)
+            for point in range(length)
+        )
+        results.append(
+            minute_batch.MinuteFetchResult(
+                plan=_plan(f"tok-{token_idx}", start=start, end=end),
+                fetch_status="success" if history else "empty",
+                history=history,
+                request_start_epoch=int(start.timestamp()),
+                request_end_epoch=int(end.timestamp()),
+                source_row_count=len(history),
+                history_sha256=("d" * 64) if history else None,
+                fetch_started_at=ingested_at,
+                fetch_finished_at=ingested_at,
+                error_type=None if history else "EmptyHistory",
+                error_message=None if history else "empty",
+            )
+        )
+
+    table = minute_batch.build_minute_history_arrow_table(
+        results, ingested_at=ingested_at
+    )
+    reference = _reference_minute_history_arrow_table(
+        results, ingested_at=ingested_at
+    )
+    assert table.num_rows == reference.num_rows
+    assert table.equals(reference)
+
+
+def test_finalize_history_sha256_is_hex_and_content_sensitive():
+    start = datetime(2026, 7, 1, 12, tzinfo=timezone.utc)
+    end = start + timedelta(minutes=5)
+    plan = _plan("tok-hash", start=start, end=end)
+    base = minute_batch._finalize_history(
+        plan=plan,
+        raw_rows=[("tok-hash", int(start.timestamp()) + 30, 0.42)],
+        exact_start=start.timestamp(),
+        exact_end=end.timestamp(),
+        padded_start=int(start.timestamp()),
+        padded_end=int(end.timestamp()) + 60,
+        source_row_count=1,
+        fetch_started_at=start,
+        empty_error_message="empty",
+    )
+    changed_price = minute_batch._finalize_history(
+        plan=plan,
+        raw_rows=[("tok-hash", int(start.timestamp()) + 30, 0.43)],
+        exact_start=start.timestamp(),
+        exact_end=end.timestamp(),
+        padded_start=int(start.timestamp()),
+        padded_end=int(end.timestamp()) + 60,
+        source_row_count=1,
+        fetch_started_at=start,
+        empty_error_message="empty",
+    )
+    changed_ts = minute_batch._finalize_history(
+        plan=plan,
+        raw_rows=[("tok-hash", int(start.timestamp()) + 90, 0.42)],
+        exact_start=start.timestamp(),
+        exact_end=end.timestamp(),
+        padded_start=int(start.timestamp()),
+        padded_end=int(end.timestamp()) + 60,
+        source_row_count=1,
+        fetch_started_at=start,
+        empty_error_message="empty",
+    )
+
+    assert base.fetch_status == "success"
+    assert base.history_sha256 is not None
+    assert len(base.history_sha256) == 64
+    assert base.history_sha256 == base.history_sha256.lower()
+    assert all(ch in "0123456789abcdef" for ch in base.history_sha256)
+    assert changed_price.history_sha256 != base.history_sha256
+    assert changed_ts.history_sha256 != base.history_sha256
+
+
+def test_fetch_minute_plan_keeps_global_sort_across_windows_without_second_normalize():
+    from oddsfox_pipeline.ingestion.polymarket.odds.execution import iter_windows
+
+    start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    end = start + timedelta(hours=2, minutes=1)
+    plan = _plan("tok-multi", start=start, end=end)
+    padded_start, padded_end = minute_batch.padded_epoch_bounds(start, end)
+    # Force two windows so the removed second normalize must still yield global order.
+    window_seconds = 3600
+    windows = list(iter_windows(padded_start, padded_end, window_seconds))
+    assert len(windows) >= 2
+
+    def fetch_window(
+        _client,
+        token_id,
+        window_start,
+        window_end,
+        *_args,
+    ):
+        # Return unsorted within each window; _normalize_rows still sorts per chunk.
+        mid_a = window_start + 90
+        mid_b = window_start + 30
+        if mid_b >= window_end:
+            mid_b = window_start
+        if mid_a >= window_end:
+            mid_a = window_start
+        # Also emit a point slightly past the requested window end so a naive
+        # concat of per-window sorts would not stay globally ordered until
+        # _finalize_history re-sorts the exact-window filter.
+        past_end = window_end + 15
+        return [
+            (token_id, mid_a, 0.7),
+            (token_id, mid_b, 0.2),
+            (token_id, past_end, 0.3),
+        ]
+
+    result = minute_batch.fetch_minute_plan(
+        plan,
+        object(),
+        fetch_window,
+        transient_retries=0,
+        transient_backoff_seconds=0,
+        window_seconds=window_seconds,
+    )
+
+    assert result.fetch_status == "success"
+    assert result.history_sha256 is not None
+    assert len(result.history_sha256) == 64
+    timestamps = [row[1] for row in result.history]
+    assert timestamps == sorted(timestamps)
+    assert result.history == tuple(
+        sorted(result.history, key=lambda row: (row[1], row[0], row[2]))
+    )
+
+
+def test_fetch_minute_plan_group_keeps_global_sort_across_windows_without_second_normalize():
+    start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    end = start + timedelta(hours=2, minutes=1)
+    plans = [
+        _plan("tok-a", start=start, end=end),
+        _plan("tok-b", start=start, end=end),
+    ]
+    from oddsfox_pipeline.ingestion.polymarket.odds.execution import iter_windows
+
+    padded_start, padded_end = minute_batch.padded_epoch_bounds(start, end)
+    window_seconds = 3600
+    windows = list(iter_windows(padded_start, padded_end, window_seconds))
+    assert len(windows) >= 2
+
+    def fetch_group(
+        _client,
+        token_ids,
+        window_start,
+        window_end,
+        *_args,
+    ):
+        out = {}
+        for token_id in token_ids:
+            mid_a = window_start + 120
+            mid_b = window_start + 45
+            if mid_b >= window_end:
+                mid_b = window_start
+            if mid_a >= window_end:
+                mid_a = window_start
+            # Unsorted within the window; per-chunk normalize must still compose.
+            out[token_id] = [
+                (token_id, mid_a, 0.55),
+                (token_id, mid_b, 0.11),
+            ]
+        return out
+
+    results = minute_batch.fetch_minute_plan_group(
+        plans,
+        object(),
+        fetch_group,
+        transient_retries=0,
+        transient_backoff_seconds=0,
+        window_seconds=window_seconds,
+    )
+
+    assert [result.fetch_status for result in results] == ["success", "success"]
+    for result in results:
+        assert result.history_sha256 is not None
+        assert len(result.history_sha256) == 64
+        assert result.history == tuple(
+            sorted(result.history, key=lambda row: (row[1], row[0], row[2]))
+        )

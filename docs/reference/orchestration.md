@@ -179,7 +179,9 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   DuckDB only for plan selection and publish (warehouse lock released during
   CLOB fetch) and share the same batch/auto-tune/window-chunk stack as hourly
   odds (via `odds/minute_batch.py`); publish builds the Arrow stage table in one
-  columnar pass from fetch results (no per-row dict materialization). Futures
+  columnar pass from fetch results, broadcasting per-token scalars with Arrow
+  `take` / `repeat` (no per-row dict or Python list materialization for broadcast
+  columns). Futures
   spans are pre-chunked into 24h windows before CLOB calls so tournament-length
   fidelity=1 history does not rely on deep recursive auto-split alone.
   dbt builds `+polymarket_wc2026_market_minute_odds_data_quality`

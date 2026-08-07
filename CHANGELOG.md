@@ -44,12 +44,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Minute-odds Arrow stage build vectorizes per-token broadcast columns via
+  Arrow `take` / `repeat` / `cumulative_sum` (no per-row Python dict or list
+  materialization for market/window/fidelity/ingested_at/row_order), cutting the
+  publish-phase Python bottleneck by ~9x on large futures tables. Fetch-side
+  history hashing uses typed `array.array` buffers instead of `json.dumps`, and
+  multi-window fetches skip a redundant second full normalize (type-coerce)
+  pass while `_finalize_history` still sorts the exact-window filter.
 - Troubleshooting DuckDB lock errors documents how to find and kill orphan
   warehouse holders after a canceled run or `dagster-dev` restart (`lsof` +
   kill; prefer a new launch over auto-retry).
-- Futures/match-minute publish builds the Arrow stage table directly from fetch
-  results (no per-row Python dict materialization), cutting the multi-minute
-  silent stall observed on large futures publishes.
 - Futures-minute sync logs DuckDB audit/publish phases (fetch handoff, audit
   write, Arrow stage, raw snapshot replace, commit) so large publishes are not
   silent in Dagster.
