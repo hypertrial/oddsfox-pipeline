@@ -31,6 +31,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     cleanup_minute_odds_publish_cache,
     ensure_unique_success_token_ids,
     execute_minute_fetches,
+    release_minute_history_payloads,
     write_minute_history_parquet_shards,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
@@ -397,9 +398,13 @@ def sync_futures_minute_odds_history(
             log=log,
         )
         total_rows = sum(len(result.history) for result in success)
+        published_tokens = len(success)
+        # Drop ~10^8 Python history tuples before DuckDB candidate/PK so the
+        # warehouse phase does not share RSS with the fetch payload (SIGKILL).
+        release_minute_history_payloads(success)
         log.info(
             "Futures-minute staging/publishing %s token(s) (%s rows) from %s shard(s)",
-            len(success),
+            published_tokens,
             total_rows,
             len(shard_paths),
         )
@@ -414,11 +419,11 @@ def sync_futures_minute_odds_history(
     finally:
         cleanup_minute_odds_publish_cache(fetch_run_id)
     summary["status"] = "published"
-    summary["raw_published_tokens"] = len(success)
+    summary["raw_published_tokens"] = published_tokens
     log.info(
         "Futures-minute published %s token(s) (%s rows) to DuckDB",
-        len(success),
-        sum(len(result.history) for result in success),
+        published_tokens,
+        total_rows,
     )
     return summary
 

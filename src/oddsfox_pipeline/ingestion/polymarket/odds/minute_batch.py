@@ -8,6 +8,7 @@ preserving their all-success atomic publish contract.
 from __future__ import annotations
 
 import array
+import gc
 import hashlib
 import itertools
 import json
@@ -163,6 +164,29 @@ def ensure_unique_success_token_ids(
                 f"Duplicate success token plan for publish: {token_id}"
             )
         seen.add(token_id)
+
+
+def release_minute_history_payloads(
+    results: Sequence[MinuteHistoryResultLike],
+) -> int:
+    """Drop in-memory history tuples after Parquet spill.
+
+    Production futures publishes hold ~10^8 Python ``(token, ts, price)`` tuples
+    until spill completes. Clearing them before the DuckDB candidate/PK phase
+    avoids keeping that payload resident beside the warehouse table (the SIGKILL
+    failure mode). ``MinuteFetchResult`` is frozen, so clear via
+    ``object.__setattr__``.
+    """
+    released = 0
+    for result in results:
+        history = result.history
+        if not history:
+            continue
+        released += len(history)
+        object.__setattr__(result, "history", ())
+    if released:
+        gc.collect()
+    return released
 
 
 def _build_minute_history_arrow_batch(
@@ -356,40 +380,61 @@ def write_minute_history_parquet_shards(
         )
 
     shard_paths: list[Path] = []
-    shard_tables: list[pa.Table] = []
     shard_rows = 0
     shard_index = 0
     total_rows = 0
     shard_cap = max(1, int(max_rows_per_shard))
+    # Stream one Arrow batch at a time into ParquetWriter so spill peak stays
+    # near batch_rows instead of concatenating up to max_rows_per_shard in RAM
+    # while Python histories are still alive.
+    writer: pq.ParquetWriter | None = None
+    writer_rows = 0
+    token_ids = sorted(
+        {result.plan.token_id for result in results if result.history}
+    )
 
-    def _flush() -> None:
-        nonlocal shard_tables, shard_rows, shard_index
-        if not shard_tables:
+    def _close_writer() -> None:
+        nonlocal writer, shard_rows, shard_index, writer_rows
+        if writer is None:
             return
-        table = pa.concat_tables(shard_tables, promote_options="default")
-        # Rename to canonical DuckDB column names so publish can SELECT by name.
-        # Keep dictionary encoding: repeated token/market ids compress well and
-        # DuckDB reads dict-encoded Parquet efficiently for this shape.
-        renamed = table.select(list(_MINUTE_PUBLISH_COLUMNS)).rename_columns(
-            list(_MINUTE_PUBLISH_PARQUET_COLUMNS)
+        path = shard_paths[-1]
+        writer.close()
+        writer = None
+        log.info(
+            "Minute-odds publish wrote shard %s (%s rows, %s bytes)",
+            path.name,
+            writer_rows,
+            path.stat().st_size,
         )
+        shard_index += 1
+        shard_rows = 0
+        writer_rows = 0
+
+    def _open_writer(schema: pa.Schema) -> None:
+        nonlocal writer, writer_rows
         path = cache_dir / f"shard-{shard_index:05d}.parquet"
-        pq.write_table(
-            renamed,
-            path,
+        writer = pq.ParquetWriter(
+            where=path,
+            schema=schema,
             compression=compression,
             write_statistics=False,
         )
         shard_paths.append(path)
-        log.info(
-            "Minute-odds publish wrote shard %s (%s rows, %s bytes)",
-            path.name,
-            table.num_rows,
-            path.stat().st_size,
+        writer_rows = 0
+
+    def _batch_for_parquet(batch: pa.Table) -> pa.Table:
+        renamed = batch.select(list(_MINUTE_PUBLISH_COLUMNS)).rename_columns(
+            list(_MINUTE_PUBLISH_PARQUET_COLUMNS)
         )
-        shard_index += 1
-        shard_tables = []
-        shard_rows = 0
+        # Decode dictionary columns so successive batches share one writer schema
+        # even when token dictionaries differ.
+        columns = []
+        for name in renamed.column_names:
+            column = renamed.column(name)
+            if pa.types.is_dictionary(column.type):
+                column = column.cast(column.type.value_type)
+            columns.append(column)
+        return pa.Table.from_arrays(columns, names=list(renamed.column_names))
 
     try:
         for batch in iter_minute_history_arrow_batches(
@@ -398,23 +443,27 @@ def write_minute_history_parquet_shards(
             fidelity_minutes=fidelity_minutes,
             max_rows=batch_rows,
         ):
-            if shard_tables and shard_rows + batch.num_rows > shard_cap:
-                _flush()
-            shard_tables.append(batch)
-            shard_rows += batch.num_rows
-            total_rows += batch.num_rows
+            parquet_batch = _batch_for_parquet(batch)
+            if writer is not None and shard_rows + parquet_batch.num_rows > shard_cap:
+                _close_writer()
+            if writer is None:
+                _open_writer(parquet_batch.schema)
+            assert writer is not None
+            writer.write_table(parquet_batch)
+            shard_rows += parquet_batch.num_rows
+            writer_rows += parquet_batch.num_rows
+            total_rows += parquet_batch.num_rows
             if shard_rows >= shard_cap:
-                _flush()
-        _flush()
+                _close_writer()
+        _close_writer()
     except Exception:
+        if writer is not None:
+            writer.close()
         shutil.rmtree(cache_dir, ignore_errors=True)
         raise
     if not shard_paths:
         shutil.rmtree(cache_dir, ignore_errors=True)
         raise ValueError("rows must not be empty")
-    token_ids = sorted(
-        {result.plan.token_id for result in results if result.history}
-    )
     manifest_path = cache_dir / "manifest.json"
     manifest_path.write_text(
         json.dumps(
@@ -990,6 +1039,7 @@ __all__ = [
     "iter_minute_history_arrow_batches",
     "minute_odds_publish_cache_dir",
     "padded_epoch_bounds",
+    "release_minute_history_payloads",
     "sanitize_error_message",
     "write_minute_history_parquet_shards",
 ]

@@ -182,6 +182,50 @@ def test_sync_futures_minute_odds_history_releases_duckdb_during_fetch():
     assert all(count == 0 for count in open_counts)
 
 
+def test_sync_futures_minute_releases_histories_before_persist(monkeypatch, tmp_path):
+    conn = _futures_inventory_connection()
+    point_ts = int(datetime(2026, 6, 11, tzinfo=timezone.utc).timestamp())
+    order: list[str] = []
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
+
+    def fetch_window(_client, token_id, start_ts, end_ts, *_args, **_kwargs):
+        if int(start_ts) <= point_ts <= int(end_ts):
+            return [(token_id, point_ts, 0.55)]
+        return []
+
+    real_release = futures_minute.release_minute_history_payloads
+
+    def wrap_release(results):
+        order.append("release")
+        released = real_release(results)
+        assert released >= 1
+        assert all(result.history == () for result in results)
+        return released
+
+    def persist(rows, _conn, *, fetch_run_id):
+        order.append("persist")
+        assert rows
+
+    monkeypatch.setattr(
+        futures_minute, "release_minute_history_payloads", wrap_release
+    )
+    try:
+        summary = futures_minute.sync_futures_minute_odds_history(
+            conn,
+            workers=1,
+            batch_group_size=1,
+            client_factory=lambda: object(),
+            fetch_window_fn=fetch_window,
+            persist_fn=persist,
+            audit_persist_fn=lambda *_a, **_k: None,
+        )
+    finally:
+        conn.close()
+
+    assert summary["status"] == "published"
+    assert order == ["release", "persist"]
+
+
 def test_sync_futures_minute_odds_history_separate_audit_and_publish_borrows(
     tmp_path, monkeypatch
 ):

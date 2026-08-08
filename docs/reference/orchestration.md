@@ -182,8 +182,9 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   same batch/auto-tune/window-chunk stack as hourly odds (via
   `odds/minute_batch.py`). Publish dedupes each token's history by timestamp
   before spill, writes bounded typed Arrow batches to ignored runtime Parquet
-  shards with a `token_ids` manifest, bulk-loads a candidate table, builds the
-  primary key once, then swaps it into the canonical raw relation. Futures
+  shards with a `token_ids` manifest, drops in-memory history tuples, bulk-loads
+  a candidate table under a capped DuckDB `memory_limit`, builds the primary key
+  once, then swaps it into the canonical raw relation. Futures
   spans are pre-chunked into 24h windows before CLOB calls so tournament-length
   fidelity=1 history does not rely on deep recursive auto-split alone.
   dbt builds `+polymarket_wc2026_market_minute_odds_data_quality`

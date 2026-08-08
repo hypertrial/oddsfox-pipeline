@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -412,6 +413,21 @@ def _configure_minute_publish_connection(conn: duckdb.DuckDBPyConnection) -> Non
     temp_dir.mkdir(parents=True, exist_ok=True)
     conn.execute(f"SET temp_directory='{temp_dir.as_posix()}'")
     conn.execute("SET preserve_insertion_order=false")
+    # Cap DuckDB RSS so candidate load / PRIMARY KEY build spill to temp_directory
+    # instead of competing with the OS until SIGKILL. Override with
+    # ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT (e.g. 8GB, 50%).
+    memory_limit = os.getenv("ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT", "12GB").strip()
+    if not re.fullmatch(r"\d+(\.\d+)?\s*(KB|MB|GB|TB|%)", memory_limit, flags=re.I):
+        raise ValueError(
+            "ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT must look like 12GB or 50%"
+        )
+    conn.execute(f"SET memory_limit='{memory_limit.replace(' ', '')}'")
+    threads_raw = os.getenv("ODDSFOX_MINUTE_PUBLISH_THREADS", "").strip()
+    if threads_raw:
+        threads = int(threads_raw)
+        if threads < 1:
+            raise ValueError("ODDSFOX_MINUTE_PUBLISH_THREADS must be >= 1")
+        conn.execute(f"SET threads={threads}")
 
 
 def _minute_publish_input_to_parquet_paths(

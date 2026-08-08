@@ -713,6 +713,26 @@ def test_ensure_unique_success_token_ids_rejects_duplicates():
         minute_batch.ensure_unique_success_token_ids(results)
 
 
+def test_release_minute_history_payloads_clears_frozen_results():
+    ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    start = datetime(2026, 6, 11, tzinfo=timezone.utc)
+    end = start + timedelta(hours=1)
+    result = minute_batch.MinuteFetchResult(
+        plan=_plan("tok", start=start, end=end),
+        fetch_status="success",
+        history=tuple(("tok", 1000 + i, 0.1) for i in range(5)),
+        request_start_epoch=1000,
+        request_end_epoch=2000,
+        source_row_count=5,
+        history_sha256="a" * 64,
+        fetch_started_at=ingested_at,
+        fetch_finished_at=ingested_at,
+    )
+    released = minute_batch.release_minute_history_payloads([result])
+    assert released == 5
+    assert result.history == ()
+
+
 def test_iter_and_write_minute_history_parquet_shards_bound_and_cleanup(tmp_path, monkeypatch):
     monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
     ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)

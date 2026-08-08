@@ -266,17 +266,20 @@ custom SQL storage updated by the hourly candlestick sync asset.
 `polymarket_wc2026_raw.futures_minute_odds_history` share the same candidate/swap
 publish contract. After CLOB fetch, the sync writes temporary typed Parquet
 shards under `${ODDSFOX_RUNTIME_ROOT:-.cache/runtime}/minute-odds-publish/<fetch_run_id>/`
-(warehouse lock released), bulk-loads a `<relation>_candidate` table without a
-primary key, builds `PRIMARY KEY (clobTokenId, timestamp)` once, proves
-constraint presence plus exact audit/manifest token-id set equality (and that
-every audited success token exists in the candidate), then atomically renames
-candidate into the canonical table and marks matching audit rows
-`raw_published` in one short transaction. Do not overlap two publishers of the
-same minute raw relation while the lock is released for spill; cross-relation
-concurrency (match vs futures) is the intended unlock win. Prior snapshot and
-audit flags are unchanged on failure; shards are deleted on success or
-exception. Existing dbt source names are unchanged. Measure publish-only speed
-with `make futures-minute-publish-benchmark` (disposable DuckDB only; never
+(warehouse lock released), drops the in-memory history tuples, then bulk-loads a
+`<relation>_candidate` table without a primary key, builds
+`PRIMARY KEY (clobTokenId, timestamp)` once, proves constraint presence plus
+exact audit/manifest token-id set equality (and that every audited success token
+exists in the candidate), then atomically renames candidate into the canonical
+table and marks matching audit rows `raw_published` in one short transaction.
+DuckDB publish uses `temp_directory` under the runtime root and a default
+`memory_limit` of `12GB` (`ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT`) so large PK
+builds spill to disk instead of exhausting host RAM. Do not overlap two
+publishers of the same minute raw relation while the lock is released for spill;
+cross-relation concurrency (match vs futures) is the intended unlock win. Prior
+snapshot and audit flags are unchanged on failure; shards are deleted on success
+or exception. Existing dbt source names are unchanged. Measure publish-only
+speed with `make futures-minute-publish-benchmark` (disposable DuckDB only; never
 opens the operator warehouse).
 
 The Polygon settlement tables are custom transactional SQL, not dlt. Completed

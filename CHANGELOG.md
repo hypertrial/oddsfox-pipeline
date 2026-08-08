@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   temporary Parquet shard construction so other Dagster steps (for example the
   sibling minute relation) are not blocked by spill. Do not overlap two
   publishers of the same minute raw table; that can leave multiple
-  `raw_published=true` audits for one surviving snapshot.
+  `raw_published=true` audits for one surviving snapshot. After spill, syncs
+  drop in-memory history tuples and DuckDB publish caps `memory_limit` (default
+  `12GB`, override `ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT`) so candidate/PK work
+  spills to `${ODDSFOX_RUNTIME_ROOT}/duckdb-temp` instead of SIGKILL.
 - Futures-minute sync no longer fail-closes on empty in-window CLOB history;
   empty tokens are audited and skipped while success tokens publish. Hard
   `error`/`cancelled` (or all-empty) still fail the run. Publish inventory and

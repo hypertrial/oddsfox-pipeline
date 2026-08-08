@@ -29,6 +29,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     cleanup_minute_odds_publish_cache,
     ensure_unique_success_token_ids,
     execute_minute_fetches,
+    release_minute_history_payloads,
     write_minute_history_parquet_shards,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
@@ -386,6 +387,8 @@ def sync_match_minute_odds_history(
             ingested_at=ingested_at,
             log=log,
         )
+        published_tokens = len(fetched)
+        release_minute_history_payloads(fetched)
         with borrow_duckdb_connection(
             conn, connection_factory=connection_factory
         ) as active:
@@ -397,7 +400,7 @@ def sync_match_minute_odds_history(
     finally:
         cleanup_minute_odds_publish_cache(fetch_run_id)
     summary["status"] = "published"
-    summary["raw_published_tokens"] = len(fetched)
+    summary["raw_published_tokens"] = published_tokens
     return summary
 
 
