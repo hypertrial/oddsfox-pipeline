@@ -152,6 +152,19 @@ POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG = _env_bool(
     "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG",
     True,
 )
+# When false, skip match-minute raw plus its intl-results/openfootball inputs and
+# reuse warehouse rows from a prior run (restart Dagster after changing).
+POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH = _env_bool(
+    "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH",
+    True,
+)
+# When false, skip futures-minute raw and reuse warehouse rows from a prior run
+# (restart Dagster after changing). Both match and futures may be false for a
+# dbt-only unified minute rebuild.
+POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES = _env_bool(
+    "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES",
+    True,
+)
 
 __all__ = [
     "CLOB_API_URL",
@@ -189,5 +202,7 @@ __all__ = [
     "POLYMARKET_WC2026_SCOPE_TAG_CRAWL_DENYLIST",
     "POLYMARKET_WC2026_SCOPE_TAG_CRAWL_MAX",
     "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG",
+    "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH",
+    "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES",
     "WC2026_CONTRACT_DEFAULTS",
 ]

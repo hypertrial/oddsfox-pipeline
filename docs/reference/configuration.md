@@ -317,6 +317,12 @@ manually when needed.
   `polymarket_wc2026_minute_odds_backfill` refreshes markets, event catalog, and
   registry before minute fetch. Set `false` to reuse an already-landed warehouse
   catalog on odds/dbt reruns. Restart `uv run make dagster-dev` after changing.
+- `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH`: when `true` (default), runs
+  international-results, OpenFootball fixtures, and match-minute raw. Set
+  `false` to reuse warehouse match-minute rows and skip those inputs.
+- `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES`: when `true` (default), runs
+  futures-minute raw. Set `false` to reuse warehouse futures-minute rows.
+  Both match and futures may be `false` for a dbt-only unified minute rebuild.
 
 `polymarket_wc2026_polygon_settlement_backfill` and
 `polymarket_wc2026_polygon_settlement_release` are manual-only jobs. They have

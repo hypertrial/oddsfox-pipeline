@@ -14,6 +14,8 @@ from oddsfox_pipeline.config.settings import (
     POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD,
     POLYMARKET_WC2026_HOURLY_WINDOW_HOURS,
     POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG,
+    POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES,
+    POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH,
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
@@ -409,9 +411,14 @@ def polymarket_wc2026_minute_odds_run_config() -> dict:
             "polymarket_wc2026_raw_market_metadata_enrichment",
         ):
             ops.pop(key, None)
-    ops["polymarket_wc2026_raw_futures_token_odds_history_minute"] = {
-        "config": FuturesMinuteOddsSyncConfig().model_dump()
-    }
+    if not POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH:
+        ops.pop("polymarket_wc2026_raw_match_token_odds_history_minute", None)
+    if POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES:
+        ops["polymarket_wc2026_raw_futures_token_odds_history_minute"] = {
+            "config": FuturesMinuteOddsSyncConfig().model_dump()
+        }
+    else:
+        ops.pop("polymarket_wc2026_raw_futures_token_odds_history_minute", None)
     ops["oddsfox_dbt"] = {
         "config": DbtBuildConfig(
             full_refresh=False,

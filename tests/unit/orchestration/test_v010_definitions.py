@@ -304,6 +304,12 @@ def test_minute_odds_run_config_includes_catalog_when_refresh_enabled(monkeypatc
     monkeypatch.setattr(
         orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", True
     )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", True
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", True
+    )
     ops = orch_config.polymarket_wc2026_minute_odds_run_config()["ops"]
     markets = ops["polymarket_wc2026_raw_markets"]["config"]
     registry = ops["polymarket_wc2026_ops_market_scope_registry"]["config"]
@@ -312,6 +318,7 @@ def test_minute_odds_run_config_includes_catalog_when_refresh_enabled(monkeypatc
     assert registry["force_refresh"] is True
     assert registry["apply_event_volume_eligibility_gate"] is True
     assert "polymarket_wc2026_raw_event_catalog" in ops
+    assert "polymarket_wc2026_raw_match_token_odds_history_minute" in ops
     assert "polymarket_wc2026_raw_futures_token_odds_history_minute" in ops
 
 
@@ -320,6 +327,12 @@ def test_minute_odds_run_config_skips_catalog_when_refresh_disabled(monkeypatch)
 
     monkeypatch.setattr(
         orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", True
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", True
     )
     ops = orch_config.polymarket_wc2026_minute_odds_run_config()["ops"]
     assert "polymarket_wc2026_raw_markets" not in ops
@@ -333,36 +346,182 @@ def test_minute_odds_run_config_skips_catalog_when_refresh_disabled(monkeypatch)
     )
 
 
-def test_minute_odds_job_reuses_match_minute_and_adds_futures_leg():
-    from oddsfox_pipeline.config.settings import (
-        POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG,
+def test_minute_odds_run_config_skips_match_when_refresh_disabled(monkeypatch):
+    import oddsfox_pipeline.orchestration.config as orch_config
+
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", False
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", True
+    )
+    ops = orch_config.polymarket_wc2026_minute_odds_run_config()["ops"]
+    assert "polymarket_wc2026_raw_match_token_odds_history_minute" not in ops
+    assert "polymarket_wc2026_raw_futures_token_odds_history_minute" in ops
+    assert "oddsfox_dbt" in ops
+
+
+def test_minute_odds_run_config_skips_futures_when_refresh_disabled(monkeypatch):
+    import oddsfox_pipeline.orchestration.config as orch_config
+
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", True
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", False
+    )
+    ops = orch_config.polymarket_wc2026_minute_odds_run_config()["ops"]
+    assert "polymarket_wc2026_raw_match_token_odds_history_minute" in ops
+    assert "polymarket_wc2026_raw_futures_token_odds_history_minute" not in ops
+    assert "oddsfox_dbt" in ops
+
+
+def test_minute_odds_run_config_dbt_only_when_both_raw_legs_disabled(monkeypatch):
+    import oddsfox_pipeline.orchestration.config as orch_config
+
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", False
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", False
+    )
+    ops = orch_config.polymarket_wc2026_minute_odds_run_config()["ops"]
+    assert "polymarket_wc2026_raw_match_token_odds_history_minute" not in ops
+    assert "polymarket_wc2026_raw_futures_token_odds_history_minute" not in ops
+    assert set(ops) == {"oddsfox_dbt"}
+    assert ops["oddsfox_dbt"]["config"]["dbt_select"] == (
+        "+polymarket_wc2026_market_minute_odds_data_quality"
     )
 
-    config = polymarket_wc2026_minute_odds_run_config()["ops"]
-    futures = config["polymarket_wc2026_raw_futures_token_odds_history_minute"][
-        "config"
-    ]
-    dbt = config["oddsfox_dbt"]["config"]
 
-    assert "polymarket_wc2026_raw_match_token_odds_history_minute" in config
-    assert futures["requests_per_second"] == 40
-    assert futures["batch_group_size"] == 20
-    assert futures["window_hours"] == 24
-    assert futures["auto_tune_rps"] is True
-    assert futures["auto_tune_max_rps"] == 90
-    assert dbt["dbt_select"] == "+polymarket_wc2026_market_minute_odds_data_quality"
-    assert dbt["dbt_exclude"] is None
-    selected = defs.resolve_job_def(
-        "polymarket_wc2026_minute_odds_backfill"
-    ).asset_layer.selected_asset_keys
+def test_minute_odds_selection_skips_match_inputs_when_refresh_disabled(monkeypatch):
+    import oddsfox_pipeline.orchestration.jobs as jobs
+
+    monkeypatch.setattr(
+        jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
+    )
+    monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", False)
+    monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", True)
+    graph = defs.resolve_asset_graph()
+    selected = jobs.build_polymarket_wc2026_minute_odds_selection().resolve(graph)
+    assert (
+        AssetKey(["polymarket", "wc2026", "raw", "match_token_odds_history_minute"])
+        not in selected
+    )
+    assert (
+        AssetKey(["international_results", "wc2026", "raw", "match_results"])
+        not in selected
+    )
+    assert (
+        AssetKey(["openfootball", "wc2026", "raw", "schedule_fixtures"])
+        not in selected
+    )
+    assert (
+        AssetKey(["polymarket", "wc2026", "raw", "futures_token_odds_history_minute"])
+        in selected
+    )
+    assert (
+        AssetKey(
+            ["polymarket", "wc2026", "observability", "market_minute_odds_data_quality"]
+        )
+        in selected
+    )
+
+
+def test_minute_odds_selection_skips_futures_when_refresh_disabled(monkeypatch):
+    import oddsfox_pipeline.orchestration.jobs as jobs
+
+    monkeypatch.setattr(
+        jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
+    )
+    monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", True)
+    monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", False)
+    graph = defs.resolve_asset_graph()
+    selected = jobs.build_polymarket_wc2026_minute_odds_selection().resolve(graph)
     assert (
         AssetKey(["polymarket", "wc2026", "raw", "match_token_odds_history_minute"])
         in selected
     )
     assert (
         AssetKey(["polymarket", "wc2026", "raw", "futures_token_odds_history_minute"])
+        not in selected
+    )
+
+
+def test_minute_odds_selection_dbt_only_when_both_raw_legs_disabled(monkeypatch):
+    import oddsfox_pipeline.orchestration.jobs as jobs
+
+    monkeypatch.setattr(
+        jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
+    )
+    monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", False)
+    monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", False)
+    graph = defs.resolve_asset_graph()
+    selected = jobs.build_polymarket_wc2026_minute_odds_selection().resolve(graph)
+    assert (
+        AssetKey(["polymarket", "wc2026", "raw", "match_token_odds_history_minute"])
+        not in selected
+    )
+    assert (
+        AssetKey(["polymarket", "wc2026", "raw", "futures_token_odds_history_minute"])
+        not in selected
+    )
+    assert AssetKey(["polymarket", "wc2026", "marts", "market_minute_odds"]) in selected
+    assert (
+        AssetKey(
+            ["polymarket", "wc2026", "observability", "market_minute_odds_data_quality"]
+        )
         in selected
     )
+
+
+def test_minute_odds_job_reuses_match_minute_and_adds_futures_leg():
+    from oddsfox_pipeline.config.settings import (
+        POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG,
+        POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES,
+        POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH,
+    )
+
+    config = polymarket_wc2026_minute_odds_run_config()["ops"]
+    dbt = config["oddsfox_dbt"]["config"]
+
+    assert dbt["dbt_select"] == "+polymarket_wc2026_market_minute_odds_data_quality"
+    assert dbt["dbt_exclude"] is None
+    if POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH:
+        assert "polymarket_wc2026_raw_match_token_odds_history_minute" in config
+    else:
+        assert "polymarket_wc2026_raw_match_token_odds_history_minute" not in config
+    if POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES:
+        futures = config["polymarket_wc2026_raw_futures_token_odds_history_minute"][
+            "config"
+        ]
+        assert futures["requests_per_second"] == 40
+        assert futures["batch_group_size"] == 20
+        assert futures["window_hours"] == 24
+        assert futures["auto_tune_rps"] is True
+        assert futures["auto_tune_max_rps"] == 90
+    else:
+        assert "polymarket_wc2026_raw_futures_token_odds_history_minute" not in config
+    selected = defs.resolve_job_def(
+        "polymarket_wc2026_minute_odds_backfill"
+    ).asset_layer.selected_asset_keys
+    match_key = AssetKey(
+        ["polymarket", "wc2026", "raw", "match_token_odds_history_minute"]
+    )
+    futures_key = AssetKey(
+        ["polymarket", "wc2026", "raw", "futures_token_odds_history_minute"]
+    )
+    assert (match_key in selected) is POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH
+    assert (futures_key in selected) is POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES
     assert (
         AssetKey(
             ["polymarket", "wc2026", "observability", "market_minute_odds_data_quality"]

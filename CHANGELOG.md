@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `polymarket_wc2026_minute_odds_backfill` skips markets/event-catalog/registry
   and reuses the warehouse catalog on odds/dbt reruns (restart Dagster after
   changing).
+- `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH` / `_REFRESH_FUTURES` (default
+  `true`): when `false`, skip that raw minute leg (and, for match, its
+  international-results/OpenFootball inputs) so operators can resume without
+  refetching completed stages. Both may be `false` for a dbt-only rebuild.
 - Isolated Polymarket WC2026 unified minute-odds pipeline
   (`polymarket_wc2026_minute_odds_backfill`, `make minute-odds-backfill`,
   `dbt-minute-odds-ci`): match-window minute history plus futures tournament-span
