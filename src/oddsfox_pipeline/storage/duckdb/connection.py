@@ -238,6 +238,10 @@ def init_duck_db() -> None:
             )
             _SCHEMA_LOGGED = True
         try:
+            # ponytail: one commit for the full bootstrap (vs per-statement
+            # autocommit/fsync). Failure path relies on close() discarding an
+            # uncommitted txn; add explicit ROLLBACK only if that contract changes.
+            conn.execute("BEGIN TRANSACTION")
             conn.execute(
                 f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_WC2026_RAW_SCHEMA}"'
             )
@@ -261,6 +265,7 @@ def init_duck_db() -> None:
             bootstrap_openfootball_tables(conn)
             ensure_all_polymarket_indexes(conn)
             ensure_all_kalshi_indexes(conn)
+            conn.execute("COMMIT")
             _SCHEMA_INITIALIZED = True
         finally:
             conn.close()

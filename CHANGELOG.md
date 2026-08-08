@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `init_duck_db()` wraps its multi-schema DDL bootstrap in a single DuckDB
+  transaction instead of per-statement autocommit/fsync. Every isolated-DuckDB
+  test fixture and production `ensure_duck_db()` call pays this path once per
+  fresh warehouse. Measured ~4.6x faster under 10-way concurrent bootstrap
+  (matching `pytest -n auto`); suite cumulative pytest `setup` phase dropped
+  from ~630s to ~414s on a local `make test --durations=0` comparison. Failure
+  still relies on connection close discarding an uncommitted transaction.
+
 - Unified minute-odds dbt hot path aggregates primary CLOB tokens only (raw
   futures history still retains every token), replaces twin `row_number()`
   window sorts with `arg_min`/`arg_max` on unique timestamps, materializes
