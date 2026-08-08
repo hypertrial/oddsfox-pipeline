@@ -1,8 +1,10 @@
-{{ config(materialized='table', tags=['minute_odds']) }}
+{{ config(materialized='view', tags=['minute_odds']) }}
 
+-- View over the narrow primary-token fact plus unique market/token dimensions.
+-- Avoids rewriting a wide denormalized table after each fact rebuild.
 select
-    markets.market_id,
-    tokens.clob_token_id,
+    odds.market_id,
+    odds.clob_token_id,
     tokens.outcome_label as primary_outcome_label,
     markets.event_id,
     markets.event_slug,
@@ -50,6 +52,8 @@ select
     odds.minute_source
 from {{ ref('int_polymarket_wc2026_token_minute_odds') }} as odds
 inner join {{ ref('int_polymarket_wc2026_primary_market_token') }} as tokens
-    on odds.clob_token_id = tokens.clob_token_id
+    on
+        odds.market_id = tokens.market_id
+        and odds.clob_token_id = tokens.clob_token_id
 inner join {{ ref('int_polymarket_wc2026_markets') }} as markets
-    on tokens.market_id = markets.market_id
+    on odds.market_id = markets.market_id

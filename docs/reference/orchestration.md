@@ -208,7 +208,13 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   iteration tier; `production-shaped` for the opt-in ~377M-row storage run).
   The JSON report includes exact raw/audit equality and the baseline/candidate
   ratio; do not claim a 10x speedup unless that report reaches ≥10x with zero
-  equality differences on the same machine.
+  equality differences on the same machine. Measure the dbt graph on disposable
+  synthetic data with `uv run make minute-odds-dbt-benchmark`
+  (`MINUTE_ODDS_DBT_BENCHMARK_TIER=performance` default ~10M primary rows;
+  `production-shaped` for the opt-in ~377M acceptance tier). The report records
+  wall time, mart/primary-token counts, DQ blockers, peak RSS, and DuckDB temp
+  bytes. dbt rebuilds primary-token minute facts only; raw futures history still
+  retains every CLOB token.
 
 - `polymarket_wc2026_minute_odds_live_smoke`: disposable end-to-end live smoke
   for the unified minute path. It reuses the same Dagster asset selection and
@@ -402,7 +408,9 @@ example a full unsampled minute-odds rebuild — can run for a long time with
 zero streamed events), the guardrail sends `SIGTERM` to the dbt subprocess and
 escalates to `SIGKILL` if it is still alive after a 30s grace period, so a
 DuckDB query that is holding the signal pending cannot survive as an orphan
-holding the warehouse lock. In the rare case a process is wedged in
+holding the warehouse lock. Dagster cancellation / generator close uses the
+same terminate path so a canceled UI run cannot leave a reparented dbt child.
+In the rare case a process is wedged in
 uninterruptible I/O and outlives `SIGKILL` too, the guardrail logs an error
 naming the pid; the warehouse stays locked until that pid actually exits, so
 check `ps -p <pid>` before retrying against the same file.

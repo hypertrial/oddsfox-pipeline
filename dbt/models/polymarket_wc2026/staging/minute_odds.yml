@@ -24,13 +24,11 @@ models:
         tests: [not_null]
 
   - name: stg_polymarket_wc2026_futures_minute_odds_history
-    description: Typed one-minute CLOB observations with tournament-span futures windows.
+    description: >
+      Typed one-minute CLOB observations with tournament-span futures windows.
+      Grain uniqueness is inherited from the raw primary key; staging is a 1:1 view.
     config:
       tags: [minute_odds]
-    tests:
-      - no_duplicate_grain:
-          arguments:
-            grain_columns: [clob_token_id, odds_timestamp_epoch]
     columns:
       - name: market_id
         tests: [not_null]

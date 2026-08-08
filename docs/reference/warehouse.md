@@ -49,7 +49,8 @@ Schema: `polymarket_wc2026_raw`
 - `futures_minute_odds_history`: tournament-span minute observations for
   non-match WC2026 futures markets, same primary key and fidelity CHECK as
   match-minute. Publish uses temporary Parquet shards plus candidate/swap
-  (see raw storage notes below).
+  (see raw storage notes below). Raw retains every CLOB token; the unified
+  minute mart aggregates the primary outcome only.
 - `polygon_settlement_fills`: the current canonical, wallet- and
   order-payload-redacted Polygon V2 settlement snapshot. Grain is
   `(chain_id, exchange_address,
@@ -280,7 +281,9 @@ cross-relation concurrency (match vs futures) is the intended unlock win. Prior
 snapshot and audit flags are unchanged on failure; shards are deleted on success
 or exception. Existing dbt source names are unchanged. Measure publish-only
 speed with `make futures-minute-publish-benchmark` (disposable DuckDB only; never
-opens the operator warehouse).
+opens the operator warehouse). Measure the dbt rebuild with
+`make minute-odds-dbt-benchmark` (same disposable policy; default
+`performance` tier ~10M primary rows).
 
 For a cheaper live end-to-end check of the unified minute path without refetching
 every market, use `make minute-odds-live-smoke`. It always asserts a disposable

@@ -257,6 +257,9 @@ def stream_dbt_build(
         # scoped jobs and integration fixtures can opt out of polygon, logical
         # atlas, and cross-domain graphs without widening the asset selection.
         build_args.extend(["--exclude", config.dbt_exclude])
+    invocation: Any | None = None
+    events_emitted = 0
+    completed_cleanly = False
     try:
         _maybe_recover_polymarket_token_hourly_odds_incremental(
             context=context,
@@ -293,7 +296,6 @@ def stream_dbt_build(
         producer = Thread(target=_producer, daemon=True)
         producer.start()
 
-        events_emitted = 0
         while True:
             try:
                 item = event_queue.get(timeout=max(1, config.progress_poll_seconds))
@@ -345,6 +347,7 @@ def stream_dbt_build(
             )
         if incremental_in_progress:
             clear_polymarket_token_hourly_odds_incremental_in_progress()
+        completed_cleanly = True
     except Exception as exc:
         save_asset_failure_metrics(
             "dbt_build",
@@ -352,6 +355,21 @@ def stream_dbt_build(
             extra={"asset": asset_name},
         )
         raise
+    finally:
+        # Dagster cancellation closes the generator with GeneratorExit (a
+        # BaseException). Without this, the dbt child can be reparented to
+        # launchd while still holding the DuckDB warehouse lock.
+        if invocation is not None and not completed_cleanly:
+            process = getattr(invocation, "process", None)
+            if process is not None and process.poll() is None:
+                context.log.error(
+                    "%s dbt build interrupted; terminating dbt process pid=%s",
+                    asset_name,
+                    getattr(process, "pid", None),
+                )
+                _terminate_dbt_process(
+                    invocation, context=context, asset_name=asset_name
+                )
 
     guardrail.record_progress(
         work_increment=0,

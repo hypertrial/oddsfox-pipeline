@@ -428,6 +428,60 @@ def test_dbt_assets_guardrail_hard_timeout_escalates_to_sigkill(monkeypatch):
     assert any("still alive" in msg for msg in error_messages)
 
 
+def test_stream_dbt_build_terminates_on_generator_close(monkeypatch):
+    """Dagster cancellation closes the generator; the dbt child must not orphan."""
+    process_mock = MagicMock(returncode=None, pid=5151)
+    process_mock.poll.return_value = None
+    process_mock.wait.return_value = 0
+
+    class MockDbt:
+        def cli(self, *a, **k):
+            m = MagicMock(process=process_mock)
+            m.stream = lambda: iter(["event-1", "event-2"])
+            return m
+
+    monkeypatch.setattr(dbt_build_mod, "Thread", _ImmediateThread)
+    gen = dbt_build_mod.stream_dbt_build(
+        asset_name="oddsfox_dbt",
+        context=MagicMock(),
+        dbt=MockDbt(),
+        config=orch_config.DbtBuildConfig(
+            no_progress_soft_timeout_seconds=None,
+            no_progress_hard_timeout_seconds=None,
+        ),
+    )
+    assert next(gen) == "event-1"
+    gen.close()
+    assert process_mock.terminate.called
+
+
+def test_stream_dbt_build_success_does_not_signal_finished_process(monkeypatch):
+    process_mock = MagicMock(returncode=0, pid=6161)
+    process_mock.poll.return_value = 0
+
+    class MockDbt:
+        def cli(self, *a, **k):
+            m = MagicMock(process=process_mock)
+            m.stream = lambda: iter(["event"])
+            return m
+
+    monkeypatch.setattr(dbt_build_mod, "Thread", _ImmediateThread)
+    events = list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=MagicMock(),
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(
+                no_progress_soft_timeout_seconds=None,
+                no_progress_hard_timeout_seconds=None,
+            ),
+        )
+    )
+    assert events == ["event"]
+    assert not process_mock.terminate.called
+    assert not process_mock.kill.called
+
+
 def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
     from oddsfox_pipeline.orchestration import assets as assets_mod
     from oddsfox_pipeline.orchestration.assets import oddsfox_dbt

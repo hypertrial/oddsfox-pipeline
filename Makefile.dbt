@@ -32,6 +32,11 @@ dbt-match-minute-ci: match-analysis-runtime-dirs
 
 dbt-minute-odds-ci: match-analysis-runtime-dirs
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(MATCH_ANALYSIS_RUNTIME_ROOT)" dbt-prepare
+	$(RUN_IN_REPO) rm -f "$(MINUTE_ODDS_UNIT_DUCKDB_PATH)" "$(MINUTE_ODDS_UNIT_DUCKDB_PATH).wal" "$(MINUTE_ODDS_UNIT_DUCKDB_PATH)-wal" "$(MINUTE_ODDS_UNIT_DUCKDB_PATH)-shm"
+	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) $(MINUTE_ODDS_UNIT_ENV) "$(PYTHON)" scripts/bootstrap_dbt_ci_duckdb.py
+	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) $(MINUTE_ODDS_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main seed --exclude tag:polygon_settlement tag:pmxt_order_book --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) $(MINUTE_ODDS_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main run --empty --select "+tag:minute_odds" --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) $(MINUTE_ODDS_UNIT_ENV) "$(PYTHON)" -m dbt.cli.main test --select "test_type:unit,tag:minute_odds" --project-dir dbt --profiles-dir dbt/profiles
 	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/test_minute_odds_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
 
 market-portrait-target-validate:

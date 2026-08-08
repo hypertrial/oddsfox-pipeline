@@ -1,34 +1,33 @@
 {{ config(tags=['minute_odds']) }}
 
-with futures_tokens as (
-    select count(distinct clob_token_id) as futures_tokens_with_prices
-    from {{ ref('int_polymarket_wc2026_futures_token_minute_odds') }}
-),
+-- Keep the public mart view in the +DQ selection graph without scanning it here.
+{% do ref('polymarket_wc2026_market_minute_odds') %}
 
-match_tokens as (
-    select count(distinct clob_token_id) as match_tokens_with_prices
-    from {{ ref('int_polymarket_wc2026_match_token_minute_odds') }}
-),
-
-unified as (
+with fact as (
     select
         count(*) as mart_rows,
         count(distinct market_id) as mart_markets,
         count(distinct clob_token_id) as mart_tokens,
         count(*) filter (where minute_source = 'match') as match_source_rows,
         count(*) filter (where minute_source = 'futures') as futures_source_rows,
+        count(distinct clob_token_id) filter (
+            where minute_source = 'match'
+        ) as match_primary_tokens_with_prices,
+        count(distinct clob_token_id) filter (
+            where minute_source = 'futures'
+        ) as futures_primary_tokens_with_prices,
         count(*) filter (
             where
-            open_odds is null
-            or high_odds is null
-            or low_odds is null
-            or close_odds is null
+            open_price is null
+            or high_price is null
+            or low_price is null
+            or close_price is null
         ) as null_ohlc_rows,
         count(*) filter (
-            where not (low_odds <= open_odds and open_odds <= high_odds)
-            or not (low_odds <= close_odds and close_odds <= high_odds)
+            where not (low_price <= open_price and open_price <= high_price)
+            or not (low_price <= close_price and close_price <= high_price)
         ) as ohlc_order_issues
-    from {{ ref('polymarket_wc2026_market_minute_odds') }}
+    from {{ ref('int_polymarket_wc2026_token_minute_odds') }}
 ),
 
 latest_futures_audit as (
@@ -51,20 +50,21 @@ latest_futures_audit as (
 
 checks as (
     select
-        unified.*,
-        futures_tokens.futures_tokens_with_prices,
-        match_tokens.match_tokens_with_prices,
+        fact.*,
         latest_futures_audit.latest_audit_rows,
         latest_futures_audit.latest_success_rows,
         latest_futures_audit.latest_empty_rows,
         latest_futures_audit.latest_hard_failure_rows,
         latest_futures_audit.latest_published_rows,
-        unified.mart_rows > 0 as has_mart_rows,
-        unified.mart_markets > 0 as has_mart_markets,
-        unified.null_ohlc_rows = 0 as ohlc_complete,
-        unified.ohlc_order_issues = 0 as ohlc_ordered,
-        unified.match_source_rows > 0 as has_match_rows,
-        unified.futures_source_rows > 0 as has_futures_rows,
+        -- Compatibility aliases for existing integration assertions.
+        fact.match_primary_tokens_with_prices as match_tokens_with_prices,
+        fact.futures_primary_tokens_with_prices as futures_tokens_with_prices,
+        fact.mart_rows > 0 as has_mart_rows,
+        fact.mart_markets > 0 as has_mart_markets,
+        fact.null_ohlc_rows = 0 as ohlc_complete,
+        fact.ohlc_order_issues = 0 as ohlc_ordered,
+        fact.match_source_rows > 0 as has_match_rows,
+        fact.futures_source_rows > 0 as has_futures_rows,
         (
             latest_futures_audit.latest_audit_rows > 0
             and latest_futures_audit.latest_success_rows > 0
@@ -72,9 +72,7 @@ checks as (
             and latest_futures_audit.latest_published_rows
             = latest_futures_audit.latest_success_rows
         ) as futures_audit_healthy
-    from unified
-    cross join futures_tokens
-    cross join match_tokens
+    from fact
     cross join latest_futures_audit
 )
 

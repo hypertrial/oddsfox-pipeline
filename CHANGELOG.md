@@ -7,8 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Unified minute-odds dbt hot path aggregates primary CLOB tokens only (raw
+  futures history still retains every token), replaces twin `row_number()`
+  window sorts with `arg_min`/`arg_max` on unique timestamps, materializes
+  `int_polymarket_wc2026_futures_token_minute_odds` and the public
+  `polymarket_wc2026_market_minute_odds` mart as views over a single narrow
+  `int_polymarket_wc2026_token_minute_odds` table, and drops redundant
+  full-table `no_duplicate_grain` scans on the 377M-row futures raw/staging
+  relations (DuckDB primary key already enforces uniqueness), and drops
+  column tests on the view-backed futures intermediate / public mart so
+  `dbt build` does not re-aggregate or re-join the full fact on every test.
+  Measure with
+  `uv run make minute-odds-dbt-benchmark`
+  (`MINUTE_ODDS_DBT_BENCHMARK_TIER=performance` for ~10M rows;
+  `production-shaped` for the opt-in ~377M acceptance tier). Disposable
+  `performance` tier measured ~27s dbt wall / 0 DuckDB temp spill on ~10M
+  primary rows (20M raw Yes+No); prior full-backfill dbt phase exceeded 71
+  minutes with ~27GB sort spill before cancel.
+
 ### Fixed
 
+- `oddsfox_dbt` now terminates the dbt subprocess on Dagster cancellation /
+  generator close, not only on the no-progress hard timeout, so a canceled
+  run cannot leave an orphaned dbt child holding the DuckDB warehouse lock.
 - The `oddsfox_dbt` build's no-progress hard timeout now escalates to `SIGKILL`
   if the dbt subprocess outlives a bounded grace period after `SIGTERM`. A
   single large dbt node (for example the unsampled full-backfill
@@ -48,6 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `make minute-odds-dbt-benchmark` /
+  `scripts/benchmark_polymarket_wc2026_minute_odds_dbt.py`: disposable synthetic
+  dbt rebuild harness for the unified minute mart (tiers `smoke` / `tune` /
+  `performance` / `production-shaped`). Reports wall time, primary vs all-token
+  counts, DQ blockers, peak RSS, and DuckDB temp bytes. Never opens the
+  operator warehouse.
 - `make minute-odds-live-smoke` /
   `polymarket_wc2026_minute_odds_live_smoke`: disposable unified minute-odds
   live smoke that samples ~5% of match markets and ~5% of futures markets

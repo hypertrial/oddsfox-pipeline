@@ -4,12 +4,15 @@ models:
   - name: polymarket_wc2026_market_minute_odds_data_quality
     description: >
       Compact health row for the unified market-minute odds mart covering match
-      and futures minute sources.
+      and futures minute sources. Counts primary-token fact rows in one scan;
+      raw futures history may retain additional non-primary tokens.
     config:
       tags: [minute_odds]
     columns:
       - name: mart_rows
         tests: [not_null]
+      - name: futures_primary_tokens_with_prices
+      - name: match_primary_tokens_with_prices
       - name: blocking_issue_keys
 
   - name: polymarket_wc2026_match_minute_token_coverage

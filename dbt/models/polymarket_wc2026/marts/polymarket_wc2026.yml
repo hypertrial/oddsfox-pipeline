@@ -53,50 +53,30 @@ models:
     description: >
       Unified WC2026 minute odds mart mirroring the hourly golden mart shape.
       Match-level markets use in-game windows; futures markets use the tournament
-      span capped by each market's close/resolution time.
+      span capped by each market's close/resolution time. Grain is one primary
+      token per (market_id, odds_minute_epoch); uniqueness follows from the
+      narrow fact aggregate plus unique primary-token and market dimensions.
+      Materialized as a view over int_polymarket_wc2026_token_minute_odds.
+      Column not-null and price-interval checks live on the narrow fact and
+      consolidated DQ row — scanning this view on every build would re-join the
+      full primary-token fact.
     config:
       tags: [minute_odds]
-    tests:
-      - no_duplicate_grain:
-          arguments:
-            grain_columns: [market_id, odds_minute_epoch]
-      - price_columns_in_unit_interval:
-          arguments:
-            identifier_columns: [market_id, odds_minute_epoch]
-            price_columns:
-              - open_odds
-              - high_odds
-              - low_odds
-              - close_odds
-              - avg_odds
     columns:
       - name: market_id
-        tests: [not_null]
       - name: clob_token_id
-        tests: [not_null]
       - name: primary_outcome_label
-        tests: [not_null]
       - name: event_id
-        tests: [not_null]
       - name: question
-        tests: [not_null]
       - name: odds_minute_utc
-        tests: [not_null]
       - name: odds_minute_epoch
-        tests: [not_null]
       - name: minute_source
-        tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['match', 'futures']
       - name: open_odds
       - name: high_odds
       - name: low_odds
       - name: close_odds
       - name: avg_odds
       - name: event_volume_usd_lifetime_reported
-        tests: [not_null]
 
   - name: polymarket_wc2026_match_minute_odds
     description: >

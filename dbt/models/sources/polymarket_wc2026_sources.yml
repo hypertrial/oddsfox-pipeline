@@ -101,15 +101,12 @@ sources:
         description: >
           Exact-window, one-minute CLOB observations for registry-eligible WC2026
           futures markets (non-match working-set) over the tournament span.
+          Uniqueness is enforced by the DuckDB primary key (clobTokenId, timestamp);
+          full-table no_duplicate_grain scans are omitted at this scale.
         meta:
           dagster:
             asset_key: [polymarket, wc2026, raw, futures_token_odds_history_minute]
         loaded_at_field: ingested_at
-        tests:
-          - no_duplicate_grain:
-              arguments:
-                grain_columns: [clobTokenId, timestamp]
-                where: clobTokenId is not null and timestamp is not null
         columns:
           - name: market_id
             description: Selected Polymarket market identifier.

@@ -72,12 +72,29 @@ in-tournament futures are eligible; match selection still requires closed game
 markets for the 104/248/496 inventory.
 
 Then dbt builds `+polymarket_wc2026_market_minute_odds_data_quality`
-(tagged `minute_odds`), producing the mart and its observability row:
+(tagged `minute_odds`). Raw futures history retains every CLOB token; dbt
+aggregates the primary outcome only (Yes when present) into a single narrow
+fact table, and the public mart is a view over that fact plus market metadata:
 
 ```text
 polymarket_wc2026_marts.polymarket_wc2026_market_minute_odds
 polymarket_wc2026_observability.polymarket_wc2026_market_minute_odds_data_quality
 ```
+
+After raw legs are landed, set all three
+`POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_*=false` flags and restart Dagster for a
+dbt-only rebuild. Measure disposable synthetic dbt timing with:
+
+```bash
+uv run make minute-odds-dbt-benchmark
+# optional: MINUTE_ODDS_DBT_BENCHMARK_TIER=production-shaped
+```
+
+Measured on disposable hardware (candidate graph): `performance` tier (~10M
+primary / 20M raw rows) finished dbt in ~27s with no DuckDB temp spill. The
+prior full-backfill dbt phase on ~377M raw rows exceeded 71 minutes with ~27GB
+sort spill before cancel; acceptance is dbt ≤25 minutes so the measured ~34
+minute raw phase keeps end-to-end under 60 minutes.
 
 Inspect health with:
 

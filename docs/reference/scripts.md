@@ -50,6 +50,9 @@ Run them through `uv run python` so they use the repo environment.
   Synthetic token histories only; writes JSON under
   `.cache/runtime/benchmarks/futures-minute-publish/`. Prefer
   `make futures-minute-publish-benchmark`. Never opens the operator warehouse.
+- `benchmark_polymarket_wc2026_minute_odds_dbt.py` — disposable synthetic
+  dbt rebuild timing for the unified minute mart (`make minute-odds-dbt-benchmark`).
+  Never opens the operator warehouse.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_wc2026_raw.odds_history` rows older
   than a retention window (default 365 days). Destructive pruning is protected
@@ -76,6 +79,7 @@ make gate-timing                 # opt-in cold/warm gate timing JSON
 make match-minute-inputs-validate # require a complete local 104-match schedule
 make minute-odds-live-smoke       # disposable 5%/leg unified minute live smoke
 make futures-minute-publish-benchmark # disposable publish speed/equality report
+make minute-odds-dbt-benchmark    # disposable synthetic dbt rebuild timing
 make polygon-settlement-seed-validate # operator-local seed + resolution attestation
 make dbt-polygon-settlement-ci    # replay-only; no RPC credentials
 make polygon-settlement-benchmark # requires completed v3 and v4 warehouses

@@ -158,6 +158,9 @@ def test_ci_split_targets_remain_wired():
         "scripts/benchmark_polymarket_wc2026_futures_minute_publish.py" in makefile
     )
     assert "FUTURES_MINUTE_PUBLISH_BENCHMARK_ROOT" in makefile
+    assert "minute-odds-dbt-benchmark:" in makefile
+    assert "scripts/benchmark_polymarket_wc2026_minute_odds_dbt.py" in makefile
+    assert "MINUTE_ODDS_DBT_BENCHMARK_ROOT" in makefile
     assert "local-marts-rebuild:" in makefile
     assert "+polymarket_wc2026_match_minute_odds" in makefile
     assert "+polymarket_wc2026_polygon_settlement_minute_odds" in makefile

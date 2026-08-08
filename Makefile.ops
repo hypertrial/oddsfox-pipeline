@@ -50,6 +50,10 @@ futures-minute-publish-benchmark: runtime-dirs
 	$(RUN_IN_REPO) mkdir -p "$(FUTURES_MINUTE_PUBLISH_BENCHMARK_ROOT)"
 	$(RUN_IN_REPO) ODDSFOX_RUNTIME_ROOT="$(ODDSFOX_RUNTIME_ROOT)" "$(PYTHON)" scripts/benchmark_polymarket_wc2026_futures_minute_publish.py --tier "$(FUTURES_MINUTE_PUBLISH_BENCHMARK_TIER)" --output "$(FUTURES_MINUTE_PUBLISH_BENCHMARK_REPORT_PATH)" --require-speedup "$(FUTURES_MINUTE_PUBLISH_BENCHMARK_REQUIRE_SPEEDUP)" $(if $(filter 1 true TRUE,$(FUTURES_MINUTE_PUBLISH_BENCHMARK_MATRIX)),--matrix,)
 
+minute-odds-dbt-benchmark: runtime-dirs
+	$(RUN_IN_REPO) mkdir -p "$(MINUTE_ODDS_DBT_BENCHMARK_ROOT)"
+	$(RUN_IN_REPO) ODDSFOX_RUNTIME_ROOT="$(ODDSFOX_RUNTIME_ROOT)" "$(PYTHON)" scripts/benchmark_polymarket_wc2026_minute_odds_dbt.py --tier "$(MINUTE_ODDS_DBT_BENCHMARK_TIER)" --output "$(MINUTE_ODDS_DBT_BENCHMARK_REPORT_PATH)" --threads "$(MINUTE_ODDS_DBT_BENCHMARK_THREADS)"
+
 match-order-book-live-smoke: runtime-dirs
 	@"$(PYTHON)" -c "from oddsfox_pipeline.config.settings import PMXT_API_KEY; assert PMXT_API_KEY, 'PMXT_API_KEY is required; this target consumes PMXT credits'"
 	@if test "$(MATCH_ORDER_BOOK_LIVE_SMOKE_RESET)" = "true"; then rm -f "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)" "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH).wal" "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)-wal" "$(MATCH_ORDER_BOOK_LIVE_SMOKE_DUCKDB_PATH)-shm"; fi
