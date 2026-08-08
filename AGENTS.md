@@ -165,6 +165,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make match-order-book-live-smoke` | Opt-in resumable PMXT backfill; consumes PMXT credits |
 | `make event-catalog-recall-audit` | Opt-in exhaustive WC2026 event-catalog slug-prefix recall audit |
 | `make match-minute-inputs-validate` | Validate the operator-local 104-match schedule overlay |
+| `make minute-odds-live-smoke` | Disposable unified minute-odds live smoke (5%/leg sample, futures 24h tail; external CLOB/Gamma) |
 | `make futures-minute-publish-benchmark` | Disposable baseline/candidate futures-minute publish speed + equality report |
 | `make local-marts-rebuild` | Full-refresh and verify both WC2026 minute marts from completed operator-local raw warehouses |
 | `make polygon-settlement-live-smoke` | Opt-in finalized Polygon settlement backfill against a disposable warehouse |
@@ -264,6 +265,8 @@ Key jobs: `international_results_historical_ingest`,
 `polymarket_wc2026_market_scope_registry_refresh`,
 `polymarket_wc2026_event_catalog_recall_audit`, `polymarket_wc2026_hourly_odds_ingest`,
 `polymarket_wc2026_match_minute_odds_backfill`,
+`polymarket_wc2026_minute_odds_backfill`,
+`polymarket_wc2026_minute_odds_live_smoke`,
 `polymarket_wc2026_match_order_book_backfill`,
 `polymarket_wc2026_polygon_settlement_backfill`,
 `polymarket_wc2026_polygon_settlement_release`,
@@ -276,7 +279,8 @@ The daily `international_results_daily_schedule` is also stopped by default.
 Polymarket WC2026 has no Dagster schedule; use manual jobs when needed.
 The PMXT order-book backfill, Polygon settlement backfill, and audit-release
 jobs are unscheduled and have no schedule-enable environment flags. The
-event-catalog recall-audit job is also unscheduled. The
+event-catalog recall-audit job is also unscheduled. The minute-odds live
+smoke job is also unscheduled. The
 technical exporter is standalone and unscheduled.
 Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 

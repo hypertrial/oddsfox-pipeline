@@ -271,6 +271,8 @@ def test_match_minute_asset_materializes_sync_summary(monkeypatch):
         progress_log_interval_seconds=config.progress_log_interval_seconds,
         no_progress_soft_timeout_seconds=config.no_progress_soft_timeout_seconds,
         no_progress_hard_timeout_seconds=config.no_progress_hard_timeout_seconds,
+        market_sample_fraction=None,
+        market_sample_seed=None,
     )
     save_metrics.assert_called_once_with(
         "match_minute_odds",

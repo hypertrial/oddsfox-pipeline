@@ -36,6 +36,7 @@ _NON_SCOPE_JOB_NAMES = {
     "polymarket_wc2026_event_catalog_recall_audit",
     "polymarket_wc2026_match_minute_odds_backfill",
     "polymarket_wc2026_minute_odds_backfill",
+    "polymarket_wc2026_minute_odds_live_smoke",
     "polymarket_wc2026_match_order_book_backfill",
     "polymarket_wc2026_market_portrait_backfill",
     "polymarket_wc2026_polygon_settlement_backfill",

@@ -19,11 +19,11 @@ import shutil
 from collections import defaultdict
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import AbstractContextManager, contextmanager
-from dataclasses import dataclass
-from datetime import datetime, timezone
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock, local
-from typing import Any, Callable, Iterator, Protocol, Sequence
+from typing import Any, Callable, Iterator, Protocol, Sequence, TypeVar
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -56,6 +56,7 @@ FIDELITY_MINUTES = 1
 DEFAULT_MINUTE_PUBLISH_SHARD_ROWS = 4_000_000
 DEFAULT_MINUTE_PUBLISH_BATCH_ROWS = 256_000
 DEFAULT_MINUTE_PUBLISH_COMPRESSION = "snappy"
+DEFAULT_MINUTE_MARKET_SAMPLE_METHOD = "hash_rank_limit"
 # ponytail: ~4M rows/shard won the disposable futures-minute publish matrix
 # (1M/2M/4M × uncompressed/snappy/zstd) on equality-correct runs; upgrade path
 # is re-running `make futures-minute-publish-benchmark` with
@@ -89,6 +90,9 @@ class MinutePlanLike(Protocol):
     token_id: str
     started_at: datetime
     finished_at: datetime
+
+
+_PlanT = TypeVar("_PlanT", bound=MinutePlanLike)
 
 
 class MinuteHistoryResultLike(Protocol):
@@ -164,6 +168,81 @@ def ensure_unique_success_token_ids(
                 f"Duplicate success token plan for publish: {token_id}"
             )
         seen.add(token_id)
+
+
+def sample_minute_market_plans(
+    plans: Sequence[_PlanT],
+    *,
+    fraction: float,
+    seed: str,
+) -> tuple[list[_PlanT], dict[str, Any]]:
+    """Deterministically sample markets and keep every token for each market.
+
+    Selects ``max(1, ceil(population_markets * fraction))`` markets by hashing
+    ``f"{seed}:{market_id}"`` and taking the lowest digests. Production callers
+    leave ``fraction`` unset; smoke uses a fixed seed for stable reruns.
+    """
+    if not plans:
+        raise ValueError("plans must not be empty")
+    if not (0.0 < float(fraction) <= 1.0):
+        raise ValueError("market sample fraction must be in (0, 1]")
+    seed_text = str(seed).strip()
+    if not seed_text:
+        raise ValueError("market sample seed must not be blank")
+
+    by_market: dict[str, list[_PlanT]] = defaultdict(list)
+    for plan in plans:
+        by_market[str(plan.market_id)].append(plan)
+    population_markets = len(by_market)
+    population_tokens = len(plans)
+    selected_count = max(1, math.ceil(population_markets * float(fraction)))
+    selected_count = min(selected_count, population_markets)
+
+    ranked = sorted(
+        by_market,
+        key=lambda market_id: hashlib.sha256(
+            f"{seed_text}:{market_id}".encode("utf-8")
+        ).hexdigest(),
+    )
+    selected_ids = ranked[:selected_count]
+    selected_set = set(selected_ids)
+    selected_plans = [plan for plan in plans if str(plan.market_id) in selected_set]
+    selected_ids_sorted = sorted(selected_ids)
+    digest = hashlib.sha256(
+        "\n".join(selected_ids_sorted).encode("utf-8")
+    ).hexdigest()
+    manifest = {
+        "sample_enabled": True,
+        "sample_method": DEFAULT_MINUTE_MARKET_SAMPLE_METHOD,
+        "sample_fraction": float(fraction),
+        "sample_seed": seed_text,
+        "population_markets": population_markets,
+        "population_tokens": population_tokens,
+        "selected_markets": len(selected_ids_sorted),
+        "selected_tokens": len(selected_plans),
+        "selected_market_ids": selected_ids_sorted,
+        "selected_market_ids_sha256": digest,
+    }
+    return selected_plans, manifest
+
+
+def cap_minute_plan_window_tail(
+    plan: _PlanT,
+    *,
+    window_hours: int,
+) -> _PlanT:
+    """Keep ``finished_at`` and move ``started_at`` to the final N hours."""
+    hours = int(window_hours)
+    if hours < 1:
+        raise ValueError("sample_window_hours must be >= 1")
+    capped_start = plan.finished_at - timedelta(hours=hours)
+    if capped_start <= plan.started_at:
+        return plan
+    if capped_start >= plan.finished_at:
+        raise ValueError(
+            f"sample_window_hours={hours} empties window for market {plan.market_id}"
+        )
+    return replace(plan, started_at=capped_start)
 
 
 def release_minute_history_payloads(
@@ -1017,6 +1096,7 @@ def execute_minute_fetches(
 __all__ = [
     "DEFAULT_MINUTE_AUTO_TUNE_MAX_RPS",
     "DEFAULT_MINUTE_BATCH_GROUP_SIZE",
+    "DEFAULT_MINUTE_MARKET_SAMPLE_METHOD",
     "DEFAULT_MINUTE_PUBLISH_BATCH_ROWS",
     "DEFAULT_MINUTE_PUBLISH_COMPRESSION",
     "DEFAULT_MINUTE_PUBLISH_SHARD_ROWS",
@@ -1030,6 +1110,7 @@ __all__ = [
     "MinutePlanLike",
     "borrow_duckdb_connection",
     "build_minute_history_arrow_table",
+    "cap_minute_plan_window_tail",
     "cleanup_minute_odds_publish_cache",
     "ensure_unique_success_token_ids",
     "execute_minute_fetches",
@@ -1040,6 +1121,7 @@ __all__ = [
     "minute_odds_publish_cache_dir",
     "padded_epoch_bounds",
     "release_minute_history_payloads",
+    "sample_minute_market_plans",
     "sanitize_error_message",
     "write_minute_history_parquet_shards",
 ]

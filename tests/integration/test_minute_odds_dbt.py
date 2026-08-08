@@ -211,3 +211,100 @@ def test_minute_odds_graph_builds_unified_mart(
             """
         ).fetchone()
         assert dq == (True, True, None)
+
+
+def test_minute_odds_graph_accepts_partial_match_with_futures(
+    tmp_path, monkeypatch, dbt_profiles_dir, dbt_target_dir
+):
+    """Smoke-shaped warehouse: partial match history + futures still passes unified DQ."""
+    db_path = tmp_path / "minute_odds_partial.duckdb"
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    connection.reset_duckdb_connection_state()
+    connection.init_duck_db()
+    with duckdb.connect(str(db_path)) as conn:
+        seed_match_minute_contract(conn)
+        _seed_futures_minute_rows(conn)
+        # Keep games 1-5 only (~5% of 104), mirroring per-leg smoke sampling.
+        conn.execute(
+            """
+            delete from polymarket_wc2026_raw.match_minute_odds_history
+            where market_id not like 'ml-1-%'
+              and market_id not like 'ml-2-%'
+              and market_id not like 'ml-3-%'
+              and market_id not like 'ml-4-%'
+              and market_id not like 'ml-5-%'
+            """
+        )
+        conn.execute(
+            """
+            delete from polymarket_wc2026_ops.match_minute_odds_fetch_audit
+            where market_id not like 'ml-1-%'
+              and market_id not like 'ml-2-%'
+              and market_id not like 'ml-3-%'
+              and market_id not like 'ml-4-%'
+              and market_id not like 'ml-5-%'
+            """
+        )
+
+    write_dbt_profile(dbt_profiles_dir, db_path, threads=1)
+    env = dbt_subprocess_env(
+        db_path=db_path,
+        profiles_dir=dbt_profiles_dir,
+        target_dir=dbt_target_dir,
+        dbt_threads=1,
+    )
+    run_dbt(
+        [
+            "seed",
+            "--exclude",
+            "tag:polygon_settlement",
+            "tag:pmxt_order_book",
+        ],
+        profiles_dir=dbt_profiles_dir,
+        env=env,
+    )
+    with duckdb.connect(str(db_path)) as conn:
+        seed_wc2026_schedule_matches(conn)
+
+    run_dbt(
+        [
+            "build",
+            "--select",
+            "+polymarket_wc2026_market_minute_odds_data_quality",
+            "--exclude",
+            "tag:polygon_settlement",
+            "tag:pmxt_order_book",
+            "resource_type:seed",
+        ],
+        profiles_dir=dbt_profiles_dir,
+        env=env,
+    )
+
+    with duckdb.connect(str(db_path)) as conn:
+        sources = dict(
+            conn.execute(
+                """
+                select minute_source, count(*)
+                from polymarket_wc2026_marts.polymarket_wc2026_market_minute_odds
+                group by 1
+                """
+            ).fetchall()
+        )
+        assert sources.get("futures", 0) == 3
+        assert sources.get("match", 0) > 0
+        match_markets = conn.execute(
+            """
+            select count(distinct market_id)
+            from polymarket_wc2026_marts.polymarket_wc2026_market_minute_odds
+            where minute_source = 'match'
+            """
+        ).fetchone()[0]
+        assert match_markets == 15  # 5 games × 3 moneyline markets
+        dq = conn.execute(
+            """
+            select has_match_rows, has_futures_rows, blocking_issue_keys
+            from polymarket_wc2026_observability.polymarket_wc2026_market_minute_odds_data_quality
+            """
+        ).fetchone()
+        assert dq == (True, True, None)

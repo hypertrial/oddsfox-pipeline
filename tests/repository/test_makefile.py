@@ -136,6 +136,17 @@ def test_ci_split_targets_remain_wired():
         makefile
     )
     assert "match-minute-live-smoke:" in makefile
+    assert "minute-odds-live-smoke:" in makefile
+    assert "polymarket_wc2026_minute_odds_live_smoke" in makefile
+    assert "MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH" in makefile
+    assert "MINUTE_ODDS_LIVE_SMOKE_RESET" in makefile
+    assert "MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG" in makefile
+    assert "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG=" in makefile
+    assert "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH=true" in makefile
+    assert "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES=true" in makefile
+    assert (
+        "scripts/validate_polymarket_wc2026_minute_odds_live_smoke.py" in makefile
+    )
     assert "polymarket_wc2026_match_minute_odds_backfill" in makefile
     assert 'cd "$(REPO_ROOT)/.cache"' in makefile
     assert '-d "$(REPO_ROOT)"' in makefile

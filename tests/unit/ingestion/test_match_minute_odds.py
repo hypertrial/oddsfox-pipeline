@@ -393,6 +393,54 @@ def test_fetch_plan_rejects_failed_or_invalid_history(
     assert result.source_row_count == source_row_count
 
 
+def test_sync_match_minute_samples_markets_after_inventory(monkeypatch, tmp_path):
+    conn = duckdb.connect(":memory:")
+    start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    plans = [
+        match_minute.MatchMinuteTokenPlan(
+            market_id=f"market-{index}",
+            token_id=f"token-{index}-{side}",
+            started_at=start,
+            finished_at=start + timedelta(minutes=1),
+        )
+        for index in range(20)
+        for side in ("yes", "no")
+    ]
+    monkeypatch.setattr(
+        match_minute, "select_match_minute_token_plans", lambda _: plans
+    )
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
+    captured: list = []
+    real_execute = match_minute.execute_minute_fetches
+
+    def wrap_execute(selected_plans, *args, **kwargs):
+        captured.extend(selected_plans)
+        return real_execute(selected_plans, *args, **kwargs)
+
+    monkeypatch.setattr(match_minute, "execute_minute_fetches", wrap_execute)
+    summary = match_minute.sync_match_minute_odds_history(
+        conn,
+        workers=1,
+        requests_per_second=1000,
+        batch_group_size=1,
+        client_factory=object,
+        fetch_window_fn=lambda _client, token, *_a, **_k: [
+            (token, int(start.timestamp()), 0.5)
+        ],
+        persist_fn=lambda *_a, **_k: None,
+        audit_persist_fn=lambda *_a, **_k: None,
+        market_sample_fraction=0.05,
+        market_sample_seed="match-smoke",
+    )
+    conn.close()
+    assert summary["sample_enabled"] is True
+    assert summary["population_markets"] == 20
+    assert summary["selected_markets"] == 1
+    assert summary["selected_tokens"] == 2
+    assert len({plan.market_id for plan in captured}) == 1
+    assert len(captured) == 2
+
+
 def test_sync_is_atomic_and_does_not_use_hourly_ledger(monkeypatch):
     conn = duckdb.connect(":memory:")
     conn.execute("create schema polymarket_wc2026_ops")

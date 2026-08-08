@@ -254,9 +254,11 @@ def test_local_mart_recreation_guide_keeps_complete_operator_runbook():
     assert "uv run make match-minute-inputs-validate" in match_minute
     assert "uv run make match-minute-live-smoke" in match_minute
     assert "uv run make minute-odds-backfill" in minute_odds
+    assert "uv run make minute-odds-live-smoke" in minute_odds
     assert "polymarket_wc2026_market_minute_odds" in minute_odds
     assert "30,936 rows" in index
     assert ".cache/match_minute_live_smoke.duckdb" in index
+    assert ".cache/minute_odds_live_smoke.duckdb" in minute_odds
 
     assert "uv run make polygon-settlement-seed-candidate" in polygon
     assert "uv run make polygon-settlement-seed-validate" in polygon

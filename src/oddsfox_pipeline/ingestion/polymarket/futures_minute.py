@@ -28,10 +28,12 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     DEFAULT_MINUTE_WORKERS,
     MinuteFetchResult,
     borrow_duckdb_connection,
+    cap_minute_plan_window_tail,
     cleanup_minute_odds_publish_cache,
     ensure_unique_success_token_ids,
     execute_minute_fetches,
     release_minute_history_payloads,
+    sample_minute_market_plans,
     write_minute_history_parquet_shards,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
@@ -256,6 +258,9 @@ def sync_futures_minute_odds_history(
     audit_persist_fn: Callable[..., Any] = load_futures_minute_fetch_audit,
     tournament_start_utc: str = POLYMARKET_WC2026_TOURNAMENT_START_UTC,
     tournament_end_utc: str = POLYMARKET_WC2026_TOURNAMENT_END_UTC,
+    market_sample_fraction: float | None = None,
+    market_sample_seed: str | None = None,
+    sample_window_hours: int | None = None,
 ) -> dict[str, Any]:
     """Refetch all futures windows; empty history is audited and skipped on publish.
 
@@ -265,7 +270,11 @@ def sync_futures_minute_odds_history(
 
     Pass ``connection_factory`` (for example ``get_connection``) so DuckDB is
     borrowed only for plan selection and publish, not during CLOB fetch.
+    Optional ``market_sample_fraction`` samples markets after eligibility;
+    ``sample_window_hours`` then caps each selected plan to its final N hours.
     """
+    if sample_window_hours is not None and market_sample_fraction is None:
+        raise ValueError("sample_window_hours requires market_sample_fraction")
     with borrow_duckdb_connection(
         conn, connection_factory=connection_factory
     ) as active:
@@ -273,6 +282,32 @@ def sync_futures_minute_odds_history(
             active,
             tournament_start_utc=tournament_start_utc,
             tournament_end_utc=tournament_end_utc,
+        )
+    sample_manifest: dict[str, Any] | None = None
+    if market_sample_fraction is not None:
+        if market_sample_seed is None or not str(market_sample_seed).strip():
+            raise ValueError("market_sample_seed is required when sampling markets")
+        plans, sample_manifest = sample_minute_market_plans(
+            plans,
+            fraction=float(market_sample_fraction),
+            seed=str(market_sample_seed),
+        )
+        if sample_window_hours is not None:
+            plans = [
+                cap_minute_plan_window_tail(plan, window_hours=int(sample_window_hours))
+                for plan in plans
+            ]
+            sample_manifest["sample_window_hours"] = int(sample_window_hours)
+        log.info(
+            "Futures-minute sampling %s/%s markets (%s/%s tokens) fraction=%s "
+            "seed=%s window_hours=%s",
+            sample_manifest["selected_markets"],
+            sample_manifest["population_markets"],
+            sample_manifest["selected_tokens"],
+            sample_manifest["population_tokens"],
+            sample_manifest["sample_fraction"],
+            sample_manifest["sample_seed"],
+            sample_manifest.get("sample_window_hours"),
         )
     fetch_run_id = str(uuid4())
     fetched = [
@@ -337,6 +372,8 @@ def sync_futures_minute_odds_history(
         **{f"{status}_tokens": count for status, count in status_counts.items()},
         "rows": sum(len(result.history) for result in fetched),
     }
+    if sample_manifest is not None:
+        summary.update(sample_manifest)
 
     hard_failures = [
         result

@@ -87,6 +87,28 @@ from polymarket_wc2026_observability.polymarket_wc2026_market_minute_odds_data_q
 
 `blocking_issue_keys` must be null before treating the mart as publication-ready.
 
+## Disposable live smoke (sampled)
+
+For a cheaper end-to-end check against live Gamma/CLOB without refetching every
+market, run:
+
+```bash
+uv run make minute-odds-live-smoke
+```
+
+Cold runs reset `.cache/minute_odds_live_smoke.duckdb`. The job still validates
+the full 104/248/496 match inventory before sampling, then fetches about 5% of
+match markets and 5% of futures markets independently (all tokens retained per
+selected market) and caps sampled futures windows to their final 24 hours. dbt
+builds only the unified DQ select; it does not prove the full match publication
+gate. Warm reruns:
+
+```bash
+MINUTE_ODDS_LIVE_SMOKE_RESET=false \
+MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG=false \
+uv run make minute-odds-live-smoke
+```
+
 Historical API availability is not guaranteed. If Gamma or CLOB no longer
 returns the complete interval, use an operator's previously completed raw
 warehouse through the
@@ -100,3 +122,4 @@ warehouse through the
 | `No registry-eligible WC2026 futures markets` | Registry refresh must admit non-match markets under the volume eligibility gate. |
 | Futures fetch empty/error | Empty in-window CLOB history is audited and skipped on publish; hard `error`/`cancelled` fail the run. Retry transient failures or rebuild from a completed raw warehouse. |
 | `blocking_issue_keys` not null | Inspect the observability row and match-minute / futures audit tables. |
+| Live smoke sample count mismatch | Confirm smoke seed/fraction defaults and that both legs recorded `population_markets` / `selected_markets` in `sync_run_metrics`. |

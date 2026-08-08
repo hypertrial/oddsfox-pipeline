@@ -733,6 +733,99 @@ def test_release_minute_history_payloads_clears_frozen_results():
     assert result.history == ()
 
 
+def test_sample_minute_market_plans_is_exact_ceiling_and_stable():
+    start = datetime(2026, 6, 11, tzinfo=timezone.utc)
+    end = start + timedelta(hours=1)
+    plans = []
+    for market_idx in range(20):
+        market_id = f"m-{market_idx:02d}"
+        for token_suffix in ("yes", "no"):
+            plans.append(
+                _Plan(
+                    market_id=market_id,
+                    token_id=f"{market_id}-{token_suffix}",
+                    started_at=start,
+                    finished_at=end,
+                )
+            )
+    selected_a, manifest_a = minute_batch.sample_minute_market_plans(
+        plans, fraction=0.05, seed="smoke-v1"
+    )
+    selected_b, manifest_b = minute_batch.sample_minute_market_plans(
+        plans, fraction=0.05, seed="smoke-v1"
+    )
+    assert manifest_a["population_markets"] == 20
+    assert manifest_a["selected_markets"] == 1  # ceil(20*0.05)=1
+    assert manifest_a["selected_tokens"] == 2
+    assert {plan.market_id for plan in selected_a} == set(
+        manifest_a["selected_market_ids"]
+    )
+    assert all(
+        sum(1 for plan in selected_a if plan.market_id == market_id) == 2
+        for market_id in manifest_a["selected_market_ids"]
+    )
+    assert manifest_a == manifest_b
+    assert [plan.token_id for plan in selected_a] == [
+        plan.token_id for plan in selected_b
+    ]
+    other_manifest = minute_batch.sample_minute_market_plans(
+        plans, fraction=0.05, seed="smoke-v2"
+    )[1]
+    assert (
+        other_manifest["selected_market_ids"] != manifest_a["selected_market_ids"]
+        or other_manifest["selected_market_ids_sha256"]
+        != manifest_a["selected_market_ids_sha256"]
+    )
+
+
+def test_sample_minute_market_plans_tiny_population_keeps_at_least_one_market():
+    start = datetime(2026, 6, 11, tzinfo=timezone.utc)
+    end = start + timedelta(hours=1)
+    plans = [
+        _Plan(
+            market_id="only",
+            token_id="only-yes",
+            started_at=start,
+            finished_at=end,
+        ),
+        _Plan(
+            market_id="only",
+            token_id="only-no",
+            started_at=start,
+            finished_at=end,
+        ),
+    ]
+    selected, manifest = minute_batch.sample_minute_market_plans(
+        plans, fraction=0.05, seed="tiny"
+    )
+    assert manifest["selected_markets"] == 1
+    assert len(selected) == 2
+
+
+def test_cap_minute_plan_window_tail_keeps_final_hours():
+    start = datetime(2026, 6, 11, tzinfo=timezone.utc)
+    end = datetime(2026, 7, 19, tzinfo=timezone.utc)
+    plan = _Plan(
+        market_id="futures",
+        token_id="futures-yes",
+        started_at=start,
+        finished_at=end,
+    )
+    capped = minute_batch.cap_minute_plan_window_tail(plan, window_hours=24)
+    assert capped.finished_at == end
+    assert capped.started_at == end - timedelta(hours=24)
+    short = minute_batch.cap_minute_plan_window_tail(
+        _Plan(
+            market_id="short",
+            token_id="short-yes",
+            started_at=end - timedelta(hours=6),
+            finished_at=end,
+        ),
+        window_hours=24,
+    )
+    assert short.started_at == end - timedelta(hours=6)
+
+
 def test_iter_and_write_minute_history_parquet_shards_bound_and_cleanup(tmp_path, monkeypatch):
     monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
     ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)

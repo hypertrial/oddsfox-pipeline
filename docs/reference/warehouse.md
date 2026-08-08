@@ -282,6 +282,21 @@ or exception. Existing dbt source names are unchanged. Measure publish-only
 speed with `make futures-minute-publish-benchmark` (disposable DuckDB only; never
 opens the operator warehouse).
 
+For a cheaper live end-to-end check of the unified minute path without refetching
+every market, use `make minute-odds-live-smoke`. It always asserts a disposable
+`.cache/minute_odds_live_smoke.duckdb`, still proves the full 104/248/496 match
+inventory before sampling, then samples about 5% of match markets and 5% of
+futures markets independently (all tokens retained per selected market), caps
+sampled futures windows to their final 24 hours, builds the unified minute mart
+plus DQ, and validates via
+`scripts/validate_polymarket_wc2026_minute_odds_live_smoke.py` into an ignored
+JSON report under `.cache/runtime/smoke/minute-odds/`. Cold runs reset the
+disposable warehouse and refresh catalog by default; warm reruns use
+`MINUTE_ODDS_LIVE_SMOKE_RESET=false MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG=false`
+while still forcing match and futures refresh. It does not prove the full
+104/248/496 match publication gate; use `make match-minute-live-smoke` or the
+production minute backfill for that contract.
+
 The Polygon settlement tables are custom transactional SQL, not dlt. Completed
 chunks and their scoped hashes are durable resume points. Publication first
 proves the finalized target ranges have no gaps or overlaps, then replaces

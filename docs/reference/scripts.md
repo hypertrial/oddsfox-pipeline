@@ -13,6 +13,13 @@ Run them through `uv run python` so they use the repo environment.
 - `cleanup_polymarket_wc2026_registry_hygiene.py`: dry-run (default) or `--apply` deletion of synthetic catalog contamination (`evt-A` / `evt-B` / `m-shared`) and ineligible `events_api` / `markets_api` registry orphans. Prefer `make cleanup-polymarket-wc2026-registry-hygiene` (set `APPLY=1` to write). Stop Dagster and other DuckDB writers first.
 - `export_marts_parquet.py`: export every present table or view in the shipped `*_marts` schemas (Polymarket, Kalshi, international-results, `wc2026_marts`) to Parquet under `artifacts/marts_exports/<utc>/`. Prefer `make export-marts-parquet`. Includes isolated marts when built; for the allowlisted Polygon technical dossier use the dedicated Polygon exporter.
 - `export_polymarket_wc2026_match_minute_odds.py`: write the 104-game match-minute mart to a temporary Parquet, validate its grain, 104/248/496 inventory, proposition mix, timing, elapsed-axis invariants, and immutable results provenance, then atomically replace the prior artifact. It prints completeness, boundary nulls, pair warnings, elapsed range and over-120-minute games, revision/hash, file size, and SHA-256; quality warnings do not fail export.
+- `validate_polymarket_wc2026_minute_odds_live_smoke.py`: read-only acceptance
+  checks for the disposable unified minute-odds live smoke warehouse. Confirms
+  both latest fetch audits, sample counts of `ceil(5%)` markets per leg with
+  all tokens retained, raw PK/CHECK health, unified mart rows from both
+  `match` and `futures`, and null `blocking_issue_keys`. Prefer
+  `make minute-odds-live-smoke` (writes
+  `.cache/runtime/smoke/minute-odds/minute_odds_live_smoke.json`).
 - `generate_polymarket_wc2026_market_portrait_target.py`: generate a non-credit-consuming PMXT target candidate YAML from the warehouse working set for operator review. Calls Gamma for fresh identities. Output defaults to `.cache/market_portrait_targets/match-<fifa_match_id>.yml`.
 - `generate_polymarket_wc2026_polygon_settlement_seed.py`: developer-only
   authoring tool. It downloads the hash-pinned CC0 OpenFootball fixture files
@@ -67,6 +74,7 @@ make runtime-dirs                # create SSD-local temp and cache directories
 make dbt-prepare                 # shared dbt deps/parse into DBT_TARGET_PATH
 make gate-timing                 # opt-in cold/warm gate timing JSON
 make match-minute-inputs-validate # require a complete local 104-match schedule
+make minute-odds-live-smoke       # disposable 5%/leg unified minute live smoke
 make futures-minute-publish-benchmark # disposable publish speed/equality report
 make polygon-settlement-seed-validate # operator-local seed + resolution attestation
 make dbt-polygon-settlement-ci    # replay-only; no RPC credentials

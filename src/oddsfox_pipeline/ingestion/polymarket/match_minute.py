@@ -30,6 +30,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     ensure_unique_success_token_ids,
     execute_minute_fetches,
     release_minute_history_payloads,
+    sample_minute_market_plans,
     write_minute_history_parquet_shards,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
@@ -286,16 +287,38 @@ def sync_match_minute_odds_history(
     fetch_group_window_fn: Callable[..., Any] = fetch_group_window_with_auto_split,
     persist_fn: Callable[..., Any] = load_match_minute_odds_history_stage,
     audit_persist_fn: Callable[..., Any] = load_match_minute_fetch_audit,
+    market_sample_fraction: float | None = None,
+    market_sample_seed: str | None = None,
 ) -> dict[str, Any]:
     """Refetch all bounded windows, then publish only after every token succeeds.
 
     Pass ``connection_factory`` (for example ``get_connection``) so DuckDB is
     borrowed only for plan selection and publish, not during CLOB fetch.
+    Optional ``market_sample_fraction`` keeps the full 104/248/496 inventory
+    validation, then deterministically samples markets before CLOB fetch.
     """
     with borrow_duckdb_connection(
         conn, connection_factory=connection_factory
     ) as active:
         plans = select_match_minute_token_plans(active)
+    sample_manifest: dict[str, Any] | None = None
+    if market_sample_fraction is not None:
+        if market_sample_seed is None or not str(market_sample_seed).strip():
+            raise ValueError("market_sample_seed is required when sampling markets")
+        plans, sample_manifest = sample_minute_market_plans(
+            plans,
+            fraction=float(market_sample_fraction),
+            seed=str(market_sample_seed),
+        )
+        log.info(
+            "Match-minute sampling %s/%s markets (%s/%s tokens) fraction=%s seed=%s",
+            sample_manifest["selected_markets"],
+            sample_manifest["population_markets"],
+            sample_manifest["selected_tokens"],
+            sample_manifest["population_tokens"],
+            sample_manifest["sample_fraction"],
+            sample_manifest["sample_seed"],
+        )
     fetch_run_id = str(uuid4())
     fetched = [
         _to_match_fetch_result(result)
@@ -355,11 +378,13 @@ def sync_match_minute_odds_history(
         "status": "fetched",
         "fetch_run_id": fetch_run_id,
         "games": EXPECTED_GAMES,
-        "markets": EXPECTED_MARKETS,
+        "markets": len({result.plan.market_id for result in fetched}),
         "tokens": len(fetched),
         **{f"{status}_tokens": count for status, count in status_counts.items()},
         "rows": sum(len(result.history) for result in fetched),
     }
+    if sample_manifest is not None:
+        summary.update(sample_manifest)
     failures = [result for result in fetched if result.fetch_status != "success"]
 
     with borrow_duckdb_connection(

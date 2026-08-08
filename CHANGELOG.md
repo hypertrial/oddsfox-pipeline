@@ -31,6 +31,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `make minute-odds-live-smoke` /
+  `polymarket_wc2026_minute_odds_live_smoke`: disposable unified minute-odds
+  live smoke that samples ~5% of match markets and ~5% of futures markets
+  independently (all tokens retained per selected market), caps sampled futures
+  windows to their final 24 hours, builds
+  `+polymarket_wc2026_market_minute_odds_data_quality`, and validates
+  audits/raw/mart health into `.cache/runtime/smoke/minute-odds/`. Never opens
+  the operator warehouse. Production
+  `polymarket_wc2026_minute_odds_backfill` defaults and the full match
+  publication gate remain unchanged.
 - `make futures-minute-publish-benchmark` /
   `scripts/benchmark_polymarket_wc2026_futures_minute_publish.py`: disposable
   baseline-versus-candidate publish harness with exact SQL equality and ignored

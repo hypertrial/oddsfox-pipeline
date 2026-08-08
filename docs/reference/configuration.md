@@ -330,6 +330,24 @@ manually when needed.
 - `ODDSFOX_MINUTE_PUBLISH_THREADS`: optional DuckDB `threads` override for the
   same publish connection.
 
+Smoke-only knobs consumed by `polymarket_wc2026_minute_odds_live_smoke` /
+`make minute-odds-live-smoke` (production backfill ignores them):
+
+- `POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_FRACTION`: per-leg market sample fraction
+  (default `0.05`). Match and futures are sampled independently after full
+  inventory validation.
+- `POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_SEED`: deterministic hash-rank seed
+  (default `wc2026-minute-smoke-v1`).
+- `POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_FUTURES_WINDOW_HOURS`: cap each sampled
+  futures plan to its final N hours (default `24`). Requires sampling.
+- `MINUTE_ODDS_LIVE_SMOKE_RESET`: Make-only; default `true` deletes the disposable
+  `.cache/minute_odds_live_smoke.duckdb` before the cold run.
+- `MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG`: Make-only; default `true` so cold
+  smoke refreshes markets/catalog/registry even when operator `.env` has
+  `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG=false`. Set `false` with
+  `MINUTE_ODDS_LIVE_SMOKE_RESET=false` for warm odds/dbt reruns that reuse the
+  disposable catalog. The Make target always forces match and futures refresh.
+
 `polymarket_wc2026_polygon_settlement_backfill` and
 `polymarket_wc2026_polygon_settlement_release` are manual-only jobs. They have
 no schedule or enable flag, and the release job writes only a local immutable

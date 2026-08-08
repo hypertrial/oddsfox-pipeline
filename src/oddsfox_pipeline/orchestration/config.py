@@ -16,6 +16,9 @@ from oddsfox_pipeline.config.settings import (
     POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG,
     POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES,
     POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH,
+    POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_FRACTION,
+    POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_FUTURES_WINDOW_HOURS,
+    POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_SEED,
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
@@ -214,6 +217,22 @@ class MatchMinuteOddsSyncConfig(GuardrailConfig):
     auto_tune_max_rps: int | None = Field(default=90, ge=1)
     transient_retries: int = Field(default=2, ge=0)
     transient_backoff_seconds: float = Field(default=0.25, ge=0)
+    market_sample_fraction: float | None = Field(default=None, gt=0, le=1)
+    market_sample_seed: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_market_sample(self) -> "MatchMinuteOddsSyncConfig":
+        if self.market_sample_fraction is None:
+            if self.market_sample_seed is not None:
+                raise ValueError(
+                    "market_sample_seed requires market_sample_fraction"
+                )
+            return self
+        if self.market_sample_seed is None or not str(self.market_sample_seed).strip():
+            raise ValueError(
+                "market_sample_seed is required when market_sample_fraction is set"
+            )
+        return self
 
 
 class FuturesMinuteOddsSyncConfig(GuardrailConfig):
@@ -225,6 +244,25 @@ class FuturesMinuteOddsSyncConfig(GuardrailConfig):
     auto_tune_max_rps: int | None = Field(default=90, ge=1)
     transient_retries: int = Field(default=2, ge=0)
     transient_backoff_seconds: float = Field(default=0.25, ge=0)
+    market_sample_fraction: float | None = Field(default=None, gt=0, le=1)
+    market_sample_seed: str | None = None
+    sample_window_hours: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def _validate_market_sample(self) -> "FuturesMinuteOddsSyncConfig":
+        if self.sample_window_hours is not None and self.market_sample_fraction is None:
+            raise ValueError("sample_window_hours requires market_sample_fraction")
+        if self.market_sample_fraction is None:
+            if self.market_sample_seed is not None:
+                raise ValueError(
+                    "market_sample_seed requires market_sample_fraction"
+                )
+            return self
+        if self.market_sample_seed is None or not str(self.market_sample_seed).strip():
+            raise ValueError(
+                "market_sample_seed is required when market_sample_fraction is set"
+            )
+        return self
 
 
 class MatchOrderBookBackfillConfig(GuardrailConfig):
@@ -426,6 +464,30 @@ def polymarket_wc2026_minute_odds_run_config() -> dict:
             dbt_exclude=None,
         ).model_dump()
     }
+    return {"ops": ops}
+
+
+def polymarket_wc2026_minute_odds_smoke_run_config() -> dict:
+    """Disposable live smoke: sample 5% markets per leg; cap futures to 24h."""
+    base = polymarket_wc2026_minute_odds_run_config()
+    ops = dict(base["ops"])
+    match_key = "polymarket_wc2026_raw_match_token_odds_history_minute"
+    futures_key = "polymarket_wc2026_raw_futures_token_odds_history_minute"
+    if match_key in ops:
+        match_cfg = MatchMinuteOddsSyncConfig(
+            market_sample_fraction=POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_FRACTION,
+            market_sample_seed=POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_SEED,
+        )
+        ops[match_key] = {"config": match_cfg.model_dump()}
+    if futures_key in ops:
+        futures_cfg = FuturesMinuteOddsSyncConfig(
+            market_sample_fraction=POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_FRACTION,
+            market_sample_seed=POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_SEED,
+            sample_window_hours=(
+                POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_FUTURES_WINDOW_HOURS
+            ),
+        )
+        ops[futures_key] = {"config": futures_cfg.model_dump()}
     return {"ops": ops}
 
 

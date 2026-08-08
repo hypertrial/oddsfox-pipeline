@@ -28,6 +28,7 @@ backfill, paid or narrow credentials, single-target manifests.
 | Polygon settlement history | `polymarket_wc2026_polygon_settlement_backfill` → `_release` → standalone exporter | Backfill scan, audit release, offline export | None | `dbt-polygon-settlement-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Match-minute odds | `polymarket_wc2026_match_minute_odds_backfill` | Results refresh, minute fetch, dbt | None | `dbt-match-minute-ci` (also compiles in ordinary `dbt-build-ci`; inventory proofs are the isolated lane) | Mature, isolated |
 | Minute odds (unified) | `polymarket_wc2026_minute_odds_backfill` | Match-minute + futures-minute fetch, unified dbt | None | `dbt-minute-odds-ci` (excluded from ordinary `dbt-build-ci` via `tag:minute_odds`) | Mature, isolated |
+| Minute odds live smoke | `polymarket_wc2026_minute_odds_live_smoke` | Same unified selection with 5%-per-leg sampling + futures 24h tail; disposable DuckDB only | None | Opt-in live (`minute-odds-live-smoke`); not a CI gate | Mature, isolated |
 | Match order book | `polymarket_wc2026_match_order_book_backfill` | PMXT order-book scan, dbt | None | `dbt-match-order-book-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Market portrait | `polymarket_wc2026_market_portrait_backfill` | Order book + trades scan, portrait bundle build | None | `dbt-market-portrait-ci` (`tag:market_portrait` trade marts still compile in ordinary `dbt-build-ci`; order-book dual-tagged models follow `tag:pmxt_order_book` exclusion) | Mature, isolated |
 
@@ -203,6 +204,29 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   The JSON report includes exact raw/audit equality and the baseline/candidate
   ratio; do not claim a 10x speedup unless that report reaches ≥10x with zero
   equality differences on the same machine.
+
+- `polymarket_wc2026_minute_odds_live_smoke`: disposable end-to-end live smoke
+  for the unified minute path. It reuses the same Dagster asset selection and
+  multiprocess executor as production, but applies smoke-only sampling to the
+  two minute assets after full catalog/registry refresh and after the match
+  inventory still proves 104/248/496. Match and futures are sampled
+  independently with `k = max(1, ceil(population_markets * 0.05))` by
+  deterministic SHA-256 rank (`POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_SEED`); every
+  token for a selected market is retained. Sampled futures windows are then
+  capped to their final
+  `POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_FUTURES_WINDOW_HOURS` (default 24).
+  dbt still builds `+polymarket_wc2026_market_minute_odds_data_quality` only —
+  it does **not** run or weaken `+polymarket_wc2026_match_minute_odds` and its
+  full publication gate. Always target
+  `.cache/minute_odds_live_smoke.duckdb` via `uv run make minute-odds-live-smoke`
+  (cold reset by default). Warm reruns:
+  `MINUTE_ODDS_LIVE_SMOKE_RESET=false MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG=false`
+  (restart the process so job selection rebuilds). The Make target always forces
+  match and futures refresh; warm catalog reuse uses
+  `MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG=false`. Post-run validation is
+  `scripts/validate_polymarket_wc2026_minute_odds_live_smoke.py` and writes an
+  ignored JSON report under `.cache/runtime/smoke/minute-odds/`. External
+  Gamma/CLOB calls make this opt-in; it is not part of `ci-fast`.
 
 **Isolated: Match order book**
 

@@ -13,6 +13,7 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_match_minute_odds_run_config,
     polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_minute_odds_run_config,
+    polymarket_wc2026_minute_odds_smoke_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
 )
 from oddsfox_pipeline.orchestration.definitions import defs
@@ -71,6 +72,7 @@ def test_definitions_expose_v010_jobs_only():
         "polymarket_wc2026_event_catalog_recall_audit",
         "polymarket_wc2026_match_minute_odds_backfill",
         "polymarket_wc2026_minute_odds_backfill",
+        "polymarket_wc2026_minute_odds_live_smoke",
         "polymarket_wc2026_match_order_book_backfill",
         "polymarket_wc2026_market_portrait_backfill",
         "polymarket_wc2026_polygon_settlement_backfill",
@@ -401,6 +403,44 @@ def test_minute_odds_run_config_dbt_only_when_both_raw_legs_disabled(monkeypatch
     assert ops["oddsfox_dbt"]["config"]["dbt_select"] == (
         "+polymarket_wc2026_market_minute_odds_data_quality"
     )
+
+
+def test_minute_odds_smoke_run_config_samples_both_legs_and_caps_futures(monkeypatch):
+    import oddsfox_pipeline.orchestration.config as orch_config
+
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", True
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", True
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", True
+    )
+    production = orch_config.polymarket_wc2026_minute_odds_run_config()["ops"]
+    smoke = orch_config.polymarket_wc2026_minute_odds_smoke_run_config()["ops"]
+    match_key = "polymarket_wc2026_raw_match_token_odds_history_minute"
+    futures_key = "polymarket_wc2026_raw_futures_token_odds_history_minute"
+
+    assert production[match_key]["config"].get("market_sample_fraction") is None
+    assert production[futures_key]["config"].get("market_sample_fraction") is None
+    assert production[futures_key]["config"].get("sample_window_hours") is None
+
+    assert smoke[match_key]["config"]["market_sample_fraction"] == 0.05
+    assert smoke[match_key]["config"]["market_sample_seed"] == (
+        "wc2026-minute-smoke-v1"
+    )
+    assert smoke[futures_key]["config"]["market_sample_fraction"] == 0.05
+    assert smoke[futures_key]["config"]["market_sample_seed"] == (
+        "wc2026-minute-smoke-v1"
+    )
+    assert smoke[futures_key]["config"]["sample_window_hours"] == 24
+    assert smoke["oddsfox_dbt"]["config"]["dbt_select"] == (
+        "+polymarket_wc2026_market_minute_odds_data_quality"
+    )
+    assert "polymarket_wc2026_minute_odds_live_smoke" in {
+        job.name for job in defs.resolve_all_job_defs()
+    }
 
 
 def test_minute_odds_selection_skips_match_inputs_when_refresh_disabled(monkeypatch):

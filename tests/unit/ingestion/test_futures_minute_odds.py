@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import duckdb
@@ -135,6 +135,78 @@ def test_select_futures_minute_token_plans_requires_registry_eligible_futures():
             futures_minute.select_futures_minute_token_plans(conn)
     finally:
         conn.close()
+
+
+def test_sync_futures_minute_samples_markets_and_caps_window(monkeypatch, tmp_path):
+    conn = _futures_inventory_connection()
+    for index in range(2, 22):
+        conn.execute(
+            """
+            insert into polymarket_wc2026_raw.markets (
+                id, question, closed, created_at, end_date, sports_market_type,
+                clob_token_ids
+            ) values (
+                ?, 'Winner?', true,
+                timestamp '2026-05-01 00:00:00',
+                timestamp '2026-07-10 12:00:00',
+                'tournament_winner',
+                ?
+            )
+            """,
+            [
+                f"futures-{index}",
+                json.dumps([f"futures-{index}-yes", f"futures-{index}-no"]),
+            ],
+        )
+        conn.execute(
+            """
+            insert into polymarket_wc2026_ops.market_scope_registry (
+                scope_name, market_id, source, refreshed_at, is_event_volume_eligible
+            ) values (
+                'wc2026', ?, 'test', current_timestamp, true
+            )
+            """,
+            [f"futures-{index}"],
+        )
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
+    captured_plans: list = []
+
+    def fetch_window(_client, token_id, start_ts, end_ts, *_args, **_kwargs):
+        return [(token_id, int(end_ts) - 60, 0.42)]
+
+    real_execute = futures_minute.execute_minute_fetches
+
+    def wrap_execute(plans, *args, **kwargs):
+        captured_plans.extend(plans)
+        return real_execute(plans, *args, **kwargs)
+
+    monkeypatch.setattr(futures_minute, "execute_minute_fetches", wrap_execute)
+    try:
+        summary = futures_minute.sync_futures_minute_odds_history(
+            conn,
+            workers=1,
+            batch_group_size=1,
+            client_factory=lambda: object(),
+            fetch_window_fn=fetch_window,
+            persist_fn=lambda *_a, **_k: None,
+            audit_persist_fn=lambda *_a, **_k: None,
+            market_sample_fraction=0.05,
+            market_sample_seed="futures-smoke",
+            sample_window_hours=24,
+        )
+    finally:
+        conn.close()
+
+    assert summary["status"] == "published"
+    assert summary["sample_enabled"] is True
+    assert summary["population_markets"] == 21
+    assert summary["selected_markets"] == 2
+    assert summary["sample_window_hours"] == 24
+    assert captured_plans
+    for plan in captured_plans:
+        assert plan.finished_at == datetime(2026, 7, 10, 12, tzinfo=timezone.utc)
+        assert plan.started_at == plan.finished_at - timedelta(hours=24)
+        assert (plan.finished_at - plan.started_at).total_seconds() == 24 * 3600
 
 
 def test_sync_futures_minute_odds_history_releases_duckdb_during_fetch():

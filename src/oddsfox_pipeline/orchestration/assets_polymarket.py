@@ -325,6 +325,8 @@ def polymarket_wc2026_raw_match_token_odds_history_minute(
             no_progress_hard_timeout_seconds=(
                 config.no_progress_hard_timeout_seconds
             ),
+            market_sample_fraction=config.market_sample_fraction,
+            market_sample_seed=config.market_sample_seed,
         )
     except Exception as exc:
         failure = dict(getattr(exc, "summary", {}))
@@ -377,6 +379,9 @@ def polymarket_wc2026_raw_futures_token_odds_history_minute(
             no_progress_hard_timeout_seconds=(
                 config.no_progress_hard_timeout_seconds
             ),
+            market_sample_fraction=config.market_sample_fraction,
+            market_sample_seed=config.market_sample_seed,
+            sample_window_hours=config.sample_window_hours,
         )
     except Exception as exc:
         failure = dict(getattr(exc, "summary", {}))
