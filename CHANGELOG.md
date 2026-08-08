@@ -45,12 +45,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Minute-odds Arrow stage build vectorizes per-token broadcast columns via
-  Arrow `take` / `repeat` / `cumulative_sum` (no per-row Python dict or list
-  materialization for market/window/fidelity/ingested_at/row_order), cutting the
-  publish-phase Python bottleneck by ~9x on large futures tables. Fetch-side
-  history hashing uses typed `array.array` buffers instead of `json.dumps`, and
-  multi-window fetches skip a redundant second full normalize (type-coerce)
-  pass while `_finalize_history` still sorts the exact-window filter.
+  Arrow `take` / `repeat` / `cumulative_sum` and dictionary-encodes
+  `market_id` / `clob_token_id` (no per-row Python dict or list materialization
+  for broadcast columns), cutting the publish-phase Python bottleneck by ~9x on
+  large futures tables and avoiding Arrow `string` int32 offset overflow on
+  ~10^8+ duplicated token ids. Fetch-side history hashing uses typed
+  `array.array` buffers instead of `json.dumps`, and multi-window fetches skip a
+  redundant second full normalize (type-coerce) pass while `_finalize_history`
+  still sorts the exact-window filter.
 - Troubleshooting DuckDB lock errors documents how to find and kill orphan
   warehouse holders after a canceled run or `dagster-dev` restart (`lsof` +
   kill; prefer a new launch over auto-retry).

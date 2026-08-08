@@ -103,9 +103,12 @@ def build_minute_history_arrow_table(
 ) -> pa.Table:
     """Build the minute-odds stage Arrow table without per-row Python dicts.
 
-    Broadcasts per-token scalars via Arrow ``take`` / ``repeat`` instead of
-    building ``total_rows``-length Python lists. Offset arrays use ``int32``,
-    so this path supports at most ``2**31 - 1`` (~2.1B) rows.
+    Broadcasts per-token scalars via Arrow ``take`` / ``repeat`` / dictionary
+    encoding instead of building ``total_rows``-length Python lists. String
+    columns (``market_id``, ``clob_token_id``) stay dictionary-encoded so
+    expanded row counts cannot overflow Arrow's ``string`` int32 value offsets
+    (the failure mode for ~10^8+ rows of duplicated token ids). List offsets
+    use ``int32``, so this path supports at most ``2**31 - 1`` (~2.1B) rows.
 
     Skips results with empty history. Raises ``ValueError`` when no points remain.
     """
@@ -123,6 +126,8 @@ def build_minute_history_arrow_table(
     parent_idx = pc.list_parent_indices(
         pa.ListArray.from_arrays(offsets, placeholder)
     )
+    # Dictionary indices must be a signed integer array; values are 0..n_tokens-1.
+    dict_indices = parent_idx.cast(pa.int32())
 
     small_market_ids = pa.array(
         [result.plan.market_id for result in filtered], type=pa.string()
@@ -153,8 +158,12 @@ def build_minute_history_arrow_table(
 
     return pa.table(
         {
-            "market_id": small_market_ids.take(parent_idx),
-            "clob_token_id": small_token_ids.take(parent_idx),
+            "market_id": pa.DictionaryArray.from_arrays(
+                dict_indices, small_market_ids
+            ),
+            "clob_token_id": pa.DictionaryArray.from_arrays(
+                dict_indices, small_token_ids
+            ),
             "timestamp": pa.array(timestamps, type=pa.int64()),
             "price": pa.array(prices, type=pa.float64()),
             "fidelity_minutes": pa.repeat(fidelity_minutes, total_rows).cast(

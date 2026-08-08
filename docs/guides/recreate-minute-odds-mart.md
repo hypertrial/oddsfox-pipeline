@@ -55,8 +55,9 @@ It runs both raw legs:
 
 Both legs share the hourly odds fetch stack: CLOB batch POST (≤20 tokens),
 24-hour window pre-chunking, workers/RPS 40 with auto-tune up to 90, and a
-vectorized columnar Arrow stage build (`take` / `repeat` broadcast; no per-row
-dict or Python list materialization for broadcast columns) for the raw replace.
+vectorized columnar Arrow stage build (`take` / `repeat` broadcast with
+dictionary-encoded token/market ids; no per-row dict or Python list
+materialization for broadcast columns) for the raw replace.
 Discovery includes open markets so
 in-tournament futures are eligible; match selection still requires closed game
 markets for the 104/248/496 inventory.

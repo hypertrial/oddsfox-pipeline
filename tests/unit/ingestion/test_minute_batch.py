@@ -237,7 +237,12 @@ def test_build_minute_history_arrow_table_flattens_and_broadcasts():
         "ingested_at",
         "row_order",
     ]
-    assert table.schema.field("clob_token_id").type == pa.string()
+    assert table.schema.field("clob_token_id").type == pa.dictionary(
+        pa.int32(), pa.string()
+    )
+    assert table.schema.field("market_id").type == pa.dictionary(
+        pa.int32(), pa.string()
+    )
     assert table.schema.field("timestamp").type == pa.int64()
     assert table.schema.field("price").type == pa.float64()
     assert table.schema.field("fidelity_minutes").type == pa.int32()
@@ -366,6 +371,8 @@ def _reference_minute_history_arrow_table(results, *, ingested_at, fidelity_minu
 
 
 def test_build_minute_history_arrow_table_matches_reference_with_uneven_lengths():
+    import pyarrow as pa
+
     ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
     results = []
     # Mix empty, length-1, and longer histories so offset/take math is exercised.
@@ -400,7 +407,70 @@ def test_build_minute_history_arrow_table_matches_reference_with_uneven_lengths(
         results, ingested_at=ingested_at
     )
     assert table.num_rows == reference.num_rows
-    assert table.equals(reference)
+    # Dictionary-encoded string columns won't byte-equal plain string columns;
+    # compare decoded values plus the non-string columns directly.
+    assert table["market_id"].to_pylist() == reference["market_id"].to_pylist()
+    assert table["clob_token_id"].to_pylist() == reference["clob_token_id"].to_pylist()
+    assert table.select(
+        ["timestamp", "price", "fidelity_minutes", "window_start_at", "window_end_at", "ingested_at", "row_order"]
+    ).equals(
+        reference.select(
+            [
+                "timestamp",
+                "price",
+                "fidelity_minutes",
+                "window_start_at",
+                "window_end_at",
+                "ingested_at",
+                "row_order",
+            ]
+        )
+    )
+    assert pa.types.is_dictionary(table.schema.field("market_id").type)
+    assert pa.types.is_dictionary(table.schema.field("clob_token_id").type)
+
+
+def test_build_minute_history_arrow_table_dictionary_encodes_broadcast_strings():
+    """Regression: plain string take overflows int32 offsets above ~2GB of values."""
+    import pyarrow as pa
+
+    ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    # Long token ids (similar to Polymarket CLOB ids) repeated many times would
+    # overflow Arrow string offsets if expanded via take into a plain string array.
+    long_token = "9" * 80
+    history = tuple((long_token, 1_000 + i, 0.01) for i in range(2_000))
+    results = [
+        minute_batch.MinuteFetchResult(
+            plan=_Plan(
+                market_id="m-" + long_token,
+                token_id=long_token,
+                started_at=datetime(2026, 6, 11, tzinfo=timezone.utc),
+                finished_at=datetime(2026, 6, 12, tzinfo=timezone.utc),
+            ),
+            fetch_status="success",
+            history=history,
+            request_start_epoch=1_000,
+            request_end_epoch=3_000,
+            source_row_count=len(history),
+            history_sha256="e" * 64,
+            fetch_started_at=ingested_at,
+            fetch_finished_at=ingested_at,
+        )
+        for _ in range(50)
+    ]
+    table = minute_batch.build_minute_history_arrow_table(
+        results, ingested_at=ingested_at
+    )
+    assert table.num_rows == 100_000
+    assert pa.types.is_dictionary(table.schema.field("market_id").type)
+    assert pa.types.is_dictionary(table.schema.field("clob_token_id").type)
+    token_dict = table["clob_token_id"].chunk(0).dictionary.to_pylist()
+    assert len(token_dict) == 50
+    assert set(token_dict) == {long_token}
+    assert table["market_id"].to_pylist()[:2] == [
+        "m-" + long_token,
+        "m-" + long_token,
+    ]
 
 
 def test_finalize_history_sha256_is_hex_and_content_sensitive():
