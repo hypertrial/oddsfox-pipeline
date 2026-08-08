@@ -397,6 +397,16 @@ Long-running assets emit `progress_guardrail` heartbeats via `ProgressGuardrail`
 `oddsfox_dbt` are guarded; hourly odds logs guardrail output through Dagster
 `context.log`.
 
+When `oddsfox_dbt`'s no-progress hard timeout fires (a single dbt node — for
+example a full unsampled minute-odds rebuild — can run for a long time with
+zero streamed events), the guardrail sends `SIGTERM` to the dbt subprocess and
+escalates to `SIGKILL` if it is still alive after a 30s grace period, so a
+DuckDB query that is holding the signal pending cannot survive as an orphan
+holding the warehouse lock. In the rare case a process is wedged in
+uninterruptible I/O and outlives `SIGKILL` too, the guardrail logs an error
+naming the pid; the warehouse stays locked until that pid actually exits, so
+check `ps -p <pid>` before retrying against the same file.
+
 Failed asset runs persist failure metrics (canonical `status=failed`, with any
 prior summary status under `failure_status`) to
 `{source}_{scope}_ops.sync_run_metrics` and append to `ingestion_run_events`.

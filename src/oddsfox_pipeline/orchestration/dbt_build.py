@@ -122,9 +122,30 @@ def _terminate_dbt_process(
             process.pid,
             _DBT_TERMINATE_GRACE_SECONDS,
         )
-        with contextlib.suppress(Exception):
+        try:
             process.kill()
             process.wait(timeout=_DBT_TERMINATE_GRACE_SECONDS)
+        except subprocess.TimeoutExpired:
+            # Observed in practice on a wedged external volume: a thread stuck
+            # in uninterruptible kernel I/O can outlive even SIGKILL for
+            # several minutes. Surface it loudly instead of returning quietly
+            # -- the DuckDB warehouse lock stays held until pid actually dies.
+            context.log.error(
+                "%s dbt process pid=%s still alive %.0fs after SIGKILL; "
+                "it is likely blocked on uninterruptible I/O and must clear "
+                "on its own (check `ps -p %s`) before the warehouse is usable",
+                asset_name,
+                process.pid,
+                _DBT_TERMINATE_GRACE_SECONDS,
+                process.pid,
+            )
+        except Exception:
+            context.log.warning(
+                "%s failed to force-kill dbt process pid=%s",
+                asset_name,
+                process.pid,
+                exc_info=True,
+            )
     except Exception:
         context.log.warning(
             "%s failed to terminate dbt process cleanly", asset_name, exc_info=True

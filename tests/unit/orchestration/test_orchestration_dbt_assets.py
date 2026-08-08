@@ -422,6 +422,10 @@ def test_dbt_assets_guardrail_hard_timeout_escalates_to_sigkill(monkeypatch):
         )
     assert process_mock.terminate.called
     assert process_mock.kill.called
+    # `wait()` keeps raising TimeoutExpired even after SIGKILL (e.g. a thread
+    # wedged in uninterruptible I/O); that must be surfaced, not swallowed.
+    error_messages = [call.args[0] for call in ctx.log.error.call_args_list]
+    assert any("still alive" in msg for msg in error_messages)
 
 
 def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):
