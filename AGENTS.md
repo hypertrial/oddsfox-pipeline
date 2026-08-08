@@ -165,6 +165,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make match-order-book-live-smoke` | Opt-in resumable PMXT backfill; consumes PMXT credits |
 | `make event-catalog-recall-audit` | Opt-in exhaustive WC2026 event-catalog slug-prefix recall audit |
 | `make match-minute-inputs-validate` | Validate the operator-local 104-match schedule overlay |
+| `make futures-minute-publish-benchmark` | Disposable baseline/candidate futures-minute publish speed + equality report |
 | `make local-marts-rebuild` | Full-refresh and verify both WC2026 minute marts from completed operator-local raw warehouses |
 | `make polygon-settlement-live-smoke` | Opt-in finalized Polygon settlement backfill against a disposable warehouse |
 | `make polygon-settlement-benchmark` | Exact optional v3/v4 fill+mart comparison; requires two completed warehouses |

@@ -62,9 +62,10 @@ It runs both raw legs:
 
 Both legs share the hourly odds fetch stack: CLOB batch POST (≤20 tokens),
 24-hour window pre-chunking, workers/RPS 40 with auto-tune up to 90, and a
-vectorized columnar Arrow stage build (`take` / `repeat` broadcast with
-dictionary-encoded token/market ids; no per-row dict or Python list
-materialization for broadcast columns) for the raw replace.
+publish path that spills bounded typed Arrow batches to temporary Parquet
+shards under the ignored runtime cache, bulk-loads a candidate raw table,
+builds the primary key once, then atomically swaps it into place (warehouse
+lock is not held during shard construction).
 Discovery includes open markets so
 in-tournament futures are eligible; match selection still requires closed game
 markets for the 104/248/496 inventory.

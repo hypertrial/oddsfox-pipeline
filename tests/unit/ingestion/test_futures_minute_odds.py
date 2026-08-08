@@ -182,8 +182,60 @@ def test_sync_futures_minute_odds_history_releases_duckdb_during_fetch():
     assert all(count == 0 for count in open_counts)
 
 
+def test_sync_futures_minute_odds_history_separate_audit_and_publish_borrows(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
+    conn = _futures_inventory_connection()
+    open_depth = {"n": 0}
+    borrow_count = {"n": 0}
+    shard_open_depth: list[int] = []
+    point_ts = int(datetime(2026, 6, 11, tzinfo=timezone.utc).timestamp())
+
+    @contextmanager
+    def connection_factory():
+        open_depth["n"] += 1
+        borrow_count["n"] += 1
+        try:
+            yield conn
+        finally:
+            open_depth["n"] -= 1
+
+    def fetch_window(_client, token_id, start_ts, end_ts, *_args, **_kwargs):
+        if int(start_ts) <= point_ts <= int(end_ts):
+            return [(token_id, point_ts, 0.55)]
+        return []
+
+    real_write = futures_minute.write_minute_history_parquet_shards
+
+    def wrap_write(*args, **kwargs):
+        shard_open_depth.append(open_depth["n"])
+        return real_write(*args, **kwargs)
+
+    monkeypatch.setattr(futures_minute, "write_minute_history_parquet_shards", wrap_write)
+
+    try:
+        summary = futures_minute.sync_futures_minute_odds_history(
+            connection_factory=connection_factory,
+            workers=1,
+            batch_group_size=1,
+            client_factory=lambda: object(),
+            fetch_window_fn=fetch_window,
+            persist_fn=lambda *_a, **_k: None,
+            audit_persist_fn=lambda *_a, **_k: None,
+        )
+    finally:
+        conn.close()
+
+    assert summary["status"] == "published"
+    # plan selection, audit write, then publish (shard build is unlocked).
+    assert borrow_count["n"] == 3
+    assert shard_open_depth == [0]
+    assert not (tmp_path / "minute-odds-publish" / summary["fetch_run_id"]).exists()
+
+
 def test_sync_futures_minute_odds_history_publishes_on_full_success():
-    import pyarrow as pa
+    import pyarrow.parquet as pq
 
     conn = _futures_inventory_connection()
     audit_rows: list[dict] = []
@@ -206,7 +258,8 @@ def test_sync_futures_minute_odds_history_publishes_on_full_success():
         audit_rows.extend(rows)
 
     def persist(rows, _conn, *, fetch_run_id):
-        published.append((fetch_run_id, rows))
+        table = pq.read_table(rows[0])
+        published.append((fetch_run_id, table))
 
     try:
         summary = futures_minute.sync_futures_minute_odds_history(
@@ -227,9 +280,8 @@ def test_sync_futures_minute_odds_history_publishes_on_full_success():
     assert len(audit_rows) == 2
     assert published
     fetch_run_id, table = published[0]
-    assert isinstance(table, pa.Table)
     assert table.num_rows == 2
-    assert "clob_token_id" in table.column_names
+    assert "clobTokenId" in table.column_names
     assert fetch_run_id == summary["fetch_run_id"]
 
 def test_sync_futures_minute_odds_history_publishes_success_and_skips_empty():
@@ -337,6 +389,8 @@ def test_sync_futures_minute_odds_history_fail_closed_on_error():
 
 
 def test_sync_futures_minute_odds_history_publishes_via_batch_path():
+    import pyarrow.parquet as pq
+
     conn = _futures_inventory_connection()
     audit_rows: list[dict] = []
     published: list[tuple] = []
@@ -372,7 +426,7 @@ def test_sync_futures_minute_odds_history_publishes_via_batch_path():
             client_factory=lambda: object(),
             fetch_group_window_fn=fetch_group,
             persist_fn=lambda rows, _conn, *, fetch_run_id: published.append(
-                (fetch_run_id, len(rows))
+                (fetch_run_id, sum(pq.ParquetFile(path).metadata.num_rows for path in rows))
             ),
             audit_persist_fn=lambda rows, _conn: audit_rows.extend(rows),
         )
@@ -388,6 +442,8 @@ def test_sync_futures_minute_odds_history_publishes_via_batch_path():
 
 
 def test_sync_futures_minute_odds_history_batch_publishes_with_partial_empty():
+    import pyarrow.parquet as pq
+
     conn = _futures_inventory_connection()
     audit_rows: list[dict] = []
     published: list[tuple] = []
@@ -416,7 +472,7 @@ def test_sync_futures_minute_odds_history_batch_publishes_with_partial_empty():
             client_factory=lambda: object(),
             fetch_group_window_fn=fetch_group,
             persist_fn=lambda rows, _conn, *, fetch_run_id: published.append(
-                (fetch_run_id, len(rows))
+                (fetch_run_id, sum(pq.ParquetFile(path).metadata.num_rows for path in rows))
             ),
             audit_persist_fn=lambda rows, _conn: audit_rows.extend(rows),
         )

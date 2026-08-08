@@ -23,6 +23,26 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
 )
 
 
+def minute_odds_history_create_ddl(
+    relation: str,
+    *,
+    with_primary_key: bool = True,
+) -> str:
+    """Return CREATE TABLE body for match/futures minute odds history.
+
+    Keeps bootstrap and candidate-publish DDL identical except for the optional
+    primary key (bulk load builds the ART once after insert).
+    """
+    if relation not in {
+        "match_minute_odds_history",
+        "futures_minute_odds_history",
+    }:
+        raise ValueError(f"Unsupported minute odds relation: {relation}")
+    body = polymarket_raw_ddl_body(relation)
+    pk = ",\n                PRIMARY KEY (clobTokenId, timestamp)" if with_primary_key else ""
+    return f"{body},\n                CHECK (fidelity_minutes = 1){pk}"
+
+
 def _add_column_if_missing(
     conn: duckdb.DuckDBPyConnection,
     table: str,
@@ -266,9 +286,7 @@ def bootstrap_polymarket_tables(
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {mmoh} (
-                {polymarket_raw_ddl_body("match_minute_odds_history")},
-                CHECK (fidelity_minutes = 1),
-                PRIMARY KEY (clobTokenId, timestamp)
+                {minute_odds_history_create_ddl("match_minute_odds_history")}
             )
             """
         )
@@ -312,9 +330,7 @@ def bootstrap_polymarket_tables(
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {fmoh} (
-                {polymarket_raw_ddl_body("futures_minute_odds_history")},
-                CHECK (fidelity_minutes = 1),
-                PRIMARY KEY (clobTokenId, timestamp)
+                {minute_odds_history_create_ddl("futures_minute_odds_history")}
             )
             """
         )
@@ -939,5 +955,6 @@ __all__ = [
     "create_test_markets_table",
     "ensure_all_polymarket_indexes",
     "ensure_polymarket_indexes",
+    "minute_odds_history_create_ddl",
     "seed_test_ingestion_run_event",
 ]

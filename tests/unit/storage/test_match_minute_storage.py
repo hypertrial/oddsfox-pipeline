@@ -209,3 +209,63 @@ def test_match_minute_raw_replace_accepts_arrow_table(duck):
 
     assert minute_rows == [("token", 100, 0.4)]
     assert published == 1
+
+
+def test_match_minute_publish_preserves_prior_snapshot_on_candidate_failure(duck):
+    now = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    good = {
+        "market_id": "market",
+        "clobTokenId": "token",
+        "timestamp": 100,
+        "price": 0.4,
+        "fidelity_minutes": 1,
+        "window_start_at": now,
+        "window_end_at": now,
+        "ingested_at": now,
+    }
+
+    def audit(run_id: str) -> dict[str, object]:
+        return {
+            "fetch_run_id": run_id,
+            "market_id": "market",
+            "clobTokenId": "token",
+            "fetch_status": "success",
+            "raw_published": False,
+            "fidelity_minutes": 1,
+            "exact_window_start_at": now,
+            "exact_window_end_at": now,
+            "request_start_epoch": 100,
+            "request_end_epoch": 100,
+            "source_row_count": 1,
+            "in_game_row_count": 1,
+            "in_game_history_sha256": "a" * 64,
+            "source_endpoint": "https://clob.polymarket.com/prices-history",
+            "fetch_started_at": now,
+            "fetch_finished_at": now,
+            "error_type": None,
+            "error_message": None,
+        }
+
+    with duck.get_connection() as conn:
+        load_match_minute_fetch_audit([audit("run-1")], conn)
+        load_match_minute_odds_history_stage([good], conn, fetch_run_id="run-1")
+        load_match_minute_fetch_audit([audit("run-2")], conn)
+        with pytest.raises(duckdb.ConstraintException):
+            load_match_minute_odds_history_stage(
+                [{**good, "fidelity_minutes": 5}],
+                conn,
+                fetch_run_id="run-2",
+            )
+        assert conn.execute(
+            "select price from polymarket_wc2026_raw.match_minute_odds_history"
+        ).fetchall() == [(0.4,)]
+        assert (
+            conn.execute(
+                """
+                select raw_published
+                from polymarket_wc2026_ops.match_minute_odds_fetch_audit
+                where fetch_run_id = 'run-2'
+                """
+            ).fetchone()[0]
+            is False
+        )

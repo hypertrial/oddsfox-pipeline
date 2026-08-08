@@ -46,6 +46,10 @@ Schema: `polymarket_wc2026_raw`
   upstream-deleted observations disappear. Failed fetch or storage runs leave
   the prior snapshot unchanged. This table is isolated from `odds_history` and
   its sync ledger.
+- `futures_minute_odds_history`: tournament-span minute observations for
+  non-match WC2026 futures markets, same primary key and fidelity CHECK as
+  match-minute. Publish uses temporary Parquet shards plus candidate/swap
+  (see raw storage notes below).
 - `polygon_settlement_fills`: the current canonical, wallet- and
   order-payload-redacted Polygon V2 settlement snapshot. Grain is
   `(chain_id, exchange_address,
@@ -102,6 +106,10 @@ Schema: `polymarket_wc2026_ops`
   windows, status, row counts, deterministic history SHA-256, sanitized errors,
   and whether the complete run was atomically published. Rows are retained
   indefinitely; the unscheduled job adds 496 per run.
+- `futures_minute_odds_fetch_audit`: same append-only shape for futures-minute
+  fetches (`window_row_count` / `window_history_sha256`). Empty in-window
+  tokens stay unpublished; only success rows flip `raw_published` with the
+  candidate/swap raw replace.
 - `polygon_settlement_scan_runs`: one row per deterministic scan identity,
   including manifest/normalizer versions, finalized head, sanitized provider
   label/origin, exact target ranges, publication status, and advisory secondary
@@ -254,12 +262,22 @@ explicitly filter match IDs 73–104.
 `kalshi_wc2026_raw_markets`. `kalshi_wc2026_raw.market_candlesticks_hourly` is
 custom SQL storage updated by the hourly candlestick sync asset.
 
-`polymarket_wc2026_raw.match_minute_odds_history` is custom dlt-staged storage
-with primary key `(clobTokenId, timestamp)`. Every row records its selected
-market, fixed fidelity `1`, exact Gamma timing window, and ingestion timestamp.
-The stage is loaded before a transaction replaces the canonical table and marks
-all matching fetch-audit rows published; either both changes commit or neither
-does.
+`polymarket_wc2026_raw.match_minute_odds_history` and
+`polymarket_wc2026_raw.futures_minute_odds_history` share the same candidate/swap
+publish contract. After CLOB fetch, the sync writes temporary typed Parquet
+shards under `${ODDSFOX_RUNTIME_ROOT:-.cache/runtime}/minute-odds-publish/<fetch_run_id>/`
+(warehouse lock released), bulk-loads a `<relation>_candidate` table without a
+primary key, builds `PRIMARY KEY (clobTokenId, timestamp)` once, proves
+constraint presence plus exact audit/manifest token-id set equality (and that
+every audited success token exists in the candidate), then atomically renames
+candidate into the canonical table and marks matching audit rows
+`raw_published` in one short transaction. Do not overlap two publishers of the
+same minute raw relation while the lock is released for spill; cross-relation
+concurrency (match vs futures) is the intended unlock win. Prior snapshot and
+audit flags are unchanged on failure; shards are deleted on success or
+exception. Existing dbt source names are unchanged. Measure publish-only speed
+with `make futures-minute-publish-benchmark` (disposable DuckDB only; never
+opens the operator warehouse).
 
 The Polygon settlement tables are custom transactional SQL, not dlt. Completed
 chunks and their scoped hashes are durable resume points. Publication first

@@ -38,6 +38,11 @@ Run them through `uv run python` so they use the repo environment.
   incomplete scans, then writes only aggregate durations/counts, database
   hashes, v4 RPC metrics, and the advisory speed ratio. It refuses a partial or
   missing baseline.
+- `benchmark_polymarket_wc2026_futures_minute_publish.py`: disposable
+  baseline-versus-candidate publish benchmark for futures-minute raw replace.
+  Synthetic token histories only; writes JSON under
+  `.cache/runtime/benchmarks/futures-minute-publish/`. Prefer
+  `make futures-minute-publish-benchmark`. Never opens the operator warehouse.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_wc2026_raw.odds_history` rows older
   than a retention window (default 365 days). Destructive pruning is protected
@@ -62,6 +67,7 @@ make runtime-dirs                # create SSD-local temp and cache directories
 make dbt-prepare                 # shared dbt deps/parse into DBT_TARGET_PATH
 make gate-timing                 # opt-in cold/warm gate timing JSON
 make match-minute-inputs-validate # require a complete local 104-match schedule
+make futures-minute-publish-benchmark # disposable publish speed/equality report
 make polygon-settlement-seed-validate # operator-local seed + resolution attestation
 make dbt-polygon-settlement-ci    # replay-only; no RPC credentials
 make polygon-settlement-benchmark # requires completed v3 and v4 warehouses

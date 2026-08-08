@@ -28,8 +28,10 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     DEFAULT_MINUTE_WORKERS,
     MinuteFetchResult,
     borrow_duckdb_connection,
-    build_minute_history_arrow_table,
+    cleanup_minute_odds_publish_cache,
+    ensure_unique_success_token_ids,
     execute_minute_fetches,
+    write_minute_history_parquet_shards,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
     load_futures_minute_fetch_audit,
@@ -385,24 +387,38 @@ def sync_futures_minute_odds_history(
                 len(success),
             )
 
-        ingested_at = datetime.now(timezone.utc)
-        table = build_minute_history_arrow_table(success, ingested_at=ingested_at)
-        log.info(
-            "Futures-minute staging/publishing %s token(s) (%s rows) to DuckDB",
-            len(success),
-            table.num_rows,
+    ingested_at = datetime.now(timezone.utc)
+    try:
+        ensure_unique_success_token_ids(success)
+        shard_paths = write_minute_history_parquet_shards(
+            success,
+            fetch_run_id=fetch_run_id,
+            ingested_at=ingested_at,
+            log=log,
         )
-        try:
-            persist_fn(table, active, fetch_run_id=fetch_run_id)
-        except Exception as exc:
-            summary.update(status="publish_error", error_type=exc.__class__.__name__)
-            raise FuturesMinuteSyncError(str(exc), summary) from exc
+        total_rows = sum(len(result.history) for result in success)
+        log.info(
+            "Futures-minute staging/publishing %s token(s) (%s rows) from %s shard(s)",
+            len(success),
+            total_rows,
+            len(shard_paths),
+        )
+        with borrow_duckdb_connection(
+            conn, connection_factory=connection_factory
+        ) as active:
+            try:
+                persist_fn(shard_paths, active, fetch_run_id=fetch_run_id)
+            except Exception as exc:
+                summary.update(status="publish_error", error_type=exc.__class__.__name__)
+                raise FuturesMinuteSyncError(str(exc), summary) from exc
+    finally:
+        cleanup_minute_odds_publish_cache(fetch_run_id)
     summary["status"] = "published"
     summary["raw_published_tokens"] = len(success)
     log.info(
         "Futures-minute published %s token(s) (%s rows) to DuckDB",
         len(success),
-        table.num_rows,
+        sum(len(result.history) for result in success),
     )
     return summary
 

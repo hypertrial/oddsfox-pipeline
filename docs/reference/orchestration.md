@@ -159,8 +159,8 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   atomically replaces raw history and marks those audits published.
   Fetch throughput matches the hourly odds path: CLOB batch POST (≤20
   tokens), 24h preemptive window chunks, workers/RPS 40 with auto-tune to 90,
-  and Arrow staging for the publish replace (still no hourly ledger; each run
-  is a full bounded refetch).
+  and temporary Parquet spill plus candidate/swap publish (still no hourly
+  ledger; each run is a full bounded refetch).
   Run `uv run make match-minute-live-smoke` for the disposable live acceptance
   check; it is intentionally absent from CI and all schedules.
 
@@ -174,15 +174,16 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   Match-minute still fail-closes unless every in-game token succeeds; futures
   minute audits empty in-window CLOB history and publishes success tokens only
   (hard `error`/`cancelled`, or an all-empty run, still fail). Futures publish
-  logs audit write, Arrow stage load, and raw snapshot replace/commit so large
-  DuckDB publishes are visible in Dagster. Both legs borrow
-  DuckDB only for plan selection and publish (warehouse lock released during
-  CLOB fetch) and share the same batch/auto-tune/window-chunk stack as hourly
-  odds (via `odds/minute_batch.py`); publish builds the Arrow stage table in one
-  columnar pass from fetch results, broadcasting per-token scalars with Arrow
-  `take` / `repeat` and dictionary-encoding `market_id` / `clob_token_id` (no
-  per-row dict or Python list materialization for broadcast columns; avoids
-  Arrow `string` int32 offset overflow on large publishes). Futures
+  logs audit write, Parquet shard spill, candidate load/PK build, and atomic
+  rename swap so large DuckDB publishes are visible in Dagster. Both legs borrow
+  DuckDB for plan selection, audit write, and publish only (warehouse lock
+  released during CLOB fetch and during temporary Parquet shard construction;
+  do not overlap two publishers of the same minute raw relation) and share the
+  same batch/auto-tune/window-chunk stack as hourly odds (via
+  `odds/minute_batch.py`). Publish dedupes each token's history by timestamp
+  before spill, writes bounded typed Arrow batches to ignored runtime Parquet
+  shards with a `token_ids` manifest, bulk-loads a candidate table, builds the
+  primary key once, then swaps it into the canonical raw relation. Futures
   spans are pre-chunked into 24h windows before CLOB calls so tournament-length
   fidelity=1 history does not rely on deep recursive auto-split alone.
   dbt builds `+polymarket_wc2026_market_minute_odds_data_quality`
@@ -194,7 +195,13 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES=false` (and restart Dagster) to
   reuse already-landed warehouse stages on reruns. Run
   `uv run make minute-odds-backfill` after the schedule overlay is validated. No
-  schedule.
+  schedule. Measure publish-only candidate/swap speed with
+  `uv run make futures-minute-publish-benchmark`
+  (`FUTURES_MINUTE_PUBLISH_BENCHMARK_TIER=performance` for the streamed 10M-row
+  iteration tier; `production-shaped` for the opt-in ~377M-row storage run).
+  The JSON report includes exact raw/audit equality and the baseline/candidate
+  ratio; do not claim a 10x speedup unless that report reaches ≥10x with zero
+  equality differences on the same machine.
 
 **Isolated: Match order book**
 

@@ -142,6 +142,11 @@ def test_ci_split_targets_remain_wired():
     assert "latest_fetch_hash_issues, elapsed_axis_issue_markets" in makefile
     assert "'published', 496, 496, 0, 0, 0, 496, 0, 0, 0, None" in makefile
     assert "match-minute-inputs-validate:" in makefile
+    assert "futures-minute-publish-benchmark:" in makefile
+    assert (
+        "scripts/benchmark_polymarket_wc2026_futures_minute_publish.py" in makefile
+    )
+    assert "FUTURES_MINUTE_PUBLISH_BENCHMARK_ROOT" in makefile
     assert "local-marts-rebuild:" in makefile
     assert "+polymarket_wc2026_match_minute_odds" in makefile
     assert "+polymarket_wc2026_polygon_settlement_minute_odds" in makefile

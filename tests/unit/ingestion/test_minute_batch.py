@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -627,3 +628,174 @@ def test_fetch_minute_plan_group_keeps_global_sort_across_windows_without_second
         assert result.history == tuple(
             sorted(result.history, key=lambda row: (row[1], row[0], row[2]))
         )
+
+
+def test_dedupe_history_keeps_last_sorted_duplicate_timestamp():
+    rows = [
+        ("tok", 100, 0.1),
+        ("tok", 100, 0.9),
+        ("tok", 160, 0.2),
+        ("tok", 100, 0.5),
+    ]
+    assert minute_batch._dedupe_history_by_timestamp(rows) == (
+        ("tok", 100, 0.9),
+        ("tok", 160, 0.2),
+    )
+
+
+def test_finalize_history_dedupes_before_hash_and_matches_sql_winner():
+    start = datetime(2026, 7, 1, 12, tzinfo=timezone.utc)
+    end = start + timedelta(minutes=5)
+    plan = _plan("tok-dup", start=start, end=end)
+    ts = int(start.timestamp()) + 30
+    result = minute_batch._finalize_history(
+        plan=plan,
+        raw_rows=[
+            ("tok-dup", ts, 0.1),
+            ("tok-dup", ts, 0.7),
+            ("tok-dup", ts + 60, 0.2),
+        ],
+        exact_start=start.timestamp(),
+        exact_end=end.timestamp(),
+        padded_start=int(start.timestamp()),
+        padded_end=int(end.timestamp()) + 60,
+        source_row_count=3,
+        fetch_started_at=start,
+        empty_error_message="empty",
+    )
+    assert result.fetch_status == "success"
+    assert result.history == (("tok-dup", ts, 0.7), ("tok-dup", ts + 60, 0.2))
+    solo = minute_batch._finalize_history(
+        plan=plan,
+        raw_rows=[("tok-dup", ts, 0.7), ("tok-dup", ts + 60, 0.2)],
+        exact_start=start.timestamp(),
+        exact_end=end.timestamp(),
+        padded_start=int(start.timestamp()),
+        padded_end=int(end.timestamp()) + 60,
+        source_row_count=2,
+        fetch_started_at=start,
+        empty_error_message="empty",
+    )
+    assert result.history_sha256 == solo.history_sha256
+
+
+def test_ensure_unique_success_token_ids_rejects_duplicates():
+    import pytest
+
+    start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    end = start + timedelta(minutes=1)
+    ingested_at = start
+    results = [
+        minute_batch.MinuteFetchResult(
+            plan=_plan("tok", start=start, end=end),
+            fetch_status="success",
+            history=(("tok", 1, 0.1),),
+            request_start_epoch=1,
+            request_end_epoch=2,
+            source_row_count=1,
+            history_sha256="a" * 64,
+            fetch_started_at=ingested_at,
+            fetch_finished_at=ingested_at,
+        ),
+        minute_batch.MinuteFetchResult(
+            plan=_plan("tok", start=start, end=end),
+            fetch_status="success",
+            history=(("tok", 2, 0.2),),
+            request_start_epoch=1,
+            request_end_epoch=2,
+            source_row_count=1,
+            history_sha256="b" * 64,
+            fetch_started_at=ingested_at,
+            fetch_finished_at=ingested_at,
+        ),
+    ]
+    with pytest.raises(ValueError, match="Duplicate success token"):
+        minute_batch.ensure_unique_success_token_ids(results)
+
+
+def test_iter_and_write_minute_history_parquet_shards_bound_and_cleanup(tmp_path, monkeypatch):
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
+    ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    start = datetime(2026, 6, 11, tzinfo=timezone.utc)
+    end = start + timedelta(hours=1)
+    results = []
+    for index in range(5):
+        token = f"tok-{index}"
+        history = tuple((token, 1000 + offset, 0.1) for offset in range(3))
+        results.append(
+            minute_batch.MinuteFetchResult(
+                plan=_plan(token, start=start, end=end),
+                fetch_status="success",
+                history=history,
+                request_start_epoch=1000,
+                request_end_epoch=2000,
+                source_row_count=3,
+                history_sha256="c" * 64,
+                fetch_started_at=ingested_at,
+                fetch_finished_at=ingested_at,
+            )
+        )
+    batches = list(
+        minute_batch.iter_minute_history_arrow_batches(
+            results, ingested_at=ingested_at, max_rows=4
+        )
+    )
+    assert len(batches) >= 2
+    assert sum(batch.num_rows for batch in batches) == 15
+    full = minute_batch.build_minute_history_arrow_table(
+        results, ingested_at=ingested_at, include_row_order=False
+    )
+    assert full.num_rows == 15
+    assert "row_order" not in full.column_names
+
+    paths = minute_batch.write_minute_history_parquet_shards(
+        results,
+        fetch_run_id="run-shards",
+        ingested_at=ingested_at,
+        max_rows_per_shard=6,
+        batch_rows=4,
+    )
+    assert len(paths) >= 2
+    assert all(path.is_file() for path in paths)
+    manifest = json.loads(
+        (paths[0].parent / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["token_count"] == 5
+    assert manifest["token_ids"] == [f"tok-{index}" for index in range(5)]
+    assert manifest["row_count"] == 15
+    minute_batch.cleanup_minute_odds_publish_cache("run-shards")
+    assert not minute_batch.minute_odds_publish_cache_dir("run-shards").exists()
+
+
+def test_iter_minute_history_splits_oversized_token_safely():
+    ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    start = datetime(2026, 6, 11, tzinfo=timezone.utc)
+    end = start + timedelta(hours=1)
+    oversized = minute_batch.MinuteFetchResult(
+        plan=_plan("big", start=start, end=end),
+        fetch_status="success",
+        history=tuple(("big", 1000 + i, 0.1) for i in range(10)),
+        request_start_epoch=1000,
+        request_end_epoch=2000,
+        source_row_count=10,
+        history_sha256="d" * 64,
+        fetch_started_at=ingested_at,
+        fetch_finished_at=ingested_at,
+    )
+    small = minute_batch.MinuteFetchResult(
+        plan=_plan("small", start=start, end=end),
+        fetch_status="success",
+        history=(("small", 2000, 0.2),),
+        request_start_epoch=1000,
+        request_end_epoch=2000,
+        source_row_count=1,
+        history_sha256="e" * 64,
+        fetch_started_at=ingested_at,
+        fetch_finished_at=ingested_at,
+    )
+    batches = list(
+        minute_batch.iter_minute_history_arrow_batches(
+            [small, oversized], ingested_at=ingested_at, max_rows=5
+        )
+    )
+    assert [batch.num_rows for batch in batches] == [1, 10]

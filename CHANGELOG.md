@@ -9,9 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Minute-odds match/futures syncs borrow DuckDB only for plan selection and
-  publish, releasing the warehouse lock during long CLOB fetches so concurrent
-  Dagster steps are not blocked by a stale futures worker.
+- Minute-odds match/futures syncs borrow DuckDB only for plan selection, audit,
+  and publish, releasing the warehouse lock during long CLOB fetches and during
+  temporary Parquet shard construction so other Dagster steps (for example the
+  sibling minute relation) are not blocked by spill. Do not overlap two
+  publishers of the same minute raw table; that can leave multiple
+  `raw_published=true` audits for one surviving snapshot.
 - Futures-minute sync no longer fail-closes on empty in-window CLOB history;
   empty tokens are audited and skipped while success tokens publish. Hard
   `error`/`cancelled` (or all-empty) still fail the run. Publish inventory and
@@ -25,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `make futures-minute-publish-benchmark` /
+  `scripts/benchmark_polymarket_wc2026_futures_minute_publish.py`: disposable
+  baseline-versus-candidate publish harness with exact SQL equality and ignored
+  JSON evidence under `.cache/runtime/benchmarks/futures-minute-publish/`.
 - `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG` (default `true`): when `false`,
   `polymarket_wc2026_minute_odds_backfill` skips markets/event-catalog/registry
   and reuses the warehouse catalog on odds/dbt reruns (restart Dagster after
@@ -38,7 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `dbt-minute-odds-ci`): match-window minute history plus futures tournament-span
   minute history into `polymarket_wc2026_market_minute_odds` (`tag:minute_odds`).
 - Futures-minute raw/audit tables and shared `odds/minute_batch.py` fetch stack
-  (CLOB batch POST, 24h window chunks, RPS auto-tune, Arrow stage publish).
+  (CLOB batch POST, 24h window chunks, RPS auto-tune, Parquet candidate/swap
+  publish).
 - `scripts/cleanup_polymarket_wc2026_registry_hygiene.py`
   (`make cleanup-polymarket-wc2026-registry-hygiene`) dry-runs or applies deletion
   of synthetic catalog contamination (`evt-A` / `evt-B` / `m-shared`) and
@@ -48,21 +56,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Minute-odds Arrow stage build vectorizes per-token broadcast columns via
-  Arrow `take` / `repeat` / `cumulative_sum` and dictionary-encodes
-  `market_id` / `clob_token_id` (no per-row Python dict or list materialization
-  for broadcast columns), cutting the publish-phase Python bottleneck by ~9x on
-  large futures tables and avoiding Arrow `string` int32 offset overflow on
-  ~10^8+ duplicated token ids. Fetch-side history hashing uses typed
-  `array.array` buffers instead of `json.dumps`, and multi-window fetches skip a
-  redundant second full normalize (type-coerce) pass while `_finalize_history`
-  still sorts the exact-window filter.
+- Minute-odds publish no longer double-materializes through a persistent DuckDB
+  stage plus global `row_number()` window. Per-token timestamp dedupe happens
+  before spill (audit `window_history_sha256` / row counts follow the published
+  post-dedupe history); bounded typed Arrow batches write temporary Parquet
+  shards plus a `manifest.json` of exact `token_ids`; DuckDB bulk-loads a
+  candidate table, builds the primary key once, validates constraints and
+  audit/manifest token-id set equality, and atomically renames the candidate
+  into the canonical raw snapshot. Defaults: 4M rows/shard, 256k-row Arrow
+  batches, Snappy compression (frozen via the disposable publish benchmark
+  matrix on equality-correct runs). Same-machine streamed 10M-row performance
+  tier measured about 1.4x DuckDB publish speedup with exact raw/audit
+  equality; do not claim 10x unless a later report reaches ≥10x. Smoke-tier
+  ratios are not the speed claim. Use
+  `make futures-minute-publish-benchmark` with
+  `FUTURES_MINUTE_PUBLISH_BENCHMARK_TIER=performance` or `production-shaped`.
 - Troubleshooting DuckDB lock errors documents how to find and kill orphan
   warehouse holders after a canceled run or `dagster-dev` restart (`lsof` +
   kill; prefer a new launch over auto-retry).
 - Futures-minute sync logs DuckDB audit/publish phases (fetch handoff, audit
-  write, Arrow stage, raw snapshot replace, commit) so large publishes are not
-  silent in Dagster.
+  write, Parquet spill, candidate load, PK build, swap, cleanup) so large
+  publishes are not silent in Dagster.
 - Related-tag event-catalog recall still expands Gamma page breadth, but local
   membership now requires tag / series / slug-prefix match (no related-only
   short-circuit).

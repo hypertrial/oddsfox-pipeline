@@ -10,20 +10,29 @@ from __future__ import annotations
 import array
 import hashlib
 import itertools
+import json
 import logging
 import math
+import os
+import shutil
 from collections import defaultdict
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from threading import Lock, local
 from typing import Any, Callable, Iterator, Protocol, Sequence
 
 import pyarrow as pa
 import pyarrow.compute as pc
+import pyarrow.parquet as pq
 
-from oddsfox_pipeline.config.settings import CLOB_API_URL, ODDS_REQUESTS_PER_SECOND
+from oddsfox_pipeline.config.settings import (
+    BASE_DIR,
+    CLOB_API_URL,
+    ODDS_REQUESTS_PER_SECOND,
+)
 from oddsfox_pipeline.ingestion.polymarket.odds.execution import (
     fetch_group_window_with_auto_split,
     fetch_window_with_auto_split,
@@ -43,8 +52,35 @@ DEFAULT_MINUTE_WINDOW_HOURS = 24
 DEFAULT_MINUTE_AUTO_TUNE_MAX_RPS = 90
 MIN_SPLIT_WINDOW_SECONDS = 300
 FIDELITY_MINUTES = 1
+DEFAULT_MINUTE_PUBLISH_SHARD_ROWS = 4_000_000
+DEFAULT_MINUTE_PUBLISH_BATCH_ROWS = 256_000
+DEFAULT_MINUTE_PUBLISH_COMPRESSION = "snappy"
+# ponytail: ~4M rows/shard won the disposable futures-minute publish matrix
+# (1M/2M/4M × uncompressed/snappy/zstd) on equality-correct runs; upgrade path
+# is re-running `make futures-minute-publish-benchmark` with
+# FUTURES_MINUTE_PUBLISH_BENCHMARK_MATRIX=true.
 
 _MINUTE_TIMESTAMP_TYPE = pa.timestamp("us", tz="UTC")
+_MINUTE_PUBLISH_COLUMNS = (
+    "market_id",
+    "clob_token_id",
+    "timestamp",
+    "price",
+    "fidelity_minutes",
+    "window_start_at",
+    "window_end_at",
+    "ingested_at",
+)
+_MINUTE_PUBLISH_PARQUET_COLUMNS = (
+    "market_id",
+    "clobTokenId",
+    "timestamp",
+    "price",
+    "fidelity_minutes",
+    "window_start_at",
+    "window_end_at",
+    "ingested_at",
+)
 
 
 class MinutePlanLike(Protocol):
@@ -95,30 +131,54 @@ class MinuteFetchResult:
     error_message: str | None = None
 
 
-def build_minute_history_arrow_table(
+def _dedupe_history_by_timestamp(
+    rows: Sequence[tuple[str, int, float]],
+) -> tuple[tuple[str, int, float], ...]:
+    """Keep one row per timestamp; last sorted occurrence wins.
+
+    Matches the former publish SQL winner when ``ingested_at`` is constant and
+    ``row_order`` increases in ``(timestamp, token, price)`` order: the last
+    duplicate for a timestamp is retained.
+    """
+    if not rows:
+        return ()
+    ordered = sorted(rows, key=lambda row: (row[1], row[0], row[2]))
+    by_ts: dict[int, tuple[str, int, float]] = {}
+    for row in ordered:
+        by_ts[row[1]] = row
+    return tuple(sorted(by_ts.values(), key=lambda row: (row[1], row[0], row[2])))
+
+
+def ensure_unique_success_token_ids(
+    results: Sequence[MinuteHistoryResultLike],
+) -> None:
+    """Fail closed when the same success token would publish twice."""
+    seen: set[str] = set()
+    for result in results:
+        if not result.history:
+            continue
+        token_id = result.plan.token_id
+        if token_id in seen:
+            raise ValueError(
+                f"Duplicate success token plan for publish: {token_id}"
+            )
+        seen.add(token_id)
+
+
+def _build_minute_history_arrow_batch(
     results: Sequence[MinuteHistoryResultLike],
     *,
     ingested_at: datetime,
     fidelity_minutes: int = FIDELITY_MINUTES,
+    include_row_order: bool = False,
 ) -> pa.Table:
-    """Build the minute-odds stage Arrow table without per-row Python dicts.
-
-    Broadcasts per-token scalars via Arrow ``take`` / ``repeat`` / dictionary
-    encoding instead of building ``total_rows``-length Python lists. String
-    columns (``market_id``, ``clob_token_id``) stay dictionary-encoded so
-    expanded row counts cannot overflow Arrow's ``string`` int32 value offsets
-    (the failure mode for ~10^8+ rows of duplicated token ids). List offsets
-    use ``int32``, so this path supports at most ``2**31 - 1`` (~2.1B) rows.
-
-    Skips results with empty history. Raises ``ValueError`` when no points remain.
-    """
+    """Build one Arrow batch from success tokens with non-empty history."""
     filtered = [result for result in results if result.history]
     if not filtered:
         raise ValueError("rows must not be empty")
 
     counts = [len(result.history) for result in filtered]
     total_rows = sum(counts)
-
     offsets = pa.array(
         itertools.chain([0], itertools.accumulate(counts)), type=pa.int32()
     )
@@ -126,7 +186,6 @@ def build_minute_history_arrow_table(
     parent_idx = pc.list_parent_indices(
         pa.ListArray.from_arrays(offsets, placeholder)
     )
-    # Dictionary indices must be a signed integer array; values are 0..n_tokens-1.
     dict_indices = parent_idx.cast(pa.int32())
 
     small_market_ids = pa.array(
@@ -142,41 +201,249 @@ def build_minute_history_arrow_table(
         [result.plan.finished_at for result in filtered], type=_MINUTE_TIMESTAMP_TYPE
     )
 
-    # Only timestamp/price are genuinely per-row; token is validated ==
-    # plan.token_id in _finalize_history, so it doesn't need per-row extraction.
-    timestamps: list[int] = []
-    prices: list[float] = []
-    append_ts, append_px = timestamps.append, prices.append
+    ts_buf = array.array("q")
+    price_buf = array.array("d")
     for result in filtered:
         for _token, ts, price in result.history:
-            append_ts(ts)
-            append_px(price)
+            ts_buf.append(ts)
+            price_buf.append(price)
 
-    row_order = pc.subtract(
-        pc.cumulative_sum(pa.repeat(1, total_rows)), 1
-    ).cast(pa.int64())
+    columns: dict[str, Any] = {
+        "market_id": pa.DictionaryArray.from_arrays(dict_indices, small_market_ids),
+        "clob_token_id": pa.DictionaryArray.from_arrays(dict_indices, small_token_ids),
+        "timestamp": pa.array(ts_buf, type=pa.int64()),
+        "price": pa.array(price_buf, type=pa.float64()),
+        "fidelity_minutes": pa.repeat(fidelity_minutes, total_rows).cast(pa.int32()),
+        "window_start_at": small_starts.take(parent_idx),
+        "window_end_at": small_ends.take(parent_idx),
+        "ingested_at": pa.repeat(
+            pa.scalar(ingested_at, type=_MINUTE_TIMESTAMP_TYPE), total_rows
+        ),
+    }
+    if include_row_order:
+        columns["row_order"] = pc.subtract(
+            pc.cumulative_sum(pa.repeat(1, total_rows)), 1
+        ).cast(pa.int64())
+    return pa.table(columns)
 
-    return pa.table(
-        {
-            "market_id": pa.DictionaryArray.from_arrays(
-                dict_indices, small_market_ids
-            ),
-            "clob_token_id": pa.DictionaryArray.from_arrays(
-                dict_indices, small_token_ids
-            ),
-            "timestamp": pa.array(timestamps, type=pa.int64()),
-            "price": pa.array(prices, type=pa.float64()),
-            "fidelity_minutes": pa.repeat(fidelity_minutes, total_rows).cast(
-                pa.int32()
-            ),
-            "window_start_at": small_starts.take(parent_idx),
-            "window_end_at": small_ends.take(parent_idx),
-            "ingested_at": pa.repeat(
-                pa.scalar(ingested_at, type=_MINUTE_TIMESTAMP_TYPE), total_rows
-            ),
-            "row_order": row_order,
-        }
+
+def build_minute_history_arrow_table(
+    results: Sequence[MinuteHistoryResultLike],
+    *,
+    ingested_at: datetime,
+    fidelity_minutes: int = FIDELITY_MINUTES,
+    include_row_order: bool = True,
+) -> pa.Table:
+    """Build the minute-odds Arrow table without per-row Python dicts.
+
+    Broadcasts per-token scalars via Arrow ``take`` / ``repeat`` / dictionary
+    encoding. String columns stay dictionary-encoded so expanded row counts
+    cannot overflow Arrow's ``string`` int32 value offsets. Timestamp/price use
+    typed ``array.array`` buffers instead of boxed Python lists.
+
+    Skips results with empty history. Raises ``ValueError`` when no points remain.
+    """
+    return _build_minute_history_arrow_batch(
+        results,
+        ingested_at=ingested_at,
+        fidelity_minutes=fidelity_minutes,
+        include_row_order=include_row_order,
     )
+
+
+def iter_minute_history_arrow_batches(
+    results: Sequence[MinuteHistoryResultLike],
+    *,
+    ingested_at: datetime,
+    fidelity_minutes: int = FIDELITY_MINUTES,
+    max_rows: int = DEFAULT_MINUTE_PUBLISH_BATCH_ROWS,
+) -> Iterator[pa.Table]:
+    """Yield bounded Arrow batches that never split mid-token when possible."""
+    filtered = [result for result in results if result.history]
+    if not filtered:
+        raise ValueError("rows must not be empty")
+    batch_cap = max(1, int(max_rows))
+    batch: list[MinuteHistoryResultLike] = []
+    batch_rows = 0
+    for result in filtered:
+        history_rows = len(result.history)
+        if history_rows > batch_cap:
+            if batch:
+                yield _build_minute_history_arrow_batch(
+                    batch,
+                    ingested_at=ingested_at,
+                    fidelity_minutes=fidelity_minutes,
+                    include_row_order=False,
+                )
+                batch = []
+                batch_rows = 0
+            # Oversized single token: emit one batch for the whole token.
+            yield _build_minute_history_arrow_batch(
+                [result],
+                ingested_at=ingested_at,
+                fidelity_minutes=fidelity_minutes,
+                include_row_order=False,
+            )
+            continue
+        if batch and batch_rows + history_rows > batch_cap:
+            yield _build_minute_history_arrow_batch(
+                batch,
+                ingested_at=ingested_at,
+                fidelity_minutes=fidelity_minutes,
+                include_row_order=False,
+            )
+            batch = []
+            batch_rows = 0
+        batch.append(result)
+        batch_rows += history_rows
+    if batch:
+        yield _build_minute_history_arrow_batch(
+            batch,
+            ingested_at=ingested_at,
+            fidelity_minutes=fidelity_minutes,
+            include_row_order=False,
+        )
+
+
+def minute_odds_publish_cache_dir(fetch_run_id: str) -> Path:
+    """Return the ignored runtime cache directory for one publish run."""
+    root = Path(
+        os.getenv("ODDSFOX_RUNTIME_ROOT", str(BASE_DIR / ".cache" / "runtime"))
+    ).expanduser()
+    resolved_root = root.resolve()
+    target = (resolved_root / "minute-odds-publish" / str(fetch_run_id)).resolve()
+    if not target.is_relative_to(resolved_root):
+        raise ValueError("minute-odds publish cache path escaped runtime root")
+    return target
+
+
+def write_minute_history_parquet_shards(
+    results: Sequence[MinuteHistoryResultLike],
+    *,
+    fetch_run_id: str,
+    ingested_at: datetime,
+    fidelity_minutes: int = FIDELITY_MINUTES,
+    max_rows_per_shard: int = DEFAULT_MINUTE_PUBLISH_SHARD_ROWS,
+    batch_rows: int = DEFAULT_MINUTE_PUBLISH_BATCH_ROWS,
+    compression: str | None = DEFAULT_MINUTE_PUBLISH_COMPRESSION,
+    log: Any = logger,
+) -> list[Path]:
+    """Spill publish Arrow batches to temporary Parquet shards under runtime cache."""
+    ensure_unique_success_token_ids(results)
+    cache_dir = minute_odds_publish_cache_dir(fetch_run_id)
+    if cache_dir.exists():
+        shutil.rmtree(cache_dir)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    estimated_rows = sum(len(result.history) for result in results if result.history)
+    # Rough upper bound: ~40 bytes/row uncompressed Arrow plus Parquet overhead.
+    # Fail before writing when free space is clearly insufficient for spill.
+    free_bytes = shutil.disk_usage(cache_dir).free
+    estimated_bytes = max(estimated_rows, 1) * 40
+    log.info(
+        "Minute-odds publish spill planning %s rows under %s "
+        "(free_bytes=%s estimated_bytes=%s)",
+        estimated_rows,
+        cache_dir,
+        free_bytes,
+        estimated_bytes,
+    )
+    if free_bytes < estimated_bytes:
+        shutil.rmtree(cache_dir, ignore_errors=True)
+        raise OSError(
+            f"Insufficient local free space for minute-odds parquet spill: "
+            f"need~{estimated_bytes} bytes, free={free_bytes}"
+        )
+
+    shard_paths: list[Path] = []
+    shard_tables: list[pa.Table] = []
+    shard_rows = 0
+    shard_index = 0
+    total_rows = 0
+    shard_cap = max(1, int(max_rows_per_shard))
+
+    def _flush() -> None:
+        nonlocal shard_tables, shard_rows, shard_index
+        if not shard_tables:
+            return
+        table = pa.concat_tables(shard_tables, promote_options="default")
+        # Rename to canonical DuckDB column names so publish can SELECT by name.
+        # Keep dictionary encoding: repeated token/market ids compress well and
+        # DuckDB reads dict-encoded Parquet efficiently for this shape.
+        renamed = table.select(list(_MINUTE_PUBLISH_COLUMNS)).rename_columns(
+            list(_MINUTE_PUBLISH_PARQUET_COLUMNS)
+        )
+        path = cache_dir / f"shard-{shard_index:05d}.parquet"
+        pq.write_table(
+            renamed,
+            path,
+            compression=compression,
+            write_statistics=False,
+        )
+        shard_paths.append(path)
+        log.info(
+            "Minute-odds publish wrote shard %s (%s rows, %s bytes)",
+            path.name,
+            table.num_rows,
+            path.stat().st_size,
+        )
+        shard_index += 1
+        shard_tables = []
+        shard_rows = 0
+
+    try:
+        for batch in iter_minute_history_arrow_batches(
+            results,
+            ingested_at=ingested_at,
+            fidelity_minutes=fidelity_minutes,
+            max_rows=batch_rows,
+        ):
+            if shard_tables and shard_rows + batch.num_rows > shard_cap:
+                _flush()
+            shard_tables.append(batch)
+            shard_rows += batch.num_rows
+            total_rows += batch.num_rows
+            if shard_rows >= shard_cap:
+                _flush()
+        _flush()
+    except Exception:
+        shutil.rmtree(cache_dir, ignore_errors=True)
+        raise
+    if not shard_paths:
+        shutil.rmtree(cache_dir, ignore_errors=True)
+        raise ValueError("rows must not be empty")
+    token_ids = sorted(
+        {result.plan.token_id for result in results if result.history}
+    )
+    manifest_path = cache_dir / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "fetch_run_id": fetch_run_id,
+                "token_count": len(token_ids),
+                "token_ids": token_ids,
+                "row_count": total_rows,
+                "shard_count": len(shard_paths),
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    log.info(
+        "Minute-odds publish spilled %s rows into %s parquet shard(s) under %s",
+        total_rows,
+        len(shard_paths),
+        cache_dir,
+    )
+    return shard_paths
+
+
+def cleanup_minute_odds_publish_cache(fetch_run_id: str) -> None:
+    """Delete temporary Parquet shards for a fetch run if present."""
+    cache_dir = minute_odds_publish_cache_dir(fetch_run_id)
+    if cache_dir.exists():
+        shutil.rmtree(cache_dir)
 
 
 def sanitize_error_message(exc: Exception) -> str:
@@ -236,10 +503,9 @@ def _finalize_history(
     fetch_started_at: datetime,
     empty_error_message: str,
 ) -> MinuteFetchResult:
-    filtered = tuple(
-        sorted(
-            (row for row in raw_rows if exact_start <= row[1] <= exact_end),
-            key=lambda row: (row[1], row[0], row[2]),
+    filtered = _dedupe_history_by_timestamp(
+        tuple(
+            row for row in raw_rows if exact_start <= row[1] <= exact_end
         )
     )
     if not filtered:
@@ -702,6 +968,9 @@ def execute_minute_fetches(
 __all__ = [
     "DEFAULT_MINUTE_AUTO_TUNE_MAX_RPS",
     "DEFAULT_MINUTE_BATCH_GROUP_SIZE",
+    "DEFAULT_MINUTE_PUBLISH_BATCH_ROWS",
+    "DEFAULT_MINUTE_PUBLISH_COMPRESSION",
+    "DEFAULT_MINUTE_PUBLISH_SHARD_ROWS",
     "DEFAULT_MINUTE_REQUESTS_PER_SECOND",
     "DEFAULT_MINUTE_WINDOW_HOURS",
     "DEFAULT_MINUTE_WORKERS",
@@ -712,10 +981,15 @@ __all__ = [
     "MinutePlanLike",
     "borrow_duckdb_connection",
     "build_minute_history_arrow_table",
+    "cleanup_minute_odds_publish_cache",
+    "ensure_unique_success_token_ids",
     "execute_minute_fetches",
     "fetch_minute_plan",
     "fetch_minute_plan_group",
     "group_minute_plans",
+    "iter_minute_history_arrow_batches",
+    "minute_odds_publish_cache_dir",
     "padded_epoch_bounds",
     "sanitize_error_message",
+    "write_minute_history_parquet_shards",
 ]
