@@ -4,6 +4,7 @@ pytest.importorskip("dagster")
 pytest.importorskip("dagster_dbt")
 
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -372,6 +373,55 @@ def test_dbt_assets_guardrail_hard_timeout_terminates_process(monkeypatch):
             )
         )
     assert process_mock.terminate.called
+
+
+def test_dbt_assets_guardrail_hard_timeout_escalates_to_sigkill(monkeypatch):
+    """SIGTERM alone can leave a busy DuckDB query's dbt process alive and
+    holding the warehouse lock; the guardrail must escalate to SIGKILL."""
+    from oddsfox_pipeline.orchestration import assets as assets_mod
+    from oddsfox_pipeline.orchestration.assets import oddsfox_dbt
+
+    clock = _FakeClock()
+    _patch_guardrail_clock(monkeypatch, assets_mod, clock)
+    monkeypatch.setattr(dbt_build_mod, "Thread", _DormantThread)
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "Queue",
+        lambda *args, **kwargs: _FakeQueue(
+            *args,
+            **kwargs,
+            clock=clock,
+            empty_cycles=1,
+            empty_advance=1.1,
+        ),
+    )
+
+    process_mock = MagicMock(returncode=None, pid=4242)
+    process_mock.wait.side_effect = subprocess.TimeoutExpired(cmd="dbt", timeout=30)
+
+    class MockDbt:
+        def cli(self, *a, **k):
+            m = MagicMock(process=process_mock)
+            m.stream = lambda: iter(())
+            return m
+
+    fn = oddsfox_dbt.op.compute_fn.decorated_fn
+    ctx = MagicMock()
+    with pytest.raises(Exception):
+        list(
+            fn(
+                ctx,
+                MockDbt(),
+                orch_config.DbtBuildConfig(
+                    no_progress_soft_timeout_seconds=None,
+                    no_progress_hard_timeout_seconds=1,
+                    progress_log_interval_seconds=1,
+                    progress_poll_seconds=1,
+                ),
+            )
+        )
+    assert process_mock.terminate.called
+    assert process_mock.kill.called
 
 
 def test_dbt_assets_guardrail_wait_continue_and_stream_error(monkeypatch):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import subprocess
 from queue import Empty, Queue
 from threading import Thread
 from typing import Any
@@ -89,6 +90,45 @@ def _cleanup_dbt_adapter(invocation: Any) -> None:
     if callable(cleanup_all):
         with contextlib.suppress(Exception):
             cleanup_all()
+
+
+# A large DuckDB query (e.g. a full unsampled minute-odds rebuild) can keep
+# every thread in the dbt subprocess busy inside a C extension call. SIGTERM's
+# default disposition still terminates the process without interpreter
+# involvement, but DuckDB's worker threads can hold it pending until the
+# query yields control back. SIGKILL cannot be blocked, so escalate to it if
+# the process outlives a bounded grace period -- otherwise it survives as an
+# orphan holding an exclusive lock on the warehouse file, wedging every
+# subsequent run against the same database.
+_DBT_TERMINATE_GRACE_SECONDS = 30.0
+
+
+def _terminate_dbt_process(
+    invocation: Any,
+    *,
+    context: AssetExecutionContext,
+    asset_name: str,
+) -> None:
+    process = getattr(invocation, "process", None)
+    if process is None:
+        return
+    try:
+        process.terminate()
+        process.wait(timeout=_DBT_TERMINATE_GRACE_SECONDS)
+    except subprocess.TimeoutExpired:
+        context.log.error(
+            "%s dbt process pid=%s ignored SIGTERM after %.0fs; sending SIGKILL",
+            asset_name,
+            process.pid,
+            _DBT_TERMINATE_GRACE_SECONDS,
+        )
+        with contextlib.suppress(Exception):
+            process.kill()
+            process.wait(timeout=_DBT_TERMINATE_GRACE_SECONDS)
+    except Exception:
+        context.log.warning(
+            "%s failed to terminate dbt process cleanly", asset_name, exc_info=True
+        )
 
 
 def _run_dbt_cli_to_completion(
@@ -256,8 +296,9 @@ def stream_dbt_build(
                         "%s dbt build no-progress hard timeout; terminating dbt process",
                         asset_name,
                     )
-                    with contextlib.suppress(Exception):
-                        invocation.process.terminate()
+                    _terminate_dbt_process(
+                        invocation, context=context, asset_name=asset_name
+                    )
                     raise
                 continue
 

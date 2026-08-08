@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The `oddsfox_dbt` build's no-progress hard timeout now escalates to `SIGKILL`
+  if the dbt subprocess outlives a bounded grace period after `SIGTERM`. A
+  single large dbt node (for example the unsampled full-backfill
+  `int_polymarket_wc2026_futures_token_minute_odds` table rebuild) can run for
+  hours with zero streamed events; the prior single-`SIGTERM` termination
+  could leave the dbt process running as an orphan that held an exclusive lock
+  on the DuckDB warehouse file, wedging every subsequent run against it even
+  after Dagster reported the run as failed/canceled.
 - Match-minute and unified minute-odds catalog refresh skip the exhaustive Gamma
   slug-prefix recall partition (now default-off on
   `MarketScopeRegistryConfig` / `collect_wc2026_event_catalog`). Only
