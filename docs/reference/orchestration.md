@@ -155,7 +155,10 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   OpenFootball schedule fixtures (knockout subset 73–104), discovers closed
   Gamma events without a volume floor, validates result alignment and the
   104/248/496 inventory, fetches exact game windows at CLOB `fidelity=1`, then
-  runs dbt. The results refresh first resolves and downloads an immutable Git
+  runs dbt. Catalog refresh uses routine tag/series discovery (same as registry
+  refresh) and does not run the multi-hour slug-prefix recall; use
+  `polymarket_wc2026_event_catalog_recall_audit` for that completeness scan.
+  The results refresh first resolves and downloads an immutable Git
   revision.   Minute fetches append 496 audit rows; only an all-success run
   atomically replaces raw history and marks those audits published.
   Fetch throughput matches the hourly odds path: CLOB batch POST (≤20
@@ -195,7 +198,9 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG=false`,
   `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH=false`, and/or
   `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES=false` (and restart Dagster) to
-  reuse already-landed warehouse stages on reruns. Run
+  reuse already-landed warehouse stages on reruns. Catalog refresh uses routine
+  tag/series discovery and skips exhaustive slug-prefix recall (use the
+  dedicated recall-audit job for that). Run
   `uv run make minute-odds-backfill` after the schedule overlay is validated. No
   schedule. Measure publish-only candidate/swap speed with
   `uv run make futures-minute-publish-benchmark`

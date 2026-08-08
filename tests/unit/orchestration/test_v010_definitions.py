@@ -282,8 +282,7 @@ def test_match_minute_job_is_closed_untruncated_and_unscheduled():
     assert event_catalog["keyset_volume_min"] == 0.0
     assert markets["max_event_pages"] is None
     assert markets["max_pages_without_progress"] is None
-    assert event_catalog["include_slug_prefix_recall"] is True
-    assert event_catalog["slug_prefix_recall_max_pages_without_progress"] is None
+    assert event_catalog["include_slug_prefix_recall"] is False
     assert minute["requests_per_second"] > 0
     assert dbt["dbt_select"] == "+polymarket_wc2026_match_minute_odds"
     selected = defs.resolve_job_def(
@@ -442,12 +441,19 @@ def test_minute_odds_smoke_run_config_samples_both_legs_and_caps_futures(monkeyp
     registry = smoke["polymarket_wc2026_ops_market_scope_registry"]["config"]
     assert catalog["include_slug_prefix_recall"] is False
     assert registry["include_slug_prefix_recall"] is False
-    # Production unified backfill still keeps exhaustive recall for completeness.
+    # Production match/unified minute backfills also skip exhaustive recall;
+    # only the dedicated recall-audit job enables it.
     assert (
         production["polymarket_wc2026_raw_event_catalog"]["config"][
             "include_slug_prefix_recall"
         ]
-        is True
+        is False
+    )
+    assert (
+        polymarket_wc2026_match_minute_odds_run_config()["ops"][
+            "polymarket_wc2026_raw_event_catalog"
+        ]["config"]["include_slug_prefix_recall"]
+        is False
     )
     assert "polymarket_wc2026_minute_odds_live_smoke" in {
         job.name for job in defs.resolve_all_job_defs()
@@ -685,6 +691,11 @@ def test_event_catalog_recall_audit_job_is_isolated_and_unscheduled():
     routine_catalog = routine["polymarket_wc2026_raw_event_catalog"]["config"]
     assert routine_catalog["include_slug_prefix_recall"] is False
 
+    match_catalog = polymarket_wc2026_match_minute_odds_run_config()["ops"][
+        "polymarket_wc2026_raw_event_catalog"
+    ]["config"]
+    assert match_catalog["include_slug_prefix_recall"] is False
+
     selected = defs.resolve_job_def(
         "polymarket_wc2026_event_catalog_recall_audit"
     ).asset_layer.selected_asset_keys
@@ -697,6 +708,27 @@ def test_event_catalog_recall_audit_job_is_isolated_and_unscheduled():
         for schedule in defs.schedules
     )
 
+
+def test_minute_odds_run_config_skips_slug_prefix_recall(monkeypatch):
+    import oddsfox_pipeline.orchestration.config as orch_config
+
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", True
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", True
+    )
+    monkeypatch.setattr(
+        orch_config, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", True
+    )
+    ops = orch_config.polymarket_wc2026_minute_odds_run_config()["ops"]
+    catalog = ops["polymarket_wc2026_raw_event_catalog"]["config"]
+    registry = ops["polymarket_wc2026_ops_market_scope_registry"]["config"]
+    assert catalog["include_slug_prefix_recall"] is False
+    assert registry["include_slug_prefix_recall"] is False
+
+
+def test_match_order_book_dbt_selection_does_not_leak_sibling_model_checks():
     graph = defs.resolve_asset_graph()
     selected_assets = POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_SELECTION.resolve(graph)
     selected_checks = POLYMARKET_WC2026_MATCH_ORDER_BOOK_DBT_SELECTION.resolve_checks(

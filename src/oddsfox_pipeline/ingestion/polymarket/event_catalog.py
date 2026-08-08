@@ -405,7 +405,7 @@ def collect_wc2026_event_catalog(
     max_pages: int | None = None,
     event_tag: str = WC2026_EVENT_TAG,
     progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
-    include_slug_prefix_recall: bool = True,
+    include_slug_prefix_recall: bool = False,
     slug_prefix_recall_max_pages_without_progress: int | None = None,
     load_checkpoint_fn: Callable[[], dict[str, dict[str, Any]]] | None = None,
     save_checkpoint_fn: (

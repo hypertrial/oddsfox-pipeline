@@ -136,7 +136,9 @@ def test_catalog_converges_on_membership_inventory(
 
     monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
     batch = catalog.collect_wc2026_event_catalog(
-        client=object(), observed_at=datetime(2026, 8, 2, tzinfo=timezone.utc)
+        client=object(),
+        observed_at=datetime(2026, 8, 2, tzinfo=timezone.utc),
+        include_slug_prefix_recall=True,
     )
 
     assert len(batch.summary["scan_partitions"]) == 10
@@ -383,7 +385,9 @@ def test_slug_prefix_recall_uses_unfiltered_keyset_and_local_filter(
         yield [match, miss], EventsPageMeta(pages_done=1, truncated=False)
 
     monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
-    batch = catalog.collect_wc2026_event_catalog(client=object())
+    batch = catalog.collect_wc2026_event_catalog(
+        client=object(), include_slug_prefix_recall=True
+    )
 
     assert (
         batch.summary["scan_partitions"]["wc2026_event_slug_prefix_recall:open"][
@@ -503,6 +507,30 @@ def test_include_slug_prefix_recall_false_skips_slug_partitions(
     )
 
     assert len(batch.summary["scan_partitions"]) == 8
+    assert not any(
+        key.startswith("wc2026_event_slug_prefix_recall:")
+        for key in batch.summary["scan_partitions"]
+    )
+    assert all(
+        "wc2026_event_catalog_wc2026_event_slug_prefix_recall"
+        not in request["progress_task"]
+        for request in requests
+    )
+
+
+def test_collect_event_catalog_defaults_skip_slug_prefix_recall(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_series(monkeypatch)
+    requests: list[dict[str, Any]] = []
+
+    def pages(*_args: Any, **kwargs: Any):
+        requests.append(kwargs)
+        yield [_event()], EventsPageMeta(pages_done=1, truncated=False)
+
+    monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
+    batch = catalog.collect_wc2026_event_catalog(client=object())
+
     assert not any(
         key.startswith("wc2026_event_slug_prefix_recall:")
         for key in batch.summary["scan_partitions"]

@@ -124,9 +124,9 @@ Then rerun the quickstart.
   every partition from page 0; incomplete early-stop caches are rescanned.
   Checkpoints clear after a successful warehouse merge. Set
   `reset_event_catalog_checkpoint=true` in run config to discard checkpoints.
-- Routine full-pipeline / registry-refresh runs skip the platform-wide
-  slug-prefix recall scan. For a rare completeness re-check, run
-  `uv run make event-catalog-recall-audit`.
+- Routine full-pipeline, registry-refresh, match-minute, and unified minute-odds
+  runs skip the platform-wide slug-prefix recall scan. For a rare completeness
+  re-check, run `uv run make event-catalog-recall-audit`.
 - Check `polymarket_wc2026_ops.ingestion_run_events` and
   `polymarket_wc2026_ops.sync_run_metrics` for WC2026 run payloads.
 - Summarize the latest task outcomes locally:

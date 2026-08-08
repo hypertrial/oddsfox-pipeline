@@ -43,7 +43,8 @@ POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES=true
 uv run make minute-odds-backfill
 ```
 
-The job obtains:
+Catalog refresh uses routine tag/series discovery (not the multi-hour
+slug-prefix recall audit). The job obtains:
 
 - market inventory from the public
   [Polymarket Gamma API](https://docs.polymarket.com/api-reference/introduction);

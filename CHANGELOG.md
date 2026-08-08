@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Match-minute and unified minute-odds catalog refresh skip the exhaustive Gamma
+  slug-prefix recall partition (now default-off on
+  `MarketScopeRegistryConfig` / `collect_wc2026_event_catalog`). Only
+  `polymarket_wc2026_event_catalog_recall_audit` enables unlimited recall.
+  Tag/series discovery and 104/248/496 inventory fail-closed checks remain.
 - `polymarket_wc2026_minute_odds_live_smoke` catalog refresh skips the exhaustive
   Gamma slug-prefix recall partition (use
   `polymarket_wc2026_event_catalog_recall_audit` for that completeness scan).

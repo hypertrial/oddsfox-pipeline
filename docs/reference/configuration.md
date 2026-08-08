@@ -251,14 +251,14 @@ to tighten or relax the guard for a one-off run.
 `polymarket_wc2026_raw_event_catalog` (and the shared
 `MarketScopeRegistryConfig` used by registry refresh) also exposes:
 
-- `include_slug_prefix_recall` (default `true` on the config class; routine
-  `full_pipeline` / registry refresh set `false`): when `false`, skip the
-  unfiltered Gamma slug-prefix recall partition. Tag and series scans still
-  run.
+- `include_slug_prefix_recall` (default `false` on the config class): when
+  `false`, skip the unfiltered Gamma slug-prefix recall partition. Tag and
+  series scans still run. Only
+  `polymarket_wc2026_event_catalog_recall_audit` enables this (`true` with
+  unlimited pages).
 - `slug_prefix_recall_max_pages_without_progress` (default `500`; `null` =
   exhaustive): early-stop the slug-prefix partition after this many consecutive
-  pages with no local prefix matches. Match-minute and the recall-audit job pin
-  `null`.
+  pages with no local prefix matches. The recall-audit job pins `null`.
 - `reset_event_catalog_checkpoint` (default `false`): clear
   `polymarket_wc2026_ops.event_catalog_scan_checkpoint` before crawling.
 

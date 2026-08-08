@@ -99,8 +99,8 @@ class MarketScopeRegistryConfig(GuardrailConfig):
     keyset_tag_slugs: list[str] | None = None
     keyset_volume_min: float | None = Field(default=None, ge=0)
     max_pages_without_progress: int | None = None
-    # Routine jobs set False; exhaustive recall is the dedicated audit job.
-    include_slug_prefix_recall: bool = True
+    # Default off: exhaustive slug-prefix recall is the dedicated audit job only.
+    include_slug_prefix_recall: bool = False
     slug_prefix_recall_max_pages_without_progress: int | None = Field(default=500, ge=1)
     reset_event_catalog_checkpoint: bool = False
     skip_if_snapshot_refreshed: bool = True
@@ -385,9 +385,9 @@ def polymarket_wc2026_match_minute_odds_run_config() -> dict:
         keyset_volume_min=0.0,
         apply_event_volume_eligibility_gate=False,
         max_pages_without_progress=None,
-        # Keep slug-prefix recall exhaustive for the 104/248/496 fixture contract.
-        include_slug_prefix_recall=True,
-        slug_prefix_recall_max_pages_without_progress=None,
+        # Routine discovery: tag/series only. Exhaustive slug-prefix recall is
+        # polymarket_wc2026_event_catalog_recall_audit (multi-hour at live rates).
+        include_slug_prefix_recall=False,
     )
     dbt = DbtBuildConfig(
         full_refresh=False,
@@ -432,8 +432,8 @@ def polymarket_wc2026_minute_odds_run_config() -> dict:
             keyset_volume_min=0.0,
             apply_event_volume_eligibility_gate=True,
             max_pages_without_progress=None,
-            include_slug_prefix_recall=True,
-            slug_prefix_recall_max_pages_without_progress=None,
+            # Same routine catalog path as match-minute / full refresh.
+            include_slug_prefix_recall=False,
         )
         ops["polymarket_wc2026_raw_markets"] = {"config": markets.model_dump()}
         ops["polymarket_wc2026_raw_event_catalog"] = {"config": registry.model_dump()}

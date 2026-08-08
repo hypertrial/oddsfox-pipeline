@@ -242,7 +242,7 @@ def _materialize_event_catalog(
         "no_progress_soft_timeout_seconds=%s, no_progress_hard_timeout_seconds=%s)",
         asset_name,
         config.max_event_pages,
-        getattr(config, "include_slug_prefix_recall", True),
+        getattr(config, "include_slug_prefix_recall", False),
         getattr(config, "slug_prefix_recall_max_pages_without_progress", None),
         config.progress_log_interval_pages,
         config.progress_log_interval_seconds,
@@ -286,7 +286,7 @@ def _materialize_event_catalog(
             max_pages=config.max_event_pages,
             progress_callback=_catalog_progress,
             include_slug_prefix_recall=getattr(
-                config, "include_slug_prefix_recall", True
+                config, "include_slug_prefix_recall", False
             ),
             slug_prefix_recall_max_pages_without_progress=getattr(
                 config, "slug_prefix_recall_max_pages_without_progress", None
