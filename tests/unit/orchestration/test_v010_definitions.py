@@ -438,6 +438,17 @@ def test_minute_odds_smoke_run_config_samples_both_legs_and_caps_futures(monkeyp
     assert smoke["oddsfox_dbt"]["config"]["dbt_select"] == (
         "+polymarket_wc2026_market_minute_odds_data_quality"
     )
+    catalog = smoke["polymarket_wc2026_raw_event_catalog"]["config"]
+    registry = smoke["polymarket_wc2026_ops_market_scope_registry"]["config"]
+    assert catalog["include_slug_prefix_recall"] is False
+    assert registry["include_slug_prefix_recall"] is False
+    # Production unified backfill still keeps exhaustive recall for completeness.
+    assert (
+        production["polymarket_wc2026_raw_event_catalog"]["config"][
+            "include_slug_prefix_recall"
+        ]
+        is True
+    )
     assert "polymarket_wc2026_minute_odds_live_smoke" in {
         job.name for job in defs.resolve_all_job_defs()
     }

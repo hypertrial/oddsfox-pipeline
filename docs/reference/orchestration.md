@@ -215,6 +215,9 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   token for a selected market is retained. Sampled futures windows are then
   capped to their final
   `POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_FUTURES_WINDOW_HOURS` (default 24).
+  Catalog refresh uses routine tag/series discovery and skips the exhaustive
+  slug-prefix recall (use `polymarket_wc2026_event_catalog_recall_audit` for
+  that multi-hour completeness scan).
   dbt still builds `+polymarket_wc2026_market_minute_odds_data_quality` only —
   it does **not** run or weaken `+polymarket_wc2026_match_minute_odds` and its
   full publication gate. Always target

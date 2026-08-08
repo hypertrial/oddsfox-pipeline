@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `polymarket_wc2026_minute_odds_live_smoke` catalog refresh skips the exhaustive
+  Gamma slug-prefix recall partition (use
+  `polymarket_wc2026_event_catalog_recall_audit` for that completeness scan).
+  Smoke still runs routine tag/series discovery before sampling.
 - Minute-odds match/futures syncs borrow DuckDB only for plan selection, audit,
   and publish, releasing the warehouse lock during long CLOB fetches and during
   temporary Parquet shard construction so other Dagster steps (for example the

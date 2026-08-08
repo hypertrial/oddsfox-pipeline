@@ -468,9 +468,22 @@ def polymarket_wc2026_minute_odds_run_config() -> dict:
 
 
 def polymarket_wc2026_minute_odds_smoke_run_config() -> dict:
-    """Disposable live smoke: sample 5% markets per leg; cap futures to 24h."""
+    """Disposable live smoke: sample 5% markets per leg; cap futures to 24h.
+
+    Catalog refresh still runs the routine tag/series discovery, but skips the
+    exhaustive slug-prefix recall (that path belongs to the dedicated recall
+    audit job and can take hours at live Gamma rates).
+    """
     base = polymarket_wc2026_minute_odds_run_config()
     ops = dict(base["ops"])
+    catalog_key = "polymarket_wc2026_raw_event_catalog"
+    registry_key = "polymarket_wc2026_ops_market_scope_registry"
+    for key in (catalog_key, registry_key):
+        if key not in ops:
+            continue
+        cfg = dict(ops[key]["config"])
+        cfg["include_slug_prefix_recall"] = False
+        ops[key] = {"config": cfg}
     match_key = "polymarket_wc2026_raw_match_token_odds_history_minute"
     futures_key = "polymarket_wc2026_raw_futures_token_odds_history_minute"
     if match_key in ops:

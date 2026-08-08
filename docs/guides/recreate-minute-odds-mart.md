@@ -99,7 +99,9 @@ uv run make minute-odds-live-smoke
 Cold runs reset `.cache/minute_odds_live_smoke.duckdb`. The job still validates
 the full 104/248/496 match inventory before sampling, then fetches about 5% of
 match markets and 5% of futures markets independently (all tokens retained per
-selected market) and caps sampled futures windows to their final 24 hours. dbt
+selected market) and caps sampled futures windows to their final 24 hours.
+Catalog refresh uses routine tag/series discovery and does not run the
+multi-hour slug-prefix recall audit. dbt
 builds only the unified DQ select; it does not prove the full match publication
 gate. Warm reruns:
 
