@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Dagster-dev no longer re-runs `dbt deps`/`dbt parse` on every process when
+  `manifest.json` under `DBT_TARGET_PATH` is still newer than dbt inputs; set
+  `ODDSFOX_DBT_FORCE_PREPARE=1` to force a refresh. Local prepare also leaves
+  the partial-parse seed cache intact (wipe `DBT_TARGET_PATH` or run
+  `make dbt-prepare` after relocating the project).
 - Minute-odds snapshot publish merges into the prior inventory instead of
   dropping out-of-plan tokens on sampled/partial republish. DuckDB minute views
   prefer the `CURRENT` symlink so pointer advances remain readable after

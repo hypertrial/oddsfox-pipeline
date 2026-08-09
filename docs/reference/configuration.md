@@ -332,6 +332,10 @@ manually when needed.
 - `ODDSFOX_DBT_MEMORY_LIMIT`: DuckDB `memory_limit` for dbt builds (default
   `20GB` via `dbt/profiles/profiles.yml`). Spill directory is
   `${ODDSFOX_RUNTIME_ROOT}/duckdb-temp`.
+- `ODDSFOX_DBT_FORCE_PREPARE`: when `true`/`1`/`yes`/`on`, `dagster-dev`
+  re-runs `dbt deps` + `dbt parse` on every code-location load even if
+  `manifest.json` under `DBT_TARGET_PATH` is still newer than dbt inputs.
+  Default is off so warm restarts skip prepare.
 - Minute-odds immutable snapshots live under
   `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/<match|futures>/` with an
   atomic `CURRENT` pointer; temporary fetch spill remains under

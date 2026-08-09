@@ -154,6 +154,11 @@ Start the local Dagster UI when you want to inspect or launch individual jobs:
 uv run make dagster-dev
 ```
 
+The first load (or a load after dbt model, seed, or yml edits) may run `dbt
+parse` into `.cache/runtime/dbt-target`. Warm restarts reuse that manifest when
+inputs are unchanged. Force a refresh with `ODDSFOX_DBT_FORCE_PREPARE=1`, or
+prefer `make dbt-prepare` when iterating on SQL outside Dagster.
+
 Open the URL printed in the terminal. Leave the hourly schedules disabled
 until the manual jobs are healthy.
 

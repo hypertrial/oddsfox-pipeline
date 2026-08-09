@@ -656,6 +656,134 @@ def test_prepare_dbt_project_skips_prepare_when_manifest_exists_outside_dev(tmp_
     dbt_project_mod.prepare_dbt_project(project, preparer=project.preparer)
 
 
+def _mini_dbt_project(tmp_path: Path) -> tuple[Path, Path, Path]:
+    project_dir = tmp_path / "dbt"
+    models = project_dir / "models"
+    models.mkdir(parents=True)
+    model = models / "example.sql"
+    model.write_text("select 1 as id\n", encoding="utf-8")
+    (project_dir / "dbt_project.yml").write_text("name: demo\n", encoding="utf-8")
+    manifest = project_dir / "target" / "manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text('{"nodes": {}}\n', encoding="utf-8")
+    return project_dir, model, manifest
+
+
+def test_dbt_manifest_inputs_stale_when_model_newer(tmp_path):
+    from oddsfox_pipeline.orchestration.dbt_project import dbt_manifest_inputs_stale
+
+    project_dir, model, manifest = _mini_dbt_project(tmp_path)
+    os.utime(manifest, (1000, 1000))
+    os.utime(project_dir / "dbt_project.yml", (900, 900))
+    os.utime(model, (1100, 1100))
+    assert dbt_manifest_inputs_stale(project_dir, manifest) is True
+
+
+def test_dbt_manifest_inputs_stale_false_when_manifest_fresh(tmp_path):
+    from oddsfox_pipeline.orchestration.dbt_project import dbt_manifest_inputs_stale
+
+    project_dir, model, manifest = _mini_dbt_project(tmp_path)
+    os.utime(model, (900, 900))
+    os.utime(project_dir / "dbt_project.yml", (900, 900))
+    os.utime(manifest, (1100, 1100))
+    assert dbt_manifest_inputs_stale(project_dir, manifest) is False
+
+
+def test_prepare_if_dev_skips_when_manifest_fresh(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from oddsfox_pipeline.orchestration.dbt_project import OddsfoxDbtProjectPreparer
+
+    project_dir, model, manifest = _mini_dbt_project(tmp_path)
+    os.utime(model, (900, 900))
+    os.utime(project_dir / "dbt_project.yml", (900, 900))
+    os.utime(manifest, (1100, 1100))
+    prepared: list[str] = []
+    project = SimpleNamespace(project_dir=project_dir, manifest_path=manifest)
+
+    preparer = OddsfoxDbtProjectPreparer()
+    monkeypatch.setattr(preparer, "using_dagster_dev", lambda: True)
+    monkeypatch.setattr(
+        preparer, "prepare", lambda proj: prepared.append(str(proj.manifest_path))
+    )
+    monkeypatch.delenv("ODDSFOX_DBT_FORCE_PREPARE", raising=False)
+    preparer.prepare_if_dev(project)
+    assert prepared == []
+
+
+def test_prepare_if_dev_runs_when_model_newer(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from oddsfox_pipeline.orchestration.dbt_project import OddsfoxDbtProjectPreparer
+
+    project_dir, model, manifest = _mini_dbt_project(tmp_path)
+    os.utime(manifest, (1000, 1000))
+    os.utime(project_dir / "dbt_project.yml", (900, 900))
+    os.utime(model, (1100, 1100))
+    prepared: list[str] = []
+    project = SimpleNamespace(project_dir=project_dir, manifest_path=manifest)
+
+    preparer = OddsfoxDbtProjectPreparer()
+    monkeypatch.setattr(preparer, "using_dagster_dev", lambda: True)
+
+    def _prepare(proj):
+        prepared.append(str(proj.manifest_path))
+        manifest.write_text('{"nodes": {}}\n', encoding="utf-8")
+
+    monkeypatch.setattr(preparer, "prepare", _prepare)
+    monkeypatch.delenv("ODDSFOX_DBT_FORCE_PREPARE", raising=False)
+    preparer.prepare_if_dev(project)
+    assert prepared == [str(manifest)]
+
+
+def test_prepare_if_dev_runs_when_manifest_missing(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from oddsfox_pipeline.orchestration.dbt_project import OddsfoxDbtProjectPreparer
+
+    project_dir, _model, manifest = _mini_dbt_project(tmp_path)
+    manifest.unlink()
+    prepared: list[str] = []
+    project = SimpleNamespace(project_dir=project_dir, manifest_path=manifest)
+
+    preparer = OddsfoxDbtProjectPreparer()
+    monkeypatch.setattr(preparer, "using_dagster_dev", lambda: True)
+
+    def _prepare(proj):
+        prepared.append(str(proj.manifest_path))
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text('{"nodes": {}}\n', encoding="utf-8")
+
+    monkeypatch.setattr(preparer, "prepare", _prepare)
+    monkeypatch.delenv("ODDSFOX_DBT_FORCE_PREPARE", raising=False)
+    preparer.prepare_if_dev(project)
+    assert prepared == [str(manifest)]
+
+
+def test_prepare_if_dev_force_env_overrides_fresh_manifest(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from oddsfox_pipeline.orchestration.dbt_project import OddsfoxDbtProjectPreparer
+
+    project_dir, model, manifest = _mini_dbt_project(tmp_path)
+    os.utime(model, (900, 900))
+    os.utime(project_dir / "dbt_project.yml", (900, 900))
+    os.utime(manifest, (1100, 1100))
+    prepared: list[str] = []
+    project = SimpleNamespace(project_dir=project_dir, manifest_path=manifest)
+
+    preparer = OddsfoxDbtProjectPreparer()
+    monkeypatch.setattr(preparer, "using_dagster_dev", lambda: True)
+
+    def _prepare(proj):
+        prepared.append(str(proj.manifest_path))
+
+    monkeypatch.setattr(preparer, "prepare", _prepare)
+    monkeypatch.setenv("ODDSFOX_DBT_FORCE_PREPARE", "1")
+    preparer.prepare_if_dev(project)
+    assert prepared == [str(manifest)]
+
+
 def test_oddsfox_dbt_project_preparer_uses_resolved_executable(monkeypatch):
     pytest.importorskip("dagster_dbt")
 
@@ -683,9 +811,6 @@ def test_oddsfox_dbt_project_preparer_uses_resolved_executable(monkeypatch):
     )
 
     preparer = OddsfoxDbtProjectPreparer()
-    monkeypatch.setattr(
-        preparer, "_invalidate_seeds_in_partial_parse", lambda _project: None
-    )
     project = MagicMock(target_path=MagicMock(), profiles_dir="dbt/profiles")
     preparer._prepare_packages(project)
     preparer._prepare_manifest(project)
