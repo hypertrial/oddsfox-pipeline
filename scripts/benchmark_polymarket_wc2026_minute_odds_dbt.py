@@ -41,6 +41,9 @@ from tests.integration.match_minute_seed import (  # noqa: E402
 )
 
 import oddsfox_pipeline.storage.duckdb.connection as connection  # noqa: E402
+from oddsfox_pipeline.storage.minute_odds_snapshots import (  # noqa: E402
+    backfill_primary_ohlc_table,
+)
 
 TIER_SIZES = {
     "smoke": (8, 64),
@@ -264,6 +267,72 @@ def _seed_futures(
     }
 
 
+def _write_profile(
+    profiles_dir: Path,
+    db_path: Path,
+    threads: int,
+    temp_dir: Path,
+    *,
+    memory_limit: str = "20GB",
+) -> None:
+    profiles_dir.mkdir(parents=True, exist_ok=True)
+    (profiles_dir / "profiles.yml").write_text(
+        f"""
+oddsfox:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{db_path.as_posix()}"
+      schema: dbt
+      threads: {threads}
+      settings:
+        temp_directory: "{temp_dir.as_posix()}"
+        memory_limit: "{memory_limit}"
+        preserve_insertion_order: false
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+
+def _git_sha() -> str | None:
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    return (proc.stdout or "").strip() or None
+
+
+def _child_peak_rss_bytes(pid: int) -> int | None:
+    # Darwin: ps rss is in KB.
+    try:
+        proc = subprocess.run(
+            ["ps", "-o", "rss=", "-p", str(pid)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    text = (proc.stdout or "").strip()
+    if not text:
+        return None
+    try:
+        return int(text) * 1024
+    except ValueError:
+        return None
+
+
 def _run_dbt(db_path: Path, *, profiles_dir: Path, target_dir: Path) -> dict:
     env = os.environ.copy()
     env["DUCKDB_PATH"] = str(db_path)
@@ -286,39 +355,35 @@ def _run_dbt(db_path: Path, *, profiles_dir: Path, target_dir: Path) -> dict:
         "tag:polygon_settlement tag:pmxt_order_book resource_type:seed",
     ]
     started = time.perf_counter()
-    proc = subprocess.run(
+    proc = subprocess.Popen(
         cmd,
         cwd=REPO_ROOT,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
         env=env,
     )
+    peak_child_rss = 0
+    assert proc.stdout is not None
+    assert proc.stderr is not None
+    # Sample child RSS while dbt runs; cheap enough for smoke/performance tiers.
+    while proc.poll() is None:
+        sample = _child_peak_rss_bytes(proc.pid)
+        if sample:
+            peak_child_rss = max(peak_child_rss, sample)
+        time.sleep(0.25)
+    stdout, stderr = proc.communicate()
+    sample = _child_peak_rss_bytes(proc.pid)
+    if sample:
+        peak_child_rss = max(peak_child_rss, sample)
     elapsed = time.perf_counter() - started
     return {
         "returncode": proc.returncode,
         "elapsed_seconds": round(elapsed, 3),
-        "stdout_tail": (proc.stdout or "")[-4000:],
-        "stderr_tail": (proc.stderr or "")[-2000:],
+        "stdout_tail": (stdout or "")[-4000:],
+        "stderr_tail": (stderr or "")[-2000:],
+        "child_peak_rss_bytes": peak_child_rss,
     }
-
-
-def _write_profile(profiles_dir: Path, db_path: Path, threads: int, temp_dir: Path) -> None:
-    profiles_dir.mkdir(parents=True, exist_ok=True)
-    (profiles_dir / "profiles.yml").write_text(
-        f"""
-oddsfox:
-  target: dev
-  outputs:
-    dev:
-      type: duckdb
-      path: "{db_path.as_posix()}"
-      schema: dbt
-      threads: {threads}
-      settings:
-        temp_directory: "{temp_dir.as_posix()}"
-""".lstrip(),
-        encoding="utf-8",
-    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -331,6 +396,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--threads", type=int, default=2)
+    parser.add_argument("--memory-limit", default="20GB")
     args = parser.parse_args(argv)
 
     tokens, rows_per_token = TIER_SIZES[args.tier]
@@ -358,8 +424,19 @@ def main(argv: list[str] | None = None) -> int:
         futures_stats = _seed_futures(
             conn, tokens=tokens, rows_per_token=rows_per_token
         )
+        primary_ids = {f"fut-token-{idx:05d}-yes" for idx in range(tokens)}
+        backfill_primary_ohlc_table(
+            conn, leg="futures", primary_token_ids=primary_ids
+        )
+        backfill_primary_ohlc_table(conn, leg="match")
     seed_seconds = round(time.perf_counter() - seed_started, 3)
-    _write_profile(profiles_dir, db_path, args.threads, temp_dir)
+    _write_profile(
+        profiles_dir,
+        db_path,
+        args.threads,
+        temp_dir,
+        memory_limit=args.memory_limit,
+    )
 
     # dbt seed + schedule overlay (same path as integration tests).
     env = os.environ.copy()
@@ -408,13 +485,21 @@ def main(argv: list[str] | None = None) -> int:
 
     report: dict = {
         "tier": args.tier,
+        "git_sha": _git_sha(),
         "futures_markets": tokens,
         "rows_per_token": rows_per_token,
         "seed": futures_stats,
         "seed_seconds": seed_seconds,
+        "duckdb_settings": {
+            "threads": args.threads,
+            "memory_limit": args.memory_limit,
+            "temp_directory": str(temp_dir),
+            "preserve_insertion_order": False,
+        },
         "dbt": {
             "returncode": dbt_result["returncode"],
             "elapsed_seconds": dbt_result["elapsed_seconds"],
+            "child_peak_rss_bytes": dbt_result.get("child_peak_rss_bytes", 0),
         },
         "peak_rss_bytes": _peak_rss_bytes(),
         "rss_delta_bytes": max(0, _peak_rss_bytes() - rss_before),

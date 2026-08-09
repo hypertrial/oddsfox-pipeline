@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import os
 import subprocess
+from pathlib import Path
 from queue import Empty, Queue
 from threading import Thread
 from typing import Any
@@ -206,6 +207,67 @@ def _maybe_recover_polymarket_token_hourly_odds_incremental(
     clear_polymarket_token_hourly_odds_incremental_in_progress()
 
 
+def _dir_bytes(path: Path) -> int:
+    if not path.exists():
+        return 0
+    total = 0
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            try:
+                total += (Path(root) / name).stat().st_size
+            except OSError:
+                continue
+    return total
+
+
+def _dbt_spill_directories(warehouse_path: Path) -> tuple[Path, ...]:
+    """DuckDB spill roots used by dbt profiles and warehouse-adjacent defaults."""
+    runtime_root = Path(
+        os.getenv(
+            "ODDSFOX_RUNTIME_ROOT",
+            Path(os.getenv("ODDSFOX_PIPELINE_ROOT", ".")).resolve()
+            / ".cache"
+            / "runtime",
+        )
+    ).expanduser()
+    return (
+        runtime_root / "duckdb-temp",
+        Path(str(warehouse_path) + ".tmp"),
+    )
+
+
+def _dbt_liveness_fingerprint(
+    *,
+    invocation: Any,
+    warehouse_path: Path,
+) -> dict[str, Any]:
+    """Evidence that a long DuckDB query is still working despite zero dbt events.
+
+    dbt emits nothing while a single large node runs. Treat growth in the
+    configured ``duckdb-temp`` spill directory, warehouse ``.tmp``, WAL size, or
+    an alive child pid as progress so the no-progress hard timeout does not kill
+    an active build.
+    """
+    process = getattr(invocation, "process", None)
+    pid = getattr(process, "pid", None)
+    alive = process is not None and process.poll() is None
+    spill_dirs = _dbt_spill_directories(warehouse_path)
+    spill_bytes = sum(_dir_bytes(path) for path in spill_dirs)
+    wal_path = Path(str(warehouse_path) + ".wal")
+    wal_bytes = wal_path.stat().st_size if wal_path.is_file() else 0
+    warehouse_bytes = warehouse_path.stat().st_size if warehouse_path.is_file() else 0
+    return {
+        "dbt_pid": pid,
+        "dbt_alive": alive,
+        "duckdb_temp_bytes": spill_bytes,
+        "duckdb_wal_bytes": wal_bytes,
+        "duckdb_warehouse_bytes": warehouse_bytes,
+        "liveness_fingerprint": (
+            f"alive={int(alive)}:tmp={spill_bytes}:wal={wal_bytes}:db={warehouse_bytes}"
+        ),
+    }
+
+
 def stream_dbt_build(
     *,
     asset_name: str,
@@ -232,7 +294,8 @@ def stream_dbt_build(
     if config.expected_duckdb_path is not None:
         assert_disposable_duckdb_path(config.expected_duckdb_path)
     ensure_duck_db()
-    os.environ["DUCKDB_PATH"] = str(active_duckdb_path())
+    warehouse_path = Path(active_duckdb_path())
+    os.environ["DUCKDB_PATH"] = str(warehouse_path)
 
     is_subset = getattr(context, "is_subset", False) is True
     incremental_in_progress = False
@@ -260,6 +323,7 @@ def stream_dbt_build(
     invocation: Any | None = None
     events_emitted = 0
     completed_cleanly = False
+    last_liveness: str | None = None
     try:
         _maybe_recover_polymarket_token_hourly_odds_incremental(
             context=context,
@@ -305,10 +369,23 @@ def stream_dbt_build(
                     "queue_size": event_queue.qsize(),
                     "dbt_return_code": getattr(invocation.process, "returncode", None),
                 }
+                liveness = _dbt_liveness_fingerprint(
+                    invocation=invocation,
+                    warehouse_path=warehouse_path,
+                )
+                diagnostics.update(liveness)
                 if callable(heartbeat_diagnostics_fn):
                     extra = heartbeat_diagnostics_fn()
                     if isinstance(extra, dict):
                         diagnostics.update(extra)
+                fingerprint = str(liveness["liveness_fingerprint"])
+                if fingerprint != last_liveness and liveness["dbt_alive"]:
+                    last_liveness = fingerprint
+                    guardrail.record_progress(
+                        work_increment=0,
+                        phase="dbt_build_liveness",
+                        diagnostics=diagnostics,
+                    )
                 try:
                     guardrail.check(
                         phase="dbt_build_stream_wait",

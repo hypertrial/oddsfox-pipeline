@@ -267,6 +267,10 @@ def bootstrap_polymarket_tables(
     if scope_name == SCOPE_WC2026:
         mmoh = polymarket_raw_tbl(scope_name, "match_minute_odds_history")
         fmoh = polymarket_raw_tbl(scope_name, "futures_minute_odds_history")
+        match_primary_ohlc = polymarket_raw_tbl(scope_name, "match_primary_minute_ohlc")
+        futures_primary_ohlc = polymarket_raw_tbl(
+            scope_name, "futures_primary_minute_ohlc"
+        )
         order_book_snapshots = polymarket_raw_tbl(
             scope_name, "match_order_book_snapshots"
         )
@@ -331,6 +335,35 @@ def bootstrap_polymarket_tables(
             f"""
             CREATE TABLE IF NOT EXISTS {fmoh} (
                 {minute_odds_history_create_ddl("futures_minute_odds_history")}
+            )
+            """
+        )
+        primary_ohlc_ddl = """
+                market_id TEXT NOT NULL,
+                clob_token_id TEXT NOT NULL,
+                odds_minute_epoch BIGINT NOT NULL,
+                odds_minute_utc TIMESTAMP NOT NULL,
+                open_price DOUBLE NOT NULL,
+                high_price DOUBLE NOT NULL,
+                low_price DOUBLE NOT NULL,
+                close_price DOUBLE NOT NULL,
+                avg_price DOUBLE NOT NULL,
+                observed_points BIGINT NOT NULL,
+                first_observed_at TIMESTAMP NOT NULL,
+                last_observed_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (clob_token_id, odds_minute_epoch)
+        """
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {match_primary_ohlc} (
+                {primary_ohlc_ddl}
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {futures_primary_ohlc} (
+                {primary_ohlc_ddl}
             )
             """
         )

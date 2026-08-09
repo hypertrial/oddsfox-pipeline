@@ -141,6 +141,8 @@ def test_ci_split_targets_remain_wired():
     assert "MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH" in makefile
     assert "MINUTE_ODDS_LIVE_SMOKE_RESET" in makefile
     assert "MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG" in makefile
+    assert "MINUTE_ODDS_LIVE_SMOKE_RUNTIME_ROOT" in makefile
+    assert 'ODDSFOX_RUNTIME_ROOT="$(MINUTE_ODDS_LIVE_SMOKE_RUNTIME_ROOT)"' in makefile
     assert "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG=" in makefile
     assert "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH=true" in makefile
     assert "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES=true" in makefile

@@ -42,8 +42,10 @@ minute-odds-live-smoke: runtime-dirs match-minute-inputs-validate
 	@echo "Running disposable unified minute-odds live smoke (5% markets/leg, futures 24h tail)."
 	@if test "$(MINUTE_ODDS_LIVE_SMOKE_RESET)" = "true"; then \
 		rm -f "$(MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH)" "$(MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH).wal" "$(MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH)-wal" "$(MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH)-shm"; \
+		rm -rf "$(MINUTE_ODDS_LIVE_SMOKE_RUNTIME_ROOT)"; \
 	fi
-	cd "$(REPO_ROOT)/.cache" && $(MINUTE_ODDS_LIVE_SMOKE_ENV) "$(PYTHON)" -c "from oddsfox_pipeline.orchestration.config import polymarket_wc2026_minute_odds_smoke_run_config as run_config; from oddsfox_pipeline.orchestration.definitions import defs; from oddsfox_pipeline.storage.duckdb.connection import assert_disposable_duckdb_path; expected = '$(MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH)'; assert_disposable_duckdb_path(expected); result = defs.resolve_job_def('polymarket_wc2026_minute_odds_live_smoke').execute_in_process(run_config=run_config()); assert result.success"
+	@mkdir -p "$(MINUTE_ODDS_LIVE_SMOKE_RUNTIME_ROOT)/tmp" "$(MINUTE_ODDS_LIVE_SMOKE_RUNTIME_ROOT)/xdg"
+	cd "$(REPO_ROOT)/.cache" && $(MINUTE_ODDS_LIVE_SMOKE_ENV) TMPDIR="$(MINUTE_ODDS_LIVE_SMOKE_RUNTIME_ROOT)/tmp" TMP="$(MINUTE_ODDS_LIVE_SMOKE_RUNTIME_ROOT)/tmp" TEMP="$(MINUTE_ODDS_LIVE_SMOKE_RUNTIME_ROOT)/tmp" XDG_CACHE_HOME="$(MINUTE_ODDS_LIVE_SMOKE_RUNTIME_ROOT)/xdg" "$(PYTHON)" -c "from oddsfox_pipeline.orchestration.config import polymarket_wc2026_minute_odds_smoke_run_config as run_config; from oddsfox_pipeline.orchestration.definitions import defs; from oddsfox_pipeline.storage.duckdb.connection import assert_disposable_duckdb_path; expected = '$(MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH)'; assert_disposable_duckdb_path(expected); result = defs.resolve_job_def('polymarket_wc2026_minute_odds_live_smoke').execute_in_process(run_config=run_config()); assert result.success"
 	$(RUN_IN_REPO) $(MINUTE_ODDS_LIVE_SMOKE_ENV) "$(PYTHON)" scripts/validate_polymarket_wc2026_minute_odds_live_smoke.py --duckdb-path "$(MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH)" --report-path "$(MINUTE_ODDS_LIVE_SMOKE_REPORT_PATH)"
 
 futures-minute-publish-benchmark: runtime-dirs

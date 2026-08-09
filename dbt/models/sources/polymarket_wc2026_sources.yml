@@ -101,8 +101,8 @@ sources:
         description: >
           Exact-window, one-minute CLOB observations for registry-eligible WC2026
           futures markets (non-match working-set) over the tournament span.
-          Uniqueness is enforced by the DuckDB primary key (clobTokenId, timestamp);
-          full-table no_duplicate_grain scans are omitted at this scale.
+          Canonical storage is an immutable partitioned Parquet snapshot registered
+          as a DuckDB view; uniqueness is enforced at publish (token, timestamp).
         meta:
           dagster:
             asset_key: [polymarket, wc2026, raw, futures_token_odds_history_minute]
@@ -125,6 +125,44 @@ sources:
                     values: [1]
           - name: ingested_at
             description: UTC timestamp when the bounded backfill was persisted.
+      - name: futures_primary_minute_ohlc
+        description: >
+          Publish-time primary-token minute OHLC for futures markets. Produced from
+          the all-token Parquet snapshot at publish so dbt does not re-aggregate
+          hundreds of millions of raw points.
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, futures_token_odds_history_minute]
+        columns:
+          - name: market_id
+            tests: [not_null]
+          - name: clob_token_id
+            tests: [not_null]
+          - name: odds_minute_epoch
+            tests: [not_null]
+          - name: open_price
+            tests: [not_null]
+          - name: close_price
+            tests: [not_null]
+      - name: match_primary_minute_ohlc
+        description: >
+          Publish-time primary-token minute OHLC for match markets. The dedicated
+          match mart still aggregates yes+no from raw history; the unified minute
+          mart reads this narrow primary fact.
+        meta:
+          dagster:
+            asset_key: [polymarket, wc2026, raw, match_token_odds_history_minute]
+        columns:
+          - name: market_id
+            tests: [not_null]
+          - name: clob_token_id
+            tests: [not_null]
+          - name: odds_minute_epoch
+            tests: [not_null]
+          - name: open_price
+            tests: [not_null]
+          - name: close_price
+            tests: [not_null]
       - name: match_order_book_snapshots
         description: Canonical full-depth PMXT snapshots for approved WC2026 match markets; unpublished scan rows remain private.
         config:

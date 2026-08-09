@@ -324,11 +324,18 @@ manually when needed.
   futures-minute raw. Set `false` to reuse warehouse futures-minute rows.
   Both match and futures may be `false` for a dbt-only unified minute rebuild.
 - `ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT`: DuckDB `memory_limit` during minute-odds
-  candidate load / primary-key build (default `12GB`). Use values DuckDB accepts
-  (`8GB`, `50%`). Keeps large publishes spilling under
+  snapshot publish / view registration (default `12GB`). Use values DuckDB
+  accepts (`8GB`, `50%`). Keeps large publishes spilling under
   `${ODDSFOX_RUNTIME_ROOT}/duckdb-temp` instead of host SIGKILL.
 - `ODDSFOX_MINUTE_PUBLISH_THREADS`: optional DuckDB `threads` override for the
   same publish connection.
+- `ODDSFOX_DBT_MEMORY_LIMIT`: DuckDB `memory_limit` for dbt builds (default
+  `20GB` via `dbt/profiles/profiles.yml`). Spill directory is
+  `${ODDSFOX_RUNTIME_ROOT}/duckdb-temp`.
+- Minute-odds immutable snapshots live under
+  `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/<match|futures>/` with an
+  atomic `CURRENT` pointer; temporary fetch spill remains under
+  `minute-odds-publish/<fetch_run_id>/`.
 
 Smoke-only knobs consumed by `polymarket_wc2026_minute_odds_live_smoke` /
 `make minute-odds-live-smoke` (production backfill ignores them):
@@ -341,12 +348,16 @@ Smoke-only knobs consumed by `polymarket_wc2026_minute_odds_live_smoke` /
 - `POLYMARKET_WC2026_MINUTE_ODDS_SMOKE_FUTURES_WINDOW_HOURS`: cap each sampled
   futures plan to its final N hours (default `24`). Requires sampling.
 - `MINUTE_ODDS_LIVE_SMOKE_RESET`: Make-only; default `true` deletes the disposable
-  `.cache/minute_odds_live_smoke.duckdb` before the cold run.
+  `.cache/minute_odds_live_smoke.duckdb` and the disposable smoke runtime root
+  `.cache/runtime/smoke/minute-odds-live` (which holds Parquet snapshots) before
+  the cold run.
 - `MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG`: Make-only; default `true` so cold
   smoke refreshes markets/catalog/registry even when operator `.env` has
   `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG=false`. Set `false` with
   `MINUTE_ODDS_LIVE_SMOKE_RESET=false` for warm odds/dbt reruns that reuse the
-  disposable catalog. The Make target always forces match and futures refresh.
+  disposable catalog. The Make target always forces match and futures refresh
+  and always sets `ODDSFOX_RUNTIME_ROOT` to the smoke runtime root so sampled
+  publishes cannot touch the operator snapshot tree.
 
 `polymarket_wc2026_polygon_settlement_backfill` and
 `polymarket_wc2026_polygon_settlement_release` are manual-only jobs. They have

@@ -82,7 +82,11 @@ def test_match_minute_raw_replace_is_exact_idempotent_and_isolated(duck):
         else:  # pragma: no cover - assertion helper
             raise AssertionError("missing audit must block raw publication")
         load_match_minute_fetch_audit([audit("run-3")], conn)
-        with pytest.raises(duckdb.ConstraintException):
+        from oddsfox_pipeline.storage.minute_odds_snapshots import (
+            MinuteOddsSnapshotError,
+        )
+
+        with pytest.raises(MinuteOddsSnapshotError, match="fidelity_minutes"):
             load_match_minute_odds_history_stage(
                 [{**row, "price": 0.9, "fidelity_minutes": 2}],
                 conn,
@@ -211,7 +215,12 @@ def test_match_minute_raw_replace_accepts_arrow_table(duck):
     assert published == 1
 
 
-def test_match_minute_publish_preserves_prior_snapshot_on_candidate_failure(duck):
+def test_match_minute_publish_preserves_prior_snapshot_on_invalid_fidelity(
+    duck, tmp_path, monkeypatch
+):
+    from oddsfox_pipeline.storage.minute_odds_snapshots import MinuteOddsSnapshotError
+
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path / "runtime"))
     now = datetime(2026, 7, 1, tzinfo=timezone.utc)
     good = {
         "market_id": "market",
@@ -250,7 +259,7 @@ def test_match_minute_publish_preserves_prior_snapshot_on_candidate_failure(duck
         load_match_minute_fetch_audit([audit("run-1")], conn)
         load_match_minute_odds_history_stage([good], conn, fetch_run_id="run-1")
         load_match_minute_fetch_audit([audit("run-2")], conn)
-        with pytest.raises(duckdb.ConstraintException):
+        with pytest.raises(MinuteOddsSnapshotError, match="fidelity_minutes"):
             load_match_minute_odds_history_stage(
                 [{**good, "fidelity_minutes": 5}],
                 conn,
@@ -269,3 +278,98 @@ def test_match_minute_publish_preserves_prior_snapshot_on_candidate_failure(duck
             ).fetchone()[0]
             is False
         )
+
+
+def test_match_minute_register_failure_rolls_current_back(duck, tmp_path, monkeypatch):
+    from oddsfox_pipeline.storage import minute_odds_snapshots as snapshots
+    from oddsfox_pipeline.storage.minute_odds_snapshots import (
+        active_snapshot_id,
+        minute_odds_snapshot_root,
+    )
+
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path / "runtime"))
+    now = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    row = {
+        "market_id": "market",
+        "clobTokenId": "token",
+        "timestamp": 100,
+        "price": 0.4,
+        "fidelity_minutes": 1,
+        "window_start_at": now,
+        "window_end_at": now,
+        "ingested_at": now,
+    }
+
+    def audit(run_id: str) -> dict[str, object]:
+        return {
+            "fetch_run_id": run_id,
+            "market_id": "market",
+            "clobTokenId": "token",
+            "fetch_status": "success",
+            "raw_published": False,
+            "fidelity_minutes": 1,
+            "exact_window_start_at": now,
+            "exact_window_end_at": now,
+            "request_start_epoch": 100,
+            "request_end_epoch": 100,
+            "source_row_count": 1,
+            "in_game_row_count": 1,
+            "in_game_history_sha256": "a" * 64,
+            "source_endpoint": "https://clob.polymarket.com/prices-history",
+            "fetch_started_at": now,
+            "fetch_finished_at": now,
+            "error_type": None,
+            "error_message": None,
+        }
+
+    with duck.get_connection() as conn:
+        load_match_minute_fetch_audit([audit("run-1")], conn)
+        load_match_minute_odds_history_stage([row], conn, fetch_run_id="run-1")
+        root = minute_odds_snapshot_root(leg="match")
+        first_id = active_snapshot_id(root)
+        assert first_id is not None
+
+        def boom(_conn, _snapshot):
+            raise RuntimeError("register failed")
+
+        monkeypatch.setattr(snapshots, "register_snapshot_views", boom)
+        load_match_minute_fetch_audit([audit("run-2")], conn)
+        with pytest.raises(RuntimeError, match="register failed"):
+            load_match_minute_odds_history_stage(
+                [{**row, "price": 0.5}],
+                conn,
+                fetch_run_id="run-2",
+            )
+        assert active_snapshot_id(root) == first_id
+        assert conn.execute(
+            "select price from polymarket_wc2026_raw.match_minute_odds_history"
+        ).fetchall() == [(0.4,)]
+        assert (
+            conn.execute(
+                """
+                select raw_published
+                from polymarket_wc2026_ops.match_minute_odds_fetch_audit
+                where fetch_run_id = 'run-2'
+                """
+            ).fetchone()[0]
+            is False
+        )
+
+
+def test_resolve_primary_token_ids_reuse_only_picks_one_per_market():
+    from oddsfox_pipeline.storage.duckdb.dlt_batch import _resolve_primary_token_ids
+
+    with duckdb.connect(":memory:") as conn:
+        # No markets table: reuse-only must still pick one primary per market
+        # (Yes tip when present in the token id, else lowest id).
+        primary = _resolve_primary_token_ids(
+            conn,
+            [],
+            extra_token_market_rows=[
+                ("m1", "m1-no"),
+                ("m1", "m1-yes"),
+                ("m2", "aaa"),
+                ("m2", "zzz"),
+            ],
+        )
+    assert primary == {"m1-yes", "aaa"}

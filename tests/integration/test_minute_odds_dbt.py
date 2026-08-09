@@ -35,6 +35,7 @@ from oddsfox_pipeline.storage.duckdb.schemas.openfootball import (
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     create_all_scope_test_markets_tables,
 )
+from oddsfox_pipeline.storage.minute_odds_snapshots import backfill_primary_ohlc_table
 
 
 def _seed_slim_match_leg(conn: duckdb.DuckDBPyConnection) -> None:
@@ -340,6 +341,10 @@ def test_minute_odds_graph_builds_unified_mart(
     with duckdb.connect(str(db_path)) as conn:
         _seed_slim_match_leg(conn)
         _seed_futures_minute_rows(conn)
+        backfill_primary_ohlc_table(
+            conn, leg="futures", primary_token_ids={"futures-yes"}
+        )
+        backfill_primary_ohlc_table(conn, leg="match")
 
     write_dbt_profile(dbt_profiles_dir, db_path, threads=1)
     env = dbt_subprocess_env(

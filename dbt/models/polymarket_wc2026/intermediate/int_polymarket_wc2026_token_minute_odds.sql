@@ -1,25 +1,24 @@
-{{ config(materialized='table', tags=['minute_odds']) }}
+{{ config(materialized='view', tags=['minute_odds']) }}
 
 -- Narrow primary-token fact for the unified minute mart. Match wins on any
 -- accidental (clob_token_id, odds_minute_epoch) clash via anti-join (no global sort).
+-- Both legs are pass-throughs over publish-time primary OHLC (no raw re-aggregate).
 with match_primary as (
     select
-        tokens.market_id,
-        odds.clob_token_id,
-        odds.odds_minute_utc,
-        odds.odds_minute_epoch,
-        odds.open_price,
-        odds.high_price,
-        odds.low_price,
-        odds.close_price,
-        odds.average_price as avg_price,
-        odds.observed_points,
-        odds.first_observed_at,
-        odds.last_observed_at,
+        market_id,
+        clob_token_id,
+        odds_minute_utc,
+        odds_minute_epoch,
+        open_price,
+        high_price,
+        low_price,
+        close_price,
+        avg_price,
+        observed_points,
+        first_observed_at,
+        last_observed_at,
         'match' as minute_source
-    from {{ ref('int_polymarket_wc2026_match_token_minute_odds') }} as odds
-    inner join {{ ref('int_polymarket_wc2026_primary_market_token') }} as tokens
-        on odds.clob_token_id = tokens.clob_token_id
+    from {{ source('polymarket_wc2026_raw', 'match_primary_minute_ohlc') }}
 ),
 
 futures_primary as (

@@ -64,17 +64,18 @@ It runs both raw legs:
 Both legs share the hourly odds fetch stack: CLOB batch POST (≤20 tokens),
 24-hour window pre-chunking, workers/RPS 40 with auto-tune up to 90, and a
 publish path that spills bounded typed Arrow batches to temporary Parquet
-shards under the ignored runtime cache, bulk-loads a candidate raw table,
-builds the primary key once, then atomically swaps it into place (warehouse
-lock is not held during shard construction).
+shards, then promotes an immutable partitioned snapshot (all-token raw +
+primary-token minute OHLC) under the runtime root and registers stable DuckDB
+views (warehouse lock is not held during shard construction). Unchanged tokens
+reuse the prior snapshot without a CLOB refetch.
 Discovery includes open markets so
 in-tournament futures are eligible; match selection still requires closed game
 markets for the 104/248/496 inventory.
 
 Then dbt builds `+polymarket_wc2026_market_minute_odds_data_quality`
-(tagged `minute_odds`). Raw futures history retains every CLOB token; dbt
-aggregates the primary outcome only (Yes when present) into a single narrow
-fact table, and the public mart is a view over that fact plus market metadata:
+(tagged `minute_odds`). Raw history retains every CLOB token; primary-token
+minute OHLC is produced at publish and exposed as pass-through views, and the
+public mart is a view over that narrow fact plus market metadata:
 
 ```text
 polymarket_wc2026_marts.polymarket_wc2026_market_minute_odds
@@ -114,14 +115,14 @@ market, run:
 uv run make minute-odds-live-smoke
 ```
 
-Cold runs reset `.cache/minute_odds_live_smoke.duckdb`. The job still validates
-the full 104/248/496 match inventory before sampling, then fetches about 5% of
-match markets and 5% of futures markets independently (all tokens retained per
-selected market) and caps sampled futures windows to their final 24 hours.
-Catalog refresh uses routine tag/series discovery and does not run the
-multi-hour slug-prefix recall audit. dbt
-builds only the unified DQ select; it does not prove the full match publication
-gate. Warm reruns:
+Cold runs reset `.cache/minute_odds_live_smoke.duckdb` and the disposable
+`.cache/runtime/smoke/minute-odds-live` runtime root (Parquet snapshots). The
+job still validates the full 104/248/496 match inventory before sampling, then
+fetches about 5% of match markets and 5% of futures markets independently (all
+tokens retained per selected market) and caps sampled futures windows to their
+final 24 hours. Catalog refresh uses routine tag/series discovery and does not
+run the multi-hour slug-prefix recall audit. dbt builds only the unified DQ
+select; it does not prove the full match publication gate. Warm reruns:
 
 ```bash
 MINUTE_ODDS_LIVE_SMOKE_RESET=false \

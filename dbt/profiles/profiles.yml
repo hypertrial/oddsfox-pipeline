@@ -13,3 +13,6 @@ oddsfox:
       threads: "{{ env_var('DBT_THREADS', '4') | int }}"
       settings:
         extension_directory: "{{ env_var('DUCKDB_EXTENSION_DIRECTORY', '.cache/duckdb/extensions') }}"
+        temp_directory: "{{ env_var('ODDSFOX_RUNTIME_ROOT', '.cache/runtime') }}/duckdb-temp"
+        memory_limit: "{{ env_var('ODDSFOX_DBT_MEMORY_LIMIT', '20GB') }}"
+        preserve_insertion_order: false

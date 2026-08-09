@@ -26,11 +26,14 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     DEFAULT_MINUTE_WORKERS,
     MinuteFetchResult,
     borrow_duckdb_connection,
+    call_minute_persist,
     cleanup_minute_odds_publish_cache,
     ensure_unique_success_token_ids,
     execute_minute_fetches,
     release_minute_history_payloads,
+    resolve_minute_token_reuse,
     sample_minute_market_plans,
+    synthesize_reused_minute_fetch_results,
     write_minute_history_parquet_shards,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
@@ -320,32 +323,57 @@ def sync_match_minute_odds_history(
             sample_manifest["sample_seed"],
         )
     fetch_run_id = str(uuid4())
+    with borrow_duckdb_connection(
+        conn, connection_factory=connection_factory
+    ) as active:
+        _previous, reuse_ids, published_windows = resolve_minute_token_reuse(
+            plans,
+            leg="match",
+            conn=active,
+        )
+    reuse_plans = [plan for plan in plans if plan.token_id in reuse_ids]
+    fetch_plans = [plan for plan in plans if plan.token_id not in reuse_ids]
+    if reuse_plans:
+        log.info(
+            "Match-minute reusing %s/%s token(s) from prior snapshot; fetching %s",
+            len(reuse_plans),
+            len(plans),
+            len(fetch_plans),
+        )
     fetched = [
         _to_match_fetch_result(result)
-        for result in execute_minute_fetches(
-            plans,
-            asset_name="polymarket_wc2026_match_minute_odds_backfill",
-            log=log,
-            workers=workers,
-            requests_per_second=requests_per_second,
-            batch_group_size=batch_group_size,
-            window_hours=window_hours,
-            auto_tune_rps=auto_tune_rps,
-            auto_tune_max_rps=auto_tune_max_rps,
-            transient_retries=transient_retries,
-            transient_backoff_seconds=transient_backoff_seconds,
-            progress_log_interval_seconds=progress_log_interval_seconds,
-            no_progress_soft_timeout_seconds=no_progress_soft_timeout_seconds,
-            no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,
-            progress_poll_seconds=progress_poll_seconds,
-            client_factory=client_factory,
-            fetch_window_fn=fetch_window_fn,
-            fetch_group_window_fn=fetch_group_window_fn,
-            empty_error_message_fn=(
-                lambda p: f"Empty in-game CLOB history for token {p.token_id}"
-            ),
+        for result in synthesize_reused_minute_fetch_results(
+            reuse_plans,
+            published_windows=published_windows,
         )
     ]
+    if fetch_plans:
+        fetched.extend(
+            _to_match_fetch_result(result)
+            for result in execute_minute_fetches(
+                fetch_plans,
+                asset_name="polymarket_wc2026_match_minute_odds_backfill",
+                log=log,
+                workers=workers,
+                requests_per_second=requests_per_second,
+                batch_group_size=batch_group_size,
+                window_hours=window_hours,
+                auto_tune_rps=auto_tune_rps,
+                auto_tune_max_rps=auto_tune_max_rps,
+                transient_retries=transient_retries,
+                transient_backoff_seconds=transient_backoff_seconds,
+                progress_log_interval_seconds=progress_log_interval_seconds,
+                no_progress_soft_timeout_seconds=no_progress_soft_timeout_seconds,
+                no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,
+                progress_poll_seconds=progress_poll_seconds,
+                client_factory=client_factory,
+                fetch_window_fn=fetch_window_fn,
+                fetch_group_window_fn=fetch_group_window_fn,
+                empty_error_message_fn=(
+                    lambda p: f"Empty in-game CLOB history for token {p.token_id}"
+                ),
+            )
+        )
     audit_rows = [
         {
             "fetch_run_id": fetch_run_id,
@@ -359,7 +387,11 @@ def sync_match_minute_odds_history(
             "request_start_epoch": result.request_start_epoch,
             "request_end_epoch": result.request_end_epoch,
             "source_row_count": result.source_row_count,
-            "in_game_row_count": len(result.history),
+            "in_game_row_count": (
+                len(result.history)
+                if result.plan.token_id not in reuse_ids
+                else int(result.source_row_count)
+            ),
             "in_game_history_sha256": result.in_game_history_sha256,
             "source_endpoint": f"{CLOB_API_URL.rstrip('/')}/prices-history",
             "fetch_started_at": result.fetch_started_at,
@@ -406,11 +438,18 @@ def sync_match_minute_odds_history(
     ingested_at = datetime.now(timezone.utc)
     try:
         ensure_unique_success_token_ids(fetched)
-        shard_paths = write_minute_history_parquet_shards(
-            fetched,
-            fetch_run_id=fetch_run_id,
-            ingested_at=ingested_at,
-            log=log,
+        fetched_success = [
+            result for result in fetched if result.plan.token_id not in reuse_ids
+        ]
+        shard_paths = (
+            write_minute_history_parquet_shards(
+                fetched_success,
+                fetch_run_id=fetch_run_id,
+                ingested_at=ingested_at,
+                log=log,
+            )
+            if fetched_success
+            else []
         )
         published_tokens = len(fetched)
         release_minute_history_payloads(fetched)
@@ -418,14 +457,23 @@ def sync_match_minute_odds_history(
             conn, connection_factory=connection_factory
         ) as active:
             try:
-                persist_fn(shard_paths, active, fetch_run_id=fetch_run_id)
+                call_minute_persist(
+                    persist_fn,
+                    shard_paths,
+                    active,
+                    fetch_run_id=fetch_run_id,
+                    reuse_token_ids=reuse_ids,
+                )
             except Exception as exc:
-                summary.update(status="publish_error", error_type=exc.__class__.__name__)
+                summary.update(
+                    status="publish_error", error_type=exc.__class__.__name__
+                )
                 raise MatchMinuteSyncError(str(exc), summary) from exc
     finally:
         cleanup_minute_odds_publish_cache(fetch_run_id)
     summary["status"] = "published"
     summary["raw_published_tokens"] = published_tokens
+    summary["reused_tokens"] = len(reuse_ids)
     return summary
 
 

@@ -42,15 +42,16 @@ Schema: `polymarket_wc2026_raw`
   [Scripts](scripts.md#warehouse) (`prune_odds_history.py`).
 - `match_minute_odds_history`: exact-window CLOB observations for the selected
   match markets, keyed by `(clobTokenId, timestamp)` with fixed fidelity `1`.
-  A successful dedicated run replaces this complete snapshot atomically, so
-  upstream-deleted observations disappear. Failed fetch or storage runs leave
-  the prior snapshot unchanged. This table is isolated from `odds_history` and
-  its sync ledger.
+  Canonical storage is an immutable partitioned Parquet snapshot registered as
+  a DuckDB view; a successful dedicated run advances the active snapshot
+  atomically, so upstream-deleted observations disappear. Failed fetch or
+  storage runs leave the prior snapshot unchanged. This relation is isolated
+  from `odds_history` and its sync ledger.
 - `futures_minute_odds_history`: tournament-span minute observations for
-  non-match WC2026 futures markets, same primary key and fidelity CHECK as
-  match-minute. Publish uses temporary Parquet shards plus candidate/swap
-  (see raw storage notes below). Raw retains every CLOB token; the unified
-  minute mart aggregates the primary outcome only.
+  non-match WC2026 futures markets, same fidelity contract as match-minute.
+  Publish uses temporary Parquet shards plus an immutable snapshot (see raw
+  storage notes below). Raw retains every CLOB token; the unified minute mart
+  reads publish-time primary-token OHLC.
 - `polygon_settlement_fills`: the current canonical, wallet- and
   order-payload-redacted Polygon V2 settlement snapshot. Grain is
   `(chain_id, exchange_address,
@@ -110,7 +111,7 @@ Schema: `polymarket_wc2026_ops`
 - `futures_minute_odds_fetch_audit`: same append-only shape for futures-minute
   fetches (`window_row_count` / `window_history_sha256`). Empty in-window
   tokens stay unpublished; only success rows flip `raw_published` with the
-  candidate/swap raw replace.
+  immutable Parquet snapshot publish.
 - `polygon_settlement_scan_runs`: one row per deterministic scan identity,
   including manifest/normalizer versions, finalized head, sanitized provider
   label/origin, exact target ranges, publication status, and advisory secondary
@@ -264,37 +265,44 @@ explicitly filter match IDs 73–104.
 custom SQL storage updated by the hourly candlestick sync asset.
 
 `polymarket_wc2026_raw.match_minute_odds_history` and
-`polymarket_wc2026_raw.futures_minute_odds_history` share the same candidate/swap
-publish contract. After CLOB fetch, the sync writes temporary typed Parquet
-shards under `${ODDSFOX_RUNTIME_ROOT:-.cache/runtime}/minute-odds-publish/<fetch_run_id>/`
-(warehouse lock released), drops the in-memory history tuples, then bulk-loads a
-`<relation>_candidate` table without a primary key, builds
-`PRIMARY KEY (clobTokenId, timestamp)` once, proves constraint presence plus
-exact audit/manifest token-id set equality (and that every audited success token
-exists in the candidate), then atomically renames candidate into the canonical
-table and marks matching audit rows `raw_published` in one short transaction.
-DuckDB publish uses `temp_directory` under the runtime root and a default
-`memory_limit` of `12GB` (`ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT`) so large PK
-builds spill to disk instead of exhausting host RAM. Do not overlap two
-publishers of the same minute raw relation while the lock is released for spill;
-cross-relation concurrency (match vs futures) is the intended unlock win. Prior
-snapshot and audit flags are unchanged on failure; shards are deleted on success
-or exception. Existing dbt source names are unchanged. Measure publish-only
-speed with `make futures-minute-publish-benchmark` (disposable DuckDB only; never
-opens the operator warehouse). Measure the dbt rebuild with
+`polymarket_wc2026_raw.futures_minute_odds_history` are DuckDB views over an
+immutable partitioned Parquet snapshot under
+`${ODDSFOX_RUNTIME_ROOT:-.cache/runtime}/minute-odds-snapshots/<match|futures>/`.
+After CLOB fetch, the sync spills fresh histories to temporary Parquet shards
+under `minute-odds-publish/<fetch_run_id>/` (warehouse lock released), then
+promotes them into a checksummed snapshot (`raw/` + `primary_ohlc/` buckets,
+`manifest.json`, atomic `CURRENT` pointer). Tokens whose prior published window
+bounds still match are reused without a CLOB refetch; only dirty token buckets
+are rewritten. DuckDB then re-registers the stable raw + primary-OHLC relation
+names and flips matching audit rows `raw_published` in one short transaction.
+Publish uses `temp_directory` under the runtime root and a default
+`memory_limit` of `12GB` (`ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT`). Do not overlap
+two publishers of the same minute raw relation while the lock is released for
+spill; cross-relation concurrency (match vs futures) is the intended unlock win.
+Snapshot files are written and `CURRENT` advances before the DuckDB register
+transaction. If that transaction fails, DuckDB audit flags roll back and
+`CURRENT` is restored to the predecessor snapshot (the failed snapshot directory
+is left for forensics and cleaned by later `retain_snapshots`). Staging is
+deleted when promote fails before `CURRENT` advances. Existing dbt source names
+are unchanged. Measure publish-only speed with
+`make futures-minute-publish-benchmark` (disposable DuckDB only; never opens the
+operator warehouse). Measure the dbt rebuild with
 `make minute-odds-dbt-benchmark` (same disposable policy; default
 `performance` tier ~10M primary rows).
 
 For a cheaper live end-to-end check of the unified minute path without refetching
 every market, use `make minute-odds-live-smoke`. It always asserts a disposable
-`.cache/minute_odds_live_smoke.duckdb`, still proves the full 104/248/496 match
-inventory before sampling, then samples about 5% of match markets and 5% of
-futures markets independently (all tokens retained per selected market), caps
-sampled futures windows to their final 24 hours, builds the unified minute mart
-plus DQ, and validates via
+`.cache/minute_odds_live_smoke.duckdb` **and** a disposable
+`.cache/runtime/smoke/minute-odds-live` `ODDSFOX_RUNTIME_ROOT` so sampled
+publishes cannot GC or shrink operator production snapshots. It still proves the
+full 104/248/496 match inventory before sampling, then samples about 5% of match
+markets and 5% of futures markets independently (all tokens retained per selected
+market), caps sampled futures windows to their final 24 hours, builds the unified
+minute mart plus DQ, and validates via
 `scripts/validate_polymarket_wc2026_minute_odds_live_smoke.py` into an ignored
 JSON report under `.cache/runtime/smoke/minute-odds/`. Cold runs reset the
-disposable warehouse and refresh catalog by default; warm reruns use
+disposable warehouse and smoke runtime root and refresh catalog by default; warm
+reruns use
 `MINUTE_ODDS_LIVE_SMOKE_RESET=false MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG=false`
 while still forcing match and futures refresh. It does not prove the full
 104/248/496 match publication gate; use `make match-minute-live-smoke` or the

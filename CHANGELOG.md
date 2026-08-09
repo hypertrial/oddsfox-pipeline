@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Unified minute-odds landing is parquet-first: immutable partitioned snapshots
+  under `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/<match|futures>/` retain
+  every CLOB token in `raw/` and publish-time primary-token minute OHLC in
+  `primary_ohlc/`. DuckDB registers stable views over the active snapshot;
+  `int_polymarket_wc2026_futures_token_minute_odds` and
+  `int_polymarket_wc2026_token_minute_odds` are pass-through views (no global
+  377M-row aggregate/table rewrite). Reruns skip CLOB for tokens whose prior
+  published window still matches and rebuild only dirty token buckets; snapshot
+  retention keeps the active + predecessor snapshot after a successful DuckDB
+  register. Failed register rolls `CURRENT` back to the predecessor. Live smoke
+  uses a disposable `ODDSFOX_RUNTIME_ROOT` under
+  `.cache/runtime/smoke/minute-odds-live` so sampled publishes cannot GC
+  operator snapshots. dbt liveness treats growth
+  in `${ODDSFOX_RUNTIME_ROOT}/duckdb-temp` (and warehouse `.tmp`/WAL) as progress
+  so a long active DuckDB query is not killed as idle. Measure with
+  `uv run make minute-odds-dbt-benchmark`
+  (`MINUTE_ODDS_DBT_BENCHMARK_TIER=performance` for ~10M rows;
+  `production-shaped` for the opt-in ~377M acceptance tier).
+
 - `init_duck_db()` wraps its multi-schema DDL bootstrap in a single DuckDB
   transaction instead of per-statement autocommit/fsync. Every isolated-DuckDB
   test fixture and production `ensure_duck_db()` call pays this path once per
@@ -16,24 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (matching `pytest -n auto`); suite cumulative pytest `setup` phase dropped
   from ~630s to ~414s on a local `make test --durations=0` comparison. Failure
   still relies on connection close discarding an uncommitted transaction.
-
-- Unified minute-odds dbt hot path aggregates primary CLOB tokens only (raw
-  futures history still retains every token), replaces twin `row_number()`
-  window sorts with `arg_min`/`arg_max` on unique timestamps, materializes
-  `int_polymarket_wc2026_futures_token_minute_odds` and the public
-  `polymarket_wc2026_market_minute_odds` mart as views over a single narrow
-  `int_polymarket_wc2026_token_minute_odds` table, and drops redundant
-  full-table `no_duplicate_grain` scans on the 377M-row futures raw/staging
-  relations (DuckDB primary key already enforces uniqueness), and drops
-  column tests on the view-backed futures intermediate / public mart so
-  `dbt build` does not re-aggregate or re-join the full fact on every test.
-  Measure with
-  `uv run make minute-odds-dbt-benchmark`
-  (`MINUTE_ODDS_DBT_BENCHMARK_TIER=performance` for ~10M rows;
-  `production-shaped` for the opt-in ~377M acceptance tier). Disposable
-  `performance` tier measured ~27s dbt wall / 0 DuckDB temp spill on ~10M
-  primary rows (20M raw Yes+No); prior full-backfill dbt phase exceeded 71
-  minutes with ~27GB sort spill before cancel.
 
 ### Fixed
 
@@ -64,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   publishers of the same minute raw table; that can leave multiple
   `raw_published=true` audits for one surviving snapshot. After spill, syncs
   drop in-memory history tuples and DuckDB publish caps `memory_limit` (default
-  `12GB`, override `ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT`) so candidate/PK work
+  `12GB`, override `ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT`) so snapshot publish
   spills to `${ODDSFOX_RUNTIME_ROOT}/duckdb-temp` instead of SIGKILL.
 - Futures-minute sync no longer fail-closes on empty in-window CLOB history;
   empty tokens are audited and skipped while success tokens publish. Hard

@@ -344,8 +344,8 @@ def test_sync_futures_minute_odds_history_separate_audit_and_publish_borrows(
         conn.close()
 
     assert summary["status"] == "published"
-    # plan selection, audit write, then publish (shard build is unlocked).
-    assert borrow_count["n"] == 3
+    # plan selection, reuse lookup, audit write, then publish (shard build unlocked).
+    assert borrow_count["n"] == 4
     assert shard_open_depth == [0]
     assert not (tmp_path / "minute-odds-publish" / summary["fetch_run_id"]).exists()
 

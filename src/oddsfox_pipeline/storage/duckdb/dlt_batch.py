@@ -34,19 +34,16 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     polymarket_raw_schema,
     polymarket_raw_tbl,
 )
-from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
-    minute_odds_history_create_ddl,
-)
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
     EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS,
     EVENT_MARKET_SNAPSHOT_COLUMNS,
     EVENT_SNAPSHOT_COLUMNS,
     EVENT_TAG_SNAPSHOT_COLUMNS,
+    FUTURES_MINUTE_ODDS_HISTORY_COLUMNS,
     INGESTION_RUN_EVENT_COLUMNS,
     MARKET_SCOPE_REGISTRY_COLUMNS,
     MARKET_TOKEN_COLUMNS,
     MATCH_MINUTE_ODDS_HISTORY_COLUMNS,
-    FUTURES_MINUTE_ODDS_HISTORY_COLUMNS,
     MATCH_ORDER_BOOK_SNAPSHOT_COLUMNS,
     ODDS_HISTORY_COLUMNS,
 )
@@ -394,7 +391,7 @@ def merge_odds_history_stage(
 
 
 def _configure_minute_publish_connection(conn: duckdb.DuckDBPyConnection) -> None:
-    """Apply publish-only DuckDB settings for bulk candidate creation."""
+    """Apply publish-only DuckDB settings for snapshot publish / view registration."""
     runtime_root = (
         Path(
             os.getenv(
@@ -413,9 +410,9 @@ def _configure_minute_publish_connection(conn: duckdb.DuckDBPyConnection) -> Non
     temp_dir.mkdir(parents=True, exist_ok=True)
     conn.execute(f"SET temp_directory='{temp_dir.as_posix()}'")
     conn.execute("SET preserve_insertion_order=false")
-    # Cap DuckDB RSS so candidate load / PRIMARY KEY build spill to temp_directory
-    # instead of competing with the OS until SIGKILL. Override with
-    # ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT (e.g. 8GB, 50%).
+    # Cap DuckDB RSS so publish-time inventory/primary resolution spills to
+    # temp_directory instead of competing with the OS until SIGKILL. Override
+    # with ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT (e.g. 8GB, 50%).
     memory_limit = os.getenv("ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT", "12GB").strip()
     if not re.fullmatch(r"\d+(\.\d+)?\s*(KB|MB|GB|TB|%)", memory_limit, flags=re.I):
         raise ValueError(
@@ -511,27 +508,155 @@ def _minute_publish_input_to_parquet_paths(
     return [path], temp_root
 
 
-def _validate_minute_candidate_constraints(
+def _resolve_primary_token_ids(
     conn: duckdb.DuckDBPyConnection,
+    parquet_paths: Sequence[Path],
     *,
-    candidate: str,
-) -> None:
-    table_name = candidate.rsplit(".", 1)[-1].strip('"')
-    types = {
-        str(row[0]).upper()
-        for row in conn.execute(
+    extra_token_market_rows: Sequence[tuple[str, str]] | None = None,
+) -> set[str]:
+    """Prefer Yes outcome tokens per market; fall back to lowest token id."""
+    extra_rows = [(str(m), str(t)) for m, t in (extra_token_market_rows or ())]
+    if not parquet_paths and not extra_rows:
+        return set()
+    path_literals = ", ".join("?" for _ in parquet_paths) if parquet_paths else ""
+    parquet_names = (
+        set(pq.ParquetFile(parquet_paths[0]).schema.names) if parquet_paths else set()
+    )
+    token_column = (
+        '"clobTokenId"' if "clobTokenId" in parquet_names else "clob_token_id"
+    )
+    markets = polymarket_raw_tbl(SCOPE_WC2026, "markets")
+    has_markets = (
+        conn.execute(
             """
-            SELECT constraint_type
-            FROM duckdb_constraints()
-            WHERE table_name = ?
+            SELECT count(*)
+            FROM information_schema.tables
+            WHERE table_schema = ?
+              AND table_name = 'markets'
             """,
-            [table_name],
-        ).fetchall()
-    }
-    if "PRIMARY KEY" not in types:
-        raise RuntimeError(f"Candidate {candidate} is missing PRIMARY KEY")
-    if "CHECK" not in types:
-        raise RuntimeError(f"Candidate {candidate} is missing fidelity CHECK")
+            [polymarket_raw_schema(SCOPE_WC2026)],
+        ).fetchone()[0]
+        > 0
+    )
+    if has_markets:
+        raw_tokens_sql = (
+            f"""
+            SELECT DISTINCT
+                market_id,
+                {token_column} AS clob_token_id
+            FROM read_parquet([{path_literals}], hive_partitioning=false)
+            """
+            if parquet_paths
+            else """
+            SELECT CAST(NULL AS VARCHAR) AS market_id,
+                   CAST(NULL AS VARCHAR) AS clob_token_id
+            WHERE FALSE
+            """
+        )
+        if extra_rows:
+            conn.register(
+                "_minute_primary_extra_tokens",
+                pa.table(
+                    {
+                        "market_id": [row[0] for row in extra_rows],
+                        "clob_token_id": [row[1] for row in extra_rows],
+                    }
+                ),
+            )
+        try:
+            rows = conn.execute(
+                f"""
+                WITH raw_tokens AS (
+                    {raw_tokens_sql}
+                    {
+                    "UNION SELECT market_id, clob_token_id "
+                    "FROM _minute_primary_extra_tokens"
+                    if extra_rows
+                    else ""
+                }
+                ),
+                exploded AS (
+                    SELECT
+                        m.id AS market_id,
+                        CAST(
+                            from_json(m.clob_token_ids, '["VARCHAR"]')[i] AS VARCHAR
+                        ) AS clob_token_id,
+                        CAST(
+                            from_json(m.outcomes, '["VARCHAR"]')[i] AS VARCHAR
+                        ) AS outcome_label,
+                        i AS outcome_idx
+                    FROM {markets} AS m
+                    CROSS JOIN generate_series(
+                        1,
+                        len(from_json(m.clob_token_ids, '["VARCHAR"]'))
+                    ) AS g(i)
+                    WHERE len(from_json(m.clob_token_ids, '["VARCHAR"]'))
+                        = len(from_json(m.outcomes, '["VARCHAR"]'))
+                ),
+                candidates AS (
+                    SELECT
+                        r.market_id,
+                        r.clob_token_id,
+                        coalesce(e.outcome_label, '') AS outcome_label,
+                        coalesce(e.outcome_idx, 0) AS outcome_idx,
+                        bool_or(lower(coalesce(e.outcome_label, '')) = 'yes') OVER (
+                            PARTITION BY r.market_id
+                        ) AS market_has_yes
+                    FROM raw_tokens AS r
+                    LEFT JOIN exploded AS e
+                        ON r.market_id = e.market_id
+                        AND r.clob_token_id = e.clob_token_id
+                )
+                SELECT clob_token_id
+                FROM candidates
+                WHERE
+                    (market_has_yes AND lower(outcome_label) = 'yes')
+                    OR NOT market_has_yes
+                QUALIFY row_number() OVER (
+                    PARTITION BY market_id
+                    ORDER BY outcome_idx ASC, clob_token_id ASC
+                ) = 1
+                """,
+                [str(path) for path in parquet_paths],
+            ).fetchall()
+        finally:
+            if extra_rows:
+                conn.unregister("_minute_primary_extra_tokens")
+        if rows:
+            return {str(row[0]) for row in rows}
+    if not parquet_paths:
+        # Reuse-only publish without markets: one primary per market (Yes tip
+        # when present in the token id, else lowest id). Never treat every
+        # reused token as primary.
+        by_market: dict[str, list[str]] = {}
+        for market_id, token_id in extra_rows:
+            by_market.setdefault(market_id, []).append(token_id)
+        primary: set[str] = set()
+        for tokens in by_market.values():
+            yes = [
+                token
+                for token in tokens
+                if token.casefold().endswith("-yes") or "yes" in token.casefold()
+            ]
+            primary.add(sorted(yes)[0] if yes else sorted(tokens)[0])
+        return primary
+    rows = conn.execute(
+        f"""
+        SELECT clob_token_id
+        FROM (
+            SELECT DISTINCT
+                market_id,
+                {token_column} AS clob_token_id
+            FROM read_parquet([{path_literals}], hive_partitioning=false)
+        )
+        QUALIFY row_number() OVER (
+            PARTITION BY market_id
+            ORDER BY clob_token_id ASC
+        ) = 1
+        """,
+        [str(path) for path in parquet_paths],
+    ).fetchall()
+    return {str(row[0]) for row in rows}
 
 
 def _publish_minute_odds_from_parquet(
@@ -541,150 +666,91 @@ def _publish_minute_odds_from_parquet(
     relation: Literal["match_minute_odds_history", "futures_minute_odds_history"],
     fetch_run_id: str,
     audit_mode: Literal["all", "success_only"],
+    reuse_token_ids: set[str] | None = None,
 ) -> int:
-    """Bulk-load a candidate table from Parquet and atomically swap it in."""
-    if not parquet_paths:
+    """Publish immutable Parquet snapshot + register DuckDB views (no heap PK rebuild)."""
+    reuse_token_ids = {str(token) for token in (reuse_token_ids or set())}
+    if not parquet_paths and not reuse_token_ids:
         raise ValueError("rows must not be empty")
+    from oddsfox_pipeline.storage.minute_odds_snapshots import (
+        build_and_publish_snapshot_from_shards,
+    )
+
     _configure_minute_publish_connection(conn)
-    schema = polymarket_raw_schema(SCOPE_WC2026)
-    target = polymarket_raw_tbl(SCOPE_WC2026, relation)
-    target_name = relation
-    candidate_name = f"{relation}_candidate"
-    previous_name = f"{relation}_previous"
-    candidate = polymarket_q(schema, candidate_name)
-    previous = polymarket_q(schema, previous_name)
     audit = polymarket_ops_tbl(
         SCOPE_WC2026,
         "match_minute_odds_fetch_audit"
         if relation == "match_minute_odds_history"
         else "futures_minute_odds_fetch_audit",
     )
+    leg = "match" if relation == "match_minute_odds_history" else "futures"
 
     expected_rows = 0
     parquet_bytes = 0
     for path in parquet_paths:
         expected_rows += int(pq.ParquetFile(path).metadata.num_rows)
         parquet_bytes += path.stat().st_size
-    free_bytes = shutil.disk_usage(Path(parquet_paths[0]).parent).free
-    # Candidate table + indexes roughly 2-4x parquet for this schema.
-    if free_bytes < max(parquet_bytes * 3, 1):
+    space_root = (
+        Path(parquet_paths[0]).parent
+        if parquet_paths
+        else Path(os.getenv("ODDSFOX_RUNTIME_ROOT", ".")).expanduser()
+    )
+    free_bytes = shutil.disk_usage(space_root).free
+    # Snapshot rewrite + OHLC roughly 2x parquet bytes.
+    if parquet_paths and free_bytes < max(parquet_bytes * 2, 1):
         raise OSError(
-            "Insufficient local free space for minute-odds candidate load: "
+            "Insufficient local free space for minute-odds snapshot publish: "
             f"parquet_bytes={parquet_bytes} free={free_bytes}"
         )
 
-    logger.info(
-        "Minute-odds candidate loading %s rows from %s parquet shard(s) "
-        "(relation=%s fetch_run_id=%s parquet_bytes=%s free_bytes=%s)",
-        expected_rows,
-        len(parquet_paths),
-        relation,
-        fetch_run_id,
-        parquet_bytes,
-        free_bytes,
-    )
-    conn.execute(f"DROP TABLE IF EXISTS {candidate}")
-    conn.execute(f"DROP TABLE IF EXISTS {previous}")
-    load_started = time.perf_counter()
-    # Create empty constrained heap table, then bulk-insert Parquet shards.
-    # Accept either canonical DuckDB names or the Arrow builder names.
-    conn.execute(
-        f"""
-        CREATE TABLE {candidate} (
-            {minute_odds_history_create_ddl(relation, with_primary_key=False)}
-        )
-        """
-    )
-    parquet_names = set(pq.ParquetFile(parquet_paths[0]).schema.names)
-    if "clobTokenId" in parquet_names:
-        token_column = '"clobTokenId"'
-    elif "clob_token_id" in parquet_names:
-        token_column = "clob_token_id"
+    if parquet_paths:
+        parquet_names = set(pq.ParquetFile(parquet_paths[0]).schema.names)
+        if "clobTokenId" in parquet_names:
+            token_column = '"clobTokenId"'
+        elif "clob_token_id" in parquet_names:
+            token_column = "clob_token_id"
+        else:
+            raise RuntimeError(
+                f"Parquet shards missing token column (have {sorted(parquet_names)})"
+            )
+        path_literals = ", ".join("?" for _ in parquet_paths)
     else:
-        raise RuntimeError(
-            f"Parquet shards missing token column (have {sorted(parquet_names)})"
-        )
-    path_literals = ", ".join("?" for _ in parquet_paths)
-    conn.execute(
-        f"""
-        INSERT INTO {candidate}
-        (market_id, clobTokenId, timestamp, price, fidelity_minutes,
-         window_start_at, window_end_at, ingested_at)
-        SELECT
-            market_id,
-            {token_column},
-            timestamp,
-            price,
-            fidelity_minutes,
-            window_start_at,
-            window_end_at,
-            ingested_at
-        FROM read_parquet([{path_literals}], hive_partitioning=false)
-        """,
-        [str(path) for path in parquet_paths],
-    )
-    load_seconds = time.perf_counter() - load_started
-    loaded_rows = int(conn.execute(f"SELECT count(*) FROM {candidate}").fetchone()[0])
-    if loaded_rows != expected_rows:
-        raise RuntimeError(
-            f"Candidate row count mismatch for {relation}: "
-            f"parquet={expected_rows} loaded={loaded_rows}"
-        )
-    logger.info(
-        "Minute-odds candidate loaded in %.3fs; building primary key "
-        "(rows=%s relation=%s)",
-        load_seconds,
-        loaded_rows,
-        relation,
-    )
-    pk_started = time.perf_counter()
-    conn.execute(
-        f'ALTER TABLE {candidate} ADD PRIMARY KEY ("clobTokenId", timestamp)'
-    )
-    pk_seconds = time.perf_counter() - pk_started
-    logger.info(
-        "Minute-odds candidate primary key built in %.3fs (rows=%s relation=%s)",
-        pk_seconds,
-        loaded_rows,
-        relation,
-    )
-    _validate_minute_candidate_constraints(conn, candidate=candidate)
+        token_column = '"clobTokenId"'
+        path_literals = ""
 
     # Token inventory: prefer shard manifest token_ids (written beside Parquet)
-    # so we never DISTINCT-scan hundreds of millions of candidate rows. A bare
-    # token_count integer is not enough — understated counts plus audit ⊆
-    # candidate would admit unaudited extras. Fall back to DISTINCT only for
-    # ad-hoc Arrow/dict publishes without a manifest (unit tests).
+    # so we never DISTINCT-scan hundreds of millions of rows.
     manifest_token_ids: set[str] | None = None
-    manifest_path = Path(parquet_paths[0]).resolve().parent / "manifest.json"
-    if manifest_path.is_file():
-        try:
-            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-            raw_ids = payload["token_ids"]
-            if not isinstance(raw_ids, list) or not raw_ids:
-                raise TypeError("token_ids must be a non-empty list")
-            manifest_token_ids = {str(token_id) for token_id in raw_ids}
-            if len(manifest_token_ids) != len(raw_ids):
-                raise ValueError("manifest token_ids contain duplicates")
-            if int(payload["token_count"]) != len(manifest_token_ids):
-                raise ValueError(
-                    f"token_count={payload['token_count']} != "
-                    f"len(token_ids)={len(manifest_token_ids)}"
-                )
-            if int(payload["row_count"]) != loaded_rows:
+    if parquet_paths:
+        manifest_path = Path(parquet_paths[0]).resolve().parent / "manifest.json"
+        if manifest_path.is_file():
+            try:
+                payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+                raw_ids = payload["token_ids"]
+                if not isinstance(raw_ids, list) or not raw_ids:
+                    raise TypeError("token_ids must be a non-empty list")
+                manifest_token_ids = {str(token_id) for token_id in raw_ids}
+                if len(manifest_token_ids) != len(raw_ids):
+                    raise ValueError("manifest token_ids contain duplicates")
+                if int(payload["token_count"]) != len(manifest_token_ids):
+                    raise ValueError(
+                        f"token_count={payload['token_count']} != "
+                        f"len(token_ids)={len(manifest_token_ids)}"
+                    )
+                if int(payload["row_count"]) != expected_rows:
+                    raise RuntimeError(
+                        f"Manifest row_count mismatch for {relation}: "
+                        f"manifest={payload['row_count']} parquet={expected_rows}"
+                    )
+                if str(payload.get("fetch_run_id", fetch_run_id)) != str(fetch_run_id):
+                    raise RuntimeError(
+                        f"Manifest fetch_run_id mismatch for {relation}: "
+                        f"manifest={payload.get('fetch_run_id')} expected={fetch_run_id}"
+                    )
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 raise RuntimeError(
-                    f"Manifest row_count mismatch for {relation}: "
-                    f"manifest={payload['row_count']} loaded={loaded_rows}"
-                )
-            if str(payload.get("fetch_run_id", fetch_run_id)) != str(fetch_run_id):
-                raise RuntimeError(
-                    f"Manifest fetch_run_id mismatch for {relation}: "
-                    f"manifest={payload.get('fetch_run_id')} expected={fetch_run_id}"
-                )
-        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-            raise RuntimeError(
-                f"Invalid minute-odds publish manifest at {manifest_path}"
-            ) from exc
+                    f"Invalid minute-odds publish manifest at {manifest_path}"
+                ) from exc
 
     if audit_mode == "all":
         audit_inventory = conn.execute(
@@ -738,77 +804,175 @@ def _publish_minute_odds_from_parquet(
             f"rows={distinct_tokens} distinct={len(audit_token_ids)}"
         )
 
+    if reuse_token_ids - audit_token_ids:
+        raise RuntimeError(
+            f"reuse_token_ids not present in fetch audit for run {fetch_run_id}: "
+            f"{sorted(reuse_token_ids - audit_token_ids)[:5]}"
+        )
+    parquet_token_ids: set[str]
     if manifest_token_ids is not None:
-        if manifest_token_ids != audit_token_ids:
-            raise RuntimeError(
-                f"Manifest token_ids do not match fetch audit for run {fetch_run_id}: "
-                f"manifest_only={sorted(manifest_token_ids - audit_token_ids)[:5]} "
-                f"audit_only={sorted(audit_token_ids - manifest_token_ids)[:5]}"
-            )
-        staged_tokens = len(manifest_token_ids)
-        # Fail-closed against understated manifests that omit unaudited extras
-        # present in Parquet. Full DISTINCT on ~377M production rows is the cost
-        # we avoided with the manifest; keep the scan for ordinary/test sizes.
-        if loaded_rows <= 5_000_000:
+        parquet_token_ids = set(manifest_token_ids)
+        if expected_rows <= 5_000_000 and parquet_paths:
             measured_tokens = int(
                 conn.execute(
-                    f'SELECT count(DISTINCT "clobTokenId") FROM {candidate}'
+                    f"""
+                    SELECT count(DISTINCT {token_column})
+                    FROM read_parquet([{path_literals}], hive_partitioning=false)
+                    """,
+                    [str(path) for path in parquet_paths],
                 ).fetchone()[0]
             )
-            if measured_tokens != staged_tokens:
+            if measured_tokens != len(parquet_token_ids):
                 raise RuntimeError(
                     f"Candidate token inventory exceeds manifest for run "
-                    f"{fetch_run_id}: manifest={staged_tokens} "
+                    f"{fetch_run_id}: manifest={len(parquet_token_ids)} "
                     f"candidate={measured_tokens}"
                 )
+    elif parquet_paths:
+        parquet_token_ids = {
+            str(row[0])
+            for row in conn.execute(
+                f"""
+                SELECT DISTINCT {token_column}
+                FROM read_parquet([{path_literals}], hive_partitioning=false)
+                """,
+                [str(path) for path in parquet_paths],
+            ).fetchall()
+        }
     else:
-        staged_tokens = int(
+        parquet_token_ids = set()
+    if parquet_token_ids & reuse_token_ids:
+        raise RuntimeError(
+            "reuse_token_ids overlap parquet shards for run "
+            f"{fetch_run_id}: {sorted(parquet_token_ids & reuse_token_ids)[:5]}"
+        )
+    staged_token_ids = parquet_token_ids | reuse_token_ids
+    if staged_token_ids != audit_token_ids:
+        raise RuntimeError(
+            f"Fetch audit inventory does not match staged tokens for run "
+            f"{fetch_run_id}: "
+            f"staged_only={sorted(staged_token_ids - audit_token_ids)[:5]} "
+            f"audit_only={sorted(audit_token_ids - staged_token_ids)[:5]}"
+        )
+
+    if parquet_paths:
+        missing_tokens = int(
             conn.execute(
-                f'SELECT count(DISTINCT "clobTokenId") FROM {candidate}'
+                f"""
+                SELECT count(*)
+                FROM {audit} AS a
+                WHERE a.fetch_run_id = ?
+                  AND a.fetch_status = 'success'
+                  AND NOT a.raw_published
+                  AND a."clobTokenId" NOT IN (
+                      SELECT CAST(token AS VARCHAR)
+                      FROM (SELECT UNNEST(?::VARCHAR[]) AS token)
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM read_parquet([{path_literals}], hive_partitioning=false) AS c
+                      WHERE c.{token_column} = a."clobTokenId"
+                  )
+                """,
+                [
+                    fetch_run_id,
+                    list(reuse_token_ids),
+                    *[str(path) for path in parquet_paths],
+                ],
             ).fetchone()[0]
         )
-    if staged_tokens != distinct_tokens:
-        raise RuntimeError(
-            f"Fetch audit inventory does not match {staged_tokens} staged tokens "
-            f"for run {fetch_run_id}: success_unpublished={distinct_tokens}"
-        )
-    missing_tokens = int(
-        conn.execute(
-            f"""
-            SELECT count(*)
-            FROM {audit} AS a
-            WHERE a.fetch_run_id = ?
-              AND a.fetch_status = 'success'
-              AND NOT a.raw_published
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM {candidate} AS c
-                  WHERE c."clobTokenId" = a."clobTokenId"
-              )
-            """,
-            [fetch_run_id],
-        ).fetchone()[0]
-    )
+    else:
+        missing_tokens = len(audit_token_ids - reuse_token_ids)
     if missing_tokens:
         raise RuntimeError(
             f"Candidate missing {missing_tokens} audited success token(s) "
             f"for run {fetch_run_id}"
         )
 
-    logger.info(
-        "Minute-odds swapping candidate into %s (tokens=%s fetch_run_id=%s "
-        "load_s=%.3f pk_s=%.3f)",
-        target,
-        distinct_tokens,
-        fetch_run_id,
-        load_seconds,
-        pk_seconds,
+    hash_column = (
+        "in_game_history_sha256"
+        if relation == "match_minute_odds_history"
+        else "window_history_sha256"
     )
+    window_hashes = {
+        str(row[0]): str(row[1])
+        for row in conn.execute(
+            f"""
+            SELECT "clobTokenId", {hash_column}
+            FROM {audit}
+            WHERE fetch_run_id = ?
+              AND fetch_status = 'success'
+              AND NOT raw_published
+              AND {hash_column} IS NOT NULL
+            """,
+            [fetch_run_id],
+        ).fetchall()
+    }
+    extra_rows = [
+        (str(row[0]), str(row[1]))
+        for row in conn.execute(
+            f"""
+            SELECT market_id, "clobTokenId"
+            FROM {audit}
+            WHERE fetch_run_id = ?
+              AND fetch_status = 'success'
+              AND NOT raw_published
+              AND "clobTokenId" IN (
+                  SELECT CAST(token AS VARCHAR)
+                  FROM (SELECT UNNEST(?::VARCHAR[]) AS token)
+              )
+            """,
+            [fetch_run_id, list(reuse_token_ids)],
+        ).fetchall()
+    ]
+    primary_token_ids = _resolve_primary_token_ids(
+        conn,
+        parquet_paths,
+        extra_token_market_rows=extra_rows,
+    )
+    logger.info(
+        "Minute-odds publishing parquet snapshot "
+        "(relation=%s tokens=%s rows=%s reused=%s primary_tokens=%s fetch_run_id=%s)",
+        relation,
+        distinct_tokens,
+        expected_rows,
+        len(reuse_token_ids),
+        len(primary_token_ids),
+        fetch_run_id,
+    )
+    publish_started = time.perf_counter()
+    from oddsfox_pipeline.storage.minute_odds_snapshots import (
+        minute_odds_snapshot_root,
+        register_snapshot_views,
+        retain_snapshots,
+        rollback_snapshot_pointer,
+    )
+
+    # Promote CURRENT before DuckDB registration, but defer retain_snapshots
+    # and roll CURRENT back if warehouse registration/audit flip fails.
+    snapshot = build_and_publish_snapshot_from_shards(
+        leg=leg,
+        fetch_run_id=fetch_run_id,
+        shard_paths=parquet_paths,
+        primary_token_ids=primary_token_ids,
+        conn=None,
+        register=False,
+        retain=False,
+        reuse_token_ids=reuse_token_ids,
+        window_hashes=window_hashes,
+    )
+    if not reuse_token_ids and int(snapshot.raw_row_count) > expected_rows:
+        raise RuntimeError(
+            f"Snapshot row count exceeds parquet for {relation}: "
+            f"parquet={expected_rows} snapshot={snapshot.raw_row_count}"
+        )
+    if int(snapshot.raw_row_count) < 1:
+        raise RuntimeError(f"Snapshot for {relation} has no raw rows")
+
+    root = minute_odds_snapshot_root(leg=leg)
     conn.execute("BEGIN TRANSACTION")
     try:
-        conn.execute(f"DROP TABLE IF EXISTS {previous}")
-        conn.execute(f"ALTER TABLE {target} RENAME TO {previous_name}")
-        conn.execute(f"ALTER TABLE {candidate} RENAME TO {target_name}")
+        register_snapshot_views(conn, snapshot)
         if audit_mode == "all":
             updated = conn.execute(
                 f"UPDATE {audit} SET raw_published = TRUE WHERE fetch_run_id = ?",
@@ -829,17 +993,24 @@ def _publish_minute_odds_from_parquet(
                 f"Published {updated} audit rows for {distinct_tokens} staged tokens "
                 f"in run {fetch_run_id}"
             )
-        conn.execute(f"DROP TABLE {previous}")
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
+        rollback_snapshot_pointer(
+            root,
+            failed_snapshot_id=snapshot.snapshot_id,
+            previous_snapshot_id=snapshot.previous_snapshot_id,
+        )
         raise
+    retain_snapshots(root, keep=2)
     logger.info(
-        "Minute-odds raw snapshot replace committed "
-        "(%s tokens, %s rows, fetch_run_id=%s)",
+        "Minute-odds parquet snapshot committed "
+        "(%s tokens, %s rows, primary_ohlc=%s, snapshot_id=%s, elapsed_s=%.3f)",
         distinct_tokens,
-        loaded_rows,
-        fetch_run_id,
+        expected_rows,
+        snapshot.primary_row_count,
+        snapshot.snapshot_id,
+        time.perf_counter() - publish_started,
     )
     return distinct_tokens
 
@@ -964,8 +1135,19 @@ def load_match_minute_odds_history_stage(
     conn: duckdb.DuckDBPyConnection,
     *,
     fetch_run_id: str,
+    reuse_token_ids: set[str] | None = None,
 ) -> None:
     """Atomically replace the complete bounded WC2026 minute snapshot."""
+    if not rows and reuse_token_ids:
+        _publish_minute_odds_from_parquet(
+            conn,
+            [],
+            relation="match_minute_odds_history",
+            fetch_run_id=fetch_run_id,
+            audit_mode="all",
+            reuse_token_ids=reuse_token_ids,
+        )
+        return
     paths, cleanup_dir = _minute_publish_input_to_parquet_paths(
         rows, fetch_run_id=fetch_run_id
     )
@@ -976,6 +1158,7 @@ def load_match_minute_odds_history_stage(
             relation="match_minute_odds_history",
             fetch_run_id=fetch_run_id,
             audit_mode="all",
+            reuse_token_ids=reuse_token_ids,
         )
     finally:
         if cleanup_dir is not None:
@@ -1069,6 +1252,7 @@ def load_futures_minute_odds_history_stage(
     conn: duckdb.DuckDBPyConnection,
     *,
     fetch_run_id: str,
+    reuse_token_ids: set[str] | None = None,
 ) -> None:
     """Atomically replace the complete bounded WC2026 futures-minute snapshot.
 
@@ -1078,10 +1262,21 @@ def load_futures_minute_odds_history_stage(
     """
     row_count = len(rows)
     logger.info(
-        "Futures-minute publish loading input (%s item(s), fetch_run_id=%s)",
+        "Futures-minute publish loading input (%s item(s), fetch_run_id=%s reused=%s)",
         row_count,
         fetch_run_id,
+        len(reuse_token_ids or ()),
     )
+    if not rows and reuse_token_ids:
+        _publish_minute_odds_from_parquet(
+            conn,
+            [],
+            relation="futures_minute_odds_history",
+            fetch_run_id=fetch_run_id,
+            audit_mode="success_only",
+            reuse_token_ids=reuse_token_ids,
+        )
+        return
     paths, cleanup_dir = _minute_publish_input_to_parquet_paths(
         rows, fetch_run_id=fetch_run_id
     )
@@ -1092,6 +1287,7 @@ def load_futures_minute_odds_history_stage(
             relation="futures_minute_odds_history",
             fetch_run_id=fetch_run_id,
             audit_mode="success_only",
+            reuse_token_ids=reuse_token_ids,
         )
     finally:
         if cleanup_dir is not None:

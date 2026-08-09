@@ -3,13 +3,9 @@ version: 2
 models:
   - name: int_polymarket_wc2026_futures_token_minute_odds
     description: >
-      Primary-token minute OHLC for registry-eligible WC2026 futures (non-match)
-      markets over each token's tournament-span window. Raw history retains every
-      CLOB token; this intermediate filters to the Yes/primary outcome before
-      aggregation. Materialized as a view — the unified fact is the single table write.
-      Column not-null/grain checks live on int_polymarket_wc2026_token_minute_odds
-      and the consolidated DQ row; testing this view would re-aggregate the full
-      futures history on every dbt build.
+      Pass-through view over publish-time primary-token minute OHLC for
+      registry-eligible WC2026 futures. Raw history retains every CLOB token in
+      the immutable Parquet snapshot; this intermediate does not re-aggregate.
     config:
       tags: [minute_odds]
 
@@ -17,7 +13,7 @@ models:
     description: >
       Unified primary-token minute OHLC for match-window and futures-tournament-span
       markets. Prefer match source on any accidental (clob_token_id, odds_minute_epoch)
-      clash via anti-join. Single narrow table write feeding the view-backed public mart.
+      clash via anti-join. View over match OHLC plus landed futures primary OHLC.
     config:
       tags: [minute_odds]
     tests:
@@ -45,40 +41,62 @@ models:
                 values: ['match', 'futures']
 
 unit_tests:
-  - name: test_futures_token_minute_ohlc_filters_window_and_primary_only
+  - name: test_futures_token_minute_ohlc_passthrough_primary_fact
     model: int_polymarket_wc2026_futures_token_minute_odds
     given:
-      - input: ref('stg_polymarket_wc2026_futures_minute_odds_history')
+      - input: source('polymarket_wc2026_raw', 'futures_primary_minute_ohlc')
         rows:
-          - {market_id: futures-1, clob_token_id: futures-yes, odds_timestamp_epoch: 1782907229, odds_timestamp_utc: '2026-07-01 12:00:29', price: 0.1, window_started_at_utc: '2026-07-01 12:00:30', window_finished_at_utc: '2026-07-01 12:02:35'}
-          - {market_id: futures-1, clob_token_id: futures-yes, odds_timestamp_epoch: 1782907230, odds_timestamp_utc: '2026-07-01 12:00:30', price: 0.2, window_started_at_utc: '2026-07-01 12:00:30', window_finished_at_utc: '2026-07-01 12:02:35'}
-          - {market_id: futures-1, clob_token_id: futures-yes, odds_timestamp_epoch: 1782907250, odds_timestamp_utc: '2026-07-01 12:00:50', price: 0.4, window_started_at_utc: '2026-07-01 12:00:30', window_finished_at_utc: '2026-07-01 12:02:35'}
-          - {market_id: futures-1, clob_token_id: futures-no, odds_timestamp_epoch: 1782907290, odds_timestamp_utc: '2026-07-01 12:01:30', price: 0.6, window_started_at_utc: '2026-07-01 12:00:30', window_finished_at_utc: '2026-07-01 12:02:35'}
-          - {market_id: futures-1, clob_token_id: futures-yes, odds_timestamp_epoch: 1782907356, odds_timestamp_utc: '2026-07-01 12:02:36', price: 0.9, window_started_at_utc: '2026-07-01 12:00:30', window_finished_at_utc: '2026-07-01 12:02:35'}
-      - input: ref('int_polymarket_wc2026_primary_market_token')
-        rows:
-          - {market_id: futures-1, outcome_index: 0, clob_token_id: futures-yes, token_updated_at: '2026-07-01 12:00:00', outcome_label: Yes}
-      - input: ref('int_polymarket_wc2026_markets')
-        rows:
-          - {market_id: futures-1, sports_market_type: tournament_winner}
+          - {
+              market_id: futures-1,
+              clob_token_id: futures-yes,
+              odds_minute_epoch: 1782907200,
+              odds_minute_utc: '2026-07-01 12:00:00',
+              open_price: 0.2,
+              high_price: 0.4,
+              low_price: 0.2,
+              close_price: 0.4,
+              avg_price: 0.3,
+              observed_points: 2,
+              first_observed_at: '2026-07-01 12:00:30',
+              last_observed_at: '2026-07-01 12:00:50'
+            }
     expect:
       rows:
-        - {market_id: futures-1, clob_token_id: futures-yes, odds_minute_epoch: 1782907200, open_price: 0.2, high_price: 0.4, low_price: 0.2, close_price: 0.4, avg_price: 0.3, observed_points: 2}
+        - {
+            market_id: futures-1,
+            clob_token_id: futures-yes,
+            odds_minute_epoch: 1782907200,
+            open_price: 0.2,
+            high_price: 0.4,
+            low_price: 0.2,
+            close_price: 0.4,
+            avg_price: 0.3,
+            observed_points: 2
+          }
 
   - name: test_token_minute_odds_prefers_match_over_futures_on_clash
     model: int_polymarket_wc2026_token_minute_odds
     given:
-      - input: ref('int_polymarket_wc2026_match_token_minute_odds')
+      - input: source('polymarket_wc2026_raw', 'match_primary_minute_ohlc')
         rows:
-          - {clob_token_id: shared-yes, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 1782907200, open_price: 0.55, high_price: 0.55, low_price: 0.55, close_price: 0.55, average_price: 0.55, observed_points: 1, first_observed_at: '2026-07-01 12:00:10', last_observed_at: '2026-07-01 12:00:10'}
+          - {
+              market_id: match-1,
+              clob_token_id: shared-yes,
+              odds_minute_utc: '2026-07-01 12:00:00',
+              odds_minute_epoch: 1782907200,
+              open_price: 0.55,
+              high_price: 0.55,
+              low_price: 0.55,
+              close_price: 0.55,
+              avg_price: 0.55,
+              observed_points: 1,
+              first_observed_at: '2026-07-01 12:00:10',
+              last_observed_at: '2026-07-01 12:00:10'
+            }
       - input: ref('int_polymarket_wc2026_futures_token_minute_odds')
         rows:
           - {market_id: futures-1, clob_token_id: shared-yes, odds_minute_utc: '2026-07-01 12:00:00', odds_minute_epoch: 1782907200, open_price: 0.11, high_price: 0.11, low_price: 0.11, close_price: 0.11, avg_price: 0.11, observed_points: 1, first_observed_at: '2026-07-01 12:00:50', last_observed_at: '2026-07-01 12:00:50'}
           - {market_id: futures-2, clob_token_id: futures-only, odds_minute_utc: '2026-07-01 12:01:00', odds_minute_epoch: 1782907260, open_price: 0.7, high_price: 0.7, low_price: 0.7, close_price: 0.7, avg_price: 0.7, observed_points: 1, first_observed_at: '2026-07-01 12:01:10', last_observed_at: '2026-07-01 12:01:10'}
-      - input: ref('int_polymarket_wc2026_primary_market_token')
-        rows:
-          - {market_id: match-1, outcome_index: 0, clob_token_id: shared-yes, token_updated_at: '2026-07-01 12:00:00', outcome_label: Yes}
-          - {market_id: futures-2, outcome_index: 0, clob_token_id: futures-only, token_updated_at: '2026-07-01 12:00:00', outcome_label: Yes}
     expect:
       rows:
         - {market_id: match-1, clob_token_id: shared-yes, odds_minute_epoch: 1782907200, open_price: 0.55, minute_source: match}

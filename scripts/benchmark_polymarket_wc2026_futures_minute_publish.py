@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark futures-minute publish: baseline vs parquet candidate/swap.
+"""Benchmark futures-minute publish: heap baseline vs Parquet snapshot.
 
 Measures only spill/stage + DuckDB publish (not CLOB fetch or dbt). Uses
 synthetic token histories and disposable DuckDB files under
@@ -651,7 +651,7 @@ def _run_streamed_pair(
         "spill_seconds": gen_s,
         "publish_seconds": cand_publish_s,
         # Publish-only ratio denominator: shared generation is setup, not the
-        # candidate/swap contract under test for streamed tiers.
+        # snapshot publish contract under test for streamed tiers.
         "total_seconds": cand_publish_s,
         "peak_rss_bytes": _peak_rss_bytes(),
         "duckdb_bytes": candidate_path.stat().st_size if candidate_path.exists() else 0,

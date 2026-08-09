@@ -10,6 +10,7 @@ from __future__ import annotations
 import array
 import gc
 import hashlib
+import inspect
 import itertools
 import json
 import logging
@@ -23,7 +24,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock, local
-from typing import Any, Callable, Iterator, Protocol, Sequence, TypeVar
+from typing import Any, Callable, Iterator, Mapping, Protocol, Sequence, TypeVar
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -164,9 +165,7 @@ def ensure_unique_success_token_ids(
             continue
         token_id = result.plan.token_id
         if token_id in seen:
-            raise ValueError(
-                f"Duplicate success token plan for publish: {token_id}"
-            )
+            raise ValueError(f"Duplicate success token plan for publish: {token_id}")
         seen.add(token_id)
 
 
@@ -208,9 +207,7 @@ def sample_minute_market_plans(
     selected_set = set(selected_ids)
     selected_plans = [plan for plan in plans if str(plan.market_id) in selected_set]
     selected_ids_sorted = sorted(selected_ids)
-    digest = hashlib.sha256(
-        "\n".join(selected_ids_sorted).encode("utf-8")
-    ).hexdigest()
+    digest = hashlib.sha256("\n".join(selected_ids_sorted).encode("utf-8")).hexdigest()
     manifest = {
         "sample_enabled": True,
         "sample_method": DEFAULT_MINUTE_MARKET_SAMPLE_METHOD,
@@ -251,10 +248,9 @@ def release_minute_history_payloads(
     """Drop in-memory history tuples after Parquet spill.
 
     Production futures publishes hold ~10^8 Python ``(token, ts, price)`` tuples
-    until spill completes. Clearing them before the DuckDB candidate/PK phase
-    avoids keeping that payload resident beside the warehouse table (the SIGKILL
-    failure mode). ``MinuteFetchResult`` is frozen, so clear via
-    ``object.__setattr__``.
+    until spill completes. Clearing them before snapshot publish avoids keeping
+    that payload resident beside DuckDB work (the SIGKILL failure mode).
+    ``MinuteFetchResult`` is frozen, so clear via ``object.__setattr__``.
     """
     released = 0
     for result in results:
@@ -286,9 +282,7 @@ def _build_minute_history_arrow_batch(
         itertools.chain([0], itertools.accumulate(counts)), type=pa.int32()
     )
     placeholder = pa.nulls(total_rows, type=pa.int8())
-    parent_idx = pc.list_parent_indices(
-        pa.ListArray.from_arrays(offsets, placeholder)
-    )
+    parent_idx = pc.list_parent_indices(pa.ListArray.from_arrays(offsets, placeholder))
     dict_indices = parent_idx.cast(pa.int32())
 
     small_market_ids = pa.array(
@@ -468,9 +462,7 @@ def write_minute_history_parquet_shards(
     # while Python histories are still alive.
     writer: pq.ParquetWriter | None = None
     writer_rows = 0
-    token_ids = sorted(
-        {result.plan.token_id for result in results if result.history}
-    )
+    token_ids = sorted({result.plan.token_id for result in results if result.history})
 
     def _close_writer() -> None:
         nonlocal writer, shard_rows, shard_index, writer_rows
@@ -593,9 +585,7 @@ def group_minute_plans(
 ) -> list[tuple[MinutePlanLike, ...]]:
     """Cluster plans that share an exact window, then chunk to batch size."""
     size = max(1, int(batch_group_size))
-    by_window: dict[tuple[datetime, datetime], list[MinutePlanLike]] = defaultdict(
-        list
-    )
+    by_window: dict[tuple[datetime, datetime], list[MinutePlanLike]] = defaultdict(list)
     for plan in plans:
         key = (plan.started_at, plan.finished_at)
         by_window[key].append(plan)
@@ -632,9 +622,7 @@ def _finalize_history(
     empty_error_message: str,
 ) -> MinuteFetchResult:
     filtered = _dedupe_history_by_timestamp(
-        tuple(
-            row for row in raw_rows if exact_start <= row[1] <= exact_end
-        )
+        tuple(row for row in raw_rows if exact_start <= row[1] <= exact_end)
     )
     if not filtered:
         return MinuteFetchResult(
@@ -1093,6 +1081,97 @@ def execute_minute_fetches(
     return fetched
 
 
+def resolve_minute_token_reuse(
+    plans: Sequence[MinutePlanLike],
+    *,
+    leg: str,
+    conn: Any,
+):
+    """Return ``(previous_snapshot, reusable_token_ids, published_windows)``."""
+    import duckdb
+
+    from oddsfox_pipeline.storage.minute_odds_snapshots import (
+        active_snapshot_dir,
+        load_latest_published_token_windows,
+        minute_odds_snapshot_root,
+        tokens_reusable_by_window,
+        validate_minute_odds_snapshot,
+    )
+
+    root = minute_odds_snapshot_root(leg=leg)
+    previous_dir = active_snapshot_dir(root)
+    previous = (
+        validate_minute_odds_snapshot(previous_dir)
+        if previous_dir is not None
+        else None
+    )
+    try:
+        published = load_latest_published_token_windows(conn, leg=leg)
+    except duckdb.Error:
+        # Fresh/mocked warehouses may not have ops audit tables yet.
+        published = {}
+    reusable = tokens_reusable_by_window(
+        plans,
+        previous=previous,
+        published_windows=published,
+    )
+    return previous, reusable, published
+
+
+def call_minute_persist(
+    persist_fn: Callable[..., Any],
+    shard_paths: Sequence[Path],
+    conn: Any,
+    *,
+    fetch_run_id: str,
+    reuse_token_ids: set[str] | None = None,
+) -> Any:
+    """Call a minute persist function, passing reuse when the callee accepts it."""
+    kwargs: dict[str, Any] = {"fetch_run_id": fetch_run_id}
+    try:
+        signature = inspect.signature(persist_fn)
+    except (TypeError, ValueError):
+        signature = None
+    if signature is not None and (
+        "reuse_token_ids" in signature.parameters
+        or any(
+            param.kind is inspect.Parameter.VAR_KEYWORD
+            for param in signature.parameters.values()
+        )
+    ):
+        kwargs["reuse_token_ids"] = set(reuse_token_ids or ())
+    return persist_fn(shard_paths, conn, **kwargs)
+
+
+def synthesize_reused_minute_fetch_results(
+    plans: Sequence[MinutePlanLike],
+    *,
+    published_windows: Mapping[str, Any],
+    now: datetime | None = None,
+) -> list[MinuteFetchResult]:
+    """Build success fetch results for tokens reused from the prior snapshot."""
+    finished = now or datetime.now(timezone.utc)
+    out: list[MinuteFetchResult] = []
+    for plan in plans:
+        prior = published_windows[plan.token_id]
+        start_epoch = int(plan.started_at.timestamp())
+        end_epoch = int(plan.finished_at.timestamp())
+        out.append(
+            MinuteFetchResult(
+                plan=plan,
+                fetch_status="success",
+                history=tuple(),
+                request_start_epoch=start_epoch,
+                request_end_epoch=end_epoch,
+                source_row_count=int(prior.row_count),
+                history_sha256=str(prior.history_sha256),
+                fetch_started_at=finished,
+                fetch_finished_at=finished,
+            )
+        )
+    return out
+
+
 __all__ = [
     "DEFAULT_MINUTE_AUTO_TUNE_MAX_RPS",
     "DEFAULT_MINUTE_BATCH_GROUP_SIZE",
@@ -1110,6 +1189,7 @@ __all__ = [
     "MinutePlanLike",
     "borrow_duckdb_connection",
     "build_minute_history_arrow_table",
+    "call_minute_persist",
     "cap_minute_plan_window_tail",
     "cleanup_minute_odds_publish_cache",
     "ensure_unique_success_token_ids",
@@ -1121,7 +1201,9 @@ __all__ = [
     "minute_odds_publish_cache_dir",
     "padded_epoch_bounds",
     "release_minute_history_payloads",
+    "resolve_minute_token_reuse",
     "sample_minute_market_plans",
     "sanitize_error_message",
+    "synthesize_reused_minute_fetch_results",
     "write_minute_history_parquet_shards",
 ]

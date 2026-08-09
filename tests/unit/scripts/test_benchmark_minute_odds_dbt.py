@@ -30,11 +30,13 @@ def test_write_profile_embeds_path_threads_and_temp(tmp_path):
     profiles = tmp_path / "profiles"
     db = tmp_path / "warehouse.duckdb"
     temp = tmp_path / "duckdb-temp"
-    benchmark._write_profile(profiles, db, threads=3, temp_dir=temp)
+    benchmark._write_profile(profiles, db, threads=3, temp_dir=temp, memory_limit="16GB")
     text = (profiles / "profiles.yml").read_text(encoding="utf-8")
     assert db.as_posix() in text
     assert "threads: 3" in text
     assert temp.as_posix() in text
+    assert 'memory_limit: "16GB"' in text
+    assert "preserve_insertion_order: false" in text
 
 
 def test_main_report_gates_without_running_dbt(tmp_path, monkeypatch):
@@ -44,6 +46,7 @@ def test_main_report_gates_without_running_dbt(tmp_path, monkeypatch):
     monkeypatch.setattr(benchmark.connection, "reset_duckdb_connection_state", lambda: None)
     monkeypatch.setattr(benchmark.connection, "init_duck_db", lambda: None)
     monkeypatch.setattr(benchmark, "seed_match_minute_contract", lambda _conn: None)
+    monkeypatch.setattr(benchmark, "backfill_primary_ohlc_table", lambda *_a, **_k: 0)
     monkeypatch.setattr(
         benchmark,
         "_seed_futures",
@@ -120,6 +123,7 @@ def test_main_returns_2_when_dq_blocked(tmp_path, monkeypatch):
     monkeypatch.setattr(benchmark.connection, "reset_duckdb_connection_state", lambda: None)
     monkeypatch.setattr(benchmark.connection, "init_duck_db", lambda: None)
     monkeypatch.setattr(benchmark, "seed_match_minute_contract", lambda _conn: None)
+    monkeypatch.setattr(benchmark, "backfill_primary_ohlc_table", lambda *_a, **_k: 0)
     monkeypatch.setattr(
         benchmark,
         "_seed_futures",

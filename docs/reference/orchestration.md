@@ -28,7 +28,7 @@ backfill, paid or narrow credentials, single-target manifests.
 | Polygon settlement history | `polymarket_wc2026_polygon_settlement_backfill` → `_release` → standalone exporter | Backfill scan, audit release, offline export | None | `dbt-polygon-settlement-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Match-minute odds | `polymarket_wc2026_match_minute_odds_backfill` | Results refresh, minute fetch, dbt | None | `dbt-match-minute-ci` (also compiles in ordinary `dbt-build-ci`; inventory proofs are the isolated lane) | Mature, isolated |
 | Minute odds (unified) | `polymarket_wc2026_minute_odds_backfill` | Match-minute + futures-minute fetch, unified dbt | None | `dbt-minute-odds-ci` (excluded from ordinary `dbt-build-ci` via `tag:minute_odds`) | Mature, isolated |
-| Minute odds live smoke | `polymarket_wc2026_minute_odds_live_smoke` | Same unified selection with 5%-per-leg sampling + futures 24h tail; disposable DuckDB only | None | Opt-in live (`minute-odds-live-smoke`); not a CI gate | Mature, isolated |
+| Minute odds live smoke | `polymarket_wc2026_minute_odds_live_smoke` | Same unified selection with 5%-per-leg sampling + futures 24h tail; disposable DuckDB + smoke runtime root | None | Opt-in live (`minute-odds-live-smoke`); not a CI gate | Mature, isolated |
 | Match order book | `polymarket_wc2026_match_order_book_backfill` | PMXT order-book scan, dbt | None | `dbt-match-order-book-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Market portrait | `polymarket_wc2026_market_portrait_backfill` | Order book + trades scan, portrait bundle build | None | `dbt-market-portrait-ci` (`tag:market_portrait` trade marts still compile in ordinary `dbt-build-ci`; order-book dual-tagged models follow `tag:pmxt_order_book` exclusion) | Mature, isolated |
 
@@ -163,8 +163,9 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   atomically replaces raw history and marks those audits published.
   Fetch throughput matches the hourly odds path: CLOB batch POST (≤20
   tokens), 24h preemptive window chunks, workers/RPS 40 with auto-tune to 90,
-  and temporary Parquet spill plus candidate/swap publish (still no hourly
-  ledger; each run is a full bounded refetch).
+  and temporary Parquet spill plus immutable snapshot publish (still no hourly
+  ledger; each run is a full bounded refetch, with content-addressed token reuse
+  when prior published windows still match).
   Run `uv run make match-minute-live-smoke` for the disposable live acceptance
   check; it is intentionally absent from CI and all schedules.
 
@@ -178,17 +179,19 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   Match-minute still fail-closes unless every in-game token succeeds; futures
   minute audits empty in-window CLOB history and publishes success tokens only
   (hard `error`/`cancelled`, or an all-empty run, still fail). Futures publish
-  logs audit write, Parquet shard spill, candidate load/PK build, and atomic
-  rename swap so large DuckDB publishes are visible in Dagster. Both legs borrow
-  DuckDB for plan selection, audit write, and publish only (warehouse lock
-  released during CLOB fetch and during temporary Parquet shard construction;
-  do not overlap two publishers of the same minute raw relation) and share the
-  same batch/auto-tune/window-chunk stack as hourly odds (via
+  logs audit write, Parquet shard spill, snapshot promotion, and DuckDB view
+  registration so large publishes are visible in Dagster. Both legs borrow
+  DuckDB for plan selection, reuse lookup, audit write, and publish only
+  (warehouse lock released during CLOB fetch and during temporary Parquet shard
+  construction; do not overlap two publishers of the same minute raw relation)
+  and share the same batch/auto-tune/window-chunk stack as hourly odds (via
   `odds/minute_batch.py`). Publish dedupes each token's history by timestamp
   before spill, writes bounded typed Arrow batches to ignored runtime Parquet
-  shards with a `token_ids` manifest, drops in-memory history tuples, bulk-loads
-  a candidate table under a capped DuckDB `memory_limit`, builds the primary key
-  once, then swaps it into the canonical raw relation. Futures
+  shards with a `token_ids` manifest, drops in-memory history tuples, then
+  promotes an immutable partitioned snapshot (`raw/` + `primary_ohlc/`) under
+  `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/` and registers stable DuckDB
+  views. Unchanged tokens reuse the prior snapshot without a CLOB refetch; only
+  dirty token buckets are rewritten. Futures
   spans are pre-chunked into 24h windows before CLOB calls so tournament-length
   fidelity=1 history does not rely on deep recursive auto-split alone.
   dbt builds `+polymarket_wc2026_market_minute_odds_data_quality`
@@ -202,7 +205,7 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   tag/series discovery and skips exhaustive slug-prefix recall (use the
   dedicated recall-audit job for that). Run
   `uv run make minute-odds-backfill` after the schedule overlay is validated. No
-  schedule. Measure publish-only candidate/swap speed with
+  schedule. Measure publish-only snapshot speed with
   `uv run make futures-minute-publish-benchmark`
   (`FUTURES_MINUTE_PUBLISH_BENCHMARK_TIER=performance` for the streamed 10M-row
   iteration tier; `production-shaped` for the opt-in ~377M-row storage run).
@@ -213,8 +216,8 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   (`MINUTE_ODDS_DBT_BENCHMARK_TIER=performance` default ~10M primary rows;
   `production-shaped` for the opt-in ~377M acceptance tier). The report records
   wall time, mart/primary-token counts, DQ blockers, peak RSS, and DuckDB temp
-  bytes. dbt rebuilds primary-token minute facts only; raw futures history still
-  retains every CLOB token.
+  bytes. dbt registers pass-through views over landing-built primary-token minute
+  facts; raw futures history still retains every CLOB token.
 
 - `polymarket_wc2026_minute_odds_live_smoke`: disposable end-to-end live smoke
   for the unified minute path. It reuses the same Dagster asset selection and
@@ -232,8 +235,9 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   dbt still builds `+polymarket_wc2026_market_minute_odds_data_quality` only —
   it does **not** run or weaken `+polymarket_wc2026_match_minute_odds` and its
   full publication gate. Always target
-  `.cache/minute_odds_live_smoke.duckdb` via `uv run make minute-odds-live-smoke`
-  (cold reset by default). Warm reruns:
+  `.cache/minute_odds_live_smoke.duckdb` and a disposable
+  `.cache/runtime/smoke/minute-odds-live` runtime root via
+  `uv run make minute-odds-live-smoke` (cold reset by default). Warm reruns:
   `MINUTE_ODDS_LIVE_SMOKE_RESET=false MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG=false`
   (restart the process so job selection rebuilds). The Make target always forces
   match and futures refresh; warm catalog reuse uses

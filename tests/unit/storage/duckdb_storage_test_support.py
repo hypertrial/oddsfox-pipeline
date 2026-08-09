@@ -62,6 +62,7 @@ def initialize_isolated_duckdb(
 
 @pytest.fixture
 def duck(monkeypatch, tmp_path):
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path / "runtime"))
     connection = initialize_isolated_duckdb(monkeypatch, tmp_path / "unit.duckdb")
     with get_connection() as conn:
         create_test_markets_table(conn)

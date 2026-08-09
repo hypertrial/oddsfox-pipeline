@@ -28,12 +28,15 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     DEFAULT_MINUTE_WORKERS,
     MinuteFetchResult,
     borrow_duckdb_connection,
+    call_minute_persist,
     cap_minute_plan_window_tail,
     cleanup_minute_odds_publish_cache,
     ensure_unique_success_token_ids,
     execute_minute_fetches,
     release_minute_history_payloads,
+    resolve_minute_token_reuse,
     sample_minute_market_plans,
+    synthesize_reused_minute_fetch_results,
     write_minute_history_parquet_shards,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
@@ -310,32 +313,57 @@ def sync_futures_minute_odds_history(
             sample_manifest.get("sample_window_hours"),
         )
     fetch_run_id = str(uuid4())
+    with borrow_duckdb_connection(
+        conn, connection_factory=connection_factory
+    ) as active:
+        _previous, reuse_ids, published_windows = resolve_minute_token_reuse(
+            plans,
+            leg="futures",
+            conn=active,
+        )
+    reuse_plans = [plan for plan in plans if plan.token_id in reuse_ids]
+    fetch_plans = [plan for plan in plans if plan.token_id not in reuse_ids]
+    if reuse_plans:
+        log.info(
+            "Futures-minute reusing %s/%s token(s) from prior snapshot; fetching %s",
+            len(reuse_plans),
+            len(plans),
+            len(fetch_plans),
+        )
     fetched = [
         _to_futures_fetch_result(result)
-        for result in execute_minute_fetches(
-            plans,
-            asset_name="polymarket_wc2026_minute_odds_backfill",
-            log=log,
-            workers=workers,
-            requests_per_second=requests_per_second,
-            batch_group_size=batch_group_size,
-            window_hours=window_hours,
-            auto_tune_rps=auto_tune_rps,
-            auto_tune_max_rps=auto_tune_max_rps,
-            transient_retries=transient_retries,
-            transient_backoff_seconds=transient_backoff_seconds,
-            progress_log_interval_seconds=progress_log_interval_seconds,
-            no_progress_soft_timeout_seconds=no_progress_soft_timeout_seconds,
-            no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,
-            progress_poll_seconds=progress_poll_seconds,
-            client_factory=client_factory,
-            fetch_window_fn=fetch_window_fn,
-            fetch_group_window_fn=fetch_group_window_fn,
-            empty_error_message_fn=(
-                lambda p: f"Empty in-window CLOB history for token {p.token_id}"
-            ),
+        for result in synthesize_reused_minute_fetch_results(
+            reuse_plans,
+            published_windows=published_windows,
         )
     ]
+    if fetch_plans:
+        fetched.extend(
+            _to_futures_fetch_result(result)
+            for result in execute_minute_fetches(
+                fetch_plans,
+                asset_name="polymarket_wc2026_minute_odds_backfill",
+                log=log,
+                workers=workers,
+                requests_per_second=requests_per_second,
+                batch_group_size=batch_group_size,
+                window_hours=window_hours,
+                auto_tune_rps=auto_tune_rps,
+                auto_tune_max_rps=auto_tune_max_rps,
+                transient_retries=transient_retries,
+                transient_backoff_seconds=transient_backoff_seconds,
+                progress_log_interval_seconds=progress_log_interval_seconds,
+                no_progress_soft_timeout_seconds=no_progress_soft_timeout_seconds,
+                no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,
+                progress_poll_seconds=progress_poll_seconds,
+                client_factory=client_factory,
+                fetch_window_fn=fetch_window_fn,
+                fetch_group_window_fn=fetch_group_window_fn,
+                empty_error_message_fn=(
+                    lambda p: f"Empty in-window CLOB history for token {p.token_id}"
+                ),
+            )
+        )
     audit_rows = [
         {
             "fetch_run_id": fetch_run_id,
@@ -349,7 +377,11 @@ def sync_futures_minute_odds_history(
             "request_start_epoch": result.request_start_epoch,
             "request_end_epoch": result.request_end_epoch,
             "source_row_count": result.source_row_count,
-            "window_row_count": len(result.history),
+            "window_row_count": (
+                len(result.history)
+                if result.plan.token_id not in reuse_ids
+                else int(result.source_row_count)
+            ),
             "window_history_sha256": result.window_history_sha256,
             "source_endpoint": f"{CLOB_API_URL.rstrip('/')}/prices-history",
             "fetch_started_at": result.fetch_started_at,
@@ -376,9 +408,7 @@ def sync_futures_minute_odds_history(
         summary.update(sample_manifest)
 
     hard_failures = [
-        result
-        for result in fetched
-        if result.fetch_status in {"error", "cancelled"}
+        result for result in fetched if result.fetch_status in {"error", "cancelled"}
     ]
     success = [result for result in fetched if result.fetch_status == "success"]
 
@@ -428,39 +458,60 @@ def sync_futures_minute_odds_history(
     ingested_at = datetime.now(timezone.utc)
     try:
         ensure_unique_success_token_ids(success)
-        shard_paths = write_minute_history_parquet_shards(
-            success,
-            fetch_run_id=fetch_run_id,
-            ingested_at=ingested_at,
-            log=log,
+        # Only spill freshly fetched histories; reused tokens stay in the prior
+        # snapshot and are merged at publish via reuse_token_ids.
+        fetched_success = [
+            result for result in success if result.plan.token_id not in reuse_ids
+        ]
+        shard_paths = (
+            write_minute_history_parquet_shards(
+                fetched_success,
+                fetch_run_id=fetch_run_id,
+                ingested_at=ingested_at,
+                log=log,
+            )
+            if fetched_success
+            else []
         )
-        total_rows = sum(len(result.history) for result in success)
+        total_rows = sum(len(result.history) for result in fetched_success)
         published_tokens = len(success)
-        # Drop ~10^8 Python history tuples before DuckDB candidate/PK so the
+        # Drop ~10^8 Python history tuples before snapshot publish so the
         # warehouse phase does not share RSS with the fetch payload (SIGKILL).
         release_minute_history_payloads(success)
         log.info(
-            "Futures-minute staging/publishing %s token(s) (%s rows) from %s shard(s)",
+            "Futures-minute staging/publishing %s token(s) (%s fresh rows, %s reused) "
+            "from %s shard(s)",
             published_tokens,
             total_rows,
+            len(reuse_ids),
             len(shard_paths),
         )
         with borrow_duckdb_connection(
             conn, connection_factory=connection_factory
         ) as active:
             try:
-                persist_fn(shard_paths, active, fetch_run_id=fetch_run_id)
+                call_minute_persist(
+                    persist_fn,
+                    shard_paths,
+                    active,
+                    fetch_run_id=fetch_run_id,
+                    reuse_token_ids=reuse_ids,
+                )
             except Exception as exc:
-                summary.update(status="publish_error", error_type=exc.__class__.__name__)
+                summary.update(
+                    status="publish_error", error_type=exc.__class__.__name__
+                )
                 raise FuturesMinuteSyncError(str(exc), summary) from exc
     finally:
         cleanup_minute_odds_publish_cache(fetch_run_id)
     summary["status"] = "published"
     summary["raw_published_tokens"] = published_tokens
+    summary["reused_tokens"] = len(reuse_ids)
     log.info(
-        "Futures-minute published %s token(s) (%s rows) to DuckDB",
+        "Futures-minute published %s token(s) (%s fresh rows, %s reused) to DuckDB",
         published_tokens,
         total_rows,
+        len(reuse_ids),
     )
     return summary
 

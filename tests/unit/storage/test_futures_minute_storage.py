@@ -250,47 +250,51 @@ def _futures_minute_audit(
     }
 
 
-def test_futures_minute_publish_from_parquet_preserves_pk_and_check(duck, tmp_path, monkeypatch):
+def test_futures_minute_publish_from_parquet_registers_snapshot_views(
+    duck, tmp_path, monkeypatch
+):
     import pyarrow as pa
     import pyarrow.parquet as pq
 
     monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
-    now = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    start = datetime(2026, 6, 11, tzinfo=timezone.utc)
+    end = datetime(2026, 7, 19, tzinfo=timezone.utc)
+    ingested = datetime(2026, 7, 20, tzinfo=timezone.utc)
+    ts = int(datetime(2026, 7, 1, tzinfo=timezone.utc).timestamp())
     table = pa.table(
         {
             "market_id": ["market"],
             "clob_token_id": ["token"],
-            "timestamp": pa.array([100], type=pa.int64()),
+            "timestamp": pa.array([ts], type=pa.int64()),
             "price": pa.array([0.4], type=pa.float64()),
             "fidelity_minutes": pa.array([1], type=pa.int32()),
-            "window_start_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
-            "window_end_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
-            "ingested_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
+            "window_start_at": pa.array([start], type=pa.timestamp("us", tz="UTC")),
+            "window_end_at": pa.array([end], type=pa.timestamp("us", tz="UTC")),
+            "ingested_at": pa.array([ingested], type=pa.timestamp("us", tz="UTC")),
         }
     )
     shard = tmp_path / "shard.parquet"
     pq.write_table(table, shard)
-    audit = _futures_minute_audit("run-parquet", token="token", market="market", now=now)
+    audit = _futures_minute_audit(
+        "run-parquet", token="token", market="market", now=ingested
+    )
     with duck.get_connection() as conn:
         load_futures_minute_fetch_audit([audit], conn)
         load_futures_minute_odds_history_stage(
             [shard], conn, fetch_run_id="run-parquet"
         )
-        constraints = {
-            str(row[0]).upper()
-            for row in conn.execute(
-                """
-                select constraint_type
-                from duckdb_constraints()
-                where table_name = 'futures_minute_odds_history'
-                """
-            ).fetchall()
-        }
-        assert "PRIMARY KEY" in constraints
-        assert "CHECK" in constraints
         assert (
             conn.execute(
                 "select count(*) from polymarket_wc2026_raw.futures_minute_odds_history"
+            ).fetchone()[0]
+            == 1
+        )
+        assert (
+            conn.execute(
+                """
+                select count(*)
+                from polymarket_wc2026_raw.futures_primary_minute_ohlc
+                """
             ).fetchone()[0]
             == 1
         )
@@ -430,6 +434,8 @@ def test_futures_minute_publish_from_writer_shards_and_manifest(
 
 
 def test_futures_minute_publish_rolls_back_on_constraint_failure(duck):
+    from oddsfox_pipeline.storage.minute_odds_snapshots import MinuteOddsSnapshotError
+
     now = datetime(2026, 7, 1, tzinfo=timezone.utc)
     good = {
         "market_id": "market",
@@ -469,7 +475,7 @@ def test_futures_minute_publish_rolls_back_on_constraint_failure(duck):
         load_futures_minute_fetch_audit([audit("run-good")], conn)
         load_futures_minute_odds_history_stage([good], conn, fetch_run_id="run-good")
         load_futures_minute_fetch_audit([audit("run-bad")], conn)
-        with pytest.raises(duckdb.ConstraintException):
+        with pytest.raises(MinuteOddsSnapshotError, match="fidelity_minutes"):
             load_futures_minute_odds_history_stage(
                 [bad], conn, fetch_run_id="run-bad"
             )
@@ -487,7 +493,8 @@ def test_futures_minute_publish_rolls_back_on_constraint_failure(duck):
         assert published == [("run-bad", False), ("run-good", True)]
 
 
-def test_futures_minute_publish_rejects_duplicate_pk_in_candidate(duck):
+def test_futures_minute_publish_dedupes_duplicate_timestamps(duck, tmp_path, monkeypatch):
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
     now = datetime(2026, 7, 1, tzinfo=timezone.utc)
     row = {
         "market_id": "market",
@@ -521,16 +528,18 @@ def test_futures_minute_publish_rejects_duplicate_pk_in_candidate(duck):
     }
     with duck.get_connection() as conn:
         load_futures_minute_fetch_audit([audit], conn)
-        with pytest.raises(Exception):
-            load_futures_minute_odds_history_stage(
-                [row, {**row, "price": 0.9}], conn, fetch_run_id="run-dup"
-            )
+        load_futures_minute_odds_history_stage(
+            [row, {**row, "price": 0.9}], conn, fetch_run_id="run-dup"
+        )
         assert (
             conn.execute(
                 "select count(*) from polymarket_wc2026_raw.futures_minute_odds_history"
             ).fetchone()[0]
-            == 0
+            == 1
         )
+        assert conn.execute(
+            "select price from polymarket_wc2026_raw.futures_minute_odds_history"
+        ).fetchone() == (0.9,)
         assert (
             conn.execute(
                 """
@@ -539,5 +548,5 @@ def test_futures_minute_publish_rejects_duplicate_pk_in_candidate(duck):
                 where fetch_run_id = 'run-dup'
                 """
             ).fetchone()[0]
-            is False
+            is True
         )
