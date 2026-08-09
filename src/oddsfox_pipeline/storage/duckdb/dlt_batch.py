@@ -998,7 +998,6 @@ def _publish_minute_odds_from_parquet(
         conn.execute("ROLLBACK")
         rollback_snapshot_pointer(
             root,
-            failed_snapshot_id=snapshot.snapshot_id,
             previous_snapshot_id=snapshot.previous_snapshot_id,
         )
         raise

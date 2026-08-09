@@ -543,7 +543,6 @@ def _write_current_pointer(root: Path, snapshot_id: str) -> None:
 def rollback_snapshot_pointer(
     root: Path,
     *,
-    failed_snapshot_id: str,
     previous_snapshot_id: str | None,
 ) -> None:
     """Restore CURRENT after a failed DuckDB registration; keep failed snapshot files.
@@ -563,8 +562,6 @@ def rollback_snapshot_pointer(
         current = root / "CURRENT"
         if current.exists() or current.is_symlink():
             current.unlink()
-    # Keep failed_snapshot_id on disk; do not delete here (retain handles GC).
-    _ = failed_snapshot_id
 
 
 def retain_snapshots(root: Path, *, keep: int = 2) -> list[str]:
@@ -612,6 +609,18 @@ def _parquet_glob(snapshot_dir: Path, kind: str) -> str:
     return pattern
 
 
+def _view_parquet_root(snapshot: MinuteOddsSnapshot) -> Path:
+    """Prefer the CURRENT symlink so views track pointer advances at query time.
+
+    Text-pointer CURRENT fallbacks (rare) keep the concrete snapshot directory.
+    """
+    root = snapshot.directory.parent.parent
+    current = root / "CURRENT"
+    if current.is_symlink():
+        return current
+    return snapshot.directory
+
+
 def _drop_relation(conn: duckdb.DuckDBPyConnection, relation: str) -> None:
     schema_name, _, table_name = relation.partition(".")
     schema_name = schema_name.strip('"')
@@ -651,8 +660,8 @@ def register_snapshot_views(
         if snapshot.leg == "match"
         else "futures_primary_minute_ohlc",
     )
-    raw_glob = _parquet_glob(snapshot.directory, "raw")
-    primary_glob = _parquet_glob(snapshot.directory, "primary_ohlc")
+    raw_glob = _parquet_glob(_view_parquet_root(snapshot), "raw")
+    primary_glob = _parquet_glob(_view_parquet_root(snapshot), "primary_ohlc")
     for relation in (raw_relation, primary_relation):
         _drop_relation(conn, relation)
     conn.execute(
@@ -713,28 +722,6 @@ def register_snapshot_views(
             """
         )
     return {"raw": raw_relation, "primary_ohlc": primary_relation}
-
-
-def reusable_token_ids(
-    *,
-    previous: MinuteOddsSnapshot | None,
-    requested_token_ids: set[str],
-    window_hashes: Mapping[str, str],
-    previous_window_hashes: Mapping[str, str],
-) -> set[str]:
-    """Tokens whose history hash matches the previous snapshot (content-addressed)."""
-    if previous is None:
-        return set()
-    reusable: set[str] = set()
-    previous_tokens = set(previous.token_ids)
-    for token_id in requested_token_ids:
-        if token_id not in previous_tokens:
-            continue
-        current_hash = window_hashes.get(token_id)
-        prior_hash = previous_window_hashes.get(token_id)
-        if current_hash and prior_hash and current_hash == prior_hash:
-            reusable.add(token_id)
-    return reusable
 
 
 @dataclass(frozen=True, slots=True)
@@ -854,11 +841,14 @@ def write_snapshot_partitions_incremental(
     new_shard_paths: Sequence[Path],
     *,
     previous: MinuteOddsSnapshot | None,
-    reuse_token_ids: set[str],
     primary_token_ids: set[str],
     bucket_count: int = DEFAULT_TOKEN_BUCKET_COUNT,
 ) -> tuple[list[SnapshotPartitionFile], list[SnapshotPartitionFile], set[int]]:
-    """Rebuild only dirty token buckets; copy unchanged raw/primary partitions."""
+    """Rebuild only dirty token buckets; copy unchanged raw/primary partitions.
+
+    Non-changed prior tokens are always preserved from ``previous``; a partial
+    shard publish must not shrink snapshot inventory.
+    """
     changed_tokens = set()
     for path in new_shard_paths:
         frame = pl.read_parquet(path, columns=["clobTokenId"])
@@ -867,8 +857,6 @@ def write_snapshot_partitions_incremental(
             if "clob_token_id" in frame.columns:
                 frame = frame.rename({"clob_token_id": "clobTokenId"})
         changed_tokens.update(str(token) for token in frame["clobTokenId"].unique())
-    # Fresh shards win over reuse for the same token.
-    reuse_token_ids = set(reuse_token_ids) - changed_tokens
     dirty_buckets = dirty_token_buckets(changed_tokens, bucket_count=bucket_count)
     if previous is None:
         if not new_shard_paths:
@@ -892,28 +880,10 @@ def write_snapshot_partitions_incremental(
         part.bucket: part for part in previous.files if part.kind == "primary_ohlc"
     }
 
-    # Copy unchanged raw buckets by hardlink/copy.
-    requested_tokens = set(reuse_token_ids) | changed_tokens
+    # Copy unchanged raw buckets by hardlink/copy. Keep every prior token in
+    # those buckets; only dirty buckets replace rows for changed tokens.
     for bucket, part in sorted(previous_raw.items()):
         if bucket in dirty_buckets:
-            continue
-        part_tokens = set(part.token_ids)
-        if requested_tokens and not part_tokens <= requested_tokens:
-            prior_frame = pl.read_parquet(part.path)
-            if (
-                "clobTokenId" not in prior_frame.columns
-                and "clob_token_id" in prior_frame.columns
-            ):
-                prior_frame = prior_frame.rename({"clob_token_id": "clobTokenId"})
-            kept = prior_frame.filter(
-                pl.col("clobTokenId").is_in(sorted(requested_tokens))
-            )
-            if kept.is_empty():
-                continue
-            out = staged_dir / "raw" / f"bucket={bucket}" / "part-00000.parquet"
-            raw_files.append(
-                _write_partition_parquet(kept, out, kind="raw", bucket=bucket)
-            )
             continue
         dest = staged_dir / "raw" / f"bucket={bucket}" / "part-00000.parquet"
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -985,43 +955,28 @@ def write_snapshot_partitions_incremental(
             _write_partition_parquet(merged, out, kind="raw", bucket=bucket)
         )
 
-    # Unchanged rerun: no dirty buckets, copy previous raw filtered to reuse set.
+    # Unchanged rerun: no dirty buckets and no copied raw yet — hardlink the
+    # full prior inventory (partial plans must not shrink the snapshot).
     if not dirty_buckets and not raw_files:
-        keep = set(reuse_token_ids) or set(previous.token_ids)
         for bucket, part in sorted(previous_raw.items()):
-            prior_frame = pl.read_parquet(part.path)
-            if (
-                "clobTokenId" not in prior_frame.columns
-                and "clob_token_id" in prior_frame.columns
-            ):
-                prior_frame = prior_frame.rename({"clob_token_id": "clobTokenId"})
-            kept = prior_frame.filter(pl.col("clobTokenId").is_in(sorted(keep)))
-            if kept.is_empty():
-                continue
-            if set(str(t) for t in kept["clobTokenId"].unique()) == set(part.token_ids):
-                dest = staged_dir / "raw" / f"bucket={bucket}" / "part-00000.parquet"
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    os.link(part.path, dest)
-                except OSError:
-                    shutil.copy2(part.path, dest)
-                raw_files.append(
-                    SnapshotPartitionFile(
-                        kind="raw",
-                        bucket=bucket,
-                        path=dest,
-                        sha256=part.sha256,
-                        schema_fingerprint=part.schema_fingerprint,
-                        row_count=part.row_count,
-                        byte_size=dest.stat().st_size,
-                        token_ids=part.token_ids,
-                    )
+            dest = staged_dir / "raw" / f"bucket={bucket}" / "part-00000.parquet"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                os.link(part.path, dest)
+            except OSError:
+                shutil.copy2(part.path, dest)
+            raw_files.append(
+                SnapshotPartitionFile(
+                    kind="raw",
+                    bucket=bucket,
+                    path=dest,
+                    sha256=part.sha256,
+                    schema_fingerprint=part.schema_fingerprint,
+                    row_count=part.row_count,
+                    byte_size=dest.stat().st_size,
+                    token_ids=part.token_ids,
                 )
-            else:
-                out = staged_dir / "raw" / f"bucket={bucket}" / "part-00000.parquet"
-                raw_files.append(
-                    _write_partition_parquet(kept, out, kind="raw", bucket=bucket)
-                )
+            )
 
     # Primary OHLC: rebuild dirty buckets (or all when mapping changed).
     for bucket, part in sorted(previous_primary.items()):
@@ -1099,19 +1054,23 @@ def build_and_publish_snapshot_from_shards(
     )
     staged = stage_snapshot_dir(root, snapshot_id)
     try:
-        if previous is not None and (reuse_token_ids or not shard_paths):
+        # Always merge into the prior snapshot when one exists. Fresh shards
+        # overwrite only their tokens; out-of-plan prior tokens stay put so a
+        # sampled/partial publish cannot shrink a full inventory.
+        effective_primary = set(primary_token_ids)
+        if previous is not None:
+            effective_primary |= set(previous.primary_token_ids)
             raw_files, primary_files, _dirty = write_snapshot_partitions_incremental(
                 staged,
                 shard_paths,
                 previous=previous,
-                reuse_token_ids=set(reuse_token_ids or set(previous.token_ids)),
-                primary_token_ids=primary_token_ids,
+                primary_token_ids=effective_primary,
             )
         else:
             raw_files, primary_files = write_snapshot_partitions_from_raw_parquet(
                 staged,
                 shard_paths,
-                primary_token_ids=primary_token_ids,
+                primary_token_ids=effective_primary,
             )
         merged_hashes: dict[str, str] = {}
         if previous is not None:
@@ -1131,6 +1090,9 @@ def build_and_publish_snapshot_from_shards(
         merged_hashes = {
             token: digest for token, digest in merged_hashes.items() if token in present
         }
+        manifest_primary = sorted(
+            token for token in effective_primary if token in present
+        )
         write_manifest(
             staged,
             leg=leg,
@@ -1138,7 +1100,7 @@ def build_and_publish_snapshot_from_shards(
             fetch_run_id=fetch_run_id,
             collected_at=collected_at or datetime.now(timezone.utc),
             previous_snapshot_id=previous_id,
-            primary_token_ids=sorted(primary_token_ids),
+            primary_token_ids=manifest_primary,
             raw_files=raw_files,
             primary_files=primary_files,
             window_hashes=merged_hashes,
@@ -1264,7 +1226,6 @@ __all__ = [
     "publish_snapshot",
     "register_snapshot_views",
     "retain_snapshots",
-    "reusable_token_ids",
     "stage_snapshot_dir",
     "token_bucket",
     "tokens_reusable_by_window",

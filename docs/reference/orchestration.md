@@ -164,10 +164,11 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   Fetch throughput matches the hourly odds path: CLOB batch POST (≤20
   tokens), 24h preemptive window chunks, workers/RPS 40 with auto-tune to 90,
   and temporary Parquet spill plus immutable snapshot publish (still no hourly
-  ledger; each run is a full bounded refetch, with content-addressed token reuse
-  when prior published windows still match).
+  ledger; each run is a full bounded refetch, with window-bounded token reuse
+  when prior published window bounds still match).
   Run `uv run make match-minute-live-smoke` for the disposable live acceptance
-  check; it is intentionally absent from CI and all schedules.
+  check (disposable DuckDB + `.cache/runtime/smoke/match-minute-live` runtime
+  root); it is intentionally absent from CI and all schedules.
 
 **Isolated: Minute odds (unified)**
 

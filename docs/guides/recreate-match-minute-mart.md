@@ -87,8 +87,10 @@ The relation is:
 polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds
 ```
 
-The Make target prints and asserts the inventory and quality result. Do not
-continue if it exits nonzero.
+The Make target prints and asserts the inventory and quality result. It uses a
+disposable DuckDB file and a disposable
+`.cache/runtime/smoke/match-minute-live` runtime root for Parquet snapshots.
+Do not continue if it exits nonzero.
 
 Historical API availability is not guaranteed. If Gamma or CLOB no longer
 returns the complete interval, use an operator's previously completed raw

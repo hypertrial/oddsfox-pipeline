@@ -275,6 +275,9 @@ promotes them into a checksummed snapshot (`raw/` + `primary_ohlc/` buckets,
 bounds still match are reused without a CLOB refetch; only dirty token buckets
 are rewritten. DuckDB then re-registers the stable raw + primary-OHLC relation
 names and flips matching audit rows `raw_published` in one short transaction.
+Views prefer the `CURRENT` symlink path so a later pointer advance is visible at
+query time without re-registering. Partial publishes merge into the prior
+snapshot (changed tokens only); they do not drop out-of-plan prior tokens.
 Publish uses `temp_directory` under the runtime root and a default
 `memory_limit` of `12GB` (`ODDSFOX_MINUTE_PUBLISH_MEMORY_LIMIT`). Do not overlap
 two publishers of the same minute raw relation while the lock is released for
@@ -305,7 +308,8 @@ disposable warehouse and smoke runtime root and refresh catalog by default; warm
 reruns use
 `MINUTE_ODDS_LIVE_SMOKE_RESET=false MINUTE_ODDS_LIVE_SMOKE_REFRESH_CATALOG=false`
 while still forcing match and futures refresh. It does not prove the full
-104/248/496 match publication gate; use `make match-minute-live-smoke` or the
+104/248/496 match publication gate; use `make match-minute-live-smoke` (disposable
+DuckDB **and** `.cache/runtime/smoke/match-minute-live` runtime root) or the
 production minute backfill for that contract.
 
 The Polygon settlement tables are custom transactional SQL, not dlt. Completed

@@ -359,6 +359,10 @@ Smoke-only knobs consumed by `polymarket_wc2026_minute_odds_live_smoke` /
   and always sets `ODDSFOX_RUNTIME_ROOT` to the smoke runtime root so sampled
   publishes cannot touch the operator snapshot tree.
 
+`make match-minute-live-smoke` likewise uses a disposable DuckDB path and sets
+`ODDSFOX_RUNTIME_ROOT` to `.cache/runtime/smoke/match-minute-live` so full
+match-minute publishes cannot GC operator minute-odds snapshots.
+
 `polymarket_wc2026_polygon_settlement_backfill` and
 `polymarket_wc2026_polygon_settlement_release` are manual-only jobs. They have
 no schedule or enable flag, and the release job writes only a local immutable

@@ -167,7 +167,6 @@ def test_changed_bucket_rebuild_copies_unchanged_partitions(tmp_path, monkeypatc
         staged,
         [shard_c],
         previous=first,
-        reuse_token_ids={"tok-a"},
         primary_token_ids={"tok-a", "tok-b"},
     )
     assert dirty

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 import duckdb
 import pyarrow as pa
@@ -18,7 +19,6 @@ from oddsfox_pipeline.storage.minute_odds_snapshots import (
     minute_odds_snapshot_root,
     primary_mapping_sha256,
     retain_snapshots,
-    reusable_token_ids,
     rollback_snapshot_pointer,
     token_bucket,
     validate_minute_odds_snapshot,
@@ -26,7 +26,9 @@ from oddsfox_pipeline.storage.minute_odds_snapshots import (
 
 
 def test_token_bucket_is_stable():
-    assert token_bucket("tok-a", bucket_count=8) == token_bucket("tok-a", bucket_count=8)
+    assert token_bucket("tok-a", bucket_count=8) == token_bucket(
+        "tok-a", bucket_count=8
+    )
     assert 0 <= token_bucket("tok-b", bucket_count=8) < 8
 
 
@@ -203,23 +205,10 @@ def test_rollback_snapshot_pointer_restores_predecessor(tmp_path, monkeypatch):
     assert active_snapshot_id(root) == second.snapshot_id
     rollback_snapshot_pointer(
         root,
-        failed_snapshot_id=second.snapshot_id,
         previous_snapshot_id=first.snapshot_id,
     )
     assert active_snapshot_id(root) == first.snapshot_id
     assert (root / "snapshots" / second.snapshot_id).is_dir()
-
-
-def test_reusable_token_ids_requires_matching_window_hash():
-    class _Snap:
-        token_ids = ("a", "b")
-
-    assert reusable_token_ids(
-        previous=_Snap(),  # type: ignore[arg-type]
-        requested_token_ids={"a", "b", "c"},
-        window_hashes={"a": "x", "b": "y"},
-        previous_window_hashes={"a": "x", "b": "z"},
-    ) == {"a"}
 
 
 def test_backfill_primary_ohlc_table_from_history(tmp_path):
@@ -314,3 +303,163 @@ def test_reject_bad_fidelity_partition(tmp_path, monkeypatch):
         write_snapshot_partitions_from_raw_parquet(
             staged, [shard], primary_token_ids={"t"}
         )
+
+
+def _write_token_shard(
+    directory: Path,
+    tokens: list[str],
+    *,
+    price: float = 0.2,
+    ts: int | None = None,
+) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 7, 2, tzinfo=timezone.utc)
+    ingested = datetime(2026, 7, 3, tzinfo=timezone.utc)
+    epoch = ts or int(datetime(2026, 7, 1, 12, tzinfo=timezone.utc).timestamp())
+    n = len(tokens)
+    path = directory / "shard-00000.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "market_id": [f"m-{token}" for token in tokens],
+                "clobTokenId": list(tokens),
+                "timestamp": pa.array([epoch] * n, type=pa.int64()),
+                "price": pa.array([price] * n, type=pa.float64()),
+                "fidelity_minutes": pa.array([1] * n, type=pa.int32()),
+                "window_start_at": pa.array(
+                    [start] * n, type=pa.timestamp("us", tz="UTC")
+                ),
+                "window_end_at": pa.array([end] * n, type=pa.timestamp("us", tz="UTC")),
+                "ingested_at": pa.array(
+                    [ingested] * n, type=pa.timestamp("us", tz="UTC")
+                ),
+            }
+        ),
+        path,
+    )
+    return path
+
+
+def test_partial_publish_preserves_prior_out_of_plan_tokens(tmp_path, monkeypatch):
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
+    full = [f"tok-{index:03d}" for index in range(12)]
+    first = build_and_publish_snapshot_from_shards(
+        leg="futures",
+        fetch_run_id="full",
+        shard_paths=[_write_token_shard(tmp_path / "full", full)],
+        primary_token_ids={full[0]},
+        register=False,
+        retain=False,
+    )
+    assert set(first.token_ids) == set(full)
+
+    partial = full[:3]
+    second = build_and_publish_snapshot_from_shards(
+        leg="futures",
+        fetch_run_id="partial",
+        shard_paths=[_write_token_shard(tmp_path / "partial", partial, price=0.55)],
+        primary_token_ids={partial[0]},
+        register=False,
+        retain=False,
+        reuse_token_ids=set(partial),
+    )
+    assert set(second.token_ids) == set(full)
+
+    third = build_and_publish_snapshot_from_shards(
+        leg="futures",
+        fetch_run_id="empty-reuse",
+        shard_paths=[_write_token_shard(tmp_path / "subset", partial[:2], price=0.7)],
+        primary_token_ids={partial[0]},
+        register=False,
+        retain=False,
+        reuse_token_ids=set(),
+    )
+    assert set(third.token_ids) == set(full)
+
+
+def test_views_follow_current_after_retain_gc(tmp_path, monkeypatch):
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
+    db = tmp_path / "operator.duckdb"
+    with duckdb.connect(str(db)) as conn:
+        conn.execute("CREATE SCHEMA polymarket_wc2026_raw")
+        first = build_and_publish_snapshot_from_shards(
+            leg="match",
+            fetch_run_id="s1",
+            shard_paths=[_write_token_shard(tmp_path / "s1", ["tok"], price=0.1)],
+            primary_token_ids={"tok"},
+            conn=conn,
+            register=True,
+            retain=False,
+        )
+        assert (
+            conn.execute(
+                "select price from polymarket_wc2026_raw.match_minute_odds_history"
+            ).fetchone()[0]
+            == 0.1
+        )
+
+    with duckdb.connect(str(db)) as conn:
+        build_and_publish_snapshot_from_shards(
+            leg="match",
+            fetch_run_id="s2",
+            shard_paths=[_write_token_shard(tmp_path / "s2", ["tok"], price=0.2)],
+            primary_token_ids={"tok"},
+            register=False,
+            retain=True,
+        )
+        build_and_publish_snapshot_from_shards(
+            leg="match",
+            fetch_run_id="s3",
+            shard_paths=[_write_token_shard(tmp_path / "s3", ["tok"], price=0.3)],
+            primary_token_ids={"tok"},
+            register=False,
+            retain=True,
+        )
+        assert not first.directory.exists()
+        assert (
+            conn.execute(
+                "select price from polymarket_wc2026_raw.match_minute_odds_history"
+            ).fetchone()[0]
+            == 0.3
+        )
+
+
+def test_window_reuse_ignores_history_hash(tmp_path, monkeypatch):
+    """Live reuse is window-bounded; history hash is audit metadata only."""
+    from types import SimpleNamespace
+
+    from oddsfox_pipeline.storage.minute_odds_snapshots import (
+        PublishedTokenWindow,
+        tokens_reusable_by_window,
+    )
+
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
+    start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 7, 2, tzinfo=timezone.utc)
+    previous = SimpleNamespace(token_ids=("tok-a",))
+    published = {
+        "tok-a": PublishedTokenWindow(
+            token_id="tok-a",
+            market_id="m",
+            window_start_at=start,
+            window_end_at=end,
+            history_sha256="a" * 64,
+            row_count=3,
+        )
+    }
+    plan = SimpleNamespace(token_id="tok-a", started_at=start, finished_at=end)
+    assert tokens_reusable_by_window(
+        [plan], previous=previous, published_windows=published
+    ) == {"tok-a"}
+    published["tok-a"] = PublishedTokenWindow(
+        token_id="tok-a",
+        market_id="m",
+        window_start_at=start,
+        window_end_at=end,
+        history_sha256="b" * 64,
+        row_count=3,
+    )
+    assert tokens_reusable_by_window(
+        [plan], previous=previous, published_windows=published
+    ) == {"tok-a"}

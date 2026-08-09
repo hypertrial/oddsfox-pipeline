@@ -40,7 +40,10 @@ DBT_FRESHNESS_DUCKDB_PATH := $(ODDSFOX_RUNTIME_ROOT)/dbt_source_freshness.duckdb
 DBT_FRESHNESS_ENV := DUCKDB_NAME="$(DBT_FRESHNESS_DUCKDB_PATH)" DUCKDB_PATH="$(DBT_FRESHNESS_DUCKDB_PATH)"
 DBT_DEPS_LOCK := $(REPO_ROOT)/.cache/runtime/dbt-deps.lock
 MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH := $(REPO_ROOT)/.cache/match_minute_live_smoke.duckdb
-MATCH_MINUTE_LIVE_SMOKE_ENV := DUCKDB_NAME="$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)" DUCKDB_PATH="$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)"
+# Isolate Parquet snapshots from the operator runtime root (same hazard as
+# unified minute smoke: retain GC + absolute/CURRENT views).
+MATCH_MINUTE_LIVE_SMOKE_RUNTIME_ROOT := $(REPO_ROOT)/.cache/runtime/smoke/match-minute-live
+MATCH_MINUTE_LIVE_SMOKE_ENV := DUCKDB_NAME="$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)" DUCKDB_PATH="$(MATCH_MINUTE_LIVE_SMOKE_DUCKDB_PATH)" ODDSFOX_RUNTIME_ROOT="$(MATCH_MINUTE_LIVE_SMOKE_RUNTIME_ROOT)"
 MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH := $(REPO_ROOT)/.cache/minute_odds_live_smoke.duckdb
 MINUTE_ODDS_LIVE_SMOKE_RESET ?= true
 # Default true so cold smoke refreshes catalog even when operator .env has it false.

@@ -136,6 +136,8 @@ def test_ci_split_targets_remain_wired():
         makefile
     )
     assert "match-minute-live-smoke:" in makefile
+    assert "MATCH_MINUTE_LIVE_SMOKE_RUNTIME_ROOT" in makefile
+    assert 'ODDSFOX_RUNTIME_ROOT="$(MATCH_MINUTE_LIVE_SMOKE_RUNTIME_ROOT)"' in makefile
     assert "minute-odds-live-smoke:" in makefile
     assert "polymarket_wc2026_minute_odds_live_smoke" in makefile
     assert "MINUTE_ODDS_LIVE_SMOKE_DUCKDB_PATH" in makefile

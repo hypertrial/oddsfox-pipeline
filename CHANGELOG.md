@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Minute-odds snapshot publish merges into the prior inventory instead of
+  dropping out-of-plan tokens on sampled/partial republish. DuckDB minute views
+  prefer the `CURRENT` symlink so pointer advances remain readable after
+  `retain_snapshots` GC. `make match-minute-live-smoke` now isolates
+  `ODDSFOX_RUNTIME_ROOT` under `.cache/runtime/smoke/match-minute-live` (same
+  class of guard as unified minute smoke). Orchestration docs describe
+  window-bounded reuse, not content-addressed hash reuse.
+
 ### Changed
 
 - Unified minute-odds landing is parquet-first: immutable partitioned snapshots
