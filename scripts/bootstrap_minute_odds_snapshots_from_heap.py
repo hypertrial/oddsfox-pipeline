@@ -34,7 +34,7 @@ from oddsfox_pipeline.storage.minute_odds_snapshots import (
     compute_primary_minute_ohlc,
     minute_odds_snapshot_root,
     publish_snapshot,
-    register_snapshot_views,
+    reconcile_snapshot_publication,
     retain_snapshots,
     stage_snapshot_dir,
     token_bucket,
@@ -63,9 +63,7 @@ def _raw_partition_file(path: Path, *, bucket: int) -> SnapshotPartitionFile:
         sorted(
             {
                 str(v)
-                for v in parquet.read(columns=["clobTokenId"])
-                .column(0)
-                .to_pylist()
+                for v in parquet.read(columns=["clobTokenId"]).column(0).to_pylist()
                 if v is not None
             }
         )
@@ -89,9 +87,7 @@ def _write_primary_partition(
     path.parent.mkdir(parents=True, exist_ok=True)
     arrow = frame.to_arrow()
     pq.write_table(arrow, path, compression="snappy", write_statistics=False)
-    tokens = tuple(
-        sorted(str(v) for v in frame["clob_token_id"].unique().to_list())
-    )
+    tokens = tuple(sorted(str(v) for v in frame["clob_token_id"].unique().to_list()))
     return SnapshotPartitionFile(
         kind="primary_ohlc",
         bucket=bucket,
@@ -116,7 +112,8 @@ def _bootstrap_leg(
     if (root / "CURRENT").exists():
         print(f"{leg}: CURRENT already present at {root}; re-registering", flush=True)
         snap = validate_minute_odds_snapshot(active_snapshot_dir(root))
-        register_snapshot_views(conn, snap)
+        summary = reconcile_snapshot_publication(conn, snap)
+        print(f"{leg}: reconciled {summary}", flush=True)
         return
 
     total = int(
@@ -252,10 +249,10 @@ def _bootstrap_leg(
         )
         if ohlc.is_empty():
             continue
-        primary_out = staged / "primary_ohlc" / f"bucket={bucket}" / "part-00000.parquet"
-        primary_files.append(
-            _write_primary_partition(ohlc, primary_out, bucket=bucket)
+        primary_out = (
+            staged / "primary_ohlc" / f"bucket={bucket}" / "part-00000.parquet"
         )
+        primary_files.append(_write_primary_partition(ohlc, primary_out, bucket=bucket))
 
     if not raw_files:
         raise SystemExit(f"{leg}: no raw partitions written")
@@ -273,11 +270,20 @@ def _bootstrap_leg(
         window_hashes=None,
     )
     snapshot = publish_snapshot(root, staged)
-    register_snapshot_views(conn, snapshot)
+    try:
+        summary = reconcile_snapshot_publication(conn, snapshot)
+    except Exception:
+        from oddsfox_pipeline.storage.minute_odds_snapshots import (
+            rollback_snapshot_pointer,
+        )
+
+        rollback_snapshot_pointer(root, previous_snapshot_id=None)
+        raise
     retain_snapshots(root, keep=2)
     print(
         f"{leg}: published {snapshot.snapshot_id} "
-        f"raw={snapshot.raw_row_count} primary={snapshot.primary_row_count}",
+        f"raw={snapshot.raw_row_count} primary={snapshot.primary_row_count} "
+        f"audit={summary['fetch_run_id']}",
         flush=True,
     )
     shutil.rmtree(work_root / leg, ignore_errors=True)
@@ -337,11 +343,20 @@ def _finish_staged(
         window_hashes=None,
     )
     snapshot = publish_snapshot(root, staged)
-    register_snapshot_views(conn, snapshot)
+    try:
+        summary = reconcile_snapshot_publication(conn, snapshot)
+    except Exception:
+        from oddsfox_pipeline.storage.minute_odds_snapshots import (
+            rollback_snapshot_pointer,
+        )
+
+        rollback_snapshot_pointer(root, previous_snapshot_id=None)
+        raise
     retain_snapshots(root, keep=2)
     print(
         f"{leg}: published {snapshot.snapshot_id} "
-        f"raw={snapshot.raw_row_count} primary={snapshot.primary_row_count}",
+        f"raw={snapshot.raw_row_count} primary={snapshot.primary_row_count} "
+        f"audit={summary['fetch_run_id']}",
         flush=True,
     )
 

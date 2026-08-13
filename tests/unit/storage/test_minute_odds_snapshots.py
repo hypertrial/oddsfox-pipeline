@@ -18,6 +18,7 @@ from oddsfox_pipeline.storage.minute_odds_snapshots import (
     compute_primary_minute_ohlc,
     minute_odds_snapshot_root,
     primary_mapping_sha256,
+    reconcile_snapshot_publication,
     retain_snapshots,
     rollback_snapshot_pointer,
     token_bucket,
@@ -155,6 +156,210 @@ def test_build_and_publish_snapshot_registers_views(tmp_path, monkeypatch):
     assert validated.primary_mapping_sha256 == primary_mapping_sha256(["yes"])
     kept = retain_snapshots(root, keep=2)
     assert snapshot.snapshot_id in kept
+
+
+def test_reconcile_snapshot_publication_is_exact_atomic_and_idempotent(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
+    start = datetime(2026, 7, 1)
+    end = datetime(2026, 7, 2)
+    ingested = datetime(2026, 7, 3)
+    ts = int(datetime(2026, 7, 1, 12, tzinfo=timezone.utc).timestamp())
+    shard = tmp_path / "shard.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "market_id": ["m1", "m1"],
+                "clobTokenId": ["yes", "no"],
+                "timestamp": pa.array([ts, ts], type=pa.int64()),
+                "price": [0.2, 0.8],
+                "fidelity_minutes": pa.array([1, 1], type=pa.int32()),
+                "window_start_at": pa.array([start, start], type=pa.timestamp("us")),
+                "window_end_at": pa.array([end, end], type=pa.timestamp("us")),
+                "ingested_at": pa.array([ingested, ingested], type=pa.timestamp("us")),
+            }
+        ),
+        shard,
+    )
+    snapshot = build_and_publish_snapshot_from_shards(
+        leg="futures",
+        fetch_run_id="run-1",
+        shard_paths=[shard],
+        primary_token_ids={"yes"},
+        register=False,
+        retain=False,
+    )
+    with duckdb.connect() as conn:
+        conn.execute("CREATE SCHEMA polymarket_wc2026_raw")
+        conn.execute("CREATE SCHEMA polymarket_wc2026_ops")
+        conn.execute(
+            "CREATE TABLE polymarket_wc2026_raw.futures_minute_odds_history "
+            "AS SELECT 'old'::VARCHAR market_id, 'old'::VARCHAR clobTokenId, "
+            '0::BIGINT "timestamp", 0.5::DOUBLE price, 1::INTEGER fidelity_minutes, '
+            "TIMESTAMP '2026-01-01' window_start_at, "
+            "TIMESTAMP '2026-01-01' window_end_at, "
+            "TIMESTAMP '2026-01-01' ingested_at"
+        )
+        conn.execute(
+            """
+            CREATE TABLE polymarket_wc2026_ops.futures_minute_odds_fetch_audit (
+                fetch_run_id VARCHAR, market_id VARCHAR, clobTokenId VARCHAR,
+                fetch_status VARCHAR, raw_published BOOLEAN,
+                fidelity_minutes INTEGER, exact_window_start_at TIMESTAMP,
+                exact_window_end_at TIMESTAMP, request_start_epoch BIGINT,
+                request_end_epoch BIGINT, source_row_count INTEGER,
+                window_row_count INTEGER, window_history_sha256 VARCHAR,
+                source_endpoint VARCHAR, fetch_started_at TIMESTAMP,
+                fetch_finished_at TIMESTAMP, error_type VARCHAR,
+                error_message VARCHAR
+            )
+            """
+        )
+        conn.executemany(
+            """
+            INSERT INTO polymarket_wc2026_ops.futures_minute_odds_fetch_audit
+            VALUES ('run-1', ?, ?, ?, FALSE, 1, ?, ?, ?, ?, ?, ?, ?,
+                    'test', ?, ?, NULL, NULL)
+            """,
+            [
+                (
+                    "m1",
+                    "yes",
+                    "success",
+                    start,
+                    end,
+                    int(start.timestamp()),
+                    int(end.timestamp()),
+                    1,
+                    1,
+                    "a" * 64,
+                    start,
+                    end,
+                ),
+                (
+                    "m1",
+                    "no",
+                    "success",
+                    start,
+                    end,
+                    int(start.timestamp()),
+                    int(end.timestamp()),
+                    1,
+                    1,
+                    "b" * 64,
+                    start,
+                    end,
+                ),
+                (
+                    "m2",
+                    "empty",
+                    "empty",
+                    start,
+                    end,
+                    int(start.timestamp()),
+                    int(end.timestamp()),
+                    0,
+                    0,
+                    None,
+                    start,
+                    end,
+                ),
+            ],
+        )
+        conn.execute(
+            """
+            INSERT INTO polymarket_wc2026_ops.futures_minute_odds_fetch_audit
+            SELECT
+                'run-2', 'wrong-market', clobTokenId, fetch_status, TRUE,
+                fidelity_minutes, exact_window_start_at, exact_window_end_at,
+                request_start_epoch, request_end_epoch, source_row_count,
+                window_row_count, window_history_sha256, source_endpoint,
+                fetch_started_at, TIMESTAMP '2026-07-03', error_type, error_message
+            FROM polymarket_wc2026_ops.futures_minute_odds_fetch_audit
+            WHERE fetch_run_id = 'run-1' AND fetch_status = 'success'
+            """
+        )
+        first = reconcile_snapshot_publication(conn, snapshot)
+        second = reconcile_snapshot_publication(conn, snapshot)
+        assert first["fetch_run_id"] == second["fetch_run_id"] == "run-1"
+        assert conn.execute(
+            "select count(*) from polymarket_wc2026_raw.futures_minute_odds_history"
+        ).fetchone() == (2,)
+        assert conn.execute(
+            """
+            select fetch_run_id, fetch_status, raw_published, count(*)
+            from polymarket_wc2026_ops.futures_minute_odds_fetch_audit
+            group by all order by fetch_run_id, fetch_status
+            """
+        ).fetchall() == [
+            ("run-1", "empty", False, 1),
+            ("run-1", "success", True, 2),
+            ("run-2", "success", False, 2),
+        ]
+
+
+def test_reconcile_snapshot_publication_mismatch_preserves_heap(tmp_path, monkeypatch):
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
+    start = datetime(2026, 7, 1)
+    shard = tmp_path / "shard.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "market_id": ["m1"],
+                "clobTokenId": ["yes"],
+                "timestamp": pa.array(
+                    [int(datetime(2026, 7, 1, 12, tzinfo=timezone.utc).timestamp())],
+                    type=pa.int64(),
+                ),
+                "price": [0.2],
+                "fidelity_minutes": pa.array([1], type=pa.int32()),
+                "window_start_at": pa.array([start], type=pa.timestamp("us")),
+                "window_end_at": pa.array(
+                    [datetime(2026, 7, 2)], type=pa.timestamp("us")
+                ),
+                "ingested_at": pa.array([start], type=pa.timestamp("us")),
+            }
+        ),
+        shard,
+    )
+    snapshot = build_and_publish_snapshot_from_shards(
+        leg="futures",
+        fetch_run_id="run-1",
+        shard_paths=[shard],
+        primary_token_ids={"yes"},
+        register=False,
+        retain=False,
+    )
+    with duckdb.connect() as conn:
+        conn.execute("CREATE SCHEMA polymarket_wc2026_raw")
+        conn.execute("CREATE SCHEMA polymarket_wc2026_ops")
+        conn.execute(
+            "CREATE TABLE polymarket_wc2026_raw.futures_minute_odds_history "
+            "AS SELECT 'old'::VARCHAR market_id"
+        )
+        conn.execute(
+            """
+            CREATE TABLE polymarket_wc2026_ops.futures_minute_odds_fetch_audit AS
+            SELECT 'run-1'::VARCHAR fetch_run_id, 'wrong'::VARCHAR market_id,
+            'yes'::VARCHAR clobTokenId, 'success'::VARCHAR fetch_status,
+            FALSE raw_published, 1 fidelity_minutes,
+            TIMESTAMP '2026-07-01' exact_window_start_at,
+            TIMESTAMP '2026-07-02' exact_window_end_at, 0::BIGINT request_start_epoch,
+            1::BIGINT request_end_epoch, 1 source_row_count, 1 window_row_count,
+            repeat('a', 64)::VARCHAR window_history_sha256,
+            'test'::VARCHAR source_endpoint, TIMESTAMP '2026-07-01' fetch_started_at,
+            TIMESTAMP '2026-07-02' fetch_finished_at,
+            NULL::VARCHAR error_type, NULL::VARCHAR error_message
+            """
+        )
+        with pytest.raises(MinuteOddsSnapshotError, match="does not match any complete"):
+            reconcile_snapshot_publication(conn, snapshot)
+        assert conn.execute(
+            "select table_type from information_schema.tables where "
+            "table_schema='polymarket_wc2026_raw' and "
+            "table_name='futures_minute_odds_history'"
+        ).fetchone() == ("BASE TABLE",)
 
 
 def test_rollback_snapshot_pointer_restores_predecessor(tmp_path, monkeypatch):

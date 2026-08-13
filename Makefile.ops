@@ -39,6 +39,19 @@ minute-odds-backfill: match-minute-inputs-validate
 	@echo "Running unified WC2026 minute-odds backfill (match windows + futures tournament span)."
 	cd "$(REPO_ROOT)/.cache" && "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_minute_odds_backfill
 
+minute-odds-snapshot-rebuild: runtime-dirs
+	@test -f "$(DUCKDB_NAME)" || (echo "operator warehouse not found: $(DUCKDB_NAME)" >&2; exit 2)
+	$(RUN_IN_REPO) DUCKDB_NAME="$(DUCKDB_NAME)" DUCKDB_PATH="$(DUCKDB_NAME)" "$(PYTHON)" scripts/bootstrap_minute_odds_snapshots_from_heap.py --duckdb-path "$(DUCKDB_NAME)" --legs match,futures
+	$(RUN_IN_REPO) DUCKDB_NAME="$(DUCKDB_NAME)" DUCKDB_PATH="$(DUCKDB_NAME)" DBT_SEND_ANONYMOUS_USAGE_STATS=false "$(PYTHON)" -m dbt.cli.main build --full-refresh --select +polymarket_wc2026_market_minute_odds_data_quality --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) "$(PYTHON)" -c "import duckdb; conn=duckdb.connect('$(DUCKDB_NAME)', read_only=True); quality=conn.execute('select blocking_issue_keys from polymarket_wc2026_observability.polymarket_wc2026_market_minute_odds_data_quality').fetchone(); kinds=dict(conn.execute(\"select table_name, table_type from information_schema.tables where table_schema='polymarket_wc2026_raw' and table_name in ('match_minute_odds_history','futures_minute_odds_history')\").fetchall()); assert quality == (None,), quality; assert set(kinds.values()) == {'VIEW'}, kinds; print({'quality': quality, 'relations': kinds})"
+
+stage-minute-input-release: runtime-dirs
+	@test -n "$(GRAPH_NODES_PATH)" || (echo "GRAPH_NODES_PATH is required" >&2; exit 2)
+	@test -n "$(GRAPH_EDGES_PATH)" || (echo "GRAPH_EDGES_PATH is required" >&2; exit 2)
+	@test -n "$(GRAPH_REVISION)" || (echo "GRAPH_REVISION is required" >&2; exit 2)
+	$(RUN_IN_REPO) DUCKDB_NAME="$(DUCKDB_NAME)" DUCKDB_PATH="$(DUCKDB_NAME)" DBT_SEND_ANONYMOUS_USAGE_STATS=false "$(PYTHON)" -m dbt.cli.main seed --select international_results_wc2026_team_aliases --project-dir dbt --profiles-dir dbt/profiles
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_polymarket_wc2026_stage_minute_inputs.py --duckdb-path "$(DUCKDB_NAME)" --nodes-path "$(GRAPH_NODES_PATH)" --edges-path "$(GRAPH_EDGES_PATH)" --graph-revision "$(GRAPH_REVISION)" --dataset-version "$(STAGE_MINUTE_DATASET_VERSION)" --output-root "$(STAGE_MINUTE_OUTPUT_ROOT)"
+
 minute-odds-live-smoke: runtime-dirs match-minute-inputs-validate
 	@echo "Running disposable unified minute-odds live smoke (5% markets/leg, futures 24h tail)."
 	@if test "$(MINUTE_ODDS_LIVE_SMOKE_RESET)" = "true"; then \

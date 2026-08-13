@@ -68,6 +68,31 @@ Operator CSV freezes from those marts (`make export-wc2026-elo-freezes`) write
 Both CSVs use mart columns `rank, team_code, team_name, rating` plus export
 metadata `freeze_label, as_of, snapshot_id, collected_at`.
 
+## WC2026 stage-minute strategy inputs
+
+Operators can build an immutable, untracked stage-market price input release
+from the canonical minute snapshots and deterministic logical artifacts. First
+run `make minute-odds-snapshot-rebuild` against an existing operator warehouse;
+this validates and registers `CURRENT` without calling Gamma or CLOB, then
+rebuilds the isolated minute mart and quality checks.
+
+After producing clean deterministic `nodes.parquet` and `edges.parquet` with
+the graph utility's proposition compiler and rule engine (no LLM inference),
+run:
+
+```bash
+make stage-minute-input-release \
+  GRAPH_NODES_PATH=/absolute/path/nodes.parquet \
+  GRAPH_EDGES_PATH=/absolute/path/edges.parquet \
+  GRAPH_REVISION=<40-character-clean-revision>
+```
+
+Release `1.0.0` contains token-minute OHLC, 576 outcome identities, 528 direct
+stage implications, complete candidate coverage, schemas, provenance, and
+checksums below ignored `artifacts/strategy-inputs/`. It has no forward-filled
+prices, execution costs, order-book liquidity, fill assumptions, or strategy
+returns; those belong in the private research/backtest consumer.
+
 `team_ratings_pre_match` is a separate match×team reconstruction from
 `eloratings__match_results` (collector `{year}_results.tsv`). It is not covered
 by the freeze export. Query the mart directly after a snapshot that includes

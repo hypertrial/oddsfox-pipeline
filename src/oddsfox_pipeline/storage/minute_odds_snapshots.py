@@ -32,7 +32,10 @@ import pyarrow.parquet as pq
 
 from oddsfox_pipeline.contracts.raw_snapshots import schema_fingerprint
 from oddsfox_pipeline.naming import SCOPE_WC2026
-from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_raw_tbl
+from oddsfox_pipeline.storage.duckdb.schemas.constants import (
+    polymarket_ops_tbl,
+    polymarket_raw_tbl,
+)
 
 MINUTE_ODDS_SNAPSHOT_CONTRACT = "oddsfox.minute_odds.v1"
 DEFAULT_TOKEN_BUCKET_COUNT = 64
@@ -454,6 +457,8 @@ def validate_minute_odds_snapshot(snapshot_dir: Path) -> MinuteOddsSnapshot:
     if not isinstance(files_raw, list) or not files_raw:
         raise MinuteOddsSnapshotError("files must be a non-empty array")
     files: list[SnapshotPartitionFile] = []
+    paths: set[Path] = set()
+    kind_fingerprints: dict[str, str] = {}
     for entry in files_raw:
         if not isinstance(entry, dict):
             raise MinuteOddsSnapshotError("each files entry must be an object")
@@ -463,6 +468,16 @@ def validate_minute_odds_snapshot(snapshot_dir: Path) -> MinuteOddsSnapshot:
         path = (directory / relative).resolve()
         if directory not in path.parents or not path.is_file():
             raise MinuteOddsSnapshotError(f"declared payload missing: {relative}")
+        if path in paths:
+            raise MinuteOddsSnapshotError(f"duplicate payload path: {relative}")
+        paths.add(path)
+        kind = str(entry["kind"])
+        if kind not in {"raw", "primary_ohlc"}:
+            raise MinuteOddsSnapshotError(f"invalid payload kind: {kind!r}")
+        if relative.parts[0] != kind:
+            raise MinuteOddsSnapshotError(
+                f"payload path does not match kind {kind!r}: {relative}"
+            )
         actual_hash = _sha256_file(path)
         if actual_hash != str(entry["sha256"]):
             raise MinuteOddsSnapshotError(f"SHA-256 mismatch for {relative}")
@@ -474,10 +489,13 @@ def validate_minute_odds_snapshot(snapshot_dir: Path) -> MinuteOddsSnapshot:
         fingerprint = schema_fingerprint(parquet.schema_arrow)
         if fingerprint != str(entry["schema_fingerprint"]):
             raise MinuteOddsSnapshotError(f"schema fingerprint mismatch for {relative}")
+        expected_fingerprint = kind_fingerprints.setdefault(kind, fingerprint)
+        if fingerprint != expected_fingerprint:
+            raise MinuteOddsSnapshotError(f"inconsistent {kind} schema: {relative}")
         token_ids = tuple(str(token) for token in entry.get("token_ids", []))
         files.append(
             SnapshotPartitionFile(
-                kind=str(entry["kind"]),
+                kind=kind,
                 bucket=int(entry["bucket"]),
                 path=path,
                 sha256=actual_hash,
@@ -487,6 +505,46 @@ def validate_minute_odds_snapshot(snapshot_dir: Path) -> MinuteOddsSnapshot:
                 token_ids=token_ids,
             )
         )
+    raw_files = [part for part in files if part.kind == "raw"]
+    primary_files = [part for part in files if part.kind == "primary_ohlc"]
+    if not raw_files:
+        raise MinuteOddsSnapshotError("snapshot must contain raw payloads")
+    raw_tokens = sorted({token for part in raw_files for token in part.token_ids})
+    primary_tokens = sorted(
+        {token for part in primary_files for token in part.token_ids}
+    )
+    declared_tokens = [str(token) for token in manifest.get("token_ids", [])]
+    declared_primary = [str(token) for token in manifest.get("primary_token_ids", [])]
+    if declared_tokens != sorted(set(declared_tokens)) or declared_tokens != raw_tokens:
+        raise MinuteOddsSnapshotError(
+            "manifest token inventory does not match raw files"
+        )
+    if declared_primary != sorted(set(declared_primary)):
+        raise MinuteOddsSnapshotError("manifest primary token inventory is not unique")
+    if not set(primary_tokens) <= set(declared_primary) or not set(
+        declared_primary
+    ) <= set(raw_tokens):
+        raise MinuteOddsSnapshotError(
+            "manifest primary token inventory does not match payloads"
+        )
+    if int(manifest.get("token_count", -1)) != len(raw_tokens):
+        raise MinuteOddsSnapshotError("manifest token_count does not match inventory")
+    if int(manifest.get("primary_token_count", -1)) != len(declared_primary):
+        raise MinuteOddsSnapshotError(
+            "manifest primary_token_count does not match inventory"
+        )
+    if int(manifest.get("raw_row_count", -1)) != sum(
+        part.row_count for part in raw_files
+    ):
+        raise MinuteOddsSnapshotError("manifest raw_row_count does not match files")
+    if int(manifest.get("primary_row_count", -1)) != sum(
+        part.row_count for part in primary_files
+    ):
+        raise MinuteOddsSnapshotError("manifest primary_row_count does not match files")
+    if str(manifest.get("primary_mapping_sha256", "")) != primary_mapping_sha256(
+        declared_primary
+    ):
+        raise MinuteOddsSnapshotError("manifest primary mapping hash is invalid")
     collected_at = datetime.fromisoformat(
         str(manifest["collected_at"]).replace("Z", "+00:00")
     )
@@ -722,6 +780,216 @@ def register_snapshot_views(
             """
         )
     return {"raw": raw_relation, "primary_ohlc": primary_relation}
+
+
+def reconcile_snapshot_publication(
+    conn: duckdb.DuckDBPyConnection,
+    snapshot: MinuteOddsSnapshot,
+    *,
+    scope_name: str = SCOPE_WC2026,
+) -> dict[str, Any]:
+    """Register a complete snapshot and publish its exact successful audit run.
+
+    The snapshot is scanned once to prove token, market, row-count, and window
+    equality before transactional DDL replaces a pre-snapshot heap relation.
+    """
+    audit_name = (
+        "match_minute_odds_fetch_audit"
+        if snapshot.leg == "match"
+        else "futures_minute_odds_fetch_audit"
+    )
+    audit = polymarket_ops_tbl(scope_name, audit_name)
+    row_count_column = (
+        "in_game_row_count" if snapshot.leg == "match" else "window_row_count"
+    )
+    hash_column = (
+        "in_game_history_sha256" if snapshot.leg == "match" else "window_history_sha256"
+    )
+    candidates = conn.execute(
+        f"""
+        SELECT
+            fetch_run_id,
+            count(*) FILTER (WHERE fetch_status = 'success') AS success_tokens,
+            count(*) FILTER (WHERE fetch_status = 'empty') AS empty_tokens,
+            sum({row_count_column}) FILTER (
+                WHERE fetch_status = 'success'
+            ) AS success_rows
+        FROM {audit}
+        GROUP BY fetch_run_id
+        HAVING
+            count(*) FILTER (WHERE fetch_status = 'success') = ?
+            AND sum({row_count_column}) FILTER (
+                WHERE fetch_status = 'success'
+            ) = ?
+            AND count(*) FILTER (
+                WHERE fetch_status IN ('error', 'cancelled')
+            ) = 0
+            AND count(*) FILTER (
+                WHERE fetch_status = 'success' AND {hash_column} IS NULL
+            ) = 0
+            AND count(*) FILTER (WHERE fidelity_minutes != 1) = 0
+        ORDER BY max(fetch_finished_at) DESC, fetch_run_id DESC
+        """,
+        [len(snapshot.token_ids), snapshot.raw_row_count],
+    ).fetchall()
+    if not candidates:
+        raise MinuteOddsSnapshotError(
+            f"no complete {snapshot.leg} fetch audit matches snapshot "
+            f"{snapshot.snapshot_id}"
+        )
+    raw_glob = _parquet_glob(_view_parquet_root(snapshot), "raw")
+    snapshot_rows = conn.execute(
+        """
+        SELECT
+            "clobTokenId",
+            market_id,
+            min(window_start_at),
+            max(window_start_at),
+            min(window_end_at),
+            max(window_end_at),
+            min(timestamp),
+            max(timestamp),
+            count(*),
+            count(*) FILTER (
+                WHERE fidelity_minutes != 1
+                    OR price < 0 OR price > 1
+            )
+        FROM read_parquet(?, hive_partitioning=true)
+        GROUP BY "clobTokenId", market_id
+        """,
+        [raw_glob],
+    ).fetchall()
+    measured: dict[str, tuple[Any, ...]] = {}
+    for row in snapshot_rows:
+        token = str(row[0])
+        if token in measured:
+            raise MinuteOddsSnapshotError(
+                f"snapshot token maps to multiple markets: {token}"
+            )
+        if row[2] != row[3] or row[4] != row[5] or row[2] > row[4]:
+            raise MinuteOddsSnapshotError(
+                f"snapshot token has inconsistent windows: {token}"
+            )
+        if int(row[9]) != 0:
+            raise MinuteOddsSnapshotError(
+                f"snapshot token has invalid observations: {token}"
+            )
+        measured[token] = (
+            str(row[1]),
+            row[2],
+            row[4],
+            int(row[6]),
+            int(row[7]),
+            int(row[8]),
+        )
+    if set(measured) != set(snapshot.token_ids):
+        raise MinuteOddsSnapshotError(
+            "snapshot payload token inventory does not match its manifest"
+        )
+
+    candidate = None
+    for proposed in candidates:
+        proposed_run_id = str(proposed[0])
+        audit_rows = conn.execute(
+            f"""
+            SELECT
+                "clobTokenId",
+                market_id,
+                exact_window_start_at,
+                exact_window_end_at,
+                request_start_epoch,
+                request_end_epoch,
+                {row_count_column}
+            FROM {audit}
+            WHERE fetch_run_id = ? AND fetch_status = 'success'
+            ORDER BY "clobTokenId"
+            """,
+            [proposed_run_id],
+        ).fetchall()
+        expected = {
+            str(row[0]): (
+                str(row[1]),
+                row[2],
+                row[3],
+                int(row[4]),
+                int(row[5]),
+                int(row[6]),
+            )
+            for row in audit_rows
+        }
+        mismatch = None
+        for token in sorted(set(measured) & set(expected)):
+            market_id, raw_start, raw_end, first_epoch, last_epoch, rows = measured[
+                token
+            ]
+            (
+                expected_market,
+                exact_start,
+                exact_end,
+                request_start,
+                request_end,
+                expected_rows,
+            ) = expected[token]
+            if (
+                market_id != expected_market
+                or raw_start != exact_start
+                or raw_end != exact_end
+                or rows != expected_rows
+                or first_epoch < request_start
+                or last_epoch > request_end
+            ):
+                mismatch = token
+                break
+        if set(measured) == set(expected) and mismatch is None:
+            candidate = proposed
+            break
+    if candidate is None:
+        raise MinuteOddsSnapshotError(
+            f"snapshot payload does not match any complete {snapshot.leg} fetch audit"
+        )
+    fetch_run_id = str(candidate[0])
+
+    conn.execute("BEGIN TRANSACTION")
+    try:
+        relations = register_snapshot_views(conn, snapshot, scope_name=scope_name)
+        conn.execute(f"UPDATE {audit} SET raw_published = FALSE")
+        conn.execute(
+            f"""
+            UPDATE {audit}
+            SET raw_published = TRUE
+            WHERE fetch_run_id = ? AND fetch_status = 'success'
+            """,
+            [fetch_run_id],
+        )
+        published = conn.execute(
+            f"""
+            SELECT
+                count(*) FILTER (WHERE fetch_run_id = ? AND fetch_status = 'success'
+                    AND raw_published),
+                count(*) FILTER (WHERE raw_published AND NOT (
+                    fetch_run_id = ? AND fetch_status = 'success'
+                ))
+            FROM {audit}
+            """,
+            [fetch_run_id, fetch_run_id],
+        ).fetchone()
+        if published != (len(snapshot.token_ids), 0):
+            raise MinuteOddsSnapshotError(
+                f"invalid published audit state for {fetch_run_id}: {published}"
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    return {
+        "leg": snapshot.leg,
+        "snapshot_id": snapshot.snapshot_id,
+        "fetch_run_id": fetch_run_id,
+        "raw_rows": snapshot.raw_row_count,
+        "success_tokens": int(candidate[1]),
+        "empty_tokens": int(candidate[2]),
+        "relations": relations,
+    }
 
 
 @dataclass(frozen=True, slots=True)
