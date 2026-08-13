@@ -93,6 +93,30 @@ checksums below ignored `artifacts/strategy-inputs/`. It has no forward-filled
 prices, execution costs, order-book liquidity, fill assumptions, or strategy
 returns; those belong in the private research/backtest consumer.
 
+## WC2026 stage-execution evidence
+
+The isolated `oddsfox.polymarket_wc2026.stage_execution.v1` release targets
+historical PMXT books and trades for every close-qualified signal in the pinned
+stage-minute report. Planning is offline and must precede acquisition:
+
+```bash
+make stage-execution-plan \
+  STAGE_EXECUTION_MINUTE_RELEASE=/absolute/path/to/stage-minute/releases/1.0.0 \
+  STAGE_EXECUTION_OHLC_REPORT=/absolute/path/to/ohlc-report
+```
+
+The planner coalesces only overlapping windows for the same token and rejects a
+plan whose minimum book-plus-trade requests exceed
+`STAGE_EXECUTION_REQUEST_BUDGET` (20,000 by default). The release target uses
+the same arguments plus `PMXT_API_KEY`, resumes from ignored local state, and
+atomically writes reconstructed L2 snapshots, levels, diagnostic trades, and
+coverage below ignored `artifacts/strategy-inputs/`.
+
+Source timestamps are PMXT exchange-time reconstruction timestamps in
+milliseconds. Ingestion timestamps record the backfill, not historical feed
+receipt latency. Completed empty books and zero-trade windows are retained as
+negative evidence. Trades are diagnostic and cannot grant a simulated fill.
+
 `team_ratings_pre_match` is a separate match×team reconstruction from
 `eloratings__match_results` (collector `{year}_results.tsv`). It is not covered
 by the freeze export. Query the mart directly after a snapshot that includes

@@ -52,6 +52,17 @@ stage-minute-input-release: runtime-dirs
 	$(RUN_IN_REPO) DUCKDB_NAME="$(DUCKDB_NAME)" DUCKDB_PATH="$(DUCKDB_NAME)" DBT_SEND_ANONYMOUS_USAGE_STATS=false "$(PYTHON)" -m dbt.cli.main seed --select international_results_wc2026_team_aliases --project-dir dbt --profiles-dir dbt/profiles
 	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_polymarket_wc2026_stage_minute_inputs.py --duckdb-path "$(DUCKDB_NAME)" --nodes-path "$(GRAPH_NODES_PATH)" --edges-path "$(GRAPH_EDGES_PATH)" --graph-revision "$(GRAPH_REVISION)" --dataset-version "$(STAGE_MINUTE_DATASET_VERSION)" --output-root "$(STAGE_MINUTE_OUTPUT_ROOT)"
 
+stage-execution-plan: runtime-dirs
+	@test -n "$(STAGE_EXECUTION_MINUTE_RELEASE)" || (echo "STAGE_EXECUTION_MINUTE_RELEASE is required" >&2; exit 2)
+	@test -n "$(STAGE_EXECUTION_OHLC_REPORT)" || (echo "STAGE_EXECUTION_OHLC_REPORT is required" >&2; exit 2)
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/build_polymarket_wc2026_stage_execution_release.py plan --stage-minute-release "$(STAGE_EXECUTION_MINUTE_RELEASE)" --ohlc-report "$(STAGE_EXECUTION_OHLC_REPORT)" --request-budget "$(STAGE_EXECUTION_REQUEST_BUDGET)"
+
+stage-execution-release: runtime-dirs
+	@test -n "$(STAGE_EXECUTION_MINUTE_RELEASE)" || (echo "STAGE_EXECUTION_MINUTE_RELEASE is required" >&2; exit 2)
+	@test -n "$(STAGE_EXECUTION_OHLC_REPORT)" || (echo "STAGE_EXECUTION_OHLC_REPORT is required" >&2; exit 2)
+	@"$(PYTHON)" -c "from oddsfox_pipeline.config.settings import PMXT_API_KEY; assert PMXT_API_KEY, 'PMXT_API_KEY is required; this target consumes PMXT credits'"
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/build_polymarket_wc2026_stage_execution_release.py release --stage-minute-release "$(STAGE_EXECUTION_MINUTE_RELEASE)" --ohlc-report "$(STAGE_EXECUTION_OHLC_REPORT)" --output-root "$(STAGE_EXECUTION_OUTPUT_ROOT)" --dataset-version "$(STAGE_EXECUTION_DATASET_VERSION)" --request-budget "$(STAGE_EXECUTION_REQUEST_BUDGET)"
+
 minute-odds-live-smoke: runtime-dirs match-minute-inputs-validate
 	@echo "Running disposable unified minute-odds live smoke (5% markets/leg, futures 24h tail)."
 	@if test "$(MINUTE_ODDS_LIVE_SMOKE_RESET)" = "true"; then \

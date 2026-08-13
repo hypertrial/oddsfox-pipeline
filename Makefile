@@ -103,6 +103,11 @@ GRAPH_EDGES_PATH ?=
 GRAPH_REVISION ?=
 STAGE_MINUTE_DATASET_VERSION ?= 1.0.0
 STAGE_MINUTE_OUTPUT_ROOT ?= artifacts/strategy-inputs/polymarket_wc2026_stage_minute
+STAGE_EXECUTION_DATASET_VERSION ?= 1.0.0
+STAGE_EXECUTION_OUTPUT_ROOT ?= artifacts/strategy-inputs/polymarket_wc2026_stage_execution
+STAGE_EXECUTION_MINUTE_RELEASE ?=
+STAGE_EXECUTION_OHLC_REPORT ?=
+STAGE_EXECUTION_REQUEST_BUDGET ?= 20000
 MATCH_ANALYSIS_RUNTIME_ROOT ?= $(REPO_ROOT)/.cache/match_analysis
 MATCH_ANALYSIS_RUNTIME_TMP := $(MATCH_ANALYSIS_RUNTIME_ROOT)/tmp
 MATCH_ANALYSIS_RUNTIME_XDG := $(MATCH_ANALYSIS_RUNTIME_ROOT)/xdg
@@ -150,3 +155,5 @@ include Makefile.dbt
 include Makefile.lint
 include Makefile.test
 include Makefile.ops
+
+.PHONY: stage-execution-plan stage-execution-release

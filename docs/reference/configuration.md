@@ -96,6 +96,12 @@ The pipeline is backfill-only. It has no schedule flag and is excluded from
 ordinary dbt and full-pipeline jobs with `tag:pmxt_order_book`. See
 [Recreate the PMXT order-book mart](../guides/recreate-match-order-book-mart.md).
 
+The separate WC2026 stage-execution study uses the same credential and PMXT
+source. `make stage-execution-plan` is network-free and reports its minimum
+request count; `make stage-execution-release` refuses to start when that count
+exceeds `STAGE_EXECUTION_REQUEST_BUDGET` (20,000 by default). Its checkpoint
+and immutable outputs remain under ignored operator-local artifact paths.
+
 ## WC2026 Polygon settlement history
 
 The independent Polygon pipeline has no schedule and does not reuse Gamma/CLOB
