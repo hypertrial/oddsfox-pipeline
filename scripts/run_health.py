@@ -56,10 +56,7 @@ def _format_row(
     status = _status_label(metrics)
     error = metrics.get("error_type")
     suffix = f" error={error}" if error else ""
-    return (
-        f"{recorded_at}  {source}/{scope}  {task_name:<28}  "
-        f"{status:<8}{suffix}"
-    )
+    return f"{recorded_at}  {source}/{scope}  {task_name:<28}  {status:<8}{suffix}"
 
 
 def _print_sync_run_metrics(*, limit: int, duckdb_path: Path) -> None:

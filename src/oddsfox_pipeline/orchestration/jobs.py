@@ -36,9 +36,9 @@ from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_hourly_odds_run_config,
     polymarket_wc2026_market_portrait_run_config,
     polymarket_wc2026_match_minute_odds_run_config,
+    polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_minute_odds_run_config,
     polymarket_wc2026_minute_odds_smoke_run_config,
-    polymarket_wc2026_match_order_book_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (

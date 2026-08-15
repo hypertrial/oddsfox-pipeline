@@ -27,11 +27,11 @@ from oddsfox_pipeline.orchestration.assets_openfootball import (
 )
 from oddsfox_pipeline.orchestration.config import (
     DbtBuildConfig,
+    FuturesMinuteOddsSyncConfig,
     HourlyOddsSyncConfig,
     MarketScopeRegistryConfig,
     MarketsSyncConfig,
     MatchMinuteOddsSyncConfig,
-    FuturesMinuteOddsSyncConfig,
     MetadataEnrichmentConfig,
 )
 from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
@@ -319,12 +319,8 @@ def polymarket_wc2026_raw_match_token_odds_history_minute(
             transient_retries=config.transient_retries,
             transient_backoff_seconds=config.transient_backoff_seconds,
             progress_log_interval_seconds=config.progress_log_interval_seconds,
-            no_progress_soft_timeout_seconds=(
-                config.no_progress_soft_timeout_seconds
-            ),
-            no_progress_hard_timeout_seconds=(
-                config.no_progress_hard_timeout_seconds
-            ),
+            no_progress_soft_timeout_seconds=(config.no_progress_soft_timeout_seconds),
+            no_progress_hard_timeout_seconds=(config.no_progress_hard_timeout_seconds),
             market_sample_fraction=config.market_sample_fraction,
             market_sample_seed=config.market_sample_seed,
         )
@@ -373,12 +369,8 @@ def polymarket_wc2026_raw_futures_token_odds_history_minute(
             transient_retries=config.transient_retries,
             transient_backoff_seconds=config.transient_backoff_seconds,
             progress_log_interval_seconds=config.progress_log_interval_seconds,
-            no_progress_soft_timeout_seconds=(
-                config.no_progress_soft_timeout_seconds
-            ),
-            no_progress_hard_timeout_seconds=(
-                config.no_progress_hard_timeout_seconds
-            ),
+            no_progress_soft_timeout_seconds=(config.no_progress_soft_timeout_seconds),
+            no_progress_hard_timeout_seconds=(config.no_progress_hard_timeout_seconds),
             market_sample_fraction=config.market_sample_fraction,
             market_sample_seed=config.market_sample_seed,
             sample_window_hours=config.sample_window_hours,

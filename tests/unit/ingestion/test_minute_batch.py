@@ -66,10 +66,7 @@ def test_fetch_minute_plan_group_uses_group_fetch_and_returns_success_rows():
         *_args,
     ):
         calls.append((tuple(token_ids), window_start, window_end))
-        return {
-            token_id: [(token_id, mid, 0.42)]
-            for token_id in token_ids
-        }
+        return {token_id: [(token_id, mid, 0.42)] for token_id in token_ids}
 
     results = minute_batch.fetch_minute_plan_group(
         plans,
@@ -100,10 +97,7 @@ def test_execute_minute_fetches_with_batch_calls_fetch_group_window_fn():
 
     def fetch_group(_client, token_ids, *_args):
         group_calls.append(tuple(token_ids))
-        return {
-            token_id: [(token_id, mid, 0.5)]
-            for token_id in token_ids
-        }
+        return {token_id: [(token_id, mid, 0.5)] for token_id in token_ids}
 
     def fetch_single(_client, token_id, *_args, **_kwargs):
         single_calls.append(token_id)
@@ -363,9 +357,7 @@ def _reference_minute_history_arrow_table(results, *, ingested_at, fidelity_minu
             ),
             "window_start_at": pa.array(window_starts, type=timestamp_type),
             "window_end_at": pa.array(window_ends, type=timestamp_type),
-            "ingested_at": pa.array(
-                [ingested_at] * total_rows, type=timestamp_type
-            ),
+            "ingested_at": pa.array([ingested_at] * total_rows, type=timestamp_type),
             "row_order": pa.array(range(total_rows), type=pa.int64()),
         }
     )
@@ -379,7 +371,9 @@ def test_build_minute_history_arrow_table_matches_reference_with_uneven_lengths(
     # Mix empty, length-1, and longer histories so offset/take math is exercised.
     lengths = [0, 1, 2, 7, 1, 0, 64, 3, 100, 1] * 120  # 1200 tokens
     for token_idx, length in enumerate(lengths):
-        start = datetime(2026, 6, 11, tzinfo=timezone.utc) + timedelta(minutes=token_idx)
+        start = datetime(2026, 6, 11, tzinfo=timezone.utc) + timedelta(
+            minutes=token_idx
+        )
         end = start + timedelta(hours=1 + (token_idx % 5))
         history = tuple(
             (f"tok-{token_idx}", 10_000 + token_idx * 1_000 + point, 0.001 * point)
@@ -404,16 +398,22 @@ def test_build_minute_history_arrow_table_matches_reference_with_uneven_lengths(
     table = minute_batch.build_minute_history_arrow_table(
         results, ingested_at=ingested_at
     )
-    reference = _reference_minute_history_arrow_table(
-        results, ingested_at=ingested_at
-    )
+    reference = _reference_minute_history_arrow_table(results, ingested_at=ingested_at)
     assert table.num_rows == reference.num_rows
     # Dictionary-encoded string columns won't byte-equal plain string columns;
     # compare decoded values plus the non-string columns directly.
     assert table["market_id"].to_pylist() == reference["market_id"].to_pylist()
     assert table["clob_token_id"].to_pylist() == reference["clob_token_id"].to_pylist()
     assert table.select(
-        ["timestamp", "price", "fidelity_minutes", "window_start_at", "window_end_at", "ingested_at", "row_order"]
+        [
+            "timestamp",
+            "price",
+            "fidelity_minutes",
+            "window_start_at",
+            "window_end_at",
+            "ingested_at",
+            "row_order",
+        ]
     ).equals(
         reference.select(
             [
@@ -826,7 +826,9 @@ def test_cap_minute_plan_window_tail_keeps_final_hours():
     assert short.started_at == end - timedelta(hours=6)
 
 
-def test_iter_and_write_minute_history_parquet_shards_bound_and_cleanup(tmp_path, monkeypatch):
+def test_iter_and_write_minute_history_parquet_shards_bound_and_cleanup(
+    tmp_path, monkeypatch
+):
     monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
     ingested_at = datetime(2026, 7, 1, tzinfo=timezone.utc)
     start = datetime(2026, 6, 11, tzinfo=timezone.utc)

@@ -15,9 +15,11 @@ from _bootstrap import REPO_ROOT
 
 MONOREPO_ROOT: Final[Path] = REPO_ROOT.parent
 DEFAULT_DUCKDB: Final[Path] = REPO_ROOT / "oddsfox.duckdb"
-DEFAULT_ALIASES: Final[Path] = REPO_ROOT / "dbt" / "seeds" / "wc2026_team_canonical_aliases.csv"
+DEFAULT_ALIASES: Final[Path] = (
+    REPO_ROOT / "dbt" / "seeds" / "wc2026_team_canonical_aliases.csv"
+)
 DEFAULT_HOURLY_PARQUET: Final[Path] = (
-    MONOREPO_ROOT / "oddsfox-scraper" / "polymarket_wc2026_market_hourly_odds_20260805T183112Z.parquet"
+    REPO_ROOT / "artifacts" / "polymarket_wc2026_market_hourly_odds.parquet"
 )
 DEFAULT_OUTPUT: Final[Path] = MONOREPO_ROOT / "top5_odds_to_win.parquet"
 DEFAULT_TEAM_COUNT: Final = 5

@@ -224,9 +224,7 @@ class MatchMinuteOddsSyncConfig(GuardrailConfig):
     def _validate_market_sample(self) -> "MatchMinuteOddsSyncConfig":
         if self.market_sample_fraction is None:
             if self.market_sample_seed is not None:
-                raise ValueError(
-                    "market_sample_seed requires market_sample_fraction"
-                )
+                raise ValueError("market_sample_seed requires market_sample_fraction")
             return self
         if self.market_sample_seed is None or not str(self.market_sample_seed).strip():
             raise ValueError(
@@ -254,9 +252,7 @@ class FuturesMinuteOddsSyncConfig(GuardrailConfig):
             raise ValueError("sample_window_hours requires market_sample_fraction")
         if self.market_sample_fraction is None:
             if self.market_sample_seed is not None:
-                raise ValueError(
-                    "market_sample_seed requires market_sample_fraction"
-                )
+                raise ValueError("market_sample_seed requires market_sample_fraction")
             return self
         if self.market_sample_seed is None or not str(self.market_sample_seed).strip():
             raise ValueError(

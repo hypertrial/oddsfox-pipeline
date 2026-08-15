@@ -39,7 +39,11 @@ def minute_odds_history_create_ddl(
     }:
         raise ValueError(f"Unsupported minute odds relation: {relation}")
     body = polymarket_raw_ddl_body(relation)
-    pk = ",\n                PRIMARY KEY (clobTokenId, timestamp)" if with_primary_key else ""
+    pk = (
+        ",\n                PRIMARY KEY (clobTokenId, timestamp)"
+        if with_primary_key
+        else ""
+    )
     return f"{body},\n                CHECK (fidelity_minutes = 1){pk}"
 
 

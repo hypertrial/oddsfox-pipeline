@@ -25,11 +25,11 @@ from oddsfox_pipeline.orchestration.assets_polymarket import (
     oddsfox_dbt,
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_event_catalog,
+    polymarket_wc2026_raw_futures_token_odds_history_minute,
     polymarket_wc2026_raw_market_metadata_enrichment,
     polymarket_wc2026_raw_markets,
     polymarket_wc2026_raw_markets_snapshot,
     polymarket_wc2026_raw_match_token_odds_history_minute,
-    polymarket_wc2026_raw_futures_token_odds_history_minute,
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
 from oddsfox_pipeline.orchestration.dbt_project import (

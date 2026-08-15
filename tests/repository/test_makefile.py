@@ -148,9 +148,7 @@ def test_ci_split_targets_remain_wired():
     assert "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG=" in makefile
     assert "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH=true" in makefile
     assert "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES=true" in makefile
-    assert (
-        "scripts/validate_polymarket_wc2026_minute_odds_live_smoke.py" in makefile
-    )
+    assert "scripts/validate_polymarket_wc2026_minute_odds_live_smoke.py" in makefile
     assert "polymarket_wc2026_match_minute_odds_backfill" in makefile
     assert 'cd "$(REPO_ROOT)/.cache"' in makefile
     assert '-d "$(REPO_ROOT)"' in makefile
@@ -158,9 +156,7 @@ def test_ci_split_targets_remain_wired():
     assert "'published', 496, 496, 0, 0, 0, 496, 0, 0, 0, None" in makefile
     assert "match-minute-inputs-validate:" in makefile
     assert "futures-minute-publish-benchmark:" in makefile
-    assert (
-        "scripts/benchmark_polymarket_wc2026_futures_minute_publish.py" in makefile
-    )
+    assert "scripts/benchmark_polymarket_wc2026_futures_minute_publish.py" in makefile
     assert "FUTURES_MINUTE_PUBLISH_BENCHMARK_ROOT" in makefile
     assert "minute-odds-dbt-benchmark:" in makefile
     assert "scripts/benchmark_polymarket_wc2026_minute_odds_dbt.py" in makefile

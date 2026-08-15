@@ -54,10 +54,13 @@ Run them through `uv run python` so they use the repo environment.
   dbt rebuild timing for the unified minute mart (`make minute-odds-dbt-benchmark`).
   Never opens the operator warehouse.
 - `build_polymarket_wc2026_stage_execution_release.py`: offline-plan or resume
-  the targeted PMXT book/trade acquisition for the pinned WC2026 stage-minute
-  report, then atomically publish the ignored stage-execution evidence bundle.
+  targeted PMXT v2 archive reconstruction for the pinned WC2026 stage-minute
+  report, using one shared-budget API seed per token-hour, then atomically
+  publish the ignored stage-execution evidence bundle. The explicit
+  `--source api-range` path retains direct range queries.
   Prefer `make stage-execution-plan` before the credit-consuming
-  `make stage-execution-release`.
+  `make stage-execution-release`; release mode requires a clean pipeline Git
+  tree and checks deterministic publication blockers before acquisition.
 - `compact_warehouse.py`: rewrite the DuckDB file into a compact copy and swap it into place.
 - `prune_odds_history.py`: delete `polymarket_wc2026_raw.odds_history` rows older
   than a retention window (default 365 days). Destructive pruning is protected

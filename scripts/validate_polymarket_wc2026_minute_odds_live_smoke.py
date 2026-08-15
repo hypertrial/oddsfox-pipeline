@@ -101,7 +101,7 @@ def _assert_raw_table(conn: duckdb.DuckDBPyConnection, table: str) -> dict[str, 
     if "CHECK" not in constraints:
         raise AssertionError(f"{table} missing fidelity CHECK")
     markets = int(
-        conn.execute(f'select count(distinct market_id) from {table}').fetchone()[0]
+        conn.execute(f"select count(distinct market_id) from {table}").fetchone()[0]
     )
     tokens = int(
         conn.execute(f'select count(distinct "clobTokenId") from {table}').fetchone()[0]
@@ -258,9 +258,7 @@ def validate(
                 f"!= expected {futures_window_hours}"
             )
         if window_hours < 1:
-            raise AssertionError(
-                f"invalid futures sample_window_hours={window_hours}"
-            )
+            raise AssertionError(f"invalid futures sample_window_hours={window_hours}")
         oversize = conn.execute(
             """
             select count(*)

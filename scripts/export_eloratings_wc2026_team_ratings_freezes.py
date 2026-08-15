@@ -16,7 +16,9 @@ from _export_common import mart_exists as _mart_exists
 from _export_common import qualified_mart_name
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
-from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import WC2026_MARTS_SCHEMA
+from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (  # noqa: E402
+    WC2026_MARTS_SCHEMA,
+)
 
 MART_SCHEMA: Final = WC2026_MARTS_SCHEMA
 CURRENT_MART: Final = "team_ratings_current"

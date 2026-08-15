@@ -15,9 +15,11 @@ from _bootstrap import REPO_ROOT
 
 MONOREPO_ROOT: Final[Path] = REPO_ROOT.parent
 DEFAULT_DUCKDB: Final[Path] = REPO_ROOT / "oddsfox.duckdb"
-DEFAULT_ALIASES: Final[Path] = REPO_ROOT / "dbt" / "seeds" / "wc2026_team_canonical_aliases.csv"
+DEFAULT_ALIASES: Final[Path] = (
+    REPO_ROOT / "dbt" / "seeds" / "wc2026_team_canonical_aliases.csv"
+)
 DEFAULT_HOURLY_PARQUET: Final[Path] = (
-    MONOREPO_ROOT / "oddsfox-scraper" / "polymarket_wc2026_market_hourly_odds_20260805T183112Z.parquet"
+    REPO_ROOT / "artifacts" / "polymarket_wc2026_market_hourly_odds.parquet"
 )
 DEFAULT_OUTPUT: Final[Path] = MONOREPO_ROOT / "spain_odds_to_win.parquet"
 
@@ -361,7 +363,9 @@ def build_spain_odds_to_win(
 
         row_count = con.execute(f"select count(*) from ({_BUILD_SQL})").fetchone()[0]
         if row_count != 105:
-            raise RuntimeError(f"Expected 105 rows (start + 104 games), got {row_count}")
+            raise RuntimeError(
+                f"Expected 105 rows (start + 104 games), got {row_count}"
+            )
 
         con.execute(
             f"copy ({_BUILD_SQL}) to ? (format parquet)",

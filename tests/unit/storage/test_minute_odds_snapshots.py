@@ -353,7 +353,9 @@ def test_reconcile_snapshot_publication_mismatch_preserves_heap(tmp_path, monkey
             NULL::VARCHAR error_type, NULL::VARCHAR error_message
             """
         )
-        with pytest.raises(MinuteOddsSnapshotError, match="does not match any complete"):
+        with pytest.raises(
+            MinuteOddsSnapshotError, match="does not match any complete"
+        ):
             reconcile_snapshot_publication(conn, snapshot)
         assert conn.execute(
             "select table_type from information_schema.tables where "

@@ -127,9 +127,7 @@ def test_select_futures_minute_token_plans_requires_registry_eligible_futures():
     conn.execute(
         "delete from polymarket_wc2026_ops.market_scope_registry where market_id = 'futures-1'"
     )
-    conn.execute(
-        "delete from polymarket_wc2026_raw.markets where id = 'futures-empty'"
-    )
+    conn.execute("delete from polymarket_wc2026_raw.markets where id = 'futures-empty'")
     try:
         with pytest.raises(ValueError, match="No registry-eligible WC2026 futures"):
             futures_minute.select_futures_minute_token_plans(conn)
@@ -278,9 +276,7 @@ def test_sync_futures_minute_releases_histories_before_persist(monkeypatch, tmp_
         order.append("persist")
         assert rows
 
-    monkeypatch.setattr(
-        futures_minute, "release_minute_history_payloads", wrap_release
-    )
+    monkeypatch.setattr(futures_minute, "release_minute_history_payloads", wrap_release)
     try:
         summary = futures_minute.sync_futures_minute_odds_history(
             conn,
@@ -328,7 +324,9 @@ def test_sync_futures_minute_odds_history_separate_audit_and_publish_borrows(
         shard_open_depth.append(open_depth["n"])
         return real_write(*args, **kwargs)
 
-    monkeypatch.setattr(futures_minute, "write_minute_history_parquet_shards", wrap_write)
+    monkeypatch.setattr(
+        futures_minute, "write_minute_history_parquet_shards", wrap_write
+    )
 
     try:
         summary = futures_minute.sync_futures_minute_odds_history(
@@ -399,6 +397,7 @@ def test_sync_futures_minute_odds_history_publishes_on_full_success():
     assert table.num_rows == 2
     assert "clobTokenId" in table.column_names
     assert fetch_run_id == summary["fetch_run_id"]
+
 
 def test_sync_futures_minute_odds_history_publishes_success_and_skips_empty():
     conn = _futures_inventory_connection()
@@ -524,9 +523,8 @@ def test_sync_futures_minute_odds_history_publishes_via_batch_path():
         group_calls.append(tuple(token_ids))
         out: dict[str, list] = {}
         for token_id in token_ids:
-            if (
-                token_id not in emitted
-                and int(window_start) <= point_ts <= int(window_end)
+            if token_id not in emitted and int(window_start) <= point_ts <= int(
+                window_end
             ):
                 out[token_id] = [(token_id, point_ts, 0.61)]
                 emitted.add(token_id)
@@ -542,7 +540,10 @@ def test_sync_futures_minute_odds_history_publishes_via_batch_path():
             client_factory=lambda: object(),
             fetch_group_window_fn=fetch_group,
             persist_fn=lambda rows, _conn, *, fetch_run_id: published.append(
-                (fetch_run_id, sum(pq.ParquetFile(path).metadata.num_rows for path in rows))
+                (
+                    fetch_run_id,
+                    sum(pq.ParquetFile(path).metadata.num_rows for path in rows),
+                )
             ),
             audit_persist_fn=lambda rows, _conn: audit_rows.extend(rows),
         )
@@ -588,7 +589,10 @@ def test_sync_futures_minute_odds_history_batch_publishes_with_partial_empty():
             client_factory=lambda: object(),
             fetch_group_window_fn=fetch_group,
             persist_fn=lambda rows, _conn, *, fetch_run_id: published.append(
-                (fetch_run_id, sum(pq.ParquetFile(path).metadata.num_rows for path in rows))
+                (
+                    fetch_run_id,
+                    sum(pq.ParquetFile(path).metadata.num_rows for path in rows),
+                )
             ),
             audit_persist_fn=lambda rows, _conn: audit_rows.extend(rows),
         )

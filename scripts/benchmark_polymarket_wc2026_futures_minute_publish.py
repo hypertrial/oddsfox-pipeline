@@ -36,20 +36,20 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     minute_odds_publish_cache_dir,
     write_minute_history_parquet_shards,
 )
+from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
     baseline_publish_minute_odds_from_table,
     load_futures_minute_fetch_audit,
     load_futures_minute_odds_history_stage,
 )
-from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
-    bootstrap_all_polymarket_tables,
-)
-from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     polymarket_ops_tbl,
     polymarket_q,
     polymarket_raw_schema,
     polymarket_raw_tbl,
+)
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
+    bootstrap_all_polymarket_tables,
 )
 
 TIER_SIZES = {
@@ -519,9 +519,7 @@ def _run_candidate_results(
         shard_bytes = sum(path.stat().st_size for path in shards)
         rows = sum(int(pq.ParquetFile(path).metadata.num_rows) for path in shards)
         t1 = time.perf_counter()
-        load_futures_minute_odds_history_stage(
-            shards, conn, fetch_run_id=fetch_run_id
-        )
+        load_futures_minute_odds_history_stage(shards, conn, fetch_run_id=fetch_run_id)
         publish_s = time.perf_counter() - t1
         tokens = int(
             conn.execute(

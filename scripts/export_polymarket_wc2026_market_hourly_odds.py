@@ -18,7 +18,7 @@ from _bootstrap import ensure_src_on_path
 from _export_common import mart_exists, qualified_mart_name, snapshot_duckdb_files
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
-from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
+from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (  # noqa: E402
     POLYMARKET_WC2026_MARTS_SCHEMA,
 )
 

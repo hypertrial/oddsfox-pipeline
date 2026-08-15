@@ -462,9 +462,7 @@ def test_minute_odds_smoke_run_config_samples_both_legs_and_caps_futures(monkeyp
 def test_minute_odds_selection_skips_match_inputs_when_refresh_disabled(monkeypatch):
     import oddsfox_pipeline.orchestration.jobs as jobs
 
-    monkeypatch.setattr(
-        jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
-    )
+    monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False)
     monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", False)
     monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", True)
     graph = defs.resolve_asset_graph()
@@ -478,8 +476,7 @@ def test_minute_odds_selection_skips_match_inputs_when_refresh_disabled(monkeypa
         not in selected
     )
     assert (
-        AssetKey(["openfootball", "wc2026", "raw", "schedule_fixtures"])
-        not in selected
+        AssetKey(["openfootball", "wc2026", "raw", "schedule_fixtures"]) not in selected
     )
     assert (
         AssetKey(["polymarket", "wc2026", "raw", "futures_token_odds_history_minute"])
@@ -496,9 +493,7 @@ def test_minute_odds_selection_skips_match_inputs_when_refresh_disabled(monkeypa
 def test_minute_odds_selection_skips_futures_when_refresh_disabled(monkeypatch):
     import oddsfox_pipeline.orchestration.jobs as jobs
 
-    monkeypatch.setattr(
-        jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
-    )
+    monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False)
     monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", True)
     monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", False)
     graph = defs.resolve_asset_graph()
@@ -516,9 +511,7 @@ def test_minute_odds_selection_skips_futures_when_refresh_disabled(monkeypatch):
 def test_minute_odds_selection_dbt_only_when_both_raw_legs_disabled(monkeypatch):
     import oddsfox_pipeline.orchestration.jobs as jobs
 
-    monkeypatch.setattr(
-        jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False
-    )
+    monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG", False)
     monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH", False)
     monkeypatch.setattr(jobs, "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES", False)
     graph = defs.resolve_asset_graph()

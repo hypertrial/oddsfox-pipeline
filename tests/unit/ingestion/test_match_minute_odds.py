@@ -598,9 +598,7 @@ def test_sync_reports_audit_and_publication_storage_failures(
             requests_per_second=1000,
             batch_group_size=1,
             client_factory=object,
-            fetch_window_fn=lambda *_a, **_k: [
-                ("token", int(start.timestamp()), 0.5)
-            ],
+            fetch_window_fn=lambda *_a, **_k: [("token", int(start.timestamp()), 0.5)],
             audit_persist_fn=(
                 (lambda *_: fail("audit write failed"))
                 if failing_layer == "audit"

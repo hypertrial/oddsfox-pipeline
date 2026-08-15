@@ -105,17 +105,29 @@ make stage-execution-plan \
   STAGE_EXECUTION_OHLC_REPORT=/absolute/path/to/ohlc-report
 ```
 
-The planner coalesces only overlapping windows for the same token and rejects a
-plan whose minimum book-plus-trade requests exceed
-`STAGE_EXECUTION_REQUEST_BUDGET` (20,000 by default). The release target uses
-the same arguments plus `PMXT_API_KEY`, resumes from ignored local state, and
+The default `archive-v2` planner coalesces only overlapping windows for the
+same token, downloads each required public PMXT v2 hourly object once, and
+budgets one historical seed request per token-hour. Seed requests reconstruct
+the state at each UTC-hour boundary but are never published and never directly
+grant a hypothetical fill. Set `STAGE_EXECUTION_SOURCE=api-range` only for the
+older explicit range-query path. Both modes reject plans whose minimum API
+requests exceed `STAGE_EXECUTION_REQUEST_BUDGET` (20,000 by default).
+
+Release mode reserves every seed or range attempt against the same UTC-month
+PMXT ledger used by other acquisition jobs, resumes from ignored local state,
+deletes each temporary archive object after validation and processing, and
 atomically writes reconstructed L2 snapshots, levels, diagnostic trades, and
 coverage below ignored `artifacts/strategy-inputs/`.
+Release mode checks the exact dataset version, unused output target, and a clean
+pipeline Git tree—including untracked files—before making any paid request.
 
-Source timestamps are PMXT exchange-time reconstruction timestamps in
-milliseconds. Ingestion timestamps record the backfill, not historical feed
-receipt latency. Completed empty books and zero-trade windows are retained as
-negative evidence. Trades are diagnostic and cannot grant a simulated fill.
+Archive receipt timestamps govern when reconstructed evidence becomes
+available to a consumer. Source timestamps govern age and latency; ingestion
+timestamps record this backfill and are not historical feed receipt latency.
+Completed missing hourly objects, empty books, and zero-trade windows are
+retained as verified negative evidence. Trades are diagnostic and cannot grant
+a simulated fill. Upstream archive terms and attribution remain documented by
+PMXT.
 
 `team_ratings_pre_match` is a separate match×team reconstruction from
 `eloratings__match_results` (collector `{year}_results.tsv`). It is not covered

@@ -15,9 +15,9 @@ from bootstrap_dbt_ci_duckdb import bootstrap_dbt_ci_duckdb
 
 ensure_src_on_path()
 
-import oddsfox_pipeline.storage.duckdb.connection as connection
-from oddsfox_pipeline.naming import SCOPE_WC2026
-from oddsfox_pipeline.storage.duckdb.schemas.constants import (
+import oddsfox_pipeline.storage.duckdb.connection as connection  # noqa: E402
+from oddsfox_pipeline.naming import SCOPE_WC2026  # noqa: E402
+from oddsfox_pipeline.storage.duckdb.schemas.constants import (  # noqa: E402
     international_results_wc2026_raw_tbl,
     kalshi_ops_tbl,
     kalshi_raw_tbl,

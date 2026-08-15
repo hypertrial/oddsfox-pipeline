@@ -96,11 +96,17 @@ The pipeline is backfill-only. It has no schedule flag and is excluded from
 ordinary dbt and full-pipeline jobs with `tag:pmxt_order_book`. See
 [Recreate the PMXT order-book mart](../guides/recreate-match-order-book-mart.md).
 
-The separate WC2026 stage-execution study uses the same credential and PMXT
-source. `make stage-execution-plan` is network-free and reports its minimum
-request count; `make stage-execution-release` refuses to start when that count
-exceeds `STAGE_EXECUTION_REQUEST_BUDGET` (20,000 by default). Its checkpoint
-and immutable outputs remain under ignored operator-local artifact paths.
+The separate WC2026 stage-execution study defaults to the public PMXT v2 archive
+plus one credentialed historical seed request per target token-hour.
+`make stage-execution-plan` is network-free and reports archive hours, token
+hours, storage bounds, and the minimum seed request count;
+`make stage-execution-release` refuses to start when that count exceeds
+`STAGE_EXECUTION_REQUEST_BUDGET` (20,000 by default). Every seed attempt reserves
+from the shared UTC-month PMXT ledger at `STAGE_EXECUTION_CREDIT_LEDGER` (the
+warehouse by default), so separate checkpoints cannot each consume the full
+allowance. `STAGE_EXECUTION_SOURCE=api-range` selects the legacy range-query
+mode explicitly. Checkpoints and immutable outputs remain under ignored
+operator-local artifact paths.
 
 ## WC2026 Polygon settlement history
 

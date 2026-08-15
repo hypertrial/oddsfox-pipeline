@@ -30,7 +30,9 @@ def test_write_profile_embeds_path_threads_and_temp(tmp_path):
     profiles = tmp_path / "profiles"
     db = tmp_path / "warehouse.duckdb"
     temp = tmp_path / "duckdb-temp"
-    benchmark._write_profile(profiles, db, threads=3, temp_dir=temp, memory_limit="16GB")
+    benchmark._write_profile(
+        profiles, db, threads=3, temp_dir=temp, memory_limit="16GB"
+    )
     text = (profiles / "profiles.yml").read_text(encoding="utf-8")
     assert db.as_posix() in text
     assert "threads: 3" in text
@@ -43,7 +45,9 @@ def test_main_report_gates_without_running_dbt(tmp_path, monkeypatch):
     """Unit path: mock seed/dbt; prove return codes and report fields."""
     benchmark = _load_module()
     monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
-    monkeypatch.setattr(benchmark.connection, "reset_duckdb_connection_state", lambda: None)
+    monkeypatch.setattr(
+        benchmark.connection, "reset_duckdb_connection_state", lambda: None
+    )
     monkeypatch.setattr(benchmark.connection, "init_duck_db", lambda: None)
     monkeypatch.setattr(benchmark, "seed_match_minute_contract", lambda _conn: None)
     monkeypatch.setattr(benchmark, "backfill_primary_ohlc_table", lambda *_a, **_k: 0)
@@ -120,7 +124,9 @@ def test_main_report_gates_without_running_dbt(tmp_path, monkeypatch):
 def test_main_returns_2_when_dq_blocked(tmp_path, monkeypatch):
     benchmark = _load_module()
     monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
-    monkeypatch.setattr(benchmark.connection, "reset_duckdb_connection_state", lambda: None)
+    monkeypatch.setattr(
+        benchmark.connection, "reset_duckdb_connection_state", lambda: None
+    )
     monkeypatch.setattr(benchmark.connection, "init_duck_db", lambda: None)
     monkeypatch.setattr(benchmark, "seed_match_minute_contract", lambda _conn: None)
     monkeypatch.setattr(benchmark, "backfill_primary_ohlc_table", lambda *_a, **_k: 0)

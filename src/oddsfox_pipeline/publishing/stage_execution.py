@@ -11,7 +11,7 @@ import tempfile
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Callable, Final, Iterable, Mapping
@@ -22,7 +22,7 @@ import pyarrow.parquet as pq
 import requests
 
 from oddsfox_pipeline.config.settings import PMXT_API_KEY
-from oddsfox_pipeline.config.settings_warehouse import BASE_DIR
+from oddsfox_pipeline.config.settings_warehouse import BASE_DIR, DUCKDB_PATH
 from oddsfox_pipeline.contracts.raw_snapshots import schema_fingerprint
 from oddsfox_pipeline.ingestion.polymarket.match_order_book import (
     PMXT_MAX_RANGE_SNAPSHOTS,
@@ -50,6 +50,7 @@ from oddsfox_pipeline.resources.http_retry import (
     exponential_backoff_seconds,
     is_transient_status,
 )
+from oddsfox_pipeline.storage.duckdb.match_order_book import METADATA
 
 CONTRACT_VERSION: Final = "oddsfox.polymarket_wc2026.stage_execution.v1"
 DATASET_VERSION: Final = "1.0.0"
@@ -114,6 +115,7 @@ class ExecutionPlan:
     legs: tuple[Mapping[str, Any], ...]
     windows: tuple[Mapping[str, Any], ...]
     request_budget: int
+    window_seconds: int
 
     @property
     def minimum_requests(self) -> int:
@@ -207,6 +209,36 @@ def _window_id(token_id: str, start_ms: int, end_ms: int) -> str:
     return hashlib.sha256(f"{token_id}\0{start_ms}\0{end_ms}".encode()).hexdigest()
 
 
+def _validate_signal_economics(row: Mapping[str, Any], fee_rate: float) -> float:
+    try:
+        source_price = float(row["source_no_close_price"])
+        target_price = float(row["target_yes_close_price"])
+        source_fee = float(row["source_no_signal_fee"])
+        target_fee = float(row["target_yes_signal_fee"])
+        signal_edge = float(row["signal_net_edge"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise StageExecutionError("invalid report signal economics") from exc
+    values = (source_price, target_price, source_fee, target_fee, signal_edge)
+    if (
+        not all(math.isfinite(value) for value in values)
+        or not 0 <= source_price <= 1
+        or not 0 <= target_price <= 1
+    ):
+        raise StageExecutionError("invalid report signal economics")
+    expected_source_fee = max(round(fee_rate * source_price * (1 - source_price), 5), 0)
+    expected_target_fee = max(round(fee_rate * target_price * (1 - target_price), 5), 0)
+    expected_edge = (
+        1 - source_price - target_price - expected_source_fee - expected_target_fee
+    )
+    if (
+        not math.isclose(source_fee, expected_source_fee, rel_tol=0, abs_tol=1e-12)
+        or not math.isclose(target_fee, expected_target_fee, rel_tol=0, abs_tol=1e-12)
+        or not math.isclose(signal_edge, expected_edge, rel_tol=0, abs_tol=1e-12)
+    ):
+        raise StageExecutionError("invalid report signal economics")
+    return signal_edge
+
+
 def build_execution_plan(
     stage_minute_release: Path,
     ohlc_report: Path,
@@ -248,6 +280,15 @@ def build_execution_plan(
         str(row["clob_token_id"]): row
         for row in pq.read_table(release / "outcomes.parquet").to_pylist()
     }
+    implications = {
+        str(row["implication_id"]): row
+        for row in pq.read_table(release / "implications.parquet").to_pylist()
+    }
+    no_tokens_by_market = {
+        str(row["market_id"]): str(row["clob_token_id"])
+        for row in outcomes.values()
+        if row.get("outcome_label") == "No"
+    }
     opportunities = pq.read_table(
         report / "opportunity_minutes.parquet",
         filters=[("scenario_id", "=", PRIMARY_SCENARIO)],
@@ -256,11 +297,45 @@ def build_execution_plan(
     legs: list[dict[str, Any]] = []
     seen: set[tuple[str, int]] = set()
     padding_ms = window_seconds * 1_000
+    configuration = report_manifest["configuration"]
+    fee_rate = float(configuration["fee_rate"])
+    minimum_edge = float(configuration["min_net_edge"])
     for row in opportunities:
         key = (str(row["implication_id"]), int(row["signal_minute_epoch"]))
         if key in seen:
             raise StageExecutionError("duplicate execution target")
         seen.add(key)
+        implication = implications.get(key[0])
+        if implication is None:
+            raise StageExecutionError("report contains an unknown implication")
+        source_yes = outcomes.get(str(implication["source_clob_token_id"]))
+        target_yes = outcomes.get(str(implication["target_clob_token_id"]))
+        if source_yes is None or target_yes is None:
+            raise StageExecutionError("implication endpoint is absent from outcomes")
+        expected = {
+            "team_name": implication["team_name"],
+            "rule_id": implication["rule_id"],
+            "source_stage_key": implication["source_stage_key"],
+            "target_stage_key": implication["target_stage_key"],
+            "source_no_token_id": no_tokens_by_market.get(str(source_yes["market_id"])),
+            "target_yes_token_id": implication["target_clob_token_id"],
+        }
+        if any(str(row.get(field)) != str(value) for field, value in expected.items()):
+            raise StageExecutionError(
+                "report target does not match the pinned implication"
+            )
+        signal_utc = row.get("signal_minute_utc")
+        if not isinstance(
+            signal_utc, datetime
+        ) or signal_utc.utcoffset() != timezone.utc.utcoffset(signal_utc):
+            raise StageExecutionError("invalid signal minute timestamp")
+        signal_edge = _validate_signal_economics(row, fee_rate)
+        if (
+            int(signal_utc.timestamp()) != key[1]
+            or key[1] % 60 != 0
+            or signal_edge < minimum_edge
+        ):
+            raise StageExecutionError("invalid report signal time or edge")
         decision_ms = (key[1] + 60) * 1_000
         target_id = hashlib.sha256(f"{key[0]}\0{key[1]}".encode()).hexdigest()
         target = {
@@ -381,6 +456,7 @@ def build_execution_plan(
             )
         ),
         request_budget,
+        window_seconds,
     )
 
 
@@ -397,21 +473,69 @@ def _state_schema(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("""
         CREATE TABLE IF NOT EXISTS execution_book_snapshots(
           window_id VARCHAR, clob_token_id VARCHAR, snapshot_timestamp_ms BIGINT,
-          snapshot_sha256 VARCHAR, bids_json VARCHAR, asks_json VARCHAR,
+          received_timestamp_ms BIGINT, snapshot_sha256 VARCHAR,
+          bids_json VARCHAR, asks_json VARCHAR,
           ingested_at TIMESTAMP,
           PRIMARY KEY(clob_token_id, snapshot_timestamp_ms, snapshot_sha256))
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS execution_trades(
           window_id VARCHAR, clob_token_id VARCHAR, trade_id VARCHAR,
-          trade_timestamp_ms BIGINT, event_sequence BIGINT, price DOUBLE,
-          amount DOUBLE, ingested_at TIMESTAMP,
+          trade_timestamp_ms BIGINT, received_timestamp_ms BIGINT,
+          event_sequence BIGINT, price DOUBLE, amount DOUBLE, ingested_at TIMESTAMP,
           PRIMARY KEY(clob_token_id, trade_id))
     """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS execution_audit(
           key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL)
     """)
+    conn.execute(
+        "ALTER TABLE execution_book_snapshots ADD COLUMN IF NOT EXISTS "
+        "received_timestamp_ms BIGINT"
+    )
+    conn.execute(
+        "ALTER TABLE execution_trades ADD COLUMN IF NOT EXISTS "
+        "received_timestamp_ms BIGINT"
+    )
+
+
+def _reserve_shared_pmxt_attempt(
+    ledger_path: Path, budget: int, *, now: datetime | None = None
+) -> bool:
+    """Atomically reserve one request from the operator-wide UTC-month cap."""
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    key = f"pmxt_api_attempts_{date(current.year, current.month, 1)}"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    ledger = duckdb.connect(str(ledger_path))
+    try:
+        ledger.execute('CREATE SCHEMA IF NOT EXISTS "polymarket_wc2026_ops"')
+        ledger.execute(
+            f"CREATE TABLE IF NOT EXISTS {METADATA} "
+            "(key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL)"
+        )
+        ledger.execute("BEGIN TRANSACTION")
+        row = ledger.execute(
+            f"SELECT value FROM {METADATA} WHERE key=?", [key]
+        ).fetchone()
+        if row is not None and int(row[0]) >= budget:
+            ledger.execute("COMMIT")
+            return False
+        ledger.execute(
+            f"INSERT INTO {METADATA} VALUES (?, '1') "
+            f"ON CONFLICT (key) DO UPDATE SET value=CAST(CAST({METADATA}.value "
+            "AS BIGINT) + 1 AS VARCHAR)",
+            [key],
+        )
+        ledger.execute("COMMIT")
+        return True
+    except BaseException:
+        try:
+            ledger.execute("ROLLBACK")
+        except duckdb.Error:
+            pass
+        raise
+    finally:
+        ledger.close()
 
 
 def _default_book_fetch(client: Any, window: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -471,14 +595,17 @@ def _canonical_snapshot(
         raise StageExecutionError("book timestamp is outside its requested window")
     bids = _normalize_levels(raw.get("bids"), side="bids")
     asks = _normalize_levels(raw.get("asks"), side="asks")
-    if bids and asks and Decimal(bids[0]["price"]) >= Decimal(asks[0]["price"]):
+    if bids and asks and Decimal(bids[0]["price"]) > Decimal(asks[0]["price"]):
         raise StageExecutionError("crossed execution book")
     canonical = {
         "clob_token_id": str(window["clob_token_id"]),
         "timestamp": timestamp,
+        "received_timestamp": int(raw.get("received_timestamp", timestamp)),
         "bids": bids,
         "asks": asks,
     }
+    if canonical["received_timestamp"] < timestamp:
+        raise StageExecutionError("book receipt timestamp precedes source timestamp")
     return {
         **canonical,
         "snapshot_sha256": hashlib.sha256(
@@ -497,6 +624,7 @@ def _canonical_trade(
         token = str(raw.get("outcomeId") or window["clob_token_id"])
         price = float(Decimal(str(raw.get("price"))))
         amount = float(Decimal(str(raw.get("amount"))))
+        received_timestamp = int(raw.get("received_timestamp", timestamp))
     except (ArithmeticError, ValueError) as exc:
         raise StageExecutionError("invalid PMXT trade") from exc
     if (
@@ -510,11 +638,13 @@ def _canonical_trade(
         or not 0 <= price <= 1
         or not math.isfinite(amount)
         or amount <= 0
+        or received_timestamp < timestamp
     ):
         raise StageExecutionError("invalid PMXT trade")
     return {
         "trade_id": trade_id,
         "timestamp": timestamp,
+        "received_timestamp": received_timestamp,
         "price": price,
         "amount": amount,
     }
@@ -532,6 +662,7 @@ def acquire_execution_evidence(
     ] = _default_trade_fetch,
     client: Any | None = None,
     sleep_fn: Callable[[float], None] = time.sleep,
+    credit_ledger_path: Path = DUCKDB_PATH,
 ) -> duckdb.DuckDBPyConnection:
     if plan.minimum_requests > plan.request_budget:
         raise StageExecutionError(
@@ -604,6 +735,13 @@ def acquire_execution_evidence(
                 if used >= plan.request_budget:
                     raise StageExecutionError(
                         "PMXT request budget exhausted; checkpoint preserved"
+                    )
+                if not _reserve_shared_pmxt_attempt(
+                    credit_ledger_path, plan.request_budget
+                ):
+                    raise StageExecutionError(
+                        "shared monthly PMXT request budget exhausted; "
+                        "checkpoint preserved"
                     )
                 conn.execute(
                     f"UPDATE execution_windows SET {attempt_column}="
@@ -681,12 +819,16 @@ def acquire_execution_evidence(
                 conn.close()
                 raise StageExecutionError("contradictory book snapshot")
             conn.execute(
-                "INSERT INTO execution_book_snapshots VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "INSERT INTO execution_book_snapshots "
+                "(window_id, clob_token_id, snapshot_timestamp_ms, "
+                "received_timestamp_ms, snapshot_sha256, bids_json, asks_json, "
+                "ingested_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT DO NOTHING",
                 [
                     window["window_id"],
                     window["clob_token_id"],
                     snapshot["timestamp"],
+                    snapshot["received_timestamp"],
                     snapshot["snapshot_sha256"],
                     json.dumps(snapshot["bids"]),
                     json.dumps(snapshot["asks"]),
@@ -706,23 +848,35 @@ def acquire_execution_evidence(
                 conn.close()
                 raise StageExecutionError("contradictory trade identity")
             conn.execute(
-                "INSERT INTO execution_trades VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "INSERT INTO execution_trades "
+                "(window_id, clob_token_id, trade_id, trade_timestamp_ms, "
+                "received_timestamp_ms, event_sequence, price, amount, ingested_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT DO NOTHING",
                 [
                     window["window_id"],
                     window["clob_token_id"],
                     trade["trade_id"],
                     trade["timestamp"],
+                    trade["received_timestamp"],
                     sequence,
                     trade["price"],
                     trade["amount"],
                     now,
                 ],
             )
+        snapshot_count = conn.execute(
+            "SELECT count(*) FROM execution_book_snapshots WHERE window_id=?",
+            [window["window_id"]],
+        ).fetchone()[0]
+        trade_count = conn.execute(
+            "SELECT count(*) FROM execution_trades WHERE window_id=?",
+            [window["window_id"]],
+        ).fetchone()[0]
         conn.execute(
             "UPDATE execution_windows SET status='complete', snapshot_count=?, "
             "trade_count=?, updated_at=? WHERE window_id=?",
-            [len(normalized_books), len(normalized_trades), now, window["window_id"]],
+            [snapshot_count, trade_count, now, window["window_id"]],
         )
     return conn
 
@@ -760,6 +914,7 @@ _SNAPSHOT_SCHEMA = pa.schema(
         ("window_id", pa.string()),
         ("clob_token_id", pa.string()),
         ("snapshot_timestamp_ms", pa.int64()),
+        ("received_timestamp_ms", pa.int64()),
         ("snapshot_sha256", pa.string()),
         ("best_bid_price", pa.float64()),
         ("best_ask_price", pa.float64()),
@@ -789,6 +944,7 @@ _TRADE_SCHEMA = pa.schema(
         ("clob_token_id", pa.string()),
         ("trade_id", pa.string()),
         ("trade_timestamp_ms", pa.int64()),
+        ("received_timestamp_ms", pa.int64()),
         ("event_sequence", pa.int64()),
         ("price", pa.float64()),
         ("amount", pa.float64()),
@@ -862,6 +1018,9 @@ def _validate_release_tables(directory: Path, plan: ExecutionPlan) -> None:
                 "SELECT count(*) != count(DISTINCT (s.clob_token_id, "
                 "s.snapshot_timestamp_ms, s.snapshot_sha256)) "
                 "OR count_if(c.window_id IS NULL OR c.clob_token_id != s.clob_token_id) > 0 "
+                "OR count_if(s.received_timestamp_ms < s.snapshot_timestamp_ms) > 0 "
+                "OR count_if(s.received_timestamp_ms < c.window_start_ms "
+                "OR s.received_timestamp_ms > c.window_end_ms) > 0 "
                 "FROM snapshots s LEFT JOIN coverage c USING(window_id)",
                 [],
             ),
@@ -876,8 +1035,22 @@ def _validate_release_tables(directory: Path, plan: ExecutionPlan) -> None:
             "trade relationships": (
                 "SELECT count(*) != count(DISTINCT (t.clob_token_id, t.trade_id)) "
                 "OR count_if(c.window_id IS NULL OR c.clob_token_id != t.clob_token_id) > 0 "
+                "OR count_if(t.received_timestamp_ms < t.trade_timestamp_ms) > 0 "
+                "OR count_if(t.received_timestamp_ms < c.window_start_ms "
+                "OR t.received_timestamp_ms > c.window_end_ms) > 0 "
                 "OR count_if(t.price < 0 OR t.price > 1 OR t.amount <= 0) > 0 "
                 "FROM trades t LEFT JOIN coverage c USING(window_id)",
+                [],
+            ),
+            "coverage evidence counts": (
+                "WITH s AS (SELECT window_id, count(*) AS n FROM snapshots "
+                "GROUP BY window_id), t AS (SELECT window_id, count(*) AS n "
+                "FROM trades GROUP BY window_id) SELECT count(*) > 0 FROM coverage c "
+                "LEFT JOIN s USING(window_id) LEFT JOIN t USING(window_id) "
+                "WHERE c.snapshot_count != coalesce(s.n, 0) "
+                "OR c.trade_count != coalesce(t.n, 0) "
+                "OR c.empty_book != (coalesce(s.n, 0) = 0) "
+                "OR c.empty_trades != (coalesce(t.n, 0) = 0)",
                 [],
             ),
         }
@@ -925,6 +1098,8 @@ def _validate_release_tables(directory: Path, plan: ExecutionPlan) -> None:
                OR s.best_bid_price IS DISTINCT FROM d.best_bid
                OR s.best_ask_price IS DISTINCT FROM d.best_ask
                OR s.spread IS DISTINCT FROM (d.best_ask - d.best_bid)
+               OR (d.best_bid IS NOT NULL AND d.best_ask IS NOT NULL
+                   AND d.best_bid > d.best_ask)
         """).fetchone()[0]
         if bad_quotes:
             raise StageExecutionError("invalid book summary quotes")
@@ -953,10 +1128,18 @@ def publish_execution_release(
     if release_dir.exists() or release_dir.is_symlink():
         raise FileExistsError(release_dir)
     release_dir.parent.mkdir(parents=True, exist_ok=True)
-    temporary = Path(
-        tempfile.mkdtemp(prefix=f".{dataset_version}.", dir=release_dir.parent)
-    )
+    lock_dir = release_dir.parent / f".{dataset_version}.publication-lock"
     try:
+        lock_dir.mkdir()
+    except FileExistsError as exc:
+        raise StageExecutionError("another release publication is in progress") from exc
+    temporary: Path | None = None
+    try:
+        if release_dir.exists() or release_dir.is_symlink():
+            raise FileExistsError(release_dir)
+        temporary = Path(
+            tempfile.mkdtemp(prefix=f".{dataset_version}.", dir=release_dir.parent)
+        )
         pq.write_table(
             _table(plan.targets, _TARGET_SCHEMA),
             temporary / "execution_targets.parquet",
@@ -971,7 +1154,8 @@ def publish_execution_release(
         levels: list[dict[str, Any]] = []
         rows = conn.execute("""
             SELECT w.root_window_id, s.clob_token_id, s.snapshot_timestamp_ms,
-                   s.snapshot_sha256, s.bids_json, s.asks_json, s.ingested_at
+                   s.received_timestamp_ms, s.snapshot_sha256, s.bids_json,
+                   s.asks_json, s.ingested_at
             FROM execution_book_snapshots s
             JOIN execution_windows w USING(window_id)
             ORDER BY clob_token_id, snapshot_timestamp_ms, snapshot_sha256
@@ -980,6 +1164,7 @@ def publish_execution_release(
             window_id,
             token,
             timestamp,
+            received_timestamp,
             digest,
             bids_json,
             asks_json,
@@ -993,6 +1178,7 @@ def publish_execution_release(
                     "window_id": window_id,
                     "clob_token_id": token,
                     "snapshot_timestamp_ms": timestamp,
+                    "received_timestamp_ms": received_timestamp,
                     "snapshot_sha256": digest,
                     "best_bid_price": best_bid,
                     "best_ask_price": best_ask,
@@ -1039,8 +1225,8 @@ def publish_execution_release(
             dict(zip(trade_columns, row, strict=True))
             for row in conn.execute("""
                 SELECT w.root_window_id, t.clob_token_id, t.trade_id,
-                       t.trade_timestamp_ms, t.event_sequence, t.price, t.amount,
-                       t.ingested_at
+                       t.trade_timestamp_ms, t.received_timestamp_ms,
+                       t.event_sequence, t.price, t.amount, t.ingested_at
                 FROM execution_trades t
                 JOIN execution_windows w USING(window_id)
                 ORDER BY t.clob_token_id, t.trade_timestamp_ms, t.trade_id
@@ -1058,28 +1244,41 @@ def publish_execution_release(
         for window in plan.windows:
             window_id = str(window["window_id"])
             descendants = conn.execute(
-                "SELECT status, book_attempts + trade_attempts, snapshot_count, trade_count "
+                "SELECT status, book_attempts + trade_attempts "
                 "FROM execution_windows WHERE root_window_id=?",
                 [window_id],
             ).fetchall()
             timestamps = [
-                row[0]
+                (row[0], row[1])
                 for row in conn.execute(
                     """
-                SELECT s.snapshot_timestamp_ms FROM execution_book_snapshots s
+                SELECT s.snapshot_timestamp_ms, s.received_timestamp_ms
+                FROM execution_book_snapshots s
                 JOIN execution_windows w USING(window_id) WHERE w.root_window_id=?
                 """,
                     [window_id],
                 ).fetchall()
             ]
+            trades_count = int(
+                conn.execute(
+                    """
+                    SELECT count(*) FROM execution_trades t
+                    JOIN execution_windows w USING(window_id)
+                    WHERE w.root_window_id=?
+                    """,
+                    [window_id],
+                ).fetchone()[0]
+            )
             ages = [
                 decision
-                - max((ts for ts in timestamps if ts <= decision), default=decision + 1)
+                - max(
+                    (source for source, receipt in timestamps if receipt <= decision),
+                    default=decision + 1,
+                )
                 for decision in decisions[window_id]
             ]
             valid_ages = [age for age in ages if age >= 0]
-            snapshots_count = sum(int(row[2]) for row in descendants)
-            trades_count = sum(int(row[3]) for row in descendants)
+            snapshots_count = len(timestamps)
             coverage.append(
                 {
                     "window_id": window_id,
@@ -1122,15 +1321,54 @@ def publish_execution_release(
         }
         write_json(temporary / "SCHEMA.json", schema_payload)
         _validate_release_tables(temporary, plan)
+        source_mode_row = conn.execute(
+            "SELECT value FROM execution_audit WHERE key='source_mode'"
+        ).fetchone()
+        source_mode = source_mode_row[0] if source_mode_row else "api-range"
+        archive_objects: list[dict[str, Any]] = []
+        archive_table = conn.execute(
+            "SELECT count(*) FROM information_schema.tables "
+            "WHERE table_name='execution_archive_objects'"
+        ).fetchone()[0]
+        if archive_table:
+            archive_objects = [
+                {
+                    "object_key": row[0],
+                    "source_url": row[1],
+                    "status": row[2],
+                    "http_attempts": row[3],
+                    "byte_size": row[4],
+                    "sha256": row[5],
+                    "etag": row[6],
+                    "event_count": row[7],
+                }
+                for row in conn.execute(
+                    "SELECT object_key, source_url, status, http_attempts, byte_size, "
+                    "sha256, etag, event_count FROM execution_archive_objects "
+                    "ORDER BY hour_start_ms"
+                ).fetchall()
+            ]
+        audit_attempts = conn.execute(
+            "SELECT value FROM execution_audit WHERE key='api_attempt_count'"
+        ).fetchone()
         manifest: dict[str, Any] = {
             "contract_version": CONTRACT_VERSION,
             "dataset_version": dataset_version,
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
             "pipeline_revision": generator_commit,
             "source_labels": {
-                "books": PMXT_ORDER_BOOK_SOURCE,
-                "trades": PMXT_TRADES_SOURCE,
+                "books": (
+                    "archive.pmxt.dev/Polymarket/v2"
+                    if source_mode == "archive-v2"
+                    else PMXT_ORDER_BOOK_SOURCE
+                ),
+                "trades": (
+                    "archive.pmxt.dev/Polymarket/v2"
+                    if source_mode == "archive-v2"
+                    else PMXT_TRADES_SOURCE
+                ),
             },
+            "source_license": "CC-BY-4.0" if source_mode == "archive-v2" else None,
             "inputs": {
                 "stage_minute_manifest_sha256": STAGE_MINUTE_MANIFEST_SHA256,
                 "ohlc_report_manifest_sha256": sha256_file(
@@ -1139,14 +1377,23 @@ def publish_execution_release(
                 "strategy_revision": OHLC_STRATEGY_SHA,
             },
             "configuration": {
-                "window_seconds": 5,
+                "window_seconds": plan.window_seconds,
                 "request_budget": plan.request_budget,
                 "primary_scenario": PRIMARY_SCENARIO,
+                "source_mode": source_mode,
             },
             "planning": plan.summary(),
             "request_audit": {
-                "api_attempt_count": sum(row["api_attempt_count"] for row in coverage)
+                "api_attempt_count": (
+                    int(audit_attempts[0])
+                    if audit_attempts
+                    else sum(row["api_attempt_count"] for row in coverage)
+                ),
+                "archive_http_attempt_count": sum(
+                    int(row["http_attempts"]) for row in archive_objects
+                ),
             },
+            "archive_objects": archive_objects,
             "exclusions": [],
             "counts": {
                 "targets": len(plan.targets),
@@ -1183,15 +1430,36 @@ def publish_execution_release(
             or verified.get("dataset_version") != dataset_version
         ):
             raise StageExecutionError("execution release contract drift")
+        if release_dir.exists() or release_dir.is_symlink():
+            raise FileExistsError(release_dir)
         os.replace(temporary, release_dir)
     except BaseException:
-        shutil.rmtree(temporary, ignore_errors=True)
+        if temporary is not None:
+            shutil.rmtree(temporary, ignore_errors=True)
         raise
+    finally:
+        lock_dir.rmdir()
     return release_dir
 
 
 def current_generator_commit() -> str:
-    return current_clean_commit(BASE_DIR, untracked_files="no")
+    return current_clean_commit(BASE_DIR)
+
+
+def preflight_execution_release(
+    output_root: Path, *, dataset_version: str = DATASET_VERSION
+) -> tuple[Path, str]:
+    """Resolve all deterministic release blockers before paid acquisition."""
+    validate_dataset_version(dataset_version)
+    if dataset_version != DATASET_VERSION:
+        raise StageExecutionError("invalid dataset version")
+    release_dir = output_root.expanduser().resolve() / "releases" / dataset_version
+    lock_dir = release_dir.parent / f".{dataset_version}.publication-lock"
+    if release_dir.exists() or release_dir.is_symlink():
+        raise FileExistsError(release_dir)
+    if lock_dir.exists() or lock_dir.is_symlink():
+        raise StageExecutionError("another release publication is in progress")
+    return release_dir, current_generator_commit()
 
 
 __all__ = [
@@ -1203,5 +1471,6 @@ __all__ = [
     "acquire_execution_evidence",
     "build_execution_plan",
     "current_generator_commit",
+    "preflight_execution_release",
     "publish_execution_release",
 ]

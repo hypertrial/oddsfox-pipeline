@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from oddsfox_pipeline.ingestion.polymarket.futures_minute import (
+    sync_futures_minute_odds_history,
+)
 from oddsfox_pipeline.ingestion.polymarket.market_scope import (
     load_market_scope_config,
     refresh_registry_from_event_catalog,
@@ -21,9 +24,6 @@ from oddsfox_pipeline.ingestion.polymarket.markets import (
 from oddsfox_pipeline.ingestion.polymarket.markets.fetch import build_client
 from oddsfox_pipeline.ingestion.polymarket.match_minute import (
     sync_match_minute_odds_history,
-)
-from oddsfox_pipeline.ingestion.polymarket.futures_minute import (
-    sync_futures_minute_odds_history,
 )
 from oddsfox_pipeline.ingestion.polymarket.odds import reconcile_odds_ledger, sync_odds
 from oddsfox_pipeline.orchestration.dbt_build import stream_dbt_build

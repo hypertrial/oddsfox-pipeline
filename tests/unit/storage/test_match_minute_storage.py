@@ -170,9 +170,7 @@ def test_match_minute_raw_replace_accepts_arrow_table(duck):
             "timestamp": pa.array([100], type=pa.int64()),
             "price": pa.array([0.4], type=pa.float64()),
             "fidelity_minutes": pa.array([1], type=pa.int32()),
-            "window_start_at": pa.array(
-                [now], type=pa.timestamp("us", tz="UTC")
-            ),
+            "window_start_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
             "window_end_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
             "ingested_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
             "row_order": pa.array([0], type=pa.int64()),

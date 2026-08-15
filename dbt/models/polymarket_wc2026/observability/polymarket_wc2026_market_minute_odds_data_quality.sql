@@ -33,17 +33,23 @@ with fact as (
 latest_futures_audit as (
     select
         count(*) as latest_audit_rows,
-        count(*) filter (where fetch_status = 'success') as latest_success_rows,
-        count(*) filter (where fetch_status = 'empty') as latest_empty_rows,
         count(*) filter (
-            where fetch_status in ('error', 'cancelled')
+            where source_audit.fetch_status = 'success'
+        ) as latest_success_rows,
+        count(*) filter (
+            where source_audit.fetch_status = 'empty'
+        ) as latest_empty_rows,
+        count(*) filter (
+            where source_audit.fetch_status in ('error', 'cancelled')
         ) as latest_hard_failure_rows,
-        count(*) filter (where raw_published) as latest_published_rows
-    from {{ ref('stg_polymarket_wc2026_futures_minute_fetch_audit') }}
-    where fetch_run_id = (
-        select fetch_run_id
-        from {{ ref('stg_polymarket_wc2026_futures_minute_fetch_audit') }}
-        order by fetch_finished_at desc
+        count(*) filter (
+            where source_audit.raw_published
+        ) as latest_published_rows
+    from {{ ref('stg_polymarket_wc2026_futures_minute_fetch_audit') }} as source_audit
+    where source_audit.fetch_run_id = (
+        select latest.fetch_run_id
+        from {{ ref('stg_polymarket_wc2026_futures_minute_fetch_audit') }} as latest
+        order by latest.fetch_finished_at desc
         limit 1
     )
 ),

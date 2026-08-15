@@ -425,9 +425,7 @@ def main(argv: list[str] | None = None) -> int:
             conn, tokens=tokens, rows_per_token=rows_per_token
         )
         primary_ids = {f"fut-token-{idx:05d}-yes" for idx in range(tokens)}
-        backfill_primary_ohlc_table(
-            conn, leg="futures", primary_token_ids=primary_ids
-        )
+        backfill_primary_ohlc_table(conn, leg="futures", primary_token_ids=primary_ids)
         backfill_primary_ohlc_table(conn, leg="match")
     seed_seconds = round(time.perf_counter() - seed_started, 3)
     _write_profile(

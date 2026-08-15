@@ -168,9 +168,7 @@ def test_futures_minute_raw_replace_accepts_arrow_table(duck):
             "timestamp": pa.array([100], type=pa.int64()),
             "price": pa.array([0.4], type=pa.float64()),
             "fidelity_minutes": pa.array([1], type=pa.int32()),
-            "window_start_at": pa.array(
-                [now], type=pa.timestamp("us", tz="UTC")
-            ),
+            "window_start_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
             "window_end_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
             "ingested_at": pa.array([now], type=pa.timestamp("us", tz="UTC")),
             "row_order": pa.array([0], type=pa.int64()),
@@ -199,9 +197,7 @@ def test_futures_minute_raw_replace_accepts_arrow_table(duck):
 
     with duck.get_connection() as conn:
         load_futures_minute_fetch_audit([audit], conn)
-        load_futures_minute_odds_history_stage(
-            table, conn, fetch_run_id="run-arrow"
-        )
+        load_futures_minute_odds_history_stage(table, conn, fetch_run_id="run-arrow")
         prices = conn.execute(
             """
             select price
@@ -412,9 +408,7 @@ def test_futures_minute_publish_from_writer_shards_and_manifest(
     ]
     with duck.get_connection() as conn:
         load_futures_minute_fetch_audit(audits, conn)
-        load_futures_minute_odds_history_stage(
-            shards, conn, fetch_run_id="run-writer"
-        )
+        load_futures_minute_odds_history_stage(shards, conn, fetch_run_id="run-writer")
         tokens = conn.execute(
             """
             select "clobTokenId"
@@ -476,9 +470,7 @@ def test_futures_minute_publish_rolls_back_on_constraint_failure(duck):
         load_futures_minute_odds_history_stage([good], conn, fetch_run_id="run-good")
         load_futures_minute_fetch_audit([audit("run-bad")], conn)
         with pytest.raises(MinuteOddsSnapshotError, match="fidelity_minutes"):
-            load_futures_minute_odds_history_stage(
-                [bad], conn, fetch_run_id="run-bad"
-            )
+            load_futures_minute_odds_history_stage([bad], conn, fetch_run_id="run-bad")
         prices = conn.execute(
             "select price from polymarket_wc2026_raw.futures_minute_odds_history"
         ).fetchall()
@@ -493,7 +485,9 @@ def test_futures_minute_publish_rolls_back_on_constraint_failure(duck):
         assert published == [("run-bad", False), ("run-good", True)]
 
 
-def test_futures_minute_publish_dedupes_duplicate_timestamps(duck, tmp_path, monkeypatch):
+def test_futures_minute_publish_dedupes_duplicate_timestamps(
+    duck, tmp_path, monkeypatch
+):
     monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
     now = datetime(2026, 7, 1, tzinfo=timezone.utc)
     row = {
