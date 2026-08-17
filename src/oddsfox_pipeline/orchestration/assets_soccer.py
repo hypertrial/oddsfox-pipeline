@@ -218,6 +218,7 @@ def polymarket_soccer_raw_match_result_token_odds_history_minute(
                 completion_grace_minutes=config.completion_grace_minutes,
                 empty_retry_hours=config.empty_retry_hours,
                 force=config.force,
+                retry_empty_only=config.retry_empty_only,
                 game_sample_size=config.game_sample_size,
             )
             save_sync_run_metrics("match_minute_odds", summary, scope_name=SCOPE_SOCCER)

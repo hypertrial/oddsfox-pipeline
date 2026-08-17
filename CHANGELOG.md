@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `make soccer-minute-performance-benchmark`, an SSD-local disposable
   cold/warm dbt benchmark that proves warm dirty-market convergence and exact
   output equality.
+- Added `retry_empty_only` soccer minute run config for bounded recovery of
+  exact-window empty CLOB histories without refetching published or new tokens.
 
 ### Changed
 

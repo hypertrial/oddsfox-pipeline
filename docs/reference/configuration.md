@@ -368,6 +368,9 @@ windows. When an empty window reaches its configured retry deadline, the
 pipeline records that exact token window in
 `polymarket_soccer_ops.match_minute_odds_terminal_unavailable`; observability
 therefore preserves the run-specific deadline instead of assuming 72 hours.
+Set `retry_empty_only=true` for a bounded recovery run that retries only current
+exact-window tokens whose latest attempt was empty and which have no reusable
+published success. It cannot be combined with `force=true`.
 
 Soccer production monitoring uses local `POLYMARKET_SOCCER_MONITOR_*` settings.
 Defaults are: successful full-run freshness `30` hours, stale-running age `6`

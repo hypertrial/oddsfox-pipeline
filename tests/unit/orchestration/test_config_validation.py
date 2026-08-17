@@ -13,6 +13,7 @@ from oddsfox_pipeline.orchestration.config import (
     OddsSyncConfig,
     PolygonSettlementReleaseConfig,
     PolygonSettlementSyncConfig,
+    SoccerMatchMinuteOddsSyncConfig,
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_polygon_settlement_backfill_run_config,
     polymarket_wc2026_polygon_settlement_release_run_config,
@@ -77,6 +78,12 @@ def test_hourly_odds_config_defaults_to_market_creation_collection():
     assert cfg.min_volume is None
     assert cfg.max_volume is None
     assert cfg.ended_market_grace_days is None
+
+
+def test_soccer_empty_retry_mode_is_bounded():
+    assert SoccerMatchMinuteOddsSyncConfig().retry_empty_only is False
+    with pytest.raises(ValueError, match="cannot both be true"):
+        SoccerMatchMinuteOddsSyncConfig(force=True, retry_empty_only=True)
 
 
 def test_kalshi_hourly_odds_config_defaults_to_ledger_due_planning():

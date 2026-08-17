@@ -448,6 +448,32 @@ def _terminal_empty_token_ids(
     return {plan.token_id for plan in terminal_plans}
 
 
+def _latest_empty_token_ids(
+    conn: duckdb.DuckDBPyConnection,
+    plans: Iterable[MatchMinuteTokenPlan],
+) -> set[str]:
+    planned_windows = {
+        (plan.token_id, plan.started_at, plan.finished_at) for plan in plans
+    }
+    audit = polymarket_ops_tbl(SCOPE_SOCCER, "match_minute_odds_fetch_audit")
+    return {
+        str(row[0])
+        for row in conn.execute(
+            f"""
+            SELECT "clobTokenId", exact_window_start_at,
+                   exact_window_end_at, fetch_status
+            FROM {audit}
+            QUALIFY row_number() OVER (
+                PARTITION BY "clobTokenId", exact_window_start_at, exact_window_end_at
+                ORDER BY fetch_finished_at DESC, fetch_run_id DESC
+            ) = 1
+            """
+        ).fetchall()
+        if str(row[3]) == "empty"
+        and (str(row[0]), _utc(row[1]), _utc(row[2])) in planned_windows
+    }
+
+
 def sync_soccer_match_minute_odds_history(
     conn: duckdb.DuckDBPyConnection | None = None,
     *,
@@ -464,12 +490,15 @@ def sync_soccer_match_minute_odds_history(
     completion_grace_minutes: int = 60,
     empty_retry_hours: int = 72,
     force: bool = False,
+    retry_empty_only: bool = False,
     game_sample_size: int | None = None,
     client_factory: Callable[[], Any] | None = None,
     fetch_window_fn: Callable[..., Any] = fetch_window_with_auto_split,
     fetch_group_window_fn: Callable[..., Any] = fetch_group_window_with_auto_split,
 ) -> dict[str, Any]:
     """Incrementally publish successful soccer match-result token windows."""
+    if force and retry_empty_only:
+        raise ValueError("force and retry_empty_only cannot both be true")
     now = datetime.now(timezone.utc)
     with borrow_duckdb_connection(
         conn, connection_factory=connection_factory
@@ -480,9 +509,12 @@ def sync_soccer_match_minute_odds_history(
             now=now,
             game_sample_size=game_sample_size,
         )
+        latest_empty = (
+            _latest_empty_token_ids(active, plans) if retry_empty_only else set()
+        )
         terminal_empty = (
             set()
-            if force
+            if force or retry_empty_only
             else _terminal_empty_token_ids(
                 active, plans, empty_retry_hours=empty_retry_hours, now=now
             )
@@ -505,13 +537,19 @@ def sync_soccer_match_minute_odds_history(
             "raw_published_tokens": 0,
             "reused_tokens": 0,
             "audit_amplification": 0.0,
+            "retry_empty_only": retry_empty_only,
             "max_inflight_futures": 0,
             "peak_buffered_rows": 0,
             "spilled_rows": 0,
             "shard_count": 0,
         }
     reuse_plans = [plan for plan in plans if plan.token_id in reuse_ids]
-    fetch_plans = [plan for plan in plans if plan.token_id not in reuse_ids]
+    fetch_plans = [
+        plan
+        for plan in plans
+        if plan.token_id not in reuse_ids
+        and (not retry_empty_only or plan.token_id in latest_empty)
+    ]
     if not fetch_plans:
         return {
             "status": "no_op",
@@ -521,6 +559,7 @@ def sync_soccer_match_minute_odds_history(
             "attempted_tokens": 0,
             "raw_published_tokens": len(reuse_plans),
             "audit_amplification": 0.0,
+            "retry_empty_only": retry_empty_only,
             "max_inflight_futures": 0,
             "peak_buffered_rows": 0,
             "spilled_rows": 0,
@@ -632,6 +671,7 @@ def sync_soccer_match_minute_odds_history(
         "reused_tokens": len(reuse_plans),
         "terminal_empty_tokens": len(terminal_empty),
         "audit_amplification": len(fetched) / max(len(fetch_plans), 1),
+        "retry_empty_only": retry_empty_only,
         **fetch_metrics,
     }
 

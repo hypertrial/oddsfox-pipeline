@@ -237,7 +237,14 @@ class SoccerMatchMinuteOddsSyncConfig(MatchMinuteOddsSyncConfig):
     completion_grace_minutes: int = Field(default=60, ge=0)
     empty_retry_hours: int = Field(default=72, ge=0)
     force: bool = False
+    retry_empty_only: bool = False
     game_sample_size: int | None = Field(default=None, ge=3)
+
+    @model_validator(mode="after")
+    def _validate_retry_mode(self) -> "SoccerMatchMinuteOddsSyncConfig":
+        if self.force and self.retry_empty_only:
+            raise ValueError("force and retry_empty_only cannot both be true")
+        return self
 
 
 class FuturesMinuteOddsSyncConfig(GuardrailConfig):

@@ -10,6 +10,7 @@ from oddsfox_pipeline.ingestion.polymarket import soccer_match
 from oddsfox_pipeline.ingestion.polymarket.match_minute import MatchMinuteTokenPlan
 from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import MinuteFetchResult
 from oddsfox_pipeline.ingestion.polymarket.soccer_match import (
+    _latest_empty_token_ids,
     _terminal_empty_token_ids,
     build_soccer_match_result_registry,
     refresh_soccer_match_result_registry,
@@ -288,6 +289,7 @@ def test_plan_selection_produces_six_tokens_and_even_date_sample():
         conn,
         scope_name=SCOPE_SOCCER,
     )
+    assert _latest_empty_token_ids(conn, all_plans) == {plan.token_id}
     assert _terminal_empty_token_ids(
         conn,
         [plan],
@@ -444,6 +446,90 @@ def test_sync_audits_only_newly_due_tokens(monkeypatch):
     assert summary["attempted_tokens"] == 6
     assert summary["reused_tokens"] == 6
     assert summary["audit_amplification"] == 1.0
+    conn.close()
+
+
+def test_sync_retry_empty_only_skips_successful_and_unattempted_tokens(monkeypatch):
+    conn = duckdb.connect(":memory:")
+    plans = [
+        MatchMinuteTokenPlan(
+            market_id=f"market-{name}",
+            token_id=f"token-{name}",
+            started_at=KICKOFF,
+            finished_at=KICKOFF + timedelta(hours=2),
+        )
+        for name in ("published", "empty", "new")
+    ]
+    published, empty, _new = plans
+    attempted: list[MatchMinuteTokenPlan] = []
+    retained: list[set[str]] = []
+
+    monkeypatch.setattr(
+        soccer_match,
+        "select_soccer_match_minute_token_plans",
+        lambda *_args, **_kwargs: plans,
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "_latest_empty_token_ids",
+        lambda *_args, **_kwargs: {empty.token_id},
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "_terminal_empty_token_ids",
+        lambda *_args, **_kwargs: pytest.fail("recovery must not terminalize empties"),
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "resolve_minute_token_reuse",
+        lambda *_args, **_kwargs: (None, {published.token_id}, {}),
+    )
+
+    def fetch(fetch_plans, **_kwargs):
+        attempted.extend(fetch_plans)
+        return (
+            [
+                MinuteFetchResult(
+                    plan=empty,
+                    fetch_status="success",
+                    history=(),
+                    request_start_epoch=int(empty.started_at.timestamp()),
+                    request_end_epoch=int(empty.finished_at.timestamp()),
+                    source_row_count=1,
+                    history_sha256="a" * 64,
+                    fetch_started_at=KICKOFF,
+                    fetch_finished_at=KICKOFF,
+                    history_row_count=1,
+                )
+            ],
+            [Path("fixture.parquet")],
+            {},
+        )
+
+    monkeypatch.setattr(
+        soccer_match, "fetch_and_write_minute_history_parquet_shards", fetch
+    )
+    monkeypatch.setattr(
+        soccer_match, "load_match_minute_fetch_audit", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "load_match_minute_odds_history_stage",
+        lambda *_args, **kwargs: retained.append(kwargs["reuse_token_ids"]),
+    )
+    monkeypatch.setattr(
+        soccer_match, "cleanup_minute_odds_publish_cache", lambda _run_id: None
+    )
+
+    summary = soccer_match.sync_soccer_match_minute_odds_history(
+        conn, log=object(), retry_empty_only=True
+    )
+
+    assert attempted == [empty]
+    assert retained == [{published.token_id}]
+    assert summary["attempted_tokens"] == 1
+    assert summary["raw_published_tokens"] == 2
+    assert summary["retry_empty_only"] is True
     conn.close()
 
 
