@@ -22,6 +22,15 @@ shipped Polymarket WC2026 and soccer scopes.
 | Synthetic `evt-A` / `m-shared` in warehouse | Stop writers; apply registry hygiene cleanup | [Tests Writing To Production Warehouse](#tests-writing-to-production-warehouse) |
 | Success but repo-root DB empty | `DUCKDB_PATH` points elsewhere | [Warehouse Writes Land in a Different Checkout](#warehouse-writes-land-in-a-different-checkout) |
 | Soccer health exits `1` or `2` | Inspect health JSON and active alerts | [Soccer Production Health](#soccer-production-health) |
+| Dagster reports a socket path over 103 characters | Pull latest; use `make dagster-dev` | [Dagster Socket Path Length](#dagster-socket-path-length) |
+
+## Dagster Socket Path Length
+
+On macOS, Dagster's gRPC Unix socket cannot live under a deeply nested
+`TMPDIR`. `make dagster-dev` avoids this by using a private, UID-scoped
+`/tmp/oddsfox-dg-<uid>/` directory solely for ephemeral socket files. Heavy
+state remains under the configured SSD `ODDSFOX_RUNTIME_ROOT`; start the UI
+through the Make target rather than invoking `dagster dev` directly.
 
 ## Soccer Production Health
 

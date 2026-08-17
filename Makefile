@@ -17,6 +17,7 @@ ODDSFOX_RUNTIME_DUCKDB_EXTENSIONS := $(ODDSFOX_RUNTIME_ROOT)/duckdb-extensions
 ODDSFOX_RUNTIME_UV := $(REPO_ROOT)/.cache/runtime/uv
 ODDSFOX_RUNTIME_UV_PYTHON := $(REPO_ROOT)/.cache/runtime/uv-python
 ODDSFOX_RUNTIME_PLAYWRIGHT := $(REPO_ROOT)/.cache/runtime/ms-playwright
+DAGSTER_DEV_TMP := /tmp/oddsfox-dg-$(shell id -u)
 export TMPDIR := $(ODDSFOX_RUNTIME_TMP)
 export TMP := $(ODDSFOX_RUNTIME_TMP)
 export TEMP := $(ODDSFOX_RUNTIME_TMP)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -100,6 +101,16 @@ def test_dagster_dev_recipe_prefers_dg_with_python_fallback():
     assert 'if test -x "' in script
     assert '/.venv/bin/dg" dev' in script
     assert "-m dagster dev" in script
+
+
+def test_dagster_dev_uses_short_socket_temp_directory():
+    script = _dagster_dev_shell_script()
+    expected = f"/tmp/oddsfox-dg-{os.getuid()}"
+    recipe = _target_recipe(makefile_text(), "dagster-dev")
+
+    assert f'export TMPDIR="{expected}" TMP="{expected}" TEMP="{expected}"' in script
+    assert 'chmod 700 "$(DAGSTER_DEV_TMP)"' in recipe
+    assert len(expected) < 40
 
 
 def test_makefile_include_fragments_are_present_and_inlined():

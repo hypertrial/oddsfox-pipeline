@@ -68,6 +68,12 @@ Make targets default all child-process temporary files and caches to
 location. `ODDSFOX_STORAGE_ROOT` defaults to the repository and defines the
 allowed warehouse boundary for `make local-marts-rebuild`.
 
+`make dagster-dev` always uses a private, UID-scoped `/tmp/oddsfox-dg-<uid>/`
+directory for its ephemeral gRPC socket files, keeping below the macOS
+Unix-domain socket path limit even when `ODDSFOX_RUNTIME_ROOT` is deeply nested.
+Warehouses, snapshots, dbt output, and caches remain under the configured SSD
+runtime paths.
+
 When the checkout is on an SSD, export the parent-process `TMPDIR`,
 `UV_CACHE_DIR`, `UV_PYTHON_INSTALL_DIR`, `XDG_CACHE_HOME`, and
 `PYTHONPYCACHEPREFIX` and `PLAYWRIGHT_BROWSERS_PATH` before the first `uv`
