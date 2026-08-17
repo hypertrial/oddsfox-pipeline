@@ -852,6 +852,64 @@ def test_soccer_daily_schedule_disabled_by_default_and_enabled_by_env(monkeypatc
     )
 
 
+def test_soccer_jobs_select_preflight_checks_and_public_marts():
+    expected_preflight = "polymarket_soccer_ops_pipeline_preflight"
+    for job_name in (
+        "polymarket_soccer_market_scope_registry_refresh",
+        "polymarket_soccer_match_result_minute_odds_ingest",
+        "polymarket_soccer_dbt_build",
+        "polymarket_soccer_full_pipeline",
+    ):
+        nodes = set(defs.resolve_job_def(job_name).graph.node_dict)
+        assert expected_preflight in nodes
+        assert (
+            "polymarket__soccer__ops__pipeline_preflight_local_contracts_valid" in nodes
+        )
+
+    catalog_nodes = set(
+        defs.resolve_job_def(
+            "polymarket_soccer_market_scope_registry_refresh"
+        ).graph.node_dict
+    )
+    assert "oddsfox_dbt" not in catalog_nodes
+    assert "polymarket__soccer__raw__event_catalog_catalog_converged" in catalog_nodes
+    assert (
+        "polymarket__soccer__ops__match_result_registry_three_roles_and_six_tokens"
+        in catalog_nodes
+    )
+
+    dbt_assets = {
+        tuple(key.path)
+        for key in defs.resolve_job_def(
+            "polymarket_soccer_dbt_build"
+        ).asset_layer.selected_asset_keys
+    }
+    assert ("polymarket", "soccer", "marts", "matches") in dbt_assets
+    assert (
+        "polymarket",
+        "soccer",
+        "marts",
+        "match_result_minute_odds_observed",
+    ) in dbt_assets
+    assert (
+        "polymarket",
+        "soccer",
+        "marts",
+        "match_result_minute_odds",
+    ) in dbt_assets
+    assert (
+        "polymarket",
+        "soccer",
+        "observability",
+        "pipeline_health",
+    ) in dbt_assets
+    dbt_nodes = set(defs.resolve_job_def("polymarket_soccer_dbt_build").graph.node_dict)
+    assert (
+        "polymarket__soccer__marts__match_result_minute_odds_"
+        "minute_mart_contracts_valid"
+    ) in dbt_nodes
+
+
 def test_wc2026_market_scope_registry_refresh_includes_event_catalog_dependency():
     selected = {
         tuple(key.path)

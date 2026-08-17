@@ -275,6 +275,7 @@ def stream_dbt_build(
     dbt: DbtCliResource,
     config: DbtBuildConfig,
     heartbeat_diagnostics_fn=None,
+    scope_name: str | None = None,
 ):
     guardrail = ProgressGuardrail(
         asset=asset_name,
@@ -429,6 +430,7 @@ def stream_dbt_build(
         save_asset_failure_metrics(
             "dbt_build",
             exc,
+            scope_name=scope_name,
             extra={"asset": asset_name},
         )
         raise
@@ -461,6 +463,7 @@ def stream_dbt_build(
             "asset": asset_name,
             "events_emitted": events_emitted,
         },
+        scope_name=scope_name,
     )
 
 

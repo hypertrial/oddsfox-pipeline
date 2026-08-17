@@ -165,6 +165,12 @@ publication through the current registry and latest successful exact-window
 audit before producing sparse and dense marts. No external results provider or
 manual mapping input crosses this branch.
 
+A soccer-only preflight and run ledger wrap this branch. Dagster blocking checks
+protect catalog, registry, and publication invariants; local dbt views derive
+current health, alerts, and consecutive-success trends. `scripts/run_health.py`
+is the nonzero automation boundary. Monitoring stays inside DuckDB, Dagster,
+and structured local logs and introduces no hosted alerting dependency.
+
 - `polymarket_wc2026_full_pipeline` is the one-click full manual WC2026 pipeline
   (registry, hourly odds, and golden-mart dbt only).
 - `international_results_wc2026_match_results_ingest` refreshes fixture/results

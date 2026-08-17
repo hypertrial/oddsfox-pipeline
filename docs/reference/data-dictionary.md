@@ -72,6 +72,17 @@ distinguishes the guaranteed tag era from pre-tag best effort.
 Do not sum or normalize home/draw/away prices. Join roles within `event_id`, and
 never interpret a carried row as a source observation.
 
+### Soccer pipeline monitoring
+
+`polymarket_soccer_pipeline_health` is the single-row automation entry point.
+Use `polymarket_soccer_pipeline_alerts` for active stable alert codes and
+operator remediation, and `polymarket_soccer_pipeline_trends` for comparable
+successful-run deltas. The underlying ops tables preserve lifecycle, retry
+attempt, error, heartbeat, CPU, RSS, storage, and elapsed diagnostics. Terminal
+dbt steps also retain observed- and dense-minute coverage for comparable runs.
+Warning drift does not invalidate published odds; critical correctness and
+aged operational conditions require intervention.
+
 ### `polymarket_wc2026_marts.polymarket_wc2026_match_order_book`
 
 | Property | Value |

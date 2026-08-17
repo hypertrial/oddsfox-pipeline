@@ -16,6 +16,7 @@ ensure_src_on_path()
 
 _OPS_TABLES = (
     ("polymarket", "wc2026", "polymarket_wc2026_ops"),
+    ("polymarket", "soccer", "polymarket_soccer_ops"),
     ("kalshi", "wc2026", "kalshi_wc2026_ops"),
 )
 
@@ -57,6 +58,23 @@ def _format_row(
     error = metrics.get("error_type")
     suffix = f" error={error}" if error else ""
     return f"{recorded_at}  {source}/{scope}  {task_name:<28}  {status:<8}{suffix}"
+
+
+def _valid_soccer_health(health: dict[str, Any]) -> bool:
+    warning_count = health.get("warning_count")
+    critical_count = health.get("critical_count")
+    status = health.get("health_status")
+    if (
+        not isinstance(warning_count, int)
+        or isinstance(warning_count, bool)
+        or warning_count < 0
+        or not isinstance(critical_count, int)
+        or isinstance(critical_count, bool)
+        or critical_count < 0
+    ):
+        return False
+    expected = "critical" if critical_count else "warning" if warning_count else "healthy"
+    return status == expected
 
 
 def _print_sync_run_metrics(*, limit: int, duckdb_path: Path) -> None:
@@ -152,11 +170,99 @@ def main() -> int:
         default=None,
         help="Warehouse path (default: active DUCKDB_PATH)",
     )
+    parser.add_argument(
+        "--scope",
+        choices=("polymarket:soccer",),
+        default=None,
+        help="Evaluate one production-health contract instead of listing runs.",
+    )
+    parser.add_argument(
+        "--fail-on",
+        choices=("critical", "warning", "never"),
+        default="never",
+        help="Minimum health severity that returns exit 1 (default: never).",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format for scoped health (default: text).",
+    )
     args = parser.parse_args()
     duckdb_path = (args.duckdb_path or settings.DUCKDB_PATH).resolve()
     if args.duckdb_path is None:
         ensure_duck_db()
     limit = max(1, args.limit)
+    if args.scope == "polymarket:soccer":
+        from oddsfox_pipeline.storage.duckdb.connection import open_duckdb_connection
+
+        conn = None
+        try:
+            conn = open_duckdb_connection(duckdb_path, read_only=True)
+            rows = conn.execute(
+                """
+                select dagster_run_id, latest_run_status, latest_run_started_at,
+                    latest_run_finished_at, warning_count, critical_count,
+                    health_status, measured_at
+                from polymarket_soccer_observability.polymarket_soccer_pipeline_health
+                """
+            ).fetchall()
+        except Exception as exc:
+            health = {
+                "scope": args.scope,
+                "status": "unavailable",
+                "error": f"{exc.__class__.__name__}: {exc}",
+            }
+            print(
+                json.dumps(health, default=str, sort_keys=True)
+                if args.format == "json"
+                else health
+            )
+            return 2
+        finally:
+            if conn is not None:
+                conn.close()
+        if len(rows) != 1:
+            print(
+                '{"status":"unavailable"}'
+                if args.format == "json"
+                else "health unavailable"
+            )
+            return 2
+        keys = (
+            "dagster_run_id",
+            "latest_run_status",
+            "latest_run_started_at",
+            "latest_run_finished_at",
+            "warning_count",
+            "critical_count",
+            "health_status",
+            "measured_at",
+        )
+        health = dict(zip(keys, rows[0], strict=True))
+        if not _valid_soccer_health(health):
+            invalid = {"scope": args.scope, "status": "unavailable", "error": "invalid monitoring state"}
+            print(
+                json.dumps(invalid, sort_keys=True)
+                if args.format == "json"
+                else "health unavailable: invalid monitoring state"
+            )
+            return 2
+        if args.format == "json":
+            print(json.dumps(health, default=str, sort_keys=True))
+        else:
+            print(
+                f"polymarket/soccer health={health['health_status']} "
+                f"run={health['dagster_run_id']} status={health['latest_run_status']} "
+                f"warnings={health['warning_count']} critical={health['critical_count']}"
+            )
+        if args.fail_on == "critical" and health["critical_count"]:
+            return 1
+        if args.fail_on == "warning" and (
+            health["warning_count"] or health["critical_count"]
+        ):
+            return 1
+        return 0
     _print_sync_run_metrics(limit=limit, duckdb_path=duckdb_path)
     _print_ingestion_run_events(limit=limit, duckdb_path=duckdb_path)
     return 0

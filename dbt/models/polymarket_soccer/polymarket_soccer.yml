@@ -34,3 +34,12 @@ models:
       - no_duplicate_grain:
           arguments:
             grain_columns: [clob_token_id, window_start_at, window_end_at]
+  - name: polymarket_soccer_pipeline_trends
+    description: Successful full-run metrics and prior-run deltas.
+    columns:
+      - name: dagster_run_id
+        tests: [not_null, unique]
+  - name: polymarket_soccer_pipeline_alerts
+    description: Current local warning and critical conditions with stable codes.
+  - name: polymarket_soccer_pipeline_health
+    description: Single-row production-health summary for operators and automation.

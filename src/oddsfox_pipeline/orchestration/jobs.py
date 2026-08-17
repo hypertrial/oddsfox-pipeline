@@ -1,4 +1,9 @@
-from dagster import AssetSelection, define_asset_job, multiprocess_executor
+from dagster import (
+    AssetCheckKey,
+    AssetSelection,
+    define_asset_job,
+    multiprocess_executor,
+)
 from dagster_dbt import build_dbt_asset_selection
 
 from oddsfox_pipeline.config.settings import (
@@ -25,9 +30,14 @@ from oddsfox_pipeline.orchestration.assets_polygon_settlement import (
     POLYMARKET_WC2026_RAW_POLYGON_SETTLEMENT_FILLS,
     POLYMARKET_WC2026_RELEASE_POLYGON_SETTLEMENT_ODDS_BUNDLE,
 )
-from oddsfox_pipeline.orchestration.assets_polymarket import oddsfox_dbt
+from oddsfox_pipeline.orchestration.assets_polymarket import (
+    oddsfox_dbt,
+    polymarket_soccer_monitoring_dbt,
+)
 from oddsfox_pipeline.orchestration.assets_soccer import (
+    POLYMARKET_SOCCER_MART_MATCH_RESULT_MINUTE,
     POLYMARKET_SOCCER_OPS_MATCH_RESULT_REGISTRY,
+    POLYMARKET_SOCCER_OPS_PIPELINE_PREFLIGHT,
     POLYMARKET_SOCCER_RAW_EVENT_CATALOG,
     POLYMARKET_SOCCER_RAW_MATCH_RESULT_MINUTE,
 )
@@ -53,6 +63,8 @@ from oddsfox_pipeline.orchestration.config import (
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
+    POLYMARKET_SOCCER_CORE_DBT_SELECT,
+    POLYMARKET_SOCCER_MONITORING_DBT_SELECT,
     POLYMARKET_SOCCER_SCOPE,
     POLYMARKET_WC2026_SCOPE,
 )
@@ -308,24 +320,67 @@ POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
     | POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION
 )
 
-POLYMARKET_SOCCER_CATALOG_SELECTION = AssetSelection.assets(
-    POLYMARKET_SOCCER_RAW_EVENT_CATALOG
-).required_multi_asset_neighbors() | AssetSelection.assets(
-    POLYMARKET_SOCCER_OPS_MATCH_RESULT_REGISTRY
+POLYMARKET_SOCCER_PREFLIGHT_SELECTION = AssetSelection.assets(
+    POLYMARKET_SOCCER_OPS_PIPELINE_PREFLIGHT
+).required_multi_asset_neighbors().without_checks() | AssetSelection.checks(
+    AssetCheckKey(
+        asset_key=POLYMARKET_SOCCER_OPS_PIPELINE_PREFLIGHT,
+        name="local_contracts_valid",
+    )
+)
+POLYMARKET_SOCCER_CATALOG_SELECTION = (
+    POLYMARKET_SOCCER_PREFLIGHT_SELECTION
+    | AssetSelection.assets(POLYMARKET_SOCCER_RAW_EVENT_CATALOG)
+    .required_multi_asset_neighbors()
+    .without_checks()
+    | AssetSelection.assets(
+        POLYMARKET_SOCCER_OPS_MATCH_RESULT_REGISTRY
+    ).without_checks()
+    | AssetSelection.checks(
+        AssetCheckKey(
+            asset_key=POLYMARKET_SOCCER_RAW_EVENT_CATALOG,
+            name="catalog_converged",
+        ),
+        AssetCheckKey(
+            asset_key=POLYMARKET_SOCCER_OPS_MATCH_RESULT_REGISTRY,
+            name="three_roles_and_six_tokens",
+        ),
+    )
 )
 
-POLYMARKET_SOCCER_MINUTE_RAW_SELECTION = AssetSelection.assets(
-    POLYMARKET_SOCCER_RAW_MATCH_RESULT_MINUTE
+POLYMARKET_SOCCER_MINUTE_RAW_SELECTION = (
+    POLYMARKET_SOCCER_PREFLIGHT_SELECTION
+    | AssetSelection.assets(POLYMARKET_SOCCER_RAW_MATCH_RESULT_MINUTE).without_checks()
+    | AssetSelection.checks(
+        AssetCheckKey(
+            asset_key=POLYMARKET_SOCCER_RAW_MATCH_RESULT_MINUTE,
+            name="exact_window_publication_reconciled",
+        ),
+        AssetCheckKey(
+            asset_key=POLYMARKET_SOCCER_RAW_MATCH_RESULT_MINUTE,
+            name="production_health",
+        ),
+    )
 )
 
 _POLYMARKET_SOCCER_DBT_GRAPH = build_dbt_asset_selection(
     [oddsfox_dbt],
-    dbt_select=POLYMARKET_SOCCER_SCOPE.dbt_select,
+    dbt_select=POLYMARKET_SOCCER_CORE_DBT_SELECT,
+) | build_dbt_asset_selection(
+    [polymarket_soccer_monitoring_dbt],
+    dbt_select=POLYMARKET_SOCCER_MONITORING_DBT_SELECT,
 )
 POLYMARKET_SOCCER_DBT_SELECTION = (
-    _POLYMARKET_SOCCER_DBT_GRAPH.without_checks().downstream(
+    POLYMARKET_SOCCER_PREFLIGHT_SELECTION
+    | _POLYMARKET_SOCCER_DBT_GRAPH.without_checks().downstream(
         depth=0,
         include_self=True,
+    )
+    | AssetSelection.checks(
+        AssetCheckKey(
+            asset_key=POLYMARKET_SOCCER_MART_MATCH_RESULT_MINUTE,
+            name="minute_mart_contracts_valid",
+        )
     )
 )
 POLYMARKET_SOCCER_FULL_PIPELINE_SELECTION = (

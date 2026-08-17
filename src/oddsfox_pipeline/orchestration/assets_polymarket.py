@@ -19,7 +19,12 @@ from oddsfox_pipeline.ingestion.polymarket.event_catalog import (
 from oddsfox_pipeline.ingestion.polymarket.markets.sync import (
     collect_market_scope_payload,
 )
-from oddsfox_pipeline.naming import SCOPE_WC2026, SOURCE_POLYMARKET, asset_key
+from oddsfox_pipeline.naming import (
+    SCOPE_SOCCER,
+    SCOPE_WC2026,
+    SOURCE_POLYMARKET,
+    asset_key,
+)
 from oddsfox_pipeline.orchestration import polymarket_asset_helpers as asset_helpers
 from oddsfox_pipeline.orchestration import polymarket_ops as ops
 from oddsfox_pipeline.orchestration.assets_openfootball import (
@@ -37,6 +42,11 @@ from oddsfox_pipeline.orchestration.config import (
 from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
 from oddsfox_pipeline.orchestration.raw_snapshot_helpers import (
     _snapshot_refreshed_scope_name,
+)
+from oddsfox_pipeline.orchestration.shipped_scopes import (
+    POLYMARKET_SOCCER_CORE_DBT_SELECT,
+    POLYMARKET_SOCCER_DBT_SELECT,
+    POLYMARKET_SOCCER_MONITORING_DBT_SELECT,
 )
 from oddsfox_pipeline.orchestration.translators import PolymarketDagsterDbtTranslator
 from oddsfox_pipeline.storage.duckdb.connection import (
@@ -397,23 +407,47 @@ def polymarket_wc2026_raw_futures_token_odds_history_minute(
     manifest=DBT_PROJECT.manifest_path,
     project=DBT_PROJECT,
     name="oddsfox_dbt",
+    exclude=POLYMARKET_SOCCER_MONITORING_DBT_SELECT,
     dagster_dbt_translator=PolymarketDagsterDbtTranslator(),
 )
 def oddsfox_dbt(
     context: AssetExecutionContext, dbt: DbtCliResource, config: DbtBuildConfig
 ):
+    from oddsfox_pipeline.orchestration.soccer_monitoring import run_soccer_preflight
+
+    soccer_build = config.dbt_select in {
+        POLYMARKET_SOCCER_CORE_DBT_SELECT,
+        POLYMARKET_SOCCER_DBT_SELECT,
+    }
+    if soccer_build:
+        run_soccer_preflight()
     pre_raw = snapshot_raw_layer(level=config.raw_snapshot_level)
     pre_dbt = snapshot_dbt_models(
         dbt_select=config.dbt_select,
         dbt_exclude=config.dbt_exclude,
     )
 
-    yield from ops.stream_dbt_build(
-        asset_name="oddsfox_dbt",
-        context=context,
-        dbt=dbt,
-        config=config,
-    )
+    if soccer_build:
+        from oddsfox_pipeline.orchestration.soccer_monitoring import (
+            monitor_soccer_step,
+        )
+
+        with monitor_soccer_step(context, "dbt_core") as monitor:
+            yield from ops.stream_dbt_build(
+                asset_name="oddsfox_dbt",
+                context=context,
+                dbt=dbt,
+                config=config,
+                scope_name=SCOPE_SOCCER,
+            )
+            monitor.complete({"status": "success"})
+    else:
+        yield from ops.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=context,
+            dbt=dbt,
+            config=config,
+        )
 
     post_raw = snapshot_raw_layer(level=config.raw_snapshot_level)
     post_dbt = snapshot_dbt_models(
@@ -433,6 +467,33 @@ def oddsfox_dbt(
     )
 
 
+@dbt_assets(
+    manifest=DBT_PROJECT.manifest_path,
+    project=DBT_PROJECT,
+    name="polymarket_soccer_monitoring_dbt",
+    select=POLYMARKET_SOCCER_MONITORING_DBT_SELECT,
+    dagster_dbt_translator=PolymarketDagsterDbtTranslator(),
+)
+def polymarket_soccer_monitoring_dbt(
+    context: AssetExecutionContext, dbt: DbtCliResource, config: DbtBuildConfig
+):
+    from oddsfox_pipeline.orchestration.soccer_monitoring import (
+        monitor_soccer_step,
+        run_soccer_preflight,
+    )
+
+    run_soccer_preflight()
+    with monitor_soccer_step(context, "dbt_build") as monitor:
+        yield from ops.stream_dbt_build(
+            asset_name="polymarket_soccer_monitoring_dbt",
+            context=context,
+            dbt=dbt,
+            config=config,
+            scope_name=SCOPE_SOCCER,
+        )
+        monitor.complete({"status": "success"})
+
+
 __all__ = [
     "POLYMARKET_WC2026_OPS_MARKET_SCOPE_REGISTRY",
     "POLYMARKET_WC2026_RAW_MARKET_METADATA_BACKFILL",
@@ -444,6 +505,7 @@ __all__ = [
     "POLYMARKET_WC2026_RAW_MATCH_TOKEN_ODDS_HISTORY_MINUTE",
     "POLYMARKET_WC2026_RAW_TOKEN_ODDS_HISTORY_HOURLY",
     "oddsfox_dbt",
+    "polymarket_soccer_monitoring_dbt",
     "polymarket_wc2026_raw_market_metadata_enrichment",
     "polymarket_wc2026_raw_markets",
     "polymarket_wc2026_raw_markets_snapshot",

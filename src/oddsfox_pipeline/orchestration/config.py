@@ -22,7 +22,6 @@ from oddsfox_pipeline.config.settings import (
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
-    POLYMARKET_SOCCER_SCOPE,
     POLYMARKET_WC2026_SCOPE,
 )
 from oddsfox_pipeline.publishing.polygon_settlement import (
@@ -350,12 +349,27 @@ def polymarket_soccer_minute_odds_run_config(
 
 
 def polymarket_soccer_dbt_build_run_config() -> dict:
+    from oddsfox_pipeline.orchestration.shipped_scopes import (
+        POLYMARKET_SOCCER_CORE_DBT_SELECT,
+        POLYMARKET_SOCCER_MONITORING_DBT_SELECT,
+    )
+
     dbt = DbtBuildConfig(
         full_refresh=False,
-        dbt_select=POLYMARKET_SOCCER_SCOPE.dbt_select,
+        dbt_select=POLYMARKET_SOCCER_CORE_DBT_SELECT,
         dbt_exclude=None,
     )
-    return {"ops": {"oddsfox_dbt": {"config": dbt.model_dump()}}}
+    monitoring = DbtBuildConfig(
+        full_refresh=False,
+        dbt_select=POLYMARKET_SOCCER_MONITORING_DBT_SELECT,
+        dbt_exclude=None,
+    )
+    return {
+        "ops": {
+            "oddsfox_dbt": {"config": dbt.model_dump()},
+            "polymarket_soccer_monitoring_dbt": {"config": monitoring.model_dump()},
+        }
+    }
 
 
 def polymarket_soccer_full_pipeline_run_config(

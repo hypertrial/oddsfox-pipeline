@@ -38,6 +38,22 @@ For Polymarket golden-mart analysis, inspect
 missing prices. Kalshi and match-minute paths also expose matching `*_data_quality`
 relations.
 
+For soccer, use `make soccer-production-health`. Warning-only state returns
+zero; active critical state returns one; missing or unreadable monitoring state
+returns two. Inspect `polymarket_soccer_pipeline_alerts` for the stable code and
+remediation before rerunning work.
+
+| Condition | Recovery |
+| --- | --- |
+| Preflight failure | Correct the reported schema, token collision, snapshot writeability, or critical disk issue; no external request was made. |
+| Catalog instability | Preserve checkpoints, wait for Gamma to stabilize, then rerun the catalog job. |
+| Partial CLOB publication | Keep successful tokens; rerun the minute job for due failed tokens. |
+| Aged retries | Inspect token fetch status and retry; terminal unavailable tokens are reported separately. |
+| Stale running run | Confirm the process is gone, stop any DuckDB holder, then launch a new run. |
+| dbt failure | Repair the reported model/contract and rerun soccer dbt; raw publication remains intact. |
+| Data or resource drift | Compare the two latest successful runs and inspect exclusions, request rate, query work, and host load. |
+| Low disk | Free space under the runtime/warehouse volume; below the critical floor preflight blocks. |
+
 ## Recover a failed path
 
 - Re-run `polymarket_wc2026_hourly_odds_ingest` for routine WC2026 odds gaps.

@@ -34,6 +34,16 @@ catalog_metric as (
     where task_name = 'event_catalog'
     order by recorded_at desc
     limit 1
+),
+
+last_full_success as (
+    select finished_at
+    from {{ source('polymarket_soccer_ops', 'pipeline_runs') }}
+    where
+        job_name = 'polymarket_soccer_full_pipeline'
+        and status = 'success'
+    order by finished_at desc
+    limit 1
 )
 
 select
@@ -52,6 +62,11 @@ select
     (select count(distinct event_id) from registry) as mapped_matches,
     (select count(*) from registry) as mapped_markets,
     (select count(*) from exclusions) as excluded_events,
+    round(
+        100.0 * (select count(distinct event_id) from registry)
+        / nullif((select count(*) from events), 0),
+        3
+    ) as mapping_coverage_percent,
     (
         select count(distinct event_id) from registry
         where coverage_tier = 'guaranteed_tag_era'
@@ -72,6 +87,27 @@ select
         select count(distinct event_id) from registry
         where timing_status = 'inferred_five_hour_cap')
         as inferred_five_hour_cap_matches,
+    round(
+        100.0 * (
+            select count(distinct event_id) from registry
+            where timing_status = 'explicit_finish'
+        ) / nullif((select count(distinct event_id) from registry), 0),
+        3
+    ) as explicit_finish_share_percent,
+    round(
+        100.0 * (
+            select count(distinct event_id) from registry
+            where timing_status = 'inferred_closure'
+        ) / nullif((select count(distinct event_id) from registry), 0),
+        3
+    ) as inferred_closure_share_percent,
+    round(
+        100.0 * (
+            select count(distinct event_id) from registry
+            where timing_status = 'inferred_five_hour_cap'
+        ) / nullif((select count(distinct event_id) from registry), 0),
+        3
+    ) as inferred_five_hour_cap_share_percent,
     (
         select count(distinct event_id) from registry
         where kickoff_source = 'market_game_start_time'
@@ -99,7 +135,45 @@ select
     (select count(*) from observed) as observed_minutes,
     (select count(*) from dense) as dense_minutes,
     (
+        select sum((date_diff('minute', window_start_at, window_end_at) + 1) * 3)
+        from (select distinct
+            event_id,
+            window_start_at,
+            window_end_at
+        from registry) as event_windows
+    ) as expected_dense_minutes,
+    round(
+        100.0 * (select count(*) from observed)
+        / nullif((select count(*) from dense), 0),
+        3
+    ) as observed_minute_coverage_percent,
+    round(
+        100.0 * (select count(*) from dense)
+        / nullif(
+            (
+                select
+                    sum(
+                        (date_diff('minute', window_start_at, window_end_at) + 1) * 3
+                    )
+                from (
+                    select distinct
+                        event_id,
+                        window_start_at,
+                        window_end_at
+                    from registry
+                ) as event_windows
+            ),
+            0
+        ),
+        3
+    ) as dense_minute_coverage_percent,
+    (
         select count(*) from dense
         where not is_observed and close_odds is not null
     ) as carried_minutes,
+    (
+        select max(retry_age_hours) from token_status
+        where is_retry_backlog)
+        as oldest_retry_hours,
+    (select finished_at from last_full_success) as last_full_success_at,
     current_timestamp as measured_at

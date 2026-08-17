@@ -346,6 +346,8 @@ def bootstrap_polymarket_tables(
     if scope_name == SCOPE_SOCCER:
         registry = polymarket_ops_tbl(scope_name, "match_result_registry")
         exclusions = polymarket_ops_tbl(scope_name, "match_result_registry_exclusions")
+        pipeline_runs = polymarket_ops_tbl(scope_name, "pipeline_runs")
+        pipeline_step_runs = polymarket_ops_tbl(scope_name, "pipeline_step_runs")
         terminal_empty = polymarket_ops_tbl(
             scope_name, "match_minute_odds_terminal_unavailable"
         )
@@ -410,6 +412,46 @@ def bootstrap_polymarket_tables(
                 PRIMARY KEY (
                     clob_token_id, exact_window_start_at, exact_window_end_at
                 )
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {pipeline_runs} (
+                dagster_run_id TEXT PRIMARY KEY,
+                job_name TEXT NOT NULL,
+                started_at TIMESTAMP NOT NULL,
+                heartbeat_at TIMESTAMP NOT NULL,
+                finished_at TIMESTAMP,
+                status TEXT NOT NULL CHECK (
+                    status IN ('running', 'success', 'partial', 'failed', 'interrupted')
+                ),
+                terminal_step TEXT,
+                warning_count BIGINT NOT NULL DEFAULT 0,
+                critical_count BIGINT NOT NULL DEFAULT 0,
+                metrics_json TEXT NOT NULL DEFAULT '{{}}' CHECK (json_valid(metrics_json))
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {pipeline_step_runs} (
+                dagster_run_id TEXT NOT NULL,
+                step_name TEXT NOT NULL,
+                attempt_number BIGINT NOT NULL DEFAULT 0,
+                phase TEXT NOT NULL,
+                started_at TIMESTAMP NOT NULL,
+                heartbeat_at TIMESTAMP NOT NULL,
+                finished_at TIMESTAMP,
+                status TEXT NOT NULL CHECK (
+                    status IN ('running', 'success', 'partial', 'failed', 'interrupted')
+                ),
+                error_type TEXT,
+                error_message TEXT CHECK (
+                    error_message IS NULL OR length(error_message) <= 500
+                ),
+                metrics_json TEXT NOT NULL DEFAULT '{{}}' CHECK (json_valid(metrics_json)),
+                PRIMARY KEY (dagster_run_id, step_name, attempt_number)
             )
             """
         )

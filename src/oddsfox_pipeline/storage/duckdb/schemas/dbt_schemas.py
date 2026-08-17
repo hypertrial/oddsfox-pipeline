@@ -435,6 +435,18 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA,
         "polymarket_soccer_match_result_token_fetch_status",
     ),
+    (
+        POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA,
+        "polymarket_soccer_pipeline_trends",
+    ),
+    (
+        POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA,
+        "polymarket_soccer_pipeline_alerts",
+    ),
+    (
+        POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA,
+        "polymarket_soccer_pipeline_health",
+    ),
     (KALSHI_WC2026_STAGING_SCHEMA, "stg_kalshi_wc2026_events"),
     (KALSHI_WC2026_STAGING_SCHEMA, "stg_kalshi_wc2026_markets"),
     (
@@ -658,7 +670,12 @@ def _polymarket_soccer_layer(
         model_name,
         props,
         fqn=fqn,
-        observability_models=("polymarket_soccer_match_result_data_quality",),
+        observability_models=(
+            "polymarket_soccer_match_result_data_quality",
+            "polymarket_soccer_pipeline_alerts",
+            "polymarket_soccer_pipeline_health",
+            "polymarket_soccer_pipeline_trends",
+        ),
         staging_prefix="stg_polymarket_soccer_",
         intermediate_prefix="int_polymarket_soccer_",
     )

@@ -53,3 +53,13 @@ sources:
         meta:
           dagster:
             asset_key: [polymarket, soccer, raw, event_catalog]
+      - name: pipeline_runs
+        description: One lifecycle row per Dagster soccer job run.
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, ops, pipeline_runs]
+      - name: pipeline_step_runs
+        description: One lifecycle row per soccer job step attempt.
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, ops, pipeline_step_runs]

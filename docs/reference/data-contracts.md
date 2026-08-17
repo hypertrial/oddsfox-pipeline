@@ -59,6 +59,18 @@ the exact token window. Raw storage keeps both Yes and No token sides; these
 marts expose only the unmodified source Yes-token price. Catalog completeness
 and CLOB price completeness are reported separately.
 
+Monitoring contracts are views in `polymarket_soccer_observability`:
+
+| Relation | Grain | Contract |
+| --- | --- | --- |
+| `polymarket_soccer_pipeline_health` | One current row | Latest full-run state plus warning/critical counts and measured time. |
+| `polymarket_soccer_pipeline_alerts` | One row per active condition | Stable code, severity, subject, measured/threshold values, run identity, timestamps, and remediation. |
+| `polymarket_soccer_pipeline_trends` | One row per successful full run | Catalog, mapping, publication, coverage, duration, CPU, RSS, and storage metrics with prior-success deltas. |
+
+The source ledger is keyed by Dagster run ID and by `(run ID, step, retry
+attempt)`. An unclean process exit remains `running` and becomes critical after
+the configured stale-run age.
+
 ### Polygon settlement minute odds
 
 The mart is an internal audit surface, not the allowlisted technical export. It

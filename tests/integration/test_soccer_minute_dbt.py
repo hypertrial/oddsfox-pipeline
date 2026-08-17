@@ -2,19 +2,26 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import duckdb
 from tests.integration.conftest import dbt_subprocess_env, write_dbt_profile
 from tests.integration.dbt_cli import run_dbt
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
+from oddsfox_pipeline.orchestration.assets_soccer import (
+    polymarket_soccer_minute_mart_check,
+)
 
 
 def _seed_soccer_contract(conn: duckdb.DuckDBPyConnection) -> None:
     started = datetime(2025, 1, 2, 12, 0, 30)
     finished = started + timedelta(minutes=4)
-    observed = datetime(2025, 1, 3)
+    observed = datetime.now(timezone.utc).replace(tzinfo=None)
     conn.execute(
         """
         insert into polymarket_soccer_raw.event_snapshots (
@@ -162,6 +169,45 @@ def _seed_soccer_contract(conn: duckdb.DuckDBPyConnection) -> None:
         """,
         primary_rows,
     )
+    conn.execute(
+        """
+        insert into polymarket_soccer_ops.pipeline_runs (
+            dagster_run_id, job_name, started_at, heartbeat_at, finished_at,
+            status, terminal_step, warning_count, critical_count, metrics_json
+        ) values (
+            'pipeline-1', 'polymarket_soccer_full_pipeline', ?, ?, ?,
+            'success', 'dbt_build', 0, 0, '{}'
+        )
+        """,
+        [observed - timedelta(minutes=5), observed, observed],
+    )
+    step_rows = [
+        ("event_catalog", '{"events": 1, "unique_markets": 3, "elapsed_seconds": 1}'),
+        ("match_result_registry", '{"matches": 1, "elapsed_seconds": 1}'),
+        (
+            "match_minute_odds",
+            '{"raw_published_tokens": 6, "elapsed_seconds": 1}',
+        ),
+        (
+            "dbt_build",
+            '{"elapsed_seconds": 1, "peak_rss_bytes": 1024, '
+            '"disk_free_bytes": 21474836480, "warehouse_bytes": 104857600, '
+            '"observed_minute_coverage_percent": 100.0, '
+            '"dense_minute_coverage_percent": 100.0}',
+        ),
+    ]
+    conn.executemany(
+        """
+        insert into polymarket_soccer_ops.pipeline_step_runs (
+            dagster_run_id, step_name, attempt_number, phase, started_at,
+            heartbeat_at, finished_at, status, metrics_json
+        ) values ('pipeline-1', ?, 0, 'complete', ?, ?, ?, 'success', ?)
+        """,
+        [
+            (step, observed - timedelta(minutes=5), observed, observed, metrics)
+            for step, metrics in step_rows
+        ],
+    )
 
 
 def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
@@ -210,6 +256,18 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
         quality = conn.execute(
             "select terminal_unavailable_tokens from polymarket_soccer_observability.polymarket_soccer_match_result_data_quality"
         ).fetchone()[0]
+        health = conn.execute(
+            """
+            select health_status, warning_count, critical_count
+            from polymarket_soccer_observability.polymarket_soccer_pipeline_health
+            """
+        ).fetchone()
+        trend = conn.execute(
+            """
+            select catalog_events, catalog_markets, mapped_matches, published_tokens
+            from polymarket_soccer_observability.polymarket_soccer_pipeline_trends
+            """
+        ).fetchone()
 
     assert matches == (1, 1, 1, 1)
     assert observed_rows == (6, 3, 0)
@@ -218,3 +276,84 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
     assert raw_sides == 6
     assert retry == ("error", True)
     assert quality == 0
+    assert health == ("healthy", 0, 0)
+    assert trend == (1, 3, 1, 6)
+    mart_check = polymarket_soccer_minute_mart_check.node_def.compute_fn.decorated_fn()
+    assert mart_check.passed
+
+    health_result = subprocess.run(
+        [
+            sys.executable,
+            str(Path(__file__).resolve().parents[2] / "scripts" / "run_health.py"),
+            "--scope",
+            "polymarket:soccer",
+            "--fail-on",
+            "critical",
+            "--format",
+            "json",
+            "--duckdb-path",
+            str(db_path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert health_result.returncode == 0, health_result.stderr
+    assert json.loads(health_result.stdout)["health_status"] == "healthy"
+
+    with duckdb.connect(str(db_path)) as conn:
+        later = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=10)
+        conn.execute(
+            """
+            insert into polymarket_soccer_ops.pipeline_runs (
+                dagster_run_id, job_name, started_at, heartbeat_at, finished_at,
+                status, terminal_step, warning_count, critical_count, metrics_json
+            ) values (
+                'pipeline-2', 'polymarket_soccer_full_pipeline', ?, ?, ?,
+                'success', 'dbt_build', 0, 0, '{}'
+            )
+            """,
+            [later - timedelta(minutes=5), later, later],
+        )
+        regression_rows = [
+            ("event_catalog", '{"events": 1, "unique_markets": 3}'),
+            ("match_result_registry", '{"matches": 1}'),
+            ("match_minute_odds", '{"raw_published_tokens": 6}'),
+            (
+                "dbt_build",
+                '{"elapsed_seconds": 1, "peak_rss_bytes": 1024, '
+                '"disk_free_bytes": 1073741824, "warehouse_bytes": 2254857830, '
+                '"observed_minute_coverage_percent": 90.0, '
+                '"dense_minute_coverage_percent": 100.0}',
+            ),
+        ]
+        conn.executemany(
+            """
+            insert into polymarket_soccer_ops.pipeline_step_runs (
+                dagster_run_id, step_name, attempt_number, phase, started_at,
+                heartbeat_at, finished_at, status, metrics_json
+            ) values ('pipeline-2', ?, 0, 'complete', ?, ?, ?, 'success', ?)
+            """,
+            [
+                (step, later - timedelta(minutes=5), later, later, metrics)
+                for step, metrics in regression_rows
+            ],
+        )
+        alerts = dict(
+            conn.execute(
+                """
+                select alert_code, severity
+                from polymarket_soccer_observability.polymarket_soccer_pipeline_alerts
+                where alert_code in (
+                    'low_free_disk', 'observed_coverage_drop',
+                    'warehouse_storage_regression'
+                )
+                """
+            ).fetchall()
+        )
+
+    assert alerts == {
+        "low_free_disk": "critical",
+        "observed_coverage_drop": "warning",
+        "warehouse_storage_regression": "warning",
+    }

@@ -78,8 +78,10 @@ EXPECTED_OP_NAMES = {
     "polymarket_wc2026_raw_polygon_settlement_fills",
     "polymarket_wc2026_release_polygon_settlement_odds_bundle",
     "polymarket_soccer_raw_event_catalog",
+    "polymarket_soccer_ops_pipeline_preflight",
     "polymarket_soccer_ops_match_result_registry",
     "polymarket_soccer_raw_match_result_token_odds_history_minute",
+    "polymarket_soccer_monitoring_dbt",
     "oddsfox_dbt",
 }
 
@@ -233,8 +235,10 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         assets.polymarket_wc2026_raw_polygon_settlement_fills.op.name,
         assets.polymarket_wc2026_release_polygon_settlement_odds_bundle.op.name,
         assets.polymarket_soccer_raw_event_catalog.op.name,
+        assets.polymarket_soccer_ops_pipeline_preflight.op.name,
         assets.polymarket_soccer_ops_match_result_registry.op.name,
         assets.polymarket_soccer_raw_match_result_token_odds_history_minute.op.name,
+        assets.polymarket_soccer_monitoring_dbt.op.name,
         assets.oddsfox_dbt.op.name,
     }
     run_config_ops = (
@@ -264,6 +268,7 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         "openfootball_wc2026_raw_schedule_fixtures",
         "kalshi_wc2026_raw_markets_snapshot",
         "polymarket_wc2026_raw_markets_snapshot",
+        "polymarket_soccer_ops_pipeline_preflight",
         "polymarket_soccer_ops_match_result_registry",
     }
     if not POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES:

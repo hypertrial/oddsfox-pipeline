@@ -49,6 +49,9 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     bootstrap_polymarket_tables,
 )
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
+    EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS,
+)
 
 _EVENT_TEAMS = re.compile(
     r"^(?:[^:]+:\s*)?(?P<home>[^:]+?)\s+vs\.?\s+(?P<away>.+?)\s*$",
@@ -324,10 +327,15 @@ def refresh_soccer_match_result_registry(
     exclusions = polymarket_ops_tbl(SCOPE_SOCCER, "match_result_registry_exclusions")
     conn.execute("BEGIN TRANSACTION")
     try:
+        current_market_columns = ", ".join(
+            f'"{name}"'
+            for name in EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS
+            if name not in {"market_id", "observed_at", "row_order"}
+        )
         conn.execute(
             f"""
             CREATE OR REPLACE TABLE {current_markets} AS
-            SELECT market_id AS id, * EXCLUDE (market_id, observed_at, row_order)
+            SELECT market_id AS id, {current_market_columns}
             FROM {markets_table}
             QUALIFY row_number() OVER (
                 PARTITION BY market_id ORDER BY observed_at DESC, scraped_at DESC

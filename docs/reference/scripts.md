@@ -15,6 +15,10 @@ Soccer operator targets:
   to sample early, middle, and recent admitted games.
 - `make soccer-minute-backfill`: run the resumable full soccer pipeline.
 - `make dbt-soccer-minute-ci`: build and test the isolated synthetic dbt graph.
+- `make soccer-production-health`: print current local soccer health and return
+  `0` for healthy/warning-only, `1` for critical, or `2` for unreadable or
+  invalid monitoring state. For JSON automation, invoke `scripts/run_health.py`
+  with `--scope polymarket:soccer --fail-on critical --format json`.
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
 - `export_eloratings_wc2026_team_ratings_freezes.py`: export national-team Elo CSV freezes from `wc2026_marts.team_ratings_history` (`pre_kickoff` = year-end 2025) and `wc2026_marts.team_ratings_current` (`latest_current`) under `artifacts/wc2026_elo_exports/`. Prefer `make export-wc2026-elo-freezes`. Match×team pre-match Elo is `wc2026_marts.team_ratings_pre_match` (not this export); it needs an EloRatings snapshot that includes `match_results`.
 - `sync_polymarket_markets_catalog.py`: sync every Gamma market with volume ≥ $100k via `/markets/keyset` (`volume_num_min`, `after_cursor`; open + closed passes) into `polymarket_catalog_raw.markets`. Optional operator utility; not required for the golden WC2026 hourly mart.

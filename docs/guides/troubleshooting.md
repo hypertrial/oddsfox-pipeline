@@ -1,8 +1,8 @@
 # Troubleshooting
 
 Use this page when a local run fails. Most fixes assume schedules are disabled
-and only one process is writing to the DuckDB warehouse. The runbooks cover both
-the shipped Polymarket WC2026 scope (`wc2026`).
+and only one process is writing to the DuckDB warehouse. The runbooks cover the
+shipped Polymarket WC2026 and soccer scopes.
 
 ## Symptom index
 
@@ -21,6 +21,16 @@ the shipped Polymarket WC2026 scope (`wc2026`).
 | Tests wrote to production warehouse | Fix `DUCKDB_PATH` in `.env` | [Tests Writing To Production Warehouse](#tests-writing-to-production-warehouse) |
 | Synthetic `evt-A` / `m-shared` in warehouse | Stop writers; apply registry hygiene cleanup | [Tests Writing To Production Warehouse](#tests-writing-to-production-warehouse) |
 | Success but repo-root DB empty | `DUCKDB_PATH` points elsewhere | [Warehouse Writes Land in a Different Checkout](#warehouse-writes-land-in-a-different-checkout) |
+| Soccer health exits `1` or `2` | Inspect health JSON and active alerts | [Soccer Production Health](#soccer-production-health) |
+
+## Soccer Production Health
+
+Run `make soccer-production-health`, or add `--format json` to the underlying
+`scripts/run_health.py` command for automation. Exit `1` means at least one
+critical alert; exit `2` means the warehouse or monitoring contract is
+unreadable. Warnings return zero. Follow the alert remediation and the recovery
+matrix in [Validate and recover](validate-and-recover.md); do not delete valid
+partial publication to clear an operational alert.
 
 ## DuckDB Lock Errors
 

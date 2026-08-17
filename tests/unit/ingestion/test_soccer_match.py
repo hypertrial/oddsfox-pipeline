@@ -11,6 +11,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import MinuteFetchR
 from oddsfox_pipeline.ingestion.polymarket.soccer_match import (
     _terminal_empty_token_ids,
     build_soccer_match_result_registry,
+    refresh_soccer_match_result_registry,
     select_soccer_match_minute_token_plans,
 )
 from oddsfox_pipeline.naming import SCOPE_SOCCER
@@ -20,6 +21,25 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
 )
 
 KICKOFF = datetime(2025, 1, 2, 12, tzinfo=timezone.utc)
+
+
+def test_registry_refresh_uses_persisted_snapshot_columns_without_row_order():
+    conn = duckdb.connect(":memory:")
+    conn.execute("create schema polymarket_soccer_raw")
+    conn.execute("create schema polymarket_soccer_ops")
+    bootstrap_polymarket_tables(conn, scope_name=SCOPE_SOCCER)
+
+    summary = refresh_soccer_match_result_registry(conn)
+
+    columns = {
+        item[0]
+        for item in conn.execute(
+            "select * from polymarket_soccer_raw.markets limit 0"
+        ).description
+    }
+    assert summary == {"events": 0, "matches": 0, "markets": 0, "excluded_events": 0}
+    assert "id" in columns
+    assert "row_order" not in columns
 
 
 def _event(**overrides):

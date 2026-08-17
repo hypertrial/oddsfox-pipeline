@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   incremental CLOB minute ingestion, disabled-by-default 04:00 UTC daily
   schedule, sparse observed and dense carry-aware marts, observability, and
   disposable catalog/live-smoke/dbt operator targets.
+- Added soccer production preflight, run/step ledgers, structured resource
+  heartbeats, blocking correctness checks, health/alert/trend relations, and
+  the nonzero `make soccer-production-health` automation contract.
 
 ### Changed
 
@@ -23,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   state. There is no dual-path compatibility reader.
 
 ### Fixed
+
+- Soccer registry refresh now projects canonical persisted market columns and
+  no longer requires the staging-only `row_order` column present in synthetic
+  inputs but absent from production snapshots.
 
 - Dagster-dev no longer re-runs `dbt deps`/`dbt parse` on every process when
   `manifest.json` under `DBT_TARGET_PATH` is still newer than dbt inputs; set

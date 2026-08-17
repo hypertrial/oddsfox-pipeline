@@ -23,6 +23,7 @@ from oddsfox_pipeline.orchestration.assets_polygon_settlement import (
 )
 from oddsfox_pipeline.orchestration.assets_polymarket import (
     oddsfox_dbt,
+    polymarket_soccer_monitoring_dbt,
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_event_catalog,
     polymarket_wc2026_raw_futures_token_odds_history_minute,
@@ -33,9 +34,16 @@ from oddsfox_pipeline.orchestration.assets_polymarket import (
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
 from oddsfox_pipeline.orchestration.assets_soccer import (
+    polymarket_soccer_catalog_check,
+    polymarket_soccer_minute_mart_check,
+    polymarket_soccer_minute_reconciliation_check,
     polymarket_soccer_ops_match_result_registry,
+    polymarket_soccer_ops_pipeline_preflight,
+    polymarket_soccer_preflight_check,
+    polymarket_soccer_production_health_check,
     polymarket_soccer_raw_event_catalog,
     polymarket_soccer_raw_match_result_token_odds_history_minute,
+    polymarket_soccer_registry_check,
 )
 from oddsfox_pipeline.orchestration.dbt_project import (
     DBT_DAGSTER_GROUP_NAME,
@@ -56,7 +64,15 @@ __all__ = [
     "kalshi_wc2026_raw_markets_snapshot",
     "openfootball_wc2026_raw_schedule_fixtures",
     "oddsfox_dbt",
+    "polymarket_soccer_monitoring_dbt",
     "polymarket_soccer_ops_match_result_registry",
+    "polymarket_soccer_ops_pipeline_preflight",
+    "polymarket_soccer_catalog_check",
+    "polymarket_soccer_minute_mart_check",
+    "polymarket_soccer_minute_reconciliation_check",
+    "polymarket_soccer_preflight_check",
+    "polymarket_soccer_production_health_check",
+    "polymarket_soccer_registry_check",
     "polymarket_soccer_raw_event_catalog",
     "polymarket_soccer_raw_match_result_token_odds_history_minute",
     "polymarket_wc2026_raw_market_metadata_enrichment",

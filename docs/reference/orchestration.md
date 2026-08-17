@@ -299,6 +299,17 @@ retain failed-token retry state, and still build dbt; an all-error due run fails
 without advancing `CURRENT`. The daily schedule remains stopped unless
 `POLYMARKET_SOCCER_DAILY_SCHEDULE_ENABLED=true`.
 
+Every soccer job selects `polymarket/soccer/ops/pipeline_preflight` before
+Gamma, CLOB, or dbt work. It validates the physical warehouse contract,
+registry binder queries, token uniqueness, scope-isolated snapshot storage,
+writeability, and the critical disk floor. Correctness checks for catalog
+convergence, three-role/six-token registry integrity, and exact-window
+publication reconciliation are blocking; the dbt job also blocks on sparse and
+dense grain, inclusive-spine, source-OHLC, and carry invariants. Run/step lifecycle and structured
+resource summaries land in `polymarket_soccer_ops.pipeline_runs` and
+`pipeline_step_runs`; long steps emit a structured heartbeat at least every 60
+seconds.
+
 ### Polymarket WC2026
 
 - `raw/markets` fetches Gamma markets for the current event-catalog registry
