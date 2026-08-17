@@ -1,20 +1,17 @@
 {% set state = ref('int_polymarket_soccer_match_result_market_state') %}
-{% set cleanup_sql = '' %}
-{% if is_incremental() %}
-    {% set cleanup_sql %}
-        delete from {{ this }} as target
-        where not exists (
-            select 1 from {{ state }} as market_state
-            where market_state.market_id = target.market_id
-              and market_state.source_revision = target.source_revision
-        )
-    {% endset %}
-{% endif %}
 {{ config(
     materialized='incremental',
     incremental_strategy='delete+insert',
     unique_key=['market_id', 'odds_minute_epoch'],
-    pre_hook=cleanup_sql
+    post_hook="
+        delete from {{ this }} as target
+        where not exists (
+            select 1
+            from {{ ref('int_polymarket_soccer_match_result_market_state') }} as market_state
+            where market_state.market_id = target.market_id
+              and market_state.source_revision = target.source_revision
+        )
+    "
 ) }}
 
 with dirty_markets as (

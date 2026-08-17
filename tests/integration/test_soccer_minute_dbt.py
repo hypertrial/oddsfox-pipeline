@@ -327,6 +327,36 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
     assert dirty == (0, 0)
 
     with duckdb.connect(str(db_path)) as conn:
+        conn.execute(
+            "update polymarket_soccer_ops.match_result_registry "
+            "set window_end_at = timestamp '2025-01-02 12:02:30' "
+            "where market_id = 'market-0'"
+        )
+        conn.execute(
+            "update polymarket_soccer_ops.match_minute_odds_fetch_audit "
+            "set exact_window_end_at = timestamp '2025-01-02 12:02:30' "
+            "where market_id = 'market-0' and clobTokenId = 'yes-0' "
+            "and fetch_status = 'success'"
+        )
+    run_dbt(
+        ["build", "--select", "+int_polymarket_soccer_match_result_minute_odds"],
+        profiles_dir=dbt_profiles_dir,
+        env=env,
+    )
+    with duckdb.connect(str(db_path), read_only=True) as conn:
+        assert conn.execute(
+            "select count(*), min(odds_minute_utc), max(odds_minute_utc), "
+            "count(distinct source_revision) from polymarket_soccer_intermediate."
+            "int_polymarket_soccer_match_result_minute_odds "
+            "where market_id = 'market-0'"
+        ).fetchone() == (
+            3,
+            datetime(2025, 1, 2, 12, 0),
+            datetime(2025, 1, 2, 12, 2),
+            1,
+        )
+
+    with duckdb.connect(str(db_path)) as conn:
         terminalized_at = conn.execute(
             "select finished_at from polymarket_soccer_ops.pipeline_runs "
             "where dagster_run_id = 'pipeline-1'"
@@ -394,7 +424,7 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
         output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
         cleanup_minute_odds_publish_cache("soccer-performance-benchmark")
     mart_check = polymarket_soccer_minute_mart_check.node_def.compute_fn.decorated_fn(
-        SimpleNamespace(run_id="fixture-run")
+        SimpleNamespace(run=SimpleNamespace(run_id="fixture-run"))
     )
     assert mart_check.passed
 
@@ -412,7 +442,7 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
         )
     missing_sparse = (
         polymarket_soccer_minute_mart_check.node_def.compute_fn.decorated_fn(
-            SimpleNamespace(run_id="fixture-run")
+            SimpleNamespace(run=SimpleNamespace(run_id="fixture-run"))
         )
     )
     assert not missing_sparse.passed
@@ -436,7 +466,7 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
         )
     missing_market = (
         polymarket_soccer_minute_mart_check.node_def.compute_fn.decorated_fn(
-            SimpleNamespace(run_id="fixture-run")
+            SimpleNamespace(run=SimpleNamespace(run_id="fixture-run"))
         )
     )
     assert not missing_market.passed

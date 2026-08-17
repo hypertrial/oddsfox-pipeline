@@ -8,6 +8,7 @@ import duckdb
 import pytest
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
+from oddsfox_pipeline.orchestration import assets_soccer
 from oddsfox_pipeline.orchestration.assets_soccer import (
     polymarket_soccer_production_health_check,
 )
@@ -114,6 +115,29 @@ def test_blocking_check_failure_overwrites_terminal_success(tmp_path, monkeypatc
             "select status from polymarket_soccer_ops.pipeline_step_runs "
             "where step_name = 'asset_check:minute_mart_contracts_valid'"
         ).fetchone() == ("failed",)
+
+
+def test_blocking_check_failure_uses_asset_check_run(monkeypatch):
+    recorded = {}
+    monkeypatch.setattr(
+        assets_soccer,
+        "record_soccer_check_failure",
+        lambda **kwargs: recorded.update(kwargs),
+    )
+
+    result = assets_soccer._blocking_check_result(
+        SimpleNamespace(run=SimpleNamespace(run_id="run-check")),
+        name="minute_mart_contracts_valid",
+        passed=False,
+        metadata={"invalid_spines": 1},
+    )
+
+    assert not result.passed
+    assert recorded == {
+        "run_id": "run-check",
+        "check_name": "minute_mart_contracts_valid",
+        "metadata": {"invalid_spines": 1},
+    }
 
 
 def test_soccer_step_ledger_records_cancellation(tmp_path, monkeypatch):

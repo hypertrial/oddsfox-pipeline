@@ -91,7 +91,7 @@ def _blocking_check_result(
 ) -> AssetCheckResult:
     if not passed:
         record_soccer_check_failure(
-            run_id=str(context.run_id), check_name=name, metadata=metadata
+            run_id=str(context.run.run_id), check_name=name, metadata=metadata
         )
     return AssetCheckResult(passed=passed, metadata=metadata)
 
