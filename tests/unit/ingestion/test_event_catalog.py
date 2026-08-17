@@ -491,6 +491,67 @@ def test_event_market_rows_inherits_event_tags_when_market_tags_absent() -> None
     assert markets_keep[0]["tags"] == [{"id": "m", "slug": "custom"}]
 
 
+def test_soccer_catalog_verifies_tag_and_converges_open_and_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        catalog,
+        "fetch_gamma_tag_by_slug",
+        lambda *_args: {"id": catalog.SOCCER_EVENT_TAG_ID, "slug": "soccer"},
+    )
+    requests: list[dict[str, Any]] = []
+    soccer = _event("soccer-1", related_event_id="soccer-1")
+    soccer["tags"] = [{"id": catalog.SOCCER_EVENT_TAG_ID, "slug": "soccer"}]
+    soccer["createdAt"] = "2025-01-01T00:00:00Z"
+    unrelated = _event("other", related_event_id="other")
+    unrelated["tags"] = [{"id": "other", "slug": "sports"}]
+
+    def pages(*_args: Any, **kwargs: Any):
+        requests.append(kwargs)
+        yield [soccer, unrelated], EventsPageMeta(pages_done=1, truncated=False)
+
+    monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
+    batch = catalog.collect_soccer_event_catalog(
+        client=object(), observed_at=datetime(2025, 1, 1, tzinfo=timezone.utc)
+    )
+
+    assert {row["event_id"] for row in batch.event_snapshots} == {"soccer-1"}
+    assert batch.event_snapshots[0]["coverage_tier"] == "guaranteed_tag_era"
+    assert set(batch.summary["scan_partitions"]) == {
+        "exact_soccer_tag:open",
+        "exact_soccer_tag:closed",
+    }
+    assert len(requests) == 4
+    assert {request["keyset_closed"] for request in requests} == {False, True}
+    assert all(request["keyset_tag_slug"] == "soccer" for request in requests)
+    assert all(request["keyset_volume_min"] is None for request in requests)
+
+
+def test_soccer_catalog_fails_closed_for_tag_drift_or_truncation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        catalog,
+        "fetch_gamma_tag_by_slug",
+        lambda *_args: {"id": "wrong", "slug": "soccer"},
+    )
+    with pytest.raises(RuntimeError, match="canonical id"):
+        catalog.collect_soccer_event_catalog(client=object())
+
+    monkeypatch.setattr(
+        catalog,
+        "fetch_gamma_tag_by_slug",
+        lambda *_args: {"id": catalog.SOCCER_EVENT_TAG_ID, "slug": "soccer"},
+    )
+
+    def truncated(*_args: Any, **_kwargs: Any):
+        yield [], EventsPageMeta(pages_done=1, truncated=True)
+
+    monkeypatch.setattr(catalog, "iter_gamma_events_keyset", truncated)
+    with pytest.raises(RuntimeError, match="scan truncated"):
+        catalog.collect_soccer_event_catalog(client=object())
+
+
 def test_include_slug_prefix_recall_false_skips_slug_partitions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

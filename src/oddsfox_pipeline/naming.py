@@ -9,6 +9,7 @@ SOURCE_KALSHI = "kalshi"
 SOURCE_INTERNATIONAL_RESULTS = "international_results"
 SOURCE_OPENFOOTBALL = "openfootball"
 SCOPE_WC2026 = "wc2026"
+SCOPE_SOCCER = "soccer"
 
 
 def flat_name(source: str, scope: str, *parts: str) -> str:
@@ -24,11 +25,14 @@ def asset_key(source: str, scope: str, layer: str, *parts: str) -> AssetKey:
 
 
 POLYMARKET_WC2026 = flat_name(SOURCE_POLYMARKET, SCOPE_WC2026)
+POLYMARKET_SOCCER = flat_name(SOURCE_POLYMARKET, SCOPE_SOCCER)
 KALSHI_WC2026 = flat_name(SOURCE_KALSHI, SCOPE_WC2026)
 
 __all__ = [
     "KALSHI_WC2026",
     "POLYMARKET_WC2026",
+    "POLYMARKET_SOCCER",
+    "SCOPE_SOCCER",
     "SCOPE_WC2026",
     "SOURCE_INTERNATIONAL_RESULTS",
     "SOURCE_KALSHI",

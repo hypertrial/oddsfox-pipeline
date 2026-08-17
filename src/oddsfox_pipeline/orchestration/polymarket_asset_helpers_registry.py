@@ -318,7 +318,7 @@ def _materialize_event_catalog(
             }
         )
         save_sync_run_metrics_fn("event_catalog", summary, scope_name=scope_name)
-        context.log.info("WC2026 event catalog: %s", summary)
+        context.log.info("%s: %s", asset_name, summary)
     except Exception as exc:
         save_asset_failure_metrics(
             "event_catalog",

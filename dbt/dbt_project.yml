@@ -49,6 +49,22 @@ models:
         +schema: polymarket_wc2026_observability
         +materialized: table
         +tags: ["mart", "observability", "wc2026", "polymarket"]
+    polymarket_soccer:
+      +tags: ["soccer", "polymarket", "minute_odds"]
+      staging:
+        +schema: polymarket_soccer_staging
+        +tags: ["staging", "soccer", "polymarket"]
+      intermediate:
+        +schema: polymarket_soccer_intermediate
+        +tags: ["intermediate", "soccer", "polymarket"]
+      marts:
+        +schema: polymarket_soccer_marts
+        +materialized: table
+        +tags: ["mart", "core", "soccer", "polymarket"]
+      observability:
+        +schema: polymarket_soccer_observability
+        +materialized: table
+        +tags: ["mart", "observability", "soccer", "polymarket"]
     international_results_wc2026:
       +tags: ["wc2026", "international_results"]
       staging:

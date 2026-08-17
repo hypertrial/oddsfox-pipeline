@@ -38,6 +38,7 @@ def _polymarket_sources_paths() -> list[Path]:
         sources_dir / "international_results_wc2026_sources.yml",
         sources_dir / "kalshi_wc2026_sources.yml",
         sources_dir / "openfootball_wc2026_sources.yml",
+        sources_dir / "polymarket_soccer_sources.yml",
     ]
 
 
@@ -45,10 +46,15 @@ def _reload_schedules_module(
     monkeypatch,
     *,
     kalshi_hourly: bool = False,
+    soccer_daily: bool = False,
 ):
     monkeypatch.setenv(
         "KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED",
         "true" if kalshi_hourly else "false",
+    )
+    monkeypatch.setenv(
+        "POLYMARKET_SOCCER_DAILY_SCHEDULE_ENABLED",
+        "true" if soccer_daily else "false",
     )
     from oddsfox_pipeline.config._reload_settings import reload_all_settings_modules
 
@@ -78,6 +84,10 @@ def test_definitions_expose_v010_jobs_only():
         "polymarket_wc2026_polygon_settlement_release",
         "polymarket_wc2026_dbt_build",
         "polymarket_wc2026_full_pipeline",
+        "polymarket_soccer_market_scope_registry_refresh",
+        "polymarket_soccer_match_result_minute_odds_ingest",
+        "polymarket_soccer_dbt_build",
+        "polymarket_soccer_full_pipeline",
     }
 
     assert {
@@ -182,6 +192,7 @@ def test_definitions_expose_v010_asset_keys():
         key[:2]
         in {
             ("polymarket", "wc2026"),
+            ("polymarket", "soccer"),
             ("polymarket", "catalog"),
             ("international_results", "historical"),
             ("international_results", "wc2026"),
@@ -826,6 +837,17 @@ def test_kalshi_hourly_schedule_enabled_by_env(monkeypatch):
     schedules_mod = _reload_schedules_module(monkeypatch, kalshi_hourly=True)
 
     assert schedules_mod.kalshi_wc2026_hourly_odds_schedule.default_status == (
+        DefaultScheduleStatus.RUNNING
+    )
+
+
+def test_soccer_daily_schedule_disabled_by_default_and_enabled_by_env(monkeypatch):
+    stopped = _reload_schedules_module(monkeypatch, soccer_daily=False)
+    assert stopped.polymarket_soccer_daily_schedule.default_status == (
+        DefaultScheduleStatus.STOPPED
+    )
+    running = _reload_schedules_module(monkeypatch, soccer_daily=True)
+    assert running.polymarket_soccer_daily_schedule.default_status == (
         DefaultScheduleStatus.RUNNING
     )
 

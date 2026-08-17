@@ -7,6 +7,7 @@ from oddsfox_pipeline.config.settings import (
     POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH,
 )
 from oddsfox_pipeline.naming import (
+    SCOPE_SOCCER,
     SCOPE_WC2026,
     SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_KALSHI,
@@ -25,10 +26,19 @@ from oddsfox_pipeline.orchestration.assets_polygon_settlement import (
     POLYMARKET_WC2026_RELEASE_POLYGON_SETTLEMENT_ODDS_BUNDLE,
 )
 from oddsfox_pipeline.orchestration.assets_polymarket import oddsfox_dbt
+from oddsfox_pipeline.orchestration.assets_soccer import (
+    POLYMARKET_SOCCER_OPS_MATCH_RESULT_REGISTRY,
+    POLYMARKET_SOCCER_RAW_EVENT_CATALOG,
+    POLYMARKET_SOCCER_RAW_MATCH_RESULT_MINUTE,
+)
 from oddsfox_pipeline.orchestration.config import (
     kalshi_wc2026_dbt_build_run_config,
     kalshi_wc2026_full_refresh_events_run_config,
     kalshi_wc2026_hourly_odds_run_config,
+    polymarket_soccer_catalog_run_config,
+    polymarket_soccer_dbt_build_run_config,
+    polymarket_soccer_full_pipeline_run_config,
+    polymarket_soccer_minute_odds_run_config,
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_event_catalog_recall_audit_run_config,
     polymarket_wc2026_full_pipeline_run_config,
@@ -43,6 +53,7 @@ from oddsfox_pipeline.orchestration.config import (
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
+    POLYMARKET_SOCCER_SCOPE,
     POLYMARKET_WC2026_SCOPE,
 )
 
@@ -55,6 +66,11 @@ _POLYMARKET_WC2026_TAGS = {
     **_DUCKDB_WAREHOUSE_TAGS,
     "source": SOURCE_POLYMARKET,
     "scope": SCOPE_WC2026,
+}
+_POLYMARKET_SOCCER_TAGS = {
+    **_DUCKDB_WAREHOUSE_TAGS,
+    "source": SOURCE_POLYMARKET,
+    "scope": SCOPE_SOCCER,
 }
 _KALSHI_WC2026_TAGS = {
     **_DUCKDB_WAREHOUSE_TAGS,
@@ -290,6 +306,64 @@ POLYMARKET_WC2026_FULL_PIPELINE_SELECTION = (
     POLYMARKET_WC2026_MARKET_REGISTRY_SELECTION
     | POLYMARKET_WC2026_HOURLY_ODDS_SELECTION
     | POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECTION
+)
+
+POLYMARKET_SOCCER_CATALOG_SELECTION = AssetSelection.assets(
+    POLYMARKET_SOCCER_RAW_EVENT_CATALOG
+).required_multi_asset_neighbors() | AssetSelection.assets(
+    POLYMARKET_SOCCER_OPS_MATCH_RESULT_REGISTRY
+)
+
+POLYMARKET_SOCCER_MINUTE_RAW_SELECTION = AssetSelection.assets(
+    POLYMARKET_SOCCER_RAW_MATCH_RESULT_MINUTE
+)
+
+_POLYMARKET_SOCCER_DBT_GRAPH = build_dbt_asset_selection(
+    [oddsfox_dbt],
+    dbt_select=POLYMARKET_SOCCER_SCOPE.dbt_select,
+)
+POLYMARKET_SOCCER_DBT_SELECTION = (
+    _POLYMARKET_SOCCER_DBT_GRAPH.without_checks().downstream(
+        depth=0,
+        include_self=True,
+    )
+)
+POLYMARKET_SOCCER_FULL_PIPELINE_SELECTION = (
+    POLYMARKET_SOCCER_CATALOG_SELECTION
+    | POLYMARKET_SOCCER_MINUTE_RAW_SELECTION
+    | POLYMARKET_SOCCER_DBT_SELECTION
+)
+
+polymarket_soccer_market_scope_registry_refresh = define_asset_job(
+    POLYMARKET_SOCCER_SCOPE.registry_job_name,
+    selection=POLYMARKET_SOCCER_CATALOG_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_soccer_catalog_run_config(),
+    tags=_POLYMARKET_SOCCER_TAGS,
+)
+
+polymarket_soccer_match_result_minute_odds_ingest = define_asset_job(
+    POLYMARKET_SOCCER_SCOPE.odds_job_name,
+    selection=POLYMARKET_SOCCER_MINUTE_RAW_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_soccer_minute_odds_run_config(),
+    tags=_POLYMARKET_SOCCER_TAGS,
+)
+
+polymarket_soccer_dbt_build = define_asset_job(
+    POLYMARKET_SOCCER_SCOPE.dbt_job_name,
+    selection=POLYMARKET_SOCCER_DBT_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_soccer_dbt_build_run_config(),
+    tags=_POLYMARKET_SOCCER_TAGS,
+)
+
+polymarket_soccer_full_pipeline = define_asset_job(
+    POLYMARKET_SOCCER_SCOPE.full_job_name,
+    selection=POLYMARKET_SOCCER_FULL_PIPELINE_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_soccer_full_pipeline_run_config(),
+    tags=_POLYMARKET_SOCCER_TAGS,
 )
 
 polymarket_wc2026_market_scope_registry_refresh = define_asset_job(

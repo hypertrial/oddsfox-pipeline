@@ -19,7 +19,7 @@ def test_sqlfluff_dbt_templating_fails_closed():
     assert "dbt_skip_compilation_error = false" in dbt_config
 
 
-def test_dbt_project_sources_are_wc2026_only():
+def test_dbt_project_contains_only_shipped_model_families():
     dbt_root = Path(__file__).resolve().parents[3] / "dbt"
 
     assert (dbt_root / "dbt_project.yml").exists()
@@ -83,6 +83,7 @@ def test_dbt_project_sources_are_wc2026_only():
         "kalshi_wc2026",
         "openfootball_wc2026",
         "polymarket_catalog",
+        "polymarket_soccer",
         "polymarket_wc2026",
         "sources",
         "wc2026",
@@ -105,7 +106,8 @@ def test_shipped_scope_specs_have_matching_dbt_project_entries():
     for spec in SHIPPED_SCOPE_SPECS:
         assert spec.namespace in models
         assert {spec.source, spec.scope} <= set(models[spec.namespace]["+tags"])
-        assert f"{spec.namespace}_pipeline_policy" in seeds
+        if spec.source_seed is not None:
+            assert f"{spec.namespace}_pipeline_policy" in seeds
         assert (dbt_root / "models" / spec.namespace).is_dir()
         assert (
             dbt_root / "models" / "sources" / f"{spec.namespace}_sources.yml"

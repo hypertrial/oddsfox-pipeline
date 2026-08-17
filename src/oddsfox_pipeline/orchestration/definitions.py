@@ -16,6 +16,9 @@ from oddsfox_pipeline.orchestration.assets import (
     kalshi_wc2026_raw_markets_snapshot,
     oddsfox_dbt,
     openfootball_wc2026_raw_schedule_fixtures,
+    polymarket_soccer_ops_match_result_registry,
+    polymarket_soccer_raw_event_catalog,
+    polymarket_soccer_raw_match_result_token_odds_history_minute,
     polymarket_wc2026_ops_market_scope_registry,
     polymarket_wc2026_raw_event_catalog,
     polymarket_wc2026_raw_futures_token_odds_history_minute,
@@ -36,6 +39,10 @@ from oddsfox_pipeline.orchestration.jobs import (
     kalshi_wc2026_full_pipeline,
     kalshi_wc2026_hourly_odds_ingest,
     kalshi_wc2026_market_scope_registry_refresh,
+    polymarket_soccer_dbt_build,
+    polymarket_soccer_full_pipeline,
+    polymarket_soccer_market_scope_registry_refresh,
+    polymarket_soccer_match_result_minute_odds_ingest,
     polymarket_wc2026_dbt_build,
     polymarket_wc2026_event_catalog_recall_audit,
     polymarket_wc2026_full_pipeline,
@@ -52,6 +59,7 @@ from oddsfox_pipeline.orchestration.jobs import (
 from oddsfox_pipeline.orchestration.schedules import (
     international_results_daily_schedule,
     kalshi_wc2026_hourly_odds_schedule,
+    polymarket_soccer_daily_schedule,
 )
 
 defs = Definitions(
@@ -64,6 +72,9 @@ defs = Definitions(
         kalshi_wc2026_ops_market_scope_registry,
         kalshi_wc2026_raw_market_candlesticks_hourly,
         polymarket_wc2026_raw_markets,
+        polymarket_soccer_raw_event_catalog,
+        polymarket_soccer_ops_match_result_registry,
+        polymarket_soccer_raw_match_result_token_odds_history_minute,
         polymarket_wc2026_raw_markets_snapshot,
         polymarket_wc2026_raw_event_catalog,
         polymarket_wc2026_raw_match_token_odds_history_minute,
@@ -96,10 +107,15 @@ defs = Definitions(
         polymarket_wc2026_polygon_settlement_release,
         polymarket_wc2026_dbt_build,
         polymarket_wc2026_full_pipeline,
+        polymarket_soccer_market_scope_registry_refresh,
+        polymarket_soccer_match_result_minute_odds_ingest,
+        polymarket_soccer_dbt_build,
+        polymarket_soccer_full_pipeline,
     ],
     schedules=[
         international_results_daily_schedule,
         kalshi_wc2026_hourly_odds_schedule,
+        polymarket_soccer_daily_schedule,
     ],
     resources={
         "dbt": DbtCliResource(

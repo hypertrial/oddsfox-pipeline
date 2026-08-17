@@ -1,0 +1,55 @@
+version: 2
+
+sources:
+  - name: polymarket_soccer_raw
+    schema: polymarket_soccer_raw
+    description: Raw exact-tag Polymarket soccer catalog and in-game CLOB history.
+    tables:
+      - name: event_snapshots
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, raw, event_snapshots]
+      - name: match_primary_minute_ohlc
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, raw, match_result_token_odds_history_minute]
+        columns:
+          - name: clob_token_id
+            tests: [not_null]
+          - name: odds_minute_epoch
+            tests: [not_null]
+
+  - name: polymarket_soccer_ops
+    schema: polymarket_soccer_ops
+    description: Current soccer match-result registry and minute fetch audit.
+    tables:
+      - name: match_result_registry
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, ops, match_result_registry]
+        columns:
+          - name: event_id
+            tests: [not_null]
+          - name: market_id
+            tests: [not_null, unique]
+          - name: result_role
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: [home_win, draw, away_win]
+      - name: match_result_registry_exclusions
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, ops, match_result_registry]
+      - name: match_minute_odds_fetch_audit
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, raw, match_result_token_odds_history_minute]
+      - name: match_minute_odds_terminal_unavailable
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, raw, match_result_token_odds_history_minute]
+      - name: sync_run_metrics
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, raw, event_catalog]

@@ -24,6 +24,7 @@ backfill, paid or narrow credentials, single-target manifests.
 | Pipeline | Entry job(s) | Steps | Schedule | CI dbt gate | Maturity |
 | --- | --- | --- | --- | --- | --- |
 | Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | None | `ci-fast` → `dbt-lint`; model build in `dbt-build-ci` (excludes `tag:polygon_settlement` / `tag:pmxt_order_book` / `tag:minute_odds`) | Production |
+| Polymarket Soccer | `polymarket_soccer_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Daily 04:00 UTC (stopped) | `ci-fast` → `dbt-soccer-minute-ci` | Production |
 | Kalshi WC2026 | `kalshi_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` → `dbt-lint`; `+tag:kalshi` builds in `dbt-build-ci` / `release-gate` | Production |
 | Polygon settlement history | `polymarket_wc2026_polygon_settlement_backfill` → `_release` → standalone exporter | Backfill scan, audit release, offline export | None | `dbt-polygon-settlement-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Match-minute odds | `polymarket_wc2026_match_minute_odds_backfill` | Results refresh, minute fetch, dbt | None | `dbt-match-minute-ci` (also compiles in ordinary `dbt-build-ci`; inventory proofs are the isolated lane) | Mature, isolated |
@@ -190,7 +191,7 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   before spill, writes bounded typed Arrow batches to ignored runtime Parquet
   shards with a `token_ids` manifest, drops in-memory history tuples, then
   promotes an immutable partitioned snapshot (`raw/` + `primary_ohlc/`) under
-  `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/` and registers stable DuckDB
+  `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/<scope>/` and registers stable DuckDB
   views. Unchanged tokens reuse the prior snapshot without a CLOB refetch; only
   dirty token buckets are rewritten. Futures
   spans are pre-chunked into 24h windows before CLOB calls so tournament-length
@@ -289,6 +290,14 @@ unrelated Polymarket tests. Dagster warehouse snapshots for scoped dbt jobs
 expand the same `+` ancestry from the local dbt manifest when present.
 
 ## Scope behavior
+
+`polymarket:soccer` resolves canonical Gamma tag slug `soccer` and requires ID
+`100350`. It independently converges open and closed keyset scans without a
+volume floor. The registry admits only unambiguous home/draw/away triples and
+plans six token windows per game. Partial CLOB runs publish successful tokens,
+retain failed-token retry state, and still build dbt; an all-error due run fails
+without advancing `CURRENT`. The daily schedule remains stopped unless
+`POLYMARKET_SOCCER_DAILY_SCHEDULE_ENABLED=true`.
 
 ### Polymarket WC2026
 

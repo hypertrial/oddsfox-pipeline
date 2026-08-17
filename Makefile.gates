@@ -14,7 +14,7 @@ ci-fast-tests:
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(CI_FAST_TESTS_RUNTIME)" test contract-http
 
 ci-fast-dbt:
-	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(CI_FAST_DBT_RUNTIME)" dbt-lint
+	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(CI_FAST_DBT_RUNTIME)" MATCH_ANALYSIS_RUNTIME_ROOT="$(CI_FAST_DBT_RUNTIME)" dbt-lint dbt-soccer-minute-ci
 
 release-gate:
 	$(MAKE) -j$(GATE_JOBS) release-gate-goal

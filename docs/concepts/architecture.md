@@ -156,6 +156,15 @@ result or determine rights in operator inputs or outputs.
 
 ## Operating Model
 
+The `polymarket:soccer` branch is a first-class sibling of WC2026. Gamma exact
+tag scans land append-only event, tag, membership, and market snapshots in
+`polymarket_soccer_raw`; a strict current projection in
+`polymarket_soccer_ops.match_result_registry` supplies exact six-token match
+windows to the shared minute fetch and immutable snapshot engine. dbt filters
+publication through the current registry and latest successful exact-window
+audit before producing sparse and dense marts. No external results provider or
+manual mapping input crosses this branch.
+
 - `polymarket_wc2026_full_pipeline` is the one-click full manual WC2026 pipeline
   (registry, hourly odds, and golden-mart dbt only).
 - `international_results_wc2026_match_results_ingest` refreshes fixture/results

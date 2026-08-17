@@ -21,6 +21,7 @@ safer than dual-read shims.
 ## Fixed Scopes, Not Runtime Selectors
 
 `run_scope.py` accepts only the shipped refs (`polymarket:wc2026`,
+`polymarket:soccer`,
 `kalshi:wc2026`). Dedicated advanced jobs such as Polygon settlement sit outside
 that chooser. Dagster asset configs do not accept arbitrary runtime scope strings.
 

@@ -173,6 +173,7 @@ _EVENT_SNAPSHOT = (
     ColumnDef("tags_json", "TEXT", "text", ddl_not_null=True),
     ColumnDef("series_slugs_json", "TEXT", "text", ddl_not_null=True),
     ColumnDef("candidate_sources_json", "TEXT", "text", ddl_not_null=True),
+    ColumnDef("coverage_tier", "TEXT", "text", dlt_nullable=True),
     ColumnDef("source_market_count", "BIGINT", "bigint", ddl_not_null=True),
     ColumnDef("observed_at", "TIMESTAMP", "timestamp", ddl_not_null=True),
     ColumnDef("source_endpoint", "TEXT", "text", ddl_not_null=True),

@@ -102,6 +102,27 @@ PMXT configuration is needed for quickstart.
     certification of data rights or fitness for trading. See
     [Operator responsibilities](../concepts/operator-responsibilities.md).
 
+=== "Polymarket Soccer"
+
+    ### Run the first pipeline
+
+    Audit the catalog, then run the fixed soccer pipeline:
+
+    ```bash
+    make soccer-catalog-audit
+    uv run python scripts/run_scope.py polymarket:soccer --step full
+    ```
+
+    The namespace alias is `polymarket_soccer`. The full run catalogs exact-tag
+    soccer events, fetches admitted match-result minute history, and publishes
+    the sparse and dense marts. See [Choose a scope](choose-a-scope.md) for the
+    coverage boundary and non-goals.
+
+    ### Confirm success
+
+    The run should complete `polymarket_soccer_full_pipeline` and build the
+    three relations documented in [Data contracts](../reference/data-contracts.md#polymarket-soccer-match-result-minute-odds).
+
 === "Kalshi WC2026"
 
     ### Run the first pipeline

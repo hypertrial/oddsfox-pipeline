@@ -42,6 +42,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.execution import (
 )
 from oddsfox_pipeline.ingestion.polymarket.odds.fetch import build_client
 from oddsfox_pipeline.ingestion.polymarket.odds.writer import maybe_auto_tune_rps
+from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.resources.http import RateLimiter
 from oddsfox_pipeline.resources.progress_guardrails import ProgressGuardrail
 
@@ -1086,6 +1087,7 @@ def resolve_minute_token_reuse(
     *,
     leg: str,
     conn: Any,
+    scope_name: str = SCOPE_WC2026,
 ):
     """Return ``(previous_snapshot, reusable_token_ids, published_windows)``."""
     import duckdb
@@ -1098,7 +1100,7 @@ def resolve_minute_token_reuse(
         validate_minute_odds_snapshot,
     )
 
-    root = minute_odds_snapshot_root(leg=leg)
+    root = minute_odds_snapshot_root(leg=leg, scope_name=scope_name)
     previous_dir = active_snapshot_dir(root)
     previous = (
         validate_minute_odds_snapshot(previous_dir)
@@ -1106,7 +1108,9 @@ def resolve_minute_token_reuse(
         else None
     )
     try:
-        published = load_latest_published_token_windows(conn, leg=leg)
+        published = load_latest_published_token_windows(
+            conn, leg=leg, scope_name=scope_name
+        )
     except duckdb.Error:
         # Fresh/mocked warehouses may not have ops audit tables yet.
         published = {}

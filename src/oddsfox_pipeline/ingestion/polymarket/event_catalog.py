@@ -22,6 +22,9 @@ from oddsfox_pipeline.ingestion.polymarket.gamma_events import (
     fetch_gamma_event_by_id,
     iter_gamma_events_keyset,
 )
+from oddsfox_pipeline.ingestion.polymarket.market_scope_tags import (
+    fetch_gamma_tag_by_slug,
+)
 from oddsfox_pipeline.ingestion.polymarket.markets.fetch import build_client
 
 WC2026_EVENT_TAG = "2026-fifa-world-cup"
@@ -29,6 +32,9 @@ WC2026_RECALL_TAG = "fifa-world-cup"
 WC2026_FIXTURE_SERIES_SLUG = "soccer-fifwc"
 WC2026_RECALL_EVENT_SLUG_PREFIXES = ("2026-fifa-world-cup", "fifwc-")
 SCAN_CONVERGENCE_ATTEMPTS = 3
+SOCCER_EVENT_TAG = "soccer"
+SOCCER_EVENT_TAG_ID = "100350"
+SOCCER_TAG_CREATED_AT = "2024-08-21T16:31:18.953213Z"
 
 
 @dataclass(frozen=True)
@@ -59,6 +65,19 @@ def _float(value: Any) -> float | None:
 
 def _bool(value: Any) -> bool | None:
     return value if isinstance(value, bool) else None
+
+
+def _datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    return parsed.replace(tzinfo=parsed.tzinfo or timezone.utc).astimezone(timezone.utc)
 
 
 def _tag_rows(event: dict[str, Any], observed_at: datetime) -> list[dict[str, Any]]:
@@ -112,6 +131,7 @@ def _event_snapshot(
     candidate_sources: Iterable[str],
     *,
     source_endpoint: str,
+    coverage_tier: str | None = None,
 ) -> dict[str, Any]:
     tags = sorted(_event_tag_slugs(event))
     return {
@@ -151,6 +171,7 @@ def _event_snapshot(
         "candidate_sources_json": json.dumps(
             sorted(set(candidate_sources)), separators=(",", ":")
         ),
+        "coverage_tier": coverage_tier,
         "source_market_count": sum(
             isinstance(market, dict) and _text(market.get("id")) is not None
             for market in event.get("markets") or []
@@ -704,13 +725,198 @@ def collect_wc2026_event_catalog(
     )
 
 
+def collect_soccer_event_catalog(
+    *,
+    client: Any | None = None,
+    observed_at: datetime | None = None,
+    max_pages: int | None = None,
+    progress_callback: Callable[[str, dict[str, Any]], None] | None = None,
+    include_slug_prefix_recall: bool = False,
+    slug_prefix_recall_max_pages_without_progress: int | None = None,
+    load_checkpoint_fn: Callable[[], dict[str, dict[str, Any]]] | None = None,
+    save_checkpoint_fn: (
+        Callable[[str, dict[str, dict[str, Any]], dict[str, Any]], None] | None
+    ) = None,
+) -> EventCatalogBatch:
+    """Collect the complete exact-tag Polymarket soccer event catalog."""
+    del include_slug_prefix_recall, slug_prefix_recall_max_pages_without_progress
+    http = client or build_client()
+    tag = fetch_gamma_tag_by_slug(http, SOCCER_EVENT_TAG)
+    if (
+        tag is None
+        or _text(tag.get("id")) != SOCCER_EVENT_TAG_ID
+        or str(tag.get("slug") or "").strip().casefold() != SOCCER_EVENT_TAG
+    ):
+        raise RuntimeError(
+            f"Gamma soccer tag did not resolve to canonical id {SOCCER_EVENT_TAG_ID}"
+        )
+    captured_at = observed_at or datetime.now(timezone.utc)
+    checkpoints = load_checkpoint_fn() if load_checkpoint_fn is not None else {}
+    events_by_id: dict[str, dict[str, Any]] = {}
+    scan_partitions: dict[str, dict[str, Any]] = {}
+
+    for closed in (False, True):
+        state = "closed" if closed else "open"
+        partition = f"exact_soccer_tag:{state}"
+        cached = checkpoints.get(partition)
+        if (
+            isinstance(cached, dict)
+            and isinstance(cached.get("stable_events"), dict)
+            and isinstance(cached.get("scan_summary"), dict)
+            and cached["scan_summary"].get("complete") is True
+        ):
+            stable_events = cached["stable_events"]
+            scan_partitions[partition] = cached["scan_summary"]
+            events_by_id.update(stable_events)
+            continue
+
+        previous_signature: tuple[Any, str] | None = None
+        stable_events: dict[str, dict[str, Any]] | None = None
+        attempts: list[dict[str, Any]] = []
+        for attempt in range(1, SCAN_CONVERGENCE_ATTEMPTS + 1):
+            attempt_events: dict[str, dict[str, Any]] = {}
+            pages = 0
+            for events, meta in iter_gamma_events_keyset(
+                http,
+                max_pages=max_pages,
+                keyset_closed=closed,
+                keyset_tag_slug=SOCCER_EVENT_TAG,
+                keyset_volume_min=None,
+                progress_callback=progress_callback,
+                progress_task=f"soccer_event_catalog_{state}_attempt_{attempt}",
+            ):
+                pages = meta.pages_done
+                if meta.truncated:
+                    raise RuntimeError(
+                        f"Soccer {partition} scan truncated after {pages} pages"
+                    )
+                for event in events:
+                    if not isinstance(event, dict):
+                        continue
+                    event_id = _text(event.get("id"))
+                    if event_id is not None and SOCCER_EVENT_TAG in _event_tag_slugs(
+                        event
+                    ):
+                        attempt_events[event_id] = event
+            inventory, child_market_count, membership_count = _partition_inventory(
+                attempt_events
+            )
+            payload_signature = _payload_inventory_sha256(attempt_events)
+            signature = (inventory, payload_signature)
+            attempts.append(
+                {
+                    "attempt": attempt,
+                    "pages": pages,
+                    "event_count": len(attempt_events),
+                    "event_ids_sha256": sha256(
+                        "\n".join(sorted(attempt_events)).encode()
+                    ).hexdigest(),
+                    "child_market_count": child_market_count,
+                    "membership_count": membership_count,
+                    "membership_inventory_sha256": _inventory_sha256(inventory),
+                    "event_payload_inventory_sha256": payload_signature,
+                }
+            )
+            if previous_signature == signature:
+                stable_events = attempt_events
+                break
+            previous_signature = signature
+        if stable_events is None:
+            raise RuntimeError(
+                f"Soccer {partition} scan_unstable after "
+                f"{SCAN_CONVERGENCE_ATTEMPTS} complete attempts"
+            )
+        summary = {
+            **attempts[-1],
+            "attempts": attempts,
+            "complete": True,
+            "stable": True,
+        }
+        scan_partitions[partition] = summary
+        events_by_id.update(stable_events)
+        if save_checkpoint_fn is not None:
+            save_checkpoint_fn(partition, stable_events, summary)
+
+    event_rows: list[dict[str, Any]] = []
+    tag_rows: list[dict[str, Any]] = []
+    bridge_rows: list[dict[str, Any]] = []
+    market_payloads: dict[str, dict[str, Any]] = {}
+    for event_id in sorted(events_by_id):
+        event = events_by_id[event_id]
+        created_at = _datetime(event.get("createdAt") or event.get("creationDate"))
+        boundary = _datetime(SOCCER_TAG_CREATED_AT)
+        coverage_tier = (
+            "guaranteed_tag_era"
+            if created_at is not None
+            and boundary is not None
+            and created_at >= boundary
+            else "pre_tag_best_effort"
+        )
+        event_rows.append(
+            _event_snapshot(
+                event,
+                captured_at,
+                {"exact_soccer_tag"},
+                source_endpoint="/events/keyset",
+                coverage_tier=coverage_tier,
+            )
+        )
+        tag_rows.extend(_tag_rows(event, captured_at))
+        event_bridges, event_markets = _event_market_rows(event, captured_at)
+        bridge_rows.extend(event_bridges)
+        for market in event_markets:
+            market_id = _text(market.get("id"))
+            if market_id is not None:
+                market_payloads[market_id] = _merge_market_payload(
+                    market_payloads.get(market_id), market
+                )
+
+    bridge_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in bridge_rows:
+        key = (str(row["event_id"]), str(row["market_id"]))
+        previous = bridge_by_key.get(key)
+        if previous is None or int(row["source_ordinal"]) < int(
+            previous["source_ordinal"]
+        ):
+            bridge_by_key[key] = dict(row)
+        else:
+            previous["is_enclosing_event"] = bool(
+                previous["is_enclosing_event"] or row["is_enclosing_event"]
+            )
+
+    return EventCatalogBatch(
+        event_snapshots=tuple(event_rows),
+        event_tag_snapshots=tuple(tag_rows),
+        event_market_snapshots=tuple(
+            bridge_by_key[key] for key in sorted(bridge_by_key)
+        ),
+        market_payloads=tuple(market_payloads[key] for key in sorted(market_payloads)),
+        summary={
+            "event_tag": SOCCER_EVENT_TAG,
+            "event_tag_id": SOCCER_EVENT_TAG_ID,
+            "coverage_start_at": SOCCER_TAG_CREATED_AT,
+            "events": len(event_rows),
+            "event_tags": len(tag_rows),
+            "event_markets": len(bridge_by_key),
+            "unique_markets": len(market_payloads),
+            "scan_partitions": scan_partitions,
+            "all_scan_partitions_complete": True,
+            "observed_at": captured_at.isoformat(),
+        },
+    )
+
+
 __all__ = [
     "EventCatalogBatch",
     "POLYMARKET_WC2026_EVENT_MIN_VOLUME_USD",
     "SCAN_CONVERGENCE_ATTEMPTS",
+    "SOCCER_EVENT_TAG",
+    "SOCCER_EVENT_TAG_ID",
+    "SOCCER_TAG_CREATED_AT",
     "WC2026_EVENT_TAG",
     "WC2026_FIXTURE_SERIES_SLUG",
     "WC2026_RECALL_TAG",
     "WC2026_RECALL_EVENT_SLUG_PREFIXES",
     "collect_wc2026_event_catalog",
+    "collect_soccer_event_catalog",
 ]

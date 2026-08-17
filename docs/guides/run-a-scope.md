@@ -12,11 +12,12 @@ uv run python scripts/run_scope.py --list
 uv run python scripts/run_scope.py polymarket_wc2026 --step odds --dry-run
 ```
 
-Supported refs are `polymarket:wc2026` (`polymarket_wc2026`) and
-`kalshi:wc2026` (`kalshi_wc2026`). Supported steps are `market_scope_registry`, `odds`,
-`dbt`, and `full`.
+Supported refs are `polymarket:wc2026` (`polymarket_wc2026`),
+`polymarket:soccer` (`polymarket_soccer`), and `kalshi:wc2026`
+(`kalshi_wc2026`). Supported steps are `market_scope_registry`, `odds`, `dbt`,
+and `full`.
 
-For Polymarket, `dbt` and `full` build only the golden-mart closure
+For Polymarket WC2026, `dbt` and `full` build only the golden-mart closure
 (`+polymarket_wc2026_market_hourly_odds`), not match-minute, order-book,
 portrait, or Polygon settlement marts. Use dedicated backfill jobs for those
 paths.
@@ -43,10 +44,23 @@ selector and does not accept arbitrary dbt selectors.
     uv run python scripts/run_scope.py kalshi:wc2026 --step dbt
     ```
 
-For Kalshi and match-minute scopes, refresh
+For Kalshi and the isolated WC2026 match-minute pipeline, refresh
 `international_results_wc2026_match_results_ingest` before a staged dbt run so
 real-team validation inputs are current. The Polymarket golden-mart path does not
 require that ingest step.
+
+=== "Polymarket Soccer"
+
+    ```bash
+    uv run python scripts/run_scope.py polymarket:soccer --step market_scope_registry
+    uv run python scripts/run_scope.py polymarket:soccer --step odds
+    uv run python scripts/run_scope.py polymarket:soccer --step dbt
+    ```
+
+    The registry step proves converged open and closed exact-tag scans and then
+    rebuilds the strict three-role match-result registry. The odds step is
+    incremental and may publish successful tokens while retaining failures in
+    observability.
 
 ## Run multiple dbt scopes
 

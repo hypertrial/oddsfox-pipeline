@@ -267,7 +267,7 @@ custom SQL storage updated by the hourly candlestick sync asset.
 `polymarket_wc2026_raw.match_minute_odds_history` and
 `polymarket_wc2026_raw.futures_minute_odds_history` are DuckDB views over an
 immutable partitioned Parquet snapshot under
-`${ODDSFOX_RUNTIME_ROOT:-.cache/runtime}/minute-odds-snapshots/<match|futures>/`.
+`${ODDSFOX_RUNTIME_ROOT:-.cache/runtime}/minute-odds-snapshots/<scope>/<match|futures>/`.
 After CLOB fetch, the sync spills fresh histories to temporary Parquet shards
 under `minute-odds-publish/<fetch_run_id>/` (warehouse lock released), then
 promotes them into a checksummed snapshot (`raw/` + `primary_ohlc/` buckets,

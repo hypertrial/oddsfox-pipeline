@@ -349,9 +349,25 @@ manually when needed.
   `manifest.json` under `DBT_TARGET_PATH` is still newer than dbt inputs.
   Default is off so warm restarts skip prepare.
 - Minute-odds immutable snapshots live under
-  `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/<match|futures>/` with an
+  `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/<scope>/<match|futures>/` with an
   atomic `CURRENT` pointer; temporary fetch spill remains under
   `minute-odds-publish/<fetch_run_id>/`.
+
+The soccer daily schedule is controlled by
+`POLYMARKET_SOCCER_DAILY_SCHEDULE_ENABLED` and is `false` by default. When
+enabled it runs `polymarket_soccer_full_pipeline` at 04:00 UTC. Soccer catch-up
+uses `completion_grace_minutes=60` and `empty_retry_hours=72` by default; these
+are Dagster run-config fields. `force=true` retries terminal-empty exact
+windows. When an empty window reaches its configured retry deadline, the
+pipeline records that exact token window in
+`polymarket_soccer_ops.match_minute_odds_terminal_unavailable`; observability
+therefore preserves the run-specific deadline instead of assuming 72 hours.
+
+!!! warning "v0.2 local layout reset"
+
+    The scope segment in the snapshot path is a breaking local-state layout
+    change. Delete old `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/` state
+    and rebuild it; no dual-path compatibility reader is provided.
 
 Smoke-only knobs consumed by `polymarket_wc2026_minute_odds_live_smoke` /
 `make minute-odds-live-smoke` (production backfill ignores them):

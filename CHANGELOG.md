@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added the shipped `polymarket:soccer` scope: converged open/closed exact-tag
+  Gamma catalog scans, strict three-way match-result admission, six-token
+  incremental CLOB minute ingestion, disabled-by-default 04:00 UTC daily
+  schedule, sparse observed and dense carry-aware marts, observability, and
+  disposable catalog/live-smoke/dbt operator targets.
+
+### Changed
+
+- Minute snapshots now use the scope-aware local layout
+  `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/<scope>/<leg>/`. This is a
+  breaking v0.2 local-state change: delete and rebuild old minute snapshot
+  state. There is no dual-path compatibility reader.
+
 ### Fixed
 
 - Dagster-dev no longer re-runs `dbt deps`/`dbt parse` on every process when

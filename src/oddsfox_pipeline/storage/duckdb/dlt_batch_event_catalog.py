@@ -177,16 +177,17 @@ def merge_event_catalog_batch(
     event_market_rows: Sequence[dict[str, Any]],
     market_rows: Sequence[dict[str, Any]],
     conn: duckdb.DuckDBPyConnection,
+    scope_name: str = SCOPE_WC2026,
 ) -> None:
-    """Stage and atomically append one complete WC2026 event catalog observation."""
+    """Stage and atomically append one complete event catalog observation."""
     if not event_rows:
         raise ValueError("event_rows must not be empty")
-    raw_schema = polymarket_raw_schema(SCOPE_WC2026)
-    events_target = polymarket_raw_tbl(SCOPE_WC2026, "event_snapshots")
-    tags_target = polymarket_raw_tbl(SCOPE_WC2026, "event_tag_snapshots")
-    bridge_target = polymarket_raw_tbl(SCOPE_WC2026, "event_market_snapshots")
+    raw_schema = polymarket_raw_schema(scope_name)
+    events_target = polymarket_raw_tbl(scope_name, "event_snapshots")
+    tags_target = polymarket_raw_tbl(scope_name, "event_tag_snapshots")
+    bridge_target = polymarket_raw_tbl(scope_name, "event_market_snapshots")
     market_payloads_target = polymarket_raw_tbl(
-        SCOPE_WC2026, "event_market_payload_snapshots"
+        scope_name, "event_market_payload_snapshots"
     )
     observed_at_values = {row.get("observed_at") for row in event_rows}
     if None in observed_at_values or len(observed_at_values) != 1:
@@ -267,7 +268,7 @@ def merge_event_catalog_batch(
 
     # Existing warehouses predate the dedicated payload snapshot table. Keep
     # dlt-owned ``markets`` untouched and migrate only project-owned raw tables.
-    bootstrap_polymarket_tables(conn, scope_name=SCOPE_WC2026)
+    bootstrap_polymarket_tables(conn, scope_name=scope_name)
 
     events_stage = load_stage_rows(
         schema=raw_schema,

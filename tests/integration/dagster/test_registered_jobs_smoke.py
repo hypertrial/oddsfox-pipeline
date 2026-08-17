@@ -27,6 +27,7 @@ from oddsfox_pipeline.orchestration import (
     assets_polygon_settlement as polygon_assets_mod,
 )
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
+from oddsfox_pipeline.orchestration import assets_soccer as soccer_assets_mod
 from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.shipped_scopes import SCOPE_STEPS, iter_scope_specs
 
@@ -278,6 +279,38 @@ oddsfox:
         assets_mod,
         "merge_event_catalog_batch",
         lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(soccer_assets_mod, "get_connection", mock_connection)
+    monkeypatch.setattr(
+        soccer_assets_mod,
+        "collect_soccer_event_catalog",
+        lambda **_kwargs: SimpleNamespace(
+            event_snapshots=[],
+            event_tag_snapshots=[],
+            event_market_snapshots=[],
+            market_payloads=[],
+            summary={"observed_at": "2026-08-02T00:00:00+00:00"},
+        ),
+    )
+    monkeypatch.setattr(
+        soccer_assets_mod,
+        "merge_event_catalog_batch",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        soccer_assets_mod,
+        "refresh_soccer_match_result_registry",
+        lambda _conn: {"matches": 0, "markets": 0, "exclusions": 0},
+    )
+    monkeypatch.setattr(
+        soccer_assets_mod,
+        "sync_soccer_match_minute_odds_history",
+        lambda **_kwargs: {"status": "noop", "tokens": 0, "rows": 0},
+    )
+    monkeypatch.setattr(
+        soccer_assets_mod,
+        "save_sync_run_metrics",
+        lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(polygon_assets_mod, "get_connection", mock_connection)
     monkeypatch.setattr(

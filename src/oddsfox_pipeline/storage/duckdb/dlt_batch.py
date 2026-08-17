@@ -20,6 +20,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from oddsfox_pipeline.naming import (
+    SCOPE_SOCCER,
     SCOPE_WC2026,
     SOURCE_KALSHI,
     SOURCE_POLYMARKET,
@@ -513,6 +514,7 @@ def _resolve_primary_token_ids(
     parquet_paths: Sequence[Path],
     *,
     extra_token_market_rows: Sequence[tuple[str, str]] | None = None,
+    scope_name: str = SCOPE_WC2026,
 ) -> set[str]:
     """Prefer Yes outcome tokens per market; fall back to lowest token id."""
     extra_rows = [(str(m), str(t)) for m, t in (extra_token_market_rows or ())]
@@ -525,7 +527,24 @@ def _resolve_primary_token_ids(
     token_column = (
         '"clobTokenId"' if "clobTokenId" in parquet_names else "clob_token_id"
     )
-    markets = polymarket_raw_tbl(SCOPE_WC2026, "markets")
+    if scope_name == SCOPE_SOCCER:
+        present = {token for _, token in extra_rows}
+        if parquet_paths:
+            present.update(
+                str(row[0])
+                for row in conn.execute(
+                    f"SELECT DISTINCT {token_column} FROM read_parquet("
+                    f"[{path_literals}], hive_partitioning=false)",
+                    [str(path) for path in parquet_paths],
+                ).fetchall()
+            )
+        registry = polymarket_ops_tbl(scope_name, "match_result_registry")
+        return {
+            str(row[0])
+            for row in conn.execute(f"SELECT yes_token_id FROM {registry}").fetchall()
+            if str(row[0]) in present
+        }
+    markets = polymarket_raw_tbl(scope_name, "markets")
     has_markets = (
         conn.execute(
             """
@@ -534,7 +553,7 @@ def _resolve_primary_token_ids(
             WHERE table_schema = ?
               AND table_name = 'markets'
             """,
-            [polymarket_raw_schema(SCOPE_WC2026)],
+            [polymarket_raw_schema(scope_name)],
         ).fetchone()[0]
         > 0
     )
@@ -667,6 +686,7 @@ def _publish_minute_odds_from_parquet(
     fetch_run_id: str,
     audit_mode: Literal["all", "success_only"],
     reuse_token_ids: set[str] | None = None,
+    scope_name: str = SCOPE_WC2026,
 ) -> int:
     """Publish immutable Parquet snapshot + register DuckDB views (no heap PK rebuild)."""
     reuse_token_ids = {str(token) for token in (reuse_token_ids or set())}
@@ -678,7 +698,7 @@ def _publish_minute_odds_from_parquet(
 
     _configure_minute_publish_connection(conn)
     audit = polymarket_ops_tbl(
-        SCOPE_WC2026,
+        scope_name,
         "match_minute_odds_fetch_audit"
         if relation == "match_minute_odds_history"
         else "futures_minute_odds_fetch_audit",
@@ -929,6 +949,7 @@ def _publish_minute_odds_from_parquet(
         conn,
         parquet_paths,
         extra_token_market_rows=extra_rows,
+        scope_name=scope_name,
     )
     logger.info(
         "Minute-odds publishing parquet snapshot "
@@ -960,8 +981,13 @@ def _publish_minute_odds_from_parquet(
         retain=False,
         reuse_token_ids=reuse_token_ids,
         window_hashes=window_hashes,
+        scope_name=scope_name,
     )
-    if not reuse_token_ids and int(snapshot.raw_row_count) > expected_rows:
+    if (
+        audit_mode == "all"
+        and not reuse_token_ids
+        and int(snapshot.raw_row_count) > expected_rows
+    ):
         raise RuntimeError(
             f"Snapshot row count exceeds parquet for {relation}: "
             f"parquet={expected_rows} snapshot={snapshot.raw_row_count}"
@@ -969,10 +995,10 @@ def _publish_minute_odds_from_parquet(
     if int(snapshot.raw_row_count) < 1:
         raise RuntimeError(f"Snapshot for {relation} has no raw rows")
 
-    root = minute_odds_snapshot_root(leg=leg)
+    root = minute_odds_snapshot_root(leg=leg, scope_name=scope_name)
     conn.execute("BEGIN TRANSACTION")
     try:
-        register_snapshot_views(conn, snapshot)
+        register_snapshot_views(conn, snapshot, scope_name=scope_name)
         if audit_mode == "all":
             updated = conn.execute(
                 f"UPDATE {audit} SET raw_published = TRUE WHERE fetch_run_id = ?",
@@ -1135,16 +1161,19 @@ def load_match_minute_odds_history_stage(
     *,
     fetch_run_id: str,
     reuse_token_ids: set[str] | None = None,
+    scope_name: str = SCOPE_WC2026,
+    audit_mode: Literal["all", "success_only"] = "all",
 ) -> None:
-    """Atomically replace the complete bounded WC2026 minute snapshot."""
+    """Publish a bounded match-minute snapshot for one Polymarket scope."""
     if not rows and reuse_token_ids:
         _publish_minute_odds_from_parquet(
             conn,
             [],
             relation="match_minute_odds_history",
             fetch_run_id=fetch_run_id,
-            audit_mode="all",
+            audit_mode=audit_mode,
             reuse_token_ids=reuse_token_ids,
+            scope_name=scope_name,
         )
         return
     paths, cleanup_dir = _minute_publish_input_to_parquet_paths(
@@ -1156,8 +1185,9 @@ def load_match_minute_odds_history_stage(
             paths,
             relation="match_minute_odds_history",
             fetch_run_id=fetch_run_id,
-            audit_mode="all",
+            audit_mode=audit_mode,
             reuse_token_ids=reuse_token_ids,
+            scope_name=scope_name,
         )
     finally:
         if cleanup_dir is not None:
@@ -1167,11 +1197,13 @@ def load_match_minute_odds_history_stage(
 def load_match_minute_fetch_audit(
     rows: Sequence[dict[str, Any]],
     conn: duckdb.DuckDBPyConnection,
+    *,
+    scope_name: str = SCOPE_WC2026,
 ) -> None:
     """Append one immutable operational audit row per run and token."""
     if not rows:
         return
-    target = polymarket_ops_tbl(SCOPE_WC2026, "match_minute_odds_fetch_audit")
+    target = polymarket_ops_tbl(scope_name, "match_minute_odds_fetch_audit")
     columns = (
         "fetch_run_id",
         "market_id",

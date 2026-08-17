@@ -7,7 +7,9 @@ from typing import Iterable, Literal
 
 from oddsfox_pipeline.naming import (
     KALSHI_WC2026,
+    POLYMARKET_SOCCER,
     POLYMARKET_WC2026,
+    SCOPE_SOCCER,
     SCOPE_WC2026,
     SOURCE_KALSHI,
     SOURCE_POLYMARKET,
@@ -18,6 +20,7 @@ ScopeStep = Literal["market_scope_registry", "odds", "dbt", "full"]
 SCOPE_STEPS: tuple[ScopeStep, ...] = ("market_scope_registry", "odds", "dbt", "full")
 
 POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT = "+polymarket_wc2026_market_hourly_odds"
+POLYMARKET_SOCCER_DBT_SELECT = "+polymarket_soccer_match_result_data_quality"
 
 
 @dataclass(frozen=True)
@@ -76,6 +79,17 @@ POLYMARKET_WC2026_SCOPE = ScopeSpec(
     source_seed="polymarket.market_scopes",
     includes_international_results=False,
 )
+POLYMARKET_SOCCER_SCOPE = ScopeSpec(
+    source=SOURCE_POLYMARKET,
+    scope=SCOPE_SOCCER,
+    label="Polymarket Soccer",
+    registry_job_name="polymarket_soccer_market_scope_registry_refresh",
+    odds_job_name="polymarket_soccer_match_result_minute_odds_ingest",
+    dbt_job_name="polymarket_soccer_dbt_build",
+    full_job_name="polymarket_soccer_full_pipeline",
+    dbt_select=POLYMARKET_SOCCER_DBT_SELECT,
+    dbt_exclude=None,
+)
 KALSHI_WC2026_SCOPE = ScopeSpec(
     source=SOURCE_KALSHI,
     scope=SCOPE_WC2026,
@@ -92,6 +106,7 @@ KALSHI_WC2026_SCOPE = ScopeSpec(
 
 SHIPPED_SCOPE_SPECS: tuple[ScopeSpec, ...] = (
     POLYMARKET_WC2026_SCOPE,
+    POLYMARKET_SOCCER_SCOPE,
     KALSHI_WC2026_SCOPE,
 )
 
@@ -138,6 +153,9 @@ __all__ = [
     "POLYMARKET_WC2026",
     "POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT",
     "POLYMARKET_WC2026_SCOPE",
+    "POLYMARKET_SOCCER",
+    "POLYMARKET_SOCCER_DBT_SELECT",
+    "POLYMARKET_SOCCER_SCOPE",
     "SCOPE_STEPS",
     "SHIPPED_SCOPE_SPECS",
     "ScopeSpec",

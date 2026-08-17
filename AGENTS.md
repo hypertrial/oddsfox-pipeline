@@ -246,19 +246,25 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 9. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
 10. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
 11. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
-12. `international_results/historical/raw/snapshot`
-13. `international_results/wc2026/raw/match_results`
-14. `openfootball/wc2026/raw/schedule_fixtures`
-15. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
-16. `kalshi/wc2026/raw/markets`
-17. `kalshi/wc2026/raw/markets_snapshot`
-18. `kalshi/wc2026/ops/market_scope_registry`
-19. `kalshi/wc2026/raw/market_candlesticks_hourly`
-20. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+12. `polymarket/soccer/raw/event_catalog`
+13. `polymarket/soccer/raw/event_snapshots`
+14. `polymarket/soccer/raw/event_market_memberships`
+15. `polymarket/soccer/ops/match_result_registry`
+16. `polymarket/soccer/raw/match_result_token_odds_history_minute`
+17. `international_results/historical/raw/snapshot`
+18. `international_results/wc2026/raw/match_results`
+19. `openfootball/wc2026/raw/schedule_fixtures`
+20. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
+21. `kalshi/wc2026/raw/markets`
+22. `kalshi/wc2026/raw/markets_snapshot`
+23. `kalshi/wc2026/ops/market_scope_registry`
+24. `kalshi/wc2026/raw/market_candlesticks_hourly`
+25. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+   `polymarket/soccer/{staging,intermediate,marts,observability}/...`,
    `international_results/wc2026/{staging,intermediate,marts,observability}/...`,
    `kalshi_wc2026/{staging,intermediate,marts,observability}/...`,
    `openfootball/wc2026/staging/...`, and `wc2026/{intermediate,marts,observability}/...`
-21. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
+26. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
 
 Key jobs: `international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`,
@@ -273,9 +279,14 @@ Key jobs: `international_results_historical_ingest`,
 `polymarket_wc2026_dbt_build`, `polymarket_wc2026_full_pipeline`,
 `kalshi_wc2026_market_scope_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
 `kalshi_wc2026_dbt_build`, `kalshi_wc2026_full_pipeline`.
+Soccer jobs: `polymarket_soccer_market_scope_registry_refresh`,
+`polymarket_soccer_match_result_minute_odds_ingest`,
+`polymarket_soccer_dbt_build`, and `polymarket_soccer_full_pipeline`.
 
 Schedules target `kalshi_wc2026_hourly_odds_ingest`; it is **stopped by default**.
 The daily `international_results_daily_schedule` is also stopped by default.
+The daily `polymarket_soccer_daily_schedule` targets the soccer full pipeline
+at 04:00 UTC and is stopped by default.
 Polymarket WC2026 has no Dagster schedule; use manual jobs when needed.
 The PMXT order-book backfill, Polygon settlement backfill, and audit-release
 jobs are unscheduled and have no schedule-enable environment flags. The
@@ -284,8 +295,8 @@ smoke job is also unscheduled. The
 technical exporter is standalone and unscheduled.
 Do not enable live/hourly schedules in code or `.env` unless the task explicitly requires it.
 
-**Market scope:** v0.2.x ships fixed Dagster/dbt graphs for `wc2026` on
-Polymarket and `wc2026` on Kalshi. Polymarket scope helpers may load other
+**Market scope:** v0.2.x ships fixed Dagster/dbt graphs for `wc2026` and
+`soccer` on Polymarket and `wc2026` on Kalshi. Polymarket scope helpers may load other
 slug-like seed entries for tests and future work, but Dagster asset configs do
 not accept a runtime scope selector. See
 [Configuration](docs/reference/configuration.md).

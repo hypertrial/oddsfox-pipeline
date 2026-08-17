@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: polymarket_soccer_matches
+    description: One row per strictly mapped exact-tag Polymarket soccer match.
+    columns:
+      - name: event_id
+        tests: [not_null, unique]
+  - name: polymarket_soccer_match_result_minute_odds_observed
+    description: Sparse observed Yes-token minute OHLC for home, draw, and away result markets.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_id, odds_minute_epoch]
+  - name: polymarket_soccer_match_result_minute_odds
+    description: Dense in-game minute odds with explicit observation and carry age.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_id, odds_minute_epoch]
+    columns:
+      - name: result_role
+        tests:
+          - accepted_values:
+              arguments:
+                values: [home_win, draw, away_win]
+  - name: polymarket_soccer_match_result_data_quality
+    description: Current mapping, fetch, observed, dense, carry, and retry counts.
+  - name: polymarket_soccer_match_result_exclusions
+    description: Current event exclusions with stable fail-closed reasons.
+  - name: polymarket_soccer_match_result_token_fetch_status
+    description: Current six-token exact-window publication and retry status.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [clob_token_id, window_start_at, window_end_at]

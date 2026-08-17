@@ -22,6 +22,7 @@ from oddsfox_pipeline.config.settings import (
 )
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
+    POLYMARKET_SOCCER_SCOPE,
     POLYMARKET_WC2026_SCOPE,
 )
 from oddsfox_pipeline.publishing.polygon_settlement import (
@@ -233,6 +234,13 @@ class MatchMinuteOddsSyncConfig(GuardrailConfig):
         return self
 
 
+class SoccerMatchMinuteOddsSyncConfig(MatchMinuteOddsSyncConfig):
+    completion_grace_minutes: int = Field(default=60, ge=0)
+    empty_retry_hours: int = Field(default=72, ge=0)
+    force: bool = False
+    game_sample_size: int | None = Field(default=None, ge=3)
+
+
 class FuturesMinuteOddsSyncConfig(GuardrailConfig):
     workers: int = Field(default=40, ge=1, le=100)
     requests_per_second: int = Field(default=40, ge=1)
@@ -312,6 +320,58 @@ def polymarket_wc2026_dbt_build_run_config() -> dict:
         dbt_exclude=POLYMARKET_WC2026_SCOPE.dbt_exclude,
     )
     return {"ops": {"oddsfox_dbt": {"config": dbt_cfg.model_dump()}}}
+
+
+def polymarket_soccer_catalog_run_config() -> dict:
+    catalog = MarketScopeRegistryConfig(
+        force_refresh=True,
+        max_pages_without_progress=None,
+        apply_event_volume_eligibility_gate=False,
+    )
+    return {
+        "ops": {"polymarket_soccer_raw_event_catalog": {"config": catalog.model_dump()}}
+    }
+
+
+def polymarket_soccer_minute_odds_run_config(
+    *, game_sample_size: int | None = None, force: bool = False
+) -> dict:
+    minute = SoccerMatchMinuteOddsSyncConfig(
+        game_sample_size=game_sample_size,
+        force=force,
+    )
+    return {
+        "ops": {
+            "polymarket_soccer_raw_match_result_token_odds_history_minute": {
+                "config": minute.model_dump()
+            }
+        }
+    }
+
+
+def polymarket_soccer_dbt_build_run_config() -> dict:
+    dbt = DbtBuildConfig(
+        full_refresh=False,
+        dbt_select=POLYMARKET_SOCCER_SCOPE.dbt_select,
+        dbt_exclude=None,
+    )
+    return {"ops": {"oddsfox_dbt": {"config": dbt.model_dump()}}}
+
+
+def polymarket_soccer_full_pipeline_run_config(
+    *, game_sample_size: int | None = None, force: bool = False
+) -> dict:
+    ops: dict = {}
+    for config in (
+        polymarket_soccer_catalog_run_config(),
+        polymarket_soccer_minute_odds_run_config(
+            game_sample_size=game_sample_size,
+            force=force,
+        ),
+        polymarket_soccer_dbt_build_run_config(),
+    ):
+        ops.update(config["ops"])
+    return {"ops": ops}
 
 
 def polymarket_wc2026_full_pipeline_run_config() -> dict:

@@ -42,6 +42,23 @@ pipeline as bundle inputs; they are not independently documented contracts. See
 Analyst column guidance for the isolated Polymarket marts is in
 [Data dictionary](data-dictionary.md#polymarket-wc2026-marts).
 
+### Polymarket soccer match-result minute odds
+
+Schema: `polymarket_soccer_marts`
+
+| Relation | Grain | Contract |
+| --- | --- | --- |
+| `polymarket_soccer_matches` | One row per admitted soccer event | Exact canonical-soccer-tag event identity, series metadata, home/away labels, inclusive kickoff/finish bounds, timing provenance/confidence, coverage tier, and the three distinct result-market IDs. |
+| `polymarket_soccer_match_result_minute_odds_observed` | One row per `(market_id, odds_minute_epoch)` | Source Yes-token minute OHLC for `home_win`, `draw`, or `away_win`; no normalization and no generated rows. |
+| `polymarket_soccer_match_result_minute_odds` | One row per `(market_id, odds_minute_epoch)` | Inclusive kickoff-to-finish minute spine. Before the first observation prices are null; later quiet minutes carry the prior close into OHLC and expose `is_observed`, `minutes_since_observation`, `last_observed_at`, and `observed_points`. |
+
+An event publishes only when its three roles, distinct markets, binary token
+pairs, teams, and timing map without ambiguity. Every mart row is filtered
+through the current registry and the latest successfully published audit for
+the exact token window. Raw storage keeps both Yes and No token sides; these
+marts expose only the unmodified source Yes-token price. Catalog completeness
+and CLOB price completeness are reported separately.
+
 ### Polygon settlement minute odds
 
 The mart is an internal audit surface, not the allowlisted technical export. It

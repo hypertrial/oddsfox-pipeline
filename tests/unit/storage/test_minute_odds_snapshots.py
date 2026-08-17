@@ -33,6 +33,19 @@ def test_token_bucket_is_stable():
     assert 0 <= token_bucket("tok-b", bucket_count=8) < 8
 
 
+def test_snapshot_roots_are_scope_isolated(tmp_path):
+    wc2026 = minute_odds_snapshot_root(
+        leg="match", scope_name="wc2026", runtime_root=tmp_path
+    )
+    soccer = minute_odds_snapshot_root(
+        leg="match", scope_name="soccer", runtime_root=tmp_path
+    )
+
+    assert wc2026 == tmp_path / "minute-odds-snapshots" / "wc2026" / "match"
+    assert soccer == tmp_path / "minute-odds-snapshots" / "soccer" / "match"
+    assert wc2026 != soccer
+
+
 def test_compute_primary_minute_ohlc_filters_window_and_non_primary():
     start = datetime(2026, 7, 1, 12, 0, 30)
     end = datetime(2026, 7, 1, 12, 2, 35)

@@ -17,6 +17,7 @@ from oddsfox_pipeline.naming import SOURCE_KALSHI, SOURCE_POLYMARKET
 from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     KALSHI_WC2026_SCOPE,
+    POLYMARKET_SOCCER_SCOPE,
     POLYMARKET_WC2026_SCOPE,
     SCOPE_STEPS,
     SHIPPED_SCOPE_SPECS,
@@ -34,10 +35,14 @@ def test_shipped_scopes_lookup_accepts_keys_and_namespace_aliases():
     assert get_scope_spec("polymarket:wc2026") is POLYMARKET_WC2026_SCOPE
     assert get_scope_spec(" polymarket_wc2026 ") is POLYMARKET_WC2026_SCOPE
     assert get_scope_spec("kalshi:wc2026") is KALSHI_WC2026_SCOPE
+    assert get_scope_spec("polymarket:soccer") is POLYMARKET_SOCCER_SCOPE
     assert iter_scope_specs() == SHIPPED_SCOPE_SPECS
-    assert iter_scope_specs(source=SOURCE_POLYMARKET) == (POLYMARKET_WC2026_SCOPE,)
+    assert iter_scope_specs(source=SOURCE_POLYMARKET) == (
+        POLYMARKET_WC2026_SCOPE,
+        POLYMARKET_SOCCER_SCOPE,
+    )
     assert iter_scope_specs(source=SOURCE_KALSHI) == (KALSHI_WC2026_SCOPE,)
-    assert len(SHIPPED_SCOPE_SPECS) == 2
+    assert len(SHIPPED_SCOPE_SPECS) == 3
 
 
 @given(st.sampled_from(SHIPPED_SCOPE_SPECS), st.booleans())
@@ -99,8 +104,8 @@ def test_scope_specs_are_backed_by_source_seed_entries():
     }
 
     for spec in SHIPPED_SCOPE_SPECS:
-        assert spec.source_seed is not None
-        assert spec.scope in seeds[spec.source_seed]["scopes"]
+        if spec.source_seed is not None:
+            assert spec.scope in seeds[spec.source_seed]["scopes"]
 
 
 def test_scope_specs_are_documented():

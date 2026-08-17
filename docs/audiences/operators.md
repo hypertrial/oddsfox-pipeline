@@ -18,6 +18,7 @@ Schedules stay disabled until manual jobs and dbt builds are healthy.
 | Scope or pipeline | Network / credentials | Operator-local inputs |
 | --- | --- | --- |
 | `polymarket:wc2026` | Public Gamma/CLOB; CLOB auth optional unless a live job requires it | `.env` only for the ordinary full run |
+| `polymarket:soccer` | Public Gamma/CLOB | `.env` only; the daily schedule is stopped by default |
 | `kalshi:wc2026` | Public trade API; no API credentials | `.env` only |
 | FIFA / international results | Public CSV feeds pulled by WC2026 jobs | `.env` only |
 | Match-minute odds (mature, isolated) | Live APIs or completed raw warehouse | Populated schedule overlay (tracked shell) |

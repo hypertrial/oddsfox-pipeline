@@ -7,6 +7,7 @@ from typing import Final, Mapping, Sequence
 from dagster import AssetKey
 
 from oddsfox_pipeline.naming import (
+    SCOPE_SOCCER,
     SCOPE_WC2026,
     SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_KALSHI,
@@ -19,11 +20,13 @@ DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026: Final = "international_results_wc2026"
 DBT_SOURCE_OPENFOOTBALL_WC2026: Final = "openfootball_wc2026"
 DBT_SOURCE_KALSHI_WC2026: Final = "kalshi_wc2026"
 DBT_SOURCE_POLYMARKET_WC2026: Final = "polymarket_wc2026"
+DBT_SOURCE_POLYMARKET_SOCCER: Final = "polymarket_soccer"
 DBT_SOURCE_POLYMARKET_CATALOG: Final = "polymarket_catalog"
 DBT_SOURCE_WC2026: Final = "wc2026"
 
 _POLYMARKET_SOURCE_SCOPES: dict[str, str] = {
     DBT_SOURCE_POLYMARKET_WC2026: SCOPE_WC2026,
+    DBT_SOURCE_POLYMARKET_SOCCER: SCOPE_SOCCER,
 }
 _KALSHI_SOURCE_SCOPES: dict[str, str] = {
     DBT_SOURCE_KALSHI_WC2026: SCOPE_WC2026,
@@ -57,6 +60,18 @@ POLYMARKET_WC2026_MARTS_SCHEMA: Final = schema_name(
 )
 POLYMARKET_WC2026_OBSERVABILITY_SCHEMA: Final = schema_name(
     SOURCE_POLYMARKET, SCOPE_WC2026, "observability"
+)
+POLYMARKET_SOCCER_STAGING_SCHEMA: Final = schema_name(
+    SOURCE_POLYMARKET, SCOPE_SOCCER, "staging"
+)
+POLYMARKET_SOCCER_INTERMEDIATE_SCHEMA: Final = schema_name(
+    SOURCE_POLYMARKET, SCOPE_SOCCER, "intermediate"
+)
+POLYMARKET_SOCCER_MARTS_SCHEMA: Final = schema_name(
+    SOURCE_POLYMARKET, SCOPE_SOCCER, "marts"
+)
+POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA: Final = schema_name(
+    SOURCE_POLYMARKET, SCOPE_SOCCER, "observability"
 )
 KALSHI_WC2026_STAGING_SCHEMA: Final = schema_name(
     SOURCE_KALSHI, SCOPE_WC2026, "staging"
@@ -104,6 +119,10 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
     POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
     POLYMARKET_WC2026_MARTS_SCHEMA,
     POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
+    POLYMARKET_SOCCER_STAGING_SCHEMA,
+    POLYMARKET_SOCCER_INTERMEDIATE_SCHEMA,
+    POLYMARKET_SOCCER_MARTS_SCHEMA,
+    POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA,
     KALSHI_WC2026_STAGING_SCHEMA,
     KALSHI_WC2026_INTERMEDIATE_SCHEMA,
     KALSHI_WC2026_MARTS_SCHEMA,
@@ -374,6 +393,48 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         POLYMARKET_WC2026_OBSERVABILITY_SCHEMA,
         "polymarket_wc2026_ingestion_run_observability",
     ),
+    (POLYMARKET_SOCCER_STAGING_SCHEMA, "stg_polymarket_soccer_event_latest"),
+    (
+        POLYMARKET_SOCCER_STAGING_SCHEMA,
+        "stg_polymarket_soccer_match_minute_audit_latest",
+    ),
+    (
+        POLYMARKET_SOCCER_STAGING_SCHEMA,
+        "stg_polymarket_soccer_match_minute_audit_latest_published_success",
+    ),
+    (
+        POLYMARKET_SOCCER_STAGING_SCHEMA,
+        "stg_polymarket_soccer_match_primary_minute_ohlc",
+    ),
+    (
+        POLYMARKET_SOCCER_STAGING_SCHEMA,
+        "stg_polymarket_soccer_match_result_registry",
+    ),
+    (
+        POLYMARKET_SOCCER_INTERMEDIATE_SCHEMA,
+        "int_polymarket_soccer_match_result_observed",
+    ),
+    (POLYMARKET_SOCCER_MARTS_SCHEMA, "polymarket_soccer_matches"),
+    (
+        POLYMARKET_SOCCER_MARTS_SCHEMA,
+        "polymarket_soccer_match_result_minute_odds_observed",
+    ),
+    (
+        POLYMARKET_SOCCER_MARTS_SCHEMA,
+        "polymarket_soccer_match_result_minute_odds",
+    ),
+    (
+        POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA,
+        "polymarket_soccer_match_result_data_quality",
+    ),
+    (
+        POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA,
+        "polymarket_soccer_match_result_exclusions",
+    ),
+    (
+        POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA,
+        "polymarket_soccer_match_result_token_fetch_status",
+    ),
     (KALSHI_WC2026_STAGING_SCHEMA, "stg_kalshi_wc2026_events"),
     (KALSHI_WC2026_STAGING_SCHEMA, "stg_kalshi_wc2026_markets"),
     (
@@ -468,6 +529,14 @@ def _polymarket_source_slug(model_name: str) -> str | None:
         )
     ):
         return DBT_SOURCE_POLYMARKET_WC2026
+    if model_name.startswith(
+        (
+            "stg_polymarket_soccer_",
+            "int_polymarket_soccer_",
+            "polymarket_soccer_",
+        )
+    ):
+        return DBT_SOURCE_POLYMARKET_SOCCER
     return None
 
 
@@ -579,6 +648,22 @@ def _polymarket_wc2026_layer(
     )
 
 
+def _polymarket_soccer_layer(
+    model_name: str,
+    props: Mapping[str, object] | None = None,
+    *,
+    fqn: Sequence[str] | None = None,
+) -> str:
+    return _polymarket_layer(
+        model_name,
+        props,
+        fqn=fqn,
+        observability_models=("polymarket_soccer_match_result_data_quality",),
+        staging_prefix="stg_polymarket_soccer_",
+        intermediate_prefix="int_polymarket_soccer_",
+    )
+
+
 def _international_results_wc2026_layer(
     model_name: str,
     props: Mapping[str, object] | None = None,
@@ -618,6 +703,15 @@ def _polymarket_wc2026_subject(model_name: str) -> str:
     )
 
 
+def _polymarket_soccer_subject(model_name: str) -> str:
+    return _polymarket_subject(
+        model_name,
+        staging_prefix="stg_polymarket_soccer_",
+        intermediate_prefix="int_polymarket_soccer_",
+        mart_prefix="polymarket_soccer_",
+    )
+
+
 def _international_results_wc2026_subject(model_name: str) -> str:
     for prefix in (
         "stg_international_results_wc2026_",
@@ -638,6 +732,8 @@ def shorten_model_name(model_name: str, source_slug: str) -> str:
         return _kalshi_wc2026_subject(model_name)
     if source_slug == DBT_SOURCE_POLYMARKET_WC2026:
         return _polymarket_wc2026_subject(model_name)
+    if source_slug == DBT_SOURCE_POLYMARKET_SOCCER:
+        return _polymarket_soccer_subject(model_name)
     if source_slug == DBT_SOURCE_POLYMARKET_CATALOG:
         prefix = "stg_polymarket_catalog_"
         if model_name.startswith(prefix):
@@ -694,6 +790,13 @@ def dbt_model_asset_key_for_name(
             layer or _polymarket_wc2026_layer(model_name, props, fqn=fqn),
             _polymarket_wc2026_subject(model_name),
         )
+    if source_slug == DBT_SOURCE_POLYMARKET_SOCCER:
+        return asset_key(
+            SOURCE_POLYMARKET,
+            SCOPE_SOCCER,
+            layer or _polymarket_soccer_layer(model_name, props, fqn=fqn),
+            _polymarket_soccer_subject(model_name),
+        )
     if source_slug == DBT_SOURCE_POLYMARKET_CATALOG:
         path_fqn = list(fqn or (props or {}).get("fqn") or ())
         resolved_layer = layer or next(
@@ -736,6 +839,7 @@ __all__ = [
     "DBT_SOURCE_OPENFOOTBALL_WC2026",
     "DBT_SOURCE_POLYMARKET_CATALOG",
     "DBT_SOURCE_POLYMARKET_WC2026",
+    "DBT_SOURCE_POLYMARKET_SOCCER",
     "DBT_SOURCE_WC2026",
     "INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA",
     "INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA",
@@ -751,6 +855,10 @@ __all__ = [
     "POLYMARKET_WC2026_OBSERVABILITY_SCHEMA",
     "POLYMARKET_CATALOG_STAGING_SCHEMA",
     "POLYMARKET_WC2026_STAGING_SCHEMA",
+    "POLYMARKET_SOCCER_INTERMEDIATE_SCHEMA",
+    "POLYMARKET_SOCCER_MARTS_SCHEMA",
+    "POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA",
+    "POLYMARKET_SOCCER_STAGING_SCHEMA",
     "WC2026_INTERMEDIATE_SCHEMA",
     "WC2026_MARTS_SCHEMA",
     "WC2026_OBSERVABILITY_SCHEMA",

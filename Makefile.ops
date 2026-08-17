@@ -92,6 +92,22 @@ event-catalog-recall-audit: runtime-dirs
 	@echo "Running exhaustive WC2026 event-catalog slug-prefix recall audit."
 	cd "$(REPO_ROOT)/.cache" && "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_wc2026_event_catalog_recall_audit
 
+soccer-catalog-audit: runtime-dirs
+	@echo "Running converged open and closed exact-soccer-tag catalog audit."
+	cd "$(REPO_ROOT)/.cache" && "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_soccer_market_scope_registry_refresh
+
+soccer-minute-backfill: runtime-dirs
+	@echo "Running resumable Polymarket soccer catalog, minute backfill, and dbt publication."
+	cd "$(REPO_ROOT)/.cache" && "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_soccer_full_pipeline
+
+soccer-minute-live-smoke: runtime-dirs
+	@echo "Running disposable early/middle/recent soccer match-minute sample."
+	@rm -f "$(SOCCER_MINUTE_LIVE_SMOKE_DUCKDB_PATH)" "$(SOCCER_MINUTE_LIVE_SMOKE_DUCKDB_PATH).wal" "$(SOCCER_MINUTE_LIVE_SMOKE_DUCKDB_PATH)-wal" "$(SOCCER_MINUTE_LIVE_SMOKE_DUCKDB_PATH)-shm"
+	@rm -rf "$(SOCCER_MINUTE_LIVE_SMOKE_RUNTIME_ROOT)"
+	@mkdir -p "$(SOCCER_MINUTE_LIVE_SMOKE_RUNTIME_ROOT)/tmp" "$(SOCCER_MINUTE_LIVE_SMOKE_RUNTIME_ROOT)/xdg"
+	cd "$(REPO_ROOT)/.cache" && $(SOCCER_MINUTE_LIVE_SMOKE_ENV) TMPDIR="$(SOCCER_MINUTE_LIVE_SMOKE_RUNTIME_ROOT)/tmp" XDG_CACHE_HOME="$(SOCCER_MINUTE_LIVE_SMOKE_RUNTIME_ROOT)/xdg" "$(PYTHON)" -c "from oddsfox_pipeline.orchestration.config import polymarket_soccer_full_pipeline_run_config; from oddsfox_pipeline.orchestration.definitions import defs; from oddsfox_pipeline.storage.duckdb.connection import assert_disposable_duckdb_path; expected='$(SOCCER_MINUTE_LIVE_SMOKE_DUCKDB_PATH)'; assert_disposable_duckdb_path(expected); result=defs.resolve_job_def('polymarket_soccer_full_pipeline').execute_in_process(run_config=polymarket_soccer_full_pipeline_run_config(game_sample_size=3)); assert result.success"
+	$(RUN_IN_REPO) $(SOCCER_MINUTE_LIVE_SMOKE_ENV) "$(PYTHON)" -c "import duckdb; conn=duckdb.connect('$(SOCCER_MINUTE_LIVE_SMOKE_DUCKDB_PATH)', read_only=True); quality=conn.execute('select mapped_matches, mapped_markets, excluded_events, published_tokens, empty_tokens, retry_tokens, observed_minutes, dense_minutes from polymarket_soccer_observability.polymarket_soccer_match_result_data_quality').fetchone(); duplicates=conn.execute('select count(*) - count(distinct (market_id, odds_minute_epoch)) from polymarket_soccer_marts.polymarket_soccer_match_result_minute_odds').fetchone()[0]; assert quality[0] >= 3 and quality[1] == quality[0] * 3, quality; assert duplicates == 0, duplicates; print({'quality': quality, 'duplicate_grain': duplicates})"
+
 market-portrait-live-backfill: runtime-dirs
 	@test -n "$(TARGET_MANIFEST)" || (echo "TARGET_MANIFEST=/absolute/path.yml is required" >&2; exit 2)
 	@test "$$(python3 -c 'import os,sys; print(os.path.isabs(sys.argv[1]))' "$(TARGET_MANIFEST)")" = "True" || (echo "TARGET_MANIFEST must be absolute" >&2; exit 2)

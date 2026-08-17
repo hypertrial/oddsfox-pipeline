@@ -9,9 +9,10 @@ from datetime import datetime, timezone
 
 import duckdb
 
-from oddsfox_pipeline.naming import SCOPE_WC2026
+from oddsfox_pipeline.naming import SCOPE_SOCCER, SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     POLYMARKET_CATALOG_RAW_SCHEMA,
+    polymarket_ops_schema,
     polymarket_ops_tbl,
     polymarket_q,
     polymarket_raw_schema,
@@ -69,7 +70,9 @@ def _add_column_if_missing(
 
 logger = logging.getLogger(__name__)
 
-_POLYMARKET_SCOPES = (SCOPE_WC2026,)
+_EVENT_CATALOG_SCOPES = (SCOPE_WC2026, SCOPE_SOCCER)
+_MATCH_MINUTE_SCOPES = (SCOPE_WC2026, SCOPE_SOCCER)
+_POLYMARKET_SCOPES = _EVENT_CATALOG_SCOPES
 
 
 def ensure_polymarket_indexes(
@@ -93,7 +96,7 @@ def ensure_polymarket_indexes(
         f"CREATE INDEX IF NOT EXISTS idx_{scope_name}_token_odds_daily_date ON {tod}(odds_date_utc)",
         f"CREATE INDEX IF NOT EXISTS idx_{scope_name}_token_skip_reason ON {sk}(clobTokenId)",
     ]
-    if scope_name == SCOPE_WC2026:
+    if scope_name in _EVENT_CATALOG_SCOPES:
         event_snapshots = polymarket_raw_tbl(scope_name, "event_snapshots")
         event_tags = polymarket_raw_tbl(scope_name, "event_tag_snapshots")
         event_markets = polymarket_raw_tbl(scope_name, "event_market_snapshots")
@@ -102,13 +105,13 @@ def ensure_polymarket_indexes(
         )
         index_statements.extend(
             [
-                "CREATE INDEX IF NOT EXISTS idx_wc2026_event_snapshots_observed "
+                f"CREATE INDEX IF NOT EXISTS idx_{scope_name}_event_snapshots_observed "
                 f"ON {event_snapshots}(event_id, observed_at)",
-                "CREATE INDEX IF NOT EXISTS idx_wc2026_event_tags_slug "
+                f"CREATE INDEX IF NOT EXISTS idx_{scope_name}_event_tags_slug "
                 f"ON {event_tags}(tag_slug, event_id)",
-                "CREATE INDEX IF NOT EXISTS idx_wc2026_event_markets_market "
+                f"CREATE INDEX IF NOT EXISTS idx_{scope_name}_event_markets_market "
                 f"ON {event_markets}(market_id, event_id)",
-                "CREATE INDEX IF NOT EXISTS idx_wc2026_event_market_payloads_observed "
+                f"CREATE INDEX IF NOT EXISTS idx_{scope_name}_event_market_payloads_observed "
                 f"ON {event_market_payloads}(market_id, observed_at)",
             ]
         )
@@ -199,7 +202,7 @@ def bootstrap_polymarket_tables(
         """
     )
     conn.execute(f"ALTER TABLE {mt} ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP")
-    if scope_name == SCOPE_WC2026:
+    if scope_name in _EVENT_CATALOG_SCOPES:
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS {event_snapshots} (
@@ -213,6 +216,12 @@ def bootstrap_polymarket_tables(
             event_snapshots,
             "candidate_sources_json",
             "candidate_sources_json TEXT DEFAULT '[]'",
+        )
+        _add_column_if_missing(
+            conn,
+            event_snapshots,
+            "coverage_tier",
+            "coverage_tier TEXT",
         )
         conn.execute(
             f"""
@@ -268,6 +277,142 @@ def bootstrap_polymarket_tables(
         """
     )
     conn.execute(f"ALTER TABLE {oh} ADD COLUMN IF NOT EXISTS ingested_at TIMESTAMP")
+    if scope_name in _MATCH_MINUTE_SCOPES:
+        mmoh = polymarket_raw_tbl(scope_name, "match_minute_odds_history")
+        match_primary_ohlc = polymarket_raw_tbl(scope_name, "match_primary_minute_ohlc")
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {mmoh} (
+                {minute_odds_history_create_ddl("match_minute_odds_history")}
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {match_minute_audit} (
+                fetch_run_id TEXT NOT NULL,
+                market_id TEXT NOT NULL,
+                "clobTokenId" TEXT NOT NULL,
+                fetch_status TEXT NOT NULL CHECK (
+                    fetch_status IN ('success', 'empty', 'error', 'cancelled')
+                ),
+                raw_published BOOLEAN NOT NULL DEFAULT FALSE,
+                fidelity_minutes INTEGER NOT NULL CHECK (fidelity_minutes = 1),
+                exact_window_start_at TIMESTAMP NOT NULL,
+                exact_window_end_at TIMESTAMP NOT NULL,
+                request_start_epoch BIGINT NOT NULL,
+                request_end_epoch BIGINT NOT NULL,
+                source_row_count INTEGER NOT NULL CHECK (source_row_count >= 0),
+                in_game_row_count INTEGER NOT NULL CHECK (
+                    in_game_row_count >= 0 AND in_game_row_count <= source_row_count
+                ),
+                in_game_history_sha256 TEXT CHECK (
+                    in_game_history_sha256 IS NULL
+                    OR regexp_full_match(in_game_history_sha256, '[0-9a-f]{{64}}')
+                ),
+                source_endpoint TEXT NOT NULL,
+                fetch_started_at TIMESTAMP NOT NULL,
+                fetch_finished_at TIMESTAMP NOT NULL,
+                error_type TEXT,
+                error_message TEXT CHECK (
+                    error_message IS NULL OR length(error_message) <= 500
+                ),
+                CHECK (exact_window_start_at <= exact_window_end_at),
+                CHECK (request_start_epoch <= request_end_epoch),
+                CHECK (fetch_started_at <= fetch_finished_at),
+                PRIMARY KEY (fetch_run_id, "clobTokenId")
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {match_primary_ohlc} (
+                market_id TEXT NOT NULL,
+                clob_token_id TEXT NOT NULL,
+                odds_minute_epoch BIGINT NOT NULL,
+                odds_minute_utc TIMESTAMP NOT NULL,
+                open_price DOUBLE NOT NULL,
+                high_price DOUBLE NOT NULL,
+                low_price DOUBLE NOT NULL,
+                close_price DOUBLE NOT NULL,
+                avg_price DOUBLE NOT NULL,
+                observed_points BIGINT NOT NULL,
+                first_observed_at TIMESTAMP NOT NULL,
+                last_observed_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (clob_token_id, odds_minute_epoch)
+            )
+            """
+        )
+    if scope_name == SCOPE_SOCCER:
+        registry = polymarket_ops_tbl(scope_name, "match_result_registry")
+        exclusions = polymarket_ops_tbl(scope_name, "match_result_registry_exclusions")
+        terminal_empty = polymarket_ops_tbl(
+            scope_name, "match_minute_odds_terminal_unavailable"
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {registry} (
+                event_id TEXT NOT NULL,
+                market_id TEXT NOT NULL,
+                result_role TEXT NOT NULL CHECK (
+                    result_role IN ('home_win', 'draw', 'away_win')
+                ),
+                home_team TEXT NOT NULL,
+                away_team TEXT NOT NULL,
+                yes_token_id TEXT NOT NULL,
+                no_token_id TEXT NOT NULL,
+                window_start_at TIMESTAMP NOT NULL,
+                window_end_at TIMESTAMP NOT NULL,
+                kickoff_source TEXT NOT NULL CHECK (
+                    kickoff_source IN ('market_game_start_time', 'event_start_time')
+                ),
+                timing_status TEXT NOT NULL CHECK (
+                    timing_status IN (
+                        'explicit_finish', 'inferred_closure',
+                        'inferred_five_hour_cap'
+                    )
+                ),
+                timing_confidence TEXT NOT NULL CHECK (
+                    timing_confidence IN ('high', 'medium', 'low')
+                ),
+                coverage_tier TEXT NOT NULL CHECK (
+                    coverage_tier IN ('guaranteed_tag_era', 'pre_tag_best_effort')
+                ),
+                refreshed_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (event_id, result_role),
+                UNIQUE (market_id),
+                UNIQUE (yes_token_id),
+                UNIQUE (no_token_id),
+                CHECK (yes_token_id <> no_token_id),
+                CHECK (window_start_at <= window_end_at)
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {exclusions} (
+                event_id TEXT PRIMARY KEY,
+                event_title TEXT,
+                exclusion_reason TEXT NOT NULL,
+                refreshed_at TIMESTAMP NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {terminal_empty} (
+                market_id TEXT NOT NULL,
+                clob_token_id TEXT NOT NULL,
+                exact_window_start_at TIMESTAMP NOT NULL,
+                exact_window_end_at TIMESTAMP NOT NULL,
+                empty_retry_hours BIGINT NOT NULL CHECK (empty_retry_hours >= 0),
+                terminal_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (
+                    clob_token_id, exact_window_start_at, exact_window_end_at
+                )
+            )
+            """
+        )
     if scope_name == SCOPE_WC2026:
         mmoh = polymarket_raw_tbl(scope_name, "match_minute_odds_history")
         fmoh = polymarket_raw_tbl(scope_name, "futures_minute_odds_history")
@@ -875,6 +1020,8 @@ def bootstrap_polymarket_tables(
 
 def bootstrap_all_polymarket_tables(conn: duckdb.DuckDBPyConnection) -> None:
     for scope_name in _POLYMARKET_SCOPES:
+        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {polymarket_raw_schema(scope_name)}")
+        conn.execute(f"CREATE SCHEMA IF NOT EXISTS {polymarket_ops_schema(scope_name)}")
         bootstrap_polymarket_tables(conn, scope_name=scope_name)
 
 

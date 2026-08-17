@@ -4,7 +4,7 @@
 
 Use this page when changing code, dbt models, docs, or orchestration behavior.
 OddsFox Pipeline is a prediction-market pipeline; v0.2.x development touches the
-Polymarket WC2026 and Kalshi WC2026 adapters, marts, and orchestration. For a short contributor map, start with
+Polymarket WC2026, Polymarket soccer, and Kalshi WC2026 adapters, marts, and orchestration. For a short contributor map, start with
 [Contributors](../audiences/contributors.md). For operator setup, start with
 [Quickstart](../getting-started/index.md).
 

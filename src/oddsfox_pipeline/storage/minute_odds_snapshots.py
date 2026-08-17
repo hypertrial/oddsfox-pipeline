@@ -1,6 +1,7 @@
-"""Immutable partitioned Parquet snapshots for WC2026 minute-odds raw + primary OHLC.
+"""Immutable partitioned Parquet snapshots for scoped minute-odds raw + primary OHLC.
 
-Canonical layout under ``${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/<leg>/``:
+Canonical layout under
+``${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/<scope>/<leg>/``:
 
 ```
 snapshots/<snapshot_id>/
@@ -104,6 +105,7 @@ class MinuteOddsSnapshot:
 def minute_odds_snapshot_root(
     *,
     leg: str,
+    scope_name: str = SCOPE_WC2026,
     runtime_root: Path | None = None,
 ) -> Path:
     if not _LEG.fullmatch(leg):
@@ -121,7 +123,10 @@ def minute_odds_snapshot_root(
         .expanduser()
         .resolve()
     )
-    target = (root / "minute-odds-snapshots" / leg).resolve()
+    normalized_scope = str(scope_name).strip().lower()
+    if not normalized_scope or not re.fullmatch(r"[a-z0-9_]+", normalized_scope):
+        raise MinuteOddsSnapshotError(f"invalid minute-odds scope: {scope_name!r}")
+    target = (root / "minute-odds-snapshots" / normalized_scope / leg).resolve()
     if not target.is_relative_to(root):
         raise MinuteOddsSnapshotError("minute-odds snapshot path escaped runtime root")
     return target
@@ -1294,6 +1299,7 @@ def build_and_publish_snapshot_from_shards(
     primary_token_ids: set[str],
     collected_at: datetime | None = None,
     runtime_root: Path | None = None,
+    scope_name: str = SCOPE_WC2026,
     conn: duckdb.DuckDBPyConnection | None = None,
     register: bool = True,
     reuse_token_ids: set[str] | None = None,
@@ -1308,7 +1314,9 @@ def build_and_publish_snapshot_from_shards(
     """
     if not shard_paths and not reuse_token_ids:
         raise MinuteOddsSnapshotError("shard_paths or reuse_token_ids required")
-    root = minute_odds_snapshot_root(leg=leg, runtime_root=runtime_root)
+    root = minute_odds_snapshot_root(
+        leg=leg, scope_name=scope_name, runtime_root=runtime_root
+    )
     root.mkdir(parents=True, exist_ok=True)
     previous_id = active_snapshot_id(root)
     previous: MinuteOddsSnapshot | None = None
@@ -1380,7 +1388,7 @@ def build_and_publish_snapshot_from_shards(
     if retain:
         retain_snapshots(root, keep=2)
     if register and conn is not None:
-        register_snapshot_views(conn, snapshot)
+        register_snapshot_views(conn, snapshot, scope_name=scope_name)
     return snapshot
 
 

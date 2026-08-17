@@ -11,8 +11,11 @@ For the operator checklist, see
 
 - Source code, dbt models, jobs, operator scripts, and documentation
   for local macOS-first operation.
-- Two fixed `run_scope.py` market scopes in `v0.2.x`:
-  `polymarket:wc2026` and `kalshi:wc2026`.
+- Three fixed `run_scope.py` market scopes in `v0.2.x`:
+  `polymarket:wc2026`, `polymarket:soccer`, and `kalshi:wc2026`.
+- The soccer scope covers exact canonical-soccer-tag Gamma events from the
+  tag-era boundary onward, plus best-effort pre-boundary discoveries. It does
+  not claim deleted, untagged, or unavailable historical markets.
 - FIFA fixture/results and OpenFootball schedule ingestion for Kalshi WC2026 and
   match-minute real-team validation; not required for the Polymarket golden-mart
   path.
@@ -28,6 +31,9 @@ For the operator checklist, see
   repositories; see [System overview](system-overview.md)).
 - No investment, betting, or trading advice.
 - No prediction-market venue, brokerage, oracle, custody, or KYC/AML service.
+- No external fixture/results provider, permissive title classifier, manual
+  soccer mapping override, normalized probability product, or near-real-time
+  soccer collector.
 
 ## Operator Ownership
 

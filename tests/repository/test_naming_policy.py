@@ -5,10 +5,14 @@ from pathlib import Path
 import pytest
 import yaml
 
+from oddsfox_pipeline.config.settings_polymarket import (
+    POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES,
+)
 from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
     polymarket_wc2026_markets_source,
 )
 from oddsfox_pipeline.naming import (
+    SCOPE_SOCCER,
     SCOPE_WC2026,
     SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_KALSHI,
@@ -21,6 +25,7 @@ from oddsfox_pipeline.orchestration import assets
 from oddsfox_pipeline.orchestration.config import (
     kalshi_wc2026_full_refresh_events_run_config,
     kalshi_wc2026_hourly_odds_run_config,
+    polymarket_soccer_full_pipeline_run_config,
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
     polymarket_wc2026_hourly_odds_run_config,
@@ -37,6 +42,8 @@ from oddsfox_pipeline.storage.duckdb.schemas import dbt_schemas
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
     OPENFOOTBALL_WC2026_RAW_SCHEMA,
+    POLYMARKET_SOCCER_OPS_SCHEMA,
+    POLYMARKET_SOCCER_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
     POLYMARKET_WC2026_RAW_SCHEMA,
 )
@@ -70,6 +77,9 @@ EXPECTED_OP_NAMES = {
     "polymarket_wc2026_raw_match_trades",
     "polymarket_wc2026_raw_polygon_settlement_fills",
     "polymarket_wc2026_release_polygon_settlement_odds_bundle",
+    "polymarket_soccer_raw_event_catalog",
+    "polymarket_soccer_ops_match_result_registry",
+    "polymarket_soccer_raw_match_result_token_odds_history_minute",
     "oddsfox_dbt",
 }
 
@@ -98,6 +108,7 @@ OLD_SCRIPT_FILES = {
 _ALLOWED_ASSET_ROOTS = frozenset(
     {
         (SOURCE_POLYMARKET, SCOPE_WC2026),
+        (SOURCE_POLYMARKET, SCOPE_SOCCER),
         (SOURCE_POLYMARKET, "catalog"),
         (SOURCE_INTERNATIONAL_RESULTS, "historical"),
         (SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026),
@@ -142,6 +153,8 @@ def _job_expected_source(job_name: str) -> str:
 def _job_expected_scope(job_name: str) -> str:
     if job_name == "international_results_historical_ingest":
         return "historical"
+    if job_name.startswith("polymarket_soccer_"):
+        return SCOPE_SOCCER
     return SCOPE_WC2026
 
 
@@ -189,10 +202,12 @@ def test_public_schedule_is_source_first_and_targets_source_first_job():
     assert {schedule.name for schedule in defs.schedules} == {
         "international_results_daily_schedule",
         "kalshi_wc2026_hourly_odds_schedule",
+        "polymarket_soccer_daily_schedule",
     }
     assert {schedule.job_name for schedule in defs.schedules} == {
         "international_results_historical_ingest",
         "kalshi_wc2026_hourly_odds_ingest",
+        "polymarket_soccer_full_pipeline",
     }
 
 
@@ -217,6 +232,9 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         assets.polymarket_wc2026_raw_match_trades.op.name,
         assets.polymarket_wc2026_raw_polygon_settlement_fills.op.name,
         assets.polymarket_wc2026_release_polygon_settlement_odds_bundle.op.name,
+        assets.polymarket_soccer_raw_event_catalog.op.name,
+        assets.polymarket_soccer_ops_match_result_registry.op.name,
+        assets.polymarket_soccer_raw_match_result_token_odds_history_minute.op.name,
         assets.oddsfox_dbt.op.name,
     }
     run_config_ops = (
@@ -235,17 +253,24 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         | set(polymarket_wc2026_dbt_build_run_config()["ops"])
         | set(kalshi_wc2026_full_refresh_events_run_config()["ops"])
         | set(kalshi_wc2026_hourly_odds_run_config()["ops"])
+        | set(polymarket_soccer_full_pipeline_run_config()["ops"])
     )
 
     assert actual_op_names == EXPECTED_OP_NAMES
     assert all(name.startswith(_SOURCE_FIRST_OP_PREFIXES) for name in actual_op_names)
-    assert run_config_ops == EXPECTED_OP_NAMES - {
+    expected_run_config_ops = EXPECTED_OP_NAMES - {
         "international_results_historical_raw_snapshot",
         "international_results_wc2026_raw_match_results",
         "openfootball_wc2026_raw_schedule_fixtures",
         "kalshi_wc2026_raw_markets_snapshot",
         "polymarket_wc2026_raw_markets_snapshot",
+        "polymarket_soccer_ops_match_result_registry",
     }
+    if not POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES:
+        expected_run_config_ops.remove(
+            "polymarket_wc2026_raw_futures_token_odds_history_minute"
+        )
+    assert run_config_ops == expected_run_config_ops
 
 
 def test_registered_asset_keys_are_hierarchical_source_scope_layer():
@@ -312,6 +337,12 @@ def test_storage_schema_constants_are_source_first():
     assert POLYMARKET_WC2026_OPS_SCHEMA == schema_name(
         SOURCE_POLYMARKET, SCOPE_WC2026, "ops"
     )
+    assert POLYMARKET_SOCCER_RAW_SCHEMA == schema_name(
+        SOURCE_POLYMARKET, SCOPE_SOCCER, "raw"
+    )
+    assert POLYMARKET_SOCCER_OPS_SCHEMA == schema_name(
+        SOURCE_POLYMARKET, SCOPE_SOCCER, "ops"
+    )
     assert INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA == schema_name(
         SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "raw"
     )
@@ -352,6 +383,11 @@ def test_dbt_source_metadata_uses_hierarchical_asset_keys():
         + yaml.safe_load(
             (
                 ROOT / "dbt" / "models" / "sources" / "openfootball_wc2026_sources.yml"
+            ).read_text()
+        )["sources"]
+        + yaml.safe_load(
+            (
+                ROOT / "dbt" / "models" / "sources" / "polymarket_soccer_sources.yml"
             ).read_text()
         )["sources"]
     )

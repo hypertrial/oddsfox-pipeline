@@ -12,10 +12,12 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
 )
 
 
-def test_match_minute_raw_table_is_wc2026_only():
+def test_match_minute_raw_table_is_bootstrapped_for_shipped_minute_scopes():
     with duckdb.connect(":memory:") as conn:
         conn.execute("create schema polymarket_wc2026_raw")
         conn.execute("create schema polymarket_wc2026_ops")
+        conn.execute("create schema polymarket_soccer_raw")
+        conn.execute("create schema polymarket_soccer_ops")
         bootstrap_all_polymarket_tables(conn)
 
         rows = conn.execute(
@@ -23,10 +25,11 @@ def test_match_minute_raw_table_is_wc2026_only():
             select table_schema
             from information_schema.tables
             where table_name = 'match_minute_odds_history'
+            order by table_schema
             """
         ).fetchall()
 
-    assert rows == [("polymarket_wc2026_raw",)]
+    assert rows == [("polymarket_soccer_raw",), ("polymarket_wc2026_raw",)]
 
 
 def test_match_minute_raw_replace_is_exact_idempotent_and_isolated(duck):
@@ -327,7 +330,7 @@ def test_match_minute_register_failure_rolls_current_back(duck, tmp_path, monkey
         first_id = active_snapshot_id(root)
         assert first_id is not None
 
-        def boom(_conn, _snapshot):
+        def boom(_conn, _snapshot, **_kwargs):
             raise RuntimeError("register failed")
 
         monkeypatch.setattr(snapshots, "register_snapshot_views", boom)

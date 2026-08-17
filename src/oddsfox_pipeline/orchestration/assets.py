@@ -32,6 +32,11 @@ from oddsfox_pipeline.orchestration.assets_polymarket import (
     polymarket_wc2026_raw_match_token_odds_history_minute,
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
+from oddsfox_pipeline.orchestration.assets_soccer import (
+    polymarket_soccer_ops_match_result_registry,
+    polymarket_soccer_raw_event_catalog,
+    polymarket_soccer_raw_match_result_token_odds_history_minute,
+)
 from oddsfox_pipeline.orchestration.dbt_project import (
     DBT_DAGSTER_GROUP_NAME,
     DBT_PROJECT,
@@ -51,6 +56,9 @@ __all__ = [
     "kalshi_wc2026_raw_markets_snapshot",
     "openfootball_wc2026_raw_schedule_fixtures",
     "oddsfox_dbt",
+    "polymarket_soccer_ops_match_result_registry",
+    "polymarket_soccer_raw_event_catalog",
+    "polymarket_soccer_raw_match_result_token_odds_history_minute",
     "polymarket_wc2026_raw_market_metadata_enrichment",
     "polymarket_wc2026_raw_event_catalog",
     "polymarket_wc2026_raw_markets",

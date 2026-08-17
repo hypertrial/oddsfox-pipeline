@@ -1,6 +1,6 @@
 # Choose a scope
 
-Use this page to select one of the two fixed source and market scopes shipped
+Use this page to select one of the three fixed source and market scopes shipped
 by OddsFox Pipeline `v0.2.x`. Dagster asset configs do not accept arbitrary runtime
 scope selectors. For step-by-step first runs, see the
 [Quickstart](index.md) tabs.
@@ -8,6 +8,7 @@ scope selectors. For step-by-step first runs, see the
 | Scope | Source | Public output | Credentials |
 | --- | --- | --- | --- |
 | `polymarket:wc2026` | Polymarket Gamma/CLOB | `polymarket_wc2026_market_hourly_odds` (golden mart) | Optional for public pipelines |
+| `polymarket:soccer` | Polymarket Gamma/CLOB | Match catalog plus sparse and dense match-result minute odds | None |
 | `kalshi:wc2026` | Kalshi public trade API plus FIFA results | Stage-of-elimination and group-winner snapshots and hourly odds | None |
 
 The manual WC2026 Polygon settlement-history pipeline is not a third
@@ -32,6 +33,15 @@ tag. See [Advanced pipelines](../guides/advanced-pipelines.md).
 
     Kalshi uses the public trade API and requires no API credentials.
 
+=== "Polymarket Soccer"
+
+    ```bash
+    uv run python scripts/run_scope.py polymarket:soccer --step full
+    ```
+
+    The namespace alias is `polymarket_soccer`. Run `make soccer-catalog-audit`
+    before the first complete historical backfill.
+
 List the accepted refs and aliases at any time:
 
 ```bash
@@ -40,8 +50,9 @@ uv run python scripts/run_scope.py --list
 
 ## Beyond `run_scope.py`
 
-Match-minute odds, PMXT order-book history, market portrait, and Polygon
-settlement history are not chooser refs. Start at
+WC2026 match-minute odds, PMXT order-book history, market portrait, and Polygon
+settlement history are not chooser refs. Soccer match-minute odds are part of
+`polymarket:soccer`. Start at
 [Advanced pipelines](../guides/advanced-pipelines.md) for the decision tree,
 maturity tiers, and links to each recreate guide. The
 [Pipeline registry](../reference/orchestration.md#pipeline-registry) lists

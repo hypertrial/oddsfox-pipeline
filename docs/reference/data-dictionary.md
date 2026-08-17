@@ -46,6 +46,32 @@ common mistakes.
 Use `proposition_type`, `yes_represents`, and `no_represents` for meaning. See
 [Data contracts](data-contracts.md#documented-marts) for publication guarantees.
 
+## Polymarket Soccer Marts
+
+### `polymarket_soccer_marts.polymarket_soccer_matches`
+
+One row per admitted exact-tag soccer event. Use `home_win_market_id`,
+`draw_market_id`, and `away_win_market_id` to join minute relations. Timing is
+an inclusive UTC window; `kickoff_source` identifies market `gameStartTime` or
+event `startTime`, `timing_status` distinguishes explicit finish, inferred
+closure, and the five-hour cap, and `timing_confidence` is `high`, `medium`, or
+`low` respectively. `competition_label` retains the Gamma event subtitle and
+`series_slugs_json` retains its series identifiers. `coverage_tier`
+distinguishes the guaranteed tag era from pre-tag best effort.
+
+### Soccer observed and dense minute odds
+
+| Property | Observed relation | Dense relation |
+| --- | --- | --- |
+| Relation | `polymarket_soccer_match_result_minute_odds_observed` | `polymarket_soccer_match_result_minute_odds` |
+| Grain | `(market_id, odds_minute_epoch)` | `(market_id, odds_minute_epoch)` |
+| Rows | Source-observed Yes-token minutes only | Every inclusive match-window minute |
+| Quiet minutes | Absent | Prior close copied to OHLC only after the first observation |
+| Provenance | Source point count and first/last timestamps | `is_observed`, carry age, last observed time, and observed point count |
+
+Do not sum or normalize home/draw/away prices. Join roles within `event_id`, and
+never interpret a carried row as a source observation.
+
 ### `polymarket_wc2026_marts.polymarket_wc2026_match_order_book`
 
 | Property | Value |
