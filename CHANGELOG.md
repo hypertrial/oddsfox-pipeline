@@ -17,8 +17,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added soccer production preflight, run/step ledgers, structured resource
   heartbeats, blocking correctness checks, health/alert/trend relations, and
   the nonzero `make soccer-production-health` automation contract.
+- Added `make soccer-minute-performance-benchmark`, an SSD-local disposable
+  cold/warm dbt benchmark that proves warm dirty-market convergence and exact
+  output equality.
 
 ### Changed
+
+- Minute CLOB fetches now cap submitted futures and stream each completed token
+  directly into bounded Parquet buffers. Soccer audits only due attempts,
+  reuses prior exact-window successes without duplicating audit rows, maintains
+  atomic `polymarket_soccer_raw.events` / `markets` current projections, and
+  incrementally replaces only dirty observed/dense markets behind unchanged
+  public mart names and columns.
+- Existing soccer operator state is not migrated to the new current-projection
+  and incremental-mart layout. Build into a fresh SSD warehouse and runtime
+  root, validate, then switch Dagster; no compatibility reader is included.
 
 - Minute snapshots now use the scope-aware local layout
   `${ODDSFOX_RUNTIME_ROOT}/minute-odds-snapshots/<scope>/<leg>/`. This is a

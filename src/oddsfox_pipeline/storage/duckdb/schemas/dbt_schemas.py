@@ -412,7 +412,15 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     ),
     (
         POLYMARKET_SOCCER_INTERMEDIATE_SCHEMA,
+        "int_polymarket_soccer_match_result_market_state",
+    ),
+    (
+        POLYMARKET_SOCCER_INTERMEDIATE_SCHEMA,
         "int_polymarket_soccer_match_result_observed",
+    ),
+    (
+        POLYMARKET_SOCCER_INTERMEDIATE_SCHEMA,
+        "int_polymarket_soccer_match_result_minute_odds",
     ),
     (POLYMARKET_SOCCER_MARTS_SCHEMA, "polymarket_soccer_matches"),
     (

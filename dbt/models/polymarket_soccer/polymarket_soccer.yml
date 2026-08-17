@@ -1,6 +1,12 @@
 version: 2
 
 models:
+  - name: int_polymarket_soccer_match_result_market_state
+    description: Current exact-window market metadata and deterministic source revision.
+  - name: int_polymarket_soccer_match_result_observed
+    description: Private dirty-market incremental sparse Yes-token minute OHLC state.
+  - name: int_polymarket_soccer_match_result_minute_odds
+    description: Private dirty-market incremental inclusive dense minute state.
   - name: polymarket_soccer_matches
     description: One row per strictly mapped exact-tag Polymarket soccer match.
     columns:

@@ -863,12 +863,17 @@ def test_iter_and_write_minute_history_parquet_shards_bound_and_cleanup(
     assert full.num_rows == 15
     assert "row_order" not in full.column_names
 
+    retained = []
+    metrics = {}
     paths = minute_batch.write_minute_history_parquet_shards(
-        results,
+        iter(results),
         fetch_run_id="run-shards",
         ingested_at=ingested_at,
         max_rows_per_shard=6,
         batch_rows=4,
+        retained_results=retained,
+        release_payloads=True,
+        metrics=metrics,
     )
     assert len(paths) >= 2
     assert all(path.is_file() for path in paths)
@@ -878,8 +883,46 @@ def test_iter_and_write_minute_history_parquet_shards_bound_and_cleanup(
     assert manifest["token_count"] == 5
     assert manifest["token_ids"] == [f"tok-{index}" for index in range(5)]
     assert manifest["row_count"] == 15
+    assert retained == results
+    assert all(result.history == () for result in results)
+    assert metrics == {
+        "peak_buffered_rows": 3,
+        "spilled_rows": 15,
+        "shard_count": len(paths),
+    }
     minute_batch.cleanup_minute_odds_publish_cache("run-shards")
     assert not minute_batch.minute_odds_publish_cache_dir("run-shards").exists()
+
+
+def test_iter_minute_fetches_bounds_submitted_work():
+    start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    plans = [
+        _Plan(
+            market_id=f"market-{index}",
+            token_id=f"token-{index}",
+            started_at=start,
+            finished_at=start + timedelta(minutes=1),
+        )
+        for index in range(100)
+    ]
+    metrics = {}
+    results = list(
+        minute_batch.iter_minute_fetches(
+            plans,
+            asset_name="bounded-test",
+            workers=1,
+            requests_per_second=1000,
+            batch_group_size=1,
+            auto_tune_rps=False,
+            client_factory=object,
+            fetch_window_fn=lambda _client, token, *_args, **_kwargs: [
+                (token, int(start.timestamp()), 0.5)
+            ],
+            metrics=metrics,
+        )
+    )
+    assert len(results) == 100
+    assert metrics == {"max_inflight_futures": 64, "fetched_tokens": 100}
 
 
 def test_iter_minute_history_splits_oversized_token_safely():

@@ -266,7 +266,10 @@ def _rows(db_path: Path, case: IncrementalCase) -> list[tuple]:
 
 
 def test_incremental_model_inventory_is_complete() -> None:
-    configured = {case.model for case in CASES}
+    configured = {case.model for case in CASES} | {
+        "int_polymarket_soccer_match_result_observed",
+        "int_polymarket_soccer_match_result_minute_odds",
+    }
     discovered = {
         path.stem
         for path in (DBT_ROOT / "models").rglob("*.sql")

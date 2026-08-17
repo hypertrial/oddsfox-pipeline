@@ -310,6 +310,14 @@ resource summaries land in `polymarket_soccer_ops.pipeline_runs` and
 `pipeline_step_runs`; long steps emit a structured heartbeat at least every 60
 seconds.
 
+Soccer catalog publication appends immutable observations and updates
+`polymarket_soccer_raw.events` / `markets` in one transaction. Registry refresh
+reads those projections directly. Minute ingestion audits only due requests;
+reused tokens remain bound to their latest successful exact-window audit. The
+two private soccer minute models recover interrupted incremental writes by
+targeted full refresh in dependency order while WC2026 recovery state remains
+separate.
+
 ### Polymarket WC2026
 
 - `raw/markets` fetches Gamma markets for the current event-catalog registry

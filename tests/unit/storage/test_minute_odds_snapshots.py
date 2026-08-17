@@ -561,6 +561,29 @@ def _write_token_shard(
     return path
 
 
+def test_raw_partition_hash_is_independent_of_shard_completion_order(tmp_path):
+    from oddsfox_pipeline.storage.minute_odds_snapshots import (
+        write_snapshot_partitions_from_raw_parquet,
+    )
+
+    first = _write_token_shard(tmp_path / "first", ["token-a"])
+    second = _write_token_shard(tmp_path / "second", ["token-b"])
+    forward, _ = write_snapshot_partitions_from_raw_parquet(
+        tmp_path / "forward",
+        [first, second],
+        primary_token_ids={"token-a", "token-b"},
+        bucket_count=1,
+    )
+    reverse, _ = write_snapshot_partitions_from_raw_parquet(
+        tmp_path / "reverse",
+        [second, first],
+        primary_token_ids={"token-a", "token-b"},
+        bucket_count=1,
+    )
+
+    assert [part.sha256 for part in forward] == [part.sha256 for part in reverse]
+
+
 def test_partial_publish_preserves_prior_out_of_plan_tokens(tmp_path, monkeypatch):
     monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
     full = [f"tok-{index:03d}" for index in range(12)]

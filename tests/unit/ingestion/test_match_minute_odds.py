@@ -411,13 +411,15 @@ def test_sync_match_minute_samples_markets_after_inventory(monkeypatch, tmp_path
     )
     monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path))
     captured: list = []
-    real_execute = match_minute.execute_minute_fetches
+    real_execute = match_minute.fetch_and_write_minute_history_parquet_shards
 
     def wrap_execute(selected_plans, *args, **kwargs):
         captured.extend(selected_plans)
         return real_execute(selected_plans, *args, **kwargs)
 
-    monkeypatch.setattr(match_minute, "execute_minute_fetches", wrap_execute)
+    monkeypatch.setattr(
+        match_minute, "fetch_and_write_minute_history_parquet_shards", wrap_execute
+    )
     summary = match_minute.sync_match_minute_odds_history(
         conn,
         workers=1,

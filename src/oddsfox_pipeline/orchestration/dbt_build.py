@@ -11,6 +11,7 @@ from typing import Any
 from dagster import AssetExecutionContext
 from dagster_dbt import DbtCliResource
 
+from oddsfox_pipeline.naming import SCOPE_SOCCER
 from oddsfox_pipeline.orchestration.config import DbtBuildConfig
 from oddsfox_pipeline.orchestration.failure_metrics import save_asset_failure_metrics
 from oddsfox_pipeline.resources.progress_guardrails import (
@@ -23,8 +24,12 @@ from oddsfox_pipeline.storage.duckdb.connection import (
     ensure_duck_db,
 )
 from oddsfox_pipeline.storage.duckdb.metadata import (
+    POLYMARKET_SOCCER_INCREMENTAL_MODELS,
     POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL,
+    clear_dbt_incremental_in_progress,
     clear_polymarket_token_hourly_odds_incremental_in_progress,
+    dbt_incremental_recovery_needed,
+    mark_dbt_incremental_in_progress,
     mark_polymarket_token_hourly_odds_incremental_in_progress,
     polymarket_token_hourly_odds_incremental_recovery_needed,
     save_sync_run_metrics,
@@ -78,6 +83,60 @@ def _polymarket_token_hourly_odds_incremental_in_scope(
     if any(marker in dbt_select for marker in _ISOLATED_DBT_SELECT_MARKERS):
         return False
     return False
+
+
+def _soccer_incremental_models_in_scope(
+    *,
+    config: DbtBuildConfig,
+    context: AssetExecutionContext,
+    is_subset: bool,
+) -> tuple[str, ...]:
+    if config.full_refresh:
+        return ()
+    subjects = (
+        *POLYMARKET_SOCCER_INCREMENTAL_MODELS,
+        "polymarket_soccer_match_result_minute_odds",
+        "polymarket_soccer_match_result_data_quality",
+    )
+    if is_subset:
+        selected = getattr(context, "selected_asset_keys", None) or ()
+        return (
+            POLYMARKET_SOCCER_INCREMENTAL_MODELS
+            if any(
+                any(subject in str(key).lower() for subject in subjects)
+                for key in selected
+            )
+            else ()
+        )
+    selector = (config.dbt_select or "").strip().lower()
+    if (
+        not selector
+        or "tag:soccer" in selector
+        or any(subject in selector for subject in subjects)
+    ):
+        return POLYMARKET_SOCCER_INCREMENTAL_MODELS
+    return ()
+
+
+def _maybe_recover_soccer_incrementals(
+    *,
+    context: AssetExecutionContext,
+    dbt: DbtCliResource,
+    models: tuple[str, ...],
+) -> None:
+    for model in models:
+        if not dbt_incremental_recovery_needed(model):
+            continue
+        context.log.warning(
+            "Detected interrupted prior build for %s; running targeted full-refresh",
+            model,
+        )
+        _run_dbt_cli_to_completion(
+            context=context,
+            dbt=dbt,
+            build_args=["build", "--select", model, "--full-refresh"],
+        )
+        clear_dbt_incremental_in_progress(model)
 
 
 def _cleanup_dbt_adapter(invocation: Any) -> None:
@@ -300,13 +359,15 @@ def stream_dbt_build(
 
     is_subset = getattr(context, "is_subset", False) is True
     incremental_in_progress = False
-    if not config.full_refresh and _polymarket_token_hourly_odds_incremental_in_scope(
-        config=config,
-        context=context,
-        is_subset=is_subset,
-    ):
-        mark_polymarket_token_hourly_odds_incremental_in_progress()
-        incremental_in_progress = True
+    soccer_incrementals = (
+        _soccer_incremental_models_in_scope(
+            config=config,
+            context=context,
+            is_subset=is_subset,
+        )
+        if scope_name == SCOPE_SOCCER
+        else ()
+    )
 
     build_args = ["build"]
     if config.full_refresh:
@@ -332,6 +393,23 @@ def stream_dbt_build(
             config=config,
             is_subset=is_subset,
         )
+        _maybe_recover_soccer_incrementals(
+            context=context,
+            dbt=dbt,
+            models=soccer_incrementals,
+        )
+        if (
+            not config.full_refresh
+            and _polymarket_token_hourly_odds_incremental_in_scope(
+                config=config,
+                context=context,
+                is_subset=is_subset,
+            )
+        ):
+            mark_polymarket_token_hourly_odds_incremental_in_progress()
+            incremental_in_progress = True
+        for model in soccer_incrementals:
+            mark_dbt_incremental_in_progress(model)
         invocation = dbt.cli(build_args, context=context)
         sentinel = object()
         event_queue: Queue[Any] = Queue()
@@ -425,6 +503,8 @@ def stream_dbt_build(
             )
         if incremental_in_progress:
             clear_polymarket_token_hourly_odds_incremental_in_progress()
+        for model in soccer_incrementals:
+            clear_dbt_incremental_in_progress(model)
         completed_cleanly = True
     except Exception as exc:
         save_asset_failure_metrics(

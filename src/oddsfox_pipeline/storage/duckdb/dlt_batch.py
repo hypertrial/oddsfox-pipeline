@@ -772,6 +772,11 @@ def _publish_minute_odds_from_parquet(
                     f"Invalid minute-odds publish manifest at {manifest_path}"
                 ) from exc
 
+    hash_column = (
+        "in_game_history_sha256"
+        if relation == "match_minute_odds_history"
+        else "window_history_sha256"
+    )
     if audit_mode == "all":
         audit_inventory = conn.execute(
             f"""
@@ -792,7 +797,7 @@ def _publish_minute_odds_from_parquet(
                 f"for run {fetch_run_id}: {audit_inventory}"
             )
     else:
-        distinct_tokens = int(
+        current_success_count = int(
             conn.execute(
                 f"""
                 SELECT count(*) FILTER (
@@ -804,6 +809,7 @@ def _publish_minute_odds_from_parquet(
                 [fetch_run_id],
             ).fetchone()[0]
         )
+        distinct_tokens = current_success_count
 
     audit_token_ids = {
         str(row[0])
@@ -824,7 +830,53 @@ def _publish_minute_odds_from_parquet(
             f"rows={distinct_tokens} distinct={len(audit_token_ids)}"
         )
 
-    if reuse_token_ids - audit_token_ids:
+    reused_audit_rows: list[tuple[str, str, str]] = []
+    if reuse_token_ids and audit_mode == "success_only":
+        registry = polymarket_ops_tbl(scope_name, "match_result_registry")
+        reused_audit_rows = [
+            (str(row[0]), str(row[1]), str(row[2]))
+            for row in conn.execute(
+                f"""
+                WITH latest AS (
+                    SELECT
+                        market_id,
+                        "clobTokenId",
+                        exact_window_start_at,
+                        exact_window_end_at,
+                        {hash_column} AS history_sha256
+                    FROM {audit}
+                    WHERE fetch_status = 'success' AND raw_published
+                    QUALIFY row_number() OVER (
+                        PARTITION BY "clobTokenId"
+                        ORDER BY fetch_finished_at DESC, fetch_run_id DESC
+                    ) = 1
+                )
+                SELECT latest."clobTokenId", latest.history_sha256, latest.market_id
+                FROM latest
+                INNER JOIN {registry} AS registry
+                    ON latest.market_id = registry.market_id
+                    AND latest."clobTokenId" IN (
+                        registry.yes_token_id, registry.no_token_id
+                    )
+                    AND latest.exact_window_start_at = registry.window_start_at
+                    AND latest.exact_window_end_at = registry.window_end_at
+                WHERE latest."clobTokenId" IN (
+                    SELECT CAST(token AS VARCHAR)
+                    FROM (SELECT UNNEST(?::VARCHAR[]) AS token)
+                )
+                """,
+                [list(reuse_token_ids)],
+            ).fetchall()
+        ]
+        reusable_audit_ids = {row[0] for row in reused_audit_rows}
+        if reusable_audit_ids != reuse_token_ids:
+            raise RuntimeError(
+                "Reusable tokens lack a latest published exact-window audit: "
+                f"{sorted(reuse_token_ids - reusable_audit_ids)[:5]}"
+            )
+        audit_token_ids |= reusable_audit_ids
+        distinct_tokens = len(audit_token_ids)
+    elif reuse_token_ids - audit_token_ids:
         raise RuntimeError(
             f"reuse_token_ids not present in fetch audit for run {fetch_run_id}: "
             f"{sorted(reuse_token_ids - audit_token_ids)[:5]}"
@@ -909,11 +961,6 @@ def _publish_minute_odds_from_parquet(
             f"for run {fetch_run_id}"
         )
 
-    hash_column = (
-        "in_game_history_sha256"
-        if relation == "match_minute_odds_history"
-        else "window_history_sha256"
-    )
     window_hashes = {
         str(row[0]): str(row[1])
         for row in conn.execute(
@@ -928,6 +975,9 @@ def _publish_minute_odds_from_parquet(
             [fetch_run_id],
         ).fetchall()
     }
+    window_hashes.update(
+        {token_id: history_hash for token_id, history_hash, _ in reused_audit_rows}
+    )
     extra_rows = [
         (str(row[0]), str(row[1]))
         for row in conn.execute(
@@ -945,6 +995,10 @@ def _publish_minute_odds_from_parquet(
             [fetch_run_id, list(reuse_token_ids)],
         ).fetchall()
     ]
+    extra_rows.extend(
+        (market_id, token_id)
+        for token_id, _history_hash, market_id in reused_audit_rows
+    )
     primary_token_ids = _resolve_primary_token_ids(
         conn,
         parquet_paths,
@@ -1014,9 +1068,12 @@ def _publish_minute_odds_from_parquet(
                 """,
                 [fetch_run_id],
             ).fetchone()[0]
-        if int(updated) != distinct_tokens:
+        expected_updates = (
+            distinct_tokens if audit_mode == "all" else current_success_count
+        )
+        if int(updated) != expected_updates:
             raise RuntimeError(
-                f"Published {updated} audit rows for {distinct_tokens} staged tokens "
+                f"Published {updated} audit rows for {expected_updates} current tokens "
                 f"in run {fetch_run_id}"
             )
         conn.execute("COMMIT")

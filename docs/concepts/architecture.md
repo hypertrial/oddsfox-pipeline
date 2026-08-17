@@ -158,12 +158,17 @@ result or determine rights in operator inputs or outputs.
 
 The `polymarket:soccer` branch is a first-class sibling of WC2026. Gamma exact
 tag scans land append-only event, tag, membership, and market snapshots in
-`polymarket_soccer_raw`; a strict current projection in
+`polymarket_soccer_raw`; the converged merge atomically maintains current event
+and market projections, and a strict projection in
 `polymarket_soccer_ops.match_result_registry` supplies exact six-token match
-windows to the shared minute fetch and immutable snapshot engine. dbt filters
+windows to the shared bounded minute fetch and immutable snapshot engine.
+Completed token histories spill immediately rather than accumulating for the
+whole backfill, and unchanged exact-window successes are reused without new
+audit attempts. dbt filters
 publication through the current registry and latest successful exact-window
-audit before producing sparse and dense marts. No external results provider or
-manual mapping input crosses this branch.
+audit before incrementally replacing dirty markets behind stable sparse and
+dense public views. No external results provider or manual mapping input crosses
+this branch.
 
 A soccer-only preflight and run ledger wrap this branch. Dagster blocking checks
 protect catalog, registry, and publication invariants; local dbt views derive

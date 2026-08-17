@@ -1322,6 +1322,56 @@ def test_stream_dbt_build_skips_polymarket_recovery_for_kalshi_select(monkeypatc
     assert marked["count"] == 0
 
 
+def test_stream_dbt_build_recovers_soccer_incrementals_in_dependency_order(
+    monkeypatch,
+):
+    captured_args: list[list[str]] = []
+    marked: list[str] = []
+    cleared: list[str] = []
+    observed, dense = dbt_build_mod.POLYMARKET_SOCCER_INCREMENTAL_MODELS
+
+    class MockDbt:
+        def cli(self, args, context=None):
+            captured_args.append(list(args))
+            invocation = MagicMock()
+            invocation.stream = lambda: iter(["event"])
+            invocation.process = MagicMock(returncode=0)
+            return invocation
+
+    monkeypatch.setattr(
+        dbt_build_mod,
+        "dbt_incremental_recovery_needed",
+        lambda model: model == observed,
+    )
+    monkeypatch.setattr(
+        dbt_build_mod, "mark_dbt_incremental_in_progress", marked.append
+    )
+    monkeypatch.setattr(
+        dbt_build_mod, "clear_dbt_incremental_in_progress", cleared.append
+    )
+
+    list(
+        dbt_build_mod.stream_dbt_build(
+            asset_name="oddsfox_dbt",
+            context=MagicMock(is_subset=False),
+            dbt=MockDbt(),
+            config=orch_config.DbtBuildConfig(
+                dbt_select="+polymarket_soccer_match_result_data_quality"
+            ),
+            scope_name="soccer",
+        )
+    )
+
+    assert captured_args[0] == [
+        "build",
+        "--select",
+        observed,
+        "--full-refresh",
+    ]
+    assert marked == [observed, dense]
+    assert cleared == [observed, observed, dense]
+
+
 def test_polymarket_token_hourly_odds_incremental_in_scope_for_subset_keys():
     from unittest.mock import MagicMock
 

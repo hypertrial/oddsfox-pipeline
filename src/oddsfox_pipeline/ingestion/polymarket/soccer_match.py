@@ -30,12 +30,8 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     borrow_duckdb_connection,
     call_minute_persist,
     cleanup_minute_odds_publish_cache,
-    ensure_unique_success_token_ids,
-    execute_minute_fetches,
-    release_minute_history_payloads,
+    fetch_and_write_minute_history_parquet_shards,
     resolve_minute_token_reuse,
-    synthesize_reused_minute_fetch_results,
-    write_minute_history_parquet_shards,
 )
 from oddsfox_pipeline.naming import SCOPE_SOCCER
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
@@ -48,9 +44,6 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (
 )
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     bootstrap_polymarket_tables,
-)
-from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
-    EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS,
 )
 
 _EVENT_TEAMS = re.compile(
@@ -291,16 +284,11 @@ def refresh_soccer_match_result_registry(
 ) -> dict[str, int]:
     """Rebuild the current strict registry from the latest catalog observation."""
     bootstrap_polymarket_tables(conn, scope_name=SCOPE_SOCCER)
-    events_table = polymarket_raw_tbl(SCOPE_SOCCER, "event_snapshots")
-    markets_table = polymarket_raw_tbl(SCOPE_SOCCER, "event_market_payload_snapshots")
-    current_markets = polymarket_raw_tbl(SCOPE_SOCCER, "markets")
+    events_table = polymarket_raw_tbl(SCOPE_SOCCER, "events")
+    markets_table = polymarket_raw_tbl(SCOPE_SOCCER, "markets")
     events_cursor = conn.execute(
         f"""
-        SELECT * FROM {events_table}
-        QUALIFY row_number() OVER (
-            PARTITION BY event_id ORDER BY observed_at DESC
-        ) = 1
-        ORDER BY event_id
+        SELECT * FROM {events_table} ORDER BY event_id
         """
     )
     event_columns = [item[0] for item in events_cursor.description]
@@ -309,11 +297,9 @@ def refresh_soccer_match_result_registry(
     ]
     markets_cursor = conn.execute(
         f"""
-        SELECT * FROM {markets_table}
-        QUALIFY row_number() OVER (
-            PARTITION BY market_id ORDER BY observed_at DESC, scraped_at DESC
-        ) = 1
-        ORDER BY event_id, market_id
+        SELECT id AS market_id, * EXCLUDE (id)
+        FROM {markets_table}
+        ORDER BY event_id, id
         """
     )
     market_columns = [item[0] for item in markets_cursor.description]
@@ -327,21 +313,6 @@ def refresh_soccer_match_result_registry(
     exclusions = polymarket_ops_tbl(SCOPE_SOCCER, "match_result_registry_exclusions")
     conn.execute("BEGIN TRANSACTION")
     try:
-        current_market_columns = ", ".join(
-            f'"{name}"'
-            for name in EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS
-            if name not in {"market_id", "observed_at", "row_order"}
-        )
-        conn.execute(
-            f"""
-            CREATE OR REPLACE TABLE {current_markets} AS
-            SELECT market_id AS id, {current_market_columns}
-            FROM {markets_table}
-            QUALIFY row_number() OVER (
-                PARTITION BY market_id ORDER BY observed_at DESC, scraped_at DESC
-            ) = 1
-            """
-        )
         conn.execute(f"DELETE FROM {registry}")
         conn.execute(f"DELETE FROM {exclusions}")
         if result.rows:
@@ -542,31 +513,27 @@ def sync_soccer_match_minute_odds_history(
         }
 
     fetch_run_id = str(uuid4())
-    fetched = list(
-        synthesize_reused_minute_fetch_results(
-            reuse_plans, published_windows=published_windows
-        )
-    )
-    fetched.extend(
-        execute_minute_fetches(
-            fetch_plans,
-            asset_name="polymarket_soccer_match_result_minute_odds_ingest",
-            log=log,
-            workers=workers,
-            requests_per_second=requests_per_second,
-            batch_group_size=batch_group_size,
-            window_hours=window_hours,
-            auto_tune_rps=auto_tune_rps,
-            auto_tune_max_rps=auto_tune_max_rps,
-            transient_retries=transient_retries,
-            transient_backoff_seconds=transient_backoff_seconds,
-            client_factory=client_factory,
-            fetch_window_fn=fetch_window_fn,
-            fetch_group_window_fn=fetch_group_window_fn,
-            empty_error_message_fn=(
-                lambda p: f"Empty in-game CLOB history for token {p.token_id}"
-            ),
-        )
+    del published_windows
+    fetched, shard_paths, fetch_metrics = fetch_and_write_minute_history_parquet_shards(
+        fetch_plans,
+        fetch_run_id=fetch_run_id,
+        ingested_at=datetime.now(timezone.utc),
+        asset_name="polymarket_soccer_match_result_minute_odds_ingest",
+        log=log,
+        workers=workers,
+        requests_per_second=requests_per_second,
+        batch_group_size=batch_group_size,
+        window_hours=window_hours,
+        auto_tune_rps=auto_tune_rps,
+        auto_tune_max_rps=auto_tune_max_rps,
+        transient_retries=transient_retries,
+        transient_backoff_seconds=transient_backoff_seconds,
+        client_factory=client_factory,
+        fetch_window_fn=fetch_window_fn,
+        fetch_group_window_fn=fetch_group_window_fn,
+        empty_error_message_fn=(
+            lambda p: f"Empty in-game CLOB history for token {p.token_id}"
+        ),
     )
     audit_rows = [
         {
@@ -581,7 +548,7 @@ def sync_soccer_match_minute_odds_history(
             "request_start_epoch": result.request_start_epoch,
             "request_end_epoch": result.request_end_epoch,
             "source_row_count": result.source_row_count,
-            "in_game_row_count": result.source_row_count,
+            "in_game_row_count": result.history_row_count,
             "in_game_history_sha256": result.history_sha256,
             "source_endpoint": f"{CLOB_API_URL.rstrip('/')}/prices-history",
             "fetch_started_at": _db_timestamp(result.fetch_started_at),
@@ -591,35 +558,25 @@ def sync_soccer_match_minute_odds_history(
         }
         for result in fetched
     ]
-    with borrow_duckdb_connection(
-        conn, connection_factory=connection_factory
-    ) as active:
-        load_match_minute_fetch_audit(audit_rows, active, scope_name=SCOPE_SOCCER)
+    try:
+        with borrow_duckdb_connection(
+            conn, connection_factory=connection_factory
+        ) as active:
+            load_match_minute_fetch_audit(audit_rows, active, scope_name=SCOPE_SOCCER)
+    except Exception:
+        cleanup_minute_odds_publish_cache(fetch_run_id)
+        raise
 
     successes = [result for result in fetched if result.fetch_status == "success"]
     hard_failures = [
         result for result in fetched if result.fetch_status in {"error", "cancelled"}
     ]
-    new_successes = [
-        result for result in successes if result.plan.token_id not in reuse_ids
-    ]
-    if not new_successes and hard_failures:
-        release_minute_history_payloads(fetched)
+    if not successes and hard_failures:
         cleanup_minute_odds_publish_cache(fetch_run_id)
         raise RuntimeError("All due soccer minute-history token fetches failed")
 
-    shard_paths = []
     try:
-        if new_successes:
-            ensure_unique_success_token_ids(successes)
-            shard_paths = write_minute_history_parquet_shards(
-                new_successes,
-                fetch_run_id=fetch_run_id,
-                ingested_at=datetime.now(timezone.utc),
-                log=log,
-            )
-        release_minute_history_payloads(fetched)
-        if successes:
+        if successes or reuse_ids:
 
             def persist(paths, active, **kwargs):
                 return load_match_minute_odds_history_stage(
@@ -638,11 +595,7 @@ def sync_soccer_match_minute_odds_history(
                     shard_paths,
                     active,
                     fetch_run_id=fetch_run_id,
-                    reuse_token_ids={
-                        result.plan.token_id
-                        for result in successes
-                        if result.plan.token_id in reuse_ids
-                    },
+                    reuse_token_ids=set(reuse_ids),
                 )
     finally:
         cleanup_minute_odds_publish_cache(fetch_run_id)
@@ -655,13 +608,16 @@ def sync_soccer_match_minute_odds_history(
     return {
         "status": "partial" if partial else "published",
         "fetch_run_id": fetch_run_id,
-        "matches": len({result.plan.market_id for result in fetched}) // 3,
-        "markets": len({result.plan.market_id for result in fetched}),
-        "tokens": len(fetched),
+        "matches": len({plan.market_id for plan in plans}) // 3,
+        "markets": len({plan.market_id for plan in plans}),
+        "tokens": len(plans),
+        "attempted_tokens": len(fetched),
         **{f"{status}_tokens": value for status, value in counts.items()},
-        "raw_published_tokens": len(successes),
+        "raw_published_tokens": len(successes) + len(reuse_plans),
         "reused_tokens": len(reuse_plans),
         "terminal_empty_tokens": len(terminal_empty),
+        "audit_amplification": len(fetched) / max(len(fetch_plans), 1),
+        **fetch_metrics,
     }
 
 

@@ -105,6 +105,11 @@ soccer-minute-backfill: runtime-dirs
 soccer-production-health:
 	$(RUN_IN_REPO) "$(PYTHON)" scripts/run_health.py --scope polymarket:soccer --fail-on critical
 
+soccer-minute-performance-benchmark: runtime-dirs
+	$(RUN_IN_REPO) mkdir -p "$(SOCCER_MINUTE_PERFORMANCE_ROOT)"
+	$(RUN_IN_REPO) SOCCER_MINUTE_PERFORMANCE_REPORT_PATH="$(SOCCER_MINUTE_PERFORMANCE_REPORT_PATH)" $(MATCH_ANALYSIS_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/test_soccer_minute_dbt.py -q -n 0
+	@cat "$(SOCCER_MINUTE_PERFORMANCE_REPORT_PATH)"
+
 soccer-minute-live-smoke: runtime-dirs
 	@echo "Running disposable early/middle/recent soccer match-minute sample."
 	@rm -f "$(SOCCER_MINUTE_LIVE_SMOKE_DUCKDB_PATH)" "$(SOCCER_MINUTE_LIVE_SMOKE_DUCKDB_PATH).wal" "$(SOCCER_MINUTE_LIVE_SMOKE_DUCKDB_PATH)-wal" "$(SOCCER_MINUTE_LIVE_SMOKE_DUCKDB_PATH)-shm"

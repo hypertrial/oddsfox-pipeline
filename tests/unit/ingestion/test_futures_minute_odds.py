@@ -172,13 +172,15 @@ def test_sync_futures_minute_samples_markets_and_caps_window(monkeypatch, tmp_pa
     def fetch_window(_client, token_id, start_ts, end_ts, *_args, **_kwargs):
         return [(token_id, int(end_ts) - 60, 0.42)]
 
-    real_execute = futures_minute.execute_minute_fetches
+    real_execute = futures_minute.fetch_and_write_minute_history_parquet_shards
 
     def wrap_execute(plans, *args, **kwargs):
         captured_plans.extend(plans)
         return real_execute(plans, *args, **kwargs)
 
-    monkeypatch.setattr(futures_minute, "execute_minute_fetches", wrap_execute)
+    monkeypatch.setattr(
+        futures_minute, "fetch_and_write_minute_history_parquet_shards", wrap_execute
+    )
     try:
         summary = futures_minute.sync_futures_minute_odds_history(
             conn,
@@ -263,20 +265,21 @@ def test_sync_futures_minute_releases_histories_before_persist(monkeypatch, tmp_
             return [(token_id, point_ts, 0.55)]
         return []
 
-    real_release = futures_minute.release_minute_history_payloads
+    real_release = futures_minute.fetch_and_write_minute_history_parquet_shards
 
-    def wrap_release(results):
+    def wrap_release(*args, **kwargs):
+        results, paths, metrics = real_release(*args, **kwargs)
         order.append("release")
-        released = real_release(results)
-        assert released >= 1
         assert all(result.history == () for result in results)
-        return released
+        return results, paths, metrics
 
     def persist(rows, _conn, *, fetch_run_id):
         order.append("persist")
         assert rows
 
-    monkeypatch.setattr(futures_minute, "release_minute_history_payloads", wrap_release)
+    monkeypatch.setattr(
+        futures_minute, "fetch_and_write_minute_history_parquet_shards", wrap_release
+    )
     try:
         summary = futures_minute.sync_futures_minute_odds_history(
             conn,
@@ -318,14 +321,14 @@ def test_sync_futures_minute_odds_history_separate_audit_and_publish_borrows(
             return [(token_id, point_ts, 0.55)]
         return []
 
-    real_write = futures_minute.write_minute_history_parquet_shards
+    real_write = futures_minute.fetch_and_write_minute_history_parquet_shards
 
     def wrap_write(*args, **kwargs):
         shard_open_depth.append(open_depth["n"])
         return real_write(*args, **kwargs)
 
     monkeypatch.setattr(
-        futures_minute, "write_minute_history_parquet_shards", wrap_write
+        futures_minute, "fetch_and_write_minute_history_parquet_shards", wrap_write
     )
 
     try:

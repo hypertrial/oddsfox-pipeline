@@ -275,6 +275,11 @@ promotes them into a checksummed snapshot (`raw/` + `primary_ohlc/` buckets,
 bounds still match are reused without a CLOB refetch; only dirty token buckets
 are rewritten. DuckDB then re-registers the stable raw + primary-OHLC relation
 names and flips matching audit rows `raw_published` in one short transaction.
+Soccer writes audit rows only for due token attempts; unchanged tokens reconcile
+against their latest published exact-window audit instead of being copied into
+every catch-up run. The fetch pool caps submitted futures, writes completed
+histories into bounded Arrow/Parquet batches, and releases each token payload
+before the remaining plan completes.
 Views prefer the `CURRENT` symlink path so a later pointer advance is visible at
 query time without re-registering. Partial publishes merge into the prior
 snapshot (changed tokens only); they do not drop out-of-plan prior tokens.
@@ -292,6 +297,17 @@ are unchanged. Measure publish-only speed with
 operator warehouse). Measure the dbt rebuild with
 `make minute-odds-dbt-benchmark` (same disposable policy; default
 `performance` tier ~10M primary rows).
+
+Soccer catalog observations remain append-only in the snapshot relations. The
+same converged merge atomically upserts one-row-per-key current projections in
+`polymarket_soccer_raw.events` and `polymarket_soccer_raw.markets`; registry and
+dbt staging read those projections without ranking all prior observations. The
+public observed and dense soccer mart names are views over private
+`delete+insert` incremental relations keyed by `(market_id,
+odds_minute_epoch)`. A deterministic registry/audit revision replaces the full
+inclusive window only for dirty markets and removes markets that are no longer
+eligible. Measure cold and warm behavior with the disposable
+`make soccer-minute-performance-benchmark` target.
 
 For a cheaper live end-to-end check of the unified minute path without refetching
 every market, use `make minute-odds-live-smoke`. It always asserts a disposable

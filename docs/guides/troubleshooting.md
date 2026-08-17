@@ -16,6 +16,7 @@ shipped Polymarket WC2026 and soccer scopes.
 | Broken/stale warehouse | `rm oddsfox.duckdb*` + quickstart | [Stale Warehouse](#stale-warehouse) |
 | API timeouts / 5xx | Lower RPS; rerun job | [API or Network Failures](#api-or-network-failures) |
 | Interrupted Polymarket hourly dbt | Rerun dbt build / full_refresh | [Interrupted dbt incremental hourly odds](#interrupted-dbt-incremental-hourly-odds) |
+| Interrupted soccer minute dbt | Rerun the soccer dbt job | [Interrupted soccer minute incrementals](#interrupted-soccer-minute-incrementals) |
 | Polygon RPC / finalized errors | Check RPC config; rerun backfill | [Polygon Settlement RPC Failures](#polygon-settlement-rpc-failures) |
 | Polygon mart missing after ordinary dbt | Use `dbt-polygon-settlement-ci` | [Polygon dbt Graph Is Missing](#polygon-dbt-graph-is-missing) |
 | Tests wrote to production warehouse | Fix `DUCKDB_PATH` in `.env` | [Tests Writing To Production Warehouse](#tests-writing-to-production-warehouse) |
@@ -170,6 +171,16 @@ continues the ordinary build. Kalshi-only and other isolated dbt selects do not
 arm or recover this flag. If builds still look stale, rerun
 `polymarket_wc2026_dbt_build` with `full_refresh: true`
 in run config.
+
+## Interrupted soccer minute incrementals
+
+The private observed and dense soccer minute relations have separate recovery
+flags. If a process stops during either `delete+insert`, rerun
+`polymarket_soccer_dbt_build`. The wrapper full-refreshes only flagged private
+models in observed-then-dense dependency order before continuing the normal
+build. WC2026 recovery flags are independent. If recovery repeatedly fails,
+keep the active warehouse unchanged and validate a clean, versioned SSD state
+using the rollout in [Day-Two Operations](day-two-operations.md#soccer-performance-layout-rollout).
 
 ## Polygon Settlement RPC Failures
 

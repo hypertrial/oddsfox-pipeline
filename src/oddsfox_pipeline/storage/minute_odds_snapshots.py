@@ -354,8 +354,10 @@ def write_snapshot_partitions_from_raw_parquet(
 
     raw_files: list[SnapshotPartitionFile] = []
     for bucket, parts in sorted(raw_frames.items()):
-        merged = pl.concat(parts, how="vertical_relaxed").unique(
-            subset=["clobTokenId", "timestamp"], keep="last"
+        merged = (
+            pl.concat(parts, how="vertical_relaxed")
+            .unique(subset=["clobTokenId", "timestamp"], keep="last")
+            .sort(["market_id", "clobTokenId", "timestamp"])
         )
         out = staged_dir / "raw" / f"bucket={bucket}" / "part-00000.parquet"
         raw_files.append(
@@ -1220,8 +1222,10 @@ def write_snapshot_partitions_incremental(
                 parts.append(bucket_rows)
         if not parts:
             continue
-        merged = pl.concat(parts, how="vertical_relaxed").unique(
-            subset=["clobTokenId", "timestamp"], keep="last"
+        merged = (
+            pl.concat(parts, how="vertical_relaxed")
+            .unique(subset=["clobTokenId", "timestamp"], keep="last")
+            .sort(["market_id", "clobTokenId", "timestamp"])
         )
         out = staged_dir / "raw" / f"bucket={bucket}" / "part-00000.parquet"
         raw_files.append(

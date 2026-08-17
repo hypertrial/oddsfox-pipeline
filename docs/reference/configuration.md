@@ -377,6 +377,14 @@ regression ratio `2.0`, free-disk warning/critical floors `10`/`2` GiB, and
 completed-history retention `400` days. The critical disk floor blocks
 preflight; warning thresholds do not block valid publication.
 
+Soccer minute fetches retain only bounded in-flight work and Parquet buffers;
+the current catalog projections and private incremental mart state live in the
+configured DuckDB warehouse. For this v0.2 change, use new versioned
+`DUCKDB_PATH` and `ODDSFOX_RUNTIME_ROOT` paths on the same external SSD. Run the
+catalog, live smoke, backfill, dbt build, and health check before switching the
+Dagster environment. The repository intentionally provides no destructive reset
+target or in-place state bootstrap.
+
 !!! warning "v0.2 local layout reset"
 
     The scope segment in the snapshot path is a breaking local-state layout

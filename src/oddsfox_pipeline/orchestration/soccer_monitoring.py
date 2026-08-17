@@ -381,6 +381,8 @@ def run_soccer_preflight() -> dict[str, Any]:
     except (OSError, ValueError, TypeError) as exc:
         raise RuntimeError(f"soccer dbt manifest is unreadable: {exc}") from exc
     required_models = {
+        "int_polymarket_soccer_match_result_observed",
+        "int_polymarket_soccer_match_result_minute_odds",
         "polymarket_soccer_matches",
         "polymarket_soccer_match_result_minute_odds",
         "polymarket_soccer_pipeline_health",
@@ -389,28 +391,30 @@ def run_soccer_preflight() -> dict[str, Any]:
     if missing_models:
         raise RuntimeError(f"soccer dbt manifest models missing: {missing_models}")
 
-    payloads = polymarket_raw_tbl(SCOPE_SOCCER, "event_market_payload_snapshots")
+    events = polymarket_raw_tbl(SCOPE_SOCCER, "events")
+    markets = polymarket_raw_tbl(SCOPE_SOCCER, "markets")
     registry = polymarket_ops_tbl(SCOPE_SOCCER, "match_result_registry")
     with get_connection() as conn:
         bootstrap_polymarket_tables(conn, scope_name=SCOPE_SOCCER)
         actual = {
             str(item[0])
-            for item in conn.execute(f"SELECT * FROM {payloads} LIMIT 0").description
+            for item in conn.execute(f"SELECT * FROM {markets} LIMIT 0").description
         }
         required = {
-            name
+            ("id" if name == "market_id" else name)
             for name in EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS
-            if name != "row_order"
+            if name not in {"row_order", "market_id"}
         }
+        required.add("id")
         missing = sorted(required - actual)
         if missing:
-            raise RuntimeError(f"soccer market snapshot columns missing: {missing}")
+            raise RuntimeError(f"soccer current market columns missing: {missing}")
         conn.execute(
             f"""
-            SELECT market_id, observed_at, scraped_at FROM {payloads}
-            QUALIFY row_number() OVER (
-                PARTITION BY market_id ORDER BY observed_at DESC, scraped_at DESC
-            ) = 1 LIMIT 0
+            SELECT event.event_id, market.id, market.observed_at
+            FROM {events} AS event
+            LEFT JOIN {markets} AS market ON event.event_id = market.event_id
+            LIMIT 0
             """
         )
         collision_count = conn.execute(

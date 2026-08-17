@@ -248,6 +248,14 @@ _EVENT_MARKET_PAYLOAD_SNAPSHOT = (
     ColumnDef("row_order", "BIGINT", "bigint"),
 )
 
+_CURRENT_EVENT = tuple(
+    column for column in _EVENT_SNAPSHOT if column.name != "row_order"
+)
+_CURRENT_MARKET = (
+    *(column for column in _EVENT_CATALOG_MARKET if column.name != "row_order"),
+    ColumnDef("observed_at", "TIMESTAMP", "timestamp", ddl_not_null=True),
+)
+
 MARKET_TOKEN_COLUMNS = columns_to_dlt(_MARKET_TOKEN)
 ODDS_HISTORY_COLUMNS = columns_to_dlt(_ODDS_HISTORY)
 MATCH_MINUTE_ODDS_HISTORY_COLUMNS = columns_to_dlt(_MATCH_MINUTE_ODDS_HISTORY)
@@ -282,6 +290,8 @@ _DLT_COLUMNS_BY_RELATION: dict[str, dict[str, dict[str, Any]]] = {
     "event_tag_snapshots": EVENT_TAG_SNAPSHOT_COLUMNS,
     "event_market_snapshots": EVENT_MARKET_SNAPSHOT_COLUMNS,
     "event_market_payload_snapshots": EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS,
+    "events": columns_to_dlt(_CURRENT_EVENT),
+    "markets": columns_to_dlt(_CURRENT_MARKET),
 }
 
 _DDL_COLUMNS_BY_RELATION: dict[str, tuple[ColumnDef, ...]] = {
@@ -296,6 +306,8 @@ _DDL_COLUMNS_BY_RELATION: dict[str, tuple[ColumnDef, ...]] = {
     "event_tag_snapshots": _EVENT_TAG_SNAPSHOT,
     "event_market_snapshots": _EVENT_MARKET_SNAPSHOT,
     "event_market_payload_snapshots": _EVENT_MARKET_PAYLOAD_SNAPSHOT,
+    "events": _CURRENT_EVENT,
+    "markets": _CURRENT_MARKET,
 }
 
 

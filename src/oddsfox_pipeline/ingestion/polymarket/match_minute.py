@@ -8,6 +8,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable, Iterable
 from uuid import uuid4
 
@@ -28,13 +29,10 @@ from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
     borrow_duckdb_connection,
     call_minute_persist,
     cleanup_minute_odds_publish_cache,
-    ensure_unique_success_token_ids,
-    execute_minute_fetches,
-    release_minute_history_payloads,
+    fetch_and_write_minute_history_parquet_shards,
     resolve_minute_token_reuse,
     sample_minute_market_plans,
     synthesize_reused_minute_fetch_results,
-    write_minute_history_parquet_shards,
 )
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
     load_match_minute_fetch_audit,
@@ -72,6 +70,7 @@ class MatchMinuteFetchResult:
     fetch_finished_at: datetime
     error_type: str | None = None
     error_message: str | None = None
+    history_row_count: int = 0
 
 
 class MatchMinuteSyncError(RuntimeError):
@@ -265,6 +264,7 @@ def _to_match_fetch_result(result: MinuteFetchResult) -> MatchMinuteFetchResult:
         fetch_finished_at=result.fetch_finished_at,
         error_type=result.error_type,
         error_message=result.error_message,
+        history_row_count=result.history_row_count,
     )
 
 
@@ -347,11 +347,14 @@ def sync_match_minute_odds_history(
             published_windows=published_windows,
         )
     ]
+    shard_paths: list[Path] = []
+    fetch_metrics: dict[str, int] = {}
     if fetch_plans:
-        fetched.extend(
-            _to_match_fetch_result(result)
-            for result in execute_minute_fetches(
+        fresh, shard_paths, fetch_metrics = (
+            fetch_and_write_minute_history_parquet_shards(
                 fetch_plans,
+                fetch_run_id=fetch_run_id,
+                ingested_at=datetime.now(timezone.utc),
                 asset_name="polymarket_wc2026_match_minute_odds_backfill",
                 log=log,
                 workers=workers,
@@ -374,6 +377,7 @@ def sync_match_minute_odds_history(
                 ),
             )
         )
+        fetched.extend(_to_match_fetch_result(result) for result in fresh)
     audit_rows = [
         {
             "fetch_run_id": fetch_run_id,
@@ -388,7 +392,7 @@ def sync_match_minute_odds_history(
             "request_end_epoch": result.request_end_epoch,
             "source_row_count": result.source_row_count,
             "in_game_row_count": (
-                len(result.history)
+                result.history_row_count
                 if result.plan.token_id not in reuse_ids
                 else int(result.source_row_count)
             ),
@@ -413,7 +417,8 @@ def sync_match_minute_odds_history(
         "markets": len({result.plan.market_id for result in fetched}),
         "tokens": len(fetched),
         **{f"{status}_tokens": count for status, count in status_counts.items()},
-        "rows": sum(len(result.history) for result in fetched),
+        "rows": sum(result.history_row_count for result in fetched),
+        **fetch_metrics,
     }
     if sample_manifest is not None:
         summary.update(sample_manifest)
@@ -426,33 +431,19 @@ def sync_match_minute_odds_history(
             audit_persist_fn(audit_rows, active)
         except Exception as exc:
             summary.update(status="audit_error", error_type=exc.__class__.__name__)
+            cleanup_minute_odds_publish_cache(fetch_run_id)
             raise MatchMinuteSyncError(str(exc), summary) from exc
 
         if failures:
             first = failures[0]
             summary["status"] = "fetch_failed"
+            cleanup_minute_odds_publish_cache(fetch_run_id)
             raise MatchMinuteSyncError(
                 first.error_message or "CLOB fetch failed", summary
             )
 
-    ingested_at = datetime.now(timezone.utc)
     try:
-        ensure_unique_success_token_ids(fetched)
-        fetched_success = [
-            result for result in fetched if result.plan.token_id not in reuse_ids
-        ]
-        shard_paths = (
-            write_minute_history_parquet_shards(
-                fetched_success,
-                fetch_run_id=fetch_run_id,
-                ingested_at=ingested_at,
-                log=log,
-            )
-            if fetched_success
-            else []
-        )
         published_tokens = len(fetched)
-        release_minute_history_payloads(fetched)
         with borrow_duckdb_connection(
             conn, connection_factory=connection_factory
         ) as active:

@@ -11,7 +11,7 @@ import duckdb
 from oddsfox_pipeline.ingestion.polymarket.polymarket_ids import (
     is_numeric_polymarket_id,
 )
-from oddsfox_pipeline.naming import SCOPE_WC2026
+from oddsfox_pipeline.naming import SCOPE_SOCCER, SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.dlt_batch import _with_row_order, load_stage_rows
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     polymarket_raw_schema,
@@ -189,6 +189,8 @@ def merge_event_catalog_batch(
     market_payloads_target = polymarket_raw_tbl(
         scope_name, "event_market_payload_snapshots"
     )
+    current_events_target = polymarket_raw_tbl(scope_name, "events")
+    current_markets_target = polymarket_raw_tbl(scope_name, "markets")
     observed_at_values = {row.get("observed_at") for row in event_rows}
     if None in observed_at_values or len(observed_at_values) != 1:
         raise ValueError("event_rows must share one non-null observed_at")
@@ -266,8 +268,8 @@ def merge_event_catalog_batch(
             }
         )
 
-    # Existing warehouses predate the dedicated payload snapshot table. Keep
-    # dlt-owned ``markets`` untouched and migrate only project-owned raw tables.
+    # Bootstrap project-owned snapshot tables and, for a clean soccer state,
+    # the current projections. WC2026's dlt-owned ``markets`` remains untouched.
     bootstrap_polymarket_tables(conn, scope_name=scope_name)
 
     events_stage = load_stage_rows(
@@ -325,6 +327,21 @@ def merge_event_catalog_batch(
     quoted_event_columns = ", ".join(event_columns)
     quoted_tag_columns = ", ".join(tag_columns)
     quoted_bridge_columns = ", ".join(bridge_columns)
+    current_market_columns = tuple(
+        column for column in EVENT_CATALOG_MARKET_COLUMNS if column != "row_order"
+    ) + ("observed_at",)
+    quoted_current_market_columns = ", ".join(
+        f'"{column}"' for column in current_market_columns
+    )
+    current_market_select = ", ".join(
+        ["market_id AS id"]
+        + [
+            f'"{column}"'
+            for column in current_market_columns
+            if column not in {"id", "observed_at"}
+        ]
+        + ["observed_at"]
+    )
     conn.execute("BEGIN TRANSACTION")
     try:
         _assert_append_only_snapshot(
@@ -453,6 +470,43 @@ def merge_event_catalog_batch(
                 ON CONFLICT (market_id, observed_at) DO NOTHING
                 """
             )
+        if scope_name == SCOPE_SOCCER:
+            conn.execute(
+                f"""
+                DELETE FROM {current_events_target}
+                WHERE event_id IN (SELECT event_id FROM {events_stage})
+                """
+            )
+            conn.execute(
+                f"""
+                INSERT INTO {current_events_target} ({quoted_event_columns})
+                SELECT {quoted_event_columns}
+                FROM {events_stage}
+                QUALIFY row_number() OVER (
+                    PARTITION BY event_id ORDER BY row_order DESC
+                ) = 1
+                """
+            )
+            if market_payloads_stage is not None:
+                conn.execute(
+                    f"""
+                    DELETE FROM {current_markets_target}
+                    WHERE id IN (SELECT market_id FROM {market_payloads_stage})
+                    """
+                )
+                conn.execute(
+                    f"""
+                    INSERT INTO {current_markets_target} (
+                        {quoted_current_market_columns}
+                    )
+                    SELECT {current_market_select}
+                    FROM {market_payloads_stage}
+                    QUALIFY row_number() OVER (
+                        PARTITION BY market_id
+                        ORDER BY scraped_at DESC, row_order DESC
+                    ) = 1
+                    """
+                )
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")

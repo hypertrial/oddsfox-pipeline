@@ -15,6 +15,24 @@ with step_metrics as (
         max(cast(json_extract(metrics_json, '$.raw_published_tokens') as bigint)) filter (
             where step_name = 'match_minute_odds'
         ) as published_tokens,
+        max(cast(json_extract(metrics_json, '$.attempted_tokens') as bigint)) filter (
+            where step_name = 'match_minute_odds'
+        ) as attempted_tokens,
+        max(cast(json_extract(metrics_json, '$.audit_amplification') as double)) filter (
+            where step_name = 'match_minute_odds'
+        ) as audit_amplification,
+        max(cast(json_extract(metrics_json, '$.max_inflight_futures') as bigint)) filter (
+            where step_name = 'match_minute_odds'
+        ) as max_inflight_futures,
+        max(cast(json_extract(metrics_json, '$.peak_buffered_rows') as bigint)) filter (
+            where step_name = 'match_minute_odds'
+        ) as peak_buffered_rows,
+        max(cast(json_extract(metrics_json, '$.spilled_rows') as bigint)) filter (
+            where step_name = 'match_minute_odds'
+        ) as spilled_rows,
+        max(cast(json_extract(metrics_json, '$.shard_count') as bigint)) filter (
+            where step_name = 'match_minute_odds'
+        ) as shard_count,
         sum(cast(json_extract(metrics_json, '$.elapsed_seconds') as double))
             as duration_seconds,
         sum(cast(json_extract(metrics_json, '$.process_cpu_seconds') as double))
@@ -46,6 +64,12 @@ successful_runs as (
         step_metrics.catalog_markets,
         step_metrics.mapped_matches,
         step_metrics.published_tokens,
+        step_metrics.attempted_tokens,
+        step_metrics.audit_amplification,
+        step_metrics.max_inflight_futures,
+        step_metrics.peak_buffered_rows,
+        step_metrics.spilled_rows,
+        step_metrics.shard_count,
         step_metrics.duration_seconds,
         step_metrics.process_cpu_seconds,
         step_metrics.peak_rss_bytes,

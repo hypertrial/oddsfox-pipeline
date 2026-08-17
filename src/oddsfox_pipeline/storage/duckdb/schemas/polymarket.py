@@ -180,6 +180,8 @@ def bootstrap_polymarket_tables(
     event_market_payload_snapshots = polymarket_raw_tbl(
         scope_name, "event_market_payload_snapshots"
     )
+    current_events = polymarket_raw_tbl(scope_name, "events")
+    current_markets = polymarket_raw_tbl(scope_name, "markets")
     match_minute_audit = polymarket_ops_tbl(scope_name, "match_minute_odds_fetch_audit")
     futures_minute_audit = polymarket_ops_tbl(
         scope_name, "futures_minute_odds_fetch_audit"
@@ -267,6 +269,23 @@ def bootstrap_polymarket_tables(
             conn.execute(
                 f"ALTER TABLE {event_market_payload_snapshots} "
                 f"ADD COLUMN IF NOT EXISTS {column_definition}"
+            )
+        if scope_name == SCOPE_SOCCER:
+            conn.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {current_events} (
+                    {polymarket_raw_ddl_body("events")},
+                    PRIMARY KEY (event_id)
+                )
+                """
+            )
+            conn.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS {current_markets} (
+                    {polymarket_raw_ddl_body("markets")},
+                    PRIMARY KEY (id)
+                )
+                """
             )
     conn.execute(
         f"""

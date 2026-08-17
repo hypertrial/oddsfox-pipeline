@@ -24,7 +24,16 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock, local
-from typing import Any, Callable, Iterator, Mapping, Protocol, Sequence, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+    Protocol,
+    Sequence,
+    TypeVar,
+)
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -41,6 +50,7 @@ from oddsfox_pipeline.ingestion.polymarket.odds.execution import (
     iter_windows,
 )
 from oddsfox_pipeline.ingestion.polymarket.odds.fetch import build_client
+from oddsfox_pipeline.ingestion.polymarket.odds.support import MAX_INFLIGHT_CAP
 from oddsfox_pipeline.ingestion.polymarket.odds.writer import maybe_auto_tune_rps
 from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.resources.http import RateLimiter
@@ -102,6 +112,12 @@ class MinuteHistoryResultLike(Protocol):
     history: Sequence[tuple[str, int, float]]
 
 
+@dataclass(frozen=True)
+class _MinuteHistoryChunk:
+    plan: MinutePlanLike
+    history: Sequence[tuple[str, int, float]]
+
+
 @contextmanager
 def borrow_duckdb_connection(
     conn: Any | None = None,
@@ -136,6 +152,7 @@ class MinuteFetchResult:
     fetch_finished_at: datetime
     error_type: str | None = None
     error_message: str | None = None
+    history_row_count: int = 0
 
 
 def _dedupe_history_by_timestamp(
@@ -416,7 +433,7 @@ def minute_odds_publish_cache_dir(fetch_run_id: str) -> Path:
 
 
 def write_minute_history_parquet_shards(
-    results: Sequence[MinuteHistoryResultLike],
+    results: Iterable[MinuteHistoryResultLike],
     *,
     fetch_run_id: str,
     ingested_at: datetime,
@@ -425,33 +442,16 @@ def write_minute_history_parquet_shards(
     batch_rows: int = DEFAULT_MINUTE_PUBLISH_BATCH_ROWS,
     compression: str | None = DEFAULT_MINUTE_PUBLISH_COMPRESSION,
     log: Any = logger,
+    retained_results: list[MinuteHistoryResultLike] | None = None,
+    release_payloads: bool = False,
+    allow_empty: bool = False,
+    metrics: dict[str, int] | None = None,
 ) -> list[Path]:
-    """Spill publish Arrow batches to temporary Parquet shards under runtime cache."""
-    ensure_unique_success_token_ids(results)
+    """Spill an iterable of token results without retaining completed histories."""
     cache_dir = minute_odds_publish_cache_dir(fetch_run_id)
     if cache_dir.exists():
         shutil.rmtree(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
-
-    estimated_rows = sum(len(result.history) for result in results if result.history)
-    # Rough upper bound: ~40 bytes/row uncompressed Arrow plus Parquet overhead.
-    # Fail before writing when free space is clearly insufficient for spill.
-    free_bytes = shutil.disk_usage(cache_dir).free
-    estimated_bytes = max(estimated_rows, 1) * 40
-    log.info(
-        "Minute-odds publish spill planning %s rows under %s "
-        "(free_bytes=%s estimated_bytes=%s)",
-        estimated_rows,
-        cache_dir,
-        free_bytes,
-        estimated_bytes,
-    )
-    if free_bytes < estimated_bytes:
-        shutil.rmtree(cache_dir, ignore_errors=True)
-        raise OSError(
-            f"Insufficient local free space for minute-odds parquet spill: "
-            f"need~{estimated_bytes} bytes, free={free_bytes}"
-        )
 
     shard_paths: list[Path] = []
     shard_rows = 0
@@ -463,7 +463,8 @@ def write_minute_history_parquet_shards(
     # while Python histories are still alive.
     writer: pq.ParquetWriter | None = None
     writer_rows = 0
-    token_ids = sorted({result.plan.token_id for result in results if result.history})
+    token_ids: set[str] = set()
+    peak_buffered_rows = 0
 
     def _close_writer() -> None:
         nonlocal writer, shard_rows, shard_index, writer_rows
@@ -509,24 +510,50 @@ def write_minute_history_parquet_shards(
         return pa.Table.from_arrays(columns, names=list(renamed.column_names))
 
     try:
-        for batch in iter_minute_history_arrow_batches(
-            results,
-            ingested_at=ingested_at,
-            fidelity_minutes=fidelity_minutes,
-            max_rows=batch_rows,
-        ):
-            parquet_batch = _batch_for_parquet(batch)
-            if writer is not None and shard_rows + parquet_batch.num_rows > shard_cap:
-                _close_writer()
-            if writer is None:
-                _open_writer(parquet_batch.schema)
-            assert writer is not None
-            writer.write_table(parquet_batch)
-            shard_rows += parquet_batch.num_rows
-            writer_rows += parquet_batch.num_rows
-            total_rows += parquet_batch.num_rows
-            if shard_rows >= shard_cap:
-                _close_writer()
+        for result in results:
+            try:
+                if result.history:
+                    token_id = str(result.plan.token_id)
+                    if token_id in token_ids:
+                        raise ValueError(
+                            f"Duplicate success token plan for publish: {token_id}"
+                        )
+                    token_ids.add(token_id)
+                    history = result.history
+                    cap = max(1, int(batch_rows))
+                    for offset in range(0, len(history), cap):
+                        chunk = _MinuteHistoryChunk(
+                            plan=result.plan,
+                            history=history[offset : offset + cap],
+                        )
+                        peak_buffered_rows = max(peak_buffered_rows, len(chunk.history))
+                        parquet_batch = _batch_for_parquet(
+                            _build_minute_history_arrow_batch(
+                                [chunk],
+                                ingested_at=ingested_at,
+                                fidelity_minutes=fidelity_minutes,
+                                include_row_order=False,
+                            )
+                        )
+                        if (
+                            writer is not None
+                            and shard_rows + parquet_batch.num_rows > shard_cap
+                        ):
+                            _close_writer()
+                        if writer is None:
+                            _open_writer(parquet_batch.schema)
+                        assert writer is not None
+                        writer.write_table(parquet_batch)
+                        shard_rows += parquet_batch.num_rows
+                        writer_rows += parquet_batch.num_rows
+                        total_rows += parquet_batch.num_rows
+                        if shard_rows >= shard_cap:
+                            _close_writer()
+            finally:
+                if release_payloads and result.history:
+                    object.__setattr__(result, "history", ())
+                if retained_results is not None:
+                    retained_results.append(result)
         _close_writer()
     except Exception:
         if writer is not None:
@@ -535,6 +562,14 @@ def write_minute_history_parquet_shards(
         raise
     if not shard_paths:
         shutil.rmtree(cache_dir, ignore_errors=True)
+        if allow_empty:
+            if metrics is not None:
+                metrics.update(
+                    peak_buffered_rows=peak_buffered_rows,
+                    spilled_rows=0,
+                    shard_count=0,
+                )
+            return []
         raise ValueError("rows must not be empty")
     manifest_path = cache_dir / "manifest.json"
     manifest_path.write_text(
@@ -542,7 +577,7 @@ def write_minute_history_parquet_shards(
             {
                 "fetch_run_id": fetch_run_id,
                 "token_count": len(token_ids),
-                "token_ids": token_ids,
+                "token_ids": sorted(token_ids),
                 "row_count": total_rows,
                 "shard_count": len(shard_paths),
             },
@@ -557,6 +592,12 @@ def write_minute_history_parquet_shards(
         len(shard_paths),
         cache_dir,
     )
+    if metrics is not None:
+        metrics.update(
+            peak_buffered_rows=peak_buffered_rows,
+            spilled_rows=total_rows,
+            shard_count=len(shard_paths),
+        )
     return shard_paths
 
 
@@ -660,6 +701,7 @@ def _finalize_history(
         history_sha256=history_sha256,
         fetch_started_at=fetch_started_at,
         fetch_finished_at=datetime.now(timezone.utc),
+        history_row_count=len(filtered),
     )
 
 
@@ -895,7 +937,7 @@ def fetch_minute_plan_group(
     return results
 
 
-def execute_minute_fetches(
+def iter_minute_fetches(
     plans: Sequence[MinutePlanLike],
     *,
     asset_name: str,
@@ -919,8 +961,9 @@ def execute_minute_fetches(
     fetch_window_fn: Callable[..., Any] = fetch_window_with_auto_split,
     fetch_group_window_fn: Callable[..., Any] = fetch_group_window_with_auto_split,
     empty_error_message_fn: Callable[[MinutePlanLike], str] | None = None,
-) -> list[MinuteFetchResult]:
-    """Run minute fetches with hourly-parity concurrency, batching, and auto-tune."""
+    metrics: dict[str, int] | None = None,
+) -> Iterator[MinuteFetchResult]:
+    """Yield fetched tokens while bounding submitted work to hourly parity."""
     configured_rps = (
         requests_per_second
         if requests_per_second is not None
@@ -1002,13 +1045,31 @@ def execute_minute_fetches(
         no_progress_hard_timeout_seconds=no_progress_hard_timeout_seconds,
         work_log_interval=25,
     )
-    fetched: list[MinuteFetchResult] = []
     effective_workers = max(1, int(workers))
-    with ThreadPoolExecutor(max_workers=effective_workers) as pool:
-        futures: dict[Future[list[MinuteFetchResult]], Any] = {
-            pool.submit(fetch_unit, unit): unit for unit in work_units
-        }
-        pending = set(futures.keys())
+    max_inflight = min(max(effective_workers * 8, 64), MAX_INFLIGHT_CAP)
+    if metrics is not None:
+        metrics.update(max_inflight_futures=0, fetched_tokens=0)
+    pool = ThreadPoolExecutor(max_workers=effective_workers)
+    units = iter(work_units)
+    futures: dict[Future[list[MinuteFetchResult]], Any] = {}
+
+    def submit_next() -> bool:
+        try:
+            unit = next(units)
+        except StopIteration:
+            return False
+        futures[pool.submit(fetch_unit, unit)] = unit
+        if metrics is not None:
+            metrics["max_inflight_futures"] = max(
+                metrics["max_inflight_futures"], len(futures)
+            )
+        return True
+
+    for _ in range(min(max_inflight, len(work_units))):
+        submit_next()
+    completed_normally = False
+    try:
+        pending = set(futures)
         while pending:
             done, pending = wait(
                 pending,
@@ -1038,7 +1099,7 @@ def execute_minute_fetches(
                 )
                 continue
             for future in done:
-                unit = futures[future]
+                unit = futures.pop(future)
                 try:
                     results = future.result()
                 except Exception as exc:  # pragma: no cover - defensive worker boundary
@@ -1060,7 +1121,6 @@ def execute_minute_fetches(
                         )
                         for plan in unit_plans
                     ]
-                fetched.extend(results)
                 for result in results:
                     guardrail.record_progress(
                         work_increment=1,
@@ -1077,9 +1137,60 @@ def execute_minute_fetches(
                             "status": result.fetch_status,
                         },
                     )
+                    if metrics is not None:
+                        metrics["fetched_tokens"] += 1
+                    yield result
+                submit_next()
+            pending = set(futures)
+        completed_normally = True
+    finally:
+        if not completed_normally:
+            for future in futures:
+                future.cancel()
+        pool.shutdown(wait=completed_normally, cancel_futures=not completed_normally)
 
-    fetched.sort(key=lambda result: result.plan.token_id)
-    return fetched
+
+def execute_minute_fetches(
+    plans: Sequence[MinutePlanLike],
+    **kwargs: Any,
+) -> list[MinuteFetchResult]:
+    """Compatibility wrapper returning deterministically ordered fetch results."""
+    return sorted(
+        iter_minute_fetches(plans, **kwargs),
+        key=lambda result: result.plan.token_id,
+    )
+
+
+def fetch_and_write_minute_history_parquet_shards(
+    plans: Sequence[MinutePlanLike],
+    *,
+    fetch_run_id: str,
+    ingested_at: datetime,
+    log: Any = logger,
+    **fetch_kwargs: Any,
+) -> tuple[list[MinuteFetchResult], list[Path], dict[str, int]]:
+    """Fetch, spill, and release token histories as each bounded unit completes."""
+    retained: list[MinuteHistoryResultLike] = []
+    metrics: dict[str, int] = {}
+    stream = iter_minute_fetches(plans, log=log, metrics=metrics, **fetch_kwargs)
+    try:
+        paths = write_minute_history_parquet_shards(
+            stream,
+            fetch_run_id=fetch_run_id,
+            ingested_at=ingested_at,
+            log=log,
+            retained_results=retained,
+            release_payloads=True,
+            allow_empty=True,
+            metrics=metrics,
+        )
+    finally:
+        stream.close()
+    results = sorted(
+        (result for result in retained if isinstance(result, MinuteFetchResult)),
+        key=lambda result: result.plan.token_id,
+    )
+    return results, paths, metrics
 
 
 def resolve_minute_token_reuse(
@@ -1171,6 +1282,7 @@ def synthesize_reused_minute_fetch_results(
                 history_sha256=str(prior.history_sha256),
                 fetch_started_at=finished,
                 fetch_finished_at=finished,
+                history_row_count=int(prior.row_count),
             )
         )
     return out
@@ -1198,9 +1310,11 @@ __all__ = [
     "cleanup_minute_odds_publish_cache",
     "ensure_unique_success_token_ids",
     "execute_minute_fetches",
+    "fetch_and_write_minute_history_parquet_shards",
     "fetch_minute_plan",
     "fetch_minute_plan_group",
     "group_minute_plans",
+    "iter_minute_fetches",
     "iter_minute_history_arrow_batches",
     "minute_odds_publish_cache_dir",
     "padded_epoch_bounds",

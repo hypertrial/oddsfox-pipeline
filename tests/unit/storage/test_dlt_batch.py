@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from unittest.mock import MagicMock
 
+import duckdb
 import pytest
 
+from oddsfox_pipeline.naming import SCOPE_SOCCER
 from oddsfox_pipeline.storage.duckdb import dlt_batch as dlt_batch_mod
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
     EVENT_SNAPSHOT_COLUMNS,
@@ -17,6 +19,9 @@ from oddsfox_pipeline.storage.duckdb.dlt_batch_event_catalog import (
     merge_event_catalog_batch,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.constants import polymarket_wc2026_raw_tbl
+from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
+    bootstrap_polymarket_tables,
+)
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
     EVENT_CATALOG_MARKET_COLUMNS,
 )
@@ -858,3 +863,110 @@ def test_event_catalog_rejects_empty_and_cross_observation_inputs():
         )
 
     conn.assert_not_called()
+
+
+def test_soccer_catalog_atomically_updates_current_projections(duck):
+
+    def event(event_id: str, observed_at: str, title: str) -> dict:
+        row = {
+            column: None for column in EVENT_SNAPSHOT_COLUMNS if column != "row_order"
+        }
+        row.update(
+            event_id=event_id,
+            event_title=title,
+            tags_json='["soccer"]',
+            series_slugs_json="[]",
+            candidate_sources_json='["exact_soccer_tag"]',
+            source_market_count=1,
+            observed_at=observed_at,
+            source_endpoint="/events/keyset",
+        )
+        return row
+
+    def market(observed_at: str, question: str) -> dict:
+        row = {
+            column: None
+            for column in EVENT_CATALOG_MARKET_COLUMNS
+            if column != "row_order"
+        }
+        row.update(
+            id="920100",
+            question=question,
+            outcomes='["Yes","No"]',
+            volume=1.0,
+            scraped_at=observed_at,
+        )
+        return row
+
+    with duck.get_connection() as conn:
+        bootstrap_polymarket_tables(conn, scope_name=SCOPE_SOCCER)
+        for observed_at, title, question in (
+            ("2026-08-01", "A vs. B", "Will A beat B?"),
+            ("2026-08-02", "A vs. B updated", "Will A beat B today?"),
+        ):
+            merge_event_catalog_batch(
+                event_rows=[event("910100", observed_at, title)],
+                tag_rows=[],
+                event_market_rows=[],
+                market_rows=[market(observed_at, question)],
+                conn=conn,
+                scope_name=SCOPE_SOCCER,
+            )
+
+        assert conn.execute(
+            "select count(*), max(event_title) from polymarket_soccer_raw.event_snapshots"
+        ).fetchone() == (2, "A vs. B updated")
+        assert conn.execute(
+            "select event_title, observed_at from polymarket_soccer_raw.events"
+        ).fetchone() == ("A vs. B updated", datetime(2026, 8, 2))
+        assert conn.execute(
+            "select question, observed_at from polymarket_soccer_raw.markets"
+        ).fetchone() == ("Will A beat B today?", datetime(2026, 8, 2))
+
+        merge_event_catalog_batch(
+            event_rows=[event("910200", "2026-08-03", "C vs. D")],
+            tag_rows=[],
+            event_market_rows=[],
+            market_rows=[],
+            conn=conn,
+            scope_name=SCOPE_SOCCER,
+        )
+        merge_event_catalog_batch(
+            event_rows=[event("910100", "2026-08-04", "A vs. B final")],
+            tag_rows=[],
+            event_market_rows=[],
+            market_rows=[],
+            conn=conn,
+            scope_name=SCOPE_SOCCER,
+        )
+        assert conn.execute(
+            "select count(*), count(*) filter (where event_id = '910200') "
+            "from polymarket_soccer_raw.events"
+        ).fetchone() == (2, 1)
+
+        snapshot_count = conn.execute(
+            "select count(*) from polymarket_soccer_raw.event_snapshots"
+        ).fetchone()[0]
+        conn.execute("drop table polymarket_soccer_raw.markets")
+        conn.execute(
+            "create table polymarket_soccer_raw.markets (id varchar primary key)"
+        )
+        with pytest.raises(duckdb.BinderException):
+            merge_event_catalog_batch(
+                event_rows=[event("910100", "2026-08-05", "must roll back")],
+                tag_rows=[],
+                event_market_rows=[],
+                market_rows=[market("2026-08-05", "must roll back")],
+                conn=conn,
+                scope_name=SCOPE_SOCCER,
+            )
+        assert (
+            conn.execute(
+                "select count(*) from polymarket_soccer_raw.event_snapshots"
+            ).fetchone()[0]
+            == snapshot_count
+        )
+        assert conn.execute(
+            "select event_title from polymarket_soccer_raw.events "
+            "where event_id = '910100'"
+        ).fetchone() == ("A vs. B final",)

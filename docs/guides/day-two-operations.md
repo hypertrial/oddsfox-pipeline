@@ -21,6 +21,26 @@ uv run python scripts/run_scope.py polymarket:wc2026 --step odds
 uv run python scripts/run_scope.py polymarket:wc2026 --step dbt
 ```
 
+## Soccer performance-layout rollout
+
+The soccer current projections and private incremental minute marts require a
+clean local state. Leave the active warehouse untouched and configure new,
+versioned `DUCKDB_PATH` and `ODDSFOX_RUNTIME_ROOT` locations on the external
+SSD. Validate the replacement in this order:
+
+1. Run `make soccer-catalog-audit`.
+2. Run `make soccer-minute-live-smoke`.
+3. Run `make soccer-minute-backfill`.
+4. Run `uv run python scripts/run_scope.py polymarket:soccer --step dbt` and
+   `make soccer-production-health`.
+5. Switch Dagster to the new paths only after health is noncritical.
+
+Use `make soccer-minute-performance-benchmark` for a disposable cold/warm
+comparison. It reports bounded-fetch high-water marks, due-token audit
+amplification, dirty-market rebuild counts, and output hashes below the active
+SSD runtime root. Retire the old state manually only after the replacement is
+accepted; the repository does not delete or update it in place.
+
 ## Freshness And Trust
 
 1. Prefer read-only inspection:

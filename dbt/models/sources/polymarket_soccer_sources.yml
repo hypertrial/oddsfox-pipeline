@@ -5,6 +5,11 @@ sources:
     schema: polymarket_soccer_raw
     description: Raw exact-tag Polymarket soccer catalog and in-game CLOB history.
     tables:
+      - name: events
+        description: Current event projection maintained atomically with snapshots.
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, raw, event_catalog]
       - name: event_snapshots
         meta:
           dagster:

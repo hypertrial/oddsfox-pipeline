@@ -283,28 +283,60 @@ def get_sync_run_metrics(
 POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL = (
     "int_polymarket_wc2026_token_hourly_odds"
 )
-_DBT_INCREMENTAL_IN_PROGRESS_KEY = (
-    f"dbt:incremental:{POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL}:in_progress"
+POLYMARKET_SOCCER_INCREMENTAL_MODELS = (
+    "int_polymarket_soccer_match_result_observed",
+    "int_polymarket_soccer_match_result_minute_odds",
 )
+
+
+def _dbt_incremental_key(model_name: str) -> str:
+    return f"dbt:incremental:{model_name}:in_progress"
+
+
+def mark_dbt_incremental_in_progress(
+    model_name: str,
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> None:
+    _metadata_set(_dbt_incremental_key(model_name), "1", conn)
+
+
+def clear_dbt_incremental_in_progress(
+    model_name: str,
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> None:
+    _metadata_set(_dbt_incremental_key(model_name), "0", conn)
+
+
+def dbt_incremental_recovery_needed(
+    model_name: str,
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> bool:
+    raw = _metadata_get(_dbt_incremental_key(model_name), conn)
+    return raw is not None and raw.lower() in ("1", "true", "yes")
 
 
 def mark_polymarket_token_hourly_odds_incremental_in_progress(
     conn: duckdb.DuckDBPyConnection | None = None,
 ) -> None:
-    _metadata_set(_DBT_INCREMENTAL_IN_PROGRESS_KEY, "1", conn)
+    mark_dbt_incremental_in_progress(
+        POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL, conn
+    )
 
 
 def clear_polymarket_token_hourly_odds_incremental_in_progress(
     conn: duckdb.DuckDBPyConnection | None = None,
 ) -> None:
-    _metadata_set(_DBT_INCREMENTAL_IN_PROGRESS_KEY, "0", conn)
+    clear_dbt_incremental_in_progress(
+        POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL, conn
+    )
 
 
 def polymarket_token_hourly_odds_incremental_recovery_needed(
     conn: duckdb.DuckDBPyConnection | None = None,
 ) -> bool:
-    raw = _metadata_get(_DBT_INCREMENTAL_IN_PROGRESS_KEY, conn)
-    return raw is not None and raw.lower() in ("1", "true", "yes")
+    return dbt_incremental_recovery_needed(
+        POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL, conn
+    )
 
 
 _MARKET_SCOPE_DISCOVERY_PREFIX = "market_scope_discovery:"
@@ -440,6 +472,10 @@ __all__ = [
     "set_backfill_fully_checked",
     "get_sync_run_metrics",
     "POLYMARKET_TOKEN_HOURLY_ODDS_INCREMENTAL_MODEL",
+    "POLYMARKET_SOCCER_INCREMENTAL_MODELS",
+    "clear_dbt_incremental_in_progress",
+    "dbt_incremental_recovery_needed",
+    "mark_dbt_incremental_in_progress",
     "clear_polymarket_token_hourly_odds_incremental_in_progress",
     "mark_polymarket_token_hourly_odds_incremental_in_progress",
     "polymarket_token_hourly_odds_incremental_recovery_needed",

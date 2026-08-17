@@ -15,6 +15,9 @@ Soccer operator targets:
   to sample early, middle, and recent admitted games.
 - `make soccer-minute-backfill`: run the resumable full soccer pipeline.
 - `make dbt-soccer-minute-ci`: build and test the isolated synthetic dbt graph.
+- `make soccer-minute-performance-benchmark`: run the disposable SSD-local
+  cold/warm incremental benchmark and write JSON below
+  `${ODDSFOX_RUNTIME_ROOT}/benchmarks/polymarket-soccer/`.
 - `make soccer-production-health`: print current local soccer health and return
   `0` for healthy/warning-only, `1` for critical, or `2` for unreadable or
   invalid monitoring state. For JSON automation, invoke `scripts/run_health.py`

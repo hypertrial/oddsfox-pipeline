@@ -28,6 +28,24 @@ dense as (
     select * from {{ ref('polymarket_soccer_match_result_minute_odds') }}
 ),
 
+market_state as (
+    select * from {{ ref('int_polymarket_soccer_match_result_market_state') }}
+),
+
+observed_state as (
+    select distinct
+        market_id,
+        source_revision
+    from {{ ref('int_polymarket_soccer_match_result_observed') }}
+),
+
+dense_state as (
+    select distinct
+        market_id,
+        source_revision
+    from {{ ref('int_polymarket_soccer_match_result_minute_odds') }}
+),
+
 catalog_metric as (
     select metrics_json
     from {{ source('polymarket_soccer_ops', 'sync_run_metrics') }}
@@ -134,6 +152,24 @@ select
     ) as terminal_unavailable_tokens,
     (select count(*) from observed) as observed_minutes,
     (select count(*) from dense) as dense_minutes,
+    (
+        select count(*) from market_state as expected_state
+        where not exists (
+            select 1 from observed_state as built_state
+            where
+                built_state.market_id = expected_state.market_id
+                and built_state.source_revision = expected_state.source_revision
+        )
+    ) as dirty_observed_markets,
+    (
+        select count(*) from market_state as expected_state
+        where not exists (
+            select 1 from dense_state as built_state
+            where
+                built_state.market_id = expected_state.market_id
+                and built_state.source_revision = expected_state.source_revision
+        )
+    ) as dirty_dense_markets,
     (
         select sum((date_diff('minute', window_start_at, window_end_at) + 1) * 3)
         from (select distinct

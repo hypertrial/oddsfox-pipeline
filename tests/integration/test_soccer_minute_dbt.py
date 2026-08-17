@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import resource
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -13,9 +17,18 @@ from tests.integration.conftest import dbt_subprocess_env, write_dbt_profile
 from tests.integration.dbt_cli import run_dbt
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
+from oddsfox_pipeline.ingestion.polymarket.match_minute import MatchMinuteTokenPlan
+from oddsfox_pipeline.ingestion.polymarket.odds.minute_batch import (
+    cleanup_minute_odds_publish_cache,
+    fetch_and_write_minute_history_parquet_shards,
+)
 from oddsfox_pipeline.orchestration.assets_soccer import (
     polymarket_soccer_minute_mart_check,
 )
+
+
+def _rows_sha256(rows: list[tuple]) -> str:
+    return hashlib.sha256(repr(rows).encode("utf-8")).hexdigest()
 
 
 def _seed_soccer_contract(conn: duckdb.DuckDBPyConnection) -> None:
@@ -35,6 +48,10 @@ def _seed_soccer_contract(conn: duckdb.DuckDBPyConnection) -> None:
         )
         """,
         [observed],
+    )
+    conn.execute(
+        "insert into polymarket_soccer_raw.events "
+        "select * from polymarket_soccer_raw.event_snapshots"
     )
     roles = ("home_win", "draw", "away_win")
     registry_rows = []
@@ -228,11 +245,30 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
         target_dir=dbt_target_dir,
         dbt_threads=1,
     )
+    cold_started = time.perf_counter()
     run_dbt(
         ["build", "--select", "+tag:soccer"],
         profiles_dir=dbt_profiles_dir,
         env=env,
     )
+    cold_seconds = time.perf_counter() - cold_started
+
+    with duckdb.connect(str(db_path), read_only=True) as conn:
+        cold_rows = conn.execute(
+            "select * from polymarket_soccer_marts.polymarket_soccer_match_result_minute_odds "
+            "order by market_id, odds_minute_epoch"
+        ).fetchall()
+        cold_market_zero_rows = conn.execute(
+            "select count(*) from polymarket_soccer_marts."
+            "polymarket_soccer_match_result_minute_odds where market_id = 'market-0'"
+        ).fetchone()[0]
+    warm_started = time.perf_counter()
+    run_dbt(
+        ["build", "--select", "+tag:soccer"],
+        profiles_dir=dbt_profiles_dir,
+        env=env,
+    )
+    warm_seconds = time.perf_counter() - warm_started
 
     with duckdb.connect(str(db_path)) as conn:
         matches = conn.execute(
@@ -268,6 +304,14 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
             from polymarket_soccer_observability.polymarket_soccer_pipeline_trends
             """
         ).fetchone()
+        warm_rows = conn.execute(
+            "select * from polymarket_soccer_marts.polymarket_soccer_match_result_minute_odds "
+            "order by market_id, odds_minute_epoch"
+        ).fetchall()
+        dirty = conn.execute(
+            "select dirty_observed_markets, dirty_dense_markets "
+            "from polymarket_soccer_observability.polymarket_soccer_match_result_data_quality"
+        ).fetchone()
 
     assert matches == (1, 1, 1, 1)
     assert observed_rows == (6, 3, 0)
@@ -278,6 +322,61 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
     assert quality == 0
     assert health == ("healthy", 0, 0)
     assert trend == (1, 3, 1, 6)
+    assert warm_rows == cold_rows
+    assert dirty == (0, 0)
+
+    report_path = os.getenv("SOCCER_MINUTE_PERFORMANCE_REPORT_PATH")
+    if report_path:
+        benchmark_start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        benchmark_plans = [
+            MatchMinuteTokenPlan(
+                market_id=f"benchmark-market-{index}",
+                token_id=f"benchmark-token-{index}",
+                started_at=benchmark_start,
+                finished_at=benchmark_start + timedelta(minutes=1),
+            )
+            for index in range(100)
+        ]
+        ingestion_started = time.perf_counter()
+        benchmark_results, benchmark_shards, fetch_metrics = (
+            fetch_and_write_minute_history_parquet_shards(
+                benchmark_plans,
+                fetch_run_id="soccer-performance-benchmark",
+                ingested_at=benchmark_start,
+                asset_name="soccer-performance-benchmark",
+                workers=2,
+                requests_per_second=1000,
+                batch_group_size=1,
+                auto_tune_rps=False,
+                client_factory=object,
+                fetch_window_fn=lambda _client, token, *_args, **_kwargs: [
+                    (token, int(benchmark_start.timestamp()), 0.5)
+                ],
+            )
+        )
+        ingestion_seconds = time.perf_counter() - ingestion_started
+        snapshot_bytes = sum(path.stat().st_size for path in benchmark_shards)
+        report = {
+            "cold_dbt_seconds": round(cold_seconds, 6),
+            "warm_incremental_dbt_seconds": round(warm_seconds, 6),
+            "ingestion_duration_seconds": round(ingestion_seconds, 6),
+            "peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+            "warehouse_bytes": db_path.stat().st_size,
+            "snapshot_bytes": snapshot_bytes,
+            "dense_rows": len(warm_rows),
+            "warm_dirty_observed_markets": dirty[0],
+            "warm_dirty_dense_markets": dirty[1],
+            "attempted_tokens": len(benchmark_results),
+            "audit_amplification": len(benchmark_results) / len(benchmark_plans),
+            "output_equal": warm_rows == cold_rows,
+            "cold_output_sha256": _rows_sha256(cold_rows),
+            "warm_output_sha256": _rows_sha256(warm_rows),
+            **fetch_metrics,
+        }
+        output = Path(report_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        cleanup_minute_odds_publish_cache("soccer-performance-benchmark")
     mart_check = polymarket_soccer_minute_mart_check.node_def.compute_fn.decorated_fn()
     assert mart_check.passed
 
@@ -357,3 +456,86 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
         "observed_coverage_drop": "warning",
         "warehouse_storage_regression": "warning",
     }
+
+    with duckdb.connect(str(db_path)) as conn:
+        stable_before = conn.execute(
+            "select * from polymarket_soccer_intermediate."
+            "int_polymarket_soccer_match_result_minute_odds "
+            "where market_id <> 'market-0' order by market_id, odds_minute_epoch"
+        ).fetchall()
+        window = conn.execute(
+            "select window_start_at, window_end_at from "
+            "polymarket_soccer_ops.match_result_registry where market_id = 'market-0'"
+        ).fetchone()
+        changed_at = later + timedelta(minutes=1)
+        conn.execute(
+            "update polymarket_soccer_raw.match_primary_minute_ohlc "
+            "set open_price = 0.77, high_price = 0.77, low_price = 0.77, "
+            "close_price = 0.77, avg_price = 0.77 "
+            "where market_id = 'market-0' and odds_minute_epoch = "
+            "(select min(odds_minute_epoch) from "
+            "polymarket_soccer_raw.match_primary_minute_ohlc where market_id = 'market-0')"
+        )
+        conn.execute(
+            """
+            insert into polymarket_soccer_ops.match_minute_odds_fetch_audit (
+                fetch_run_id, market_id, clobTokenId, fetch_status, raw_published,
+                fidelity_minutes, exact_window_start_at, exact_window_end_at,
+                request_start_epoch, request_end_epoch, source_row_count,
+                in_game_row_count, in_game_history_sha256, source_endpoint,
+                fetch_started_at, fetch_finished_at
+            ) values (
+                'run-3', 'market-0', 'yes-0', 'success', true, 1, ?, ?,
+                epoch(?), epoch(?), 2, 2, ?,
+                'https://clob.polymarket.com/prices-history', ?, ?
+            )
+            """,
+            [*window, *window, "b" * 64, changed_at, changed_at],
+        )
+
+    run_dbt(
+        ["build", "--select", "+tag:soccer"],
+        profiles_dir=dbt_profiles_dir,
+        env=env,
+    )
+    with duckdb.connect(str(db_path), read_only=True) as conn:
+        incremental_rows = conn.execute(
+            "select * from polymarket_soccer_marts."
+            "polymarket_soccer_match_result_minute_odds "
+            "order by market_id, odds_minute_epoch"
+        ).fetchall()
+        stable_after = conn.execute(
+            "select * from polymarket_soccer_intermediate."
+            "int_polymarket_soccer_match_result_minute_odds "
+            "where market_id <> 'market-0' order by market_id, odds_minute_epoch"
+        ).fetchall()
+        incremental_market_zero_rows = conn.execute(
+            "select count(*) from polymarket_soccer_marts."
+            "polymarket_soccer_match_result_minute_odds where market_id = 'market-0'"
+        ).fetchone()[0]
+    assert stable_after == stable_before
+
+    run_dbt(
+        ["build", "--full-refresh", "--select", "+tag:soccer"],
+        profiles_dir=dbt_profiles_dir,
+        env=env,
+    )
+    with duckdb.connect(str(db_path), read_only=True) as conn:
+        full_refresh_rows = conn.execute(
+            "select * from polymarket_soccer_marts."
+            "polymarket_soccer_match_result_minute_odds "
+            "order by market_id, odds_minute_epoch"
+        ).fetchall()
+    assert incremental_rows == full_refresh_rows
+    if report_path:
+        output = Path(report_path)
+        report = json.loads(output.read_text())
+        report.update(
+            incremental_full_refresh_equal=incremental_rows == full_refresh_rows,
+            incremental_output_sha256=_rows_sha256(incremental_rows),
+            full_refresh_output_sha256=_rows_sha256(full_refresh_rows),
+            rebuilt_markets=1,
+            rows_deleted=cold_market_zero_rows,
+            rows_inserted=incremental_market_zero_rows,
+        )
+        output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")

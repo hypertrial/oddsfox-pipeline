@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import duckdb
 import pytest
@@ -348,21 +349,10 @@ def test_sync_fails_when_all_newly_due_fetches_fail_despite_reuse(monkeypatch):
     )
     monkeypatch.setattr(
         soccer_match,
-        "synthesize_reused_minute_fetch_results",
-        lambda *_args, **_kwargs: [result(reused, "success")],
+        "fetch_and_write_minute_history_parquet_shards",
+        lambda *_args, **_kwargs: ([result(due, "error")], [], {}),
     )
-    monkeypatch.setattr(
-        soccer_match,
-        "execute_minute_fetches",
-        lambda *_args, **_kwargs: [result(due, "error")],
-    )
-    released = []
     cleaned = []
-    monkeypatch.setattr(
-        soccer_match,
-        "release_minute_history_payloads",
-        lambda rows: released.extend(rows),
-    )
     monkeypatch.setattr(
         soccer_match,
         "cleanup_minute_odds_publish_cache",
@@ -372,11 +362,86 @@ def test_sync_fails_when_all_newly_due_fetches_fail_despite_reuse(monkeypatch):
     with pytest.raises(RuntimeError, match="All due"):
         soccer_match.sync_soccer_match_minute_odds_history(conn, log=object())
 
-    assert {item.plan.token_id for item in released} == {
-        reused.token_id,
-        due.token_id,
-    }
     assert len(cleaned) == 1
     assert conn.execute(
         "select fetch_status, raw_published from polymarket_soccer_ops.match_minute_odds_fetch_audit order by clobTokenId"
-    ).fetchall() == [("error", False), ("success", False)]
+    ).fetchall() == [("error", False)]
+
+
+def test_sync_audits_only_newly_due_tokens(monkeypatch):
+    conn = duckdb.connect(":memory:")
+    plans = [
+        MatchMinuteTokenPlan(
+            market_id=f"market-{index // 2}",
+            token_id=f"token-{index}",
+            started_at=KICKOFF,
+            finished_at=KICKOFF + timedelta(hours=2),
+        )
+        for index in range(12)
+    ]
+    reused = {plan.token_id for plan in plans[:6]}
+    due = plans[6:]
+    captured_audit: list[dict] = []
+    captured_reuse: list[set[str]] = []
+
+    monkeypatch.setattr(
+        soccer_match,
+        "select_soccer_match_minute_token_plans",
+        lambda *_args, **_kwargs: plans,
+    )
+    monkeypatch.setattr(
+        soccer_match, "_terminal_empty_token_ids", lambda *_args, **_kwargs: set()
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "resolve_minute_token_reuse",
+        lambda *_args, **_kwargs: (None, reused, {}),
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "fetch_and_write_minute_history_parquet_shards",
+        lambda *_args, **_kwargs: (
+            [
+                MinuteFetchResult(
+                    plan=plan,
+                    fetch_status="success",
+                    history=(),
+                    request_start_epoch=int(plan.started_at.timestamp()),
+                    request_end_epoch=int(plan.finished_at.timestamp()),
+                    source_row_count=1,
+                    history_sha256="a" * 64,
+                    fetch_started_at=KICKOFF,
+                    fetch_finished_at=KICKOFF,
+                    history_row_count=1,
+                )
+                for plan in due
+            ],
+            [Path("fixture.parquet")],
+            {"max_inflight_futures": 6},
+        ),
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "load_match_minute_fetch_audit",
+        lambda rows, *_args, **_kwargs: captured_audit.extend(rows),
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "load_match_minute_odds_history_stage",
+        lambda *_args, **kwargs: captured_reuse.append(kwargs["reuse_token_ids"]),
+    )
+    monkeypatch.setattr(
+        soccer_match, "cleanup_minute_odds_publish_cache", lambda _: None
+    )
+
+    summary = soccer_match.sync_soccer_match_minute_odds_history(conn, log=object())
+
+    assert len(captured_audit) == 6
+    assert {row["clobTokenId"] for row in captured_audit} == {
+        plan.token_id for plan in due
+    }
+    assert captured_reuse == [reused]
+    assert summary["attempted_tokens"] == 6
+    assert summary["reused_tokens"] == 6
+    assert summary["audit_amplification"] == 1.0
+    conn.close()
