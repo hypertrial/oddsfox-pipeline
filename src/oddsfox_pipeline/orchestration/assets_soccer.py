@@ -1,6 +1,7 @@
 """Dagster assets for the Polymarket soccer match-minute scope."""
 
 from dagster import (
+    AssetCheckExecutionContext,
     AssetCheckResult,
     AssetCheckSeverity,
     AssetExecutionContext,
@@ -29,6 +30,7 @@ from oddsfox_pipeline.orchestration.config import (
 from oddsfox_pipeline.orchestration.failure_metrics import save_asset_failure_metrics
 from oddsfox_pipeline.orchestration.soccer_monitoring import (
     monitor_soccer_step,
+    record_soccer_check_failure,
     run_soccer_preflight,
 )
 from oddsfox_pipeline.storage.duckdb.connection import get_connection
@@ -78,6 +80,20 @@ POLYMARKET_SOCCER_MART_MATCH_RESULT_MINUTE = asset_key(
     "marts",
     "match_result_minute_odds",
 )
+
+
+def _blocking_check_result(
+    context: AssetCheckExecutionContext,
+    *,
+    name: str,
+    passed: bool,
+    metadata: dict,
+) -> AssetCheckResult:
+    if not passed:
+        record_soccer_check_failure(
+            run_id=str(context.run_id), check_name=name, metadata=metadata
+        )
+    return AssetCheckResult(passed=passed, metadata=metadata)
 
 
 @multi_asset(
@@ -217,11 +233,18 @@ def polymarket_soccer_raw_match_result_token_odds_history_minute(
     name="local_contracts_valid",
     blocking=True,
 )
-def polymarket_soccer_preflight_check() -> AssetCheckResult:
+def polymarket_soccer_preflight_check(
+    context: AssetCheckExecutionContext,
+) -> AssetCheckResult:
     try:
         metadata = run_soccer_preflight()
     except Exception as exc:
-        return AssetCheckResult(passed=False, metadata={"error": str(exc)})
+        return _blocking_check_result(
+            context,
+            name="local_contracts_valid",
+            passed=False,
+            metadata={"error": str(exc)},
+        )
     return AssetCheckResult(passed=True, metadata=metadata)
 
 
@@ -230,7 +253,9 @@ def polymarket_soccer_preflight_check() -> AssetCheckResult:
     name="catalog_converged",
     blocking=True,
 )
-def polymarket_soccer_catalog_check() -> AssetCheckResult:
+def polymarket_soccer_catalog_check(
+    context: AssetCheckExecutionContext,
+) -> AssetCheckResult:
     metrics = get_sync_run_metrics("event_catalog", scope_name=SCOPE_SOCCER) or {}
     partitions = metrics.get("scan_partitions") or {}
     required = {"exact_soccer_tag:open", "exact_soccer_tag:closed"}
@@ -240,7 +265,9 @@ def polymarket_soccer_catalog_check() -> AssetCheckResult:
         and partitions[key].get("stable") is True
         for key in required
     )
-    return AssetCheckResult(passed=passed, metadata=metrics)
+    return _blocking_check_result(
+        context, name="catalog_converged", passed=passed, metadata=metrics
+    )
 
 
 @asset_check(
@@ -248,7 +275,9 @@ def polymarket_soccer_catalog_check() -> AssetCheckResult:
     name="three_roles_and_six_tokens",
     blocking=True,
 )
-def polymarket_soccer_registry_check() -> AssetCheckResult:
+def polymarket_soccer_registry_check(
+    context: AssetCheckExecutionContext,
+) -> AssetCheckResult:
     registry = polymarket_ops_tbl(SCOPE_SOCCER, "match_result_registry")
     with get_connection() as conn:
         invalid_events, duplicate_tokens, invalid_timing = conn.execute(
@@ -269,7 +298,9 @@ def polymarket_soccer_registry_check() -> AssetCheckResult:
             """
         ).fetchone()
     passed = invalid_events == 0 and duplicate_tokens == 0 and invalid_timing == 0
-    return AssetCheckResult(
+    return _blocking_check_result(
+        context,
+        name="three_roles_and_six_tokens",
         passed=passed,
         metadata={
             "invalid_events": invalid_events,
@@ -284,7 +315,9 @@ def polymarket_soccer_registry_check() -> AssetCheckResult:
     name="exact_window_publication_reconciled",
     blocking=True,
 )
-def polymarket_soccer_minute_reconciliation_check() -> AssetCheckResult:
+def polymarket_soccer_minute_reconciliation_check(
+    context: AssetCheckExecutionContext,
+) -> AssetCheckResult:
     registry = polymarket_ops_tbl(SCOPE_SOCCER, "match_result_registry")
     audit = polymarket_ops_tbl(SCOPE_SOCCER, "match_minute_odds_fetch_audit")
     history = polymarket_raw_tbl(SCOPE_SOCCER, "match_minute_odds_history")
@@ -319,7 +352,9 @@ def polymarket_soccer_minute_reconciliation_check() -> AssetCheckResult:
             WHERE registry.token_id IS NOT NULL AND published.token_id IS NULL
             """
         ).fetchone()[0]
-    return AssetCheckResult(
+    return _blocking_check_result(
+        context,
+        name="exact_window_publication_reconciled",
         passed=unreconciled == 0,
         metadata={"unreconciled_snapshot_tokens": unreconciled},
     )
@@ -331,20 +366,32 @@ def polymarket_soccer_minute_reconciliation_check() -> AssetCheckResult:
     blocking=False,
 )
 def polymarket_soccer_production_health_check() -> AssetCheckResult:
-    runs = polymarket_ops_tbl(SCOPE_SOCCER, "pipeline_runs")
-    with get_connection() as conn:
-        row = conn.execute(
-            f"""
-            SELECT status, finished_at FROM {runs}
-            WHERE job_name = 'polymarket_soccer_full_pipeline'
-            ORDER BY started_at DESC LIMIT 1
-            """
-        ).fetchone()
-    passed = row is not None and row[0] in {"running", "success", "partial"}
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT health_status, critical_count, warning_count,
+                    latest_run_status
+                FROM polymarket_soccer_observability
+                    .polymarket_soccer_pipeline_health
+                """
+            ).fetchone()
+    except Exception as exc:
+        return AssetCheckResult(
+            passed=False,
+            severity=AssetCheckSeverity.WARN,
+            metadata={"monitoring_error": f"{type(exc).__name__}: {exc}"},
+        )
+    passed = row is not None and int(row[1] or 0) == 0
     return AssetCheckResult(
         passed=passed,
         severity=AssetCheckSeverity.WARN,
-        metadata={"latest_status": row[0] if row else "missing"},
+        metadata={
+            "health_status": row[0] if row else "invalid",
+            "critical_alerts": int(row[1] or 0) if row else 1,
+            "warning_alerts": int(row[2] or 0) if row else 0,
+            "latest_status": row[3] if row else "missing",
+        },
     )
 
 
@@ -353,7 +400,9 @@ def polymarket_soccer_production_health_check() -> AssetCheckResult:
     name="minute_mart_contracts_valid",
     blocking=True,
 )
-def polymarket_soccer_minute_mart_check() -> AssetCheckResult:
+def polymarket_soccer_minute_mart_check(
+    context: AssetCheckExecutionContext,
+) -> AssetCheckResult:
     observed = (
         "polymarket_soccer_marts.polymarket_soccer_match_result_minute_odds_observed"
     )
@@ -361,15 +410,19 @@ def polymarket_soccer_minute_mart_check() -> AssetCheckResult:
     with get_connection() as conn:
         metrics = conn.execute(
             f"""
-            WITH dense_health AS (
-                SELECT market_id,
-                    count(*) AS actual_minutes,
-                    date_diff(
-                        'minute', min(match_started_at_utc),
-                        max(match_finished_at_utc)
-                    ) + 1 AS expected_minutes
-                FROM {dense}
-                GROUP BY market_id
+            WITH expected_markets AS (
+                SELECT market_id, window_start_at, window_end_at,
+                    date_diff('minute', window_start_at, window_end_at) + 1
+                        AS expected_minutes
+                FROM polymarket_soccer_intermediate
+                    .int_polymarket_soccer_match_result_market_state
+            ), dense_health AS (
+                SELECT expected.market_id, expected.expected_minutes,
+                    count(dense_rows.market_id) AS actual_minutes
+                FROM expected_markets AS expected
+                LEFT JOIN {dense} AS dense_rows
+                    ON expected.market_id = dense_rows.market_id
+                GROUP BY expected.market_id, expected.expected_minutes
             ), dense_annotated AS (
                 SELECT *,
                     last_value(
@@ -404,15 +457,14 @@ def polymarket_soccer_minute_mart_check() -> AssetCheckResult:
                                 )
                         )
                     )
-            ), observed_invalid AS (
+            ), sparse_missing_from_dense AS (
                 SELECT count(*) AS invalid_rows
-                FROM {dense} AS dense_rows
-                INNER JOIN {observed} AS observed_rows
-                    ON dense_rows.market_id = observed_rows.market_id
-                    AND dense_rows.odds_minute_epoch
-                        = observed_rows.odds_minute_epoch
+                FROM {observed} AS observed_rows
+                LEFT JOIN {dense} AS dense_rows
+                  ON dense_rows.market_id = observed_rows.market_id
+                 AND dense_rows.odds_minute_epoch = observed_rows.odds_minute_epoch
                 WHERE
-                    NOT dense_rows.is_observed
+                    dense_rows.market_id IS NULL OR NOT dense_rows.is_observed
                     OR dense_rows.open_odds
                         IS DISTINCT FROM observed_rows.open_odds
                     OR dense_rows.high_odds
@@ -425,6 +477,13 @@ def polymarket_soccer_minute_mart_check() -> AssetCheckResult:
                         IS DISTINCT FROM observed_rows.avg_odds
                     OR dense_rows.observed_points
                         IS DISTINCT FROM observed_rows.observed_points
+            ), dense_missing_from_sparse AS (
+                SELECT count(*) AS invalid_rows
+                FROM {dense} AS dense_rows
+                LEFT JOIN {observed} AS observed_rows
+                  ON dense_rows.market_id = observed_rows.market_id
+                 AND dense_rows.odds_minute_epoch = observed_rows.odds_minute_epoch
+                WHERE dense_rows.is_observed AND observed_rows.market_id IS NULL
             )
             SELECT
                 (SELECT count(*) - count(DISTINCT (market_id, odds_minute_epoch))
@@ -440,7 +499,10 @@ def polymarket_soccer_minute_mart_check() -> AssetCheckResult:
                         > date_trunc('minute', match_finished_at_utc))
                     AS outside_window,
                 (SELECT invalid_rows FROM carried_invalid) AS invalid_carry,
-                (SELECT invalid_rows FROM observed_invalid) AS invalid_observed
+                (SELECT invalid_rows FROM sparse_missing_from_dense)
+                    AS invalid_observed,
+                (SELECT invalid_rows FROM dense_missing_from_sparse)
+                    AS missing_sparse_observations
             """
         ).fetchone()
     names = (
@@ -450,9 +512,12 @@ def polymarket_soccer_minute_mart_check() -> AssetCheckResult:
         "outside_window",
         "invalid_carry",
         "invalid_observed",
+        "missing_sparse_observations",
     )
     metadata = dict(zip(names, metrics, strict=True))
-    return AssetCheckResult(
+    return _blocking_check_result(
+        context,
+        name="minute_mart_contracts_valid",
         passed=all(value == 0 for value in metrics),
         metadata=metadata,
     )

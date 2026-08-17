@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import duckdb
 import pytest
 
+from oddsfox_pipeline.naming import SCOPE_SOCCER
 from oddsfox_pipeline.storage.duckdb.dlt_batch import (
     load_match_minute_fetch_audit,
     load_match_minute_odds_history_stage,
@@ -118,8 +119,109 @@ def test_match_minute_raw_replace_is_exact_idempotent_and_isolated(duck):
     assert minute_rows == [("token", 100, 0.5)]
     assert hourly_rows == 0
     assert ledger_rows == 0
-    assert published == 2
+    assert published == 1
     assert unpublished_run_3 == 1
+
+
+def test_soccer_late_publication_supersedes_newer_fetch_audit(
+    duck, tmp_path, monkeypatch
+):
+    from oddsfox_pipeline.storage.minute_odds_snapshots import (
+        active_snapshot_dir,
+        load_latest_published_token_windows,
+        minute_odds_snapshot_root,
+        validate_minute_odds_snapshot,
+    )
+
+    monkeypatch.setenv("ODDSFOX_RUNTIME_ROOT", str(tmp_path / "runtime"))
+    start = datetime(2026, 8, 1, tzinfo=timezone.utc)
+    end = start + timedelta(hours=2)
+
+    def audit(run_id: str, finished: datetime, history_hash: str) -> dict:
+        return {
+            "fetch_run_id": run_id,
+            "market_id": "market",
+            "clobTokenId": "yes",
+            "fetch_status": "success",
+            "raw_published": False,
+            "fidelity_minutes": 1,
+            "exact_window_start_at": start,
+            "exact_window_end_at": end,
+            "request_start_epoch": int(start.timestamp()),
+            "request_end_epoch": int(end.timestamp()),
+            "source_row_count": 1,
+            "in_game_row_count": 1,
+            "in_game_history_sha256": history_hash,
+            "source_endpoint": "https://clob.polymarket.com/prices-history",
+            "fetch_started_at": finished,
+            "fetch_finished_at": finished,
+            "error_type": None,
+            "error_message": None,
+        }
+
+    def row(price: float) -> dict:
+        return {
+            "market_id": "market",
+            "clobTokenId": "yes",
+            "timestamp": int(start.timestamp()),
+            "price": price,
+            "fidelity_minutes": 1,
+            "window_start_at": start,
+            "window_end_at": end,
+            "ingested_at": start,
+        }
+
+    with duck.get_connection() as conn:
+        conn.execute(
+            "insert into polymarket_soccer_raw.markets "
+            "(id, outcomes, clob_token_ids, observed_at) "
+            'values (\'market\', \'["Yes","No"]\', \'["yes","no"]\', ?)',
+            [start],
+        )
+        load_match_minute_fetch_audit(
+            [audit("run-a", start + timedelta(days=2), "a" * 64)],
+            conn,
+            scope_name=SCOPE_SOCCER,
+        )
+        load_match_minute_odds_history_stage(
+            [row(0.1)],
+            conn,
+            fetch_run_id="run-a",
+            scope_name=SCOPE_SOCCER,
+            audit_mode="success_only",
+        )
+        load_match_minute_fetch_audit(
+            [audit("run-b", start + timedelta(days=1), "b" * 64)],
+            conn,
+            scope_name=SCOPE_SOCCER,
+        )
+        load_match_minute_odds_history_stage(
+            [row(0.9)],
+            conn,
+            fetch_run_id="run-b",
+            scope_name=SCOPE_SOCCER,
+            audit_mode="success_only",
+        )
+
+        assert conn.execute(
+            "select price from polymarket_soccer_raw.match_minute_odds_history"
+        ).fetchone() == (0.9,)
+        published = load_latest_published_token_windows(
+            conn, leg="match", scope_name=SCOPE_SOCCER
+        )
+        assert published["yes"].history_sha256 == "b" * 64
+        assert conn.execute(
+            "select fetch_run_id from "
+            "polymarket_soccer_ops.match_minute_odds_fetch_audit "
+            "where raw_published"
+        ).fetchall() == [("run-b",)]
+
+    snapshot = validate_minute_odds_snapshot(
+        active_snapshot_dir(
+            minute_odds_snapshot_root(leg="match", scope_name=SCOPE_SOCCER)
+        )
+    )
+    assert snapshot.manifest["window_hashes"]["yes"] == "b" * 64
 
 
 def test_match_minute_fetch_audit_append_is_atomic(duck):

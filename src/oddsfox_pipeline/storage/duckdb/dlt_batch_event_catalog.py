@@ -473,25 +473,33 @@ def merge_event_catalog_batch(
         if scope_name == SCOPE_SOCCER:
             conn.execute(
                 f"""
-                DELETE FROM {current_events_target}
-                WHERE event_id IN (SELECT event_id FROM {events_stage})
+                DELETE FROM {current_events_target} AS current
+                USING {events_stage} AS staged
+                WHERE current.event_id = staged.event_id
+                  AND staged.observed_at >= current.observed_at
                 """
             )
             conn.execute(
                 f"""
                 INSERT INTO {current_events_target} ({quoted_event_columns})
                 SELECT {quoted_event_columns}
-                FROM {events_stage}
+                FROM {events_stage} AS staged
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM {current_events_target} AS current
+                    WHERE current.event_id = staged.event_id
+                )
                 QUALIFY row_number() OVER (
-                    PARTITION BY event_id ORDER BY row_order DESC
+                    PARTITION BY event_id ORDER BY observed_at DESC, row_order DESC
                 ) = 1
                 """
             )
             if market_payloads_stage is not None:
                 conn.execute(
                     f"""
-                    DELETE FROM {current_markets_target}
-                    WHERE id IN (SELECT market_id FROM {market_payloads_stage})
+                    DELETE FROM {current_markets_target} AS current
+                    USING {market_payloads_stage} AS staged
+                    WHERE current.id = staged.market_id
+                      AND staged.observed_at >= current.observed_at
                     """
                 )
                 conn.execute(
@@ -500,7 +508,11 @@ def merge_event_catalog_batch(
                         {quoted_current_market_columns}
                     )
                     SELECT {current_market_select}
-                    FROM {market_payloads_stage}
+                    FROM {market_payloads_stage} AS staged
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM {current_markets_target} AS current
+                        WHERE current.id = staged.market_id
+                    )
                     QUALIFY row_number() OVER (
                         PARTITION BY market_id
                         ORDER BY scraped_at DESC, row_order DESC

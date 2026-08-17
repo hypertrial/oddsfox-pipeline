@@ -349,7 +349,13 @@ def test_event_catalog_helper_exercises_checkpoint_callbacks(monkeypatch):
     monkeypatch.setattr(
         helpers,
         "load_event_catalog_partition_checkpoints",
-        lambda active, **kwargs: calls.append(("load", active, kwargs)) or {},
+        lambda active, **kwargs: (
+            calls.append(("load", active, kwargs))
+            or {
+                "old-run:open": {"scan_summary": {"complete": True}},
+                "root-run:closed": {"scan_summary": {"complete": True}},
+            }
+        ),
     )
     monkeypatch.setattr(
         helpers,
@@ -362,9 +368,11 @@ def test_event_catalog_helper_exercises_checkpoint_callbacks(monkeypatch):
         lambda active, **kwargs: calls.append(("clear", active, kwargs)),
     )
 
+    loaded_checkpoints = []
+
     def collect(**kwargs):
         kwargs["progress_callback"]("page", {"events_page": 2})
-        kwargs["load_checkpoint_fn"]()
+        loaded_checkpoints.append(kwargs["load_checkpoint_fn"]())
         kwargs["save_checkpoint_fn"]("partition", {"e": {}}, {"complete": True})
         return SimpleNamespace(
             market_payloads=[{"id": "m"}],
@@ -374,9 +382,12 @@ def test_event_catalog_helper_exercises_checkpoint_callbacks(monkeypatch):
             summary={"observed_at": "2026-01-01", "events": 1},
         )
 
+    context = MagicMock(log=MagicMock())
+    context.run_id = "child-run"
+    context.dagster_run = SimpleNamespace(root_run_id="root-run")
     results = list(
         helpers._materialize_event_catalog(
-            MagicMock(log=MagicMock()),
+            context,
             orch_config.MarketScopeRegistryConfig(reset_event_catalog_checkpoint=True),
             asset_name="event_catalog",
             scope_name="wc2026",
@@ -394,6 +405,9 @@ def test_event_catalog_helper_exercises_checkpoint_callbacks(monkeypatch):
 
     assert len(results) == 3
     assert [call[0] for call in calls] == ["clear", "load", "save", "clear"]
+    assert loaded_checkpoints == [{"closed": {"scan_summary": {"complete": True}}}]
+    save_call = next(call for call in calls if call[0] == "save")
+    assert save_call[2][0] == "root-run:partition"
 
 
 def test_raw_markets_helper_persists_failure_metrics(monkeypatch):

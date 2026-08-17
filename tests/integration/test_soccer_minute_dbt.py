@@ -11,6 +11,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import duckdb
 from tests.integration.conftest import dbt_subprocess_env, write_dbt_profile
@@ -287,11 +288,11 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
             "select count(distinct clobTokenId) from polymarket_soccer_raw.match_minute_odds_history"
         ).fetchone()[0]
         retry = conn.execute(
-            "select fetch_status, is_retry_backlog from polymarket_soccer_observability.polymarket_soccer_match_result_token_fetch_status where clob_token_id = 'yes-0'"
+            "select fetch_status, raw_published, is_retry_backlog from polymarket_soccer_observability.polymarket_soccer_match_result_token_fetch_status where clob_token_id = 'yes-0'"
         ).fetchone()
         quality = conn.execute(
-            "select terminal_unavailable_tokens from polymarket_soccer_observability.polymarket_soccer_match_result_data_quality"
-        ).fetchone()[0]
+            "select terminal_unavailable_tokens, published_tokens from polymarket_soccer_observability.polymarket_soccer_match_result_data_quality"
+        ).fetchone()
         health = conn.execute(
             """
             select health_status, warning_count, critical_count
@@ -318,12 +319,27 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
     assert dense_rows == (15, 6, 9, 0)
     assert carried == (0.2, 0.2, 0.2, 0.2, 2)
     assert raw_sides == 6
-    assert retry == ("error", True)
-    assert quality == 0
+    assert retry == ("error", True, True)
+    assert quality == (0, 6)
     assert health == ("healthy", 0, 0)
     assert trend == (1, 3, 1, 6)
     assert warm_rows == cold_rows
     assert dirty == (0, 0)
+
+    with duckdb.connect(str(db_path)) as conn:
+        terminalized_at = conn.execute(
+            "select finished_at from polymarket_soccer_ops.pipeline_runs "
+            "where dagster_run_id = 'pipeline-1'"
+        ).fetchone()[0] + timedelta(minutes=1)
+        conn.execute(
+            "update polymarket_soccer_ops.pipeline_runs set finished_at = ?, "
+            "heartbeat_at = ? where dagster_run_id = 'pipeline-1'",
+            [terminalized_at, terminalized_at],
+        )
+        assert conn.execute(
+            "select last_full_success_at from polymarket_soccer_observability."
+            "polymarket_soccer_match_result_data_quality"
+        ).fetchone() == (terminalized_at.replace(tzinfo=None),)
 
     report_path = os.getenv("SOCCER_MINUTE_PERFORMANCE_REPORT_PATH")
     if report_path:
@@ -377,8 +393,61 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
         cleanup_minute_odds_publish_cache("soccer-performance-benchmark")
-    mart_check = polymarket_soccer_minute_mart_check.node_def.compute_fn.decorated_fn()
+    mart_check = polymarket_soccer_minute_mart_check.node_def.compute_fn.decorated_fn(
+        SimpleNamespace(run_id="fixture-run")
+    )
     assert mart_check.passed
+
+    with duckdb.connect(str(db_path)) as conn:
+        conn.execute(
+            "create table check_sparse_backup as select * from "
+            "polymarket_soccer_intermediate.int_polymarket_soccer_match_result_observed "
+            "where market_id = 'market-0' limit 1"
+        )
+        conn.execute(
+            "delete from polymarket_soccer_intermediate."
+            "int_polymarket_soccer_match_result_observed where (market_id, "
+            "odds_minute_epoch) in (select market_id, odds_minute_epoch "
+            "from check_sparse_backup)"
+        )
+    missing_sparse = (
+        polymarket_soccer_minute_mart_check.node_def.compute_fn.decorated_fn(
+            SimpleNamespace(run_id="fixture-run")
+        )
+    )
+    assert not missing_sparse.passed
+    assert missing_sparse.metadata["missing_sparse_observations"].value == 1
+    with duckdb.connect(str(db_path)) as conn:
+        conn.execute(
+            "insert into polymarket_soccer_intermediate."
+            "int_polymarket_soccer_match_result_observed "
+            "select * from check_sparse_backup"
+        )
+        conn.execute("drop table check_sparse_backup")
+        conn.execute(
+            "create table check_dense_backup as select * from "
+            "polymarket_soccer_intermediate.int_polymarket_soccer_match_result_minute_odds "
+            "where market_id = 'market-0'"
+        )
+        conn.execute(
+            "delete from polymarket_soccer_intermediate."
+            "int_polymarket_soccer_match_result_minute_odds "
+            "where market_id = 'market-0'"
+        )
+    missing_market = (
+        polymarket_soccer_minute_mart_check.node_def.compute_fn.decorated_fn(
+            SimpleNamespace(run_id="fixture-run")
+        )
+    )
+    assert not missing_market.passed
+    assert missing_market.metadata["invalid_spines"].value == 1
+    with duckdb.connect(str(db_path)) as conn:
+        conn.execute(
+            "insert into polymarket_soccer_intermediate."
+            "int_polymarket_soccer_match_result_minute_odds "
+            "select * from check_dense_backup"
+        )
+        conn.execute("drop table check_dense_backup")
 
     health_result = subprocess.run(
         [

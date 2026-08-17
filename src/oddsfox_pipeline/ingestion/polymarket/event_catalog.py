@@ -113,6 +113,18 @@ def _event_tag_slugs(event: dict[str, Any]) -> frozenset[str]:
     )
 
 
+def _has_canonical_soccer_tag(event: dict[str, Any]) -> bool:
+    soccer_tags = [
+        tag
+        for tag in event.get("tags") or []
+        if isinstance(tag, dict)
+        and str(tag.get("slug") or "").strip().casefold() == SOCCER_EVENT_TAG
+    ]
+    return bool(soccer_tags) and all(
+        _text(tag.get("id")) == SOCCER_EVENT_TAG_ID for tag in soccer_tags
+    )
+
+
 def _series_slugs(event: dict[str, Any]) -> list[str]:
     slugs = {
         str(series.get("slug")).strip().lower()
@@ -794,9 +806,7 @@ def collect_soccer_event_catalog(
                     if not isinstance(event, dict):
                         continue
                     event_id = _text(event.get("id"))
-                    if event_id is not None and SOCCER_EVENT_TAG in _event_tag_slugs(
-                        event
-                    ):
+                    if event_id is not None and _has_canonical_soccer_tag(event):
                         attempt_events[event_id] = event
             inventory, child_market_count, membership_count = _partition_inventory(
                 attempt_events

@@ -255,10 +255,25 @@ def _materialize_event_catalog(
         diagnostics={"scope_name": scope_name},
         force_log=True,
     )
+    dagster_run = getattr(context, "dagster_run", None)
+    root_run_id = getattr(dagster_run, "root_run_id", None)
+    checkpoint_run_id = (
+        root_run_id
+        if isinstance(root_run_id, str) and root_run_id.strip()
+        else str(context.run_id)
+    )
+    checkpoint_prefix = f"{checkpoint_run_id}:"
 
     def _load_checkpoints() -> dict[str, dict[str, Any]]:
         with get_connection_fn() as conn:
-            return load_event_catalog_partition_checkpoints(conn, scope_name=scope_name)
+            loaded = load_event_catalog_partition_checkpoints(
+                conn, scope_name=scope_name
+            )
+        return {
+            key.removeprefix(checkpoint_prefix): value
+            for key, value in loaded.items()
+            if key.startswith(checkpoint_prefix)
+        }
 
     def _save_checkpoint(
         partition_key: str,
@@ -268,7 +283,7 @@ def _materialize_event_catalog(
         with get_connection_fn() as conn:
             save_event_catalog_partition_checkpoint(
                 conn,
-                partition_key,
+                f"{checkpoint_prefix}{partition_key}",
                 stable_events,
                 scan_summary,
                 scope_name=scope_name,

@@ -445,3 +445,39 @@ def test_sync_audits_only_newly_due_tokens(monkeypatch):
     assert summary["reused_tokens"] == 6
     assert summary["audit_amplification"] == 1.0
     conn.close()
+
+
+def test_sync_all_reused_is_observable_no_op(monkeypatch):
+    conn = duckdb.connect(":memory:")
+    plans = [
+        MatchMinuteTokenPlan(
+            market_id="market",
+            token_id=f"token-{index}",
+            started_at=KICKOFF,
+            finished_at=KICKOFF + timedelta(hours=2),
+        )
+        for index in range(6)
+    ]
+    monkeypatch.setattr(
+        soccer_match,
+        "select_soccer_match_minute_token_plans",
+        lambda *_args, **_kwargs: plans,
+    )
+    monkeypatch.setattr(
+        soccer_match, "_terminal_empty_token_ids", lambda *_args, **_kwargs: set()
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "resolve_minute_token_reuse",
+        lambda *_args, **_kwargs: (None, {plan.token_id for plan in plans}, {}),
+    )
+
+    summary = soccer_match.sync_soccer_match_minute_odds_history(conn, log=object())
+
+    assert summary["status"] == "no_op"
+    assert summary["attempted_tokens"] == 0
+    assert summary["raw_published_tokens"] == 6
+    assert summary["audit_amplification"] == 0.0
+    assert summary["max_inflight_futures"] == 0
+    assert summary["peak_buffered_rows"] == 0
+    conn.close()

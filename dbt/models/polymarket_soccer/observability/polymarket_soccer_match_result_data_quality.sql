@@ -1,4 +1,4 @@
-{{ config(materialized='table') }}
+{{ config(materialized='view') }}
 
 with registry as (
     select * from {{ ref('stg_polymarket_soccer_match_result_registry') }}
@@ -135,8 +135,8 @@ select
         where kickoff_source = 'event_start_time'
     ) as event_kickoff_matches,
     (
-        select count(*) from fetch_audit
-        where fetch_status = 'success' and raw_published
+        select count(*) from token_status
+        where raw_published
     ) as published_tokens,
     (
         select count(*) from fetch_audit

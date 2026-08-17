@@ -924,6 +924,21 @@ def test_soccer_catalog_atomically_updates_current_projections(duck):
         ).fetchone() == ("Will A beat B today?", datetime(2026, 8, 2))
 
         merge_event_catalog_batch(
+            event_rows=[event("910100", "2026-07-31", "stale event")],
+            tag_rows=[],
+            event_market_rows=[],
+            market_rows=[market("2026-07-31", "stale market")],
+            conn=conn,
+            scope_name=SCOPE_SOCCER,
+        )
+        assert conn.execute(
+            "select event_title, observed_at from polymarket_soccer_raw.events"
+        ).fetchone() == ("A vs. B updated", datetime(2026, 8, 2))
+        assert conn.execute(
+            "select question, observed_at from polymarket_soccer_raw.markets"
+        ).fetchone() == ("Will A beat B today?", datetime(2026, 8, 2))
+
+        merge_event_catalog_batch(
             event_rows=[event("910200", "2026-08-03", "C vs. D")],
             tag_rows=[],
             event_market_rows=[],

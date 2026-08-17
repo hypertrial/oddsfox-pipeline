@@ -501,6 +501,14 @@ def sync_soccer_match_minute_odds_history(
             "status": "no_op",
             "tokens": 0,
             "terminal_empty_tokens": len(terminal_empty),
+            "attempted_tokens": 0,
+            "raw_published_tokens": 0,
+            "reused_tokens": 0,
+            "audit_amplification": 0.0,
+            "max_inflight_futures": 0,
+            "peak_buffered_rows": 0,
+            "spilled_rows": 0,
+            "shard_count": 0,
         }
     reuse_plans = [plan for plan in plans if plan.token_id in reuse_ids]
     fetch_plans = [plan for plan in plans if plan.token_id not in reuse_ids]
@@ -510,6 +518,13 @@ def sync_soccer_match_minute_odds_history(
             "tokens": len(plans),
             "reused_tokens": len(reuse_plans),
             "terminal_empty_tokens": len(terminal_empty),
+            "attempted_tokens": 0,
+            "raw_published_tokens": len(reuse_plans),
+            "audit_amplification": 0.0,
+            "max_inflight_futures": 0,
+            "peak_buffered_rows": 0,
+            "spilled_rows": 0,
+            "shard_count": 0,
         }
 
     fetch_run_id = str(uuid4())

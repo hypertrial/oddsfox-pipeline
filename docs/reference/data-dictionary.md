@@ -80,6 +80,8 @@ operator remediation, and `polymarket_soccer_pipeline_trends` for comparable
 successful-run deltas. The underlying ops tables preserve lifecycle, retry
 attempt, error, heartbeat, CPU, RSS, storage, and elapsed diagnostics. Terminal
 dbt steps also retain observed- and dense-minute coverage for comparable runs.
+`polymarket_soccer_ops.pipeline_alert_history` preserves alert first/latest
+observation bounds across successive dbt builds.
 Warning drift does not invalidate published odds; critical correctness and
 aged operational conditions require intervention.
 

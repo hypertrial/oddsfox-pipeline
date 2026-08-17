@@ -367,6 +367,9 @@ def bootstrap_polymarket_tables(
         exclusions = polymarket_ops_tbl(scope_name, "match_result_registry_exclusions")
         pipeline_runs = polymarket_ops_tbl(scope_name, "pipeline_runs")
         pipeline_step_runs = polymarket_ops_tbl(scope_name, "pipeline_step_runs")
+        pipeline_alert_history = polymarket_ops_tbl(
+            scope_name, "pipeline_alert_history"
+        )
         terminal_empty = polymarket_ops_tbl(
             scope_name, "match_minute_odds_terminal_unavailable"
         )
@@ -471,6 +474,17 @@ def bootstrap_polymarket_tables(
                 ),
                 metrics_json TEXT NOT NULL DEFAULT '{{}}' CHECK (json_valid(metrics_json)),
                 PRIMARY KEY (dagster_run_id, step_name, attempt_number)
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {pipeline_alert_history} (
+                alert_code TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                first_observed_at TIMESTAMP NOT NULL,
+                last_observed_at TIMESTAMP NOT NULL,
+                PRIMARY KEY (alert_code, subject)
             )
             """
         )

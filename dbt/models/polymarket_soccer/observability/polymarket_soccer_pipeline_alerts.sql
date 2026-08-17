@@ -295,7 +295,12 @@ select
     alerts.threshold_value,
     alerts.message,
     (select latest_run.dagster_run_id from latest_run) as dagster_run_id,
-    coalesce((select latest_run.started_at from latest_run), current_timestamp)
-        as first_observed_at,
+    coalesce(
+        history.first_observed_at,
+        (select latest_run.started_at from latest_run),
+        current_timestamp
+    ) as first_observed_at,
     current_timestamp as last_observed_at
 from alerts
+left join {{ source('polymarket_soccer_ops', 'pipeline_alert_history') }} as history
+    on alerts.alert_code = history.alert_code and alerts.subject = history.subject

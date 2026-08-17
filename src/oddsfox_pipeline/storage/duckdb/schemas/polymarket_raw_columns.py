@@ -330,6 +330,18 @@ def ddl_column_names(
     return frozenset(column.name for column in columns if column.name not in exclude)
 
 
+def ddl_column_types(
+    relation: str,
+    *,
+    exclude: frozenset[str] = frozenset({"row_order"}),
+) -> dict[str, str]:
+    return {
+        column.name: column.duckdb_type
+        for column in _DDL_COLUMNS_BY_RELATION[relation]
+        if column.name not in exclude
+    }
+
+
 __all__ = [
     "ColumnDef",
     "EVENT_CATALOG_MARKET_COLUMNS",
@@ -350,4 +362,5 @@ __all__ = [
     "columns_to_dlt",
     "polymarket_raw_ddl_body",
     "dlt_column_names",
+    "ddl_column_types",
 ]

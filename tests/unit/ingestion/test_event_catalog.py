@@ -552,6 +552,28 @@ def test_soccer_catalog_fails_closed_for_tag_drift_or_truncation(
         catalog.collect_soccer_event_catalog(client=object())
 
 
+def test_soccer_catalog_requires_canonical_tag_id_on_each_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        catalog,
+        "fetch_gamma_tag_by_slug",
+        lambda *_args: {"id": catalog.SOCCER_EVENT_TAG_ID, "slug": "soccer"},
+    )
+    wrong = _event("wrong")
+    wrong["tags"] = [{"id": "999", "slug": "soccer"}]
+    right = _event("right")
+    right["tags"] = [{"id": catalog.SOCCER_EVENT_TAG_ID, "slug": "soccer"}]
+
+    def pages(*_args: Any, **_kwargs: Any):
+        yield [wrong, right], EventsPageMeta(pages_done=1, truncated=False)
+
+    monkeypatch.setattr(catalog, "iter_gamma_events_keyset", pages)
+    batch = catalog.collect_soccer_event_catalog(client=object())
+
+    assert {row["event_id"] for row in batch.event_snapshots} == {"right"}
+
+
 def test_include_slug_prefix_recall_false_skips_slug_partitions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

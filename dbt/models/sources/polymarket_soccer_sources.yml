@@ -68,3 +68,8 @@ sources:
         meta:
           dagster:
             asset_key: [polymarket, soccer, ops, pipeline_step_runs]
+      - name: pipeline_alert_history
+        description: Durable first/latest observation bounds for stable soccer alerts.
+        meta:
+          dagster:
+            asset_key: [polymarket, soccer, ops, pipeline_runs]

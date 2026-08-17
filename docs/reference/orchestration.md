@@ -305,14 +305,18 @@ registry binder queries, token uniqueness, scope-isolated snapshot storage,
 writeability, and the critical disk floor. Correctness checks for catalog
 convergence, three-role/six-token registry integrity, and exact-window
 publication reconciliation are blocking; the dbt job also blocks on sparse and
-dense grain, inclusive-spine, source-OHLC, and carry invariants. Run/step lifecycle and structured
-resource summaries land in `polymarket_soccer_ops.pipeline_runs` and
-`pipeline_step_runs`; long steps emit a structured heartbeat at least every 60
-seconds.
+dense grain, inclusive-spine, source-OHLC, and carry invariants. Run/step
+lifecycle and structured resource summaries land in
+`polymarket_soccer_ops.pipeline_runs` and
+`pipeline_step_runs`; long steps persist and log a structured heartbeat at least
+every 60 seconds. `pipeline_alert_history` preserves the first and latest
+observation time for each stable alert code and subject. A blocking asset-check
+failure also marks the run ledger failed.
 
 Soccer catalog publication appends immutable observations and updates
 `polymarket_soccer_raw.events` / `markets` in one transaction. Registry refresh
-reads those projections directly. Minute ingestion audits only due requests;
+reads those monotonic latest-observation projections directly. Minute ingestion
+audits only due requests;
 reused tokens remain bound to their latest successful exact-window audit. The
 two private soccer minute models recover interrupted incremental writes by
 targeted full refresh in dependency order while WC2026 recovery state remains

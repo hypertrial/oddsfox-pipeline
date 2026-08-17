@@ -30,7 +30,7 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     bootstrap_polymarket_tables,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket_raw_columns import (
-    EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS,
+    ddl_column_types,
 )
 from oddsfox_pipeline.storage.minute_odds_snapshots import minute_odds_snapshot_root
 
@@ -93,6 +93,7 @@ def _prune_monitoring_history(conn, *, now: datetime) -> None:
     cutoff = now - timedelta(days=settings.POLYMARKET_SOCCER_MONITOR_HISTORY_DAYS)
     runs = polymarket_ops_tbl(SCOPE_SOCCER, "pipeline_runs")
     steps = polymarket_ops_tbl(SCOPE_SOCCER, "pipeline_step_runs")
+    alert_history = polymarket_ops_tbl(SCOPE_SOCCER, "pipeline_alert_history")
     old_runs = f"""
         SELECT dagster_run_id FROM {runs}
         WHERE finished_at < ? AND status <> 'running'
@@ -102,6 +103,7 @@ def _prune_monitoring_history(conn, *, now: datetime) -> None:
     """
     conn.execute(f"DELETE FROM {steps} WHERE dagster_run_id IN ({old_runs})", [cutoff])
     conn.execute(f"DELETE FROM {runs} WHERE dagster_run_id IN ({old_runs})", [cutoff])
+    conn.execute(f"DELETE FROM {alert_history} WHERE last_observed_at < ?", [cutoff])
 
 
 class SoccerStepMonitor:
@@ -152,6 +154,24 @@ class SoccerStepMonitor:
             self._metrics.update(metrics)
         status = str(self._metrics.get("status") or "success").lower()
         self._status = "partial" if status == "partial" else "success"
+
+    def heartbeat(self) -> None:
+        """Persist liveness for both the active step and its parent run."""
+        heartbeat_at = _utcnow()
+        runs = polymarket_ops_tbl(SCOPE_SOCCER, "pipeline_runs")
+        steps = polymarket_ops_tbl(SCOPE_SOCCER, "pipeline_step_runs")
+        with get_connection() as conn:
+            conn.execute(
+                f"UPDATE {runs} SET heartbeat_at = ? "
+                "WHERE dagster_run_id = ? AND status = 'running'",
+                [heartbeat_at, self.run_id],
+            )
+            conn.execute(
+                f"UPDATE {steps} SET heartbeat_at = ? "
+                "WHERE dagster_run_id = ? AND step_name = ? "
+                "AND attempt_number = ? AND status = 'running'",
+                [heartbeat_at, self.run_id, self.step_name, self.attempt],
+            )
 
     def finish(self, exc: BaseException | None = None) -> None:
         finished = _utcnow()
@@ -272,12 +292,28 @@ class SoccerStepMonitor:
                     alert_rows = conn.execute(
                         """
                         SELECT alert_code, severity, subject, measured_value,
-                            threshold_value, message
+                            threshold_value, message, first_observed_at,
+                            last_observed_at
                         FROM polymarket_soccer_observability.polymarket_soccer_pipeline_alerts
                         """
                     ).fetchall()
                     warning_count = sum(row[1] == "warning" for row in alert_rows)
                     critical_count = sum(row[1] == "critical" for row in alert_rows)
+                    alert_history = polymarket_ops_tbl(
+                        SCOPE_SOCCER, "pipeline_alert_history"
+                    )
+                    for row in alert_rows:
+                        conn.execute(
+                            f"""
+                            INSERT INTO {alert_history} (
+                                alert_code, subject, first_observed_at,
+                                last_observed_at
+                            ) VALUES (?, ?, ?, ?)
+                            ON CONFLICT (alert_code, subject) DO UPDATE SET
+                                last_observed_at = excluded.last_observed_at
+                            """,
+                            [row[0], row[2], row[6], row[7]],
+                        )
                     logger = getattr(self.context, "log", None)
                     if logger is not None:
                         for row in alert_rows:
@@ -294,7 +330,7 @@ class SoccerStepMonitor:
                                                 "threshold_value",
                                                 "message",
                                             ),
-                                            row,
+                                            row[:6],
                                             strict=True,
                                         )
                                     )
@@ -324,6 +360,13 @@ def monitor_soccer_step(context: Any, step_name: str) -> Iterator[SoccerStepMoni
 
     def _heartbeat() -> None:
         while not stopped.wait(60):
+            try:
+                monitor.heartbeat()
+            except Exception as exc:
+                context.log.warning(
+                    "soccer_monitoring_heartbeat_write_failed %s",
+                    _json({"error_type": type(exc).__name__, "error": str(exc)[:500]}),
+                )
             context.log.info(
                 "soccer_monitoring_heartbeat %s",
                 _json(
@@ -396,19 +439,26 @@ def run_soccer_preflight() -> dict[str, Any]:
     registry = polymarket_ops_tbl(SCOPE_SOCCER, "match_result_registry")
     with get_connection() as conn:
         bootstrap_polymarket_tables(conn, scope_name=SCOPE_SOCCER)
-        actual = {
-            str(item[0])
-            for item in conn.execute(f"SELECT * FROM {markets} LIMIT 0").description
-        }
-        required = {
-            ("id" if name == "market_id" else name)
-            for name in EVENT_MARKET_PAYLOAD_SNAPSHOT_COLUMNS
-            if name not in {"row_order", "market_id"}
-        }
-        required.add("id")
-        missing = sorted(required - actual)
-        if missing:
-            raise RuntimeError(f"soccer current market columns missing: {missing}")
+        for relation, table in (("events", events), ("markets", markets)):
+            expected = {
+                name: ("VARCHAR" if kind == "TEXT" else kind)
+                for name, kind in ddl_column_types(relation).items()
+            }
+            actual = {
+                str(row[0]): str(row[1]).upper()
+                for row in conn.execute(f"DESCRIBE {table}").fetchall()
+            }
+            missing = sorted(expected.keys() - actual.keys())
+            wrong_types = {
+                name: {"expected": kind, "actual": actual[name]}
+                for name, kind in expected.items()
+                if name in actual and actual[name] != kind
+            }
+            if missing or wrong_types:
+                raise RuntimeError(
+                    f"soccer current {relation} schema mismatch: "
+                    f"missing={missing} wrong_types={wrong_types}"
+                )
         conn.execute(
             f"""
             SELECT event.event_id, market.id, market.observed_at
@@ -441,8 +491,53 @@ def run_soccer_preflight() -> dict[str, Any]:
     }
 
 
+def record_soccer_check_failure(
+    *, run_id: str, check_name: str, metadata: dict[str, Any]
+) -> None:
+    """Make a blocking asset-check failure authoritative in the run ledger."""
+    failed_at = _utcnow()
+    runs = polymarket_ops_tbl(SCOPE_SOCCER, "pipeline_runs")
+    steps = polymarket_ops_tbl(SCOPE_SOCCER, "pipeline_step_runs")
+    step_name = f"asset_check:{check_name}"
+    with get_connection() as conn:
+        conn.execute(
+            f"""
+            INSERT INTO {steps} (
+                dagster_run_id, step_name, attempt_number, phase, started_at,
+                heartbeat_at, finished_at, status, error_type, error_message,
+                metrics_json
+            ) VALUES (?, ?, 0, 'complete', ?, ?, ?, 'failed',
+                'AssetCheckFailed', ?, ?)
+            ON CONFLICT (dagster_run_id, step_name, attempt_number) DO UPDATE SET
+                phase = 'complete', heartbeat_at = excluded.heartbeat_at,
+                finished_at = excluded.finished_at, status = 'failed',
+                error_type = excluded.error_type,
+                error_message = excluded.error_message,
+                metrics_json = excluded.metrics_json
+            """,
+            [
+                run_id,
+                step_name,
+                failed_at,
+                failed_at,
+                failed_at,
+                f"Blocking asset check failed: {check_name}",
+                _json(metadata),
+            ],
+        )
+        conn.execute(
+            f"""
+            UPDATE {runs} SET heartbeat_at = ?, finished_at = ?, status = 'failed',
+                terminal_step = ?, metrics_json = ?
+            WHERE dagster_run_id = ?
+            """,
+            [failed_at, failed_at, step_name, _json(metadata), run_id],
+        )
+
+
 __all__ = [
     "monitor_soccer_step",
+    "record_soccer_check_failure",
     "resource_diagnostics",
     "run_soccer_preflight",
 ]

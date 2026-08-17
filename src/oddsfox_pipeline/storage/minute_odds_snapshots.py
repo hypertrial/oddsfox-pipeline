@@ -17,11 +17,13 @@ without rewriting a 377M-row heap table on every publish.
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
 import re
 import shutil
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -71,6 +73,18 @@ _PRIMARY_OHLC_COLUMNS = (
 
 class MinuteOddsSnapshotError(ValueError):
     """Raised when a minute-odds snapshot is incomplete or unsafe."""
+
+
+@contextmanager
+def minute_odds_publish_lock(root: Path) -> Iterable[None]:
+    """Serialize CURRENT promotion and warehouse registration for one scope/leg."""
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / ".publish.lock").open("a+b") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 @dataclass(frozen=True, slots=True)

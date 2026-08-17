@@ -27,6 +27,11 @@ audit_history as (
         max(fetch_finished_at) as latest_attempt_at
     from {{ source('polymarket_soccer_ops', 'match_minute_odds_fetch_audit') }}
     group by all
+),
+
+published_audit as (
+    select *
+    from {{ ref('stg_polymarket_soccer_match_minute_audit_latest_published_success') }}
 )
 
 select
@@ -39,7 +44,7 @@ select
     audit_history.first_unavailable_at,
     audit_history.latest_unavailable_at,
     audit_history.latest_attempt_at,
-    coalesce(fetch_audit.raw_published, false) as raw_published,
+    published_audit.clob_token_id is not null as raw_published,
     fetch_audit.fetch_status in ('error', 'cancelled')
     or (
         fetch_audit.fetch_status = 'empty'
@@ -67,6 +72,12 @@ left join {{ source('polymarket_soccer_ops', 'match_minute_odds_terminal_unavail
         and tokens.clob_token_id = terminal.clob_token_id
         and tokens.window_start_at = terminal.exact_window_start_at
         and tokens.window_end_at = terminal.exact_window_end_at
+left join published_audit
+    on
+        tokens.market_id = published_audit.market_id
+        and tokens.clob_token_id = published_audit.clob_token_id
+        and tokens.window_start_at = published_audit.exact_window_start_at
+        and tokens.window_end_at = published_audit.exact_window_end_at
 left join audit_history
     on
         tokens.market_id = audit_history.market_id

@@ -833,41 +833,46 @@ def _publish_minute_odds_from_parquet(
     reused_audit_rows: list[tuple[str, str, str]] = []
     if reuse_token_ids and audit_mode == "success_only":
         registry = polymarket_ops_tbl(scope_name, "match_result_registry")
-        reused_audit_rows = [
-            (str(row[0]), str(row[1]), str(row[2]))
-            for row in conn.execute(
-                f"""
-                WITH latest AS (
-                    SELECT
-                        market_id,
-                        "clobTokenId",
-                        exact_window_start_at,
-                        exact_window_end_at,
-                        {hash_column} AS history_sha256
-                    FROM {audit}
-                    WHERE fetch_status = 'success' AND raw_published
-                    QUALIFY row_number() OVER (
-                        PARTITION BY "clobTokenId"
-                        ORDER BY fetch_finished_at DESC, fetch_run_id DESC
-                    ) = 1
-                )
-                SELECT latest."clobTokenId", latest.history_sha256, latest.market_id
-                FROM latest
-                INNER JOIN {registry} AS registry
-                    ON latest.market_id = registry.market_id
-                    AND latest."clobTokenId" IN (
-                        registry.yes_token_id, registry.no_token_id
+
+        def _load_reused_audit_rows() -> list[tuple[str, str, str]]:
+            return [
+                (str(row[0]), str(row[1]), str(row[2]))
+                for row in conn.execute(
+                    f"""
+                    WITH latest AS (
+                        SELECT
+                            market_id,
+                            "clobTokenId",
+                            exact_window_start_at,
+                            exact_window_end_at,
+                            {hash_column} AS history_sha256
+                        FROM {audit}
+                        WHERE fetch_status = 'success' AND raw_published
+                        QUALIFY row_number() OVER (
+                            PARTITION BY "clobTokenId"
+                            ORDER BY fetch_finished_at DESC, fetch_run_id DESC
+                        ) = 1
                     )
-                    AND latest.exact_window_start_at = registry.window_start_at
-                    AND latest.exact_window_end_at = registry.window_end_at
-                WHERE latest."clobTokenId" IN (
-                    SELECT CAST(token AS VARCHAR)
-                    FROM (SELECT UNNEST(?::VARCHAR[]) AS token)
-                )
-                """,
-                [list(reuse_token_ids)],
-            ).fetchall()
-        ]
+                    SELECT latest."clobTokenId", latest.history_sha256,
+                        latest.market_id
+                    FROM latest
+                    INNER JOIN {registry} AS registry
+                        ON latest.market_id = registry.market_id
+                        AND latest."clobTokenId" IN (
+                            registry.yes_token_id, registry.no_token_id
+                        )
+                        AND latest.exact_window_start_at = registry.window_start_at
+                        AND latest.exact_window_end_at = registry.window_end_at
+                    WHERE latest."clobTokenId" IN (
+                        SELECT CAST(token AS VARCHAR)
+                        FROM (SELECT UNNEST(?::VARCHAR[]) AS token)
+                    )
+                    """,
+                    [list(reuse_token_ids)],
+                ).fetchall()
+            ]
+
+        reused_audit_rows = _load_reused_audit_rows()
         reusable_audit_ids = {row[0] for row in reused_audit_rows}
         if reusable_audit_ids != reuse_token_ids:
             raise RuntimeError(
@@ -1017,74 +1022,101 @@ def _publish_minute_odds_from_parquet(
     )
     publish_started = time.perf_counter()
     from oddsfox_pipeline.storage.minute_odds_snapshots import (
+        minute_odds_publish_lock,
         minute_odds_snapshot_root,
         register_snapshot_views,
         retain_snapshots,
         rollback_snapshot_pointer,
     )
 
-    # Promote CURRENT before DuckDB registration, but defer retain_snapshots
-    # and roll CURRENT back if warehouse registration/audit flip fails.
-    snapshot = build_and_publish_snapshot_from_shards(
-        leg=leg,
-        fetch_run_id=fetch_run_id,
-        shard_paths=parquet_paths,
-        primary_token_ids=primary_token_ids,
-        conn=None,
-        register=False,
-        retain=False,
-        reuse_token_ids=reuse_token_ids,
-        window_hashes=window_hashes,
-        scope_name=scope_name,
-    )
-    if (
-        audit_mode == "all"
-        and not reuse_token_ids
-        and int(snapshot.raw_row_count) > expected_rows
-    ):
-        raise RuntimeError(
-            f"Snapshot row count exceeds parquet for {relation}: "
-            f"parquet={expected_rows} snapshot={snapshot.raw_row_count}"
-        )
-    if int(snapshot.raw_row_count) < 1:
-        raise RuntimeError(f"Snapshot for {relation} has no raw rows")
-
     root = minute_odds_snapshot_root(leg=leg, scope_name=scope_name)
-    conn.execute("BEGIN TRANSACTION")
-    try:
-        register_snapshot_views(conn, snapshot, scope_name=scope_name)
-        if audit_mode == "all":
-            updated = conn.execute(
-                f"UPDATE {audit} SET raw_published = TRUE WHERE fetch_run_id = ?",
-                [fetch_run_id],
-            ).fetchone()[0]
-        else:
-            updated = conn.execute(
-                f"""
-                UPDATE {audit}
-                SET raw_published = TRUE
-                WHERE fetch_run_id = ?
-                  AND fetch_status = 'success'
-                """,
-                [fetch_run_id],
-            ).fetchone()[0]
-        expected_updates = (
-            distinct_tokens if audit_mode == "all" else current_success_count
+    with minute_odds_publish_lock(root):
+        if reuse_token_ids and audit_mode == "success_only":
+            locked_reused_audit_rows = _load_reused_audit_rows()
+            if set(locked_reused_audit_rows) != set(reused_audit_rows):
+                raise RuntimeError(
+                    "Reusable token publication changed while waiting for the "
+                    "minute-odds publish lock"
+                )
+        # CURRENT and the audit relation form one logical publication. Serialize
+        # their update across Dagster runs and restore CURRENT on any failure.
+        snapshot = build_and_publish_snapshot_from_shards(
+            leg=leg,
+            fetch_run_id=fetch_run_id,
+            shard_paths=parquet_paths,
+            primary_token_ids=primary_token_ids,
+            conn=None,
+            register=False,
+            retain=False,
+            reuse_token_ids=reuse_token_ids,
+            window_hashes=window_hashes,
+            scope_name=scope_name,
         )
-        if int(updated) != expected_updates:
-            raise RuntimeError(
-                f"Published {updated} audit rows for {expected_updates} current tokens "
-                f"in run {fetch_run_id}"
+        try:
+            if (
+                audit_mode == "all"
+                and not reuse_token_ids
+                and int(snapshot.raw_row_count) > expected_rows
+            ):
+                raise RuntimeError(
+                    f"Snapshot row count exceeds parquet for {relation}: "
+                    f"parquet={expected_rows} snapshot={snapshot.raw_row_count}"
+                )
+            if int(snapshot.raw_row_count) < 1:
+                raise RuntimeError(f"Snapshot for {relation} has no raw rows")
+
+            conn.execute("BEGIN TRANSACTION")
+            try:
+                register_snapshot_views(conn, snapshot, scope_name=scope_name)
+                if audit_mode == "all":
+                    conn.execute(f"UPDATE {audit} SET raw_published = FALSE")
+                    updated = conn.execute(
+                        f"UPDATE {audit} SET raw_published = TRUE "
+                        "WHERE fetch_run_id = ?",
+                        [fetch_run_id],
+                    ).fetchone()[0]
+                else:
+                    conn.execute(
+                        f"""
+                        UPDATE {audit}
+                        SET raw_published = FALSE
+                        WHERE "clobTokenId" IN (
+                            SELECT "clobTokenId"
+                            FROM {audit}
+                            WHERE fetch_run_id = ?
+                              AND fetch_status = 'success'
+                        )
+                        """,
+                        [fetch_run_id],
+                    )
+                    updated = conn.execute(
+                        f"""
+                        UPDATE {audit}
+                        SET raw_published = TRUE
+                        WHERE fetch_run_id = ?
+                          AND fetch_status = 'success'
+                        """,
+                        [fetch_run_id],
+                    ).fetchone()[0]
+                expected_updates = (
+                    distinct_tokens if audit_mode == "all" else current_success_count
+                )
+                if int(updated) != expected_updates:
+                    raise RuntimeError(
+                        f"Published {updated} audit rows for {expected_updates} "
+                        f"current tokens in run {fetch_run_id}"
+                    )
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+        except Exception:
+            rollback_snapshot_pointer(
+                root,
+                previous_snapshot_id=snapshot.previous_snapshot_id,
             )
-        conn.execute("COMMIT")
-    except Exception:
-        conn.execute("ROLLBACK")
-        rollback_snapshot_pointer(
-            root,
-            previous_snapshot_id=snapshot.previous_snapshot_id,
-        )
-        raise
-    retain_snapshots(root, keep=2)
+            raise
+        retain_snapshots(root, keep=2)
     logger.info(
         "Minute-odds parquet snapshot committed "
         "(%s tokens, %s rows, primary_ohlc=%s, snapshot_id=%s, elapsed_s=%.3f)",
