@@ -608,3 +608,133 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
             rows_inserted=incremental_market_zero_rows,
         )
         output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+
+
+def test_soccer_data_quality_separates_due_and_recoverable_coverage(
+    tmp_path, monkeypatch, dbt_profiles_dir, dbt_target_dir
+):
+    db_path = tmp_path / "soccer_coverage.duckdb"
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    connection.reset_duckdb_connection_state()
+    connection.init_duck_db()
+    now = datetime.now(timezone.utc).replace(tzinfo=None, second=0, microsecond=0)
+    due_start = now - timedelta(hours=3)
+    due_end = now - timedelta(hours=2)
+    future_start = now + timedelta(days=1)
+    future_end = future_start + timedelta(hours=1)
+    with duckdb.connect(str(db_path)) as conn:
+        _seed_soccer_contract(conn)
+        registry_rows = []
+        terminal_audits = []
+        terminal_rows = []
+        for event_id, prefix, started, finished in (
+            ("event-terminal", "terminal", due_start, due_end),
+            ("event-future", "future", future_start, future_end),
+        ):
+            for index, role in enumerate(("home_win", "draw", "away_win")):
+                market_id = f"{prefix}-market-{index}"
+                yes_token = f"{prefix}-yes-{index}"
+                no_token = f"{prefix}-no-{index}"
+                registry_rows.append(
+                    (
+                        event_id,
+                        market_id,
+                        role,
+                        "Alpha FC",
+                        "Beta United",
+                        yes_token,
+                        no_token,
+                        started,
+                        finished,
+                        "market_game_start_time",
+                        "explicit_finish",
+                        "high",
+                        "guaranteed_tag_era",
+                        now,
+                    )
+                )
+                if prefix == "terminal":
+                    terminal_audits.append(
+                        (
+                            "terminal-run",
+                            market_id,
+                            yes_token,
+                            "empty",
+                            False,
+                            1,
+                            started,
+                            finished,
+                            int(started.replace(tzinfo=timezone.utc).timestamp()),
+                            int(finished.replace(tzinfo=timezone.utc).timestamp()),
+                            0,
+                            0,
+                            None,
+                            "https://clob.polymarket.com/prices-history",
+                            now,
+                            now,
+                        )
+                    )
+                    terminal_rows.append(
+                        (market_id, yes_token, started, finished, 72, now)
+                    )
+        conn.executemany(
+            "insert into polymarket_soccer_ops.match_result_registry values "
+            "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            registry_rows,
+        )
+        conn.executemany(
+            """
+            insert into polymarket_soccer_ops.match_minute_odds_fetch_audit (
+                fetch_run_id, market_id, clobTokenId, fetch_status, raw_published,
+                fidelity_minutes, exact_window_start_at, exact_window_end_at,
+                request_start_epoch, request_end_epoch, source_row_count,
+                in_game_row_count, in_game_history_sha256, source_endpoint,
+                fetch_started_at, fetch_finished_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            terminal_audits,
+        )
+        conn.executemany(
+            "insert into polymarket_soccer_ops."
+            "match_minute_odds_terminal_unavailable values (?, ?, ?, ?, ?, ?)",
+            terminal_rows,
+        )
+
+    write_dbt_profile(dbt_profiles_dir, db_path, threads=1)
+    env = dbt_subprocess_env(
+        db_path=db_path,
+        profiles_dir=dbt_profiles_dir,
+        target_dir=dbt_target_dir,
+        dbt_threads=1,
+    )
+    run_dbt(
+        [
+            "build",
+            "--select",
+            "+polymarket_soccer_match_result_data_quality",
+        ],
+        profiles_dir=dbt_profiles_dir,
+        env=env,
+    )
+
+    with duckdb.connect(str(db_path), read_only=True) as conn:
+        quality = conn.execute(
+            """
+            select
+                due_markets,
+                not_due_markets,
+                terminal_unavailable_markets,
+                publishable_due_markets,
+                expected_dense_minutes,
+                expected_due_dense_minutes,
+                expected_recoverable_dense_minutes,
+                dense_minute_coverage_percent,
+                due_dense_minute_coverage_percent,
+                recoverable_dense_minute_coverage_percent
+            from polymarket_soccer_observability
+                .polymarket_soccer_match_result_data_quality
+            """
+        ).fetchone()
+
+    assert quality == (6, 3, 3, 3, 381, 198, 15, 3.937, 7.576, 100.0)

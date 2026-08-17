@@ -654,6 +654,17 @@ def sync_soccer_match_minute_odds_history(
     finally:
         cleanup_minute_odds_publish_cache(fetch_run_id)
 
+    if retry_empty_only and any(result.fetch_status == "empty" for result in fetched):
+        with borrow_duckdb_connection(
+            conn, connection_factory=connection_factory
+        ) as active:
+            terminal_empty = _terminal_empty_token_ids(
+                active,
+                (result.plan for result in fetched if result.fetch_status == "empty"),
+                empty_retry_hours=empty_retry_hours,
+                now=datetime.now(timezone.utc),
+            )
+
     counts = {
         status: sum(result.fetch_status == status for result in fetched)
         for status in ("success", "empty", "error", "cancelled")

@@ -20,6 +20,26 @@ token_status as (
     select * from {{ ref('polymarket_soccer_match_result_token_fetch_status') }}
 ),
 
+registry_status as (
+    select
+        registry.*,
+        registry.window_end_at <= current_timestamp - interval
+        '{{ env_var("POLYMARKET_SOCCER_MONITOR_COMPLETION_GRACE_MINUTES", "60") }} minutes'
+            as is_due,
+        coalesce(
+            primary_token.is_terminal_unavailable
+            and not primary_token.raw_published,
+            false
+        ) as is_terminal_unavailable
+    from registry
+    left join token_status as primary_token
+        on
+            registry.market_id = primary_token.market_id
+            and registry.yes_token_id = primary_token.clob_token_id
+            and registry.window_start_at = primary_token.window_start_at
+            and registry.window_end_at = primary_token.window_end_at
+),
+
 observed as (
     select * from {{ ref('polymarket_soccer_match_result_minute_odds_observed') }}
 ),
@@ -62,9 +82,57 @@ last_full_success as (
         and status = 'success'
     order by finished_at desc
     limit 1
+),
+
+coverage_summary as (
+    select
+        count(*) filter (where is_due) as due_markets,
+        count(*) filter (where not is_due) as not_due_markets,
+        count(*) filter (
+            where is_terminal_unavailable
+        ) as terminal_unavailable_markets,
+        count(*) filter (
+            where is_due and not is_terminal_unavailable
+        ) as publishable_due_markets,
+        sum(date_diff('minute', window_start_at, window_end_at) + 1)
+            as expected_dense_minutes,
+        sum(date_diff('minute', window_start_at, window_end_at) + 1) filter (
+            where is_due
+        ) as expected_due_dense_minutes,
+        sum(date_diff('minute', window_start_at, window_end_at) + 1) filter (
+            where is_due and not is_terminal_unavailable
+        ) as expected_recoverable_dense_minutes
+    from registry_status
+),
+
+dense_coverage as (
+    select
+        count(*) filter (
+            where registry_status.is_due
+        ) as due_dense_minutes,
+        count(*) filter (
+            where
+            registry_status.is_due
+            and not registry_status.is_terminal_unavailable
+        ) as recoverable_dense_minutes
+    from dense
+    inner join registry_status on dense.market_id = registry_status.market_id
 )
 
 select
+    (select due_markets from coverage_summary) as due_markets,
+    (select not_due_markets from coverage_summary) as not_due_markets,
+    (
+        select terminal_unavailable_markets from coverage_summary
+    ) as terminal_unavailable_markets,
+    (select publishable_due_markets from coverage_summary) as publishable_due_markets,
+    (select expected_dense_minutes from coverage_summary) as expected_dense_minutes,
+    (
+        select expected_due_dense_minutes from coverage_summary
+    ) as expected_due_dense_minutes,
+    (
+        select expected_recoverable_dense_minutes from coverage_summary
+    ) as expected_recoverable_dense_minutes,
     (select count(*) from events) as catalog_events,
     coalesce(
         (
@@ -170,14 +238,6 @@ select
                 and built_state.source_revision = expected_state.source_revision
         )
     ) as dirty_dense_markets,
-    (
-        select sum((date_diff('minute', window_start_at, window_end_at) + 1) * 3)
-        from (select distinct
-            event_id,
-            window_start_at,
-            window_end_at
-        from registry) as event_windows
-    ) as expected_dense_minutes,
     round(
         100.0 * (select count(*) from observed)
         / nullif((select count(*) from dense), 0),
@@ -185,24 +245,22 @@ select
     ) as observed_minute_coverage_percent,
     round(
         100.0 * (select count(*) from dense)
+        / nullif((select expected_dense_minutes from coverage_summary), 0),
+        3
+    ) as dense_minute_coverage_percent,
+    round(
+        100.0 * (select due_dense_minutes from dense_coverage)
+        / nullif((select expected_due_dense_minutes from coverage_summary), 0),
+        3
+    ) as due_dense_minute_coverage_percent,
+    round(
+        100.0 * (select recoverable_dense_minutes from dense_coverage)
         / nullif(
-            (
-                select
-                    sum(
-                        (date_diff('minute', window_start_at, window_end_at) + 1) * 3
-                    )
-                from (
-                    select distinct
-                        event_id,
-                        window_start_at,
-                        window_end_at
-                    from registry
-                ) as event_windows
-            ),
+            (select expected_recoverable_dense_minutes from coverage_summary),
             0
         ),
         3
-    ) as dense_minute_coverage_percent,
+    ) as recoverable_dense_minute_coverage_percent,
     (
         select count(*) from dense
         where not is_observed and close_odds is not null

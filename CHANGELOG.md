@@ -42,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Empty-only soccer recovery now terminalizes expired histories that remain
+  empty in the same run. Soccer data quality now separates scheduled, due, and
+  recoverable dense coverage instead of folding future and terminally
+  unavailable markets into one actionable percentage.
 - Soccer registry refresh now projects canonical persisted market columns and
   no longer requires the staging-only `row_order` column present in synthetic
   inputs but absent from production snapshots.

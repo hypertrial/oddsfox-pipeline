@@ -533,6 +533,80 @@ def test_sync_retry_empty_only_skips_successful_and_unattempted_tokens(monkeypat
     conn.close()
 
 
+def test_sync_retry_empty_only_terminalizes_expired_empty_in_same_run(monkeypatch):
+    conn = duckdb.connect(":memory:")
+    plan = MatchMinuteTokenPlan(
+        market_id="market-empty",
+        token_id="token-empty",
+        started_at=KICKOFF,
+        finished_at=KICKOFF + timedelta(hours=2),
+    )
+    audit_written = False
+    terminalized: list[MatchMinuteTokenPlan] = []
+
+    monkeypatch.setattr(
+        soccer_match,
+        "select_soccer_match_minute_token_plans",
+        lambda *_args, **_kwargs: [plan],
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "_latest_empty_token_ids",
+        lambda *_args, **_kwargs: {plan.token_id},
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "resolve_minute_token_reuse",
+        lambda *_args, **_kwargs: (None, set(), {}),
+    )
+    monkeypatch.setattr(
+        soccer_match,
+        "fetch_and_write_minute_history_parquet_shards",
+        lambda *_args, **_kwargs: (
+            [
+                MinuteFetchResult(
+                    plan=plan,
+                    fetch_status="empty",
+                    history=(),
+                    request_start_epoch=int(plan.started_at.timestamp()),
+                    request_end_epoch=int(plan.finished_at.timestamp()),
+                    source_row_count=0,
+                    history_sha256=None,
+                    fetch_started_at=KICKOFF,
+                    fetch_finished_at=KICKOFF,
+                )
+            ],
+            [],
+            {},
+        ),
+    )
+
+    def record_audit(*_args, **_kwargs):
+        nonlocal audit_written
+        audit_written = True
+
+    def terminalize(_conn, plans, **_kwargs):
+        assert audit_written
+        terminalized.extend(plans)
+        return {plan.token_id}
+
+    monkeypatch.setattr(soccer_match, "load_match_minute_fetch_audit", record_audit)
+    monkeypatch.setattr(soccer_match, "_terminal_empty_token_ids", terminalize)
+    monkeypatch.setattr(
+        soccer_match, "cleanup_minute_odds_publish_cache", lambda _run_id: None
+    )
+
+    summary = soccer_match.sync_soccer_match_minute_odds_history(
+        conn, log=object(), retry_empty_only=True
+    )
+
+    assert terminalized == [plan]
+    assert summary["status"] == "partial"
+    assert summary["empty_tokens"] == 1
+    assert summary["terminal_empty_tokens"] == 1
+    conn.close()
+
+
 def test_sync_all_reused_is_observable_no_op(monkeypatch):
     conn = duckdb.connect(":memory:")
     plans = [

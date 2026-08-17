@@ -370,12 +370,14 @@ pipeline records that exact token window in
 therefore preserves the run-specific deadline instead of assuming 72 hours.
 Set `retry_empty_only=true` for a bounded recovery run that retries only current
 exact-window tokens whose latest attempt was empty and which have no reusable
-published success. It cannot be combined with `force=true`.
+published success. It cannot be combined with `force=true`; expired histories
+that remain empty are terminalized before that recovery run completes.
 
 Soccer production monitoring uses local `POLYMARKET_SOCCER_MONITOR_*` settings.
 Defaults are: successful full-run freshness `30` hours, stale-running age `6`
 hours, retry warning/critical ages `24`/`72` hours, event or market count drop
-`0.10`, mapping coverage drop `5.0` percentage points, duration/CPU/RSS
+`0.10`, completion grace `60` minutes, mapping coverage drop `5.0` percentage
+points, duration/CPU/RSS
 regression ratio `2.0`, free-disk warning/critical floors `10`/`2` GiB, and
 completed-history retention `400` days. The critical disk floor blocks
 preflight; warning thresholds do not block valid publication.

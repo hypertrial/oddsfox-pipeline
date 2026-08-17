@@ -31,7 +31,7 @@ models:
               arguments:
                 values: [home_win, draw, away_win]
   - name: polymarket_soccer_match_result_data_quality
-    description: Current mapping, fetch, observed, dense, carry, and retry counts.
+    description: Current mapping, fetch, observed, scheduled/due/recoverable dense coverage, carry, and retry counts.
   - name: polymarket_soccer_match_result_exclusions
     description: Current event exclusions with stable fail-closed reasons.
   - name: polymarket_soccer_match_result_token_fetch_status

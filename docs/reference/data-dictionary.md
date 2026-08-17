@@ -80,6 +80,11 @@ operator remediation, and `polymarket_soccer_pipeline_trends` for comparable
 successful-run deltas. The underlying ops tables preserve lifecycle, retry
 attempt, error, heartbeat, CPU, RSS, storage, and elapsed diagnostics. Terminal
 dbt steps also retain observed- and dense-minute coverage for comparable runs.
+The data-quality relation separates scheduled dense coverage from due coverage
+after `POLYMARKET_SOCCER_MONITOR_COMPLETION_GRACE_MINUTES`, and from recoverable
+coverage that excludes primary Yes-token windows confirmed terminally
+unavailable. Future games and unavailable history therefore remain visible
+without depressing the actionable recoverable percentage.
 `polymarket_soccer_ops.pipeline_alert_history` preserves alert first/latest
 observation bounds across successive dbt builds.
 Warning drift does not invalidate published odds; critical correctness and
