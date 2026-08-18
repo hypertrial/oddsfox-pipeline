@@ -718,8 +718,6 @@ def test_prepare_dbt_project_skips_fresh_manifest_outside_dev(tmp_path):
 
 
 def test_prepare_if_dev_skips_when_manifest_fresh(tmp_path, monkeypatch):
-    from types import SimpleNamespace
-
     from oddsfox_pipeline.orchestration.dbt_project import OddsfoxDbtProjectPreparer
 
     project_dir, model, manifest = _mini_dbt_project(tmp_path)
@@ -740,8 +738,6 @@ def test_prepare_if_dev_skips_when_manifest_fresh(tmp_path, monkeypatch):
 
 
 def test_prepare_if_dev_runs_when_model_newer(tmp_path, monkeypatch):
-    from types import SimpleNamespace
-
     from oddsfox_pipeline.orchestration.dbt_project import OddsfoxDbtProjectPreparer
 
     project_dir, model, manifest = _mini_dbt_project(tmp_path)
@@ -765,8 +761,6 @@ def test_prepare_if_dev_runs_when_model_newer(tmp_path, monkeypatch):
 
 
 def test_prepare_if_dev_runs_when_manifest_missing(tmp_path, monkeypatch):
-    from types import SimpleNamespace
-
     from oddsfox_pipeline.orchestration.dbt_project import OddsfoxDbtProjectPreparer
 
     project_dir, _model, manifest = _mini_dbt_project(tmp_path)
@@ -789,8 +783,6 @@ def test_prepare_if_dev_runs_when_manifest_missing(tmp_path, monkeypatch):
 
 
 def test_prepare_if_dev_force_env_overrides_fresh_manifest(tmp_path, monkeypatch):
-    from types import SimpleNamespace
-
     from oddsfox_pipeline.orchestration.dbt_project import OddsfoxDbtProjectPreparer
 
     project_dir, model, manifest = _mini_dbt_project(tmp_path)
@@ -846,8 +838,6 @@ def test_oddsfox_dbt_project_preparer_uses_resolved_executable(monkeypatch):
 
 
 def test_stream_dbt_build_appends_full_refresh_flag():
-    from unittest.mock import MagicMock
-
     captured_args: list[list[str]] = []
 
     class MockDbt:
@@ -878,8 +868,6 @@ def test_stream_dbt_build_appends_full_refresh_flag():
 
 
 def test_stream_dbt_build_appends_dbt_exclude_flag():
-    from unittest.mock import MagicMock
-
     captured_args: list[list[str]] = []
 
     class MockDbt:
@@ -926,8 +914,6 @@ def test_stream_dbt_build_omits_empty_exclude_for_full_build():
 
 
 def test_stream_dbt_build_appends_dbt_select_before_exclude_flags():
-    from unittest.mock import MagicMock
-
     captured_args: list[list[str]] = []
 
     class MockDbt:
@@ -1021,8 +1007,6 @@ def test_stream_dbt_build_keeps_polygon_graph_opt_in_for_subset():
 
 
 def test_stream_dbt_build_fetches_row_counts_and_column_metadata():
-    from unittest.mock import MagicMock
-
     calls: list[object] = []
 
     class FakeDbtEventStream:
@@ -1059,8 +1043,6 @@ def test_stream_dbt_build_fetches_row_counts_and_column_metadata():
 
 
 def test_stream_dbt_build_skips_dbt_metadata_fetch_by_default():
-    from unittest.mock import MagicMock
-
     class FakeDbtEventStream:
         def fetch_row_counts(self):
             raise AssertionError("row counts should be opt-in")
@@ -1122,8 +1104,6 @@ def test_cleanup_dbt_adapter_handles_adapter_shapes():
 
 
 def test_stream_dbt_build_syncs_duckdb_path_env(monkeypatch, tmp_path):
-    from unittest.mock import MagicMock
-
     db_path = tmp_path / "warehouse.duckdb"
     monkeypatch.setenv("DUCKDB_PATH", str(db_path))
     monkeypatch.setattr(
@@ -1268,8 +1248,6 @@ def test_stream_dbt_build_ignores_non_dict_heartbeat(monkeypatch):
 
 
 def test_stream_dbt_build_runs_targeted_recovery_full_refresh(monkeypatch):
-    from unittest.mock import MagicMock
-
     captured_args: list[list[str]] = []
 
     class MockDbt:
@@ -1313,8 +1291,6 @@ def test_stream_dbt_build_runs_targeted_recovery_full_refresh(monkeypatch):
 
 
 def test_stream_dbt_build_skips_polymarket_recovery_for_kalshi_select(monkeypatch):
-    from unittest.mock import MagicMock
-
     captured_args: list[list[str]] = []
 
     class MockDbt:
@@ -1401,8 +1377,6 @@ def test_stream_dbt_build_recovers_soccer_incrementals_in_dependency_order(
 
 
 def test_polymarket_token_hourly_odds_incremental_in_scope_for_subset_keys():
-    from unittest.mock import MagicMock
-
     from oddsfox_pipeline.orchestration.config import DbtBuildConfig
     from oddsfox_pipeline.orchestration.dbt_build import (
         _polymarket_token_hourly_odds_incremental_in_scope,
@@ -1496,8 +1470,6 @@ def test_stream_dbt_build_subset_without_exclude_uses_plain_build():
 
 
 def test_stream_dbt_build_persists_failure_metrics_on_recovery_error(monkeypatch):
-    from unittest.mock import MagicMock
-
     saved: list[tuple[str, Exception]] = []
 
     class MockDbt:

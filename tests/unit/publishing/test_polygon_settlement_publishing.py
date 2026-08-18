@@ -46,8 +46,6 @@ def full_release_template(tmp_path_factory):
 @pytest.fixture
 def release_connection(full_release_template, monkeypatch, tmp_path):
     import shutil
-    from types import SimpleNamespace
-    from unittest.mock import MagicMock
 
     db_path = tmp_path / "release.duckdb"
     shutil.copy2(full_release_template, db_path)

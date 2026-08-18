@@ -328,8 +328,6 @@ def test_resolve_keyset_crawl_tags_discovery_failure(monkeypatch):
 
 
 def test_resolve_keyset_crawl_tags_discovery_no_log_when_unchanged(monkeypatch):
-    from types import SimpleNamespace
-
     cfg = slug_only_cfg(event_tags=("fifa-world-cup",))
     client = MagicMock()
     discovered = SimpleNamespace(
@@ -350,8 +348,6 @@ def test_resolve_keyset_crawl_tags_discovery_no_log_when_unchanged(monkeypatch):
 
 
 def test_resolve_keyset_crawl_tags_discovery_expands(monkeypatch):
-    from types import SimpleNamespace
-
     cfg = slug_only_cfg(event_tags=("fifa-world-cup",))
     client = MagicMock()
     discovered = SimpleNamespace(
