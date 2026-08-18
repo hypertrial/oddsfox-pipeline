@@ -11,20 +11,20 @@ license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.10"
 dependencies = [
-  "dagster>=1.13.13",
+  "dagster>=1.13.18",
   "dagster-webserver>=1.8.0",
   "dagster-dbt>=0.24.0",
   "dagster-dlt>=0.24.0",
   "dbt-core>=1.11.12",
-  "dbt-duckdb>=1.8.0",
+  "dbt-duckdb>=1.11.0",
   "dlt[duckdb]>=1.29.1",
-  "duckdb>=1.5.4",
-  "polars>=1.42.1",
+  "duckdb>=1.5.5",
+  "polars>=1.43.2",
   "pyarrow>=14.0.0",
   "PyYAML>=6.0",
   "python-dotenv>=1.0.0",
   "requests>=2.34.2",
-  "tqdm>=4.68.4",
+  "tqdm>=4.70.0",
 ]
 
 [tool.uv]
@@ -36,7 +36,7 @@ default-groups = ["dev"]
 [dependency-groups]
 # tomli backs terminology policy loading on Python 3.10 (tomllib is 3.11+).
 test = [
-  "hypothesis>=6.156.6",
+  "hypothesis>=6.165.9",
   "pytest>=8.0.0",
   "pytest-xdist>=3.5.0",
   "tomli>=2.0.0; python_version < '3.11'",
@@ -47,23 +47,23 @@ coverage = [
   "pytest-cov>=5.0.0",
 ]
 python-lint = [
-  "ruff>=0.15.21",
+  "ruff>=0.16.3",
 ]
 dbt-lint = [
-  "sqlfluff>=4.2.2",
+  "sqlfluff>=4.3.0",
   "sqlfluff-templater-dbt>=3.0.0",
 ]
 docs = [
   "mkdocs>=1.6.0",
-  "mkdocs-material>=9.5.0",
+  "mkdocs-material>=9.7.7",
 ]
 docs-render = [
   {include-group = "docs"},
-  "playwright>=1.55.0,<2",
+  "playwright>=1.62.0,<2",
 ]
 mutation = [
   {include-group = "test"},
-  "mutmut==3.6.0",
+  "mutmut==3.7.0",
 ]
 dev = [
   {include-group = "coverage"},
