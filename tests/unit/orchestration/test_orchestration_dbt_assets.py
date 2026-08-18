@@ -6,6 +6,7 @@ pytest.importorskip("dagster_dbt")
 import os
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import yaml
@@ -633,27 +634,35 @@ def test_prepare_dbt_project_prepares_manifest_outside_dagster_dev_when_missing(
     assert manifest.exists()
 
 
-def test_prepare_dbt_project_skips_prepare_when_manifest_exists_outside_dev(tmp_path):
+def test_prepare_dbt_project_prepares_stale_manifest_outside_dev(tmp_path):
     pytest.importorskip("dagster_dbt")
 
     from oddsfox_pipeline.orchestration import dbt_project as dbt_project_mod
 
     manifest = tmp_path / "manifest.json"
+    project_dir = tmp_path / "dbt"
+    (project_dir / "models").mkdir(parents=True)
+    model = project_dir / "models" / "model.sql"
+    model.write_text("select 1\n")
     manifest.write_text("{}")
+    os.utime(manifest, (1000, 1000))
+    os.utime(model, (1100, 1100))
+    prepared: list[str] = []
 
     class FakePreparer:
         def using_dagster_dev(self):
             return False
 
-        def prepare(self, _project):
-            raise AssertionError("existing manifests should not be prepared")
+        def prepare(self, project):
+            prepared.append(str(project.manifest_path))
 
-    class FakeProject:
-        manifest_path = manifest
-        preparer = FakePreparer()
-
-    project = FakeProject()
+    project = SimpleNamespace(
+        project_dir=project_dir,
+        manifest_path=manifest,
+        preparer=FakePreparer(),
+    )
     dbt_project_mod.prepare_dbt_project(project, preparer=project.preparer)
+    assert prepared == [str(manifest)]
 
 
 def _mini_dbt_project(tmp_path: Path) -> tuple[Path, Path, Path]:
@@ -687,6 +696,25 @@ def test_dbt_manifest_inputs_stale_false_when_manifest_fresh(tmp_path):
     os.utime(project_dir / "dbt_project.yml", (900, 900))
     os.utime(manifest, (1100, 1100))
     assert dbt_manifest_inputs_stale(project_dir, manifest) is False
+
+
+def test_prepare_dbt_project_skips_fresh_manifest_outside_dev(tmp_path):
+    from oddsfox_pipeline.orchestration import dbt_project as dbt_project_mod
+
+    project_dir, model, manifest = _mini_dbt_project(tmp_path)
+    os.utime(model, (900, 900))
+    os.utime(project_dir / "dbt_project.yml", (900, 900))
+    os.utime(manifest, (1100, 1100))
+
+    class FakePreparer:
+        def using_dagster_dev(self):
+            return False
+
+        def prepare(self, _project):
+            raise AssertionError("fresh manifests should be reused")
+
+    project = SimpleNamespace(project_dir=project_dir, manifest_path=manifest)
+    dbt_project_mod.prepare_dbt_project(project, preparer=FakePreparer())
 
 
 def test_prepare_if_dev_skips_when_manifest_fresh(tmp_path, monkeypatch):

@@ -143,7 +143,9 @@ def prepare_dbt_project(
                 project.manifest_path,
                 exc_info=True,
             )
-    elif not project.manifest_path.exists():
+    elif not project.manifest_path.exists() or dbt_manifest_inputs_stale(
+        Path(project.project_dir), project.manifest_path
+    ):
         active_preparer.prepare(project)
 
 
