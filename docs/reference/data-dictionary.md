@@ -72,6 +72,17 @@ distinguishes the guaranteed tag era from pre-tag best effort.
 Do not sum or normalize home/draw/away prices. Join roles within `event_id`, and
 never interpret a carried row as a source observation.
 
+### Soccer modeling minute odds
+
+`polymarket_soccer_match_result_minute_odds_modeling` is ready for direct
+minute-level analysis without an additional coverage filter. It contains only
+games with all three result markets, non-null OHLC prices on every row, at
+least 99% observed-minute coverage across the game, and no unobserved run over
+three minutes in any market. `observed_minute_coverage_percent` and
+`maximum_consecutive_gap_minutes` repeat the game-level qualification on every
+row. Use `is_observed` to distinguish source observations from forward-filled
+quiet minutes.
+
 ### Soccer pipeline monitoring
 
 `polymarket_soccer_pipeline_health` is the single-row automation entry point.

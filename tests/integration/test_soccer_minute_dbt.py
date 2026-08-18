@@ -35,9 +35,10 @@ def _rows_sha256(rows: list[tuple]) -> str:
 def _seed_soccer_contract(
     conn: duckdb.DuckDBPyConnection,
     minute_prices: tuple[tuple[int, float], ...] = ((0, 0.2), (3, 0.4)),
+    finished_minutes: int = 4,
 ) -> None:
     started = datetime(2025, 1, 2, 12, 0, 30)
-    finished = started + timedelta(minutes=4)
+    finished = started + timedelta(minutes=finished_minutes)
     observed = datetime.now(timezone.utc).replace(tzinfo=None)
     conn.execute(
         """
@@ -244,7 +245,8 @@ def test_soccer_modeling_mart_publishes_fully_priced_games(
     with duckdb.connect(str(db_path)) as conn:
         _seed_soccer_contract(
             conn,
-            minute_prices=((0, 0.2), (1, 0.25), (2, 0.3), (3, 0.35), (4, 0.4)),
+            minute_prices=((0, 0.2), *((offset, 0.2) for offset in range(4, 300))),
+            finished_minutes=299,
         )
 
     write_dbt_profile(dbt_profiles_dir, db_path, threads=1)
@@ -282,7 +284,7 @@ def test_soccer_modeling_mart_publishes_fully_priced_games(
             """
         ).fetchone()
 
-    assert result == (15, 3, 0, 100.0, 0)
+    assert result == (900, 3, 0, 99.0, 3)
 
 
 def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(

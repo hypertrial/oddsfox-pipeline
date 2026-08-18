@@ -426,8 +426,10 @@ def run_soccer_preflight() -> dict[str, Any]:
     required_models = {
         "int_polymarket_soccer_match_result_observed",
         "int_polymarket_soccer_match_result_minute_odds",
+        "int_polymarket_soccer_match_result_modeling_games",
         "polymarket_soccer_matches",
         "polymarket_soccer_match_result_minute_odds",
+        "polymarket_soccer_match_result_minute_odds_modeling",
         "polymarket_soccer_pipeline_health",
     }
     missing_models = sorted(required_models - model_names)
