@@ -114,9 +114,6 @@ models:
         +tags: ["staging", "wc2026", "openfootball"]
     wc2026:
       +tags: ["wc2026", "wc2026_strategy"]
-      intermediate:
-        +schema: wc2026_intermediate
-        +tags: ["intermediate", "wc2026", "wc2026_strategy"]
       marts:
         +schema: wc2026_marts
         +materialized: table
