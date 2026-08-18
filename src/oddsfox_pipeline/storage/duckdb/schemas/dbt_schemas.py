@@ -422,6 +422,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
         POLYMARKET_SOCCER_INTERMEDIATE_SCHEMA,
         "int_polymarket_soccer_match_result_minute_odds",
     ),
+    (
+        POLYMARKET_SOCCER_INTERMEDIATE_SCHEMA,
+        "int_polymarket_soccer_match_result_modeling_games",
+    ),
     (POLYMARKET_SOCCER_MARTS_SCHEMA, "polymarket_soccer_matches"),
     (
         POLYMARKET_SOCCER_MARTS_SCHEMA,
@@ -430,6 +434,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (
         POLYMARKET_SOCCER_MARTS_SCHEMA,
         "polymarket_soccer_match_result_minute_odds",
+    ),
+    (
+        POLYMARKET_SOCCER_MARTS_SCHEMA,
+        "polymarket_soccer_match_result_minute_odds_modeling",
     ),
     (
         POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA,

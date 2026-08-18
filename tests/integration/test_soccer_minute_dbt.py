@@ -32,7 +32,10 @@ def _rows_sha256(rows: list[tuple]) -> str:
     return hashlib.sha256(repr(rows).encode("utf-8")).hexdigest()
 
 
-def _seed_soccer_contract(conn: duckdb.DuckDBPyConnection) -> None:
+def _seed_soccer_contract(
+    conn: duckdb.DuckDBPyConnection,
+    minute_prices: tuple[tuple[int, float], ...] = ((0, 0.2), (3, 0.4)),
+) -> None:
     started = datetime(2025, 1, 2, 12, 0, 30)
     finished = started + timedelta(minutes=4)
     observed = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -94,15 +97,16 @@ def _seed_soccer_contract(conn: duckdb.DuckDBPyConnection) -> None:
                     finished,
                     int(started.replace(tzinfo=timezone.utc).timestamp()),
                     int(finished.replace(tzinfo=timezone.utc).timestamp()),
-                    2,
-                    2,
+                    len(minute_prices),
+                    len(minute_prices),
                     "a" * 64,
                     "https://clob.polymarket.com/prices-history",
                     observed,
                     observed,
                 )
             )
-            for offset, price in ((0, 0.2 + index * 0.1), (3, 0.4 + index * 0.1)):
+            for offset, base_price in minute_prices:
+                price = base_price + index * 0.1
                 at = started + timedelta(minutes=offset)
                 raw_rows.append(
                     (
@@ -116,7 +120,8 @@ def _seed_soccer_contract(conn: duckdb.DuckDBPyConnection) -> None:
                         observed,
                     )
                 )
-        for offset, price in ((0, 0.2 + index * 0.1), (3, 0.4 + index * 0.1)):
+        for offset, base_price in minute_prices:
+            price = base_price + index * 0.1
             at = started + timedelta(minutes=offset)
             minute_at = at.replace(second=0, microsecond=0)
             primary_rows.append(
@@ -228,6 +233,58 @@ def _seed_soccer_contract(conn: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+def test_soccer_modeling_mart_publishes_fully_priced_games(
+    tmp_path, monkeypatch, dbt_profiles_dir, dbt_target_dir
+):
+    db_path = tmp_path / "soccer_modeling.duckdb"
+    monkeypatch.setenv("DUCKDB_PATH", str(db_path))
+    monkeypatch.setenv("DUCKDB_NAME", str(db_path))
+    connection.reset_duckdb_connection_state()
+    connection.init_duck_db()
+    with duckdb.connect(str(db_path)) as conn:
+        _seed_soccer_contract(
+            conn,
+            minute_prices=((0, 0.2), (1, 0.25), (2, 0.3), (3, 0.35), (4, 0.4)),
+        )
+
+    write_dbt_profile(dbt_profiles_dir, db_path, threads=1)
+    env = dbt_subprocess_env(
+        db_path=db_path,
+        profiles_dir=dbt_profiles_dir,
+        target_dir=dbt_target_dir,
+        dbt_threads=1,
+    )
+    run_dbt(
+        [
+            "build",
+            "--select",
+            "+polymarket_soccer_match_result_minute_odds_modeling",
+        ],
+        profiles_dir=dbt_profiles_dir,
+        env=env,
+    )
+
+    with duckdb.connect(str(db_path), read_only=True) as conn:
+        result = conn.execute(
+            """
+            select
+                count(*),
+                count(distinct market_id),
+                count(*) filter (
+                    where open_odds is null or high_odds is null
+                        or low_odds is null or close_odds is null
+                        or avg_odds is null
+                ),
+                min(observed_minute_coverage_percent),
+                max(maximum_consecutive_gap_minutes)
+            from polymarket_soccer_marts.
+                polymarket_soccer_match_result_minute_odds_modeling
+            """
+        ).fetchone()
+
+    assert result == (15, 3, 0, 100.0, 0)
+
+
 def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
     tmp_path, monkeypatch, dbt_profiles_dir, dbt_target_dir
 ):
@@ -281,6 +338,10 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
         dense_rows = conn.execute(
             "select count(*), count(*) filter (where is_observed), count(*) filter (where not is_observed and close_odds is not null), count(*) filter (where close_odds is null) from polymarket_soccer_marts.polymarket_soccer_match_result_minute_odds"
         ).fetchone()
+        modeling_rows = conn.execute(
+            "select count(*) from polymarket_soccer_marts."
+            "polymarket_soccer_match_result_minute_odds_modeling"
+        ).fetchone()[0]
         carried = conn.execute(
             "select open_odds, high_odds, low_odds, close_odds, minutes_since_observation from polymarket_soccer_marts.polymarket_soccer_match_result_minute_odds where market_id = 'market-0' and odds_minute_utc = timestamp '2025-01-02 12:02:00'"
         ).fetchone()
@@ -317,6 +378,7 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
     assert matches == (1, 1, 1, 1)
     assert observed_rows == (6, 3, 0)
     assert dense_rows == (15, 6, 9, 0)
+    assert modeling_rows == 0
     assert carried == (0.2, 0.2, 0.2, 0.2, 2)
     assert raw_sides == 6
     assert retry == ("error", True, True)

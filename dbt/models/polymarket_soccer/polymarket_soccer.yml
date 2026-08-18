@@ -7,6 +7,11 @@ models:
     description: Private dirty-market incremental sparse Yes-token minute OHLC state.
   - name: int_polymarket_soccer_match_result_minute_odds
     description: Private dirty-market incremental inclusive dense minute state.
+  - name: int_polymarket_soccer_match_result_modeling_games
+    description: Games with three result markets, fully populated prices, at least 99 percent observed-minute coverage, and no observation gap over three minutes.
+    columns:
+      - name: event_id
+        tests: [not_null, unique]
   - name: polymarket_soccer_matches
     description: One row per strictly mapped exact-tag Polymarket soccer match.
     columns:
@@ -30,6 +35,32 @@ models:
           - accepted_values:
               arguments:
                 values: [home_win, draw, away_win]
+  - name: polymarket_soccer_match_result_minute_odds_modeling
+    description: Modeling-ready, fully priced dense minute odds for three-market games with at least 99 percent observed coverage and no gap over three minutes.
+    tests:
+      - no_duplicate_grain:
+          arguments:
+            grain_columns: [market_id, odds_minute_epoch]
+    columns:
+      - name: result_role
+        tests:
+          - accepted_values:
+              arguments:
+                values: [home_win, draw, away_win]
+      - name: open_odds
+        tests: [not_null]
+      - name: high_odds
+        tests: [not_null]
+      - name: low_odds
+        tests: [not_null]
+      - name: close_odds
+        tests: [not_null]
+      - name: avg_odds
+        tests: [not_null]
+      - name: observed_minute_coverage_percent
+        tests: [not_null]
+      - name: maximum_consecutive_gap_minutes
+        tests: [not_null]
   - name: polymarket_soccer_match_result_data_quality
     description: Current mapping, fetch, observed, scheduled/due/recoverable dense coverage, carry, and retry counts.
   - name: polymarket_soccer_match_result_exclusions

@@ -21,7 +21,9 @@ SCOPE_STEPS: tuple[ScopeStep, ...] = ("market_scope_registry", "odds", "dbt", "f
 
 POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT = "+polymarket_wc2026_market_hourly_odds"
 POLYMARKET_SOCCER_CORE_DBT_SELECT = (
-    "+polymarket_soccer_match_result_data_quality polymarket_soccer_matches"
+    "+polymarket_soccer_match_result_data_quality "
+    "+polymarket_soccer_match_result_minute_odds_modeling "
+    "polymarket_soccer_matches"
 )
 POLYMARKET_SOCCER_MONITORING_DBT_SELECT = (
     "polymarket_soccer_pipeline_trends polymarket_soccer_pipeline_alerts "
