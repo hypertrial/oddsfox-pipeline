@@ -93,6 +93,35 @@ checksums below ignored `artifacts/strategy-inputs/`. It has no forward-filled
 prices, execution costs, order-book liquidity, fill assumptions, or strategy
 returns; those belong in the private research/backtest consumer.
 
+## Soccer pre-match Elo features
+
+`oddsfox.soccer.pre-match-elo.v1` is an operator-local, immutable feature
+release for the soccer research snapshot whose SHA-256 is
+`7b3b3c375254bc33b2746147c0b447783188153504cb1b18d5b813492e0ebaf9`.
+It contains exactly one row for each of the snapshot's 8,255 `event_id` values;
+it does not rewrite or copy ratings into the 5.7 million minute rows.
+
+The internal model starts each team at 1500 and keeps `club_men`, `club_women`,
+`national_men`, and `national_women` isolated. It processes completed external
+results in UTC calendar-date batches, captures ratings before the target date,
+halves K for friendlies, removes home advantage at neutral venues, and treats a
+tied football score as a draw regardless of a shootout winner. Parameter tuning
+uses the documented 2022–2023 validation window; small pools use the frozen
+`D=400`, `K=20`, `H=60` fallback. Polymarket outcomes never update ratings.
+
+The release contains `event_pre_match_elo.parquet`,
+`team_identity_map.parquet`, `coverage_by_competition.parquet`, `manifest.json`,
+and `checksums.sha256`. Every event has one recognized coverage status and a
+non-empty reason, including unmapped, ambiguous, conflicting, unsupported, and
+missing-history cases. ClubElo and EloRatings fields are optional diagnostics;
+they never fill an internal-rating gap or change internal coverage.
+
+Raw sources, reviewed aliases, optional benchmark snapshots, and releases live
+below ignored `artifacts/`. The tracked source catalog pins every URL, Git
+revision, SHA-256, acquisition time, licence, parser, pool, and archive member
+selection. Release mode additionally requires a clean Pipeline Git revision and
+refuses to overwrite an existing dataset version.
+
 ## WC2026 stage-execution evidence
 
 The isolated `oddsfox.polymarket_wc2026.stage_execution.v1` release targets

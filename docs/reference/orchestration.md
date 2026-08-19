@@ -32,10 +32,18 @@ backfill, paid or narrow credentials, single-target manifests.
 | Minute odds live smoke | `polymarket_wc2026_minute_odds_live_smoke` | Same unified selection with 5%-per-leg sampling + futures 24h tail; disposable DuckDB + smoke runtime root | None | Opt-in live (`minute-odds-live-smoke`); not a CI gate | Mature, isolated |
 | Match order book | `polymarket_wc2026_match_order_book_backfill` | PMXT order-book scan, dbt | None | `dbt-match-order-book-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Market portrait | `polymarket_wc2026_market_portrait_backfill` | Order book + trades scan, portrait bundle build | None | `dbt-market-portrait-ci` (`tag:market_portrait` trade marts still compile in ordinary `dbt-build-ci`; order-book dual-tagged models follow `tag:pmxt_order_book` exclusion) | Mature, isolated |
+| Soccer pre-match Elo | `make pre-match-elo-acquire` → `pre-match-elo-inspect` → `pre-match-elo-release` | Pinned public results, reviewed identities, date-batched Elo, immutable event release | None | Focused Python and consumer-contract tests | Experimental, manual |
 
 Supporting ingestion jobs (`international_results_historical_ingest`,
 `international_results_wc2026_match_results_ingest`) feed Kalshi and match-minute
 WC2026 pipelines but are not separate product pipelines.
+
+The pre-match Elo path is deliberately a manual operator workflow rather than a
+Dagster asset graph. It consumes a fixed external research Parquet, performs no
+warehouse mutation, and has no schedule or enable flag. Acquisition is the only
+networked step. Inspection and release construction operate on checksummed
+local snapshots; the optional ClubElo/EloRatings benchmark input is
+operator-supplied.
 
 ## Pipeline outputs
 

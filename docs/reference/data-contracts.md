@@ -78,6 +78,28 @@ The source ledger is keyed by Dagster run ID and by `(run ID, step, retry
 attempt)`. An unclean process exit remains `running` and becomes critical after
 the configured stale-run age.
 
+### Soccer pre-match Elo release
+
+The manual `oddsfox.soccer.pre-match-elo.v1` bundle is separate from the
+warehouse marts above. Its primary Parquet grain is one row per target
+`event_id`, with exactly 8,255 rows for dataset `1.0.0`. `event_id` is the only
+join key to the modeling mart; rating columns are not persisted at minute
+grain.
+
+The event file carries canonical team IDs, pool, model version, both pre-match
+ratings and their difference, quality, prior-match counts, last-result dates,
+ages, connected components, mapping statuses, target-match status, explicit
+coverage, and optional benchmark provenance. Its companion identity and
+long-form coverage Parquets preserve reviewed/unresolved mapping evidence and
+coverage counts. The manifest pins target/source/model/build provenance and the
+checksum inventory authenticates every payload plus the manifest.
+
+Release validation requires exact target-event accounting, recognized coverage
+and reason on every row, and two internal ratings from one pool before an Elo
+difference may be non-null. Benchmark removal must leave internal fields
+unchanged. Raw snapshots, aliases, normalized rows, and generated bundles are
+operator-local and ignored by Git.
+
 ### Polygon settlement minute odds
 
 The mart is an internal audit surface, not the allowlisted technical export. It

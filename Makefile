@@ -1,6 +1,7 @@
 .PHONY: ci-fast ci-fast-core ci-fast-goal ci-fast-static-docs ci-fast-tests ci-fast-dbt release-gate release-gate-core release-gate-goal release-gate-coverage release-gate-coverage-prep release-gate-cov-unit release-gate-cov-unit-run release-gate-cov-dagster-jobs release-gate-cov-dagster-jobs-run release-gate-cov-dagster-refresh release-gate-cov-dagster-refresh-run release-gate-cov-dbt-incremental release-gate-cov-dbt-incremental-run release-gate-cov-dbt-serial release-gate-cov-dbt-serial-run coverage-combine-report coverage-combine-report-run release-gate-dbt-quality release-gate-dbt-unit release-gate-dbt-freshness release-gate-dbt-polygon release-gate-dbt-match-order-book release-gate-dbt-match-minute release-gate-dbt-minute-odds release-gate-dbt-market-portrait release-gate-dbt-build release-gate-costguard-scan release-gate-mutation release-gate-static-docs release-gate-static-checks release-gate-python-lint release-gate-dbt-lint release-gate-docs-build release-gate-docs-test package-smoke runtime-dirs local-marts-rebuild match-minute-inputs-validate minute-odds-backfill minute-odds-snapshot-rebuild stage-minute-input-release minute-odds-live-smoke futures-minute-publish-benchmark dagster-dev dagster-jobs-smoke dagster-jobs-smoke-cov dagster-refresh-cov dbt-build dbt-build-ci dbt-lint dbt-prepare dbt-polygon-settlement-ci dbt-match-order-book-ci dbt-match-minute-ci dbt-minute-odds-ci dbt-market-portrait-ci market-portrait-target-validate dbt-parse dbt-test dbt-unit dbt-source-freshness-ci golden-dbt data-quality mutation mutation-ci contract-http match-minute-live-smoke match-order-book-live-smoke market-portrait-live-backfill polygon-runtime-dirs polygon-settlement-benchmark polygon-settlement-export polygon-settlement-live-smoke polygon-settlement-release polygon-settlement-seed-candidate polygon-settlement-seed-validate export-wc2026-elo-freezes costguard costguard-scan docs-serve docs-build docs-test docs-check clean-local-artifacts format lint python-lint test test-dev test-cov coverage coverage-erase coverage-report unit-core unit-ingest unit-orchestration integration-dbt integration-dbt-parallel integration-dbt-serial integration-dbt-cov integration-dbt-cov-parallel integration-dbt-cov-serial integration-dagster integration-dagster-cov pipelines-deterministic check-repository check-distribution check-secrets check-terminology compact-warehouse prune-odds-history gate-timing
 
 .PHONY: dbt-soccer-minute-ci soccer-catalog-audit soccer-minute-live-smoke soccer-minute-backfill soccer-production-health soccer-minute-performance-benchmark
+.PHONY: pre-match-elo-acquire pre-match-elo-inspect pre-match-elo-release
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 override PYTHON := $(shell if test -x "$(REPO_ROOT)/.venv/bin/python"; then printf '%s' "$(REPO_ROOT)/.venv/bin/python"; else printf 'python3'; fi)
@@ -113,6 +114,14 @@ STAGE_EXECUTION_OHLC_REPORT ?=
 STAGE_EXECUTION_REQUEST_BUDGET ?= 20000
 STAGE_EXECUTION_SOURCE ?= archive-v2
 STAGE_EXECUTION_CREDIT_LEDGER ?= $(DUCKDB_NAME)
+PRE_MATCH_ELO_SOURCE_CATALOG ?= config/pre-match-elo-sources.yml
+PRE_MATCH_ELO_RAW_ROOT ?= artifacts/pre-match-elo/raw
+PRE_MATCH_ELO_INSPECTION_ROOT ?= artifacts/pre-match-elo/inspection
+PRE_MATCH_ELO_IDENTITY_MAP ?= artifacts/pre-match-elo/operator/team-identity.yml
+PRE_MATCH_ELO_BENCHMARK_PATH ?=
+PRE_MATCH_ELO_TARGET_PARQUET ?=
+PRE_MATCH_ELO_DATASET_VERSION ?= 1.0.0
+PRE_MATCH_ELO_OUTPUT_ROOT ?= artifacts/strategy-inputs/soccer_pre_match_elo
 MATCH_ANALYSIS_RUNTIME_ROOT ?= $(REPO_ROOT)/.cache/match_analysis
 MATCH_ANALYSIS_RUNTIME_TMP := $(MATCH_ANALYSIS_RUNTIME_ROOT)/tmp
 MATCH_ANALYSIS_RUNTIME_XDG := $(MATCH_ANALYSIS_RUNTIME_ROOT)/xdg
@@ -165,5 +174,16 @@ include Makefile.dbt
 include Makefile.lint
 include Makefile.test
 include Makefile.ops
+
+pre-match-elo-acquire: runtime-dirs
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/build_soccer_pre_match_elo_release.py acquire --source-catalog "$(PRE_MATCH_ELO_SOURCE_CATALOG)" --raw-root "$(PRE_MATCH_ELO_RAW_ROOT)"
+
+pre-match-elo-inspect: runtime-dirs
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/build_soccer_pre_match_elo_release.py inspect --source-catalog "$(PRE_MATCH_ELO_SOURCE_CATALOG)" --raw-root "$(PRE_MATCH_ELO_RAW_ROOT)" --output-directory "$(PRE_MATCH_ELO_INSPECTION_ROOT)"
+
+pre-match-elo-release: runtime-dirs
+	@test -n "$(PRE_MATCH_ELO_TARGET_PARQUET)" || (echo "PRE_MATCH_ELO_TARGET_PARQUET is required" >&2; exit 2)
+	@test -f "$(PRE_MATCH_ELO_IDENTITY_MAP)" || (echo "reviewed identity map not found: $(PRE_MATCH_ELO_IDENTITY_MAP)" >&2; exit 2)
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/build_soccer_pre_match_elo_release.py build --target-parquet "$(PRE_MATCH_ELO_TARGET_PARQUET)" --source-catalog "$(PRE_MATCH_ELO_SOURCE_CATALOG)" --raw-root "$(PRE_MATCH_ELO_RAW_ROOT)" --identity-map "$(PRE_MATCH_ELO_IDENTITY_MAP)" --dataset-version "$(PRE_MATCH_ELO_DATASET_VERSION)" --output-root "$(PRE_MATCH_ELO_OUTPUT_ROOT)" $(if $(PRE_MATCH_ELO_BENCHMARK_PATH),--benchmark-path "$(PRE_MATCH_ELO_BENCHMARK_PATH)",)
 
 .PHONY: stage-execution-plan stage-execution-release

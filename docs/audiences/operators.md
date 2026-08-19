@@ -25,11 +25,36 @@ Schedules stay disabled until manual jobs and dbt builds are healthy.
 | Match order book (mature, isolated) | Live APIs or completed raw warehouse; PMXT API key | Reviewed target manifest for match 95 |
 | Market portrait (mature, isolated) | Completed order-book + trades scan; PMXT API key | Reviewed `TARGET_MANIFEST` for one approved match |
 | Polygon settlement (advanced) | Finalized-capable Polygon JSON-RPC | Reviewed 248-row manifest + resolution attestation (tracked seed is a header-only shell) |
+| Soccer pre-match Elo (manual) | Pinned CC0 result snapshots; optional benchmark acquisition | Exact target Parquet, reviewed team identity map, optional ClubElo/EloRatings snapshot |
 
 Never commit `.env`, operator seed rows, reviewed attestations, DuckDB files, or
 exports. See [Operator responsibilities](../concepts/operator-responsibilities.md),
 [Scope and non-goals](../concepts/scope-and-non-goals.md), and
 [dbt/seeds/README.md](https://github.com/hypertrial/oddsfox-pipeline/blob/main/dbt/seeds/README.md).
+
+For pre-match Elo, first acquire and inspect the tracked source catalog. The
+inspection must report zero unparsed scored lines before release construction.
+Keep normalized rows and aliases below ignored `artifacts/`; do not promote
+fuzzy candidates without review. The release command refuses a dirty Git tree,
+an already-used version, a different target SHA, or incomplete event
+accounting.
+
+```bash
+make pre-match-elo-acquire
+make pre-match-elo-inspect
+
+cp config/pre-match-elo-team-identity.example.yml \
+  artifacts/pre-match-elo/operator/team-identity.yml
+# Review and populate mappings; inspection must contain zero parse issues.
+
+make pre-match-elo-release \
+  PRE_MATCH_ELO_TARGET_PARQUET=/absolute/path/to/polymarket_soccer_match_result_minute_odds_modeling.parquet
+```
+
+For an optional benchmark file, normalize columns to `system`, `team_id`,
+`rating`, `as_of_date`, `snapshot_id`, `mapping_method`, and `is_pre_match`, then
+set `PRE_MATCH_ELO_BENCHMARK_PATH`. ClubElo observations must predate the match.
+Only reconstructed EloRatings pre-match rows may use the match date itself.
 
 ## Confirm Success
 
