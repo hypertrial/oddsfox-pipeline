@@ -22,12 +22,11 @@ Soccer operator targets:
   `0` for healthy/warning-only, `1` for critical, or `2` for unreadable or
   invalid monitoring state. For JSON automation, invoke `scripts/run_health.py`
   with `--scope polymarket:soccer --fail-on critical --format json`.
-- `build_soccer_pre_match_elo_release.py`: acquire the tracked pinned CC0
-  snapshots, inspect normalized results and every unparsed scored line, or
-  build the immutable `oddsfox.soccer.pre-match-elo.v1` release. Prefer
-  `make pre-match-elo-acquire`, review `make pre-match-elo-inspect`, then run
-  `make pre-match-elo-release` with the target Parquet and reviewed local
-  identity map. No step is scheduled.
+- `build_soccer_pre_match_elo_release.py`: acquire and inspect the pinned CC0
+  results, prepare/review/compile/audit operator-local team identities, and
+  build the immutable `oddsfox.soccer.pre-match-elo.v1` release. Use the
+  `pre-match-elo-identity-*` Make targets between inspection and release. No
+  step is scheduled.
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
 - `export_eloratings_wc2026_team_ratings_freezes.py`: export national-team Elo CSV freezes from `wc2026_marts.team_ratings_history` (`pre_kickoff` = year-end 2025) and `wc2026_marts.team_ratings_current` (`latest_current`) under `artifacts/wc2026_elo_exports/`. Prefer `make export-wc2026-elo-freezes`. Match×team pre-match Elo is `wc2026_marts.team_ratings_pre_match` (not this export); it needs an EloRatings snapshot that includes `match_results`.
 - `sync_polymarket_markets_catalog.py`: sync every Gamma market with volume ≥ $100k via `/markets/keyset` (`volume_num_min`, `after_cursor`; open + closed passes) into `polymarket_catalog_raw.markets`. Optional operator utility; not required for the golden WC2026 hourly mart.

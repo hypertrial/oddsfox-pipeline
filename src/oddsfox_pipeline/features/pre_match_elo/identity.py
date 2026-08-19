@@ -71,7 +71,7 @@ class IdentityRegistry:
     def __init__(self, rows: Iterable[IdentityRow]) -> None:
         self.rows = tuple(rows)
         self._aliases: dict[tuple[str, str, str], IdentityRow] = {}
-        self._canonical: dict[tuple[str, str], IdentityRow] = {}
+        self._canonical: dict[tuple[str, str], list[IdentityRow]] = defaultdict(list)
         self._systems: dict[tuple[str, str], list[IdentityRow]] = defaultdict(list)
         teams: dict[str, tuple[str, str, str | None, str | None]] = {}
         for row in self.rows:
@@ -101,12 +101,9 @@ class IdentityRegistry:
                 row.rating_pool,
                 normalize_team_name(row.canonical_display_name),
             )
-            canonical = self._canonical.get(canonical_key)
-            if canonical and canonical.team_id != row.team_id:
-                raise IdentityContractError(
-                    f"canonical name maps to multiple teams: {row.canonical_display_name}"
-                )
-            self._canonical[canonical_key] = row
+            canonical = self._canonical[canonical_key]
+            if all(existing.team_id != row.team_id for existing in canonical):
+                canonical.append(row)
             self._systems[
                 (row.source_system, normalize_team_name(row.source_name))
             ].append(row)
@@ -114,11 +111,6 @@ class IdentityRegistry:
     def _unscoped_rows(self, source_system: str, source_name: str) -> list[IdentityRow]:
         normalized = normalize_team_name(source_name)
         rows = list(self._systems.get((source_system, normalized), ()))
-        rows.extend(
-            row
-            for rating_pool in sorted(RATING_POOLS)
-            if (row := self._canonical.get((rating_pool, normalized))) is not None
-        )
         return list({(row.rating_pool, row.team_id): row for row in rows}.values())
 
     def resolve(
@@ -127,9 +119,6 @@ class IdentityRegistry:
         normalized = normalize_team_name(source_name)
         row = self._aliases.get((rating_pool, source_system, normalized))
         status = row.mapping_status if row else None
-        if row is None:
-            row = self._canonical.get((rating_pool, normalized))
-            status = "exact" if row else None
         if row:
             return Resolution(
                 source_system,
@@ -208,9 +197,9 @@ class IdentityRegistry:
     ) -> tuple[str, ...]:
         normalized = normalize_team_name(source_name)
         names: dict[str, str] = {}
-        for (pool, canonical_name), row in self._canonical.items():
-            if pool == rating_pool:
-                names[canonical_name] = row.team_id
+        for (pool, canonical_name), rows in self._canonical.items():
+            if pool == rating_pool and len(rows) == 1:
+                names[canonical_name] = rows[0].team_id
         matches = difflib.get_close_matches(normalized, names, n=limit, cutoff=0.78)
         return tuple(names[name] for name in matches)
 

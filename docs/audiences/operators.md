@@ -43,13 +43,25 @@ accounting.
 make pre-match-elo-acquire
 make pre-match-elo-inspect
 
-cp config/pre-match-elo-team-identity.example.yml \
-  artifacts/pre-match-elo/operator/team-identity.yml
-# Review and populate mappings; inspection must contain zero parse issues.
+make pre-match-elo-identity-prepare \
+  PRE_MATCH_ELO_TARGET_PARQUET=/absolute/path/to/polymarket_soccer_match_result_minute_odds_modeling.parquet
+# Inspect alias_review.csv and target_dispositions.csv before recording review.
+make pre-match-elo-identity-review
+make pre-match-elo-identity-compile
+make pre-match-elo-identity-audit \
+  PRE_MATCH_ELO_TARGET_PARQUET=/absolute/path/to/polymarket_soccer_match_result_minute_odds_modeling.parquet
 
 make pre-match-elo-release \
   PRE_MATCH_ELO_TARGET_PARQUET=/absolute/path/to/polymarket_soccer_match_result_minute_odds_modeling.parquet
 ```
+
+Preparation creates deterministic source-local identities and at most five
+evidence-ranked candidates per target label. Review accepts exact or
+fixture-supported aliases, creates pool-safe target-only identities when no
+history is proven, and keeps normalized labels with conflicting contexts
+ambiguous. Compilation fails on stale, unreviewed, contradictory, or cross-pool
+decisions. Audit calculates the release in temporary storage and retains event,
+coverage, unresolved, and mixed-component reports without claiming publication.
 
 For an optional benchmark file, normalize columns to `system`, `team_id`,
 `rating`, `as_of_date`, `snapshot_id`, `mapping_method`, and `is_pre_match`, then

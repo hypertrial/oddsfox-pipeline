@@ -122,6 +122,12 @@ revision, SHA-256, acquisition time, licence, parser, pool, and archive member
 selection. Release mode additionally requires a clean Pipeline Git revision and
 refuses to overwrite an existing dataset version.
 
+The manifest also pins the identity authoring version, target and source-catalog
+hashes, compiled-map and review-ledger hashes, reviewer labels, review time,
+decision counts, and unresolved target-label count. These fields prove which
+operator-local adjudication produced the release without publishing private
+review notes.
+
 ## WC2026 stage-execution evidence
 
 The isolated `oddsfox.polymarket_wc2026.stage_execution.v1` release targets

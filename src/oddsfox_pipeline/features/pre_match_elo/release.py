@@ -81,6 +81,7 @@ RELEASE_FILES: Final = frozenset(
     }
 )
 _REVISION: Final = re.compile(r"^[0-9a-f]{40}$")
+_SHA256: Final = re.compile(r"^[0-9a-f]{64}$")
 
 EVENT_SCHEMA: Final = pa.schema(
     [
@@ -688,6 +689,8 @@ def build_release(
     snapshots: Sequence[SourceSnapshot],
     raw_root: Path,
     identity_map: Path,
+    identity_review_report: Path,
+    source_catalog_sha256: str,
     output_directory: Path,
     build_revision: str,
     benchmark_path: Path | None = None,
@@ -710,6 +713,53 @@ def build_release(
         raise EloReleaseError(
             f"target event count mismatch: expected {expected_event_count}, got {len(events)}"
         )
+    try:
+        identity_review = json.loads(identity_review_report.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise EloReleaseError("invalid identity review report") from exc
+    required_review_fields = {
+        "authoring_version",
+        "target_snapshot_sha256",
+        "source_catalog_sha256",
+        "review_ledger_sha256",
+        "identity_map_sha256",
+        "reviewer_labels",
+        "reviewed_at_utc",
+        "decision_counts",
+        "target_label_count",
+        "unresolved_target_labels",
+        "source_identity_count",
+        "compiled_identity_rows",
+    }
+    identity_records = _read_records(identity_map)
+    target_label_count = len(
+        {
+            name
+            for event in events
+            for name in (event.home_source_name, event.away_source_name)
+        }
+    )
+    decision_counts = identity_review.get("decision_counts")
+    if (
+        set(identity_review) != required_review_fields
+        or identity_review["target_snapshot_sha256"] != target_sha
+        or identity_review["source_catalog_sha256"] != source_catalog_sha256
+        or identity_review["identity_map_sha256"] != sha256_file(identity_map)
+        or identity_review["authoring_version"] != "oddsfox.soccer.identity-review.v1"
+        or not _SHA256.fullmatch(str(identity_review["review_ledger_sha256"]))
+        or not identity_review["reviewer_labels"]
+        or not identity_review["reviewed_at_utc"]
+        or identity_review["target_label_count"] != target_label_count
+        or identity_review["compiled_identity_rows"] != len(identity_records)
+        or not isinstance(decision_counts, dict)
+        or any(
+            type(value) is not int or value < 0 for value in decision_counts.values()
+        )
+        or sum(decision_counts.values()) != target_label_count
+        or identity_review["unresolved_target_labels"]
+        != decision_counts.get("ambiguous", 0)
+    ):
+        raise EloReleaseError("identity review provenance is incomplete")
     source_rows, source_manifest, parse_issues = normalize_sources(snapshots, raw_root)
     if parse_issues:
         details = "\n".join(
@@ -718,7 +768,7 @@ def build_release(
         )
         raise EloReleaseError(f"unparsed scored-match lines:\n{details}")
 
-    registry = IdentityRegistry(rows_from_mappings(_read_records(identity_map)))
+    registry = IdentityRegistry(rows_from_mappings(identity_records))
     canonical, conflicts, unresolved_results = canonicalize_and_deduplicate(
         source_rows, registry
     )
@@ -823,6 +873,7 @@ def build_release(
                     pool: asdict(parameters[pool]) for pool in sorted(parameters)
                 },
             },
+            "identity_review": identity_review,
             "sources": source_manifest,
             "source_licenses": sorted({row["license"] for row in source_manifest}),
             "counts": {

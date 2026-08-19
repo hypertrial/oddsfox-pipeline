@@ -195,6 +195,8 @@ def test_identity_resolution_pool_isolation_fuzzy_review_and_conflicts() -> None
             identity("source", "A", "club:a"),
             identity("source", "B", "club:b", status="reviewed_alias"),
             identity("source", "A Women", "women:a", pool="club_women"),
+            identity("polymarket", "A", "club:a"),
+            identity("polymarket", "B", "club:b"),
         ]
     )
     assert registry.resolve("source", "A", "club_men").status == "exact"
@@ -206,6 +208,15 @@ def test_identity_resolution_pool_isolation_fuzzy_review_and_conflicts() -> None
     exact_home, exact_away = registry.resolve_pair("polymarket", "A", "B")
     assert (exact_home.team_id, exact_away.team_id) == ("club:a", "club:b")
     assert (exact_home.status, exact_away.status) == ("exact", "exact")
+
+    source_local = IdentityRegistry(
+        [
+            identity("one", "United", "one:united"),
+            identity("two", "United", "two:united"),
+        ]
+    )
+    assert source_local.resolve("one", "United", "club_men").team_id == "one:united"
+    assert source_local.resolve("polymarket", "United", "club_men").team_id is None
 
     duplicate_registry = IdentityRegistry(
         [

@@ -93,6 +93,38 @@ def _write_identity(path: Path, mappings: list[dict[str, object]]) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _write_identity_review(
+    path: Path,
+    identity: Path,
+    target_sha: str,
+    *,
+    target_labels: int,
+    identity_rows: int,
+) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "authoring_version": "oddsfox.soccer.identity-review.v1",
+                "target_snapshot_sha256": target_sha,
+                "source_catalog_sha256": "a" * 64,
+                "review_ledger_sha256": "b" * 64,
+                "identity_map_sha256": hashlib.sha256(
+                    identity.read_bytes()
+                ).hexdigest(),
+                "reviewer_labels": ["test-reviewer"],
+                "reviewed_at_utc": ["2026-08-19T00:00:00Z"],
+                "decision_counts": {"approve": target_labels},
+                "target_label_count": target_labels,
+                "unresolved_target_labels": 0,
+                "source_identity_count": identity_rows,
+                "compiled_identity_rows": identity_rows,
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_release_all_pools_conflict_unmapped_determinism_and_benchmark_independence(
     tmp_path: Path,
 ) -> None:
@@ -173,12 +205,22 @@ def test_release_all_pools_conflict_unmapped_determinism_and_benchmark_independe
     target = tmp_path / "target.parquet"
     _write_target(target)
     target_sha = hashlib.sha256(target.read_bytes()).hexdigest()
+    identity_review = tmp_path / "identity-review.json"
+    _write_identity_review(
+        identity_review,
+        identity,
+        target_sha,
+        target_labels=12,
+        identity_rows=len(mappings),
+    )
 
     common = {
         "target_parquet": target,
         "snapshots": snapshots,
         "raw_root": raw,
         "identity_map": identity,
+        "identity_review_report": identity_review,
+        "source_catalog_sha256": "a" * 64,
         "build_revision": "f" * 40,
         "expected_target_sha256": target_sha,
         "expected_event_count": 6,

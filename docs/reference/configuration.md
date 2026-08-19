@@ -47,7 +47,11 @@ settings because every step is manual and local:
 | `PRE_MATCH_ELO_SOURCE_CATALOG` | Tracked `config/pre-match-elo-sources.yml` with pinned CC0 snapshots. |
 | `PRE_MATCH_ELO_RAW_ROOT` | Ignored `artifacts/pre-match-elo/raw`. |
 | `PRE_MATCH_ELO_INSPECTION_ROOT` | Ignored normalized rows, parse issues, and source inventory. |
-| `PRE_MATCH_ELO_IDENTITY_MAP` | Required reviewed operator YAML, CSV, or Parquet; the tracked YAML is an empty shape example. |
+| `PRE_MATCH_ELO_IDENTITY_WORKSPACE` | Ignored evidence packet and review ledgers. |
+| `PRE_MATCH_ELO_IDENTITY_MAP` | Compiled reviewed operator Parquet; YAML and CSV remain accepted inputs. |
+| `PRE_MATCH_ELO_IDENTITY_REVIEW_REPORT` | Required review-ledger checksum, reviewer, decision counts, and input identity. |
+| `PRE_MATCH_ELO_IDENTITY_AUDIT_ROOT` | Ignored dry-run coverage and unresolved reports. |
+| `PRE_MATCH_ELO_IDENTITY_REVIEWER` | Non-empty label recorded by the explicit review command; default `codex-agent`. |
 | `PRE_MATCH_ELO_TARGET_PARQUET` | Required exact research snapshot; its SHA-256 and 8,255-event inventory are release gates. |
 | `PRE_MATCH_ELO_BENCHMARK_PATH` | Optional normalized ClubElo/EloRatings Parquet or CSV. |
 | `PRE_MATCH_ELO_DATASET_VERSION` | Immutable SemVer directory, default `1.0.0`. |

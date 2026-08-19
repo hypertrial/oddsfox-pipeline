@@ -17,9 +17,18 @@ from _bootstrap import ensure_src_on_path
 
 REPO_ROOT = ensure_src_on_path()
 
+from oddsfox_pipeline.features.pre_match_elo.identity_authoring import (  # noqa: E402
+    audit_identity_map,
+    compile_identity_map,
+    prepare_identity_review,
+    review_identity_candidates,
+)
 from oddsfox_pipeline.features.pre_match_elo.release import (  # noqa: E402
     DATASET_VERSION,
+    TARGET_EVENT_COUNT,
+    TARGET_SNAPSHOT_SHA256,
     build_release,
+    load_target_events,
     normalize_sources,
 )
 from oddsfox_pipeline.features.pre_match_elo.sources import (  # noqa: E402
@@ -28,6 +37,7 @@ from oddsfox_pipeline.features.pre_match_elo.sources import (  # noqa: E402
 )
 from oddsfox_pipeline.publishing._bundle_io import (  # noqa: E402
     current_clean_commit,
+    sha256_file,
     write_json,
 )
 
@@ -42,11 +52,36 @@ def _parser() -> argparse.ArgumentParser:
     inspect = subparsers.choices["inspect"]
     inspect.add_argument("--output-directory", type=Path, required=True)
 
+    prepare = subparsers.add_parser("prepare-identities")
+    prepare.add_argument("--target-parquet", type=Path, required=True)
+    prepare.add_argument("--source-catalog", type=Path, required=True)
+    prepare.add_argument("--raw-root", type=Path, required=True)
+    prepare.add_argument("--output-directory", type=Path, required=True)
+
+    review = subparsers.add_parser("review-identities")
+    review.add_argument("--workspace", type=Path, required=True)
+    review.add_argument("--reviewer", required=True)
+
+    compile_command = subparsers.add_parser("compile-identities")
+    compile_command.add_argument("--workspace", type=Path, required=True)
+    compile_command.add_argument("--identity-map", type=Path, required=True)
+    compile_command.add_argument("--review-report", type=Path, required=True)
+
+    audit = subparsers.add_parser("audit-identities")
+    audit.add_argument("--target-parquet", type=Path, required=True)
+    audit.add_argument("--source-catalog", type=Path, required=True)
+    audit.add_argument("--raw-root", type=Path, required=True)
+    audit.add_argument("--identity-map", type=Path, required=True)
+    audit.add_argument("--identity-review-report", type=Path, required=True)
+    audit.add_argument("--benchmark-path", type=Path)
+    audit.add_argument("--output-directory", type=Path, required=True)
+
     build = subparsers.add_parser("build")
     build.add_argument("--target-parquet", type=Path, required=True)
     build.add_argument("--source-catalog", type=Path, required=True)
     build.add_argument("--raw-root", type=Path, required=True)
     build.add_argument("--identity-map", type=Path, required=True)
+    build.add_argument("--identity-review-report", type=Path, required=True)
     build.add_argument("--benchmark-path", type=Path)
     build.add_argument("--dataset-version", default=DATASET_VERSION)
     build.add_argument(
@@ -110,6 +145,18 @@ def _inspect(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.command == "review-identities":
+        review_identity_candidates(args.workspace, reviewer=args.reviewer)
+        print(json.dumps({"workspace": str(args.workspace.resolve())}, sort_keys=True))
+        return 0
+    if args.command == "compile-identities":
+        path = compile_identity_map(
+            args.workspace,
+            output_path=args.identity_map,
+            report_path=args.review_report,
+        )
+        print(json.dumps({"identity_map": str(path.resolve())}, sort_keys=True))
+        return 0
     snapshots = load_source_catalog(args.source_catalog)
     if args.command == "acquire":
         paths = acquire_snapshots(snapshots, args.raw_root)
@@ -122,6 +169,38 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "inspect":
         return _inspect(args)
+    if args.command == "prepare-identities":
+        target_sha = sha256_file(args.target_parquet)
+        if target_sha != TARGET_SNAPSHOT_SHA256:
+            raise ValueError("target snapshot SHA mismatch")
+        events = load_target_events(args.target_parquet)
+        if len(events) != TARGET_EVENT_COUNT:
+            raise ValueError("target event count mismatch")
+        rows, _manifest, issues = normalize_sources(snapshots, args.raw_root)
+        if issues:
+            raise ValueError("identity preparation requires zero parse issues")
+        workspace = prepare_identity_review(
+            events=events,
+            results=rows,
+            target_sha256=target_sha,
+            source_catalog_sha256=sha256_file(args.source_catalog),
+            output_directory=args.output_directory,
+        )
+        print(json.dumps({"workspace": str(workspace.resolve())}, sort_keys=True))
+        return 0
+    if args.command == "audit-identities":
+        audit = audit_identity_map(
+            target_parquet=args.target_parquet,
+            snapshots=snapshots,
+            raw_root=args.raw_root,
+            identity_map=args.identity_map,
+            identity_review_report=args.identity_review_report,
+            source_catalog_sha256=sha256_file(args.source_catalog),
+            benchmark_path=args.benchmark_path,
+            output_directory=args.output_directory,
+        )
+        print(json.dumps({"audit": str(audit.resolve())}, sort_keys=True))
+        return 0
     build_revision = current_clean_commit(REPO_ROOT)
     destination = args.output_root / "releases" / args.dataset_version
     release = build_release(
@@ -129,6 +208,8 @@ def main(argv: list[str] | None = None) -> int:
         snapshots=snapshots,
         raw_root=args.raw_root,
         identity_map=args.identity_map,
+        identity_review_report=args.identity_review_report,
+        source_catalog_sha256=sha256_file(args.source_catalog),
         benchmark_path=args.benchmark_path,
         output_directory=destination,
         build_revision=build_revision,
