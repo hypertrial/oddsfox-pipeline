@@ -529,12 +529,6 @@ def prepare_identity_review(
             "target_labels": len(context),
             "source_labels": len(inventory),
             "candidate_rows": len(candidate_rows),
-            "prepared_decisions": {"approve": 0, "reject": 0},
-            "target_decisions": {
-                "approve": 0,
-                "target_only": 0,
-                "ambiguous": 0,
-            },
         },
     )
     return output_directory
@@ -616,25 +610,19 @@ def review_identity_candidates(
             elif row["decision"] == "approve":
                 row["decision"] = "target_only"
                 row["selected_candidate_id"] = ""
-    dispositions_by_normalized: dict[str, list[dict[str, object]]] = defaultdict(list)
-    for row in dispositions:
-        dispositions_by_normalized[str(row["target_normalized_name"])].append(row)
     ambiguous_names = {
         str(row["target_normalized_name"])
         for row in dispositions
         if row["decision"] == "ambiguous"
     }
+    pools_by_normalized: dict[str, set[str]] = defaultdict(set)
+    for normalized, pool in disposition_groups:
+        if pool:
+            pools_by_normalized[normalized].add(pool)
     ambiguous_names.update(
         normalized
-        for normalized, rows in dispositions_by_normalized.items()
-        if len(
-            {
-                str(row.get("inferred_rating_pool") or "")
-                for row in rows
-                if row.get("inferred_rating_pool")
-            }
-        )
-        > 1
+        for normalized, pools in pools_by_normalized.items()
+        if len(pools) > 1
     )
     for row in dispositions:
         if row["target_normalized_name"] in ambiguous_names:
@@ -705,8 +693,8 @@ def compile_identity_map(
         raise IdentityAuthoringError("every alias candidate requires approve or reject")
     if any(row.get("decision") not in TARGET_DECISIONS for row in dispositions):
         raise IdentityAuthoringError("every target label requires a final disposition")
-    target_names = [str(row["target_source_name"]) for row in dispositions]
-    if len(target_names) != len(set(target_names)):
+    target_names = {str(row["target_source_name"]) for row in dispositions}
+    if len(target_names) != len(dispositions):
         raise IdentityAuthoringError("target dispositions must be unique")
     if len(dispositions) != summary.get("target_labels"):
         raise IdentityAuthoringError("target disposition inventory is stale")
@@ -725,7 +713,7 @@ def compile_identity_map(
             or alias["candidate_team_id"] != inventory_row["source_team_id"]
             or alias["candidate_id"]
             != _candidate_id(str(alias["target_source_name"]), inventory_row)
-            or alias["target_source_name"] not in set(target_names)
+            or alias["target_source_name"] not in target_names
         ):
             raise IdentityAuthoringError("stale or contradictory candidate row")
         if alias["decision"] == "approve" and (

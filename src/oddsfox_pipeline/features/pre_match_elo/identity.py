@@ -152,7 +152,6 @@ class IdentityRegistry:
                 ambiguous.candidate_team_ids,
             )
         row = self._aliases.get((rating_pool, source_system, normalized))
-        status = row.mapping_status if row else None
         if row:
             return Resolution(
                 source_system,
@@ -162,7 +161,7 @@ class IdentityRegistry:
                 row.canonical_display_name,
                 row.country,
                 row.confederation,
-                str(status),
+                row.mapping_status,
             )
         candidates = self.fuzzy_candidates(source_name, rating_pool)
         return Resolution(
