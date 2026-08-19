@@ -230,21 +230,20 @@ def _warehouse(
         "polymarket_wc2026_marts",
         "polymarket_wc2026_observability",
         "polymarket_wc2026_ops",
-        "international_results_wc2026_marts",
-        "international_results_wc2026_staging",
+        "oddsfox_reference",
     ):
         conn.execute(f"CREATE SCHEMA {schema}")
     conn.execute(
-        "CREATE TABLE international_results_wc2026_marts."
+        "CREATE TABLE oddsfox_reference."
         "international_results_wc2026_team_status(team_name VARCHAR)"
     )
     conn.executemany(
-        "INSERT INTO international_results_wc2026_marts."
+        "INSERT INTO oddsfox_reference."
         "international_results_wc2026_team_status VALUES (?)",
         [(team,) for team in TEAMS],
     )
     conn.execute(
-        "CREATE TABLE international_results_wc2026_staging."
+        "CREATE TABLE oddsfox_reference."
         "international_results_wc2026_team_aliases("
         "market_team_name VARCHAR, canonical_team_name VARCHAR)"
     )

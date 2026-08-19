@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from tqdm import tqdm
 
+from oddsfox_pipeline.config.acquisition_ownership import require_acquisition_url
 from oddsfox_pipeline.config.settings import GAMMA_API_URL
 from oddsfox_pipeline.ingestion.polymarket.errors import GammaRequestError, gamma_get
 from oddsfox_pipeline.resources.http import APIClient
@@ -22,7 +23,8 @@ ProgressCallback = Optional[Callable[[str, Dict[str, Any]], None]]
 
 def _gamma_client(requests_per_second: Optional[float] = None) -> APIClient:
     return APIClient(
-        base_url=GAMMA_API_URL,
+        base_url=require_acquisition_url("polymarket", GAMMA_API_URL),
+        source_id="polymarket",
         requests_per_second=requests_per_second,
     )
 

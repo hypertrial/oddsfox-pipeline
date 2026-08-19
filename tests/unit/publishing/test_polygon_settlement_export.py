@@ -159,11 +159,10 @@ def _write_audit(
         "finalized_head_block_hash": "0x" + "c" * 64,
         "resolution_attestation": resolution.as_mapping(),
         "source_revisions": {
-            "fifa_match_number_schedule": {
-                "revision": "schedule-v1",
-                "sha256": "d" * 64,
+            "scraper_reference_bundle": {
+                "bundle_ids": ["synthetic-reference-v1"],
+                "tables": ["wc2026_fixtures"],
             },
-            "openfootball_worldcup": ["e" * 40],
             "conditional_tokens": "f" * 40,
             "uma_ctf_adapter": "1" * 40,
             "neg_risk_ctf_adapter": "2" * 40,
@@ -1006,29 +1005,23 @@ def test_csv_analysis_rejects_row_count_duckdb_and_inventory_errors(
 @pytest.mark.parametrize(
     "case",
     [
-        "fifa",
-        "fifa_revision",
-        "fifa_hash",
-        "openfootball",
-        "openfootball_commit",
+        "reference",
+        "reference_bundle",
+        "reference_table",
         "revision",
     ],
 )
 def test_sources_reject_incomplete_revisions(tmp_path: Path, case: str) -> None:
     audit, _ = _write_audit(tmp_path / case)
     provenance = json.loads((audit / "PROVENANCE.json").read_text())
-    if case == "fifa":
-        provenance["source_revisions"]["fifa_match_number_schedule"] = "bad"
-    elif case == "fifa_revision":
-        provenance["source_revisions"]["fifa_match_number_schedule"]["revision"] = (
+    if case == "reference":
+        provenance["source_revisions"]["scraper_reference_bundle"] = "bad"
+    elif case == "reference_bundle":
+        provenance["source_revisions"]["scraper_reference_bundle"]["bundle_ids"] = [
             "=unsafe"
-        )
-    elif case == "fifa_hash":
-        provenance["source_revisions"]["fifa_match_number_schedule"]["sha256"] = "bad"
-    elif case == "openfootball":
-        provenance["source_revisions"]["openfootball_worldcup"] = "bad"
-    elif case == "openfootball_commit":
-        provenance["source_revisions"]["openfootball_worldcup"] = ["bad"]
+        ]
+    elif case == "reference_table":
+        provenance["source_revisions"]["scraper_reference_bundle"]["tables"] = []
     else:
         provenance["source_revisions"]["conditional_tokens"] = ""
     with pytest.raises(ValueError, match="incomplete or invalid"):

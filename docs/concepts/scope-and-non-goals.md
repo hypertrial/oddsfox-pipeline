@@ -16,9 +16,9 @@ For the operator checklist, see
 - The soccer scope covers exact canonical-soccer-tag Gamma events from the
   tag-era boundary onward, plus best-effort pre-boundary discoveries. It does
   not claim deleted, untagged, or unavailable historical markets.
-- FIFA fixture/results and OpenFootball schedule ingestion for Kalshi WC2026 and
-  match-minute real-team validation; not required for the Polymarket golden-mart
-  path.
+- Read-only consumption of Scraper-published fixture/results references for
+  Kalshi WC2026 and match-minute real-team validation; not required for the
+  Polymarket golden-mart path.
 - An optional, isolated Polygon settlement-history pipeline with its own
   unscheduled job and dbt tag (not a `run_scope.py` scope).
 

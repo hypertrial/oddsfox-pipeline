@@ -17,7 +17,6 @@ from oddsfox_pipeline.config.settings import DBT_PROJECT_DIR
 POLYGON_CHAIN_ID = 137
 STANDARD_V2_EXCHANGE = "0xE111180000d2663C0091e4f400237545B87B996B"
 NEG_RISK_V2_EXCHANGE = "0xe2222d279d744050d28e00520010520000310F59"
-OPENFOOTBALL_REVISION = "bd46a148289f9930da66c140d4d7d2325e95d387"
 DEFAULT_POLYGON_MARKET_SEED_PATH = (
     DBT_PROJECT_DIR / "seeds" / "polymarket_wc2026_polygon_settlement_markets.csv"
 )
@@ -44,10 +43,10 @@ SEED_COLUMNS = (
     "no_token_id",
     "market_structure",
     "exchange_address",
-    "openfootball_revision",
-    "openfootball_path",
-    "openfootball_source_lines",
-    "openfootball_line_hash",
+    "reference_bundle_id",
+    "reference_table",
+    "reference_row_key",
+    "reference_row_sha256",
     "condition_init_tx_hash",
     "condition_init_log_index",
     "question_init_tx_hash",
@@ -63,8 +62,8 @@ SEED_COLUMNS = (
 _HEX_32 = re.compile(r"0x[0-9a-f]{64}\Z")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _UINT256 = re.compile(r"(?:0|[1-9][0-9]{0,77})\Z")
-_REVISION = re.compile(r"[0-9a-f]{40}\Z")
-_SOURCE_LINES = re.compile(r"[1-9][0-9]*(?:-[1-9][0-9]*)?\Z")
+_REFERENCE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
+_REFERENCE_TABLE = re.compile(r"[a-z][a-z0-9_]*\Z")
 _SEMVER = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\Z")
 _PROPOSITION_ID = re.compile(r"[a-z0-9][a-z0-9_-]*\Z")
 _MAX_BIGINT = 2**63 - 1
@@ -91,7 +90,6 @@ _EXPECTED_STAGE_COUNTS = Counter(
     }
 )
 _GROUP_TYPES = {"home_win", "draw", "away_win"}
-_SOURCE_PATHS = {"2026--usa/cup.txt", "2026--usa/cup_finals.txt"}
 
 
 @dataclass(frozen=True)
@@ -113,10 +111,10 @@ class PolygonMarket:
     no_token_id: str
     market_structure: str
     exchange_address: str
-    openfootball_revision: str
-    openfootball_path: str
-    openfootball_source_lines: str
-    openfootball_line_hash: str
+    reference_bundle_id: str
+    reference_table: str
+    reference_row_key: str
+    reference_row_sha256: str
     condition_init_tx_hash: str
     condition_init_log_index: int
     question_init_tx_hash: str
@@ -232,19 +230,20 @@ def parse_polygon_market(row: Mapping[str, str]) -> PolygonMarket:
     for field in hashes:
         if not _HEX_32.fullmatch(_text(row, field)):
             raise ValueError(f"Seed field {field!r} must be canonical 32-byte hex")
-    for field in ("openfootball_line_hash", "ancillary_data_sha256"):
+    for field in ("reference_row_sha256", "ancillary_data_sha256"):
         if not _SHA256.fullmatch(_text(row, field)):
             raise ValueError(f"Seed field {field!r} must be lowercase SHA-256")
-    revision = _text(row, "openfootball_revision")
-    source_path = _text(row, "openfootball_path")
-    source_lines = _text(row, "openfootball_source_lines")
-    if not _REVISION.fullmatch(revision) or source_path not in _SOURCE_PATHS:
-        raise ValueError(f"Invalid pinned OpenFootball source for {proposition_id}")
-    if not _SOURCE_LINES.fullmatch(source_lines):
-        raise ValueError(f"Invalid OpenFootball source lines for {proposition_id}")
-    source_bounds = tuple(int(value) for value in source_lines.split("-"))
-    if len(source_bounds) == 2 and source_bounds[0] > source_bounds[1]:
-        raise ValueError(f"OpenFootball source lines are reversed for {proposition_id}")
+    reference_bundle_id = _text(row, "reference_bundle_id")
+    reference_table = _text(row, "reference_table")
+    reference_row_key = _text(row, "reference_row_key")
+    if not _REFERENCE_ID.fullmatch(reference_bundle_id):
+        raise ValueError(f"Invalid reference bundle ID for {proposition_id}")
+    if not _REFERENCE_TABLE.fullmatch(reference_table):
+        raise ValueError(f"Invalid reference table for {proposition_id}")
+    if reference_row_key != str(fifa_match_id):
+        raise ValueError(
+            f"Reference row key must equal FIFA match ID for {proposition_id}"
+        )
     version = _text(row, "manifest_version")
     if not _SEMVER.fullmatch(version):
         raise ValueError("manifest_version must be plain SemVer (major.minor.patch)")
@@ -284,10 +283,10 @@ def parse_polygon_market(row: Mapping[str, str]) -> PolygonMarket:
         no_token_id=token_ids[1],
         market_structure=market_structure,
         exchange_address=expected_exchange,
-        openfootball_revision=revision,
-        openfootball_path=source_path,
-        openfootball_source_lines=source_lines,
-        openfootball_line_hash=_text(row, "openfootball_line_hash"),
+        reference_bundle_id=reference_bundle_id,
+        reference_table=reference_table,
+        reference_row_key=reference_row_key,
+        reference_row_sha256=_text(row, "reference_row_sha256"),
         condition_init_tx_hash=_text(row, "condition_init_tx_hash"),
         condition_init_log_index=condition_log_index,
         question_init_tx_hash=_text(row, "question_init_tx_hash"),
@@ -337,14 +336,15 @@ def validate_polygon_market_manifest(
         raise ValueError("FIFA match IDs must be exactly 1..104")
     if Counter(rows[0].stage for rows in by_match.values()) != _EXPECTED_STAGE_COUNTS:
         raise ValueError("WC2026 stage distribution does not match 72/16/8/4/2/1/1")
-    if {row.openfootball_revision for row in rows} != {OPENFOOTBALL_REVISION}:
-        raise ValueError("Manifest must use the pinned OpenFootball revision")
+    if len({row.reference_bundle_id for row in rows}) != 1:
+        raise ValueError("Manifest must use one immutable reference bundle")
+    if len({row.reference_table for row in rows}) != 1:
+        raise ValueError("Manifest must use one reference fixture table")
     if len({row.reviewed_at_utc for row in rows}) != 1:
         raise ValueError("All manifest rows must use one review timestamp")
     if any(
         row.market_structure != "neg_risk"
         or row.exchange_address.casefold() != NEG_RISK_V2_EXCHANGE.casefold()
-        or row.openfootball_path != "2026--usa/cup.txt"
         for row in rows
         if row.stage == "group_stage"
     ):
@@ -352,7 +352,6 @@ def validate_polygon_market_manifest(
     if any(
         row.market_structure != "standard"
         or row.exchange_address.casefold() != STANDARD_V2_EXCHANGE.casefold()
-        or row.openfootball_path != "2026--usa/cup_finals.txt"
         for row in rows
         if row.stage != "group_stage"
     ):
@@ -366,10 +365,10 @@ def validate_polygon_market_manifest(
         "kickoff_at_utc",
         "window_start_at_utc",
         "window_end_at_utc",
-        "openfootball_revision",
-        "openfootball_path",
-        "openfootball_source_lines",
-        "openfootball_line_hash",
+        "reference_bundle_id",
+        "reference_table",
+        "reference_row_key",
+        "reference_row_sha256",
     )
     for match_id, match_rows in by_match.items():
         first = match_rows[0]
@@ -463,7 +462,6 @@ def load_polygon_market_seed(
 __all__ = [
     "DEFAULT_POLYGON_MARKET_SEED_PATH",
     "NEG_RISK_V2_EXCHANGE",
-    "OPENFOOTBALL_REVISION",
     "POLYGON_CHAIN_ID",
     "SEED_COLUMNS",
     "STANDARD_V2_EXCHANGE",

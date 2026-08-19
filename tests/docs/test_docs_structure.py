@@ -228,7 +228,7 @@ def test_shipped_scopes_and_public_marts_remain_documented():
         "polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds",
         "polymarket_wc2026_marts.polymarket_wc2026_market_minute_odds",
         "polymarket_wc2026_marts.polymarket_wc2026_polygon_settlement_minute_odds",
-        "international_results_wc2026_marts.international_results_wc2026_matches",
+        "oddsfox_reference.international_results_wc2026_matches",
         "kalshi_wc2026_marts.kalshi_wc2026_stage_markets",
         "kalshi_wc2026_marts.kalshi_wc2026_group_winner_market_hourly_odds",
         "event_volume_usd_lifetime_reported",
@@ -267,7 +267,7 @@ def test_local_mart_recreation_guide_keeps_complete_operator_runbook():
     assert ".cache/polygon_settlement/benchmarks/v4/live_smoke.duckdb" in index
 
     for term in (
-        "dbt/seeds/wc2026_schedule_matches.csv",
+        "oddsfox.reference.v1",
         "dbt/seeds/polymarket_wc2026_polygon_settlement_markets.csv",
         "config/polygon-settlement-resolution-attestation.yml",
     ):
@@ -280,7 +280,7 @@ def test_strategy_contracts_split_and_public_contracts_link():
     strategy_text = strategy.read_text()
     public = (DOCS_DIR / "reference/data-contracts.md").read_text()
 
-    assert "oddsfox.raw.v1" in strategy_text
+    assert "oddsfox.reference.v1" in strategy_text
     assert "contract_metadata" in strategy_text
     assert "strategy-contracts.md" in public
     assert "#### Complete column contract" in public

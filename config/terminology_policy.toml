@@ -89,12 +89,10 @@ terms = ["contract"]
 "pipeline policy" = "docs/reference/naming.md"
 "API fidelity" = "docs/reference/configuration.md"
 "wc2026.v1" = "docs/reference/strategy-contracts.md"
-"oddsfox.raw.v1" = "docs/reference/strategy-contracts.md"
+"oddsfox.reference.v1" = "docs/reference/strategy-contracts.md"
 
 [structural]
 extension_jobs = [
-  "international_results_historical_ingest",
-  "international_results_wc2026_match_results_ingest",
   "polymarket_wc2026_event_catalog_recall_audit",
   "polymarket_wc2026_match_minute_odds_backfill",
   "polymarket_wc2026_minute_odds_backfill",
@@ -111,8 +109,8 @@ critical_asset_keys = [
   ["polymarket", "wc2026", "raw", "futures_token_odds_history_minute"],
   ["kalshi", "wc2026", "ops", "market_scope_registry"],
   ["kalshi", "wc2026", "marts", "stage_markets"],
-  ["openfootball", "wc2026", "raw", "schedule_fixtures"],
-  ["international_results", "wc2026", "marts", "matches"],
+  ["oddsfox", "reference", "openfootball_wc2026_schedule_fixtures"],
+  ["oddsfox", "reference", "international_results_wc2026_matches"],
   ["polymarket", "catalog", "raw", "markets"],
 ]
 

@@ -321,7 +321,7 @@ unit_tests:
       - input: ref('polymarket_wc2026_match_minute_odds_quality_issues')
         rows:
           - {severity: warn, issue_type: pair_price}
-      - input: ref('international_results_wc2026_matches')
+      - input: source('oddsfox_reference', 'international_results_wc2026_matches')
         rows: []
     expect:
       rows:
@@ -345,7 +345,7 @@ unit_tests:
       - input: ref('polymarket_wc2026_match_minute_odds_quality_issues')
         rows:
           - {severity: error, issue_type: spine}
-      - input: ref('international_results_wc2026_matches')
+      - input: source('oddsfox_reference', 'international_results_wc2026_matches')
         rows: []
     expect:
       rows:
@@ -372,7 +372,7 @@ unit_tests:
         rows: []
       - input: ref('polymarket_wc2026_match_minute_odds_quality_issues')
         rows: []
-      - input: ref('international_results_wc2026_matches')
+      - input: source('oddsfox_reference', 'international_results_wc2026_matches')
         rows: []
     expect:
       rows:

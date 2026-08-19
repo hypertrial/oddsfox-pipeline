@@ -14,7 +14,6 @@ import duckdb
 
 from oddsfox_pipeline.config.settings import DBT_PROJECT_DIR
 from oddsfox_pipeline.storage.duckdb.connection import (
-    INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
     KALSHI_WC2026_OPS_SCHEMA,
     KALSHI_WC2026_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
@@ -31,7 +30,6 @@ from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (
 logger = logging.getLogger(__name__)
 
 _RAW_OPS_TABLES: tuple[tuple[str, str], ...] = (
-    (INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA, "match_results"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "markets"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "market_tokens"),
     (POLYMARKET_WC2026_RAW_SCHEMA, "odds_history"),
@@ -433,10 +431,6 @@ def _infer_dbt_model_tags(schema: str, model: str) -> frozenset[str]:
         ("stg_kalshi_wc2026_", "int_kalshi_wc2026_", "kalshi_wc2026_")
     ):
         tags.update({"kalshi", "wc2026"})
-    if schema.startswith("international_results_wc2026_"):
-        tags.update({"wc2026", "international_results"})
-    if schema.startswith("openfootball_wc2026_"):
-        tags.update({"wc2026", "openfootball"})
     if schema.startswith("wc2026_") or model.startswith(("int_wc2026_", "wc2026_")):
         tags.update({"wc2026", "wc2026_strategy"})
     if "polygon_settlement" in model:

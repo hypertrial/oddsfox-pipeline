@@ -8,14 +8,11 @@ from oddsfox_pipeline.config.settings import (
     resolve_dbt_executable,
 )
 from oddsfox_pipeline.orchestration.assets import (
-    international_results_historical_raw_snapshot,
-    international_results_wc2026_raw_match_results,
     kalshi_wc2026_ops_market_scope_registry,
     kalshi_wc2026_raw_market_candlesticks_hourly,
     kalshi_wc2026_raw_markets,
     kalshi_wc2026_raw_markets_snapshot,
     oddsfox_dbt,
-    openfootball_wc2026_raw_schedule_fixtures,
     polymarket_soccer_catalog_check,
     polymarket_soccer_minute_mart_check,
     polymarket_soccer_minute_reconciliation_check,
@@ -41,8 +38,6 @@ from oddsfox_pipeline.orchestration.assets import (
     polymarket_wc2026_release_polygon_settlement_odds_bundle,
 )
 from oddsfox_pipeline.orchestration.jobs import (
-    international_results_historical_ingest,
-    international_results_wc2026_match_results_ingest,
     kalshi_wc2026_dbt_build,
     kalshi_wc2026_full_pipeline,
     kalshi_wc2026_hourly_odds_ingest,
@@ -64,17 +59,15 @@ from oddsfox_pipeline.orchestration.jobs import (
     polymarket_wc2026_polygon_settlement_backfill,
     polymarket_wc2026_polygon_settlement_release,
 )
+from oddsfox_pipeline.orchestration.reference_assets import reference_assets
 from oddsfox_pipeline.orchestration.schedules import (
-    international_results_daily_schedule,
     kalshi_wc2026_hourly_odds_schedule,
     polymarket_soccer_daily_schedule,
 )
 
 defs = Definitions(
     assets=[
-        international_results_historical_raw_snapshot,
-        international_results_wc2026_raw_match_results,
-        openfootball_wc2026_raw_schedule_fixtures,
+        *reference_assets,
         kalshi_wc2026_raw_markets,
         kalshi_wc2026_raw_markets_snapshot,
         kalshi_wc2026_ops_market_scope_registry,
@@ -107,8 +100,6 @@ defs = Definitions(
         polymarket_soccer_production_health_check,
     ],
     jobs=[
-        international_results_historical_ingest,
-        international_results_wc2026_match_results_ingest,
         kalshi_wc2026_hourly_odds_ingest,
         kalshi_wc2026_market_scope_registry_refresh,
         kalshi_wc2026_dbt_build,
@@ -131,7 +122,6 @@ defs = Definitions(
         polymarket_soccer_full_pipeline,
     ],
     schedules=[
-        international_results_daily_schedule,
         kalshi_wc2026_hourly_odds_schedule,
         polymarket_soccer_daily_schedule,
     ],

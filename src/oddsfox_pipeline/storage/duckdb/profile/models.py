@@ -160,7 +160,6 @@ class OutputFormat(str, Enum):
 
 
 DEFAULT_SCHEMAS: Final[tuple[str, ...]] = (
-    "international_results_wc2026_raw",
     "polymarket_wc2026_raw",
     "polymarket_wc2026_ops",
     *DBT_MODELED_SCHEMAS,

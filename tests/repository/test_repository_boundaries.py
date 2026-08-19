@@ -29,8 +29,6 @@ TEXT_SUFFIXES = {
 }
 FORBIDDEN = (
     "fotmob",
-    "oddsfox_scraper",
-    "oddsfox-scraper",
     "three.js",
     "effectcomposer",
     "buffergeometry",

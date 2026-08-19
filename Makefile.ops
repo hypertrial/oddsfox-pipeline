@@ -28,7 +28,8 @@ contract-http:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/contract -q -n 0 -m "contract" $(PYTEST_DURATION_ARGS)
 
 match-minute-inputs-validate: runtime-dirs
-	$(RUN_IN_REPO) "$(PYTHON)" -c "import csv; from pathlib import Path; path = Path('dbt/seeds/wc2026_schedule_matches.csv'); rows = list(csv.DictReader(path.open(encoding='utf-8-sig', newline=''))); ids = {int(row['match_id']) for row in rows}; assert len(rows) == 104 and ids == set(range(1, 105)), 'supply a complete operator-local 104-match schedule at ' + str(path); print(f'{len(rows)} operator-local schedule rows')"
+	@test -f "$(DUCKDB_NAME)" || (echo "operator warehouse not found: $(DUCKDB_NAME); load a Scraper reference bundle first" >&2; exit 2)
+	$(RUN_IN_REPO) "$(PYTHON)" -c "import duckdb; conn = duckdb.connect('$(DUCKDB_NAME)', read_only=True); row = conn.execute('select count(*), count(distinct match_id), min(match_id), max(match_id) from oddsfox_reference.wc2026_fixtures').fetchone(); assert row == (104, 104, 1, 104), f'invalid Scraper fixture inventory: {row}'; print('104 Scraper reference fixture rows')"
 
 match-minute-live-smoke: match-minute-inputs-validate
 	$(RUN_IN_REPO) mkdir -p "$(REPO_ROOT)/.cache" "$(MATCH_MINUTE_LIVE_SMOKE_RUNTIME_ROOT)/tmp" "$(MATCH_MINUTE_LIVE_SMOKE_RUNTIME_ROOT)/xdg"
@@ -51,7 +52,7 @@ stage-minute-input-release: runtime-dirs
 	@test -n "$(GRAPH_NODES_PATH)" || (echo "GRAPH_NODES_PATH is required" >&2; exit 2)
 	@test -n "$(GRAPH_EDGES_PATH)" || (echo "GRAPH_EDGES_PATH is required" >&2; exit 2)
 	@test -n "$(GRAPH_REVISION)" || (echo "GRAPH_REVISION is required" >&2; exit 2)
-	$(RUN_IN_REPO) DUCKDB_NAME="$(DUCKDB_NAME)" DUCKDB_PATH="$(DUCKDB_NAME)" DBT_SEND_ANONYMOUS_USAGE_STATS=false "$(PYTHON)" -m dbt.cli.main seed --select international_results_wc2026_team_aliases --project-dir dbt --profiles-dir dbt/profiles
+	$(MAKE) match-minute-inputs-validate DUCKDB_NAME="$(DUCKDB_NAME)"
 	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_polymarket_wc2026_stage_minute_inputs.py --duckdb-path "$(DUCKDB_NAME)" --nodes-path "$(GRAPH_NODES_PATH)" --edges-path "$(GRAPH_EDGES_PATH)" --graph-revision "$(GRAPH_REVISION)" --dataset-version "$(STAGE_MINUTE_DATASET_VERSION)" --output-root "$(STAGE_MINUTE_OUTPUT_ROOT)"
 
 stage-execution-plan: runtime-dirs
@@ -142,7 +143,8 @@ polygon-settlement-benchmark: polygon-runtime-dirs
 polygon-settlement-seed-candidate: polygon-runtime-dirs
 	@test -n "$(POLYGON_SEED_MANIFEST_VERSION)" || (echo "POLYGON_SEED_MANIFEST_VERSION is required" >&2; exit 2)
 	@test -n "$(POLYGON_SEED_REVIEWED_AT)" || (echo "POLYGON_SEED_REVIEWED_AT is required (UTC, minute-aligned)" >&2; exit 2)
-	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" scripts/generate_polymarket_wc2026_polygon_settlement_seed.py --manifest-version "$(POLYGON_SEED_MANIFEST_VERSION)" --reviewed-at "$(POLYGON_SEED_REVIEWED_AT)" --output-dir "$(POLYGON_SEED_OUTPUT_DIR)"
+	@test -n "$(REFERENCE_BUNDLE_DIR)" || (echo "REFERENCE_BUNDLE_DIR is required" >&2; exit 2)
+	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" scripts/generate_polymarket_wc2026_polygon_settlement_seed.py --reference-bundle "$(REFERENCE_BUNDLE_DIR)" --manifest-version "$(POLYGON_SEED_MANIFEST_VERSION)" --reviewed-at "$(POLYGON_SEED_REVIEWED_AT)" --output-dir "$(POLYGON_SEED_OUTPUT_DIR)"
 
 polygon-settlement-seed-validate: polygon-runtime-dirs
 	$(RUN_IN_REPO) $(POLYGON_RUNTIME_ENV) "$(PYTHON)" -c "from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import load_polygon_resolution_attestation; from oddsfox_pipeline.ingestion.polymarket.polygon_seed import load_polygon_market_seed; manifest = load_polygon_market_seed(); attestation = load_polygon_resolution_attestation(manifest=manifest); print(f'{len(manifest.markets)} propositions, {attestation.resolved_condition_count} resolved, version {manifest.version}, sha256 {manifest.sha256}')"
@@ -154,9 +156,6 @@ polygon-settlement-release: polygon-runtime-dirs
 polygon-settlement-export:
 	@test -n "$(POLYGON_DATASET_VERSION)" || (echo "POLYGON_DATASET_VERSION is required" >&2; exit 2)
 	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_polymarket_wc2026_polygon_settlement_minute_odds.py --audit-release "$(POLYGON_AUDIT_OUTPUT_ROOT)/releases/$(POLYGON_DATASET_VERSION)" --output-root "$(POLYGON_EXPORT_OUTPUT_ROOT)"
-
-export-wc2026-elo-freezes:
-	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_eloratings_wc2026_team_ratings_freezes.py
 
 export-marts-parquet:
 	$(RUN_IN_REPO) "$(PYTHON)" scripts/export_marts_parquet.py

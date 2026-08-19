@@ -11,7 +11,7 @@ snapshot as (
 
 active_result_teams as (
     select team_name
-    from {{ ref('international_results_wc2026_team_status') }}
+    from {{ source('oddsfox_reference', 'international_results_wc2026_team_status') }}
     where tournament_status = 'active'
 ),
 
@@ -20,7 +20,7 @@ eliminated_result_teams as (
         team_name,
         eliminated_stage_key,
         eliminated_match_date
-    from {{ ref('international_results_wc2026_team_status') }}
+    from {{ source('oddsfox_reference', 'international_results_wc2026_team_status') }}
     where tournament_status != 'active'
 ),
 

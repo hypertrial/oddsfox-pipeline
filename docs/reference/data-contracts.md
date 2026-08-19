@@ -78,27 +78,12 @@ The source ledger is keyed by Dagster run ID and by `(run ID, step, retry
 attempt)`. An unclean process exit remains `running` and becomes critical after
 the configured stale-run age.
 
-### Soccer pre-match Elo release
+### Scraper-owned soccer features
 
-The manual `oddsfox.soccer.pre-match-elo.v1` bundle is separate from the
-warehouse marts above. Its primary Parquet grain is one row per target
-`event_id`, with exactly 8,255 rows for dataset `1.0.0`. `event_id` is the only
-join key to the modeling mart; rating columns are not persisted at minute
-grain.
-
-The event file carries canonical team IDs, pool, model version, both pre-match
-ratings and their difference, quality, prior-match counts, last-result dates,
-ages, connected components, mapping statuses, target-match status, explicit
-coverage, and optional benchmark provenance. Its companion identity and
-long-form coverage Parquets preserve reviewed/unresolved mapping evidence and
-coverage counts. The manifest pins target/source/model/build provenance and the
-checksum inventory authenticates every payload plus the manifest.
-
-Release validation requires exact target-event accounting, recognized coverage
-and reason on every row, and two internal ratings from one pool before an Elo
-difference may be non-null. Benchmark removal must leave internal fields
-unchanged. Raw snapshots, aliases, normalized rows, and generated bundles are
-operator-local and ignored by Git.
+Pipeline does not acquire soccer results or build Elo. Scraper publishes
+`oddsfox.reference.v1` for source-neutral warehouse inputs and
+`oddsfox.scraper.soccer.pre_match_elo.v1` for Trading. Pipeline validates and
+loads only the former; the Elo event-grain contract bypasses Pipeline entirely.
 
 ### Polygon settlement minute odds
 
@@ -255,11 +240,15 @@ can still be reverse-linked to source transactions by time, amount, and price.
 The software creates no upload operation or remote destination. Operators
 control the local artifact and remain responsible for their inputs and outputs.
 
-Schema: `international_results_wc2026_marts`
+External schema: `oddsfox_reference`
+
+These tables are loaded transactionally from an immutable Scraper reference
+bundle. Pipeline does not acquire, parse, transform, or republish their source
+data, and it creates no legacy aliases.
 
 | Relation | Grain | Pipeline | Contract |
 | --- | --- | --- | --- |
-| `international_results_wc2026_matches` | One row per `match_id` | Shared (Kalshi WC2026, match-minute odds) | Clean WC2026 FIFA World Cup fixture/result rows from `martj42/international_results`, including stage, status, score, inferred knockout advancer metadata, and immutable source revision/hash provenance. |
+| `international_results_wc2026_matches` | One row per `match_id` | Shared (Kalshi WC2026, match-minute odds) | Scraper-published WC2026 fixture/result rows, including stage, status, score, inferred knockout advancer metadata, and source revision/hash provenance. |
 | `international_results_wc2026_team_status` | One row per `team_name` | Shared (Kalshi WC2026) | Canonical 48-team WC2026 roster and current tournament status derived from fixture/result rows. |
 
 Schema: `kalshi_wc2026_marts`
@@ -316,14 +305,9 @@ Schema: `kalshi_wc2026_marts`
   history from the private incremental `int_polymarket_wc2026_token_hourly_odds`
   fact. Market and enclosing-event metadata come from
   `int_polymarket_wc2026_markets` and `int_polymarket_wc2026_event_latest`.
-- WC2026 match/result rows come from `martj42/international_results` at the
-  immutable Git revision pinned during ingest (`source_revision`, `source_url` on
-  each row), filtered to `tournament = 'FIFA World Cup'` and `match_date` between
-  `2026-06-11` and `2026-07-19`. The golden hourly mart does not depend on those
-  marts; refresh them with `international_results_wc2026_match_results_ingest`
-  or the Kalshi/match-minute pipelines when needed.
-- `international_results_wc2026_data_quality` emits a warning when the latest
-  fixture/result source load is older than the pipeline policy freshness window.
+- WC2026 match/result rows and their source provenance arrive in the active
+  Scraper reference bundle. The golden hourly mart does not depend on those
+  tables.
 - Use `polymarket_wc2026_market_scope_registry_refresh`, `polymarket_wc2026_hourly_odds_ingest`,
   `polymarket_wc2026_dbt_build`, and `polymarket_wc2026_full_pipeline` for WC2026
   Dagster operations. `polymarket_wc2026_dbt_build` and
@@ -331,10 +315,8 @@ Schema: `kalshi_wc2026_marts`
   only.
 - Use `kalshi_wc2026_market_scope_registry_refresh`, `kalshi_wc2026_hourly_odds_ingest`,
   and `kalshi_wc2026_full_pipeline` for Kalshi WC2026 Dagster operations.
-  `kalshi_wc2026_full_pipeline` also runs `international_results_wc2026_match_results_ingest`
-  and a scoped dbt build (`+tag:kalshi`, including `international_results` parents).
-  `international_results_wc2026_match_results_ingest` refreshes only the FIFA
-  World Cup fixture/result source.
+  `kalshi_wc2026_full_pipeline` consumes the already-loaded Scraper reference
+  schema and never refreshes a non-market source.
 - `scripts/export_polymarket_wc2026_market_hourly_odds.py` is the supported
   offline export for the golden mart.
 - Raw hourly collection is a separate temporal-foundation branch. An existing
@@ -355,8 +337,8 @@ Schema: `kalshi_wc2026_marts`
 - Golden mart grain, primary-outcome token selection (Yes preferred, else
   `outcome_index` 0), and event lifetime volume floor from the WC2026 pipeline
   policy seed.
-- FIFA World Cup result scope, stage counts, 48-team roster shape, tied knockout
-  advancer inference/DQ surfacing, and stale fixture/result source loads.
+- Reference-table grain, fixture/result cardinality, identity coverage, and
+  source-provenance readiness.
 - Observability run health (warn-level: latest run error-token regression and history coverage floor).
 - Kalshi WC2026 grain, OHLC order, progression-side selection, real-team scope,
   and data-quality checks from `kalshi_wc2026_pipeline_policy.csv`.

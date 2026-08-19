@@ -27,9 +27,6 @@ from oddsfox_pipeline.naming import (
 )
 from oddsfox_pipeline.orchestration import polymarket_asset_helpers as asset_helpers
 from oddsfox_pipeline.orchestration import polymarket_ops as ops
-from oddsfox_pipeline.orchestration.assets_openfootball import (
-    OPENFOOTBALL_WC2026_RAW_SCHEDULE_FIXTURES,
-)
 from oddsfox_pipeline.orchestration.config import (
     DbtBuildConfig,
     FuturesMinuteOddsSyncConfig,
@@ -43,6 +40,7 @@ from oddsfox_pipeline.orchestration.dbt_project import DBT_PROJECT
 from oddsfox_pipeline.orchestration.raw_snapshot_helpers import (
     _snapshot_refreshed_scope_name,
 )
+from oddsfox_pipeline.orchestration.reference_assets import REFERENCE_WC2026_FIXTURES
 from oddsfox_pipeline.orchestration.shipped_scopes import (
     POLYMARKET_SOCCER_CORE_DBT_SELECT,
     POLYMARKET_SOCCER_DBT_SELECT,
@@ -112,7 +110,7 @@ class PolymarketWc2026DltTranslator(DagsterDltTranslator):
         if resource.source_name == "polymarket_wc2026" and resource.name == "markets":
             return spec.replace_attributes(
                 key=POLYMARKET_WC2026_RAW_MARKETS,
-                deps=[OPENFOOTBALL_WC2026_RAW_SCHEDULE_FIXTURES],
+                deps=[REFERENCE_WC2026_FIXTURES],
             )
         return (
             spec  # pragma: no cover - current WC2026 dlt source exposes only markets.
@@ -185,15 +183,15 @@ def polymarket_wc2026_raw_markets_snapshot(
     specs=[
         AssetSpec(
             key=POLYMARKET_WC2026_RAW_EVENT_CATALOG,
-            deps=[OPENFOOTBALL_WC2026_RAW_SCHEDULE_FIXTURES],
+            deps=[REFERENCE_WC2026_FIXTURES],
         ),
         AssetSpec(
             key=POLYMARKET_WC2026_RAW_EVENT_SNAPSHOTS,
-            deps=[OPENFOOTBALL_WC2026_RAW_SCHEDULE_FIXTURES],
+            deps=[REFERENCE_WC2026_FIXTURES],
         ),
         AssetSpec(
             key=POLYMARKET_WC2026_RAW_EVENT_MARKET_MEMBERSHIPS,
-            deps=[OPENFOOTBALL_WC2026_RAW_SCHEDULE_FIXTURES],
+            deps=[REFERENCE_WC2026_FIXTURES],
         ),
     ],
     group_name="ingestion",

@@ -2,8 +2,8 @@
 
 Thank you for your interest in contributing. OddsFox Pipeline is an open-source,
 local-first prediction-market data pipeline built with Dagster, dlt, dbt, and
-DuckDB. Version `0.2.x` ships WC2026 Polymarket and Kalshi WC2026 pipelines,
-plus a small FIFA fixture/results source for real-team scope validation.
+DuckDB. Version `0.2.x` ships WC2026 Polymarket and Kalshi WC2026 pipelines and
+consumes checksummed non-market reference bundles published by OddsFox Scraper.
 
 ## Development setup
 
@@ -14,11 +14,11 @@ See the [Quickstart](docs/getting-started/index.md) and
 
 ## Source adapter contributions
 
-Polymarket WC2026 and Kalshi WC2026 are the shipped market adapters. The
-bundled `international_results` WC2026 source validates team scope; it is not a
-bookmaker/market adapter. Contributions may
-add or improve adapters for traditional bookmakers and other odds sources when
-they keep the pipeline local-first and operator-owned.
+Runtime acquisition is limited to Polymarket, PMXT, Kalshi, and Polygon.
+Non-prediction-market collectors, parsers, and reference transformations belong
+in OddsFox Scraper. Pipeline contributions may add or improve adapters only
+within that allowlist; source-neutral transport of immutable, checksummed
+Scraper artifacts is also supported.
 
 Useful contribution areas include ingestion adapters, Dagster assets and jobs,
 dbt models and tests, DuckDB storage, docs, and operator scripts. Adapter PRs

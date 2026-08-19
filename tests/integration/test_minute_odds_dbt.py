@@ -20,17 +20,15 @@ from tests.integration.match_minute_seed import (
     SOURCE_URL,
     WC2026_SCHEDULE_TABLE,
     _insert_market,
+    reference_tbl,
+    seed_test_openfootball_schedule_fixtures,
 )
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-    international_results_wc2026_raw_tbl,
     polymarket_ops_tbl,
     polymarket_raw_tbl,
-)
-from oddsfox_pipeline.storage.duckdb.schemas.openfootball import (
-    seed_test_openfootball_schedule_fixtures,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     create_all_scope_test_markets_tables,
@@ -73,16 +71,18 @@ def _seed_slim_match_leg(conn: duckdb.DuckDBPyConnection) -> None:
         )
         token_rows.append((market_id, yes_token, no_token))
 
-    ir = international_results_wc2026_raw_tbl("match_results")
+    ir = reference_tbl("international_results_wc2026_matches")
     conn.execute(
         f"""
         INSERT INTO {ir} (
             match_id, match_date, home_team, away_team, home_score, away_score,
-            tournament, city, country, neutral, match_status, source_url,
+            stage_key, stage_rank, tournament, city, country, neutral,
+            match_status, source_url,
             source_row_number, source_row_hash, source_revision,
             source_payload_sha256, source_loaded_at
-        ) VALUES (?, ?, ?, ?, 1, 0, 'FIFA World Cup', 'Venue', 'United States',
-                  true, 'completed', ?, 1, 'row-hash-001', ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, 1, 0, 'group_stage', 1, 'FIFA World Cup',
+                  'Venue', 'United States', true, 'completed', ?, 1,
+                  'row-hash-001', ?, ?, ?)
         """,
         [
             "match-1",
@@ -319,12 +319,14 @@ def _seed_slim_schedule(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute(
         f"""
         INSERT INTO {WC2026_SCHEDULE_TABLE} (
-            match_id, stage, group_label, matchday, match_date, kickoff_time_et,
-            venue, home_slot, away_slot, home_team, away_team, status, source
+            match_id, stage, group_label, match_date, kickoff_time_et,
+            venue, home_team, away_team, home_slot, away_slot, status,
+            source_provenance, matchday, kickoff_at_et, stage_order, is_knockout
         ) VALUES (
-            '1', 'Group Stage', 'A', '1', '2026-06-11', '12:00 PM',
-            'Venue 1', 'slot-home-1', 'slot-away-1', 'Home 1', 'Away 1',
-            'scheduled', 'synthetic-minute-odds-ci'
+            1, 'Group Stage', 'A', date '2026-06-11', '12:00 PM',
+            'Venue 1', 'Home 1', 'Away 1', 'slot-home-1', 'slot-away-1',
+            'scheduled', 'synthetic-minute-odds-ci', 1,
+            timestamp '2026-06-11 12:00:00', 1, false
         )
         """
     )

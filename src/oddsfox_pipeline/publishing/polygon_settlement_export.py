@@ -1164,8 +1164,7 @@ def _manifest_document(
 
 def _write_sources(path: Path, provenance: Mapping[str, Any]) -> None:
     revisions = provenance["source_revisions"]
-    fifa = revisions.get("fifa_match_number_schedule")
-    openfootball = revisions.get("openfootball_worldcup")
+    reference = revisions.get("scraper_reference_bundle")
     contract_revisions = tuple(
         revisions.get(key)
         for key in (
@@ -1176,12 +1175,15 @@ def _write_sources(path: Path, provenance: Mapping[str, Any]) -> None:
         )
     )
     if (
-        not isinstance(fifa, Mapping)
-        or not isinstance(openfootball, list)
-        or not openfootball
-        or not _SOURCE_LABEL_RE.fullmatch(str(fifa.get("revision", "")))
-        or not _SHA256_RE.fullmatch(str(fifa.get("sha256", "")))
-        or any(not COMMIT_RE.fullmatch(str(value)) for value in openfootball)
+        not isinstance(reference, Mapping)
+        or not isinstance(reference.get("bundle_ids"), list)
+        or not reference["bundle_ids"]
+        or not isinstance(reference.get("tables"), list)
+        or not reference["tables"]
+        or any(
+            not _SOURCE_LABEL_RE.fullmatch(str(value))
+            for value in (*reference["bundle_ids"], *reference["tables"])
+        )
         or any(not COMMIT_RE.fullmatch(str(value)) for value in contract_revisions)
     ):
         raise ValueError("Audit source revisions are incomplete or invalid")
@@ -1194,21 +1196,12 @@ def _write_sources(path: Path, provenance: Mapping[str, Any]) -> None:
             "content_sha256": "",
         },
         {
-            "source_name": "FIFA World Cup 26 Match Schedule",
-            "role": "numeric match identifiers",
-            "uri": (
-                "https://digitalhub.fifa.com/asset/"
-                "4b5d4417-3343-4732-9cdf-14b6662af407/"
-                "FWC26-Match-Schedule_English.pdf"
-            ),
-            "revision": str(fifa.get("revision", "")),
-            "content_sha256": str(fifa.get("sha256", "")),
-        },
-        {
-            "source_name": "OpenFootball World Cup",
+            "source_name": "OddsFox Scraper reference bundle",
             "role": "fixture identity and scheduled kickoff",
-            "uri": "https://github.com/openfootball/worldcup",
-            "revision": ";".join(sorted(str(value) for value in openfootball)),
+            "uri": "artifact:oddsfox.reference.v1",
+            "revision": ";".join(
+                sorted(str(value) for value in reference["bundle_ids"])
+            ),
             "content_sha256": "",
         },
         {

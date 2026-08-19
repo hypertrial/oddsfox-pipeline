@@ -11,9 +11,14 @@ DuckDB, dbt, Python); no bundled production data or hosted service. See
 ## Part Of OddsFox
 
 `oddsfox-pipeline` is the open-source warehouse component of the private
-`oddsfox` superproject. It ingests safe public sources, validates canonical
-snapshots, builds dbt marts, and exports documented mart surfaces for offline use.
+`oddsfox` superproject. It ingests Polymarket, PMXT, Kalshi, and Polygon APIs,
+consumes immutable Scraper reference bundles, builds market marts, and exports
+documented surfaces for offline use. Non-prediction-market collection,
+normalization, reference transformations, and Elo belong to `oddsfox-scraper`.
 Order execution belongs to `oddsfox-execution` and is not part of this runtime.
+
+The enforced ownership decision is documented in
+[`docs/architecture/source-ownership.md`](docs/architecture/source-ownership.md).
 
 Read the [System Overview](docs/concepts/system-overview.md) for repository
 boundaries and [Terminology](docs/reference/terminology.md) for the compact

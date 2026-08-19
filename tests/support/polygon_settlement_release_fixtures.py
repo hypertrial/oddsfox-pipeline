@@ -203,11 +203,10 @@ def _build_full_release_db(path: Path) -> None:
                 then '0xE111180000d2663C0091e4f400237545B87B996B'
                 else '0xe2222d279d744050d28e00520010520000310F59'
             end as exchange_address,
-            repeat('a', 40) as openfootball_revision,
-            case when fifa_match_id <= 72 then '2026--usa/cup.txt'
-                 else '2026--usa/cup_finals.txt' end as openfootball_path,
-            '1-2' as openfootball_source_lines,
-            repeat('b', 64) as openfootball_line_hash,
+            'synthetic-reference-v1' as reference_bundle_id,
+            'wc2026_fixtures' as reference_table,
+            cast(fifa_match_id as varchar) as reference_row_key,
+            repeat('b', 64) as reference_row_sha256,
             '0x' || repeat('1', 64) as condition_init_tx_hash,
             i as condition_init_log_index,
             '0x' || repeat('2', 64) as question_init_tx_hash,

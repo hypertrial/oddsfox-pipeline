@@ -6,6 +6,7 @@ import hashlib
 import json
 
 import duckdb
+from tests.integration.match_minute_seed import create_test_reference_tables
 
 from oddsfox_pipeline.ingestion.polymarket.match_order_book import (
     load_order_book_manifest,
@@ -13,12 +14,13 @@ from oddsfox_pipeline.ingestion.polymarket.match_order_book import (
 
 
 def seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
+    create_test_reference_tables(conn)
     manifest = load_order_book_manifest()
     target = manifest.targets[0]
     scan_id = "published-scan"
     conn.execute(
         """
-        insert into openfootball_wc2026_raw.schedule_fixtures values (
+        insert into oddsfox_reference.openfootball_wc2026_schedule_fixtures values (
             95, 'round_of_16', 2, null, timestamp '2026-07-07 17:00:00',
             'Argentina', 'Egypt', 'Test Venue', 'completed',
             'https://example.com/fixture', 95, 'fixture-hash',

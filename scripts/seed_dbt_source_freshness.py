@@ -18,7 +18,6 @@ ensure_src_on_path()
 import oddsfox_pipeline.storage.duckdb.connection as connection  # noqa: E402
 from oddsfox_pipeline.naming import SCOPE_WC2026  # noqa: E402
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (  # noqa: E402
-    international_results_wc2026_raw_tbl,
     kalshi_ops_tbl,
     kalshi_raw_tbl,
     polymarket_ops_tbl,
@@ -27,7 +26,6 @@ from oddsfox_pipeline.storage.duckdb.schemas.constants import (  # noqa: E402
 
 FRESHNESS_SOURCE_TABLES: frozenset[tuple[str, str]] = frozenset(
     {
-        ("international_results_wc2026_raw", "match_results"),
         ("kalshi_wc2026_ops", "ingestion_run_events"),
         ("kalshi_wc2026_raw", "events"),
         ("kalshi_wc2026_raw", "market_candlesticks_hourly"),
@@ -39,54 +37,6 @@ FRESHNESS_SOURCE_TABLES: frozenset[tuple[str, str]] = frozenset(
         ("polymarket_wc2026_raw", "token_odds_daily"),
     }
 )
-
-
-def _seed_international_results(conn, now: datetime) -> None:
-    conn.execute(
-        f"""
-        insert or replace into {international_results_wc2026_raw_tbl("match_results")}
-        (
-            match_id,
-            match_date,
-            home_team,
-            away_team,
-            home_score,
-            away_score,
-            tournament,
-            city,
-            country,
-            neutral,
-            match_status,
-            source_revision,
-            source_payload_sha256,
-            source_url,
-            source_row_number,
-            source_row_hash,
-            source_loaded_at
-        )
-        values (
-            'freshness-match',
-            current_date,
-            'Argentina',
-            'Mexico',
-            null,
-            null,
-            'FIFA World Cup',
-            'Mexico City',
-            'Mexico',
-            true,
-            'scheduled',
-            'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-            'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-            'https://raw.githubusercontent.com/martj42/international_results/'
-                || 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/results.csv',
-            1,
-            'freshness-hash',
-            ?
-        )
-        """,
-        [now],
-    )
 
 
 def _seed_polymarket_scope(conn, *, scope_name: str, now: datetime) -> None:
@@ -258,7 +208,6 @@ def main() -> None:
     bootstrap_dbt_ci_duckdb()
     conn = connection.get_persistent_connection()
     try:
-        _seed_international_results(conn, now)
         _seed_polymarket_scope(conn, scope_name=SCOPE_WC2026, now=now)
         _seed_kalshi(conn, now)
     finally:

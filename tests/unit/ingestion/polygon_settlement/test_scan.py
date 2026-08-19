@@ -859,6 +859,7 @@ def test_rpc_protocol_envelopes_block_cache_finality_and_logs(monkeypatch) -> No
         "backoff_factor": 0.25,
         "requests_per_second": 7,
         "rate_limiter": None,
+        "source_id": "polygon",
     }
     assert constructed.origin == "https://rpc.example"
 
@@ -1651,7 +1652,7 @@ def test_api_client_post_uses_shared_timeout_and_rate_control(monkeypatch) -> No
         observed.update(url=url, **kwargs)
         return Response()
 
-    client = APIClient("https://example.com", request_timeout=7)
+    client = APIClient("https://example.com", source_id="polygon", request_timeout=7)
     monkeypatch.setattr(client.session, "post", post)
     assert client.post("/rpc", json={"id": 1}) == {"ok": True}
     assert observed["url"] == "https://example.com/rpc"

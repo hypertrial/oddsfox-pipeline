@@ -10,12 +10,8 @@ import duckdb
 
 from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-    international_results_wc2026_raw_tbl,
     polymarket_ops_tbl,
     polymarket_raw_tbl,
-)
-from oddsfox_pipeline.storage.duckdb.schemas.openfootball import (
-    seed_test_openfootball_schedule_fixtures,
 )
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     create_all_scope_test_markets_tables,
@@ -23,6 +19,111 @@ from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
 
 SOURCE_REVISION = "a" * 40
 SOURCE_PAYLOAD_SHA256 = "b" * 64
+
+
+def reference_tbl(name: str) -> str:
+    """Qualified synthetic Scraper reference table used by integration tests."""
+    return f'"oddsfox_reference"."{name}"'
+
+
+def create_test_reference_tables(conn: duckdb.DuckDBPyConnection) -> None:
+    """Create only the final Scraper tables consumed by Pipeline models."""
+    conn.execute("create schema if not exists oddsfox_reference")
+    conn.execute(
+        """
+        create table if not exists oddsfox_reference.international_results_wc2026_matches (
+            match_id varchar, match_date date, stage_key varchar, stage_rank integer,
+            home_team varchar, away_team varchar, home_score integer,
+            away_score integer, tournament varchar, city varchar, country varchar,
+            neutral boolean, match_status varchar, is_knockout boolean,
+            source_url varchar, source_row_number integer, source_row_hash varchar,
+            source_revision varchar, source_payload_sha256 varchar,
+            source_loaded_at timestamp
+        )
+        """
+    )
+    conn.execute(
+        """
+        create table if not exists oddsfox_reference.wc2026_fixtures (
+            match_id integer, stage varchar, group_label varchar, match_date date,
+            kickoff_time_et varchar, venue varchar, home_team varchar,
+            away_team varchar, home_slot varchar, away_slot varchar, status varchar,
+            source_provenance varchar, matchday integer, kickoff_at_et timestamp,
+            stage_order integer, is_knockout boolean
+        )
+        """
+    )
+    conn.execute(
+        """
+        create table if not exists oddsfox_reference.international_results_wc2026_team_aliases (
+            market_team_name varchar, canonical_team_name varchar
+        )
+        """
+    )
+    conn.execute(
+        """
+        create table if not exists oddsfox_reference.international_results_wc2026_team_status (
+            team_name varchar, tournament_status varchar, is_still_alive boolean,
+            eliminated_stage_key varchar, eliminated_match_date date,
+            next_match_date date, next_stage_key varchar, matches_played integer,
+            wins integer, draws integer, losses integer, goals_for integer,
+            goals_against integer, latest_completed_match_date date,
+            latest_completed_stage_key varchar
+        )
+        """
+    )
+    conn.execute(
+        """
+        create table if not exists oddsfox_reference.wc2026_team_canonical_aliases (
+            variant_match_key varchar, canonical_match_key varchar
+        )
+        """
+    )
+    conn.execute(
+        """
+        create table if not exists oddsfox_reference.openfootball_wc2026_schedule_fixtures (
+            fifa_match_id integer, stage_key varchar, stage_rank integer,
+            group_label varchar, kickoff_at_utc timestamp, home_team varchar,
+            away_team varchar, venue varchar, match_status varchar,
+            source_url varchar, source_line_number integer,
+            source_line_hash varchar, source_loaded_at timestamp
+        )
+        """
+    )
+
+
+def seed_test_openfootball_schedule_fixtures(
+    conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Seed the final Scraper fixture table used by isolated dbt tests."""
+    create_test_reference_tables(conn)
+    conn.execute("delete from oddsfox_reference.openfootball_wc2026_schedule_fixtures")
+    conn.executemany(
+        """
+        insert into oddsfox_reference.openfootball_wc2026_schedule_fixtures
+        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                match_id,
+                "group_stage" if match_id <= 72 else "round_of_32",
+                0 if match_id <= 72 else 1,
+                "ABCDEFGHIJKL"[(match_id - 1) // 6] if match_id <= 72 else None,
+                datetime(2026, 6, 11, 16, tzinfo=timezone.utc).replace(tzinfo=None),
+                f"Home {match_id}",
+                f"Away {match_id}",
+                f"Venue {match_id}",
+                "scheduled",
+                "https://example.invalid/reference",
+                match_id,
+                f"{match_id:064x}",
+                INGESTED_AT.replace(tzinfo=None),
+            )
+            for match_id in range(1, 105)
+        ],
+    )
+
+
 SOURCE_URL = "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/results.csv"
 FETCH_RUN_ID = "ci-match-minute-fetch"
 # ponytail: 97m30s + minute truncation yields 98 inclusive spine buckets per market;
@@ -61,7 +162,7 @@ EXPECTED_DATA_QUALITY_ROW = (
     0,
     None,
 )
-WC2026_SCHEDULE_TABLE = '"wc2026_staging"."wc2026_schedule_matches"'
+WC2026_SCHEDULE_TABLE = reference_tbl("wc2026_fixtures")
 
 
 def _game_times(game_id: int) -> tuple[datetime, datetime]:
@@ -167,7 +268,7 @@ def _insert_market(
 
 
 def _seed_international_results(conn: duckdb.DuckDBPyConnection) -> None:
-    table = international_results_wc2026_raw_tbl("match_results")
+    table = reference_tbl("international_results_wc2026_matches")
     rows = []
     for game_id in range(1, EXPECTED_GAMES + 1):
         rows.append(
@@ -178,6 +279,8 @@ def _seed_international_results(conn: duckdb.DuckDBPyConnection) -> None:
                 f"Away {game_id}",
                 1,
                 0,
+                "group_stage" if game_id <= 72 else "round_of_32",
+                1 if game_id <= 72 else 2,
                 "FIFA World Cup",
                 f"Venue {game_id}",
                 "United States",
@@ -195,10 +298,10 @@ def _seed_international_results(conn: duckdb.DuckDBPyConnection) -> None:
         f"""
         INSERT INTO {table} (
             match_id, match_date, home_team, away_team, home_score, away_score,
-            tournament, city, country, neutral, match_status, source_url,
+            stage_key, stage_rank, tournament, city, country, neutral, match_status, source_url,
             source_row_number, source_row_hash, source_revision,
             source_payload_sha256, source_loaded_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         rows,
     )
@@ -348,11 +451,10 @@ def _seed_fetch_audit(
 
 
 def seed_wc2026_schedule_matches(conn: duckdb.DuckDBPyConnection) -> None:
-    """Populate the operator-local schedule shell used by wc2026_fixtures.
+    """Populate the final Scraper fixture contract used by market models.
 
     Group-stage FIFA 1..72 only; knockout 73..104 mapping uses OpenFootball
-    fixtures from seed_test_openfootball_schedule_fixtures. Call after dbt seed
-    so the header-only CSV seed does not wipe these rows.
+    fixtures from seed_test_openfootball_schedule_fixtures.
     """
     rows = []
     for match_id in range(1, 73):
@@ -362,24 +464,28 @@ def seed_wc2026_schedule_matches(conn: duckdb.DuckDBPyConnection) -> None:
                 str(match_id),
                 "Group Stage",
                 group_label,
-                "1",
-                "2026-06-11",
+                date(2026, 6, 11),
                 "12:00 PM",
                 f"Venue {match_id}",
-                f"slot-home-{match_id}",
-                f"slot-away-{match_id}",
                 f"Home {match_id}",
                 f"Away {match_id}",
+                f"slot-home-{match_id}",
+                f"slot-away-{match_id}",
                 "scheduled",
                 "synthetic-match-minute-ci",
+                1,
+                datetime(2026, 6, 11, 12),
+                1,
+                False,
             )
         )
     conn.executemany(
         f"""
         INSERT INTO {WC2026_SCHEDULE_TABLE} (
-            match_id, stage, group_label, matchday, match_date, kickoff_time_et,
-            venue, home_slot, away_slot, home_team, away_team, status, source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            match_id, stage, group_label, match_date, kickoff_time_et,
+            venue, home_team, away_team, home_slot, away_slot, status,
+            source_provenance, matchday, kickoff_at_et, stage_order, is_knockout
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         rows,
     )

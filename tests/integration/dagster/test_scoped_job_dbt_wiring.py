@@ -15,17 +15,11 @@ from dagster import MaterializeResult, ResourceDefinition
 from tests.integration.dagster.recording_dbt import RecordingDbtResource
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
-from oddsfox_pipeline.orchestration import (
-    assets_international_results as results_assets_mod,
-)
 from oddsfox_pipeline.orchestration import assets_kalshi_wc2026 as kalshi_assets_mod
 from oddsfox_pipeline.orchestration import (
     assets_match_order_book as order_book_assets_mod,
 )
 from oddsfox_pipeline.orchestration import assets_match_trades as trade_assets_mod
-from oddsfox_pipeline.orchestration import (
-    assets_openfootball as openfootball_assets_mod,
-)
 from oddsfox_pipeline.orchestration import (
     assets_polygon_settlement as polygon_assets_mod,
 )
@@ -168,25 +162,6 @@ oddsfox:
     monkeypatch.setattr(assets_mod, "format_dbt_snapshot_log", lambda _snapshot: "")
     # Keep the real stream_dbt_build so RecordingDbtResource observes argv.
     monkeypatch.setattr(assets_mod.ops, "stream_dbt_build", stream_dbt_build)
-    monkeypatch.setattr(
-        results_assets_mod,
-        "sync_wc2026_match_results",
-        lambda: dict(_EMPTY_RESULTS_SUMMARY),
-    )
-    monkeypatch.setattr(
-        results_assets_mod,
-        "sync_historical_international_results",
-        lambda: {
-            "inserted_matches": 0,
-            "inserted_shootouts": 0,
-            "inserted_goalscorers": 0,
-        },
-    )
-    monkeypatch.setattr(
-        openfootball_assets_mod,
-        "sync_schedule_fixtures",
-        lambda: dict(_EMPTY_RESULTS_SUMMARY),
-    )
     monkeypatch.setattr(order_book_assets_mod, "get_connection", mock_connection)
     monkeypatch.setattr(
         order_book_assets_mod,

@@ -168,9 +168,9 @@ Full materialized column types and required/null contracts are documented under
 [Complete column contract](data-contracts.md#complete-column-contract) in Data
 contracts.
 
-## International Results WC2026 Marts
+## Scraper Reference Tables
 
-### `international_results_wc2026_marts.international_results_wc2026_matches`
+### `oddsfox_reference.international_results_wc2026_matches`
 
 | Field | Analyst Guidance |
 | --- | --- |
@@ -184,7 +184,7 @@ contracts.
 | Common joins | Join team names to `international_results_wc2026_team_status.team_name`. |
 | Common mistakes | Treating tied knockout matches as unresolved without checking `advancing_team` and `advancer_inference_status`, or ignoring mixed source revisions when combining snapshots. |
 
-### `international_results_wc2026_marts.international_results_wc2026_team_status`
+### `oddsfox_reference.international_results_wc2026_team_status`
 
 | Field | Analyst Guidance |
 | --- | --- |

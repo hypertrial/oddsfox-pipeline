@@ -109,6 +109,7 @@ nav:
   - Concepts:
       - System overview: concepts/system-overview.md
       - Architecture: concepts/architecture.md
+      - Source ownership: architecture/source-ownership.md
       - Scope and non-goals: concepts/scope-and-non-goals.md
       - Operator responsibilities: concepts/operator-responsibilities.md
       - FAQ: concepts/faq.md

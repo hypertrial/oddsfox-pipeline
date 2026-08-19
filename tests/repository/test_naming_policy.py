@@ -14,9 +14,7 @@ from oddsfox_pipeline.ingestion.polymarket.dlt_source import (
 from oddsfox_pipeline.naming import (
     SCOPE_SOCCER,
     SCOPE_WC2026,
-    SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_KALSHI,
-    SOURCE_OPENFOOTBALL,
     SOURCE_POLYMARKET,
     flat_name,
     schema_name,
@@ -40,8 +38,6 @@ from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.shipped_scopes import SHIPPED_SCOPE_SPECS
 from oddsfox_pipeline.storage.duckdb.schemas import dbt_schemas
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-    INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA,
-    OPENFOOTBALL_WC2026_RAW_SCHEMA,
     POLYMARKET_SOCCER_OPS_SCHEMA,
     POLYMARKET_SOCCER_RAW_SCHEMA,
     POLYMARKET_WC2026_OPS_SCHEMA,
@@ -58,9 +54,6 @@ DBT_MODEL_FAMILIES = DBT_PROJECT["models"]["oddsfox"]
 # Flat op names are still enumerated: Dagster ops are not derivable from
 # SHIPPED_SCOPE_SPECS the way jobs are.
 EXPECTED_OP_NAMES = {
-    "international_results_historical_raw_snapshot",
-    "international_results_wc2026_raw_match_results",
-    "openfootball_wc2026_raw_schedule_fixtures",
     "kalshi_wc2026_raw_markets",
     "kalshi_wc2026_raw_markets_snapshot",
     "kalshi_wc2026_ops_market_scope_registry",
@@ -109,19 +102,22 @@ OLD_SCRIPT_FILES = {
 
 _ALLOWED_ASSET_ROOTS = frozenset(
     {
+        ("oddsfox", "reference"),
         (SOURCE_POLYMARKET, SCOPE_WC2026),
         (SOURCE_POLYMARKET, SCOPE_SOCCER),
         (SOURCE_POLYMARKET, "catalog"),
-        (SOURCE_INTERNATIONAL_RESULTS, "historical"),
-        (SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026),
-        (SOURCE_OPENFOOTBALL, SCOPE_WC2026),
         (SOURCE_KALSHI, SCOPE_WC2026),
+    }
+)
+_REFERENCE_BRIDGE_ASSETS = frozenset(
+    {
+        ("international_results", "wc2026", "staging", "team_aliases"),
+        ("international_results", "wc2026", "marts", "matches"),
+        ("international_results", "wc2026", "marts", "team_status"),
     }
 )
 
 _SOURCE_FIRST_OP_PREFIXES = (
-    f"{SOURCE_INTERNATIONAL_RESULTS}_",
-    f"{SOURCE_OPENFOOTBALL}_",
     f"{SOURCE_KALSHI}_",
     f"{SOURCE_POLYMARKET}_",
     "oddsfox_dbt",
@@ -143,8 +139,6 @@ def _expected_job_names() -> set[str]:
 
 
 def _job_expected_source(job_name: str) -> str:
-    if job_name.startswith(f"{SOURCE_INTERNATIONAL_RESULTS}_"):
-        return SOURCE_INTERNATIONAL_RESULTS
     if job_name.startswith(f"{SOURCE_KALSHI}_"):
         return SOURCE_KALSHI
     if job_name.startswith(f"{SOURCE_POLYMARKET}_"):
@@ -153,8 +147,6 @@ def _job_expected_source(job_name: str) -> str:
 
 
 def _job_expected_scope(job_name: str) -> str:
-    if job_name == "international_results_historical_ingest":
-        return "historical"
     if job_name.startswith("polymarket_soccer_"):
         return SCOPE_SOCCER
     return SCOPE_WC2026
@@ -202,12 +194,10 @@ def test_public_jobs_are_source_first_and_tagged():
 
 def test_public_schedule_is_source_first_and_targets_source_first_job():
     assert {schedule.name for schedule in defs.schedules} == {
-        "international_results_daily_schedule",
         "kalshi_wc2026_hourly_odds_schedule",
         "polymarket_soccer_daily_schedule",
     }
     assert {schedule.job_name for schedule in defs.schedules} == {
-        "international_results_historical_ingest",
         "kalshi_wc2026_hourly_odds_ingest",
         "polymarket_soccer_full_pipeline",
     }
@@ -215,9 +205,6 @@ def test_public_schedule_is_source_first_and_targets_source_first_job():
 
 def test_dagster_op_names_and_run_config_keys_are_source_first():
     actual_op_names = {
-        assets.international_results_historical_raw_snapshot.op.name,
-        assets.international_results_wc2026_raw_match_results.op.name,
-        assets.openfootball_wc2026_raw_schedule_fixtures.op.name,
         assets.kalshi_wc2026_raw_markets.op.name,
         assets.kalshi_wc2026_raw_markets_snapshot.op.name,
         assets.kalshi_wc2026_ops_market_scope_registry.op.name,
@@ -263,9 +250,6 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
     assert actual_op_names == EXPECTED_OP_NAMES
     assert all(name.startswith(_SOURCE_FIRST_OP_PREFIXES) for name in actual_op_names)
     expected_run_config_ops = EXPECTED_OP_NAMES - {
-        "international_results_historical_raw_snapshot",
-        "international_results_wc2026_raw_match_results",
-        "openfootball_wc2026_raw_schedule_fixtures",
         "kalshi_wc2026_raw_markets_snapshot",
         "polymarket_wc2026_raw_markets_snapshot",
         "polymarket_soccer_ops_pipeline_preflight",
@@ -287,7 +271,9 @@ def test_registered_asset_keys_are_hierarchical_source_scope_layer():
         key for key in asset_keys if "us_midterms_2026" not in "/".join(key)
     }
     assert all(
-        key[:2] in _ALLOWED_ASSET_ROOTS or key[0] == SCOPE_WC2026
+        key[:2] in _ALLOWED_ASSET_ROOTS
+        or key[0] == SCOPE_WC2026
+        or key in _REFERENCE_BRIDGE_ASSETS
         for key in shipped_asset_keys
     )
     assert all(len(key) >= 3 for key in shipped_asset_keys)
@@ -312,10 +298,6 @@ def test_dbt_project_uses_source_first_directory_and_schemas():
             SCOPE_WC2026,
         ),
         flat_name(SOURCE_KALSHI, SCOPE_WC2026): (SOURCE_KALSHI, SCOPE_WC2026),
-        flat_name(SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026): (
-            SOURCE_INTERNATIONAL_RESULTS,
-            SCOPE_WC2026,
-        ),
     }
     for family, cfg in families.items():
         for layer, layer_cfg in cfg.items():
@@ -348,12 +330,6 @@ def test_storage_schema_constants_are_source_first():
     assert POLYMARKET_SOCCER_OPS_SCHEMA == schema_name(
         SOURCE_POLYMARKET, SCOPE_SOCCER, "ops"
     )
-    assert INTERNATIONAL_RESULTS_WC2026_RAW_SCHEMA == schema_name(
-        SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "raw"
-    )
-    assert OPENFOOTBALL_WC2026_RAW_SCHEMA == schema_name(
-        SOURCE_OPENFOOTBALL, SCOPE_WC2026, "raw"
-    )
     project_schemas = {
         layer_cfg["+schema"]
         for cfg in _dbt_model_families().values()
@@ -361,7 +337,7 @@ def test_storage_schema_constants_are_source_first():
         if isinstance(layer_cfg, dict) and "+schema" in layer_cfg
     }
     assert project_schemas <= set(dbt_schemas.DBT_MODELED_SCHEMAS)
-    assert "wc2026_staging" in dbt_schemas.DBT_MODELED_SCHEMAS
+    assert "wc2026_staging" not in dbt_schemas.DBT_MODELED_SCHEMAS
 
 
 def test_dbt_source_metadata_uses_hierarchical_asset_keys():
@@ -373,21 +349,7 @@ def test_dbt_source_metadata_uses_hierarchical_asset_keys():
         )["sources"]
         + yaml.safe_load(
             (
-                ROOT
-                / "dbt"
-                / "models"
-                / "sources"
-                / "international_results_wc2026_sources.yml"
-            ).read_text()
-        )["sources"]
-        + yaml.safe_load(
-            (
                 ROOT / "dbt" / "models" / "sources" / "kalshi_wc2026_sources.yml"
-            ).read_text()
-        )["sources"]
-        + yaml.safe_load(
-            (
-                ROOT / "dbt" / "models" / "sources" / "openfootball_wc2026_sources.yml"
             ).read_text()
         )["sources"]
         + yaml.safe_load(

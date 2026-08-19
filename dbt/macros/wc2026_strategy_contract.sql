@@ -18,7 +18,7 @@ trim(
 coalesce(
     (
         select aliases.canonical_match_key
-        from {{ ref("wc2026_team_canonical_aliases") }} as aliases
+        from {{ source("oddsfox_reference", "wc2026_team_canonical_aliases") }} as aliases
         where aliases.variant_match_key = {{ name_match_key(column_expr) }}
         limit 1
     ),
@@ -44,93 +44,3 @@ coalesce(
     0.0
 )
 {%- endmacro %}
-
-{% macro latest_wc2026_snapshot_id(source_name) -%}
-(
-    select arg_max(snapshot_id, collected_at)
-    from {{ source('wc2026_snapshot_ops', 'raw_snapshot_ledger') }}
-    where source = '{{ source_name }}'
-)
-{%- endmacro %}
-
-{% macro ensure_wc2026_canonical_raw_tables() %}
-  {% if execute %}
-    {% do run_query("create schema if not exists wc2026_raw") %}
-    {% do run_query("create schema if not exists wc2026_ops") %}
-    {% do run_query(
-      "create table if not exists wc2026_ops.raw_snapshot_ledger (
-        source varchar not null,
-        snapshot_id varchar not null,
-        collected_at timestamptz not null,
-        collector_git_sha varchar not null,
-        collector_container_digest varchar not null,
-        manifest_sha256 varchar not null,
-        loaded_at timestamptz not null default current_timestamp,
-        primary key (source, snapshot_id)
-      )"
-    ) %}
-    {% do run_query(
-      "create table if not exists wc2026_raw.eloratings__team_ratings (
-        rank integer, team_code varchar, team_name varchar, rating double,
-        snapshot_year integer, snapshot_scope varchar,
-        _source varchar, _snapshot_id varchar, _collected_at timestamptz
-      )"
-    ) %}
-    {% do run_query(
-      "create table if not exists wc2026_raw.eloratings__match_results (
-        match_date date, competition varchar,
-        home_team_code varchar, away_team_code varchar,
-        home_team_name varchar, away_team_name varchar,
-        home_goals integer, away_goals integer,
-        rating_change double, home_post_rating double, away_post_rating double,
-        _source varchar, _snapshot_id varchar, _collected_at timestamptz
-      )"
-    ) %}
-    {% do run_query(
-      "create table if not exists wc2026_raw.clubelo__club_ratings (
-        snapshot_date date, club_key varchar, club_name varchar,
-        api_club_name varchar, country_code varchar, elo double, rank integer,
-        valid_from date, valid_to date,
-        _source varchar, _snapshot_id varchar, _collected_at timestamptz
-      )"
-    ) %}
-    {% do run_query(
-      "create table if not exists wc2026_raw.fifaindex__players (
-        game_slug varchar, competition_key varchar, player_id bigint,
-        player_name varchar, nationality varchar, positions varchar,
-        primary_position varchar, overall double, age double, pace double,
-        shooting double, passing_rating double, dribbling double,
-        defending double, physical double, gk_diving double,
-        gk_handling double, gk_kicking double, gk_positioning double,
-        gk_reflexes double, club varchar, league varchar, player_gender varchar,
-        was_world_cup_squad_member boolean, world_cup_squad_team varchar,
-        world_cup_squad_tournament_year integer,
-        _source varchar, _snapshot_id varchar, _collected_at timestamptz
-      )"
-    ) %}
-    {% do run_query(
-      "create table if not exists wc2026_raw.wikipedia_squads__players (
-        source_player_key varchar, run_id varchar,
-        official_wc2026_squad_team varchar, source_team_code varchar,
-        official_wc2026_player_name varchar,
-        official_wc2026_squad_position varchar,
-        official_wc2026_squad_number integer,
-        official_wc2026_squad_club varchar,
-        official_wc2026_squad_dob date,
-        official_wc2026_squad_group varchar,
-        official_wc2026_squad_coach varchar,
-        official_wc2026_squad_caps integer,
-        official_wc2026_squad_goals integer,
-        _source varchar, _snapshot_id varchar, _collected_at timestamptz
-      )"
-    ) %}
-    {% do run_query(
-      "create table if not exists wc2026_raw.private_match_events__events (
-        match_id varchar, event_id varchar, event_type varchar,
-        event_minute integer, event_second integer, team varchar,
-        player varchar, event_at timestamptz, source_status varchar,
-        _source varchar, _snapshot_id varchar, _collected_at timestamptz
-      )"
-    ) %}
-  {% endif %}
-{% endmacro %}

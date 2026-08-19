@@ -4,6 +4,7 @@ from pathlib import Path
 import yaml
 from dagster import AssetKey, DefaultScheduleStatus
 
+from oddsfox_pipeline.contracts.reference_bundle import REFERENCE_TABLE_PRIMARY_KEYS
 from oddsfox_pipeline.orchestration.config import (
     polymarket_wc2026_event_catalog_recall_audit_run_config,
     polymarket_wc2026_full_pipeline_run_config,
@@ -35,9 +36,7 @@ def _polymarket_sources_paths() -> list[Path]:
     sources_dir = Path(__file__).resolve().parents[3] / "dbt" / "models" / "sources"
     return [
         sources_dir / "polymarket_wc2026_sources.yml",
-        sources_dir / "international_results_wc2026_sources.yml",
         sources_dir / "kalshi_wc2026_sources.yml",
-        sources_dir / "openfootball_wc2026_sources.yml",
         sources_dir / "polymarket_soccer_sources.yml",
     ]
 
@@ -66,8 +65,6 @@ def _reload_schedules_module(
 
 def test_definitions_expose_v010_jobs_only():
     expected = {
-        "international_results_historical_ingest",
-        "international_results_wc2026_match_results_ingest",
         "kalshi_wc2026_dbt_build",
         "kalshi_wc2026_full_pipeline",
         "kalshi_wc2026_hourly_odds_ingest",
@@ -89,7 +86,6 @@ def test_definitions_expose_v010_jobs_only():
         "polymarket_soccer_dbt_build",
         "polymarket_soccer_full_pipeline",
     }
-
     assert {
         job.name for job in defs.resolve_all_job_defs() if job.name != "__ASSET_JOB"
     } == expected
@@ -182,6 +178,27 @@ def test_definitions_expose_v010_asset_keys():
         ("polymarket", "wc2026", "marts", "market_hourly_odds"),
         ("polymarket", "wc2026", "observability", "ingestion_run_observability"),
     }
+    expected -= {
+        ("international_results", "historical", "raw", "snapshot"),
+        ("international_results", "wc2026", "raw", "match_results"),
+        ("international_results", "wc2026", "staging", "match_results"),
+        ("international_results", "wc2026", "staging", "team_aliases"),
+        ("international_results", "wc2026", "intermediate", "match_teams"),
+        ("international_results", "wc2026", "marts", "matches"),
+        ("international_results", "wc2026", "marts", "team_status"),
+        ("international_results", "wc2026", "observability", "data_quality"),
+        ("openfootball", "wc2026", "raw", "schedule_fixtures"),
+        ("openfootball", "wc2026", "staging", "schedule_fixtures"),
+        ("wc2026", "raw", "clubelo"),
+        ("wc2026", "raw", "eloratings"),
+        ("wc2026", "raw", "fifaindex"),
+        ("wc2026", "raw", "private_match_events"),
+        ("wc2026", "raw", "wikipedia_squads"),
+        ("wc2026", "ops", "raw_snapshot_ledger"),
+    }
+    expected.update(
+        ("oddsfox", "reference", table) for table in REFERENCE_TABLE_PRIMARY_KEYS
+    )
 
     asset_keys = {tuple(key.path) for key in defs.resolve_all_asset_keys()}
     assert expected <= asset_keys
@@ -196,10 +213,9 @@ def test_definitions_expose_v010_asset_keys():
             ("polymarket", "catalog"),
             ("international_results", "historical"),
             ("international_results", "wc2026"),
-            ("openfootball", "wc2026"),
             ("kalshi", "wc2026"),
         }
-        or key[0] == "wc2026"
+        or key[0] in {"wc2026", "oddsfox"}
         for key in shipped_asset_keys
     )
     assert not any("selected" in part for key in asset_keys for part in key)
@@ -298,9 +314,8 @@ def test_match_minute_job_is_closed_untruncated_and_unscheduled():
     selected = defs.resolve_job_def(
         "polymarket_wc2026_match_minute_odds_backfill"
     ).asset_layer.selected_asset_keys
-    assert (
-        AssetKey(["international_results", "wc2026", "raw", "match_results"])
-        in selected
+    assert not any(
+        key.path[0] in {"international_results", "openfootball"} for key in selected
     )
     assert AssetKey(["polymarket", "wc2026", "raw", "event_catalog"]) in selected
     assert all(
@@ -922,7 +937,9 @@ def test_wc2026_market_scope_registry_refresh_includes_event_catalog_dependency(
     assert ("polymarket", "wc2026", "raw", "event_catalog") in selected
     assert ("polymarket", "wc2026", "raw", "event_snapshots") in selected
     assert ("polymarket", "wc2026", "raw", "event_market_memberships") in selected
-    assert ("openfootball", "wc2026", "raw", "schedule_fixtures") in selected
+    assert ("oddsfox", "reference", "openfootball_wc2026_schedule_fixtures") in {
+        tuple(key.path) for key in defs.resolve_all_asset_keys()
+    }
     assert ("polymarket", "wc2026", "ops", "market_scope_registry") in selected
     assert (
         "polymarket_wc2026_raw_event_catalog"
@@ -988,7 +1005,7 @@ def test_scoped_dbt_jobs_select_only_their_expected_scope_assets():
     }
 
     assert kalshi
-    assert any(key[:2] == ("international_results", "wc2026") for key in kalshi)
+    assert not any(key[:2] == ("international_results", "wc2026") for key in kalshi)
     assert any(key[:2] == ("kalshi", "wc2026") for key in kalshi)
     assert not any(key[:2] == ("polymarket", "wc2026") for key in kalshi)
 

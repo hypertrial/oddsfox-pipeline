@@ -59,7 +59,7 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('international_results_wc2026_team_status')
+                to: source('oddsfox_reference', 'international_results_wc2026_team_status')
                 field: team_name
 
   - name: int_kalshi_wc2026_group_winner_classification
@@ -89,7 +89,7 @@ models:
           - not_null
           - relationships:
               arguments:
-                to: ref('international_results_wc2026_team_status')
+                to: source('oddsfox_reference', 'international_results_wc2026_team_status')
                 field: team_name
 
 unit_tests:
@@ -140,9 +140,9 @@ unit_tests:
               scraped_at: "2026-01-01 00:00:00",
               scope_name: "wc2026"
             }
-      - input: ref('international_results_wc2026_team_aliases')
+      - input: source('oddsfox_reference', 'international_results_wc2026_team_aliases')
         rows: []
-      - input: ref('international_results_wc2026_team_status')
+      - input: source('oddsfox_reference', 'international_results_wc2026_team_status')
         rows:
           - {
               team_name: "Argentina",
@@ -212,9 +212,9 @@ unit_tests:
               scraped_at: "2026-01-01 00:00:00",
               scope_name: "wc2026"
             }
-      - input: ref('international_results_wc2026_team_aliases')
+      - input: source('oddsfox_reference', 'international_results_wc2026_team_aliases')
         rows: []
-      - input: ref('international_results_wc2026_team_status')
+      - input: source('oddsfox_reference', 'international_results_wc2026_team_status')
         rows:
           - {
               team_name: "Mexico",

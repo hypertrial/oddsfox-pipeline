@@ -10,8 +10,8 @@ from oddsfox_pipeline.ingestion.polymarket.odds.fetch import BadRequestError
 
 
 def test_build_client():
-    c = odds_fetch.build_client("https://clob.example", rate_limiter=None)
-    assert c.base_url == "https://clob.example"
+    c = odds_fetch.build_client("https://clob.polymarket.com", rate_limiter=None)
+    assert c.base_url == "https://clob.polymarket.com"
     assert c.request_timeout == odds_fetch.HTTP_REQUEST_TIMEOUT
 
 

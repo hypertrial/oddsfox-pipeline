@@ -12,17 +12,11 @@ pytest.importorskip("dagster_dbt")
 from dagster import MaterializeResult, ResourceDefinition
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
-from oddsfox_pipeline.orchestration import (
-    assets_international_results as results_assets_mod,
-)
 from oddsfox_pipeline.orchestration import assets_kalshi_wc2026 as kalshi_assets_mod
 from oddsfox_pipeline.orchestration import (
     assets_match_order_book as order_book_assets_mod,
 )
 from oddsfox_pipeline.orchestration import assets_match_trades as trade_assets_mod
-from oddsfox_pipeline.orchestration import (
-    assets_openfootball as openfootball_assets_mod,
-)
 from oddsfox_pipeline.orchestration import (
     assets_polygon_settlement as polygon_assets_mod,
 )
@@ -32,8 +26,6 @@ from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.shipped_scopes import SCOPE_STEPS, iter_scope_specs
 
 _NON_SCOPE_JOB_NAMES = {
-    "international_results_historical_ingest",
-    "international_results_wc2026_match_results_ingest",
     "polymarket_wc2026_event_catalog_recall_audit",
     "polymarket_wc2026_match_minute_odds_backfill",
     "polymarket_wc2026_minute_odds_backfill",
@@ -42,14 +34,6 @@ _NON_SCOPE_JOB_NAMES = {
     "polymarket_wc2026_market_portrait_backfill",
     "polymarket_wc2026_polygon_settlement_backfill",
     "polymarket_wc2026_polygon_settlement_release",
-}
-_EMPTY_RESULTS_SUMMARY = {
-    "rows": 0,
-    "completed_rows": 0,
-    "scheduled_rows": 0,
-    "source_url": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/results.csv",
-    "source_revision": "a" * 40,
-    "source_payload_sha256": "b" * 64,
 }
 
 
@@ -171,25 +155,6 @@ oddsfox:
     monkeypatch.setattr(assets_mod, "format_raw_snapshot_log", lambda _snapshot: "")
     monkeypatch.setattr(assets_mod, "format_dbt_snapshot_log", lambda _snapshot: "")
     monkeypatch.setattr(assets_mod.ops, "stream_dbt_build", stream_dbt_build)
-    monkeypatch.setattr(
-        results_assets_mod,
-        "sync_wc2026_match_results",
-        lambda: dict(_EMPTY_RESULTS_SUMMARY),
-    )
-    monkeypatch.setattr(
-        results_assets_mod,
-        "sync_historical_international_results",
-        lambda: {
-            "inserted_matches": 0,
-            "inserted_shootouts": 0,
-            "inserted_goalscorers": 0,
-        },
-    )
-    monkeypatch.setattr(
-        openfootball_assets_mod,
-        "sync_schedule_fixtures",
-        lambda: dict(_EMPTY_RESULTS_SUMMARY),
-    )
     monkeypatch.setattr(order_book_assets_mod, "get_connection", mock_connection)
     monkeypatch.setattr(
         order_book_assets_mod,

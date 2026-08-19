@@ -15,9 +15,6 @@ from _bootstrap import REPO_ROOT
 
 MONOREPO_ROOT: Final[Path] = REPO_ROOT.parent
 DEFAULT_DUCKDB: Final[Path] = REPO_ROOT / "oddsfox.duckdb"
-DEFAULT_ALIASES: Final[Path] = (
-    REPO_ROOT / "dbt" / "seeds" / "wc2026_team_canonical_aliases.csv"
-)
 DEFAULT_HOURLY_PARQUET: Final[Path] = (
     REPO_ROOT / "artifacts" / "polymarket_wc2026_market_hourly_odds.parquet"
 )
@@ -26,7 +23,7 @@ DEFAULT_OUTPUT: Final[Path] = MONOREPO_ROOT / "spain_odds_to_win.parquet"
 _BUILD_SQL = """
 with schedule as (
     select *
-    from openfootball_wc2026_staging.stg_openfootball_wc2026_schedule_fixtures
+    from oddsfox_reference.openfootball_wc2026_schedule_fixtures
 ),
 schedule_canon as (
     select
@@ -44,7 +41,7 @@ results_canon as (
         r.*,
         coalesce(ah.canonical_match_key, lower(r.home_team)) as home_canon,
         coalesce(aa.canonical_match_key, lower(r.away_team)) as away_canon
-    from international_results_wc2026_marts.international_results_wc2026_matches as r
+    from oddsfox_reference.international_results_wc2026_matches as r
     left join team_aliases as ah
         on lower(ah.variant_match_key) = lower(r.home_team)
     left join team_aliases as aa
@@ -255,14 +252,11 @@ def _resolve_hourly_parquet(path: Path | None) -> Path:
 def build_spain_odds_to_win(
     *,
     duckdb_path: Path,
-    aliases_path: Path,
     hourly_parquet: Path,
     output_path: Path,
 ) -> int:
     if not duckdb_path.exists():
         raise FileNotFoundError(f"DuckDB not found: {duckdb_path}")
-    if not aliases_path.exists():
-        raise FileNotFoundError(f"Team aliases seed not found: {aliases_path}")
     if not hourly_parquet.exists():
         raise FileNotFoundError(f"Hourly parquet not found: {hourly_parquet}")
 
@@ -272,8 +266,8 @@ def build_spain_odds_to_win(
     con = duckdb.connect(str(duckdb_path), read_only=True)
     try:
         con.execute(
-            "create temp table team_aliases as select * from read_csv(?, header=true)",
-            [str(aliases_path)],
+            "create temp view team_aliases as "
+            "select * from oddsfox_reference.wc2026_team_canonical_aliases"
         )
         con.execute(
             """
@@ -298,7 +292,7 @@ def build_spain_odds_to_win(
             """
             with schedule as (
                 select *
-                from openfootball_wc2026_staging.stg_openfootball_wc2026_schedule_fixtures
+                from oddsfox_reference.openfootball_wc2026_schedule_fixtures
             ),
             schedule_canon as (
                 select
@@ -316,7 +310,7 @@ def build_spain_odds_to_win(
                     r.*,
                     coalesce(ah.canonical_match_key, lower(r.home_team)) as home_canon,
                     coalesce(aa.canonical_match_key, lower(r.away_team)) as away_canon
-                from international_results_wc2026_marts.international_results_wc2026_matches as r
+                from oddsfox_reference.international_results_wc2026_matches as r
                 left join team_aliases as ah
                     on lower(ah.variant_match_key) = lower(r.home_team)
                 left join team_aliases as aa
@@ -380,7 +374,6 @@ def build_spain_odds_to_win(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--duckdb-path", type=Path, default=DEFAULT_DUCKDB)
-    parser.add_argument("--aliases-path", type=Path, default=DEFAULT_ALIASES)
     parser.add_argument("--hourly-parquet", type=Path, default=None)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args(argv)
@@ -388,7 +381,6 @@ def main(argv: list[str] | None = None) -> int:
     hourly_parquet = _resolve_hourly_parquet(args.hourly_parquet)
     row_count = build_spain_odds_to_win(
         duckdb_path=args.duckdb_path.resolve(),
-        aliases_path=args.aliases_path.resolve(),
         hourly_parquet=hourly_parquet,
         output_path=args.output.resolve(),
     )

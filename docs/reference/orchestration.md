@@ -32,18 +32,7 @@ backfill, paid or narrow credentials, single-target manifests.
 | Minute odds live smoke | `polymarket_wc2026_minute_odds_live_smoke` | Same unified selection with 5%-per-leg sampling + futures 24h tail; disposable DuckDB + smoke runtime root | None | Opt-in live (`minute-odds-live-smoke`); not a CI gate | Mature, isolated |
 | Match order book | `polymarket_wc2026_match_order_book_backfill` | PMXT order-book scan, dbt | None | `dbt-match-order-book-ci` (excluded from ordinary `dbt-build-ci`) | Mature, isolated |
 | Market portrait | `polymarket_wc2026_market_portrait_backfill` | Order book + trades scan, portrait bundle build | None | `dbt-market-portrait-ci` (`tag:market_portrait` trade marts still compile in ordinary `dbt-build-ci`; order-book dual-tagged models follow `tag:pmxt_order_book` exclusion) | Mature, isolated |
-| Soccer pre-match Elo | `make pre-match-elo-acquire` → `pre-match-elo-inspect` → `pre-match-elo-release` | Pinned public results, reviewed identities, date-batched Elo, immutable event release | None | Focused Python and consumer-contract tests | Experimental, manual |
-
-Supporting ingestion jobs (`international_results_historical_ingest`,
-`international_results_wc2026_match_results_ingest`) feed Kalshi and match-minute
-WC2026 pipelines but are not separate product pipelines.
-
-The pre-match Elo path is deliberately a manual operator workflow rather than a
-Dagster asset graph. It consumes a fixed external research Parquet, performs no
-warehouse mutation, and has no schedule or enable flag. Acquisition is the only
-networked step. Inspection and release construction operate on checksummed
-local snapshots; the optional ClubElo/EloRatings benchmark input is
-operator-supplied.
+| Scraper references | `make reference-bundle-load` | Validate and transactionally activate `oddsfox.reference.v1` | None | Loader rollback/replay/corruption tests | Production handoff |
 
 ## Pipeline outputs
 
@@ -92,17 +81,15 @@ this list maps each pipeline to what it builds.
 10. `polymarket/wc2026/raw/futures_token_odds_history_minute` (dedicated unified minute backfill only)
 11. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
 12. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
-13. `international_results/historical/raw/snapshot`
-14. `international_results/wc2026/raw/match_results`
-15. `openfootball/wc2026/raw/schedule_fixtures`
-16. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
-17. `kalshi/wc2026/raw/markets`
-18. `kalshi/wc2026/raw/markets_snapshot`
-19. `kalshi/wc2026/ops/market_scope_registry`
-20. `kalshi/wc2026/raw/market_candlesticks_hourly`
-21. dbt model assets under the matching
+13. `oddsfox/reference/*` (external assets loaded from one validated Scraper bundle)
+14. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
+15. `kalshi/wc2026/raw/markets`
+16. `kalshi/wc2026/raw/markets_snapshot`
+17. `kalshi/wc2026/ops/market_scope_registry`
+18. `kalshi/wc2026/raw/market_candlesticks_hourly`
+19. dbt model assets under the matching
     `{staging,intermediate,marts,observability}` namespaces.
-22. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
+20. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
 
 Flat Dagster op names preserve the same source-first order, for example
 `polymarket_wc2026_raw_token_odds_history_hourly`.
@@ -121,7 +108,7 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
 **Steps**
 
 - `polymarket_wc2026_market_scope_registry_refresh`: market discovery, event
-  catalog (with OpenFootball fixtures), market scope registry refresh, and
+  catalog, market scope registry refresh, and
   metadata enrichment. Routine event-catalog runs skip the exhaustive
   slug-prefix recall scan (`include_slug_prefix_recall=false`).
 - `polymarket_wc2026_event_catalog_recall_audit`: same registry selection as
@@ -146,8 +133,8 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   atomically replaces the wallet- and order-payload-redacted snapshot only after
   exchange-specific gap-free coverage, and builds only the dedicated
   `polygon_settlement` dbt ancestors. A valid published v4 scan returns offline
-  before credentials or RPC construction. It makes no Gamma, CLOB,
-  international-results, or runtime OpenFootball request.
+  before credentials or RPC construction. It makes no Gamma, CLOB, or
+  non-market-source request.
 - `polymarket_wc2026_polygon_settlement_release`: requires an already valid
   39,120-row mart, optionally compares scoped hashes through a second RPC, and
   writes one immutable internal audit bundle below
@@ -160,15 +147,13 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
 
 - `polymarket_wc2026_match_minute_odds_backfill`: one-time or rerunnable
   completed-match backfill for all 104 FIFA-numbered games and the dedicated
-  minute mart. It refreshes the latest 104 international-results rows and the
-  OpenFootball schedule fixtures (knockout subset 73–104), discovers closed
-  Gamma events without a volume floor, validates result alignment and the
+  minute mart. It requires the active validated Scraper reference bundle,
+  discovers closed Gamma events without a volume floor, validates result alignment and the
   104/248/496 inventory, fetches exact game windows at CLOB `fidelity=1`, then
   runs dbt. Catalog refresh uses routine tag/series discovery (same as registry
   refresh) and does not run the multi-hour slug-prefix recall; use
   `polymarket_wc2026_event_catalog_recall_audit` for that completeness scan.
-  The results refresh first resolves and downloads an immutable Git
-  revision.   Minute fetches append 496 audit rows; only an all-success run
+  Minute fetches append 496 audit rows; only an all-success run
   atomically replaces raw history and marks those audits published.
   Fetch throughput matches the hourly odds path: CLOB batch POST (≤20
   tokens), 24h preemptive window chunks, workers/RPS 40 with auto-tune to 90,
@@ -278,12 +263,10 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
   requires a completed order-book scan and trade scan for the same manifest.
   See [Market portrait](market-portrait.md).
 
-**Supporting ingestion**
+**Supporting references**
 
-- `international_results_historical_ingest`: public 2006+ matches, shootouts,
-  and goalscorers for strategy model fitting.
-- `international_results_wc2026_match_results_ingest`: FIFA fixture/results
-  refresh.
+Scraper owns every non-market collector and parser. Pipeline exposes only
+external reference assets backed by the active checksummed bundle.
 
 ### Kalshi WC2026
 
@@ -292,9 +275,8 @@ Entry-point jobs are pipelines; narrower jobs run one step. See
 - `kalshi_wc2026_dbt_build`
 - `kalshi_wc2026_full_pipeline`
 
-The full pipeline refreshes FIFA results, Kalshi markets and candlesticks, then
-builds `+tag:kalshi` including `international_results` parents while excluding
-unrelated Polymarket tests. Dagster warehouse snapshots for scoped dbt jobs
+The full pipeline refreshes Kalshi markets and candlesticks, then builds
+`+tag:kalshi` against the active reference bundle. Dagster warehouse snapshots for scoped dbt jobs
 expand the same `+` ancestry from the local dbt manifest when present.
 
 ## Scope behavior
@@ -368,16 +350,15 @@ separate.
   ledgers. It neither joins the two outcome streams by time nor enters the
   routine hourly/full selections. Empty books remain auditable raw snapshots
   but generate no artificial public levels.
-- Kalshi and match-minute dbt paths use `international_results_wc2026_*` marts for
-  real-team validation; the Polymarket golden-mart closure does not.
+- Kalshi and match-minute dbt paths read validated `oddsfox_reference` tables
+  for real-team validation; the Polymarket golden-mart closure does not.
 - The Polygon settlement asset is a parallel historical path. Its market and
   fixture semantics come only from the reviewed dbt seed at runtime. It scans
   finalized Polygon logs and stores normalized economic legs without wallets,
   order hashes, signatures, raw event payloads, oracle prose, or RPC URLs.
 - The ordinary Polymarket dbt/full jobs build only
   `+polymarket_wc2026_market_hourly_odds` and exclude
-  `tag:match_minute tag:minute_odds tag:wc2026_strategy wc2026_fixtures wc2026_schedule_matches
-  wc2026_team_canonical_aliases tag:polygon_settlement tag:pmxt_order_book
+  `tag:match_minute tag:minute_odds tag:wc2026_strategy tag:polygon_settlement tag:pmxt_order_book
   tag:market_portrait` (see `POLYMARKET_WC2026_SCOPE.dbt_exclude` in
   `src/oddsfox_pipeline/orchestration/shipped_scopes.py`); only dedicated
   backfills or replay-backed validation targets build those graphs.
@@ -394,25 +375,21 @@ separate.
   when individual markets error under bounded concurrency (partial success is
   still accepted). Registry refresh metrics similarly surface `events_failed`.
 
-### Canonical WC2026 fixtures
+### Canonical WC2026 references
 
-- `openfootball/wc2026/raw/schedule_fixtures` refreshes the dependency-free
-  OpenFootball `cup.txt`/`cup_finals.txt` mirror of the FIFA schedule and
-  retains all FIFA match numbers 1–104. Knockout consumers filter 73–104
-  explicitly (`int_polymarket_wc2026_match_working_set` and related models).
-- The parser fails closed on invalid pinned file identity, exact bytes,
-  reviewed group-fixture slice hashes, IDs, stages, groups, dates, UTC offsets,
-  teams, or venues. Each stored fixture includes the final source line number
-  in the legacy `source_line_number` field and the exact source-slice SHA-256.
-  The bundle manifest also pins the FIFA schedule document used to review the
-  numeric IDs. Neutral dbt models exclude match 103 and map both vendors by
-  unique normalized team pair.
+- OddsFox Scraper publishes the complete fixture, result, identity, rating,
+  venue, travel, squad, provenance, availability, and quality inventory in
+  `oddsfox.reference.v1`.
+- Pipeline's source-neutral loader verifies the whole immutable bundle before
+  atomically activating it. No Pipeline asset or job contacts or parses the
+  upstream non-market sources.
+- External Dagster assets represent the active reference tables. Pipeline jobs
+  consume the dedicated `oddsfox_reference` schema directly and never write it.
 
 ## Schedules
 
 | Schedule | Job | Default |
 | --- | --- | --- |
-| `international_results_daily_schedule` | `international_results_historical_ingest` | Stopped |
 | `kalshi_wc2026_hourly_odds_schedule` | `kalshi_wc2026_hourly_odds_ingest` | Stopped |
 
 `polymarket_wc2026_hourly_odds_ingest` remains a manual job only; WC2026
@@ -426,9 +403,8 @@ The Polygon settlement backfill and audit-release jobs likewise have no schedule
 or environment enable flag. The technical exporter is standalone and
 unscheduled. None of these paths uploads or distributes data.
 
-The international-results schedule runs daily at 02:15 UTC and is always
-stopped at definition load (start it in the Dagster UI if needed). The Kalshi
-hourly schedule runs on the hour and remains stopped unless
+The Scraper-owned daily-reference schedule is not registered in Pipeline. The
+Kalshi hourly schedule runs on the hour and is stopped at definition load unless
 `KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=true`.
 
 ## Run monitoring and retries
@@ -477,8 +453,9 @@ batches; stage tables and `_dlt*` metadata are internal. PMXT terminal batches
 use a dlt-owned replaceable stage followed by an idempotent canonical merge, so
 a crash before the window checkpoint can safely replay the same content.
 
-International-results CSV storage, canonical snapshot loading, OpenFootball
-fixture storage, and Kalshi candlesticks use custom transactional SQL.
+Reference-bundle activation and Kalshi candlesticks use custom transactional SQL.
+Reference activation validates every table before a single transaction replaces
+the dedicated reference schema; failure leaves the last known-good bundle active.
 Polygon settlement scans also use custom transactional SQL: successful leaf
 chunks are resumable audit evidence, while publication replaces the canonical
 fill snapshot and marks the scan published in one transaction. A failed retry

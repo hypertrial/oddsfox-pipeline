@@ -17,7 +17,7 @@ Operator-local inputs must be supplied:
 
 | Input | How to obtain it | Required for |
 | --- | --- | --- |
-| `dbt/seeds/wc2026_schedule_matches.csv` | Author 104 rows from the [official FIFA schedule](https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/match-schedule-fixtures-results-teams-stadiums), preserving the tracked header. | Match-minute |
+| Scraper `oddsfox.reference.v1` bundle | Publish it in OddsFox Scraper, then load it with `make reference-bundle-load REFERENCE_BUNDLE_DIR=...`. | Match-minute and Polygon seed authoring |
 | `dbt/seeds/polymarket_wc2026_polygon_settlement_markets.csv` | Generate and review it with the repository's Polygon candidate tool. | Polygon settlement |
 | `config/polygon-settlement-resolution-attestation.yml` | Generate it with the same candidate tool and install it only with its matching reviewed manifest. | Polygon settlement |
 
@@ -27,7 +27,7 @@ See [Operator responsibilities](../concepts/operator-responsibilities.md).
 !!! important "A clean clone is necessary, but not sufficient"
 
     The clone supplies the pipeline, schemas, validators, and rebuild commands.
-    It does not supply the 104-row schedule, the reviewed 248-proposition
+    It does not supply a Scraper reference bundle, the reviewed 248-proposition
     Polygon manifest, its matching attestation, or historical raw observations.
 
     Source-fetch routes create raw observations only while the required APIs and

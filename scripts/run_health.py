@@ -73,7 +73,9 @@ def _valid_soccer_health(health: dict[str, Any]) -> bool:
         or critical_count < 0
     ):
         return False
-    expected = "critical" if critical_count else "warning" if warning_count else "healthy"
+    expected = (
+        "critical" if critical_count else "warning" if warning_count else "healthy"
+    )
     return status == expected
 
 
@@ -241,7 +243,11 @@ def main() -> int:
         )
         health = dict(zip(keys, rows[0], strict=True))
         if not _valid_soccer_health(health):
-            invalid = {"scope": args.scope, "status": "unavailable", "error": "invalid monitoring state"}
+            invalid = {
+                "scope": args.scope,
+                "status": "unavailable",
+                "error": "invalid monitoring state",
+            }
             print(
                 json.dumps(invalid, sort_keys=True)
                 if args.format == "json"

@@ -8,7 +8,7 @@ the execution boundary live in [System overview](system-overview.md).
 
 | Consume | Notes |
 | --- | --- |
-| Public `*_marts` relations | Supported query API per pipeline (`polymarket_wc2026_marts`, `polymarket_soccer_marts`, `kalshi_wc2026_marts`, `international_results_wc2026_marts`; isolated advanced marts only from dedicated backfills). Start with [Data contracts](../reference/data-contracts.md) and the [Data dictionary](../reference/data-dictionary.md). |
+| Public market `*_marts` relations | Supported Pipeline query API (`polymarket_wc2026_marts`, `polymarket_soccer_marts`, `kalshi_wc2026_marts`; isolated advanced marts only from dedicated backfills). Scraper-owned reference tables are read from `oddsfox_reference`. Start with [Data contracts](../reference/data-contracts.md) and the [Data dictionary](../reference/data-dictionary.md). |
 | `*_observability` | Optional trust and freshness checks before analysis. |
 | Strategy / raw.v1 consumers only | Private canonical snapshots and the strategy clean-data set (`wc2026.v1`); see [Strategy contracts](../reference/strategy-contracts.md). |
 

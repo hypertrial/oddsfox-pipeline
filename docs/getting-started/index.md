@@ -127,8 +127,9 @@ PMXT configuration is needed for quickstart.
 
     ### Run the first pipeline
 
-    Kalshi needs no API credentials. The full run refreshes FIFA results inputs,
-    syncs stage and group-winner markets, and builds the Kalshi marts:
+    Kalshi needs no API credentials. Load a validated Scraper reference bundle
+    first; the full run then syncs stage and group-winner markets and builds the
+    Kalshi marts:
 
     ```bash
     uv run python scripts/run_scope.py kalshi:wc2026 --step full
@@ -142,7 +143,7 @@ PMXT configuration is needed for quickstart.
 
     - `kalshi_wc2026_marts.kalshi_wc2026_stage_markets`
     - `kalshi_wc2026_marts.kalshi_wc2026_group_winner_markets`
-    - `international_results_wc2026_marts.international_results_wc2026_matches`
+    - `oddsfox_reference.international_results_wc2026_matches`
 
     Those local checks verify technical shape; they are not Hypertrial
     certification of data rights or fitness for trading. See

@@ -9,12 +9,15 @@ from pathlib import Path
 import duckdb
 from tests.integration.conftest import dbt_subprocess_env, write_dbt_profile
 from tests.integration.dbt_cli import run_dbt as _run_dbt
+from tests.integration.match_minute_seed import (
+    create_test_reference_tables,
+    reference_tbl,
+)
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.connection import init_duck_db
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-    international_results_wc2026_raw_tbl,
     kalshi_ops_tbl,
     kalshi_raw_tbl,
     polymarket_ops_tbl,
@@ -45,9 +48,10 @@ def _dict_rows(conn: duckdb.DuckDBPyConnection, query: str) -> list[dict[str, st
 
 
 def _seed_international_results(conn: duckdb.DuckDBPyConnection) -> None:
+    create_test_reference_tables(conn)
     conn.execute(
         f"""
-        insert into {international_results_wc2026_raw_tbl("match_results")}
+        insert into {reference_tbl("international_results_wc2026_matches")}
         (
             match_id,
             match_date,
@@ -55,6 +59,8 @@ def _seed_international_results(conn: duckdb.DuckDBPyConnection) -> None:
             away_team,
             home_score,
             away_score,
+            stage_key,
+            stage_rank,
             tournament,
             city,
             country,
@@ -74,6 +80,8 @@ def _seed_international_results(conn: duckdb.DuckDBPyConnection) -> None:
             'Mexico',
             null,
             null,
+            'group_stage',
+            1,
             'FIFA World Cup',
             'Mexico City',
             'Mexico',
@@ -86,6 +94,16 @@ def _seed_international_results(conn: duckdb.DuckDBPyConnection) -> None:
             'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
             timestamp '2099-01-01 00:00:00'
         )
+        """
+    )
+    conn.execute(
+        f"""
+        insert into {reference_tbl("international_results_wc2026_team_status")}
+        (team_name, tournament_status, is_still_alive, next_stage_key,
+         matches_played, wins, draws, losses, goals_for, goals_against)
+        values
+        ('Argentina', 'active', true, 'group_stage', 0, 0, 0, 0, 0, 0),
+        ('Mexico', 'active', true, 'group_stage', 0, 0, 0, 0, 0, 0)
         """
     )
 
@@ -381,7 +399,6 @@ def test_public_marts_match_golden_rows(
             "run",
             "--full-refresh",
             "--select",
-            "+international_results_wc2026_team_status",
             "+polymarket_wc2026_market_hourly_odds",
             "+kalshi_wc2026_stage_market_hourly_odds",
             "+kalshi_wc2026_group_winner_market_hourly_odds",
@@ -391,20 +408,6 @@ def test_public_marts_match_golden_rows(
     )
 
     with duckdb.connect(str(db_path), read_only=True) as conn:
-        assert _dict_rows(
-            conn,
-            """
-            select
-                team_name,
-                tournament_status,
-                case when is_still_alive then 'true' else 'false' end
-                    as is_still_alive,
-                cast(matches_played as varchar) as matches_played,
-                next_stage_key
-            from international_results_wc2026_marts.international_results_wc2026_team_status
-            order by team_name
-            """,
-        ) == _expected("international_results_wc2026_team_status.csv")
         assert _dict_rows(
             conn,
             """

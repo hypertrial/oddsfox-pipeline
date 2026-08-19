@@ -17,7 +17,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from oddsfox_pipeline.config.settings_warehouse import BASE_DIR
-from oddsfox_pipeline.contracts.raw_snapshots import schema_fingerprint
+from oddsfox_pipeline.contracts.schema import schema_fingerprint
 from oddsfox_pipeline.publishing._bundle_io import (
     COMMIT_RE,
     current_clean_commit,
@@ -332,8 +332,7 @@ def _build_dimensions(
         for row in conn.execute(
             """
             SELECT team_name
-            FROM international_results_wc2026_marts
-                .international_results_wc2026_team_status
+            FROM oddsfox_reference.international_results_wc2026_team_status
             """
         ).fetchall()
     }
@@ -345,8 +344,7 @@ def _build_dimensions(
     alias_rows = conn.execute(
         """
         SELECT market_team_name, canonical_team_name
-        FROM international_results_wc2026_staging
-            .international_results_wc2026_team_aliases
+        FROM oddsfox_reference.international_results_wc2026_team_aliases
         """
     ).fetchall()
     for raw_name, canonical_name in alias_rows:

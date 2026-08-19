@@ -1,0 +1,31 @@
+version: 2
+
+sources:
+  - name: oddsfox_reference
+    schema: oddsfox_reference
+    description: Immutable final reference tables published by oddsfox-scraper.
+    tables:
+      - {name: international_results_wc2026_matches}
+      - {name: international_results_wc2026_team_aliases}
+      - {name: international_results_wc2026_team_status}
+      - {name: openfootball_wc2026_schedule_fixtures}
+      - {name: wc2026_base_camp_venues}
+      - {name: wc2026_club_strength_current}
+      - {name: wc2026_club_strength_history}
+      - {name: wc2026_club_strength_snapshot}
+      - {name: wc2026_event_state_timing}
+      - {name: wc2026_fixtures}
+      - {name: wc2026_international_matches}
+      - {name: wc2026_player_features}
+      - {name: wc2026_results}
+      - {name: wc2026_source_availability}
+      - {name: wc2026_source_provenance}
+      - {name: wc2026_squad_player_features}
+      - {name: wc2026_team_identities}
+      - {name: wc2026_team_canonical_aliases}
+      - {name: wc2026_team_ratings_current}
+      - {name: wc2026_team_ratings_history}
+      - {name: wc2026_team_ratings_pre_match}
+      - {name: wc2026_third_place_lookup}
+      - {name: wc2026_third_place_slot_assignments}
+      - {name: wc2026_travel_features}

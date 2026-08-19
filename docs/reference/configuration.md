@@ -4,9 +4,8 @@ Use `.env.example` as the source of local overrides.
 For first-run steps, see [Quickstart](../getting-started/index.md).
 
 Most settings are adapter-specific. In v0.2.x, that means the shipped WC2026
-Polymarket pipeline, the Kalshi WC2026 pipeline, the fixed FIFA results CSV
-used for team validation, and the OpenFootball mirror of FIFA schedule
-fixtures.
+Polymarket pipeline, the Kalshi WC2026 pipeline, Polygon settlement, and the
+source-neutral transport of an immutable Scraper reference bundle.
 
 ## Warehouse and dbt
 
@@ -37,31 +36,14 @@ dbt parse and the ordinary dbt graph remain valid with empty shells. Models that
 depend on these inputs are empty, and Polygon readiness fails closed until the
 complete local manifest and attestation are present.
 
-## Soccer pre-match Elo
+## Scraper reference bundles
 
-The Elo workflow uses Make variables rather than environment-backed runtime
-settings because every step is manual and local:
-
-| Variable | Default or requirement |
-| --- | --- |
-| `PRE_MATCH_ELO_SOURCE_CATALOG` | Tracked `config/pre-match-elo-sources.yml` with pinned CC0 snapshots. |
-| `PRE_MATCH_ELO_RAW_ROOT` | Ignored `artifacts/pre-match-elo/raw`. |
-| `PRE_MATCH_ELO_INSPECTION_ROOT` | Ignored normalized rows, parse issues, and source inventory. |
-| `PRE_MATCH_ELO_IDENTITY_WORKSPACE` | Ignored evidence packet and review ledgers. |
-| `PRE_MATCH_ELO_IDENTITY_MAP` | Compiled reviewed operator Parquet; YAML and CSV remain accepted inputs. |
-| `PRE_MATCH_ELO_IDENTITY_REVIEW_REPORT` | Required review-ledger checksum, reviewer, decision counts, and input identity. |
-| `PRE_MATCH_ELO_IDENTITY_AUDIT_ROOT` | Ignored dry-run coverage and unresolved reports. |
-| `PRE_MATCH_ELO_IDENTITY_REVIEWER` | Non-empty label recorded by the explicit review command; default `codex-agent`. |
-| `PRE_MATCH_ELO_TARGET_PARQUET` | Required exact research snapshot; its SHA-256 and 8,255-event inventory are release gates. |
-| `PRE_MATCH_ELO_BENCHMARK_PATH` | Optional normalized ClubElo/EloRatings Parquet or CSV. |
-| `PRE_MATCH_ELO_DATASET_VERSION` | Immutable SemVer directory, default `1.0.0`. |
-| `PRE_MATCH_ELO_OUTPUT_ROOT` | Ignored `artifacts/strategy-inputs/soccer_pre_match_elo`. |
-
-Acquisition validates HTTPS destinations and exact payload checksums. It does
-not weaken the shared outbound URL policy. If a benchmark cannot be acquired
-over an approved HTTPS path, place an authorized operator snapshot locally and
-pass it through `PRE_MATCH_ELO_BENCHMARK_PATH`; benchmark absence never blocks
-the internal release.
+`REFERENCE_BUNDLE_DIR` selects a local immutable `oddsfox.reference.v1`
+directory for `make reference-bundle-load`. The loader validates producer
+provenance, the exact table inventory, primary grains, schema version, manifest,
+and every checksum before replacing the active `oddsfox_reference` schema in a
+transaction. An HTTPS bundle URL requires an explicit
+`ODDSFOX_REFERENCE_ARTIFACT_HOSTS` allowlist.
 
 ## Local development
 
@@ -83,9 +65,6 @@ the internal release.
 - `HTTP_READ_TIMEOUT_SECONDS`: HTTP read timeout.
 
 Lower request rates when Polymarket APIs return transient failures or timeouts.
-The `international_results` CSV refresh uses the shared HTTP timeout settings
-and has no source-specific env override. The OpenFootball fixture refresh uses
-the same timeout settings and a fixed public source URL.
 
 ## Local storage root
 
@@ -362,8 +341,9 @@ manually when needed.
   registry before minute fetch. Set `false` to reuse an already-landed warehouse
   catalog on odds/dbt reruns. Restart `uv run make dagster-dev` after changing.
 - `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH`: when `true` (default), runs
-  international-results, OpenFootball fixtures, and match-minute raw. Set
-  `false` to reuse warehouse match-minute rows and skip those inputs.
+  match-minute raw using the already active Scraper reference bundle. Set
+  `false` to reuse warehouse match-minute rows. This setting never refreshes
+  non-market sources.
 - `POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES`: when `true` (default), runs
   futures-minute raw. Set `false` to reuse warehouse futures-minute rows.
   Both match and futures may be `false` for a dbt-only unified minute rebuild.

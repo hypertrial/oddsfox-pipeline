@@ -46,7 +46,6 @@ class ScopeSpec:
     dbt_select: str
     dbt_exclude: str | None = None
     source_seed: str | None = None
-    includes_international_results: bool = False
 
     @property
     def key(self) -> str:
@@ -83,12 +82,10 @@ POLYMARKET_WC2026_SCOPE = ScopeSpec(
     full_job_name="polymarket_wc2026_full_pipeline",
     dbt_select=POLYMARKET_WC2026_GOLDEN_MART_DBT_SELECT,
     dbt_exclude=(
-        "tag:match_minute tag:minute_odds tag:wc2026_strategy wc2026_fixtures "
-        "wc2026_schedule_matches wc2026_team_canonical_aliases "
+        "tag:match_minute tag:minute_odds tag:wc2026_strategy "
         "tag:polygon_settlement tag:pmxt_order_book tag:market_portrait"
     ),
     source_seed="polymarket.market_scopes",
-    includes_international_results=False,
 )
 POLYMARKET_SOCCER_SCOPE = ScopeSpec(
     source=SOURCE_POLYMARKET,
@@ -112,7 +109,6 @@ KALSHI_WC2026_SCOPE = ScopeSpec(
     dbt_select="+tag:kalshi",
     dbt_exclude="tag:polymarket",
     source_seed="kalshi.market_scopes",
-    includes_international_results=True,
 )
 
 SHIPPED_SCOPE_SPECS: tuple[ScopeSpec, ...] = (

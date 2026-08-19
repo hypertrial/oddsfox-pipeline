@@ -9,10 +9,10 @@ reuses the match-minute path for in-game markets and adds a futures-minute path
 for every other registry-eligible WC2026 market over the tournament span
 (`[2026-06-11, 2026-07-19]`, capped by each market's close/resolution time).
 
-## Create and validate the 104-match schedule overlay
+## Load and validate the 104-match Scraper reference
 
-Follow the same schedule overlay steps as
-[Recreate the match-minute mart](recreate-match-minute-mart.md#create-and-validate-the-104-match-schedule-overlay):
+Follow the same reference-bundle steps as
+[Recreate the match-minute mart](recreate-match-minute-mart.md#load-and-validate-the-104-match-scraper-reference):
 
 ```bash
 uv run make match-minute-inputs-validate
@@ -21,7 +21,7 @@ uv run make match-minute-inputs-validate
 Do not continue until the command prints:
 
 ```text
-104 operator-local schedule rows
+104 Scraper reference fixture rows
 ```
 
 ## Create the unified minute-odds mart
@@ -50,10 +50,8 @@ slug-prefix recall audit). The job obtains:
   [Polymarket Gamma API](https://docs.polymarket.com/api-reference/introduction);
 - minute token history from the public
   [Polymarket CLOB API](https://docs.polymarket.com/market-data/overview);
-- CC0 knockout fixture identity from
-  [OpenFootball](https://github.com/openfootball/worldcup); and
-- CC0 result validation from
-  [`martj42/international_results`](https://github.com/martj42/international_results).
+- fixture identity and result validation from the previously activated,
+  checksummed Scraper `oddsfox.reference.v1` bundle.
 
 It runs both raw legs:
 

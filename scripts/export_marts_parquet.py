@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Export every present ``*_marts`` table from the local DuckDB warehouse to Parquet.
 
-Discovers base tables and views in the shipped mart schemas (Polymarket WC2026,
-Kalshi WC2026, international-results WC2026, and ``wc2026_marts``) and writes
+Discovers base tables and views in the shipped market mart schemas (Polymarket
+WC2026, Kalshi WC2026, and ``wc2026_marts``) and writes
 one Parquet file per relation under a timestamped output directory.
 
 This is a local operator dump. It includes isolated pipeline marts when they
@@ -30,7 +30,6 @@ from _export_common import qualified_mart_name, snapshot_duckdb_files
 
 REPO_ROOT: Final[Path] = ensure_src_on_path()
 from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (  # noqa: E402
-    INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
     KALSHI_WC2026_MARTS_SCHEMA,
     POLYMARKET_WC2026_MARTS_SCHEMA,
     WC2026_MARTS_SCHEMA,
@@ -39,7 +38,6 @@ from oddsfox_pipeline.storage.duckdb.schemas.dbt_schemas import (  # noqa: E402
 DEFAULT_MART_SCHEMAS: Final[tuple[str, ...]] = (
     POLYMARKET_WC2026_MARTS_SCHEMA,
     KALSHI_WC2026_MARTS_SCHEMA,
-    INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
     WC2026_MARTS_SCHEMA,
 )
 

@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 import requests
 
+from oddsfox_pipeline.config.acquisition_ownership import require_acquisition_url
 from oddsfox_pipeline.resources.http import APIClient, RateLimiter
 from oddsfox_pipeline.resources.outbound_url import validate_outbound_https_url
 
@@ -225,9 +226,12 @@ class PolygonRPC:
         activity_callback: Callable[[str], None] | None = None,
     ) -> None:
         self.origin = sanitize_rpc_origin(rpc_url)
-        validated = validate_outbound_https_url(rpc_url)
+        validated = require_acquisition_url(
+            "polygon", validate_outbound_https_url(rpc_url)
+        )
         self._client = api_client or APIClient(
             validated,
+            source_id="polygon",
             retries=retries,
             backoff_factor=backoff_factor,
             requests_per_second=requests_per_second,

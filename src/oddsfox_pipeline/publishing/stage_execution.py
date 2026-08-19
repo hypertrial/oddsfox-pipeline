@@ -23,7 +23,7 @@ import requests
 
 from oddsfox_pipeline.config.settings import PMXT_API_KEY
 from oddsfox_pipeline.config.settings_warehouse import BASE_DIR, DUCKDB_PATH
-from oddsfox_pipeline.contracts.raw_snapshots import schema_fingerprint
+from oddsfox_pipeline.contracts.schema import schema_fingerprint
 from oddsfox_pipeline.ingestion.polymarket.match_order_book import (
     PMXT_MAX_RANGE_SNAPSHOTS,
     PMXT_ORDER_BOOK_ENDPOINT,

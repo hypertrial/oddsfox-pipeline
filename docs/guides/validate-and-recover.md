@@ -58,9 +58,8 @@ remediation before rerunning work.
 
 - Re-run `polymarket_wc2026_hourly_odds_ingest` for routine WC2026 odds gaps.
 - Re-run `kalshi_wc2026_hourly_odds_ingest` for Kalshi candlestick gaps.
-- Re-run `international_results_wc2026_match_results_ingest` after fixture or
-  score updates when you are on Kalshi or match-minute paths (not required for
-  the Polymarket golden-mart `full`/`dbt` jobs).
+- Load the corrected Scraper reference bundle after fixture or score updates;
+  a failed validation leaves the current bundle active.
 - Re-run `polymarket_wc2026_polygon_settlement_backfill` after a transient RPC
   or chunk failure. It resumes compatible successful gaps and preserves the
   previous canonical snapshot until atomic publication. Adjacent successful

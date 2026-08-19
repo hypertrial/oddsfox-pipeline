@@ -112,7 +112,7 @@ international_results_fixtures as (
         source_loaded_at as results_source_loaded_at,
         {{ canonical_team_match_key('home_team') }} as home_team_key,
         {{ canonical_team_match_key('away_team') }} as away_team_key
-    from {{ ref('international_results_wc2026_matches') }}
+    from {{ source('oddsfox_reference', 'international_results_wc2026_matches') }}
 ),
 
 group_schedule_fixtures as (
@@ -126,7 +126,7 @@ group_schedule_fixtures as (
             as kickoff_at_utc,
         {{ canonical_team_match_key('home_team') }} as home_team_key,
         {{ canonical_team_match_key('away_team') }} as away_team_key
-    from {{ ref('wc2026_fixtures') }}
+    from {{ source('oddsfox_reference', 'wc2026_fixtures') }}
     where match_id between 1 and 72
 ),
 
@@ -255,7 +255,7 @@ knockout_schedule_fixtures as (
         kickoff_at_utc,
         {{ canonical_team_match_key('home_team') }} as home_team_key,
         {{ canonical_team_match_key('away_team') }} as away_team_key
-    from {{ ref('stg_openfootball_wc2026_schedule_fixtures') }}
+    from {{ source('oddsfox_reference', 'openfootball_wc2026_schedule_fixtures') }}
     where fifa_match_id between 73 and 104
 ),
 

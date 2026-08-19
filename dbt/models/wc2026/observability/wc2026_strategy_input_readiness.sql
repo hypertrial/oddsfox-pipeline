@@ -56,7 +56,7 @@ point_in_time as (
         count(*) filter (
             where valid_to is not null and valid_to < valid_from
         ) = 0 as point_in_time_ok
-    from {{ ref('wc2026_club_strength_history') }}
+    from {{ source('oddsfox_reference', 'wc2026_club_strength_history') }}
 ),
 
 strategies (strategy_id) as (

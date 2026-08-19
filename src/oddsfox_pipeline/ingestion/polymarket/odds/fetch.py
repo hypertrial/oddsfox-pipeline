@@ -9,6 +9,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import requests
 
+from oddsfox_pipeline.config.acquisition_ownership import require_acquisition_url
 from oddsfox_pipeline.config.settings import HTTP_REQUEST_TIMEOUT
 from oddsfox_pipeline.ingestion.polymarket.errors import (
     ClobRequestError,
@@ -107,7 +108,8 @@ def build_client(base_url: str, *, rate_limiter=None) -> APIClient:
     across worker threads.
     """
     return APIClient(
-        base_url=base_url,
+        base_url=require_acquisition_url("polymarket", base_url),
+        source_id="polymarket",
         retries=0,
         requests_per_second=None,  # rely on shared limiter
         rate_limiter=rate_limiter,

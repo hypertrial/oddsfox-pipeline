@@ -92,9 +92,9 @@ order by event_slug, question;
 
 ## WC2026 Fixtures And Team Status
 
-Prerequisite: run `kalshi:wc2026 --step full` or the isolated match-minute path
-so `international_results_wc2026_*` marts exist. The Polymarket golden-mart
-quickstart does not refresh FIFA fixtures/results.
+Prerequisite: load a validated Scraper reference bundle with
+`make reference-bundle-load REFERENCE_BUNDLE_DIR=...`. Market refreshes do not
+acquire or rebuild FIFA fixtures/results.
 
 Join hourly odds to tournament state manually when question text or event
 metadata implies a team:
@@ -108,7 +108,7 @@ select
     t.tournament_status,
     t.next_match_date
 from polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds as odds
-inner join international_results_wc2026_marts.international_results_wc2026_team_status as t
+inner join oddsfox_reference.international_results_wc2026_team_status as t
     on lower(odds.question) like '%' || lower(t.team_name) || '%'
 qualify row_number() over (
     partition by odds.market_id
@@ -130,7 +130,7 @@ select
     match_status,
     advancing_team,
     advancer_inference_status
-from international_results_wc2026_marts.international_results_wc2026_matches
+from oddsfox_reference.international_results_wc2026_matches
 order by match_date, match_id;
 ```
 

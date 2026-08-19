@@ -101,7 +101,7 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
     with duckdb.connect(str(db_path)) as conn:
         conn.execute(
             """
-            update openfootball_wc2026_raw.schedule_fixtures
+            update oddsfox_reference.openfootball_wc2026_schedule_fixtures
             set away_team = 'Morocco'
             where fifa_match_id = 95
             """

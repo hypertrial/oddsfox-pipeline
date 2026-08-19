@@ -238,16 +238,9 @@ def test_builds_complete_immutable_internal_audit_bundle(
     assert provenance_json["seed_version"] == "1.0.0"
     assert provenance_json["generator_commit"] == "f" * 40
     assert provenance_json["verification_rpc_provider_label"] == "secondary"
-    assert provenance_json["source_revisions"]["fifa_match_number_schedule"] == {
-        "revision": publishing.FIFA_SCHEDULE_REVISION,
-        "sha256": publishing.FIFA_SCHEDULE_SHA256,
-    }
-    assert provenance_json["source_revisions"]["openfootball_worldcup"] == ["a" * 40]
-    assert provenance_json["source_revisions"]["openfootball_license"] == {
-        "path": "LICENSE.md",
-        "revision": publishing.OPENFOOTBALL_REVISION,
-        "sha256": publishing.OPENFOOTBALL_LICENSE_SHA256,
-        "uri": publishing.OPENFOOTBALL_LICENSE_URI,
+    assert provenance_json["source_revisions"]["scraper_reference_bundle"] == {
+        "bundle_ids": ["synthetic-reference-v1"],
+        "tables": ["wc2026_fixtures"],
     }
     assert provenance_json["resolution_attestation"] == {
         "schema_version": 1,
@@ -277,7 +270,8 @@ def test_builds_complete_immutable_internal_audit_bundle(
     assert [issue["issue_type"] for issue in quality_json["issues"]] == ["verification"]
 
     sources = (release / "SOURCES.csv").read_text(encoding="utf-8")
-    assert publishing.FIFA_SCHEDULE_SHA256 in sources
+    assert "OddsFox Scraper reference bundle" in sources
+    assert "synthetic-reference-v1" in sources
     assert "https://rpc.example" in sources
     assert "license_or_terms" not in sources.splitlines()[0]
     assert "provider terms" not in sources.lower()

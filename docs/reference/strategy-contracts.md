@@ -1,42 +1,36 @@
 # Strategy Contracts
 
-Use this page when consuming private canonical snapshots (`oddsfox.raw.v1`) or
-the strategy clean-data relation set under `wc2026.v1`. A **contract** is a
+Use this page when consuming Scraper reference bundles (`oddsfox.reference.v1`)
+or the market strategy relation set under `wc2026.v1`. A **contract** is a
 named guarantee; see [Terminology](terminology.md#guarantee). Ordinary mart
 queries, and open-source integrator work should start
 with [Data contracts](data-contracts.md) instead. `wc2026.v1` is not the
 analytics mart contract; documented marts are the supported query API.
 
-## Canonical raw snapshots
+## Scraper reference bundles
 
-Private collectors do not write implementation-specific tables into this
-warehouse. They publish one immutable directory per source and snapshot:
+Non-market collectors do not run in Pipeline. Scraper publishes one immutable
+directory per reference bundle:
 
 ```text
-.runtime/raw/<source>/<snapshot_id>/
+.runtime/reference-bundles/<bundle_id>/
   manifest.json
-  <table>.parquet
+  <reference-table>.parquet
+  checksums.sha256
 ```
 
-The `oddsfox.raw.v1` manifest records the source and snapshot ID, UTC collection
-time, collector Git SHA and container digest, credential-free upstream
-revision/request provenance, predecessor snapshot, and each file's SHA-256,
-Arrow schema fingerprint, row count, and byte size. Both `status` and
-`completeness` must be `complete`.
+The `oddsfox.reference.v1` manifest records the bundle ID, Scraper Git SHA and
+image digest, source revisions and licenses, predecessor bundle, and each
+table's checksum, schema fingerprint, grain, row count, and date range.
 
-Collectors publish payloads into a temporary directory and publish
-`manifest.json` last. The pipeline refuses missing manifests or payloads,
-unknown versions/tables, unregistered schemas, unsafe paths, duplicate IDs,
-predecessor mismatches, timestamp regressions, hash/size/row/schema mismatches,
-and credential-bearing provenance. A successful load appends the Parquet rows
-and `wc2026_ops.raw_snapshot_ledger` record in one DuckDB transaction.
-Raw rows remain append-only for auditability, but each private source publishes
-a complete replacement snapshot: strategy-facing marts use only the latest
-ledger-declared snapshot. Rows omitted from a newer complete snapshot therefore
-do not leak forward from an older load.
+Pipeline verifies the complete manifest and all checksums before loading any
+table. Activation is transactional, replay-idempotent, rejects mutated bundle
+IDs, unsupported schemas, missing tables, and duplicate keys, and preserves the
+last known-good `oddsfox_reference` schema on failure. Pipeline contains no
+source-specific parser, endpoint, or private raw-snapshot loader.
 
-Public tests use synthetic Parquet snapshots only. HTML, selectors, cached
-pages, discretionary URLs, and real scrape fixtures are not part of this
+Public tests use synthetic reference bundles only. HTML, selectors, cached
+pages, discretionary source URLs, and real scrape fixtures are not part of this
 repository.
 
 ## Strategy clean-data contract
@@ -47,26 +41,15 @@ views.
 
 | Relation | Purpose |
 | --- | --- |
-| `fixtures`, `results`, `team_identities` | Official schedule, completed outcomes, and canonical team identity. |
-| `team_ratings_current`, `team_ratings_history` | Current World scrape (`snapshot_scope = current`) and point-in-time national-team ratings. |
-| `team_ratings_pre_match` | Match×team pre-match Elo from EloRatings `{year}_results.tsv` (`pre = post ∓ change`), all competitions on/after 2026-01-01. Not a freeze and not a calendar-day series. |
-| `player_features`, `squad_player_features` | FIFAIndex features and official-squad matches. |
-| `club_strength_current`, `club_strength_history`, `club_strength_snapshot` | Current and point-in-time club strength. |
-| `base_camp_venues`, `travel_features` | Venue, base-camp, rest, distance, timezone, and altitude features. |
 | `venue_markets` | Venue event/market identity, Polymarket `condition_id`, outcomes, and token IDs. |
 | `price_liquidity_current`, `price_liquidity_history` | Current and historical token price/liquidity data. |
-| `event_state_timing` | Optional point-in-time match event state. |
-| `international_matches` | Public 2006+ scorelines, tournament taxonomy, shootouts, and goal-event counts. |
-| `third_place_slot_assignments` | FIFA Annexe C knockout-slot mapping. |
-| `source_provenance` | Canonical snapshot provenance. |
+| `source_provenance` | Combined Scraper bundle and Pipeline market provenance. |
+| `source_availability` | Combined reference-bundle and market-input availability. |
+| `strategy_input_readiness` | Fail-closed strategy readiness and blocking reasons. |
 
-Operator CSV freezes from those marts (`make export-wc2026-elo-freezes`) write
-`artifacts/wc2026_elo_exports/team_ratings_pre_kickoff.csv` (year-end
-`snapshot_year = 2025` and `snapshot_scope = '2025'`, designated pre-WC2026 freeze
-— not a recovered June-2026 `World.tsv` scrape) and
-`team_ratings_latest_current.csv` (latest `team_ratings_current` World scrape).
-Both CSVs use mart columns `rank, team_code, team_name, rating` plus export
-metadata `freeze_label, as_of, snapshot_id, collected_at`.
+These non-market tables and their export/publication workflows are owned by
+OddsFox Scraper. Pipeline receives only their validated Parquet representations
+inside `oddsfox.reference.v1` and does not expose source-specific export commands.
 
 ## WC2026 stage-minute strategy inputs
 
@@ -93,40 +76,16 @@ checksums below ignored `artifacts/strategy-inputs/`. It has no forward-filled
 prices, execution costs, order-book liquidity, fill assumptions, or strategy
 returns; those belong in the private research/backtest consumer.
 
-## Soccer pre-match Elo features
+## Scraper-owned soccer features
 
-`oddsfox.soccer.pre-match-elo.v1` is an operator-local, immutable feature
-release for the soccer research snapshot whose SHA-256 is
-`7b3b3c375254bc33b2746147c0b447783188153504cb1b18d5b813492e0ebaf9`.
-It contains exactly one row for each of the snapshot's 8,255 `event_id` values;
-it does not rewrite or copy ratings into the 5.7 million minute rows.
+The event-grain `oddsfox.scraper.soccer.pre_match_elo.v1` contract is produced
+and published by `oddsfox-scraper`, then consumed directly by Trading. Pipeline
+does not acquire its sources, resolve identities, calculate ratings, publish the
+release, or act as an Elo compatibility layer.
 
-The internal model starts each team at 1500 and keeps `club_men`, `club_women`,
-`national_men`, and `national_women` isolated. It processes completed external
-results in UTC calendar-date batches, captures ratings before the target date,
-halves K for friendlies, removes home advantage at neutral venues, and treats a
-tied football score as a draw regardless of a shootout winner. Parameter tuning
-uses the documented 2022–2023 validation window; small pools use the frozen
-`D=400`, `K=20`, `H=60` fallback. Polymarket outcomes never update ratings.
-
-The release contains `event_pre_match_elo.parquet`,
-`team_identity_map.parquet`, `coverage_by_competition.parquet`, `manifest.json`,
-and `checksums.sha256`. Every event has one recognized coverage status and a
-non-empty reason, including unmapped, ambiguous, conflicting, unsupported, and
-missing-history cases. ClubElo and EloRatings fields are optional diagnostics;
-they never fill an internal-rating gap or change internal coverage.
-
-Raw sources, reviewed aliases, optional benchmark snapshots, and releases live
-below ignored `artifacts/`. The tracked source catalog pins every URL, Git
-revision, SHA-256, acquisition time, licence, parser, pool, and archive member
-selection. Release mode additionally requires a clean Pipeline Git revision and
-refuses to overwrite an existing dataset version.
-
-The manifest also pins the identity authoring version, target and source-catalog
-hashes, compiled-map and review-ledger hashes, reviewer labels, review time,
-decision counts, and unresolved target-label count. These fields prove which
-operator-local adjudication produced the release without publishing private
-review notes.
+Pipeline consumes non-market strategy references only through complete,
+checksummed `oddsfox.reference.v1` bundles. Bundle activation is transactional,
+idempotent, and preserves the last known-good reference schema on failure.
 
 ## WC2026 stage-execution evidence
 
@@ -164,27 +123,9 @@ retained as verified negative evidence. Trades are diagnostic and cannot grant
 a simulated fill. Upstream archive terms and attribution remain documented by
 PMXT.
 
-`team_ratings_pre_match` is a separate match×team reconstruction from
-`eloratings__match_results` (collector `{year}_results.tsv`). It is not covered
-by the freeze export. Query the mart directly after a snapshot that includes
-`match_results.parquet`.
-
-Completed group results align by date and canonical home/away team identity.
-Knockout schedule rows contain bracket slots until participants resolve, so
-completed knockout results use the schedule's unique `(match_date, host_city)`
-key and retain the source's actual teams when deriving the winner.
-
-Private FIFAIndex, Wikipedia squad, EloRatings, ClubElo, and match-event inputs
-are optional for a documented mart build. The on-run-start contract macro creates
-schema-correct empty raw tables when they are absent, so every public model
-still builds. Missing optional inputs are surfaced as warnings and blocking
-reasons rather than hidden. A ledger record alone is not availability: the
-latest snapshot must contain canonical rows, and the source-availability model
-publishes that latest payload's `row_count`.
-
 `wc2026_observability.wc2026_strategy_input_readiness` evaluates required-source
-availability, freshness, point-in-time interval integrity, and blocking reasons
-per strategy. Strategy consumers must open DuckDB read-only and fail closed
+availability, freshness, reference-bundle validity, and blocking reasons per
+strategy. Strategy consumers must open DuckDB read-only and fail closed
 unless the required contract version and readiness row both pass.
 
 See [System overview](../concepts/system-overview.md) for repository roles and

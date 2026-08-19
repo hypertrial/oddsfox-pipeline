@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Author the WC2026 Polygon market seed from pinned public evidence.
+"""Author the WC2026 Polygon market seed from Polygon and a Scraper bundle.
 
 This developer tool deliberately writes only below ``artifacts/``.  It never
 updates the reviewed dbt seed; promotion is a separate human review step.
@@ -21,26 +21,15 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 from zoneinfo import ZoneInfo
 
-import requests
+import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _bootstrap import ensure_src_on_path
 
 REPO_ROOT = ensure_src_on_path()
 
-from oddsfox_pipeline.ingestion.openfootball.schedule_fixtures import (  # noqa: E402
-    _REVIEWED_GROUP_FIXTURE_HASHES_BY_MATCH_ID,  # noqa: F401 - authoring audit surface
-    FIFA_SCHEDULE_SHA256,
-    FIFA_SCHEDULE_TITLE,
-    FIFA_SCHEDULE_URL,
-    OPENFOOTBALL_BASE,
-    OPENFOOTBALL_REVISION,
-    REVIEWED_GROUP_MATCH_ID_BY_LINE_HASH,  # noqa: F401 - authoring audit surface
-    Fixture,
-    parse_openfootball_fixtures,
-)
-from oddsfox_pipeline.ingestion.openfootball.schedule_fixtures import (  # noqa: E402
-    OPENFOOTBALL_FILES as SCHEDULE_OPENFOOTBALL_FILES,
+from oddsfox_pipeline.contracts.reference_bundle import (  # noqa: E402
+    validate_reference_bundle,
 )
 from oddsfox_pipeline.ingestion.polymarket.polygon_resolution import (  # noqa: E402
     write_polygon_resolution_attestation,
@@ -56,9 +45,6 @@ from oddsfox_pipeline.ingestion.polymarket.polygon_seed import (  # noqa: E402
     parse_polygon_market,
     polygon_manifest_content_sha256,
     validate_polygon_market_manifest,
-)
-from oddsfox_pipeline.resources.outbound_url import (  # noqa: E402
-    validate_outbound_https_url,
 )
 from oddsfox_pipeline.storage.duckdb.polygon_settlement import (  # noqa: E402
     validate_polygon_provider_label,
@@ -76,10 +62,24 @@ UMA_REVISION = "8b76cc9e0d46c6f7450a0adb0ddc0f5b0568c9cc"
 NEG_RISK_REVISION = "f78b35b0863b4308a431ca307d06f49b2ea65e78"
 V2_REVISION = "ccc0596074f4dfd62c944fbca4de252893b82b4b"
 
-OPENFOOTBALL_FILES = {
-    **SCHEDULE_OPENFOOTBALL_FILES,
-    "LICENSE.md": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673",
-}
+REFERENCE_FIXTURE_TABLE = "openfootball_wc2026_schedule_fixtures"
+
+
+@dataclass(frozen=True)
+class Fixture:
+    """Source-neutral fixture evidence supplied by oddsfox-scraper."""
+
+    fifa_match_id: int
+    stage: str
+    group_label: str | None
+    home_team: str
+    away_team: str
+    kickoff_at_utc: datetime
+    reference_bundle_id: str
+    reference_table: str
+    reference_row_key: str
+    reference_row_sha256: str
+
 
 CONDITION_PREPARATION_TOPIC = (
     "0xab3760c3bd2bb38b5bcf54dc79802ed67338b4cf29f3054ded67ed24661e4177"
@@ -1594,10 +1594,10 @@ def build_rows(
                 "no_token_id": no_token,
                 "market_structure": structure,
                 "exchange_address": exchange,
-                "openfootball_revision": OPENFOOTBALL_REVISION,
-                "openfootball_path": fixture.source_path,
-                "openfootball_source_lines": fixture.source_lines,
-                "openfootball_line_hash": fixture.source_line_hash,
+                "reference_bundle_id": fixture.reference_bundle_id,
+                "reference_table": fixture.reference_table,
+                "reference_row_key": fixture.reference_row_key,
+                "reference_row_sha256": fixture.reference_row_sha256,
                 "condition_init_tx_hash": str(
                     condition_log["transactionHash"]
                 ).casefold(),
@@ -1723,35 +1723,64 @@ def verify_updates_and_resolutions(
     }
 
 
-def _fetch_pinned_sources(output_dir: Path) -> dict[str, str]:
-    values: dict[str, str] = {}
-    source_dir = output_dir / "openfootball"
-    source_dir.mkdir(parents=True)
-    for path, expected_hash in OPENFOOTBALL_FILES.items():
-        url = validate_outbound_https_url(OPENFOOTBALL_BASE + path)
-        response = requests.get(url, timeout=(5, 60))
-        response.raise_for_status()
-        payload = response.content
-        actual_hash = hashlib.sha256(payload).hexdigest()
-        if actual_hash != expected_hash:
-            raise ValueError(f"Pinned OpenFootball hash mismatch for {path}")
-        destination = source_dir / path.replace("/", "__")
-        destination.write_bytes(payload)
-        values[path] = payload.decode("utf-8-sig")
-    return values
-
-
-def _fetch_pinned_fifa_schedule(output_dir: Path) -> None:
-    """Preserve the exact independent evidence used to review match numbering."""
-    url = validate_outbound_https_url(FIFA_SCHEDULE_URL)
-    response = requests.get(url, timeout=(5, 60))
-    response.raise_for_status()
-    payload = response.content
-    if hashlib.sha256(payload).hexdigest() != FIFA_SCHEDULE_SHA256:
-        raise ValueError("Pinned FIFA schedule hash mismatch")
-    destination = output_dir / "fifa" / "FWC26-Match-Schedule_English.pdf"
-    destination.parent.mkdir(parents=True)
-    destination.write_bytes(payload)
+def _load_reference_fixtures(
+    bundle_dir: Path,
+) -> tuple[tuple[Fixture, ...], dict[str, Any]]:
+    """Load fixture evidence only after validating the complete Scraper bundle."""
+    manifest = validate_reference_bundle(bundle_dir)
+    entries = {
+        str(entry["table"]): entry
+        for entry in manifest["tables"]
+        if isinstance(entry, dict)
+    }
+    entry = entries.get(REFERENCE_FIXTURE_TABLE)
+    if entry is None:
+        raise ValueError(f"Scraper reference bundle lacks {REFERENCE_FIXTURE_TABLE}")
+    rows = pq.read_table(bundle_dir / str(entry["path"])).to_pylist()
+    bundle_id = str(manifest["bundle_id"])
+    fixtures: list[Fixture] = []
+    required = {
+        "fifa_match_id",
+        "stage_key",
+        "kickoff_at_utc",
+        "home_team",
+        "away_team",
+    }
+    for row in rows:
+        missing = sorted(required - set(row))
+        if missing:
+            raise ValueError(f"Scraper fixture schema lacks columns: {missing}")
+        kickoff = row["kickoff_at_utc"]
+        if isinstance(kickoff, str):
+            kickoff = datetime.fromisoformat(kickoff.replace("Z", "+00:00"))
+        if not isinstance(kickoff, datetime) or kickoff.tzinfo is None:
+            raise ValueError("Scraper fixture kickoff must be timezone-aware")
+        row_sha256 = hashlib.sha256(
+            json.dumps(row, default=str, sort_keys=True, separators=(",", ":")).encode(
+                "utf-8"
+            )
+        ).hexdigest()
+        fixtures.append(
+            Fixture(
+                fifa_match_id=int(row["fifa_match_id"]),
+                stage=str(row["stage_key"]),
+                group_label=(
+                    str(row["group_label"]) if row.get("group_label") else None
+                ),
+                home_team=str(row["home_team"]),
+                away_team=str(row["away_team"]),
+                kickoff_at_utc=kickoff.astimezone(timezone.utc),
+                reference_bundle_id=bundle_id,
+                reference_table=REFERENCE_FIXTURE_TABLE,
+                reference_row_key=str(row["fifa_match_id"]),
+                reference_row_sha256=row_sha256,
+            )
+        )
+    fixtures.sort(key=lambda fixture: fixture.fifa_match_id)
+    ids = [fixture.fifa_match_id for fixture in fixtures]
+    if ids != list(range(1, 105)):
+        raise ValueError("Scraper reference bundle must contain fixtures 1 through 104")
+    return tuple(fixtures), manifest
 
 
 def _validate_evidence_privacy(
@@ -1801,6 +1830,7 @@ def author_seed(
     output_dir: Path,
     manifest_version: str,
     reviewed_at: datetime,
+    reference_bundle: Path | None = None,
 ) -> Path:
     provider_label = validate_polygon_provider_label(provider_label)
     output_dir = output_dir.resolve()
@@ -1811,13 +1841,11 @@ def author_seed(
         )
     if output_dir.exists():
         raise FileExistsError(f"Refusing to overwrite existing evidence: {output_dir}")
+    if reference_bundle is None:
+        raise ValueError("A Scraper reference bundle is required")
     output_dir.mkdir(parents=True)
     try:
-        sources = _fetch_pinned_sources(output_dir)
-        _fetch_pinned_fifa_schedule(output_dir)
-        fixtures = parse_openfootball_fixtures(
-            sources["2026--usa/cup.txt"], sources["2026--usa/cup_finals.txt"]
-        )
+        fixtures, reference_manifest = _load_reference_fixtures(reference_bundle)
         rpc = AuthoringRPC(rpc_url)
         if rpc.rpc.chain_id() != CHAIN_ID:
             raise ValueError("Seed authoring RPC is not Polygon chain 137")
@@ -1860,14 +1888,13 @@ def author_seed(
                 "uma_adapter": UMA_REVISION,
                 "neg_risk_adapter": NEG_RISK_REVISION,
                 "ctf_exchange_v2": V2_REVISION,
-                "openfootball": OPENFOOTBALL_REVISION,
+                "scraper_reference_bundle": reference_manifest["scraper_revision"],
             },
-            "openfootball_sha256": OPENFOOTBALL_FILES,
-            "fifa_match_id_evidence": {
-                "url": FIFA_SCHEDULE_URL,
-                "document_title": FIFA_SCHEDULE_TITLE,
-                "sha256": FIFA_SCHEDULE_SHA256,
-                "mapping_grain": "openfootball_source_line_sha256",
+            "reference_bundle": {
+                "contract_version": reference_manifest["contract_version"],
+                "bundle_id": reference_manifest["bundle_id"],
+                "scraper_revision": reference_manifest["scraper_revision"],
+                "sources": reference_manifest["sources"],
             },
             "manifest_sha256": rows[0]["manifest_sha256"],
             "reviewed_duplicate_candidates": ambiguities,
@@ -1919,6 +1946,7 @@ def main() -> int:
     parser.add_argument("--manifest-version", required=True)
     parser.add_argument("--reviewed-at", required=True, type=_reviewed_at)
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--reference-bundle", required=True, type=Path)
     args = parser.parse_args()
     if not args.rpc_url or not args.provider_label.strip():
         parser.error(
@@ -1930,6 +1958,7 @@ def main() -> int:
         output_dir=args.output_dir,
         manifest_version=args.manifest_version,
         reviewed_at=args.reviewed_at,
+        reference_bundle=args.reference_bundle,
     )
     print(candidate)
     return 0

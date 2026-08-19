@@ -6,6 +6,7 @@ import logging
 import time
 from typing import Any, Callable, Iterator
 
+from oddsfox_pipeline.config.acquisition_ownership import require_acquisition_url
 from oddsfox_pipeline.config.settings import KALSHI_API_URL, KALSHI_REQUESTS_PER_SECOND
 from oddsfox_pipeline.resources.http import APIClient, RateLimiter
 from oddsfox_pipeline.resources.outbound_url import validate_outbound_https_url
@@ -26,7 +27,12 @@ def build_client(requests_per_second: int | None = None) -> APIClient:
     validate_outbound_https_url(KALSHI_API_URL)
     # Own 429 backoff in _get_with_429_backoff; do not let urllib3 status_forcelist
     # convert 429 into a status-less RetryError.
-    return APIClient(base_url=KALSHI_API_URL, rate_limiter=limiter, retries=0)
+    return APIClient(
+        base_url=require_acquisition_url("kalshi", KALSHI_API_URL),
+        source_id="kalshi",
+        rate_limiter=limiter,
+        retries=0,
+    )
 
 
 def _get_with_429_backoff(

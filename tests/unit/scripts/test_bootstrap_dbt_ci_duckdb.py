@@ -38,16 +38,11 @@ def test_bootstrap_dbt_ci_duckdb_seeds_expected_schemas(monkeypatch, tmp_path):
         }
         assert "polymarket_wc2026_raw" in schemas
         assert "kalshi_wc2026_raw" in schemas
-        assert "openfootball_wc2026_raw" in schemas
         polymarket_events = conn.execute(
             "select count(*) from polymarket_wc2026_ops.ingestion_run_events"
         ).fetchone()[0]
         kalshi_events = conn.execute(
             "select count(*) from kalshi_wc2026_ops.ingestion_run_events"
         ).fetchone()[0]
-        fixtures = conn.execute(
-            "select count(*) from openfootball_wc2026_raw.schedule_fixtures"
-        ).fetchone()[0]
     assert polymarket_events >= 1
     assert kalshi_events >= 1
-    assert fixtures >= 1

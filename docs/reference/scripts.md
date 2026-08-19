@@ -22,13 +22,10 @@ Soccer operator targets:
   `0` for healthy/warning-only, `1` for critical, or `2` for unreadable or
   invalid monitoring state. For JSON automation, invoke `scripts/run_health.py`
   with `--scope polymarket:soccer --fail-on critical --format json`.
-- `build_soccer_pre_match_elo_release.py`: acquire and inspect the pinned CC0
-  results, prepare/review/compile/audit operator-local team identities, and
-  build the immutable `oddsfox.soccer.pre-match-elo.v1` release. Use the
-  `pre-match-elo-identity-*` Make targets between inspection and release. No
-  step is scheduled.
+- `load_reference_bundle.py`: validate and transactionally activate a complete
+  Scraper `oddsfox.reference.v1` bundle. The script has no source-specific
+  parser or endpoint knowledge.
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
-- `export_eloratings_wc2026_team_ratings_freezes.py`: export national-team Elo CSV freezes from `wc2026_marts.team_ratings_history` (`pre_kickoff` = year-end 2025) and `wc2026_marts.team_ratings_current` (`latest_current`) under `artifacts/wc2026_elo_exports/`. Prefer `make export-wc2026-elo-freezes`. Match×team pre-match Elo is `wc2026_marts.team_ratings_pre_match` (not this export); it needs an EloRatings snapshot that includes `match_results`.
 - `sync_polymarket_markets_catalog.py`: sync every Gamma market with volume ≥ $100k via `/markets/keyset` (`volume_num_min`, `after_cursor`; open + closed passes) into `polymarket_catalog_raw.markets`. Optional operator utility; not required for the golden WC2026 hourly mart.
 - `export_polymarket_wc2026_market_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds` to Parquet under `artifacts/polymarket_wc2026_exports/`.
 - `cleanup_polymarket_wc2026_registry_hygiene.py`: dry-run (default) or `--apply` deletion of synthetic catalog contamination (`evt-A` / `evt-B` / `m-shared`) and ineligible `events_api` / `markets_api` registry orphans. Prefer `make cleanup-polymarket-wc2026-registry-hygiene` (set `APPLY=1` to write). Stop Dagster and other DuckDB writers first.
@@ -43,10 +40,10 @@ Soccer operator targets:
   `.cache/runtime/smoke/minute-odds/minute_odds_live_smoke.json`).
 - `generate_polymarket_wc2026_market_portrait_target.py`: generate a non-credit-consuming PMXT target candidate YAML from the warehouse working set for operator review. Calls Gamma for fresh identities. Output defaults to `.cache/market_portrait_targets/match-<fifa_match_id>.yml`.
 - `generate_polymarket_wc2026_polygon_settlement_seed.py`: developer-only
-  authoring tool. It downloads the hash-pinned CC0 OpenFootball fixture files
-  and pinned official FIFA schedule PDF, derives condition/question/token
-  evidence from Polygon without Gamma/CLOB/UI inputs, verifies resolution and
-  token orientation, and writes a candidate CSV, `EVIDENCE.json`, and
+  authoring tool. It validates and reads the Scraper-owned
+  `oddsfox.reference.v1` fixture table, derives condition/question/token evidence
+  from Polygon without Gamma/CLOB/UI inputs, verifies resolution and token
+  orientation, and writes a candidate CSV, `EVIDENCE.json`, and
   `resolution_attestation.yml` below ignored `artifacts/`. It refuses existing
   output directories and never updates the reviewed dbt seed or committed
   attestation.
@@ -105,7 +102,7 @@ make compact-warehouse           # reclaim dead space after rebuilds or pruning
 make runtime-dirs                # create SSD-local temp and cache directories
 make dbt-prepare                 # shared dbt deps/parse into DBT_TARGET_PATH
 make gate-timing                 # opt-in cold/warm gate timing JSON
-make match-minute-inputs-validate # require a complete local 104-match schedule
+make match-minute-inputs-validate # require a loaded 104-match Scraper reference
 make minute-odds-live-smoke       # disposable 5%/leg unified minute live smoke
 make futures-minute-publish-benchmark # disposable publish speed/equality report
 make minute-odds-dbt-benchmark    # disposable synthetic dbt rebuild timing
@@ -219,8 +216,6 @@ uv run python scripts/profile_warehouse.py --snapshot-copy
 uv run python scripts/export_polymarket_wc2026_market_hourly_odds.py
 uv run make export-marts-parquet
 uv run python scripts/export_polymarket_wc2026_match_minute_odds.py
-uv run make export-wc2026-elo-freezes
-
 export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-.runtime}"
 mkdir -p "$ODDSFOX_DATA_DIR/exports"
 uv run python scripts/export_polymarket_wc2026_market_hourly_odds.py --snapshot-copy --output "$ODDSFOX_DATA_DIR/exports/wc2026_market_hourly.parquet"
@@ -228,6 +223,6 @@ uv run python scripts/export_polymarket_wc2026_market_hourly_odds.py --snapshot-
 ```
 
 Scripts that call Polymarket APIs need network access and should use conservative request-rate settings.
-The Polygon seed authoring/backfill paths call only the configured JSON-RPC and
-the authoring tool's pinned OpenFootball and FIFA evidence URLs; they do not
-call Gamma or CLOB.
+The Polygon seed authoring/backfill paths call only the configured JSON-RPC.
+Fixture evidence is read from a previously published Scraper reference bundle;
+Pipeline does not contact its upstream source, Gamma, or CLOB.

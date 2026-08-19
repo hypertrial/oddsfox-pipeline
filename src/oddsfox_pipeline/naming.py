@@ -6,8 +6,6 @@ from dagster import AssetKey
 
 SOURCE_POLYMARKET = "polymarket"
 SOURCE_KALSHI = "kalshi"
-SOURCE_INTERNATIONAL_RESULTS = "international_results"
-SOURCE_OPENFOOTBALL = "openfootball"
 SCOPE_WC2026 = "wc2026"
 SCOPE_SOCCER = "soccer"
 
@@ -34,9 +32,7 @@ __all__ = [
     "POLYMARKET_SOCCER",
     "SCOPE_SOCCER",
     "SCOPE_WC2026",
-    "SOURCE_INTERNATIONAL_RESULTS",
     "SOURCE_KALSHI",
-    "SOURCE_OPENFOOTBALL",
     "SOURCE_POLYMARKET",
     "asset_key",
     "flat_name",

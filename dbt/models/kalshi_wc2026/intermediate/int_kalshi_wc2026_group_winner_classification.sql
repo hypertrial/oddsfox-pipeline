@@ -67,9 +67,9 @@ team_scoped as (
         ts.latest_completed_match_date,
         ts.latest_completed_stage_key
     from scoped as c
-    left join {{ ref('international_results_wc2026_team_aliases') }} as a
+    left join {{ source('oddsfox_reference', 'international_results_wc2026_team_aliases') }} as a
         on lower(c.team_name) = lower(a.market_team_name)
-    inner join {{ ref('international_results_wc2026_team_status') }} as ts
+    inner join {{ source('oddsfox_reference', 'international_results_wc2026_team_status') }} as ts
         on lower(coalesce(a.canonical_team_name, c.team_name)) = lower(ts.team_name)
     where c.group_letter != ''
 )

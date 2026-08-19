@@ -22,7 +22,7 @@ import duckdb
 import polars as pl
 import pyarrow.parquet as pq
 
-from oddsfox_pipeline.contracts.raw_snapshots import schema_fingerprint
+from oddsfox_pipeline.contracts.schema import schema_fingerprint
 from oddsfox_pipeline.storage.duckdb.dlt_batch import _resolve_primary_token_ids
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     bootstrap_all_polymarket_tables,

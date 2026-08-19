@@ -41,13 +41,8 @@ ALLOWED_DATA_LIKE_FILES = {
     "config/polygon-settlement-resolution-attestation.example.yml",
     "dagster_instance.yaml",
     "dbt/dbt_project.yml",
-    "dbt/models/international_results_wc2026/intermediate/intermediate.yml",
-    "dbt/models/international_results_wc2026/marts/international_results_wc2026.yml",
-    "dbt/models/international_results_wc2026/observability/observability.yml",
-    "dbt/models/international_results_wc2026/staging/staging.yml",
     "dbt/models/kalshi_wc2026/intermediate/intermediate.yml",
     "dbt/models/kalshi_wc2026/marts/kalshi_wc2026.yml",
-    "dbt/models/openfootball_wc2026/staging/staging.yml",
     "dbt/models/polymarket_catalog/staging/staging.yml",
     "dbt/models/polymarket_wc2026/intermediate/intermediate.yml",
     "dbt/models/polymarket_wc2026/intermediate/match_minute.yml",
@@ -60,39 +55,28 @@ ALLOWED_DATA_LIKE_FILES = {
     "dbt/models/polymarket_wc2026/staging/minute_odds.yml",
     "dbt/models/polymarket_wc2026/staging/staging.yml",
     "dbt/models/polymarket_soccer/polymarket_soccer.yml",
-    "dbt/models/sources/international_results_wc2026_sources.yml",
     "dbt/models/sources/kalshi_wc2026_sources.yml",
-    "dbt/models/sources/openfootball_wc2026_sources.yml",
+    "dbt/models/sources/oddsfox_reference_sources.yml",
     "dbt/models/sources/polymarket_catalog_sources.yml",
     "dbt/models/sources/polymarket_soccer_sources.yml",
     "dbt/models/sources/polymarket_wc2026_sources.yml",
-    "dbt/models/sources/wc2026_canonical_raw_sources.yml",
     "dbt/models/wc2026/marts/wc2026.yml",
     "dbt/models/wc2026/observability/observability.yml",
     "dbt/profiles/profiles.yml",
-    "dbt/seeds/international_results_wc2026_team_aliases.csv",
     "dbt/seeds/kalshi_wc2026_pipeline_policy.csv",
     "dbt/seeds/polymarket_wc2026_pipeline_policy.csv",
     "dbt/seeds/polymarket_wc2026_polygon_settlement_markets.csv",
     "dbt/seeds/schema.yml",
-    "dbt/seeds/wc2026_base_camps_teams.csv",
-    "dbt/seeds/wc2026_schedule_matches.csv",
-    "dbt/seeds/wc2026_team_canonical_aliases.csv",
-    "dbt/seeds/wc2026_third_place_options.csv",
-    "dbt/seeds/wc2026_tournament_classification.csv",
-    "dbt/seeds/wc2026_venues.csv",
     "mkdocs.yml",
     "src/oddsfox_pipeline/ingestion/kalshi/seeds/market_scopes.yml",
     "src/oddsfox_pipeline/ingestion/polymarket/seeds/market_scopes.yml",
     "src/oddsfox_pipeline/ingestion/polymarket/seeds/order_book_targets.yml",
-    "tests/fixtures/cassettes/international_results_revision.yml",
     "tests/fixtures/cassettes/kalshi_events_markets_candlesticks.yml",
     "tests/fixtures/cassettes/polymarket_clob_minute_history.yml",
     "tests/fixtures/cassettes/polymarket_gamma_market_event.yml",
     "tests/fixtures/cassettes/pmxt_order_book.yml",
     "tests/fixtures/cassettes/pmxt_trades.yml",
     "tests/fixtures/market_portrait/match-95-target.yml",
-    "tests/fixtures/golden/international_results_wc2026_team_status.csv",
     "tests/fixtures/golden/kalshi_wc2026_hourly_odds.csv",
     "tests/fixtures/golden/polymarket_wc2026_market_hourly_odds.csv",
     "vercel.json",
@@ -104,41 +88,19 @@ HEADER_ONLY_SEEDS = {
         "proposition_id,fifa_match_id,stage,group_label,home_team,away_team,"
         "kickoff_at_utc,window_start_at_utc,window_end_at_utc,proposition_type,"
         "yes_represents,no_represents,condition_id,yes_token_id,no_token_id,"
-        "market_structure,exchange_address,openfootball_revision,"
-        "openfootball_path,openfootball_source_lines,openfootball_line_hash,"
+        "market_structure,exchange_address,reference_bundle_id,"
+        "reference_table,reference_row_key,reference_row_sha256,"
         "condition_init_tx_hash,condition_init_log_index,question_init_tx_hash,"
         "question_init_log_index,ancillary_data_sha256,"
         "token_verification_block_number,token_verification_block_hash,"
         "manifest_sha256,manifest_version,reviewed_at_utc"
-    ),
-    "dbt/seeds/wc2026_base_camps_teams.csv": (
-        "team_name_fifa,team_name_model,base_camp_market,base_camp_country,"
-        "training_site_name,training_site_lat,training_site_lon,"
-        "training_site_timezone,training_site_altitude_m,geocode_quality,"
-        "geocode_source,manual_review_status,source_url,source_updated_at,notes"
-    ),
-    "dbt/seeds/wc2026_schedule_matches.csv": (
-        "match_id,stage,group_label,matchday,match_date,kickoff_time_et,venue,"
-        "home_slot,away_slot,home_team,away_team,status,source"
-    ),
-    "dbt/seeds/wc2026_third_place_options.csv": (
-        "option_id,slot_1a_group,slot_1b_group,slot_1d_group,slot_1e_group,"
-        "slot_1g_group,slot_1i_group,slot_1k_group,slot_1l_group"
-    ),
-    "dbt/seeds/wc2026_tournament_classification.csv": (
-        "tournament,is_friendly,is_competitive,competition_family,"
-        "confederation_scope,notes"
-    ),
-    "dbt/seeds/wc2026_venues.csv": (
-        "venue,host_city,host_country,venue_lat,venue_lon,venue_timezone,"
-        "venue_altitude_m"
     ),
 }
 
 
 def _tracked_files() -> set[str]:
     completed = subprocess.run(
-        ["git", "ls-files"],
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
@@ -197,14 +159,7 @@ def test_synthetic_factory_populates_only_a_temporary_project(tmp_path: Path) ->
     dbt_root = tmp_path / "dbt"
     polygon_path, attestation_path = write_synthetic_distribution_inputs(dbt_root)
 
-    expected_rows = {
-        polygon_path: 248,
-        dbt_root / "seeds/wc2026_schedule_matches.csv": 104,
-        dbt_root / "seeds/wc2026_third_place_options.csv": 495,
-        dbt_root / "seeds/wc2026_base_camps_teams.csv": 48,
-        dbt_root / "seeds/wc2026_venues.csv": 16,
-        dbt_root / "seeds/wc2026_tournament_classification.csv": 1,
-    }
+    expected_rows = {polygon_path: 248}
     for path, expected_count in expected_rows.items():
         with path.open(encoding="utf-8", newline="") as handle:
             assert len(list(csv.DictReader(handle))) == expected_count
@@ -277,7 +232,7 @@ def test_distribution_notices_and_package_scope_are_explicit() -> None:
     assert 'license = "MIT"' in pyproject
     assert 'license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]' in pyproject
     assert "synthetic, Hypertrial-authored inputs" in fixtures
-    assert "Header-only schema shells" in seeds
+    assert "header-only Polygon market manifest shell" in seeds
     assert (REPO_ROOT / "docs/assets/fonts/INTER-OFL.txt").is_file()
     assert (REPO_ROOT / "docs/assets/fonts/JETBRAINS-MONO-OFL.txt").is_file()
 

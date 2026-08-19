@@ -164,15 +164,15 @@ seed_summary as (
         ) as invalid_market_id_rows,
         count(*) filter (
             where
-            coalesce(openfootball_revision, '')
+            coalesce(reference_bundle_id, '')
             <> 'bd46a148289f9930da66c140d4d7d2325e95d387'
-            or coalesce(openfootball_path, '') not in (
+            or coalesce(reference_table, '') not in (
                 '2026--usa/cup.txt',
                 '2026--usa/cup_finals.txt'
             )
-            or nullif(openfootball_source_lines, '') is null
+            or nullif(reference_row_key, '') is null
             or not regexp_full_match(
-                coalesce(openfootball_line_hash, ''), '[0-9a-f]{64}'
+                coalesce(reference_row_sha256, ''), '[0-9a-f]{64}'
             )
             or not regexp_full_match(
                 coalesce(condition_init_tx_hash, ''), '0x[0-9a-f]{64}'
@@ -194,7 +194,7 @@ seed_summary as (
         count(*) filter (
             where
             lower(concat_ws(
-                ' ', yes_represents, no_represents, openfootball_path
+                ' ', yes_represents, no_represents, reference_table
             )) similar to '%(gamma|clob|polymarket\.com|event_slug|market_slug)%'
         ) as prohibited_source_rows
     from seed

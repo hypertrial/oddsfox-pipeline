@@ -25,12 +25,7 @@ def test_dbt_project_contains_only_shipped_model_families():
     assert (dbt_root / "dbt_project.yml").exists()
     assert (dbt_root / "profiles" / "profiles.yml").exists()
     assert (dbt_root / "models" / "sources" / "polymarket_wc2026_sources.yml").exists()
-    assert (
-        dbt_root / "models" / "sources" / "international_results_wc2026_sources.yml"
-    ).exists()
-    assert (
-        dbt_root / "models" / "sources" / "openfootball_wc2026_sources.yml"
-    ).exists()
+    assert (dbt_root / "models" / "sources" / "oddsfox_reference_sources.yml").exists()
     assert (
         dbt_root / "models" / "polymarket_wc2026" / "staging" / "staging.yml"
     ).exists()
@@ -43,30 +38,7 @@ def test_dbt_project_contains_only_shipped_model_families():
     assert (
         dbt_root / "models" / "kalshi_wc2026" / "marts" / "kalshi_wc2026.yml"
     ).exists()
-    assert (
-        dbt_root
-        / "models"
-        / "international_results_wc2026"
-        / "intermediate"
-        / "intermediate.yml"
-    ).exists()
-    assert (
-        dbt_root
-        / "models"
-        / "international_results_wc2026"
-        / "marts"
-        / "international_results_wc2026.yml"
-    ).exists()
-    assert (
-        dbt_root
-        / "models"
-        / "international_results_wc2026"
-        / "observability"
-        / "observability.yml"
-    ).exists()
-    assert (
-        dbt_root / "seeds" / "international_results_wc2026_team_aliases.csv"
-    ).exists()
+    assert (dbt_root / "models" / "reference").is_dir()
     assert (dbt_root / "seeds" / "polymarket_wc2026_pipeline_policy.csv").exists()
     assert (dbt_root / "seeds" / "schema.yml").exists()
     assert (
@@ -79,12 +51,11 @@ def test_dbt_project_contains_only_shipped_model_families():
 
     model_dirs = {p.name for p in (dbt_root / "models").iterdir() if p.is_dir()}
     assert model_dirs == {
-        "international_results_wc2026",
         "kalshi_wc2026",
-        "openfootball_wc2026",
         "polymarket_catalog",
         "polymarket_soccer",
         "polymarket_wc2026",
+        "reference",
         "sources",
         "wc2026",
     }
@@ -219,35 +190,27 @@ def test_multi_parent_singular_tests_have_dagster_asset_metadata():
         assert "'ref': {'name':" in text, path.name
 
 
-def test_international_results_models_are_documented():
+def test_market_models_read_reference_sources_without_bridge_models():
     dbt_root = Path(__file__).resolve().parents[3] / "dbt"
-    results_root = dbt_root / "models" / "international_results_wc2026"
-    marts = yaml.safe_load(
-        (results_root / "marts" / "international_results_wc2026.yml").read_text()
-    )
-    observability = yaml.safe_load(
-        (results_root / "observability" / "observability.yml").read_text()
-    )
-    documented_marts = {model["name"] for model in marts["models"]}
-    documented_observability = {model["name"] for model in observability["models"]}
+    reference_root = dbt_root / "models" / "reference"
+    source_text = (
+        dbt_root / "models" / "sources" / "oddsfox_reference_sources.yml"
+    ).read_text()
 
+    assert not list(reference_root.rglob("*.sql"))
+    assert "oddsfox_reference" in source_text
+    assert "raw.githubusercontent.com" not in source_text
+    model_text = "\n".join(
+        path.read_text(encoding="utf-8") for path in dbt_root.rglob("*.sql")
+    )
     assert (
-        results_root / "marts" / "international_results_wc2026_matches.sql"
-    ).exists()
+        "source('oddsfox_reference', 'international_results_wc2026_matches')"
+        in model_text
+    )
     assert (
-        results_root
-        / "intermediate"
-        / "int_international_results_wc2026_match_teams.sql"
-    ).exists()
-    assert (
-        results_root / "marts" / "international_results_wc2026_team_status.sql"
-    ).exists()
-    assert (
-        results_root / "observability" / "international_results_wc2026_data_quality.sql"
-    ).exists()
-    assert "international_results_wc2026_matches" in documented_marts
-    assert "international_results_wc2026_team_status" in documented_marts
-    assert "international_results_wc2026_data_quality" in documented_observability
+        "source('oddsfox_reference', 'openfootball_wc2026_schedule_fixtures')"
+        in model_text
+    )
 
 
 def test_kalshi_wc2026_models_are_documented():

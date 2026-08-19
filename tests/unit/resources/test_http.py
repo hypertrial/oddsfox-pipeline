@@ -12,6 +12,24 @@ from oddsfox_pipeline.resources.http_retry import (
 )
 
 
+def _client(**kwargs):
+    return APIClient(enforce_registry=False, **kwargs)
+
+
+def test_api_client_requires_registered_source() -> None:
+    with pytest.raises(ValueError, match="requires source_id"):
+        APIClient(base_url="https://example.com")
+
+
+def test_api_client_rejects_absolute_url_host_escape() -> None:
+    client = APIClient(
+        base_url="https://gamma-api.polymarket.com",
+        source_id="polymarket",
+    )
+    with pytest.raises(ValueError, match="not registered"):
+        client.get("https://example.com/escape")
+
+
 def test_is_transient_status_covers_shared_set():
     for status in (408, 429, 500, 502, 503, 504):
         assert is_transient_status(status)
@@ -80,7 +98,7 @@ def test_api_client_get_with_relative_endpoint_and_params():
     session = MagicMock()
     session.get.return_value.json.return_value = {"ok": True}
     session.get.return_value.raise_for_status = MagicMock()
-    client = APIClient(base_url="https://api.example.com")
+    client = _client(base_url="https://api.example.com")
     client.session = session
     out = client.get("/x", params={"b": "2", "a": "1"})
     assert out == {"ok": True}
@@ -93,7 +111,7 @@ def test_api_client_get_absolute_endpoint():
     session = MagicMock()
     session.get.return_value.json.return_value = []
     session.get.return_value.raise_for_status = MagicMock()
-    client = APIClient(base_url="https://api.example.com")
+    client = _client(base_url="https://api.example.com")
     client.session = session
     client.get("https://other.example/full", params=None)
     session.get.assert_called_once_with(
@@ -108,7 +126,7 @@ def test_api_client_get_uses_default_timeout():
     session = MagicMock()
     session.get.return_value.json.return_value = {"ok": True}
     session.get.return_value.raise_for_status = MagicMock()
-    client = APIClient(
+    client = _client(
         base_url="https://api.example.com",
         request_timeout=(2.0, 7.0),
     )
@@ -121,7 +139,7 @@ def test_api_client_get_explicit_timeout_overrides_default():
     session = MagicMock()
     session.get.return_value.json.return_value = {"ok": True}
     session.get.return_value.raise_for_status = MagicMock()
-    client = APIClient(
+    client = _client(
         base_url="https://api.example.com",
         request_timeout=(2.0, 7.0),
     )
@@ -134,7 +152,7 @@ def test_api_client_post_explicit_timeout_overrides_default():
     session = MagicMock()
     session.post.return_value.json.return_value = {"ok": True}
     session.post.return_value.raise_for_status = MagicMock()
-    client = APIClient(
+    client = _client(
         base_url="https://api.example.com",
         request_timeout=(2.0, 7.0),
     )
@@ -150,7 +168,7 @@ def test_api_client_post_with_metrics_reports_completed_retry_history():
     response.json.return_value = {"ok": True}
     response.raise_for_status = MagicMock()
     response.raw.retries.history = (object(), object())
-    client = APIClient(base_url="https://api.example.com")
+    client = _client(base_url="https://api.example.com")
     client.session = session
 
     assert client.post_with_metrics("/rpc", json={"id": 1}) == (
@@ -162,14 +180,14 @@ def test_api_client_post_with_metrics_reports_completed_retry_history():
 
 def test_api_client_rate_limiter_wait():
     rl = RateLimiter(10000.0)
-    client = APIClient(base_url="https://x.com", rate_limiter=rl)
+    client = _client(base_url="https://x.com", rate_limiter=rl)
     with patch.object(rl, "wait", wraps=rl.wait) as w:
         client._wait_for_rate_limit()
         w.assert_called_once()
 
 
 def test_api_client_delay_without_limiter():
-    client = APIClient(base_url="https://x.com", requests_per_second=10.0)
+    client = _client(base_url="https://x.com", requests_per_second=10.0)
     with patch("oddsfox_pipeline.resources.http.time.sleep") as sl:
         client.last_request_time = 0.0
         times = iter([0.0, 0.05, 0.15, 0.2, 0.25, 0.3])
@@ -185,7 +203,7 @@ def test_api_client_delay_without_limiter():
 
 def test_api_client_delay_skips_sleep_when_caught_up():
     """Second wait: elapsed already exceeds delay — no sleep branch."""
-    client = APIClient(base_url="https://x.com", requests_per_second=10.0)
+    client = _client(base_url="https://x.com", requests_per_second=10.0)
     with patch("oddsfox_pipeline.resources.http.time.sleep") as sl:
         with patch("oddsfox_pipeline.resources.http.time.time", return_value=100.0):
             client.last_request_time = 99.0
@@ -194,7 +212,7 @@ def test_api_client_delay_skips_sleep_when_caught_up():
 
 
 def test_api_client_http_error_propagates():
-    client = APIClient(base_url="https://x.com")
+    client = _client(base_url="https://x.com")
     err = requests.HTTPError()
     err.response = MagicMock(status_code=500)
     client.session.get = MagicMock(side_effect=err)
@@ -266,14 +284,14 @@ def test_rate_limiter_wait_zero_sleep_loops_without_sleep(monkeypatch):
 
 
 def test_api_client_retries_zero_does_not_mount_status_forcelist():
-    client = APIClient(base_url="https://example.invalid", retries=0)
+    client = _client(base_url="https://example.invalid", retries=0)
     max_retries = client.session.get_adapter("https://").max_retries
     assert getattr(max_retries, "total", max_retries) in (0, False)
     assert not getattr(max_retries, "status_forcelist", None)
 
 
 def test_api_client_positive_retries_mounts_status_forcelist():
-    client = APIClient(base_url="https://example.invalid", retries=3)
+    client = _client(base_url="https://example.invalid", retries=3)
     forcelist = client.session.get_adapter("https://").max_retries.status_forcelist
     assert 429 in forcelist
     assert 503 in forcelist

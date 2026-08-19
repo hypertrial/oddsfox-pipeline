@@ -22,12 +22,6 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         == dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026
     )
     assert (
-        dbt_schemas.resolve_source_slug(
-            {"name": "international_results_wc2026_matches"}
-        )
-        == dbt_schemas.DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026
-    )
-    assert (
         dbt_schemas.resolve_source_slug({"name": "other_model"})
         == dbt_schemas.DBT_FALLBACK_SCHEMA
     )
@@ -37,13 +31,6 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
             dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,
         )
         == "ingestion_run_observability"
-    )
-    assert (
-        dbt_schemas.shorten_model_name(
-            "international_results_wc2026_team_status",
-            dbt_schemas.DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026,
-        )
-        == "team_status"
     )
     assert (
         dbt_schemas.shorten_model_name(
@@ -88,26 +75,6 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         dbt_schemas.DBT_SOURCE_WC2026,
         fqn=["oddsfox", "wc2026", "custom_model"],
     ) == AssetKey(["wc2026", "marts", "custom_model"])
-    assert dbt_schemas.dbt_model_asset_key_for_name(
-        "stg_international_results_wc2026_match_results",
-        dbt_schemas.DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026,
-    ) == AssetKey(["international_results", "wc2026", "staging", "match_results"])
-    assert dbt_schemas.dbt_model_asset_key_for_name(
-        "int_international_results_wc2026_match_teams",
-        dbt_schemas.DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026,
-    ) == AssetKey(["international_results", "wc2026", "intermediate", "match_teams"])
-    assert dbt_schemas.dbt_model_asset_key_for_name(
-        "international_results_wc2026_team_status",
-        dbt_schemas.DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026,
-    ) == AssetKey(["international_results", "wc2026", "marts", "team_status"])
-    assert dbt_schemas.dbt_model_asset_key_for_name(
-        "international_results_wc2026_data_quality",
-        dbt_schemas.DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026,
-    ) == AssetKey(["international_results", "wc2026", "observability", "data_quality"])
-    assert dbt_schemas.dbt_model_asset_key_for_name(
-        "custom_model",
-        dbt_schemas.DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026,
-    ) == AssetKey(["international_results", "wc2026", "marts", "custom_model"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
         "stg_polymarket_catalog_markets",
         dbt_schemas.DBT_SOURCE_POLYMARKET_CATALOG,
@@ -191,14 +158,18 @@ def test_expected_dbt_relations_cover_models_and_seeds():
 
 def test_wc2026_mart_aliases_cover_aliased_models():
     aliased = set()
-    for path in (ROOT / "dbt" / "models" / "wc2026" / "marts").glob("*.sql"):
+    paths = [
+        *(ROOT / "dbt" / "models" / "wc2026" / "marts").glob("*.sql"),
+        *(ROOT / "dbt" / "models" / "reference").glob("wc2026_*.sql"),
+    ]
+    for path in paths:
         text = path.read_text(encoding="utf-8")
-        if "alias=" in text.split("\n", 1)[0]:
+        if "alias=" in text:
             aliased.add(path.stem)
     assert aliased == set(dbt_schemas.WC2026_MART_RELATION_ALIASES)
     assert (
         dbt_schemas.dbt_physical_relation_name(
-            dbt_schemas.WC2026_MARTS_SCHEMA, "wc2026_fixtures"
+            dbt_schemas.WC2026_MARTS_SCHEMA, "wc2026_contract_metadata"
         )
-        == "fixtures"
+        == "contract_metadata"
     )

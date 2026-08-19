@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 import csv
-from datetime import date, datetime, timedelta, timezone
-from itertools import combinations
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from oddsfox_pipeline.ingestion.polymarket.polygon_seed import (
     NEG_RISK_V2_EXCHANGE,
-    OPENFOOTBALL_REVISION,
     SEED_COLUMNS,
     STANDARD_V2_EXCHANGE,
     parse_polygon_market,
     polygon_manifest_content_sha256,
 )
+
+REFERENCE_BUNDLE_ID = "synthetic-reference-v1"
 
 
 def _polygon_stage(match_id: int) -> str:
@@ -80,14 +80,10 @@ def complete_polygon_seed_rows() -> list[dict[str, str]]:
                         if structure == "standard"
                         else NEG_RISK_V2_EXCHANGE
                     ),
-                    "openfootball_revision": OPENFOOTBALL_REVISION,
-                    "openfootball_path": (
-                        "2026--usa/cup.txt"
-                        if match_id <= 72
-                        else "2026--usa/cup_finals.txt"
-                    ),
-                    "openfootball_source_lines": f"{match_id}-{match_id + 1}",
-                    "openfootball_line_hash": f"{match_id:064x}",
+                    "reference_bundle_id": REFERENCE_BUNDLE_ID,
+                    "reference_table": "wc2026_fixtures",
+                    "reference_row_key": str(match_id),
+                    "reference_row_sha256": f"{match_id:064x}",
                     "condition_init_tx_hash": f"0x{index + 1000:064x}",
                     "condition_init_log_index": str(index),
                     "question_init_tx_hash": f"0x{index + 2000:064x}",
@@ -126,161 +122,6 @@ def write_synthetic_distribution_inputs(dbt_root: Path) -> tuple[Path, Path]:
     polygon_rows = complete_polygon_seed_rows()
     polygon_path = seed_root / "polymarket_wc2026_polygon_settlement_markets.csv"
     _write_csv(polygon_path, list(SEED_COLUMNS), polygon_rows)
-
-    schedule_fields = (
-        "match_id",
-        "stage",
-        "group_label",
-        "matchday",
-        "match_date",
-        "kickoff_time_et",
-        "venue",
-        "home_slot",
-        "away_slot",
-        "home_team",
-        "away_team",
-        "status",
-        "source",
-    )
-    stage_by_match = (
-        [(72, "Group Stage"), (88, "Round of 32"), (96, "Round of 16")]
-        + [(100, "Quarter-final"), (102, "Semi-final")]
-        + [(103, "Third-place"), (104, "Final")]
-    )
-    schedule_rows = []
-    for match_id in range(1, 105):
-        stage = next(name for ceiling, name in stage_by_match if match_id <= ceiling)
-        match_date = date(2026, 6, 1) + timedelta(days=(match_id - 1) // 4)
-        schedule_rows.append(
-            {
-                "match_id": str(match_id),
-                "stage": stage,
-                "group_label": (
-                    chr(65 + ((match_id - 1) % 12)) if stage == "Group Stage" else ""
-                ),
-                "matchday": str(((match_id - 1) // 24) + 1),
-                "match_date": match_date.isoformat(),
-                "kickoff_time_et": "01:00 PM",
-                "venue": f"Synthetic Venue {((match_id - 1) % 16) + 1}",
-                "home_slot": f"Synthetic Home Slot {match_id}",
-                "away_slot": f"Synthetic Away Slot {match_id}",
-                "home_team": f"Synthetic Home {match_id}",
-                "away_team": f"Synthetic Away {match_id}",
-                "status": "scheduled",
-                "source": "synthetic-test-fixture",
-            }
-        )
-    _write_csv(
-        seed_root / "wc2026_schedule_matches.csv", schedule_fields, schedule_rows
-    )
-
-    third_fields = (
-        "option_id",
-        "slot_1a_group",
-        "slot_1b_group",
-        "slot_1d_group",
-        "slot_1e_group",
-        "slot_1g_group",
-        "slot_1i_group",
-        "slot_1k_group",
-        "slot_1l_group",
-    )
-    third_rows = []
-    for option_id, groups in enumerate(combinations("ABCDEFGHIJKL", 8), start=1):
-        third_rows.append(
-            {"option_id": str(option_id)}
-            | dict(zip(third_fields[1:], groups, strict=True))
-        )
-    _write_csv(
-        seed_root / "wc2026_third_place_options.csv",
-        third_fields,
-        third_rows,
-    )
-
-    venue_fields = (
-        "venue",
-        "host_city",
-        "host_country",
-        "venue_lat",
-        "venue_lon",
-        "venue_timezone",
-        "venue_altitude_m",
-    )
-    venue_rows = [
-        {
-            "venue": f"Synthetic Venue {index}",
-            "host_city": f"Synthetic City {index}",
-            "host_country": "Synthetic Country",
-            "venue_lat": f"{30 + index / 10:.1f}",
-            "venue_lon": f"{-100 + index / 10:.1f}",
-            "venue_timezone": "UTC",
-            "venue_altitude_m": str(index * 10),
-        }
-        for index in range(1, 17)
-    ]
-    _write_csv(seed_root / "wc2026_venues.csv", venue_fields, venue_rows)
-
-    camp_fields = (
-        "team_name_fifa",
-        "team_name_model",
-        "base_camp_market",
-        "base_camp_country",
-        "training_site_name",
-        "training_site_lat",
-        "training_site_lon",
-        "training_site_timezone",
-        "training_site_altitude_m",
-        "geocode_quality",
-        "geocode_source",
-        "manual_review_status",
-        "source_url",
-        "source_updated_at",
-        "notes",
-    )
-    camp_rows = [
-        {
-            "team_name_fifa": f"Synthetic Team {index}",
-            "team_name_model": f"Synthetic Team {index}",
-            "base_camp_market": f"Synthetic Camp {index}",
-            "base_camp_country": "Synthetic Country",
-            "training_site_name": f"Synthetic Training Site {index}",
-            "training_site_lat": f"{35 + index / 100:.2f}",
-            "training_site_lon": f"{-95 + index / 100:.2f}",
-            "training_site_timezone": "UTC",
-            "training_site_altitude_m": str(index),
-            "geocode_quality": "synthetic",
-            "geocode_source": "synthetic-test-fixture",
-            "manual_review_status": "synthetic",
-            "source_url": "https://example.invalid/synthetic",
-            "source_updated_at": "2026-01-01",
-            "notes": "Synthetic test fixture",
-        }
-        for index in range(1, 49)
-    ]
-    _write_csv(seed_root / "wc2026_base_camps_teams.csv", camp_fields, camp_rows)
-
-    taxonomy_fields = (
-        "tournament",
-        "is_friendly",
-        "is_competitive",
-        "competition_family",
-        "confederation_scope",
-        "notes",
-    )
-    _write_csv(
-        seed_root / "wc2026_tournament_classification.csv",
-        taxonomy_fields,
-        [
-            {
-                "tournament": "Synthetic Friendly",
-                "is_friendly": "true",
-                "is_competitive": "false",
-                "competition_family": "friendly",
-                "confederation_scope": "synthetic",
-                "notes": "Synthetic test fixture",
-            }
-        ],
-    )
 
     attestation_path = (
         dbt_root.parent / "config/polygon-settlement-resolution-attestation.yml"

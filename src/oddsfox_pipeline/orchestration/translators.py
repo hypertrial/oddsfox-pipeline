@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from dagster import AssetKey
 from dagster_dbt import DagsterDbtTranslator, DagsterDbtTranslatorSettings
 
 from oddsfox_pipeline.orchestration.dbt_project import DBT_DAGSTER_GROUP_NAME
@@ -19,6 +20,8 @@ class PolymarketDagsterDbtTranslator(DagsterDbtTranslator):
         )
 
     def get_asset_key(self, dbt_resource_props):
+        if dbt_resource_props.get("source_name") == "oddsfox_reference":
+            return AssetKey(["oddsfox", "reference", str(dbt_resource_props["name"])])
         if (dbt_resource_props.get("meta") or {}).get("dagster", {}).get("asset_key"):
             return super().get_asset_key(dbt_resource_props)
         return dbt_model_asset_key(dbt_resource_props)

@@ -57,23 +57,6 @@ DEFAULT_POLYGON_SETTLEMENT_AUDIT_ROOT: Final = (
 
 STANDARD_EXCHANGE: Final = "0xE111180000d2663C0091e4f400237545B87B996B"
 NEG_RISK_EXCHANGE: Final = "0xe2222d279d744050d28e00520010520000310F59"
-OPENFOOTBALL_REVISION: Final = "bd46a148289f9930da66c140d4d7d2325e95d387"
-OPENFOOTBALL_LICENSE_SHA256: Final = (
-    "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673"
-)
-OPENFOOTBALL_LICENSE_URI: Final = (
-    f"https://github.com/openfootball/worldcup/blob/{OPENFOOTBALL_REVISION}/LICENSE.md"
-)
-FIFA_SCHEDULE_URI: Final = (
-    "https://digitalhub.fifa.com/asset/"
-    "4b5d4417-3343-4732-9cdf-14b6662af407/"
-    "FWC26-Match-Schedule_English.pdf"
-)
-FIFA_SCHEDULE_REVISION: Final = "FWC26 Match Schedule_v31_16072026_EN"
-FIFA_SCHEDULE_SHA256: Final = (
-    "165fb909253b746e6173a4443bdc3e5d786530f0684af6e85c1fd21fff252811"
-)
-
 _SHA256_RE: Final = re.compile(r"^[0-9a-f]{64}$")
 _BLOCK_HASH_RE: Final = re.compile(r"^0x[0-9a-fA-F]{64}$")
 _VERIFICATION_STATUSES: Final = {
@@ -167,10 +150,10 @@ MARKET_COLUMNS: Final[tuple[str, ...]] = (
     "no_token_id",
     "market_structure",
     "exchange_address",
-    "openfootball_revision",
-    "openfootball_path",
-    "openfootball_source_lines",
-    "openfootball_line_hash",
+    "reference_bundle_id",
+    "reference_table",
+    "reference_row_key",
+    "reference_row_sha256",
     "condition_init_tx_hash",
     "condition_init_log_index",
     "question_init_tx_hash",
@@ -401,8 +384,8 @@ def _read_market_rows(
 _LOWERCASE_SEED_COLUMNS: Final = {
     "condition_id",
     "exchange_address",
-    "openfootball_revision",
-    "openfootball_line_hash",
+    "reference_bundle_id",
+    "reference_row_sha256",
     "condition_init_tx_hash",
     "question_init_tx_hash",
     "ancillary_data_sha256",
@@ -894,18 +877,11 @@ def _write_audit_metadata(
         "generator_commit": generator_commit,
         "resolution_attestation": _jsonable(resolution_attestation),
         "source_revisions": {
-            "fifa_match_number_schedule": {
-                "revision": FIFA_SCHEDULE_REVISION,
-                "sha256": FIFA_SCHEDULE_SHA256,
-            },
-            "openfootball_worldcup": sorted(
-                {str(row["openfootball_revision"]) for row in market_rows}
-            ),
-            "openfootball_license": {
-                "revision": OPENFOOTBALL_REVISION,
-                "path": "LICENSE.md",
-                "sha256": OPENFOOTBALL_LICENSE_SHA256,
-                "uri": OPENFOOTBALL_LICENSE_URI,
+            "scraper_reference_bundle": {
+                "bundle_ids": sorted(
+                    {str(row["reference_bundle_id"]) for row in market_rows}
+                ),
+                "tables": sorted({str(row["reference_table"]) for row in market_rows}),
             },
             "conditional_tokens": "eeefca66eb46c800a9aaab88db2064a99026fde5",
             "uma_ctf_adapter": "8b76cc9e0d46c6f7450a0adb0ddc0f5b0568c9cc",
@@ -938,8 +914,8 @@ def _write_sources(
     market_rows: Sequence[Mapping[str, Any]],
     provenance: Mapping[str, Any],
 ) -> None:
-    revisions = sorted({str(row["openfootball_revision"]) for row in market_rows})
-    fixture_paths = sorted({str(row["openfootball_path"]) for row in market_rows})
+    revisions = sorted({str(row["reference_bundle_id"]) for row in market_rows})
+    fixture_paths = sorted({str(row["reference_table"]) for row in market_rows})
     rows = [
         {
             "source_name": "Polygon PoS blockchain",
@@ -959,18 +935,11 @@ def _write_sources(
             ),
         },
         {
-            "source_name": "FIFA World Cup 26 Match Schedule",
-            "role": "official numeric match identifiers only",
-            "uri": FIFA_SCHEDULE_URI,
-            "revision": f"{FIFA_SCHEDULE_REVISION}; sha256={FIFA_SCHEDULE_SHA256}",
-            "notes": "The PDF and its expressive layout are not redistributed.",
-        },
-        {
-            "source_name": "OpenFootball World Cup",
+            "source_name": "OddsFox Scraper reference bundle",
             "role": "fixture identity and scheduled kickoff",
-            "uri": "https://github.com/openfootball/worldcup",
+            "uri": "artifact:oddsfox.reference.v1",
             "revision": ",".join(revisions),
-            "notes": ("Fixture files: " + ", ".join(fixture_paths)),
+            "notes": ("Reference tables: " + ", ".join(fixture_paths)),
         },
         {
             "source_name": "Gnosis ConditionalTokens",

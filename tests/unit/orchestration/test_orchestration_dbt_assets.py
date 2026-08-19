@@ -25,11 +25,7 @@ from tests.unit.orchestration.orchestration_test_support import (
 def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
     sources_root = Path(__file__).resolve().parents[3] / "dbt" / "models" / "sources"
     tables = {}
-    for source_file in (
-        "polymarket_wc2026_sources.yml",
-        "international_results_wc2026_sources.yml",
-        "openfootball_wc2026_sources.yml",
-    ):
+    for source_file in ("polymarket_wc2026_sources.yml",):
         data = yaml.safe_load((sources_root / source_file).read_text())
         tables.update(
             {
@@ -110,24 +106,6 @@ def test_dbt_source_metadata_maps_expected_dagster_asset_keys():
         "ops",
         "market_scope_registry",
     ]
-    assert tables[("international_results_wc2026_raw", "match_results")] == [
-        "international_results",
-        "wc2026",
-        "raw",
-        "match_results",
-    ]
-    assert tables[("international_results_wc2026_raw", "historical_matches")] == [
-        "international_results",
-        "historical",
-        "raw",
-        "snapshot",
-    ]
-    assert tables[("openfootball_wc2026_raw", "schedule_fixtures")] == [
-        "openfootball",
-        "wc2026",
-        "raw",
-        "schedule_fixtures",
-    ]
 
 
 def test_dbt_translator_does_not_override_model_dependencies():
@@ -173,21 +151,20 @@ def test_dbt_translator_resolves_source_deps_to_ingestion_assets():
     }
     assert "polymarket/wc2026/raw/token_odds_history_hourly" in stg_odds_parents
 
-    stg_results_parents = {
+    match_working_set_parents = {
         key.to_user_string()
         for key in graph.get(
-            AssetKey(["international_results", "wc2026", "staging", "match_results"])
+            AssetKey(["polymarket", "wc2026", "intermediate", "match_working_set"])
         ).parent_keys
     }
-    assert "international_results/wc2026/raw/match_results" in stg_results_parents
-
-    stg_fixtures_parents = {
-        key.to_user_string()
-        for key in graph.get(
-            AssetKey(["openfootball", "wc2026", "staging", "schedule_fixtures"])
-        ).parent_keys
-    }
-    assert "openfootball/wc2026/raw/schedule_fixtures" in stg_fixtures_parents
+    assert (
+        "oddsfox/reference/international_results_wc2026_matches"
+        in match_working_set_parents
+    )
+    assert (
+        "oddsfox/reference/openfootball_wc2026_schedule_fixtures"
+        in match_working_set_parents
+    )
 
     stg_order_book_parents = {
         key.to_user_string()

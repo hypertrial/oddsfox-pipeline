@@ -2,8 +2,9 @@
 
 ## 1. Purpose
 
-OddsFox Pipeline turns operator-configured prediction-market and football data
-into trusted local analytical relations and immutable research releases.
+OddsFox Pipeline turns operator-configured prediction-market data and validated
+Scraper reference bundles into trusted local analytical relations and immutable
+research releases.
 
 - Problem: Source data is fragmented, mutable, and unsafe to analyze or consume
   until identity, schema, completeness, and quality are validated.
@@ -58,12 +59,16 @@ documented artifacts, and contributors extending supported pipelines.
 
 ### In Scope
 
-- Safe-source ingestion, canonical snapshot validation, and local persistence.
+- Allowlisted Polymarket, PMXT, Kalshi, and Polygon ingestion, canonical market
+  snapshot validation, and local persistence.
+- Source-neutral validation and transactional loading of immutable reference
+  bundles published by OddsFox Scraper.
 - Dagster jobs, dbt transformations, marts, observability, and data quality.
 - Versioned data contracts and validated operator-local exports and releases.
 
 ### Out of Scope
 
+- Non-prediction-market collection, parsing, normalization, or Elo production.
 - Private source authorization or private collector implementation.
 - Forecasting, portfolio allocation, order admission, or execution.
 - A hosted data service or bundled production datasets.

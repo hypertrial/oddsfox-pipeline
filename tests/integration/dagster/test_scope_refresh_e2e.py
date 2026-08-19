@@ -15,6 +15,7 @@ pytest.importorskip("dagster_dbt")
 
 from dagster import materialize
 from dagster_dbt import DbtCliResource
+from tests.integration.match_minute_seed import seed_test_openfootball_schedule_fixtures
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
 from oddsfox_pipeline.config.settings import resolve_dbt_executable
@@ -30,7 +31,6 @@ from oddsfox_pipeline.orchestration import (
 )
 from oddsfox_pipeline.orchestration.assets import (
     DBT_PROJECT,
-    international_results_wc2026_raw_match_results,
     kalshi_wc2026_ops_market_scope_registry,
     kalshi_wc2026_raw_market_candlesticks_hourly,
     kalshi_wc2026_raw_markets,
@@ -60,22 +60,10 @@ from oddsfox_pipeline.storage.duckdb.schemas.kalshi import (
     bootstrap_kalshi_tables,
     create_all_kalshi_test_raw_tables,
 )
-from oddsfox_pipeline.storage.duckdb.schemas.openfootball import (
-    seed_test_openfootball_schedule_fixtures,
-)
 from oddsfox_pipeline.storage.duckdb.schemas.polymarket import (
     create_all_scope_test_markets_tables,
     seed_test_ingestion_run_event,
 )
-
-_EMPTY_RESULTS_SUMMARY = {
-    "rows": 0,
-    "completed_rows": 0,
-    "scheduled_rows": 0,
-    "source_url": "https://example.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/results.csv",
-    "source_revision": "a" * 40,
-    "source_payload_sha256": "b" * 64,
-}
 
 
 def _fake_sync_market_scope_registry(**kwargs):
@@ -482,11 +470,6 @@ oddsfox:
         "oddsfox_pipeline.orchestration.polymarket_ops.sync_market_scope_registry",
         _fake_sync_market_scope_registry,
     )
-    monkeypatch.setattr(
-        "oddsfox_pipeline.orchestration.assets_international_results.sync_wc2026_match_results",
-        lambda: dict(_EMPTY_RESULTS_SUMMARY),
-    )
-
     _seed_dlt_owned_markets(market_page)
 
     noop_dlt = MagicMock()
@@ -494,7 +477,6 @@ oddsfox:
 
     ingest_result = materialize(
         [
-            international_results_wc2026_raw_match_results,
             polymarket_wc2026_raw_markets,
             polymarket_wc2026_raw_markets_snapshot,
             polymarket_wc2026_ops_market_scope_registry,
@@ -874,10 +856,6 @@ def _patch_kalshi_refresh_externals(monkeypatch) -> dict[str, list[dict]]:
         "oddsfox_pipeline.orchestration.kalshi_ops.sync_kalshi_candlesticks",
         fake_sync_kalshi_candlesticks,
     )
-    monkeypatch.setattr(
-        "oddsfox_pipeline.orchestration.assets_international_results.sync_wc2026_match_results",
-        lambda: dict(_EMPTY_RESULTS_SUMMARY),
-    )
     return {"events": events, "markets": markets}
 
 
@@ -937,7 +915,6 @@ def _materialize_kalshi_refresh_path(
 
     ingest_result = materialize(
         [
-            international_results_wc2026_raw_match_results,
             kalshi_wc2026_raw_markets,
             kalshi_wc2026_raw_markets_snapshot,
             kalshi_wc2026_ops_market_scope_registry,

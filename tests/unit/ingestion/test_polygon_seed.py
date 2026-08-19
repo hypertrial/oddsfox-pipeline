@@ -66,11 +66,10 @@ def test_seed_parser_rejects_bad_stage_window_token_and_exchange() -> None:
         ({"no_token_id": "1002"}, "token IDs must differ"),
         ({"market_structure": "other"}, "Invalid V2 exchange"),
         ({"condition_init_tx_hash": "0x1234"}, "canonical 32-byte hex"),
-        ({"openfootball_line_hash": "A" * 64}, "lowercase SHA-256"),
-        ({"openfootball_revision": "a" * 39}, "pinned OpenFootball"),
-        ({"openfootball_path": "cup.txt"}, "pinned OpenFootball"),
-        ({"openfootball_source_lines": "0"}, "source lines"),
-        ({"openfootball_source_lines": "2-1"}, "source lines are reversed"),
+        ({"reference_row_sha256": "A" * 64}, "lowercase SHA-256"),
+        ({"reference_bundle_id": "bad id"}, "reference bundle ID"),
+        ({"reference_table": "Bad.Table"}, "reference table"),
+        ({"reference_row_key": "0"}, "must equal FIFA match ID"),
         ({"manifest_version": "v1"}, "plain SemVer"),
         ({"away_team": "home 1"}, "teams must differ"),
         ({"no_represents": "YES-1-HOME_WIN"}, "semantics must differ"),
@@ -147,10 +146,10 @@ def test_manifest_rejects_every_inventory_and_fixture_invariant() -> None:
         ),
         (
             (
-                replace(parsed[0], openfootball_revision="a" * 40),
+                replace(parsed[0], reference_bundle_id="another-reference-v1"),
                 *parsed[1:],
             ),
-            "pinned OpenFootball revision",
+            "one immutable reference bundle",
         ),
         (
             (
@@ -238,10 +237,10 @@ def test_manifest_rejects_group_and_knockout_row_counts() -> None:
         kickoff_at_utc=match_two.kickoff_at_utc,
         window_start_at_utc=match_two.window_start_at_utc,
         window_end_at_utc=match_two.window_end_at_utc,
-        openfootball_revision=match_two.openfootball_revision,
-        openfootball_path=match_two.openfootball_path,
-        openfootball_source_lines=match_two.openfootball_source_lines,
-        openfootball_line_hash=match_two.openfootball_line_hash,
+        reference_bundle_id=match_two.reference_bundle_id,
+        reference_table=match_two.reference_table,
+        reference_row_key=match_two.reference_row_key,
+        reference_row_sha256=match_two.reference_row_sha256,
     )
     with pytest.raises(ValueError, match="three canonical propositions"):
         validate_polygon_market_manifest((moved_group, *parsed[1:]))
@@ -257,10 +256,10 @@ def test_manifest_rejects_group_and_knockout_row_counts() -> None:
         kickoff_at_utc=match_74.kickoff_at_utc,
         window_start_at_utc=match_74.window_start_at_utc,
         window_end_at_utc=match_74.window_end_at_utc,
-        openfootball_revision=match_74.openfootball_revision,
-        openfootball_path=match_74.openfootball_path,
-        openfootball_source_lines=match_74.openfootball_source_lines,
-        openfootball_line_hash=match_74.openfootball_line_hash,
+        reference_bundle_id=match_74.reference_bundle_id,
+        reference_table=match_74.reference_table,
+        reference_row_key=match_74.reference_row_key,
+        reference_row_sha256=match_74.reference_row_sha256,
         market_structure=match_74.market_structure,
         exchange_address=match_74.exchange_address,
     )

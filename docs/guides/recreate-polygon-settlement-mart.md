@@ -34,6 +34,7 @@ Choose an unused plain SemVer and record the UTC review minute:
 ```bash
 export POLYGON_SEED_MANIFEST_VERSION="1.0.0"
 export POLYGON_SEED_REVIEWED_AT="$(date -u +%Y-%m-%dT%H:%M:00Z)"
+export REFERENCE_BUNDLE_DIR="/absolute/path/to/scraper-reference-bundle"
 ```
 
 Generate the candidate:
@@ -48,8 +49,9 @@ candidate.
 
 The tool automatically:
 
-1. downloads the pinned FIFA schedule and CC0 OpenFootball fixtures;
-2. verifies their exact content hashes;
+1. validates the immutable Scraper reference bundle and consumes its fixture
+   table;
+2. records the bundle, table, row, and checksum provenance for each fixture;
 3. discovers the relevant Polygon question and condition events;
 4. derives and verifies Yes/No token orientation;
 5. verifies the standard and neg-risk contract relationships;

@@ -17,6 +17,7 @@ import requests
 import yaml
 from requests.adapters import HTTPAdapter
 
+from oddsfox_pipeline.config.acquisition_ownership import require_acquisition_url
 from oddsfox_pipeline.config.settings import (
     PMXT_API_KEY,
     PMXT_API_URL,
@@ -452,7 +453,8 @@ def build_pmxt_client(
     request_timeout: float | tuple[float, float] | None = None,
 ) -> APIClient:
     client = APIClient(
-        base_url=PMXT_API_URL,
+        base_url=require_acquisition_url("pmxt", PMXT_API_URL),
+        source_id="pmxt",
         retries=0,
         requests_per_second=requests_per_minute / 60.0,
         request_timeout=request_timeout,

@@ -133,21 +133,21 @@ unit_tests:
           - {market_id: f-draw, event_id: f-primary, event_slug: f-primary, event_title: France vs. Germany, event_start_time: '2026-07-19 19:00:00', event_finished_time: '2026-07-19 22:00:00', event_ended: true, sports_market_type: moneyline, group_item_title: Draw, outcomes: '["Yes", "No"]', clob_token_ids: '["f-draw-yes", "f-draw-no"]', is_closed: true}
           - {market_id: f-away, event_id: f-primary, event_slug: f-primary, event_title: France vs. Germany, event_start_time: '2026-07-19 19:00:00', event_finished_time: '2026-07-19 22:00:00', event_ended: true, sports_market_type: moneyline, group_item_title: Germany, outcomes: '["Yes", "No"]', clob_token_ids: '["f-away-yes", "f-away-no"]', is_closed: true}
           - {market_id: final-advance, event_id: f-more, event_slug: f-more, event_title: France vs. Germany - More Markets, event_start_time: '2026-07-19 19:00:00', sports_market_type: soccer_team_to_advance, group_item_title: Team to Advance, outcomes: '["Germany", "France"]', clob_token_ids: '["germany-token", "france-token"]', condition_id: final-condition, question: Team to Advance, is_closed: true}
-      - input: ref('wc2026_fixtures')
+      - input: source('oddsfox_reference', 'wc2026_fixtures')
         rows:
           - {match_id: 1, stage: Group Stage, group_label: A, home_team: Mexico, away_team: South Africa, kickoff_at_et: '2026-06-11 15:00:00'}
-      - input: ref('international_results_wc2026_matches')
+      - input: source('oddsfox_reference', 'international_results_wc2026_matches')
         rows:
           - {match_id: result-group, match_date: '2026-06-11', home_team: South Africa, away_team: Mexico}
           - {match_id: result-round, match_date: '2026-07-14', home_team: Brazil, away_team: Portugal}
           - {match_id: result-third, match_date: '2026-07-18', home_team: Spain, away_team: Argentina}
           - {match_id: result-final, match_date: '2026-07-19', home_team: France, away_team: Germany}
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: source('oddsfox_reference', 'openfootball_wc2026_schedule_fixtures')
         rows:
           - {fifa_match_id: 101, stage_key: semifinal, home_team: Brazil, away_team: Portugal, kickoff_at_utc: '2026-07-14 19:00:00'}
           - {fifa_match_id: 103, stage_key: third_place, home_team: Spain, away_team: Argentina, kickoff_at_utc: '2026-07-18 19:00:00'}
           - {fifa_match_id: 104, stage_key: final, home_team: France, away_team: Germany, kickoff_at_utc: '2026-07-19 19:00:00'}
-      - input: ref('wc2026_team_canonical_aliases')
+      - input: source('oddsfox_reference', 'wc2026_team_canonical_aliases')
         rows: []
     expect:
       rows:
@@ -167,15 +167,15 @@ unit_tests:
           - {market_id: r-draw, event_id: r-primary, event_slug: r-primary, event_title: Brazil vs. Portugal, event_start_time: '2026-07-14 19:30:00', event_finished_time: '2026-07-14 21:35:00', event_ended: true, sports_market_type: moneyline, group_item_title: Draw, outcomes: '["Yes", "No"]', clob_token_ids: '["r-draw-yes", "r-draw-no"]', is_closed: true}
           - {market_id: r-away, event_id: r-primary, event_slug: r-primary, event_title: Brazil vs. Portugal, event_start_time: '2026-07-14 19:30:00', event_finished_time: '2026-07-14 21:35:00', event_ended: true, sports_market_type: moneyline, group_item_title: Portugal, outcomes: '["Yes", "No"]', clob_token_ids: '["r-away-yes", "r-away-no"]', is_closed: true}
           - {market_id: round-advance, event_id: r-more, event_slug: r-more, event_title: Brazil vs. Portugal - More Markets, event_start_time: '2026-07-14 19:30:00', sports_market_type: soccer_team_to_advance, group_item_title: Team to Advance, outcomes: '["Portugal", "Brazil"]', clob_token_ids: '["portugal-token", "brazil-token"]', condition_id: round-condition, question: Team to Advance, is_closed: true}
-      - input: ref('wc2026_fixtures')
+      - input: source('oddsfox_reference', 'wc2026_fixtures')
         rows: []
-      - input: ref('international_results_wc2026_matches')
+      - input: source('oddsfox_reference', 'international_results_wc2026_matches')
         rows:
           - {match_id: result-round, match_date: '2026-07-14', home_team: Brazil, away_team: Portugal}
-      - input: ref('stg_openfootball_wc2026_schedule_fixtures')
+      - input: source('oddsfox_reference', 'openfootball_wc2026_schedule_fixtures')
         rows:
           - {fifa_match_id: 101, stage_key: semifinal, home_team: Brazil, away_team: Portugal, kickoff_at_utc: '2026-07-14 19:00:00'}
-      - input: ref('wc2026_team_canonical_aliases')
+      - input: source('oddsfox_reference', 'wc2026_team_canonical_aliases')
         rows: []
     expect:
       rows:

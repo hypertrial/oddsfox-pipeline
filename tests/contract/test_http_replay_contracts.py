@@ -6,12 +6,6 @@ from pathlib import Path
 import pytest
 import vcr
 
-from oddsfox_pipeline.ingestion.international_results.match_results import (
-    build_match_results_url,
-    fetch_match_results_csv,
-    parse_wc2026_match_results_csv,
-    resolve_latest_results_revision,
-)
 from oddsfox_pipeline.ingestion.kalshi.client import (
     fetch_events_for_series,
     fetch_market_candlesticks,
@@ -54,7 +48,9 @@ def _replay_vcr() -> vcr.VCR:
 
 
 def test_polymarket_gamma_market_and_event_payload_replay_contract():
-    client = APIClient("https://gamma-api.polymarket.com", retries=0)
+    client = APIClient(
+        "https://gamma-api.polymarket.com", source_id="polymarket", retries=0
+    )
 
     with _replay_vcr().use_cassette("polymarket_gamma_market_event.yml"):
         market = client.get("/markets/pm-wc-arg-win")
@@ -72,7 +68,7 @@ def test_polymarket_gamma_market_and_event_payload_replay_contract():
 
 
 def test_polymarket_clob_minute_history_replay_contract():
-    client = APIClient("https://clob.polymarket.com", retries=0)
+    client = APIClient("https://clob.polymarket.com", source_id="polymarket", retries=0)
 
     with _replay_vcr().use_cassette("polymarket_clob_minute_history.yml"):
         history = fetch_token_history(
@@ -161,23 +157,12 @@ def test_pmxt_trades_payload_replay_contract():
     assert trade["outcomeId"] == outcome.clob_token_id
 
 
-def test_international_results_immutable_revision_replay_contract():
-    with _replay_vcr().use_cassette("international_results_revision.yml"):
-        revision = resolve_latest_results_revision()
-        csv_text = fetch_match_results_csv(build_match_results_url(revision))
-
-    rows = parse_wc2026_match_results_csv(
-        csv_text,
-        source_revision=revision,
-    )
-    assert revision == "a" * 40
-    assert rows[0]["home_team"] == "Mexico"
-    assert rows[0]["source_revision"] == revision
-    assert len(str(rows[0]["source_payload_sha256"])) == 64
-
-
 def test_kalshi_events_markets_and_candlesticks_replay_contract():
-    client = APIClient("https://api.elections.kalshi.com/trade-api/v2", retries=0)
+    client = APIClient(
+        "https://api.elections.kalshi.com/trade-api/v2",
+        source_id="kalshi",
+        retries=0,
+    )
     scraped_at = datetime(2099, 1, 1, 10, 0, 0)
 
     with _replay_vcr().use_cassette("kalshi_events_markets_candlesticks.yml"):

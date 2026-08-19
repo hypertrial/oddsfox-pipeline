@@ -7,6 +7,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from oddsfox_pipeline.config.acquisition_ownership import require_acquisition_url
 from oddsfox_pipeline.config.settings import HTTP_REQUEST_TIMEOUT
 from oddsfox_pipeline.resources.http_retry import TRANSIENT_HTTP_STATUSES
 
@@ -60,8 +61,16 @@ class APIClient:
         requests_per_second: Optional[float] = None,
         rate_limiter: Optional[RateLimiter] = None,
         request_timeout: Optional[float | tuple[float, float]] = HTTP_REQUEST_TIMEOUT,
+        source_id: str | None = None,
+        enforce_registry: bool = True,
     ):
+        if enforce_registry and source_id is None:
+            raise ValueError("registry-backed APIClient requires source_id")
+        self.source_id = source_id
+        self.enforce_registry = enforce_registry
         self.base_url = base_url.rstrip("/") if base_url else ""
+        if self.base_url and self.enforce_registry:
+            require_acquisition_url(str(self.source_id), self.base_url)
         self.session = requests.Session()
         self.rate_limit_lock = Lock()
         self.rate_limiter = rate_limiter
@@ -111,6 +120,8 @@ class APIClient:
             if self.base_url and not endpoint.startswith("http")
             else endpoint
         )
+        if self.enforce_registry:
+            require_acquisition_url(str(self.source_id), url)
         headers = kwargs.pop("headers", {})
         if "timeout" not in kwargs and self.request_timeout is not None:
             kwargs["timeout"] = self.request_timeout
@@ -125,6 +136,8 @@ class APIClient:
             if self.base_url and not endpoint.startswith("http")
             else endpoint
         )
+        if self.enforce_registry:
+            require_acquisition_url(str(self.source_id), url)
         headers = kwargs.pop("headers", {})
         if "timeout" not in kwargs and self.request_timeout is not None:
             kwargs["timeout"] = self.request_timeout

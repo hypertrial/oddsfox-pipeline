@@ -9,15 +9,12 @@ from dagster import AssetKey
 from oddsfox_pipeline.naming import (
     SCOPE_SOCCER,
     SCOPE_WC2026,
-    SOURCE_INTERNATIONAL_RESULTS,
     SOURCE_KALSHI,
     SOURCE_POLYMARKET,
     asset_key,
     schema_name,
 )
 
-DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026: Final = "international_results_wc2026"
-DBT_SOURCE_OPENFOOTBALL_WC2026: Final = "openfootball_wc2026"
 DBT_SOURCE_KALSHI_WC2026: Final = "kalshi_wc2026"
 DBT_SOURCE_POLYMARKET_WC2026: Final = "polymarket_wc2026"
 DBT_SOURCE_POLYMARKET_SOCCER: Final = "polymarket_soccer"
@@ -32,21 +29,6 @@ _KALSHI_SOURCE_SCOPES: dict[str, str] = {
     DBT_SOURCE_KALSHI_WC2026: SCOPE_WC2026,
 }
 
-INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA: Final = schema_name(
-    SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "staging"
-)
-INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA: Final = schema_name(
-    SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "intermediate"
-)
-INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA: Final = schema_name(
-    SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "marts"
-)
-INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA: Final = schema_name(
-    SOURCE_INTERNATIONAL_RESULTS, SCOPE_WC2026, "observability"
-)
-OPENFOOTBALL_WC2026_STAGING_SCHEMA: Final = "openfootball_wc2026_staging"
-WC2026_STAGING_SCHEMA: Final = "wc2026_staging"
-WC2026_INTERMEDIATE_SCHEMA: Final = "wc2026_intermediate"
 WC2026_MARTS_SCHEMA: Final = "wc2026_marts"
 WC2026_OBSERVABILITY_SCHEMA: Final = "wc2026_observability"
 POLYMARKET_WC2026_STAGING_SCHEMA: Final = schema_name(
@@ -100,18 +82,7 @@ KALSHI_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "kalshi_wc2026_data_quality",
     "kalshi_wc2026_ingestion_run_observability",
 )
-INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
-    "international_results_wc2026_data_quality",
-)
-
 DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
-    INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
-    INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA,
-    INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
-    INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
-    OPENFOOTBALL_WC2026_STAGING_SCHEMA,
-    WC2026_STAGING_SCHEMA,
-    WC2026_INTERMEDIATE_SCHEMA,
     WC2026_MARTS_SCHEMA,
     WC2026_OBSERVABILITY_SCHEMA,
     POLYMARKET_CATALOG_STAGING_SCHEMA,
@@ -130,64 +101,13 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
 )
 
 DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
-    (
-        OPENFOOTBALL_WC2026_STAGING_SCHEMA,
-        "stg_openfootball_wc2026_schedule_fixtures",
-    ),
-    (WC2026_STAGING_SCHEMA, "wc2026_schedule_matches"),
-    (WC2026_STAGING_SCHEMA, "wc2026_third_place_options"),
-    (WC2026_STAGING_SCHEMA, "wc2026_base_camps_teams"),
-    (WC2026_STAGING_SCHEMA, "wc2026_venues"),
-    (WC2026_STAGING_SCHEMA, "wc2026_team_canonical_aliases"),
-    (WC2026_STAGING_SCHEMA, "wc2026_tournament_classification"),
-    (WC2026_MARTS_SCHEMA, "wc2026_base_camp_venues"),
-    (WC2026_MARTS_SCHEMA, "wc2026_club_strength_current"),
-    (WC2026_MARTS_SCHEMA, "wc2026_club_strength_history"),
-    (WC2026_MARTS_SCHEMA, "wc2026_club_strength_snapshot"),
     (WC2026_MARTS_SCHEMA, "wc2026_contract_metadata"),
-    (WC2026_MARTS_SCHEMA, "wc2026_event_state_timing"),
-    (WC2026_MARTS_SCHEMA, "wc2026_fixtures"),
-    (WC2026_MARTS_SCHEMA, "wc2026_international_matches"),
-    (WC2026_MARTS_SCHEMA, "wc2026_player_features"),
     (WC2026_MARTS_SCHEMA, "wc2026_price_liquidity_current"),
     (WC2026_MARTS_SCHEMA, "wc2026_price_liquidity_history"),
-    (WC2026_MARTS_SCHEMA, "wc2026_results"),
     (WC2026_MARTS_SCHEMA, "wc2026_source_provenance"),
-    (WC2026_MARTS_SCHEMA, "wc2026_squad_player_features"),
-    (WC2026_MARTS_SCHEMA, "wc2026_team_identities"),
-    (WC2026_MARTS_SCHEMA, "wc2026_team_ratings_current"),
-    (WC2026_MARTS_SCHEMA, "wc2026_team_ratings_history"),
-    (WC2026_MARTS_SCHEMA, "wc2026_team_ratings_pre_match"),
-    (WC2026_MARTS_SCHEMA, "wc2026_third_place_lookup"),
-    (WC2026_MARTS_SCHEMA, "wc2026_third_place_slot_assignments"),
-    (WC2026_MARTS_SCHEMA, "wc2026_travel_features"),
     (WC2026_MARTS_SCHEMA, "wc2026_venue_markets"),
     (WC2026_OBSERVABILITY_SCHEMA, "wc2026_source_availability"),
     (WC2026_OBSERVABILITY_SCHEMA, "wc2026_strategy_input_readiness"),
-    (
-        INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
-        "stg_international_results_wc2026_match_results",
-    ),
-    (
-        INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA,
-        "international_results_wc2026_team_aliases",
-    ),
-    (
-        INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA,
-        "int_international_results_wc2026_match_teams",
-    ),
-    (
-        INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
-        "international_results_wc2026_matches",
-    ),
-    (
-        INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA,
-        "international_results_wc2026_team_status",
-    ),
-    (
-        INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA,
-        "international_results_wc2026_data_quality",
-    ),
     (POLYMARKET_CATALOG_STAGING_SCHEMA, "stg_polymarket_catalog_markets"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_markets"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_event_snapshots"),
@@ -498,27 +418,10 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
 
 # Strategy marts set config(alias=...); DuckDB physical names omit the wc2026_ prefix.
 WC2026_MART_RELATION_ALIASES: Final[dict[str, str]] = {
-    "wc2026_base_camp_venues": "base_camp_venues",
-    "wc2026_club_strength_current": "club_strength_current",
-    "wc2026_club_strength_history": "club_strength_history",
-    "wc2026_club_strength_snapshot": "club_strength_snapshot",
     "wc2026_contract_metadata": "contract_metadata",
-    "wc2026_event_state_timing": "event_state_timing",
-    "wc2026_fixtures": "fixtures",
-    "wc2026_international_matches": "international_matches",
-    "wc2026_player_features": "player_features",
     "wc2026_price_liquidity_current": "price_liquidity_current",
     "wc2026_price_liquidity_history": "price_liquidity_history",
-    "wc2026_results": "results",
     "wc2026_source_provenance": "source_provenance",
-    "wc2026_squad_player_features": "squad_player_features",
-    "wc2026_team_identities": "team_identities",
-    "wc2026_team_ratings_current": "team_ratings_current",
-    "wc2026_team_ratings_history": "team_ratings_history",
-    "wc2026_team_ratings_pre_match": "team_ratings_pre_match",
-    "wc2026_third_place_lookup": "third_place_lookup",
-    "wc2026_third_place_slot_assignments": "third_place_slot_assignments",
-    "wc2026_travel_features": "travel_features",
     "wc2026_venue_markets": "venue_markets",
 }
 
@@ -573,7 +476,6 @@ def resolve_source_slug(
     *,
     fqn: Sequence[str] | None = None,
 ) -> str:
-    tags = set(props.get("tags") or ())
     path_fqn = list(fqn or props.get("fqn") or ())
     if len(path_fqn) >= 2 and path_fqn[1] == DBT_SOURCE_POLYMARKET_CATALOG:
         return DBT_SOURCE_POLYMARKET_CATALOG
@@ -581,8 +483,6 @@ def resolve_source_slug(
         return path_fqn[1]
     if len(path_fqn) >= 2 and path_fqn[1] in _KALSHI_SOURCE_SCOPES:
         return path_fqn[1]
-    if len(path_fqn) >= 2 and path_fqn[1] == "international_results_wc2026":
-        return DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026
     if len(path_fqn) >= 2 and path_fqn[1] == "wc2026":
         return DBT_SOURCE_WC2026
     name = str(props.get("name") or "")
@@ -594,18 +494,6 @@ def resolve_source_slug(
         return polymarket_slug
     if name.startswith(("int_wc2026_", "wc2026_")):
         return DBT_SOURCE_WC2026
-    if "international_results" in tags or (
-        len(path_fqn) >= 2 and path_fqn[1] == "international_results_wc2026"
-    ):
-        return DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026
-    if name.startswith(
-        (
-            "stg_international_results_wc2026_",
-            "int_international_results_wc2026_",
-            "international_results_wc2026_",
-        )
-    ):
-        return DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026
     return DBT_FALLBACK_SCHEMA
 
 
@@ -697,27 +585,6 @@ def _polymarket_soccer_layer(
     )
 
 
-def _international_results_wc2026_layer(
-    model_name: str,
-    props: Mapping[str, object] | None = None,
-    *,
-    fqn: Sequence[str] | None = None,
-) -> str:
-    path_fqn = list(fqn or (props or {}).get("fqn") or ())
-    for segment in path_fqn:
-        if segment in {"staging", "intermediate", "marts", "observability"}:
-            return segment
-    if model_name.startswith("stg_international_results_wc2026_"):
-        return "staging"
-    if model_name.startswith("int_international_results_wc2026_"):
-        return "intermediate"
-    if model_name == "international_results_wc2026_team_aliases":
-        return "staging"
-    if model_name in INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_MODELS:
-        return "observability"
-    return "marts"
-
-
 def _kalshi_wc2026_subject(model_name: str) -> str:
     return _polymarket_subject(
         model_name,
@@ -745,22 +612,9 @@ def _polymarket_soccer_subject(model_name: str) -> str:
     )
 
 
-def _international_results_wc2026_subject(model_name: str) -> str:
-    for prefix in (
-        "stg_international_results_wc2026_",
-        "int_international_results_wc2026_",
-        "international_results_wc2026_",
-    ):
-        if model_name.startswith(prefix):
-            return model_name[len(prefix) :]
-    return model_name
-
-
 def shorten_model_name(model_name: str, source_slug: str) -> str:
     if source_slug == DBT_SOURCE_WC2026:
         return _wc2026_subject(model_name)
-    if source_slug == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
-        return _international_results_wc2026_subject(model_name)
     if source_slug == DBT_SOURCE_KALSHI_WC2026:
         return _kalshi_wc2026_subject(model_name)
     if source_slug == DBT_SOURCE_POLYMARKET_WC2026:
@@ -802,13 +656,6 @@ def dbt_model_asset_key_for_name(
                 "marts",
             )
         return AssetKey(["wc2026", resolved_layer, _wc2026_subject(model_name)])
-    if source_slug == DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026:
-        return asset_key(
-            SOURCE_INTERNATIONAL_RESULTS,
-            SCOPE_WC2026,
-            layer or _international_results_wc2026_layer(model_name, props, fqn=fqn),
-            _international_results_wc2026_subject(model_name),
-        )
     if source_slug == DBT_SOURCE_KALSHI_WC2026:
         return asset_key(
             SOURCE_KALSHI,
@@ -867,18 +714,11 @@ __all__ = [
     "DBT_MODELED_SCHEMAS",
     "WC2026_MART_RELATION_ALIASES",
     "dbt_physical_relation_name",
-    "DBT_SOURCE_INTERNATIONAL_RESULTS_WC2026",
     "DBT_SOURCE_KALSHI_WC2026",
-    "DBT_SOURCE_OPENFOOTBALL_WC2026",
     "DBT_SOURCE_POLYMARKET_CATALOG",
     "DBT_SOURCE_POLYMARKET_WC2026",
     "DBT_SOURCE_POLYMARKET_SOCCER",
     "DBT_SOURCE_WC2026",
-    "INTERNATIONAL_RESULTS_WC2026_INTERMEDIATE_SCHEMA",
-    "INTERNATIONAL_RESULTS_WC2026_MARTS_SCHEMA",
-    "INTERNATIONAL_RESULTS_WC2026_OBSERVABILITY_SCHEMA",
-    "INTERNATIONAL_RESULTS_WC2026_STAGING_SCHEMA",
-    "OPENFOOTBALL_WC2026_STAGING_SCHEMA",
     "KALSHI_WC2026_INTERMEDIATE_SCHEMA",
     "KALSHI_WC2026_MARTS_SCHEMA",
     "KALSHI_WC2026_OBSERVABILITY_SCHEMA",
@@ -892,10 +732,8 @@ __all__ = [
     "POLYMARKET_SOCCER_MARTS_SCHEMA",
     "POLYMARKET_SOCCER_OBSERVABILITY_SCHEMA",
     "POLYMARKET_SOCCER_STAGING_SCHEMA",
-    "WC2026_INTERMEDIATE_SCHEMA",
     "WC2026_MARTS_SCHEMA",
     "WC2026_OBSERVABILITY_SCHEMA",
-    "WC2026_STAGING_SCHEMA",
     "dbt_model_asset_key",
     "dbt_model_asset_key_for_name",
     "qualified_relation",

@@ -43,11 +43,10 @@ def _fixture(match_id: int):
         home_team=f"Home{match_id:03d}X",
         away_team=f"Away{match_id:03d}X",
         kickoff_at_utc=datetime(2026, 6, 11, 12, tzinfo=timezone.utc),
-        source_path=(
-            "2026--usa/cup.txt" if match_id <= 72 else "2026--usa/cup_finals.txt"
-        ),
-        source_lines=f"{match_id}-{match_id + 1}",
-        source_line_hash=f"{match_id:064x}",
+        reference_bundle_id="synthetic-reference-bundle",
+        reference_table="openfootball_wc2026_schedule_fixtures",
+        reference_row_key=str(match_id),
+        reference_row_sha256=f"{match_id:064x}",
     )
 
 
@@ -331,18 +330,7 @@ def test_group_win_titles_use_eastern_date_but_draws_need_no_date() -> None:
     )
 
 
-def test_reviewed_fifa_identity_mapping_and_orientation_fail_closed() -> None:
-    mapping = AUTHORING["REVIEWED_GROUP_MATCH_ID_BY_LINE_HASH"]
-    hashes = AUTHORING["_REVIEWED_GROUP_FIXTURE_HASHES_BY_MATCH_ID"]
-    assert len(mapping) == 72
-    assert set(mapping.values()) == set(range(1, 73))
-    assert set(mapping.values()) | set(range(73, 105)) == set(range(1, 105))
-    assert mapping[hashes[4]] == 5  # Haiti - Scotland
-    assert mapping[hashes[7]] == 8  # Qatar - Switzerland
-    assert AUTHORING["FIFA_SCHEDULE_SHA256"] == (
-        "165fb909253b746e6173a4443bdc3e5d786530f0684af6e85c1fd21fff252811"
-    )
-
+def test_reference_fixture_orientation_fails_closed() -> None:
     fixture = _fixture(73)
     AUTHORING["_validate_question_orientation"](
         f"{fixture.home_team} vs. {fixture.away_team}: Team to Advance",
@@ -1012,36 +1000,6 @@ def test_resolution_verification_fails_when_any_condition_is_missing() -> None:
             ),
             update_summary={"accepted_authorized_updates": 0},
         )
-
-
-class _TamperedSourceResponse:
-    content = b"tampered source"
-
-    @staticmethod
-    def raise_for_status() -> None:
-        return None
-
-
-def test_pinned_openfootball_hash_mismatch_fails(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(
-        AUTHORING["requests"],
-        "get",
-        lambda *_args, **_kwargs: _TamperedSourceResponse(),
-    )
-
-    with pytest.raises(ValueError, match="Pinned OpenFootball hash mismatch"):
-        AUTHORING["_fetch_pinned_sources"](tmp_path / "candidate")
-
-
-def test_pinned_fifa_schedule_hash_mismatch_fails(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(
-        AUTHORING["requests"],
-        "get",
-        lambda *_args, **_kwargs: _TamperedSourceResponse(),
-    )
-
-    with pytest.raises(ValueError, match="Pinned FIFA schedule hash mismatch"):
-        AUTHORING["_fetch_pinned_fifa_schedule"](tmp_path / "candidate")
 
 
 @pytest.mark.parametrize(

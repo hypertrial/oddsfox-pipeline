@@ -6,10 +6,12 @@ release artifacts contain no bundled production datasets or operator data.
 Hypertrial operates no hosted production pipeline or data service; operators
 supply and control their own data. `THIRD_PARTY_NOTICES.md` is the authoritative
 scope statement.
-Version `0.2.x` ships a WC2026 Polymarket pipeline for FIFA World Cup
-2026 markets and odds, a Kalshi WC2026 pipeline for stage and group-winner
-markets, plus FIFA fixture/results sources for official identity and real-team
-validation.
+Version `0.2.x` ships WC2026 Polymarket and Kalshi pipelines. Runtime
+acquisition is deny-by-default: only Polymarket, PMXT, Kalshi, and Polygon are
+owned here. Every other collector, source-native parser, reference
+transformation, identity workflow, and Elo publisher belongs in
+`oddsfox-scraper`. Pipeline may only validate and transport immutable
+checksummed Scraper bundles; it must not acquire or parse their upstream data.
 Stack: **Dagster** (orchestration), **dlt** (market landing), **dbt** +
 **DuckDB** (warehouse/analytics), **uv** (deps), **Ruff** + **sqlfluff**
 (lint), **pytest** (tests). Prefer **Polars** over Pandas for dataframe work;
@@ -33,6 +35,12 @@ KALSHI_WC2026_HOURLY_ODDS_SCHEDULE_ENABLED=false
 Cursor loads [Ponytail](https://github.com/DietrichGebert/ponytail) from [`.cursor/rules/ponytail.mdc`](.cursor/rules/ponytail.mdc) (`alwaysApply: true`). It complements this file: reuse existing code, prefer stdlib and installed deps, and keep diffs minimal. Do not cut validation, error handling, security, or tests that cover real behavior. Mark intentional shortcuts with a `ponytail:` comment (name the ceiling and upgrade path).
 
 Other agents should read this `AGENTS.md` at the repo root.
+
+**Permanent source boundary:** before adding any runtime network adapter, add
+it to the acquisition ownership registry and its boundary tests. Non-market
+hosts, parsers, raw schemas, jobs, schedules, and feature publishers are not
+permitted in this repository. See
+[`docs/architecture/source-ownership.md`](docs/architecture/source-ownership.md).
 
 **Repo change review:** for in-session audits and ordinary dev validation, run
 `make test-dev` (not `ci-fast`, not `release-gate`). Reserve `ci-fast` for
@@ -60,11 +68,10 @@ backward-compatibility layer unless the task explicitly requests one.
   do not add adapters, aliases, deprecation periods, or dual code paths.
 - **Warehouse reset over migration:** operators with pre-layout DuckDB files
   should delete the warehouse (`rm oddsfox.duckdb*`) and rerun quickstart.
-- **Public contracts:** [Data contracts](docs/reference/data-contracts.md) marts
-  and Dagster asset keys are the current API. Private `oddsfox.raw.v1` /
-  strategy clean-data relations live in
-  [Strategy contracts](docs/reference/strategy-contracts.md). Breaking changes
-  belong in [CHANGELOG.md](CHANGELOG.md), not hidden compat layers.
+- **Public contracts:** [Data contracts](docs/reference/data-contracts.md) marts,
+  Dagster asset keys, and the read-only `oddsfox.reference.v1` handoff are the
+  current API. Breaking changes belong in [CHANGELOG.md](CHANGELOG.md), not
+  hidden compat layers.
 - **Ponytail alignment:** deletion over addition applies here — prefer removing
   dead paths over preserving them.
 
@@ -111,7 +118,7 @@ keeps the 39,120-row mart contract and representative publication-gate failures.
 `data-quality` is the safe dbt-only wrapper that rebuilds the disposable
 database before validation. `mutation` resumes focused Mutmut work, while
 `mutation-ci` starts from an empty mutation cache and enforces zero unresolved
-mutants across outbound URL safety, raw snapshot contracts, market-scope
+mutants across outbound URL safety, reference-bundle contracts, market-scope
 predicates, market persistence, and odds planning. Incremental dbt tests compare
 all five incremental odds models with a full refresh; seeded Dagster tests prove
 repeat-run stability and Polymarket writer recovery. `contract-http` is
@@ -164,7 +171,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate |
 | `make match-order-book-live-smoke` | Opt-in resumable PMXT backfill; consumes PMXT credits |
 | `make event-catalog-recall-audit` | Opt-in exhaustive WC2026 event-catalog slug-prefix recall audit |
-| `make match-minute-inputs-validate` | Validate the operator-local 104-match schedule overlay |
+| `make match-minute-inputs-validate` | Validate the loaded Scraper bundle's 104-match fixture inventory |
 | `make minute-odds-live-smoke` | Disposable unified minute-odds live smoke (5%/leg sample, futures 24h tail; external CLOB/Gamma) |
 | `make futures-minute-publish-benchmark` | Disposable baseline/candidate futures-minute publish speed + equality report |
 | `make local-marts-rebuild` | Full-refresh and verify both WC2026 minute marts from completed operator-local raw warehouses |
@@ -174,7 +181,6 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make polygon-settlement-seed-validate` | Validate an operator-local 248-proposition seed and resolution attestation |
 | `make polygon-settlement-release` | Build an immutable internal Polygon settlement audit bundle |
 | `make polygon-settlement-export` | Build an offline allowlisted technical export from an audit bundle |
-| `make export-wc2026-elo-freezes` | Export national-team Elo CSV freezes (year-end 2025 pre-kickoff + latest World scrape) |
 | `make costguard-scan` | Run the dbt cost guardrail against an existing dbt build |
 | `make costguard` | Safe local wrapper that rebuilds disposable dbt state before Costguard |
 | `make dagster-dev` | Local Dagster UI |
@@ -191,11 +197,10 @@ src/oddsfox_pipeline/
   resources/       # HTTP, outbound URL, progress guardrails
   storage/duckdb/  # Connection, schemas, markets/odds persistence, profiling
 dbt/
-  models/international_results_wc2026/{staging,intermediate,marts,observability}/
+  models/sources/   # Read-only oddsfox.reference.v1 and market source declarations
   models/polymarket_catalog/staging/
   models/polymarket_wc2026/{staging,intermediate,marts,observability}/
   models/kalshi_wc2026/{staging,intermediate,marts,observability}/
-  models/openfootball_wc2026/staging/
   models/wc2026/{intermediate,marts,observability}/
   tests/           # Singular dbt data tests (assert_*)
 tests/
@@ -221,8 +226,8 @@ Imports use src-layout paths: `from oddsfox_pipeline.config.settings import …`
 - sqlfluff: DuckDB dialect, dbt templater, max line length 130.
 - Lint/fix: `dbt/models`, `dbt/tests` only (see Makefile).
 - Layer naming: source-first schemas such as `polymarket_wc2026_staging`,
-  `polymarket_wc2026_marts`, `kalshi_wc2026_marts`, and
-  `international_results_wc2026_marts`.
+  `polymarket_wc2026_marts`, and `kalshi_wc2026_marts`. Established
+  non-market relation names may appear only in source-neutral reference bridges.
 
 **Tests** ([tests/README.md](tests/README.md)):
 
@@ -251,24 +256,21 @@ Asset key order (routine pipeline; flat op names use the same subject order):
 14. `polymarket/soccer/raw/event_market_memberships`
 15. `polymarket/soccer/ops/match_result_registry`
 16. `polymarket/soccer/raw/match_result_token_odds_history_minute`
-17. `international_results/historical/raw/snapshot`
-18. `international_results/wc2026/raw/match_results`
-19. `openfootball/wc2026/raw/schedule_fixtures`
-20. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
-21. `kalshi/wc2026/raw/markets`
-22. `kalshi/wc2026/raw/markets_snapshot`
-23. `kalshi/wc2026/ops/market_scope_registry`
-24. `kalshi/wc2026/raw/market_candlesticks_hourly`
-25. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+17. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
+18. `kalshi/wc2026/raw/markets`
+19. `kalshi/wc2026/raw/markets_snapshot`
+20. `kalshi/wc2026/ops/market_scope_registry`
+21. `kalshi/wc2026/raw/market_candlesticks_hourly`
+22. external `oddsfox/reference/...` source assets loaded from an immutable
+   Scraper `oddsfox.reference.v1` bundle
+23. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
    `polymarket/soccer/{staging,intermediate,marts,observability}/...`,
-   `international_results/wc2026/{staging,intermediate,marts,observability}/...`,
-   `kalshi_wc2026/{staging,intermediate,marts,observability}/...`,
-   `openfootball/wc2026/staging/...`, and `wc2026/{intermediate,marts,observability}/...`
-26. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
+   `kalshi_wc2026/{staging,intermediate,marts,observability}/...`, and
+   market-owned `wc2026/{intermediate,marts,observability}/...`; Scraper
+   reference tables remain external assets with read-only bridge views
+24. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
 
-Key jobs: `international_results_historical_ingest`,
-`international_results_wc2026_match_results_ingest`,
-`polymarket_wc2026_market_scope_registry_refresh`,
+Key jobs: `polymarket_wc2026_market_scope_registry_refresh`,
 `polymarket_wc2026_event_catalog_recall_audit`, `polymarket_wc2026_hourly_odds_ingest`,
 `polymarket_wc2026_match_minute_odds_backfill`,
 `polymarket_wc2026_minute_odds_backfill`,
@@ -284,7 +286,6 @@ Soccer jobs: `polymarket_soccer_market_scope_registry_refresh`,
 `polymarket_soccer_dbt_build`, and `polymarket_soccer_full_pipeline`.
 
 Schedules target `kalshi_wc2026_hourly_odds_ingest`; it is **stopped by default**.
-The daily `international_results_daily_schedule` is also stopped by default.
 The daily `polymarket_soccer_daily_schedule` targets the soccer full pipeline
 at 04:00 UTC and is stopped by default.
 Polymarket WC2026 has no Dagster schedule; use manual jobs when needed.
@@ -309,9 +310,9 @@ DuckDB is local-only runtime state. For read-only inspection prefer `scripts/pro
 
 **Polygon settlement isolation:** this historical pipeline uses an operator-local
 `polymarket_wc2026_polygon_settlement_markets.csv` seed and finalized Polygon V2
-logs. The tracked seed is a header-only schema shell. The pipeline must not call
-Gamma, CLOB, the Polymarket UI, international-results, or OpenFootball at
-runtime. Never log or persist RPC URLs, wallet addresses, order hashes,
+logs. The tracked seed is a header-only schema shell. Fixture evidence must come
+from a validated Scraper reference bundle; the pipeline must not call Gamma,
+CLOB, the Polymarket UI, or any non-market source at runtime. Never log or persist RPC URLs, wallet addresses, order hashes,
 signatures, raw topics/data, calldata, or oracle prose. The optional second RPC
 is advisory only. The release asset writes an internal audit bundle below
 `artifacts/polygon_settlement/audit/`; the standalone exporter reads that

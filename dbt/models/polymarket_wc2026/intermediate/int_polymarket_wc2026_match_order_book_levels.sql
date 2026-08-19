@@ -7,7 +7,7 @@ with snapshots as (
 
 fixture as (
     select *
-    from {{ ref('stg_openfootball_wc2026_schedule_fixtures') }}
+    from {{ source('oddsfox_reference', 'openfootball_wc2026_schedule_fixtures') }}
     where fifa_match_id between 73 and 104
 ),
 

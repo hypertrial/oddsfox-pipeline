@@ -239,20 +239,6 @@ def test_market_portrait_scope_includes_trade_models():
     assert "int_polymarket_wc2026_match_trade_publication_gate" in names
 
 
-def test_snapshot_dbt_models_uses_wc2026_mart_aliases(tmp_path):
-    with duckdb.connect(str(tmp_path / "alias.duckdb")) as conn:
-        conn.execute("CREATE SCHEMA wc2026_marts")
-        conn.execute(
-            "CREATE TABLE wc2026_marts.team_ratings_current AS SELECT 1 AS rank"
-        )
-        snapshot = snapshot_dbt_models(conn=conn)
-
-    assert snapshot["wc2026_marts.wc2026_team_ratings_current"] == {
-        "exists": True,
-        "rows": 1,
-    }
-
-
 def test_batch_table_row_counts_reports_missing_and_existing_tables(tmp_path):
     with duckdb.connect(str(tmp_path / "batch.duckdb")) as conn:
         conn.execute("CREATE SCHEMA polymarket_wc2026_raw")

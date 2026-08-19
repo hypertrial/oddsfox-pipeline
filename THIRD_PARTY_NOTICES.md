@@ -59,15 +59,6 @@ included SIL Open Font License notices.
 
 The project references these independently governed upstream materials:
 
-- [OpenFootball](https://github.com/openfootball) World Cup, generated JSON,
-  England, Deutschland, Italy, España, Europe, South America, World,
-  Champions League, and Club World Cup repositories, plus
-  [international_results](https://github.com/martj42/international_results),
-  under CC0-1.0. The pre-match Elo source catalog records the exact repository
-  revisions and payload SHA-256 values; source bytes and generated results are
-  operator-local and are not distributed. The separately pinned WC2026 fixture
-  mirror remains OpenFootball World Cup revision
-  `bd46a148289f9930da66c140d4d7d2325e95d387`;
 - the [FIFA World Cup 26 Match Schedule](https://digitalhub.fifa.com/asset/4b5d4417-3343-4732-9cdf-14b6662af407/FWC26-Match-Schedule_English.pdf),
   revision `FWC26 Match Schedule_v31_16072026_EN`, used only as independently
   governed authoring and review provenance for official match numbers. The

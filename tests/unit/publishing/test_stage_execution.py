@@ -12,7 +12,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from oddsfox_pipeline.contracts.raw_snapshots import schema_fingerprint
+from oddsfox_pipeline.contracts.schema import schema_fingerprint
 from oddsfox_pipeline.publishing import stage_execution as subject
 from oddsfox_pipeline.publishing import stage_execution_archive as archive
 from oddsfox_pipeline.publishing._bundle_io import sha256_file

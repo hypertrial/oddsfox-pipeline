@@ -152,7 +152,7 @@ POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG = _env_bool(
     "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_CATALOG",
     True,
 )
-# When false, skip match-minute raw plus its intl-results/openfootball inputs and
+# When false, skip match-minute raw plus its Scraper reference inputs and
 # reuse warehouse rows from a prior run (restart Dagster after changing).
 POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH = _env_bool(
     "POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_MATCH",

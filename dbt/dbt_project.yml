@@ -12,8 +12,6 @@ seed-paths: ["seeds"]
 test-paths: ["tests"]
 target-path: target
 clean-targets: ["target", "dbt_packages"]
-on-run-start:
-  - "{{ ensure_wc2026_canonical_raw_tables() }}"
 models:
   oddsfox:
     +materialized: view
@@ -65,22 +63,6 @@ models:
         +schema: polymarket_soccer_observability
         +materialized: table
         +tags: ["mart", "observability", "soccer", "polymarket"]
-    international_results_wc2026:
-      +tags: ["wc2026", "international_results"]
-      staging:
-        +schema: international_results_wc2026_staging
-        +tags: ["staging", "wc2026", "international_results"]
-      intermediate:
-        +schema: international_results_wc2026_intermediate
-        +tags: ["intermediate", "wc2026", "international_results"]
-      marts:
-        +schema: international_results_wc2026_marts
-        +materialized: table
-        +tags: ["mart", "core", "wc2026", "international_results"]
-      observability:
-        +schema: international_results_wc2026_observability
-        +materialized: table
-        +tags: ["mart", "observability", "wc2026", "international_results"]
     kalshi_wc2026:
       +tags: ["wc2026", "kalshi"]
       staging:
@@ -107,11 +89,6 @@ models:
         +schema: kalshi_wc2026_observability
         +materialized: table
         +tags: ["mart", "observability", "wc2026", "kalshi"]
-    openfootball_wc2026:
-      +tags: ["wc2026", "openfootball"]
-      staging:
-        +schema: openfootball_wc2026_staging
-        +tags: ["staging", "wc2026", "openfootball"]
     wc2026:
       +tags: ["wc2026", "wc2026_strategy"]
       marts:
@@ -124,10 +101,6 @@ models:
         +tags: ["mart", "observability", "wc2026", "wc2026_strategy"]
 seeds:
   oddsfox:
-    international_results_wc2026_team_aliases:
-      +schema: international_results_wc2026_staging
-      +tags: ["staging", "wc2026", "international_results"]
-      +quote_columns: false
     polymarket_wc2026_pipeline_policy:
       +schema: polymarket_wc2026_staging
       +tags: ["staging", "wc2026", "polymarket"]
@@ -154,10 +127,10 @@ seeds:
         no_token_id: varchar
         exchange_address: varchar
         market_structure: varchar
-        openfootball_revision: varchar
-        openfootball_path: varchar
-        openfootball_source_lines: varchar
-        openfootball_line_hash: varchar
+        reference_bundle_id: varchar
+        reference_table: varchar
+        reference_row_key: varchar
+        reference_row_sha256: varchar
         condition_init_tx_hash: varchar
         condition_init_log_index: varchar
         question_init_tx_hash: varchar
@@ -172,82 +145,3 @@ seeds:
       +schema: kalshi_wc2026_staging
       +tags: ["staging", "wc2026", "kalshi"]
       +quote_columns: false
-    wc2026_schedule_matches:
-      +schema: wc2026_staging
-      +tags: ["staging", "wc2026", "strategy_contract"]
-      +quote_columns: false
-      +column_types:
-        match_id: varchar
-        stage: varchar
-        group_label: varchar
-        matchday: varchar
-        match_date: varchar
-        kickoff_time_et: varchar
-        venue: varchar
-        home_slot: varchar
-        away_slot: varchar
-        home_team: varchar
-        away_team: varchar
-        status: varchar
-        source: varchar
-    wc2026_third_place_options:
-      +schema: wc2026_staging
-      +tags: ["staging", "wc2026", "strategy_contract"]
-      +quote_columns: false
-      +column_types:
-        option_id: varchar
-        slot_1a_group: varchar
-        slot_1b_group: varchar
-        slot_1d_group: varchar
-        slot_1e_group: varchar
-        slot_1g_group: varchar
-        slot_1i_group: varchar
-        slot_1k_group: varchar
-        slot_1l_group: varchar
-    wc2026_base_camps_teams:
-      +schema: wc2026_staging
-      +tags: ["staging", "wc2026", "strategy_contract"]
-      +quote_columns: false
-      +column_types:
-        team_name_fifa: varchar
-        team_name_model: varchar
-        base_camp_market: varchar
-        base_camp_country: varchar
-        training_site_name: varchar
-        training_site_lat: varchar
-        training_site_lon: varchar
-        training_site_timezone: varchar
-        training_site_altitude_m: varchar
-        geocode_quality: varchar
-        geocode_source: varchar
-        manual_review_status: varchar
-        source_url: varchar
-        source_updated_at: varchar
-        notes: varchar
-    wc2026_venues:
-      +schema: wc2026_staging
-      +tags: ["staging", "wc2026", "strategy_contract"]
-      +quote_columns: false
-      +column_types:
-        venue: varchar
-        host_city: varchar
-        host_country: varchar
-        venue_lat: varchar
-        venue_lon: varchar
-        venue_timezone: varchar
-        venue_altitude_m: varchar
-    wc2026_team_canonical_aliases:
-      +schema: wc2026_staging
-      +tags: ["staging", "wc2026", "strategy_contract"]
-      +quote_columns: false
-    wc2026_tournament_classification:
-      +schema: wc2026_staging
-      +tags: ["staging", "wc2026", "strategy_contract"]
-      +quote_columns: false
-      +column_types:
-        tournament: varchar
-        is_friendly: boolean
-        is_competitive: boolean
-        competition_family: varchar
-        confederation_scope: varchar
-        notes: varchar

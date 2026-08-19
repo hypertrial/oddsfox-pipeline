@@ -33,7 +33,7 @@ import duckdb
 import polars as pl
 import pyarrow.parquet as pq
 
-from oddsfox_pipeline.contracts.raw_snapshots import schema_fingerprint
+from oddsfox_pipeline.contracts.schema import schema_fingerprint
 from oddsfox_pipeline.naming import SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     polymarket_ops_tbl,

@@ -1,7 +1,3 @@
-from oddsfox_pipeline.orchestration.assets_international_results import (
-    international_results_historical_raw_snapshot,
-    international_results_wc2026_raw_match_results,
-)
 from oddsfox_pipeline.orchestration.assets_kalshi_wc2026 import (
     kalshi_wc2026_ops_market_scope_registry,
     kalshi_wc2026_raw_market_candlesticks_hourly,
@@ -13,9 +9,6 @@ from oddsfox_pipeline.orchestration.assets_match_order_book import (
 )
 from oddsfox_pipeline.orchestration.assets_match_trades import (
     polymarket_wc2026_raw_match_trades,
-)
-from oddsfox_pipeline.orchestration.assets_openfootball import (
-    openfootball_wc2026_raw_schedule_fixtures,
 )
 from oddsfox_pipeline.orchestration.assets_polygon_settlement import (
     polymarket_wc2026_raw_polygon_settlement_fills,
@@ -56,13 +49,10 @@ __all__ = [
     "DBT_DAGSTER_GROUP_NAME",
     "DBT_PROJECT",
     "PolymarketDagsterDbtTranslator",
-    "international_results_historical_raw_snapshot",
-    "international_results_wc2026_raw_match_results",
     "kalshi_wc2026_ops_market_scope_registry",
     "kalshi_wc2026_raw_market_candlesticks_hourly",
     "kalshi_wc2026_raw_markets",
     "kalshi_wc2026_raw_markets_snapshot",
-    "openfootball_wc2026_raw_schedule_fixtures",
     "oddsfox_dbt",
     "polymarket_soccer_monitoring_dbt",
     "polymarket_soccer_ops_match_result_registry",

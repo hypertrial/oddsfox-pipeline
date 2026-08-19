@@ -15,8 +15,8 @@ data, and not OddsFox marks beyond unmodified documentation display. See
 ## Operator Checklist
 
 - Confirm you are authorized to access and use each source you configure
-  (Polymarket, Kalshi, FIFA schedule materials, OpenFootball, Polygon JSON-RPC
-  providers, and any private snapshots).
+  (Polymarket, Kalshi, Polygon JSON-RPC providers, and any supplied immutable
+  artifacts). Non-market source acquisition is configured in OddsFox Scraper.
 - Keep populated seed overlays, reviewed attestations, DuckDB files, parquet or
   CSV exports, and authoring evidence operator-local and untracked.
 - Restore header-only shells after local overlays:
@@ -74,10 +74,8 @@ and it does not grant rights in operator or third-party data:
 - [Kalshi](https://kalshi.com/) site and API materials as published by Kalshi
 - [Polygon PoS RPC documentation](https://docs.polygon.technology/pos/reference/rpc-endpoints)
   and your provider's acceptable-use terms
-- [OpenFootball worldcup](https://github.com/openfootball/worldcup) (CC0 at the
-  pinned revision cited in project notices)
-- FIFA World Cup schedule materials used for authoring: the PDF is not
-  redistributed by this repository
+- OddsFox Scraper reference-bundle provenance and source licenses, recorded in
+  the supplied `oddsfox.reference.v1` manifest
 
 ## Technical Success Is Not Certification
 

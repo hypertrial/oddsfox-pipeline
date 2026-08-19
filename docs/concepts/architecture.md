@@ -3,10 +3,11 @@
 OddsFox Pipeline is intentionally local-first: every routine workflow writes to a local
 DuckDB warehouse and is coordinated by jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
-v0.2.x adapters support WC2026 Polymarket event-gated hourly odds marts, Kalshi WC2026 stage
-and group-winner marts, historical international-results ingestion, analytics
-marts as the supported query API, and the private `wc2026.v1` strategy
-clean-data contract.
+v0.2.x adapters support WC2026 Polymarket event-gated hourly odds marts, Kalshi
+WC2026 stage and group-winner marts, Polygon settlement history, analytics marts
+as the supported query API, and the private `wc2026.v1` strategy clean-data
+contract. Non-market reference data is produced by OddsFox Scraper and enters
+Pipeline only through an immutable `oddsfox.reference.v1` bundle.
 
 At the generic layer, source adapters follow one shape: external market and
 odds APIs feed dlt/Python ingestion, DuckDB stores raw and ops data, dbt
@@ -16,9 +17,9 @@ host datasets.
 
 The WC2026 Polygon settlement pipeline is deliberately source-specific rather
 than part of that generic API shape. A complete operator-local manifest supplies
-fixture, proposition, and token semantics; finalized Polygon V2 logs supply
-historical economic settlement legs. It has no runtime Gamma/CLOB, Polymarket UI,
-international-results, or OpenFootball dependency.
+fixture, proposition, and token semantics from a validated Scraper reference
+bundle; finalized Polygon V2 logs supply historical economic settlement legs.
+Pipeline never contacts or parses the fixture source.
 
 ## System path
 
@@ -29,18 +30,17 @@ flowchart LR
     gamma["Prediction-market metadata API<br/>Polymarket Gamma in v0.2.x"] --> dlt["dlt market landing"]
     clob["Prediction-market odds API<br/>Polymarket CLOB in v0.2.x"] --> odds["Python odds sync"]
     kalshi_api["Prediction-market metadata/odds API<br/>Kalshi trade API in v0.2.x"] --> kalshi_sync["Python candlestick sync"]
-    results["Public football CSV/TXT feeds"] --> result_sync["Python CSV sync"]
+    reference["oddsfox.reference.v1<br/>from OddsFox Scraper"] --> reference_load["Validated transactional load"]
     seed["Operator-local Polygon WC2026 manifest"] --> polygon_sync["Finalized Polygon V2 log sync"]
     polygon_rpc["Polygon JSON-RPC"] --> polygon_sync
-    private["Private canonical Parquet snapshots"] --> validate["oddsfox.raw.v1 validation"]
     dlt --> raw["DuckDB raw schema"]
     odds --> raw
     kalshi_sync --> raw
-    result_sync --> raw
+    reference_load --> reference_schema["oddsfox_reference schema"]
     polygon_sync --> raw
-    validate --> raw
     raw --> ops["DuckDB ops ledgers"]
     raw --> dbt["dbt models"]
+    reference_schema --> dbt
     ops --> dbt
     dbt --> marts["WC2026 analytics marts"]
     dbt --> polygon_mart["Polygon settlement mart"]
@@ -49,13 +49,13 @@ flowchart LR
     dagster["Dagster jobs and schedules"] --> dlt
     dagster --> odds
     dagster --> kalshi_sync
-    dagster --> result_sync
     dagster --> polygon_sync
     dagster --> dbt
 ```
 
-Text fallback: prediction-market metadata/odds APIs and the FIFA results CSV
-feed DuckDB raw and ops schemas. Dagster runs the ingest and dbt steps. dbt
+Text fallback: prediction-market metadata/odds APIs feed DuckDB raw and ops
+schemas, while a checksummed Scraper bundle supplies reference relations.
+Dagster runs the market ingest and dbt steps. dbt
 publishes local analytics marts for WC2026 Polymarket hourly odds, Kalshi stage and
 group-winner odds, Polygon settlement history, team scope, and ingestion
 observability. The Polygon release asset writes only an internal audit bundle;
@@ -72,8 +72,7 @@ helper boundary.
 | --- | --- |
 | Dagster | Defines assets, jobs, and disabled-by-default schedules. |
 | dlt | Lands market metadata and current raw/ops batches into DuckDB stage/canonical tables for the current adapter. |
-| Python CSV sync | Loads public WC2026 and 2006+ historical international-result feeds. |
-| Canonical snapshot loader | Validates hashes, schemas, provenance, ordering, and transactional exactly-once loads for optional private enrichments. |
+| Reference bundle loader | Validates the complete Scraper manifest, schemas, keys, and checksums before transactionally replacing the active reference schema; failure preserves the last known-good bundle. |
 | Python odds sync | Fetches odds, writes token history, and maintains ledgers. |
 | Polygon settlement sync | Scans finalized V2 logs in resumable block chunks, normalizes exact economic legs, and atomically publishes a wallet- and order-payload-redacted snapshot. |
 | Polygon audit release | Writes the complete immutable local evidence bundle used for verification; it contains internal identifiers and locators. |
@@ -101,11 +100,10 @@ flowchart TD
         hourly_fact --> golden
         ops --> observability["polymarket_wc2026_ingestion_run_observability"]
     end
-    subgraph internationalResults [Kalshi and match-minute only]
-        results_raw["international_results_wc2026_raw"] --> results_staging["international_results_wc2026_staging"]
-        results_staging --> matches["international_results_wc2026_matches"]
-        matches --> team_status["international_results_wc2026_team_status"]
-        matches --> results_dq["international_results_wc2026_data_quality"]
+    subgraph scraperReference [Scraper reference handoff]
+        bundle["oddsfox.reference.v1"] --> loader["checksum/schema/key validation"]
+        loader --> reference["oddsfox_reference"]
+        reference --> consumers["market model consumers"]
     end
 ```
 
@@ -114,8 +112,9 @@ sticky event-volume-eligible WC2026 markets, intermediates establish token
 working sets and primary tokens (Yes preferred, else `outcome_index` 0), and the golden
 `polymarket_wc2026_market_hourly_odds` mart publishes full-lifetime hourly
 primary-outcome odds with `primary_outcome_label` and comprehensive market and event metadata. Observability
-models publish run metrics. `international_results_wc2026_*` marts are built on
-Kalshi and match-minute paths only, not the Polymarket golden-mart closure.
+models publish run metrics. Kalshi and match-minute paths read the validated
+Scraper reference tables directly; the Polymarket golden-mart closure does not
+depend on them.
 
 ### Kalshi WC2026
 
@@ -128,9 +127,11 @@ required for local runs.
 
 ### Polygon settlement WC2026
 
-The developer authoring tool derives a 248-proposition candidate manifest from pinned CC0
-OpenFootball fixtures and audited Polygon event chains, then writes candidate
-evidence only below ignored `artifacts/`. The runtime backfill validates the
+The developer authoring tool derives a 248-proposition candidate manifest from
+a validated Scraper reference bundle and audited Polygon event chains, then
+writes candidate evidence only below ignored `artifacts/`. It knows only the
+reference contract, bundle ID, table, row key, and row checksum; it has no
+non-market endpoint or parser. The runtime backfill validates the
 complete local seed, resolves fixed scheduled windows once, merges them by authored
 V2 exchange, and transactionally publishes normalized legs after gap-free
 exchange-specific coverage. The collector first scans the pinned V2 `OrdersMatched`
@@ -178,16 +179,12 @@ and structured local logs and introduces no hosted alerting dependency.
 
 - `polymarket_wc2026_full_pipeline` is the one-click full manual WC2026 pipeline
   (registry, hourly odds, and golden-mart dbt only).
-- `international_results_wc2026_match_results_ingest` refreshes fixture/results
-  for Kalshi and match-minute pipelines; it is not part of the Polymarket full
-  pipeline.
-- `international_results_historical_ingest` refreshes public 2006+ matches,
-  shootouts, and goalscorers; its daily schedule is stopped by default.
+- Scraper refreshes fixture/results and historical matches, then publishes an
+  immutable reference bundle. Pipeline only validates and loads that bundle.
 - `polymarket_wc2026_hourly_odds_ingest` is the manual Polymarket odds job
   (`fidelity=60`); it has no Dagster schedule.
 - `kalshi_wc2026_full_pipeline` is the one-click full manual Kalshi WC2026
-  pipeline (FIFA results refresh, Kalshi ingest, and `+tag:kalshi` dbt selection
-  inside the combined job config).
+  pipeline (Kalshi ingest and `+tag:kalshi` dbt against active references).
 - `kalshi_wc2026_hourly_odds_ingest` refreshes hourly Kalshi candlesticks for
   admitted registry markets.
 - `polymarket_wc2026_polygon_settlement_backfill` and

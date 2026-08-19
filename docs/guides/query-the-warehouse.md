@@ -71,8 +71,8 @@ running Dagster/dbt writer.
 | WC2026 Polymarket hourly odds | `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds` | One row per `market_id`, `odds_hour_epoch`; primary-outcome CLOB prices (`primary_outcome_label`) with market and event metadata. |
 | WC2026 in-game match minutes | `polymarket_wc2026_marts.polymarket_wc2026_match_minute_odds` | Dense minute series for all 104 matches; requires the match-minute path, not ordinary hourly ingest alone. |
 | Argentina–Egypt historical L2 depth | `polymarket_wc2026_marts.polymarket_wc2026_match_order_book` | Long-form independent bid/ask levels for both PMXT outcome-token snapshot streams; requires the unscheduled PMXT backfill. |
-| WC2026 fixtures and results | `international_results_wc2026_marts.international_results_wc2026_matches` | One row per `match_id`, with knockout advancer inference; requires Kalshi full pipeline or match-minute ingest, not the Polymarket golden-mart quickstart. |
-| WC2026 team status | `international_results_wc2026_marts.international_results_wc2026_team_status` | Join on `canonical_team_name` or `team_name`; same ingest prerequisite as fixtures/results. |
+| WC2026 fixtures and results | `oddsfox_reference.international_results_wc2026_matches` | One row per `match_id`, loaded from the active Scraper reference bundle. |
+| WC2026 team status | `oddsfox_reference.international_results_wc2026_team_status` | Join on `canonical_team_name` or `team_name`; same reference-bundle prerequisite as fixtures/results. |
 | Current Kalshi stage prices | `kalshi_wc2026_marts.kalshi_wc2026_stage_markets` | Filter to `is_actionable_live_market`. |
 | Kalshi stage hourly series | `kalshi_wc2026_marts.kalshi_wc2026_stage_market_hourly_odds` | Use `progression_*_price` for stage progression semantics. |
 | Current Kalshi group-winner prices | `kalshi_wc2026_marts.kalshi_wc2026_group_winner_markets` | Use `group_winner_price`. |

@@ -20,7 +20,6 @@ not separate ontology terms.
 Current canonical tuples are:
 
 - `source`: `polymarket`, `scope`: `wc2026`, scope reference: `polymarket:wc2026`, `namespace`: `polymarket_wc2026`
-- `source`: `international_results`, `scope`: `wc2026`, scope reference: `international_results:wc2026`, `namespace`: `international_results_wc2026`
 - `source`: `kalshi`, `scope`: `wc2026`, scope reference: `kalshi:wc2026`, `namespace`: `kalshi_wc2026`
 
 ## Pipeline policy seeds
@@ -42,8 +41,8 @@ more sources and scopes are added:
 - `polymarket/wc2026/raw/polygon_settlement_fills`
 - `polymarket/wc2026/release/polygon_settlement_odds_bundle`
 - `polymarket/wc2026/marts/market_hourly_odds`
-- `international_results/wc2026/raw/match_results`
-- `international_results/wc2026/marts/team_status`
+- `oddsfox/reference/international_results_wc2026_matches` (external Scraper asset)
+- `oddsfox/reference/international_results_wc2026_team_status` (external Scraper asset)
 - `kalshi/wc2026/raw/markets`
 - `kalshi/wc2026/ops/market_scope_registry`
 - `kalshi/wc2026/raw/market_candlesticks_hourly`
@@ -67,11 +66,7 @@ DuckDB and dbt schemas use `<source>_<scope>_<layer>`:
 - `polymarket_wc2026_intermediate`
 - `polymarket_wc2026_marts`
 - `polymarket_wc2026_observability`
-- `international_results_wc2026_raw`
-- `international_results_wc2026_staging`
-- `international_results_wc2026_intermediate`
-- `international_results_wc2026_marts`
-- `international_results_wc2026_observability`
+- `oddsfox_reference` (transactionally loaded Scraper bundle)
 - `kalshi_wc2026_raw`
 - `kalshi_wc2026_ops`
 - `kalshi_wc2026_staging`
@@ -84,9 +79,8 @@ dbt model names use layer-specific prefixes:
 - staging: `stg_polymarket_wc2026_<subject>`
 - intermediate: `int_polymarket_wc2026_<subject>`
 - marts and observability: `polymarket_wc2026_<subject>`
-- staging: `stg_international_results_wc2026_<subject>`
-- intermediate: `int_international_results_wc2026_<subject>`
-- marts and observability: `international_results_wc2026_<subject>`
+- source-neutral reference bridges retain established relation names only where
+  market consumers require them; new non-market models belong in Scraper
 - staging: `stg_kalshi_wc2026_<subject>`
 - intermediate: `int_kalshi_wc2026_<subject>`
 - marts and observability: `kalshi_wc2026_<subject>`
@@ -95,8 +89,8 @@ Dagster op names stay flat even when the asset key is hierarchical. For
 example, the hourly odds asset key is
 `polymarket/wc2026/raw/token_odds_history_hourly`, and its op config key is
 `polymarket_wc2026_raw_token_odds_history_hourly`.
-The results asset key is `international_results/wc2026/raw/match_results`,
-and its op name is `international_results_wc2026_raw_match_results`.
+Reference relations are external assets under `oddsfox/reference/<table>` and
+have no Pipeline collector op.
 The Kalshi hourly candlesticks asset key is
 `kalshi/wc2026/raw/market_candlesticks_hourly`, and its op config key is
 `kalshi_wc2026_raw_market_candlesticks_hourly`.

@@ -20,7 +20,7 @@ international_results_inventory as (
                 coalesce(source_payload_sha256, ''), '[0-9a-f]{64}'
             )
         ) as international_results_provenance_issues
-    from {{ ref('international_results_wc2026_matches') }}
+    from {{ source('oddsfox_reference', 'international_results_wc2026_matches') }}
 ),
 
 mapped as (
