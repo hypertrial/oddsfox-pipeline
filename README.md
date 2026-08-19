@@ -17,6 +17,11 @@ documented surfaces for offline use. Non-prediction-market collection,
 normalization, reference transformations, and Elo belong to `oddsfox-scraper`.
 Order execution belongs to `oddsfox-execution` and is not part of this runtime.
 
+The manual [global Polymarket graph catalog](docs/guides/polymarket-graph-catalog.md)
+crawls Gamma events and markets, builds one cumulative textual graph mart, and
+publishes the consumer-neutral `oddsfox.polymarket.graph-catalog.v1` Parquet
+contract. It has no schedule and does not collect prices, trades, or profiles.
+
 The enforced ownership decision is documented in
 [`docs/architecture/source-ownership.md`](docs/architecture/source-ownership.md).
 

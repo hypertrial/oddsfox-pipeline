@@ -5,7 +5,7 @@ pipeline health without turning routine gaps into full warehouse rebuilds.
 
 ## Run deterministic checks
 
-Validate all six product pipelines offline (expect roughly 25–40 minutes locally;
+Validate the deterministic pipeline suite offline (expect roughly 25–40 minutes locally;
 not a `ci-fast` substitute):
 
 ```bash
@@ -47,6 +47,8 @@ remediation before rerunning work.
 | --- | --- |
 | Preflight failure | Correct the reported schema, token collision, snapshot writeability, or critical disk issue; no external request was made. |
 | Catalog instability | Preserve checkpoints, wait for Gamma to stabilize, then rerun the catalog job. |
+| Incomplete global graph crawl | Rerun `make polymarket-catalog-refresh`; staged pages remain audit state and the last completed catalog stays active. |
+| Catalog release failure | Repair the reported mart/schema/checksum issue and rerun with a new version only if the prior version directory was installed; versions are immutable. |
 | Partial CLOB publication | Keep successful tokens; rerun the minute job for due failed tokens. |
 | Aged retries | Inspect token fetch status and retry; terminal unavailable tokens are reported separately. |
 | Stale running run | Confirm the process is gone, stop any DuckDB holder, then launch a new run. |
@@ -57,6 +59,8 @@ remediation before rerunning work.
 ## Recover a failed path
 
 - Re-run `polymarket_wc2026_hourly_odds_ingest` for routine WC2026 odds gaps.
+- Re-run `polymarket_catalog_full_pipeline` for an incomplete global crawl; it
+  resumes valid pass checkpoints and never activates a partial crawl.
 - Re-run `kalshi_wc2026_hourly_odds_ingest` for Kalshi candlestick gaps.
 - Load the corrected Scraper reference bundle after fixture or score updates;
   a failed validation leaves the current bundle active.

@@ -441,3 +441,16 @@ schedule or enable flag. Its only credential is the optional-until-needed
 The neutral `wc2026_*` schemas are a breaking local warehouse layout change.
 v0.2.x has no compatibility aliases or migration path; see
 [Terminology](terminology.md).
+
+## Global Polymarket graph catalog
+
+The global graph catalog is configured through Dagster run config or the Make
+targets documented in the
+[catalog runbook](../guides/polymarket-graph-catalog.md). Production crawls have
+no page cap. A bounded `max_pages` is accepted only for tests and explicit
+diagnostics; such a truncated crawl is not activated or publishable.
+
+`DUCKDB_NAME` selects the operator-local warehouse,
+`POLYMARKET_CATALOG_RELEASE_ROOT` selects the ignored immutable release root,
+and `RELEASE_VERSION` is required for publication. There is no schedule-enable
+setting because acquisition and release are intentionally manual.

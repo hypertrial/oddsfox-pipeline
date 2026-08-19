@@ -44,6 +44,7 @@ ALLOWED_DATA_LIKE_FILES = {
     "dbt/models/kalshi_wc2026/intermediate/intermediate.yml",
     "dbt/models/kalshi_wc2026/marts/kalshi_wc2026.yml",
     "dbt/models/polymarket_catalog/staging/staging.yml",
+    "dbt/models/polymarket_catalog/marts/polymarket_catalog.yml",
     "dbt/models/polymarket_wc2026/intermediate/intermediate.yml",
     "dbt/models/polymarket_wc2026/intermediate/match_minute.yml",
     "dbt/models/polymarket_wc2026/intermediate/minute_odds.yml",

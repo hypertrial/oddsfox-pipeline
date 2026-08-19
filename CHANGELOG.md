@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the manual, source-complete-from-first-crawl global Polymarket catalog:
+  independent open/closed Gamma event and market keyset passes, atomic
+  cumulative observations, the textual
+  `polymarket_catalog_marts.polymarket_graph_catalog` mart, and immutable
+  `oddsfox.polymarket.graph-catalog.v1` Parquet releases.
+
 - Added the shipped `polymarket:soccer` scope: converged open/closed exact-tag
   Gamma catalog scans, strict three-way match-result admission, six-token
   incremental CLOB minute ingestion, disabled-by-default 04:00 UTC daily
@@ -24,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exact-window empty CLOB histories without refetching published or new tokens.
 
 ### Changed
+
+- Replaced the volume-filtered `sync_polymarket_markets_catalog.py` utility and
+  replace-in-place raw market table with registered Dagster jobs, completed-crawl
+  activation, durable tradability evidence, event/market/edge graph records, and
+  a manual release contract. No compatibility catalog path remains.
 
 - Minute CLOB fetches now cap submitted futures and stream each completed token
   directly into bounded Parquet buffers. Soccer audits only due attempts,

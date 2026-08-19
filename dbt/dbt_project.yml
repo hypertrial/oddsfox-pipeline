@@ -23,6 +23,10 @@ models:
       staging:
         +schema: polymarket_catalog_staging
         +tags: ["staging", "polymarket", "catalog"]
+      marts:
+        +schema: polymarket_catalog_marts
+        +materialized: table
+        +tags: ["mart", "core", "polymarket", "catalog"]
     polymarket_wc2026:
       +tags: ["wc2026", "polymarket"]
       staging:

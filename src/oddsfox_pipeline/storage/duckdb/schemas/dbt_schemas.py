@@ -66,6 +66,7 @@ KALSHI_WC2026_OBSERVABILITY_SCHEMA: Final = schema_name(
     SOURCE_KALSHI, SCOPE_WC2026, "observability"
 )
 POLYMARKET_CATALOG_STAGING_SCHEMA: Final = "polymarket_catalog_staging"
+POLYMARKET_CATALOG_MARTS_SCHEMA: Final = "polymarket_catalog_marts"
 DBT_FALLBACK_SCHEMA: Final = "dbt"
 POLYMARKET_WC2026_OBSERVABILITY_MODELS: Final[tuple[str, ...]] = (
     "polymarket_wc2026_match_order_book_data_quality",
@@ -86,6 +87,7 @@ DBT_MODELED_SCHEMAS: Final[tuple[str, ...]] = (
     WC2026_MARTS_SCHEMA,
     WC2026_OBSERVABILITY_SCHEMA,
     POLYMARKET_CATALOG_STAGING_SCHEMA,
+    POLYMARKET_CATALOG_MARTS_SCHEMA,
     POLYMARKET_WC2026_STAGING_SCHEMA,
     POLYMARKET_WC2026_INTERMEDIATE_SCHEMA,
     POLYMARKET_WC2026_MARTS_SCHEMA,
@@ -108,7 +110,11 @@ DBT_EXPECTED_RELATIONS: Final[tuple[tuple[str, str], ...]] = (
     (WC2026_MARTS_SCHEMA, "wc2026_venue_markets"),
     (WC2026_OBSERVABILITY_SCHEMA, "wc2026_source_availability"),
     (WC2026_OBSERVABILITY_SCHEMA, "wc2026_strategy_input_readiness"),
-    (POLYMARKET_CATALOG_STAGING_SCHEMA, "stg_polymarket_catalog_markets"),
+    (POLYMARKET_CATALOG_STAGING_SCHEMA, "stg_polymarket_catalog_events"),
+    (POLYMARKET_CATALOG_STAGING_SCHEMA, "stg_polymarket_catalog_market_snapshots"),
+    (POLYMARKET_CATALOG_STAGING_SCHEMA, "stg_polymarket_catalog_event_markets"),
+    (POLYMARKET_CATALOG_STAGING_SCHEMA, "stg_polymarket_catalog_crawl_runs"),
+    (POLYMARKET_CATALOG_MARTS_SCHEMA, "polymarket_graph_catalog"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_markets"),
     (POLYMARKET_WC2026_STAGING_SCHEMA, "stg_polymarket_wc2026_event_snapshots"),
     (
@@ -450,7 +456,10 @@ def _kalshi_source_slug(model_name: str) -> str | None:
 
 
 def _polymarket_source_slug(model_name: str) -> str | None:
-    if model_name.startswith("stg_polymarket_catalog_"):
+    if (
+        model_name.startswith("stg_polymarket_catalog_")
+        or model_name == "polymarket_graph_catalog"
+    ):
         return DBT_SOURCE_POLYMARKET_CATALOG
     if model_name.startswith(
         (
@@ -727,6 +736,7 @@ __all__ = [
     "POLYMARKET_WC2026_MARTS_SCHEMA",
     "POLYMARKET_WC2026_OBSERVABILITY_SCHEMA",
     "POLYMARKET_CATALOG_STAGING_SCHEMA",
+    "POLYMARKET_CATALOG_MARTS_SCHEMA",
     "POLYMARKET_WC2026_STAGING_SCHEMA",
     "POLYMARKET_SOCCER_INTERMEDIATE_SCHEMA",
     "POLYMARKET_SOCCER_MARTS_SCHEMA",

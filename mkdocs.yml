@@ -83,6 +83,7 @@ nav:
   - Guides:
       - First query: guides/first-query.md
       - Advanced pipelines: guides/advanced-pipelines.md
+      - Global Polymarket graph catalog: guides/polymarket-graph-catalog.md
       - Run a scope: guides/run-a-scope.md
       - Query the warehouse: guides/query-the-warehouse.md
       - Query recipes: guides/query-recipes.md

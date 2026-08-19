@@ -59,6 +59,14 @@ included SIL Open Font License notices.
 
 The project references these independently governed upstream materials:
 
+- the official Polymarket Gamma
+  [event](https://docs.polymarket.com/api-reference/events/list-events-keyset-pagination)
+  and
+  [market](https://docs.polymarket.com/api-reference/markets/list-markets-keyset-pagination)
+  keyset APIs, used by the
+  operator-run global graph catalog to observe source text, state, relationships,
+  and evidence that a market was tradable. Gamma data and immutable catalog
+  releases remain operator-controlled and outside the project's MIT grant;
 - the [FIFA World Cup 26 Match Schedule](https://digitalhub.fifa.com/asset/4b5d4417-3343-4732-9cdf-14b6662af407/FWC26-Match-Schedule_English.pdf),
   revision `FWC26 Match Schedule_v31_16072026_EN`, used only as independently
   governed authoring and review provenance for official match numbers. The

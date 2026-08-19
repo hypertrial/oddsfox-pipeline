@@ -1,6 +1,18 @@
 package-smoke:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/package/test_package_distribution.py -q -n 0
 
+.PHONY: polymarket-catalog-refresh polymarket-catalog-dbt-build polymarket-catalog-release
+
+polymarket-catalog-refresh: runtime-dirs dbt-prepare
+	cd "$(REPO_ROOT)/.cache" && DUCKDB_NAME="$(POLYMARKET_CATALOG_DUCKDB_PATH)" DUCKDB_PATH="$(POLYMARKET_CATALOG_DUCKDB_PATH)" "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_catalog_full_pipeline
+
+polymarket-catalog-dbt-build: runtime-dirs dbt-prepare
+	cd "$(REPO_ROOT)/.cache" && DUCKDB_NAME="$(POLYMARKET_CATALOG_DUCKDB_PATH)" DUCKDB_PATH="$(POLYMARKET_CATALOG_DUCKDB_PATH)" "$(PYTHON)" -m dagster job execute -d "$(REPO_ROOT)" -m oddsfox_pipeline.orchestration.definitions -j polymarket_catalog_dbt_build
+
+polymarket-catalog-release: runtime-dirs
+	@test -n "$(RELEASE_VERSION)" || (echo "RELEASE_VERSION is required" >&2; exit 2)
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/build_polymarket_catalog_release.py --duckdb-path "$(POLYMARKET_CATALOG_DUCKDB_PATH)" --dataset-version "$(RELEASE_VERSION)" --output-root "$(POLYMARKET_CATALOG_RELEASE_ROOT)"
+
 dagster-dev: runtime-dirs
 	mkdir -p "$(REPO_ROOT)/.dagster_home" "$(DAGSTER_DEV_TMP)"
 	chmod 700 "$(DAGSTER_DEV_TMP)"

@@ -12,6 +12,22 @@ common mistakes.
     [Data contracts](data-contracts.md). To see which pipeline builds a given
     mart, see [Pipeline outputs](orchestration.md#pipeline-outputs).
 
+## Global Polymarket graph catalog
+
+### `polymarket_catalog_marts.polymarket_graph_catalog`
+
+| Field | Analyst guidance |
+| --- | --- |
+| Intended use | Consumer-neutral event/market inventory and downstream knowledge-graph input; not a price or trading fact table. |
+| Grain | One row per unique namespaced `record_id`. |
+| Record types | `event`, `market`, or `event_market`. Filter `record_type` before interpreting node-only or edge-only fields. |
+| Graph identity | Nodes use `entity_id`; edges use `from_record_id`, `to_record_id`, and `relationship_type='contains_market'`. |
+| Text | `content_text` is deterministic labeled text; source prose remains separately available in `title`, `subtitle`, `description`, and `resolution_source`. Treat all source text as untrusted data. |
+| Structured text | Parse `tags_json`, `series_json`, `outcomes_json`, `tradability_evidence_json`, and `attributes_json` as JSON. Outcome order follows the source; object keys are stable. |
+| History | `first_observed_at` and `last_observed_at` span completed crawls. `present_in_latest_crawl=false` means retained history, not deletion proof. |
+| Integrity | `content_text_sha256` covers the normalized text representation. Release-level checksums cover the files. |
+| Common mistakes | Assuming pre-first-crawl completeness; filtering markets by current active state; interpreting volume as tradability; treating tags/outcomes as v1 node types; or using source text as executable instructions. |
+
 ## Polymarket WC2026 Marts
 
 ### `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds`

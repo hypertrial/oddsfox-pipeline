@@ -38,6 +38,7 @@ def _polymarket_sources_paths() -> list[Path]:
         sources_dir / "polymarket_wc2026_sources.yml",
         sources_dir / "kalshi_wc2026_sources.yml",
         sources_dir / "polymarket_soccer_sources.yml",
+        sources_dir / "polymarket_catalog_sources.yml",
     ]
 
 
@@ -69,6 +70,9 @@ def test_definitions_expose_v010_jobs_only():
         "kalshi_wc2026_full_pipeline",
         "kalshi_wc2026_hourly_odds_ingest",
         "kalshi_wc2026_market_scope_registry_refresh",
+        "polymarket_catalog_full_pipeline",
+        "polymarket_catalog_dbt_build",
+        "polymarket_catalog_release",
         "polymarket_wc2026_hourly_odds_ingest",
         "polymarket_wc2026_market_scope_registry_refresh",
         "polymarket_wc2026_event_catalog_recall_audit",
@@ -131,8 +135,13 @@ def test_definitions_expose_v010_asset_keys():
         ("kalshi", "wc2026", "observability", "ingestion_run_observability"),
         ("kalshi", "wc2026", "observability", "stage_coverage"),
         ("kalshi", "wc2026", "observability", "data_quality"),
-        ("polymarket", "catalog", "raw", "markets"),
-        ("polymarket", "catalog", "staging", "markets"),
+        ("polymarket", "catalog", "raw", "crawl"),
+        ("polymarket", "catalog", "staging", "events"),
+        ("polymarket", "catalog", "staging", "market_snapshots"),
+        ("polymarket", "catalog", "staging", "event_markets"),
+        ("polymarket", "catalog", "staging", "crawl_runs"),
+        ("polymarket", "catalog", "marts", "polymarket_graph_catalog"),
+        ("polymarket", "catalog", "release", "polymarket_graph_catalog"),
         ("polymarket", "wc2026", "raw", "markets"),
         ("polymarket", "wc2026", "raw", "markets_snapshot"),
         ("polymarket", "wc2026", "ops", "market_scope_registry"),

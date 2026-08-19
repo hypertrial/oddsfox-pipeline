@@ -32,6 +32,10 @@ from oddsfox_pipeline.orchestration.assets_polymarket import (
     oddsfox_dbt,
     polymarket_soccer_monitoring_dbt,
 )
+from oddsfox_pipeline.orchestration.assets_polymarket_catalog import (
+    POLYMARKET_CATALOG_RAW_CRAWL,
+    POLYMARKET_CATALOG_RELEASE_GRAPH,
+)
 from oddsfox_pipeline.orchestration.assets_soccer import (
     POLYMARKET_SOCCER_MART_MATCH_RESULT_MINUTE,
     POLYMARKET_SOCCER_OPS_MATCH_RESULT_REGISTRY,
@@ -43,6 +47,7 @@ from oddsfox_pipeline.orchestration.config import (
     kalshi_wc2026_dbt_build_run_config,
     kalshi_wc2026_full_refresh_events_run_config,
     kalshi_wc2026_hourly_odds_run_config,
+    polymarket_catalog_dbt_build_run_config,
     polymarket_soccer_catalog_run_config,
     polymarket_soccer_dbt_build_run_config,
     polymarket_soccer_full_pipeline_run_config,
@@ -87,6 +92,43 @@ _KALSHI_WC2026_TAGS = {
     "source": SOURCE_KALSHI,
     "scope": SCOPE_WC2026,
 }
+
+_POLYMARKET_CATALOG_TAGS = {
+    **_DUCKDB_WAREHOUSE_TAGS,
+    "source": SOURCE_POLYMARKET,
+    "scope": "catalog",
+}
+
+POLYMARKET_CATALOG_DBT_SELECTION = build_dbt_asset_selection(
+    [oddsfox_dbt], dbt_select="+polymarket_graph_catalog"
+)
+POLYMARKET_CATALOG_FULL_SELECTION = (
+    AssetSelection.assets(POLYMARKET_CATALOG_RAW_CRAWL)
+    | POLYMARKET_CATALOG_DBT_SELECTION
+)
+
+polymarket_catalog_full_pipeline = define_asset_job(
+    "polymarket_catalog_full_pipeline",
+    selection=POLYMARKET_CATALOG_FULL_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_catalog_dbt_build_run_config(),
+    tags=_POLYMARKET_CATALOG_TAGS,
+)
+
+polymarket_catalog_dbt_build = define_asset_job(
+    "polymarket_catalog_dbt_build",
+    selection=POLYMARKET_CATALOG_DBT_SELECTION,
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    config=polymarket_catalog_dbt_build_run_config(),
+    tags=_POLYMARKET_CATALOG_TAGS,
+)
+
+polymarket_catalog_release = define_asset_job(
+    "polymarket_catalog_release",
+    selection=AssetSelection.assets(POLYMARKET_CATALOG_RELEASE_GRAPH),
+    executor_def=_ANALYTICS_BUILD_EXECUTOR,
+    tags=_POLYMARKET_CATALOG_TAGS,
+)
 
 
 def _merge_dbt_build_config(existing: dict, incoming: dict) -> dict:

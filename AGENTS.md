@@ -171,6 +171,9 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make contract-http` | Replay-only HTTP contract tests; included in the fast GitHub gate |
 | `make match-order-book-live-smoke` | Opt-in resumable PMXT backfill; consumes PMXT credits |
 | `make event-catalog-recall-audit` | Opt-in exhaustive WC2026 event-catalog slug-prefix recall audit |
+| `make polymarket-catalog-refresh` | Manual four-pass global Gamma event/market crawl plus graph-mart build |
+| `make polymarket-catalog-dbt-build` | Offline rebuild of the cumulative global graph mart |
+| `make polymarket-catalog-release RELEASE_VERSION=<semver>` | Offline immutable Parquet publication of the graph mart |
 | `make match-minute-inputs-validate` | Validate the loaded Scraper bundle's 104-match fixture inventory |
 | `make minute-odds-live-smoke` | Disposable unified minute-odds live smoke (5%/leg sample, futures 24h tail; external CLOB/Gamma) |
 | `make futures-minute-publish-benchmark` | Disposable baseline/candidate futures-minute publish speed + equality report |
@@ -198,7 +201,7 @@ src/oddsfox_pipeline/
   storage/duckdb/  # Connection, schemas, markets/odds persistence, profiling
 dbt/
   models/sources/   # Read-only oddsfox.reference.v1 and market source declarations
-  models/polymarket_catalog/staging/
+  models/polymarket_catalog/{staging,marts}/
   models/polymarket_wc2026/{staging,intermediate,marts,observability}/
   models/kalshi_wc2026/{staging,intermediate,marts,observability}/
   models/wc2026/{intermediate,marts,observability}/
@@ -240,35 +243,42 @@ Imports use src-layout paths: `from oddsfox_pipeline.config.settings import …`
 
 Asset key order (routine pipeline; flat op names use the same subject order):
 
-1. `polymarket/wc2026/raw/markets`
-2. `polymarket/wc2026/raw/markets_snapshot`
-3. `polymarket/wc2026/raw/event_catalog`
-4. `polymarket/wc2026/raw/event_snapshots`
-5. `polymarket/wc2026/raw/event_market_memberships`
-6. `polymarket/wc2026/ops/market_scope_registry`
-7. `polymarket/wc2026/raw/market_metadata_enrichment`
-8. `polymarket/wc2026/raw/token_odds_history_hourly`
-9. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
-10. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
-11. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
-12. `polymarket/soccer/raw/event_catalog`
-13. `polymarket/soccer/raw/event_snapshots`
-14. `polymarket/soccer/raw/event_market_memberships`
-15. `polymarket/soccer/ops/match_result_registry`
-16. `polymarket/soccer/raw/match_result_token_odds_history_minute`
-17. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
-18. `kalshi/wc2026/raw/markets`
-19. `kalshi/wc2026/raw/markets_snapshot`
-20. `kalshi/wc2026/ops/market_scope_registry`
-21. `kalshi/wc2026/raw/market_candlesticks_hourly`
-22. external `oddsfox/reference/...` source assets loaded from an immutable
+1. `polymarket/catalog/raw/crawl` (manual global catalog only)
+2. `polymarket/catalog/{staging,marts}/...`
+3. `polymarket/catalog/release/polymarket_graph_catalog` (manual only)
+4. `polymarket/wc2026/raw/markets`
+5. `polymarket/wc2026/raw/markets_snapshot`
+6. `polymarket/wc2026/raw/event_catalog`
+7. `polymarket/wc2026/raw/event_snapshots`
+8. `polymarket/wc2026/raw/event_market_memberships`
+9. `polymarket/wc2026/ops/market_scope_registry`
+10. `polymarket/wc2026/raw/market_metadata_enrichment`
+11. `polymarket/wc2026/raw/token_odds_history_hourly`
+12. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
+13. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
+14. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
+15. `polymarket/soccer/raw/event_catalog`
+16. `polymarket/soccer/raw/event_snapshots`
+17. `polymarket/soccer/raw/event_market_memberships`
+18. `polymarket/soccer/ops/match_result_registry`
+19. `polymarket/soccer/raw/match_result_token_odds_history_minute`
+20. `kalshi/wc2026/raw/events` (dlt sibling landed with markets)
+21. `kalshi/wc2026/raw/markets`
+22. `kalshi/wc2026/raw/markets_snapshot`
+23. `kalshi/wc2026/ops/market_scope_registry`
+24. `kalshi/wc2026/raw/market_candlesticks_hourly`
+25. external `oddsfox/reference/...` source assets loaded from an immutable
    Scraper `oddsfox.reference.v1` bundle
-23. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
+26. dbt model assets under `polymarket/wc2026/{staging,intermediate,marts,observability}/...`,
    `polymarket/soccer/{staging,intermediate,marts,observability}/...`,
    `kalshi_wc2026/{staging,intermediate,marts,observability}/...`, and
    market-owned `wc2026/{intermediate,marts,observability}/...`; Scraper
    reference tables remain external assets with read-only bridge views
-24. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
+27. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (immutable internal audit release only)
+
+Global catalog jobs: `polymarket_catalog_full_pipeline`,
+`polymarket_catalog_dbt_build`, and `polymarket_catalog_release`. They are
+manual-only and have no schedule.
 
 Key jobs: `polymarket_wc2026_market_scope_registry_refresh`,
 `polymarket_wc2026_event_catalog_recall_audit`, `polymarket_wc2026_hourly_odds_ingest`,

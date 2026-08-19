@@ -23,6 +23,7 @@ from oddsfox_pipeline.orchestration import assets
 from oddsfox_pipeline.orchestration.config import (
     kalshi_wc2026_full_refresh_events_run_config,
     kalshi_wc2026_hourly_odds_run_config,
+    polymarket_catalog_dbt_build_run_config,
     polymarket_soccer_full_pipeline_run_config,
     polymarket_wc2026_dbt_build_run_config,
     polymarket_wc2026_full_refresh_events_run_config,
@@ -75,6 +76,8 @@ EXPECTED_OP_NAMES = {
     "polymarket_soccer_ops_match_result_registry",
     "polymarket_soccer_raw_match_result_token_odds_history_minute",
     "polymarket_soccer_monitoring_dbt",
+    "polymarket_catalog_raw_catalog_crawl",
+    "polymarket_catalog_release_graph_catalog",
     "oddsfox_dbt",
 }
 
@@ -84,7 +87,7 @@ EXPECTED_SCRIPT_FILES = {
     "count_polymarket_wc2026_gamma_tag_events.py",
     "export_polymarket_wc2026_market_hourly_odds.py",
     "repair_polymarket_wc2026_token_sync_ledger.py",
-    "sync_polymarket_markets_catalog.py",
+    "build_polymarket_catalog_release.py",
 }
 
 # Build inverted tokens without embedding the contiguous retired literal.
@@ -116,6 +119,7 @@ _REFERENCE_BRIDGE_ASSETS = frozenset(
         ("international_results", "wc2026", "marts", "team_status"),
     }
 )
+_DOCUMENTED_MODEL_NAME_EXCEPTIONS = frozenset({"polymarket_graph_catalog"})
 
 _SOURCE_FIRST_OP_PREFIXES = (
     f"{SOURCE_KALSHI}_",
@@ -147,6 +151,8 @@ def _job_expected_source(job_name: str) -> str:
 
 
 def _job_expected_scope(job_name: str) -> str:
+    if job_name.startswith("polymarket_catalog_"):
+        return "catalog"
     if job_name.startswith("polymarket_soccer_"):
         return SCOPE_SOCCER
     return SCOPE_WC2026
@@ -226,6 +232,8 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         assets.polymarket_soccer_ops_match_result_registry.op.name,
         assets.polymarket_soccer_raw_match_result_token_odds_history_minute.op.name,
         assets.polymarket_soccer_monitoring_dbt.op.name,
+        assets.polymarket_catalog_raw_catalog_crawl.op.name,
+        assets.polymarket_catalog_release_graph_catalog.op.name,
         assets.oddsfox_dbt.op.name,
     }
     run_config_ops = (
@@ -245,6 +253,7 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         | set(kalshi_wc2026_full_refresh_events_run_config()["ops"])
         | set(kalshi_wc2026_hourly_odds_run_config()["ops"])
         | set(polymarket_soccer_full_pipeline_run_config()["ops"])
+        | set(polymarket_catalog_dbt_build_run_config()["ops"])
     )
 
     assert actual_op_names == EXPECTED_OP_NAMES
@@ -254,6 +263,8 @@ def test_dagster_op_names_and_run_config_keys_are_source_first():
         "polymarket_wc2026_raw_markets_snapshot",
         "polymarket_soccer_ops_pipeline_preflight",
         "polymarket_soccer_ops_match_result_registry",
+        "polymarket_catalog_raw_catalog_crawl",
+        "polymarket_catalog_release_graph_catalog",
     }
     if not POLYMARKET_WC2026_MINUTE_ODDS_REFRESH_FUTURES:
         expected_run_config_ops.remove(
@@ -314,7 +325,10 @@ def test_dbt_project_uses_source_first_directory_and_schemas():
 def test_dbt_model_filenames_are_source_first_by_layer():
     for path, prefix in _dbt_layer_dirs().items():
         for model_path in (ROOT / "dbt" / "models" / path).glob("*.sql"):
-            assert model_path.stem.startswith(prefix), model_path.name
+            assert (
+                model_path.stem.startswith(prefix)
+                or model_path.stem in _DOCUMENTED_MODEL_NAME_EXCEPTIONS
+            ), model_path.name
 
 
 def test_storage_schema_constants_are_source_first():
@@ -357,6 +371,11 @@ def test_dbt_source_metadata_uses_hierarchical_asset_keys():
                 ROOT / "dbt" / "models" / "sources" / "polymarket_soccer_sources.yml"
             ).read_text()
         )["sources"]
+        + yaml.safe_load(
+            (
+                ROOT / "dbt" / "models" / "sources" / "polymarket_catalog_sources.yml"
+            ).read_text()
+        )["sources"]
     )
     source_asset_keys = {
         tuple(table["meta"]["dagster"]["asset_key"])
@@ -366,10 +385,7 @@ def test_dbt_source_metadata_uses_hierarchical_asset_keys():
     registered_asset_keys = {tuple(key.path) for key in defs.resolve_all_asset_keys()}
 
     assert source_asset_keys <= registered_asset_keys
-    assert all(
-        key[:2] in _ALLOWED_ASSET_ROOTS - {(SOURCE_POLYMARKET, "catalog")}
-        for key in source_asset_keys
-    )
+    assert all(key[:2] in _ALLOWED_ASSET_ROOTS for key in source_asset_keys)
     assert all(len(key) >= 4 for key in source_asset_keys)
 
 

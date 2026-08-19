@@ -124,6 +124,26 @@ def test_makefile_include_fragments_are_present_and_inlined():
     assert "test-dev:" in inlined
 
 
+def test_catalog_commands_resolve_one_warehouse_path_before_changing_directory():
+    expected = str(REPO_ROOT / "relative" / "catalog.duckdb")
+    commands = {}
+    for target in ("polymarket-catalog-refresh", "polymarket-catalog-release"):
+        args = ["make", "-n", target, "DUCKDB_NAME=relative/catalog.duckdb"]
+        if target.endswith("release"):
+            args.append("RELEASE_VERSION=1.2.3")
+        completed = subprocess.run(
+            args,
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        commands[target] = completed.stdout
+
+    assert f'DUCKDB_PATH="{expected}"' in commands["polymarket-catalog-refresh"]
+    assert f'--duckdb-path "{expected}"' in commands["polymarket-catalog-release"]
+
+
 def test_ci_split_targets_remain_wired():
     makefile = makefile_text()
 

@@ -23,6 +23,7 @@ backfill, paid or narrow credentials, single-target manifests.
 
 | Pipeline | Entry job(s) | Steps | Schedule | CI dbt gate | Maturity |
 | --- | --- | --- | --- | --- | --- |
+| Global Polymarket graph catalog | `polymarket_catalog_full_pipeline`; offline `_dbt_build` and `_release` jobs | Four-pass Gamma crawl, activation, graph mart, optional immutable release | None | Focused mocked crawl, dbt integrity, and release tests | Mature, isolated |
 | Polymarket WC2026 | `polymarket_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | None | `ci-fast` → `dbt-lint`; model build in `dbt-build-ci` (excludes `tag:polygon_settlement` / `tag:pmxt_order_book` / `tag:minute_odds`) | Production |
 | Polymarket Soccer | `polymarket_soccer_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Daily 04:00 UTC (stopped) | `ci-fast` → `dbt-soccer-minute-ci` | Production |
 | Kalshi WC2026 | `kalshi_wc2026_full_pipeline` | `market_scope_registry`, `odds`, `dbt` | Hourly odds (stopped) | `ci-fast` → `dbt-lint`; `+tag:kalshi` builds in `dbt-build-ci` / `release-gate` | Production |
@@ -44,6 +45,9 @@ this list maps each pipeline to what it builds.
   only the golden mart closure (`+polymarket_wc2026_market_hourly_odds`); use
   dedicated backfill jobs for match-minute, order-book, portrait, and Polygon
   settlement marts.
+- **Global Polymarket graph catalog** (`polymarket_catalog_full_pipeline`):
+  `polymarket_catalog_marts.polymarket_graph_catalog`. The separate release job
+  publishes `oddsfox.polymarket.graph-catalog.v1` without network access.
 - **Kalshi WC2026** (`kalshi_wc2026_full_pipeline`): `kalshi_wc2026_stage_markets`,
   `kalshi_wc2026_stage_market_hourly_odds`, `kalshi_wc2026_group_winner_markets`,
   `kalshi_wc2026_group_winner_market_hourly_odds`. Rebuilds the same shared
@@ -69,27 +73,30 @@ this list maps each pipeline to what it builds.
 
 ## Asset order
 
-1. `polymarket/wc2026/raw/markets`
-2. `polymarket/wc2026/raw/markets_snapshot`
-3. `polymarket/wc2026/raw/event_catalog`
-4. `polymarket/wc2026/raw/event_snapshots`
-5. `polymarket/wc2026/raw/event_market_memberships`
-6. `polymarket/wc2026/ops/market_scope_registry`
-7. `polymarket/wc2026/raw/market_metadata_enrichment`
-8. `polymarket/wc2026/raw/token_odds_history_hourly`
-9. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
-10. `polymarket/wc2026/raw/futures_token_odds_history_minute` (dedicated unified minute backfill only)
-11. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
-12. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
-13. `oddsfox/reference/*` (external assets loaded from one validated Scraper bundle)
-14. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
-15. `kalshi/wc2026/raw/markets`
-16. `kalshi/wc2026/raw/markets_snapshot`
-17. `kalshi/wc2026/ops/market_scope_registry`
-18. `kalshi/wc2026/raw/market_candlesticks_hourly`
-19. dbt model assets under the matching
+1. `polymarket/catalog/raw/crawl` (manual global catalog only)
+2. `polymarket/catalog/{staging,marts}/...`
+3. `polymarket/catalog/release/polymarket_graph_catalog` (manual only)
+4. `polymarket/wc2026/raw/markets`
+5. `polymarket/wc2026/raw/markets_snapshot`
+6. `polymarket/wc2026/raw/event_catalog`
+7. `polymarket/wc2026/raw/event_snapshots`
+8. `polymarket/wc2026/raw/event_market_memberships`
+9. `polymarket/wc2026/ops/market_scope_registry`
+10. `polymarket/wc2026/raw/market_metadata_enrichment`
+11. `polymarket/wc2026/raw/token_odds_history_hourly`
+12. `polymarket/wc2026/raw/match_token_odds_history_minute` (dedicated backfill only)
+13. `polymarket/wc2026/raw/futures_token_odds_history_minute` (dedicated unified minute backfill only)
+14. `polymarket/wc2026/raw/match_order_book_snapshots` (dedicated PMXT backfill only)
+15. `polymarket/wc2026/raw/polygon_settlement_fills` (dedicated finalized backfill only)
+16. `oddsfox/reference/*` (external assets loaded from one validated Scraper bundle)
+17. `kalshi/wc2026/raw/events` (landed with the markets dlt source)
+18. `kalshi/wc2026/raw/markets`
+19. `kalshi/wc2026/raw/markets_snapshot`
+20. `kalshi/wc2026/ops/market_scope_registry`
+21. `kalshi/wc2026/raw/market_candlesticks_hourly`
+22. dbt model assets under the matching
     `{staging,intermediate,marts,observability}` namespaces.
-20. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
+23. `polymarket/wc2026/release/polygon_settlement_odds_bundle` (internal audit release only)
 
 Flat Dagster op names preserve the same source-first order, for example
 `polymarket_wc2026_raw_token_odds_history_hourly`.
@@ -98,6 +105,17 @@ Flat Dagster op names preserve the same source-first order, for example
 
 Entry-point jobs are pipelines; narrower jobs run one step. See
 [Pipeline registry](#pipeline-registry) and [Terminology](terminology.md#execution).
+
+### Global Polymarket graph catalog
+
+- `polymarket_catalog_full_pipeline`: crawl all open/closed event and market
+  keyset passes, activate only a complete crawl, then build the graph mart.
+- `polymarket_catalog_dbt_build`: rebuild the mart from completed observations
+  without network access.
+- `polymarket_catalog_release`: validate and publish an immutable local release
+  without network access.
+
+All three jobs are manual-only. No schedule targets them.
 
 ### Polymarket WC2026
 

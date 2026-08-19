@@ -45,6 +45,7 @@ def test_init_duck_db_creates_raw_and_ops_schemas(tmp_path, monkeypatch):
         "kalshi_wc2026_raw",
         "kalshi_wc2026_ops",
         "polymarket_catalog_raw",
+        "polymarket_catalog_ops",
         "polymarket_soccer_raw",
         "polymarket_soccer_ops",
     }

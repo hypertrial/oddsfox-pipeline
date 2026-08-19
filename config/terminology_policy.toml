@@ -93,6 +93,9 @@ terms = ["contract"]
 
 [structural]
 extension_jobs = [
+  "polymarket_catalog_full_pipeline",
+  "polymarket_catalog_dbt_build",
+  "polymarket_catalog_release",
   "polymarket_wc2026_event_catalog_recall_audit",
   "polymarket_wc2026_match_minute_odds_backfill",
   "polymarket_wc2026_minute_odds_backfill",
@@ -111,7 +114,9 @@ critical_asset_keys = [
   ["kalshi", "wc2026", "marts", "stage_markets"],
   ["oddsfox", "reference", "openfootball_wc2026_schedule_fixtures"],
   ["oddsfox", "reference", "international_results_wc2026_matches"],
-  ["polymarket", "catalog", "raw", "markets"],
+  ["polymarket", "catalog", "raw", "crawl"],
+  ["polymarket", "catalog", "marts", "polymarket_graph_catalog"],
+  ["polymarket", "catalog", "release", "polymarket_graph_catalog"],
 ]
 
 # Identifier retirement: apply to all scanned files (code and docs).

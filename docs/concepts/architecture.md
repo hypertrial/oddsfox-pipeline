@@ -5,7 +5,8 @@ DuckDB warehouse and is coordinated by jobs that can be inspected before
 schedules are enabled. The project is a prediction-market pipeline; the current
 v0.2.x adapters support WC2026 Polymarket event-gated hourly odds marts, Kalshi
 WC2026 stage and group-winner marts, Polygon settlement history, analytics marts
-as the supported query API, and the private `wc2026.v1` strategy clean-data
+as the supported query API, the manual global Polymarket textual graph catalog,
+and the private `wc2026.v1` strategy clean-data
 contract. Non-market reference data is produced by OddsFox Scraper and enters
 Pipeline only through an immutable `oddsfox.reference.v1` bundle.
 
@@ -28,12 +29,14 @@ Current WC2026 implementation:
 ```mermaid
 flowchart LR
     gamma["Prediction-market metadata API<br/>Polymarket Gamma in v0.2.x"] --> dlt["dlt market landing"]
+    gamma --> catalog["Manual four-pass global catalog"]
     clob["Prediction-market odds API<br/>Polymarket CLOB in v0.2.x"] --> odds["Python odds sync"]
     kalshi_api["Prediction-market metadata/odds API<br/>Kalshi trade API in v0.2.x"] --> kalshi_sync["Python candlestick sync"]
     reference["oddsfox.reference.v1<br/>from OddsFox Scraper"] --> reference_load["Validated transactional load"]
     seed["Operator-local Polygon WC2026 manifest"] --> polygon_sync["Finalized Polygon V2 log sync"]
     polygon_rpc["Polygon JSON-RPC"] --> polygon_sync
     dlt --> raw["DuckDB raw schema"]
+    catalog --> raw
     odds --> raw
     kalshi_sync --> raw
     reference_load --> reference_schema["oddsfox_reference schema"]
@@ -43,6 +46,8 @@ flowchart LR
     reference_schema --> dbt
     ops --> dbt
     dbt --> marts["WC2026 analytics marts"]
+    dbt --> graph_mart["Cumulative textual graph mart"]
+    graph_mart --> graph_release["Immutable Parquet release"]
     dbt --> polygon_mart["Polygon settlement mart"]
     polygon_mart --> audit["Immutable internal audit bundle"]
     audit --> export["Allowlisted operator-local export"]
@@ -62,6 +67,11 @@ observability. The Polygon release asset writes only an internal audit bundle;
 the allowlisted exporter is a separate offline script. Neither path uploads
 data.
 
+The global catalog independently scans open and closed Gamma events and markets.
+Only a four-pass completed crawl becomes active. dbt retains cumulative event,
+tradable-market, and membership records; a separate offline asset publishes the
+consumer-neutral textual Parquet release. That path is manual and unscheduled.
+
 The shipped Dagster/dbt graphs are fixed per scope (`wc2026` on Polymarket and
 Kalshi); see [Configuration](../reference/configuration.md) for the seed-backed
 helper boundary.
@@ -74,6 +84,7 @@ helper boundary.
 | dlt | Lands market metadata and current raw/ops batches into DuckDB stage/canonical tables for the current adapter. |
 | Reference bundle loader | Validates the complete Scraper manifest, schemas, keys, and checksums before transactionally replacing the active reference schema; failure preserves the last known-good bundle. |
 | Python odds sync | Fetches odds, writes token history, and maintains ledgers. |
+| Global graph catalog | Crawls Gamma event and market keysets, atomically activates completed observations, builds deterministic text, and publishes an immutable consumer-neutral Parquet contract. |
 | Polygon settlement sync | Scans finalized V2 logs in resumable block chunks, normalizes exact economic legs, and atomically publishes a wallet- and order-payload-redacted snapshot. |
 | Polygon audit release | Writes the complete immutable local evidence bundle used for verification; it contains internal identifiers and locators. |
 | Polygon technical exporter | Verifies an immutable audit release, copies the allowlisted CSV byte-for-byte, and writes a redacted operator-local quality dossier without opening the warehouse or making network requests. |

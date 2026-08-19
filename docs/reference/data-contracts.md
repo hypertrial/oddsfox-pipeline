@@ -24,6 +24,32 @@ Prefer **mart** or **documented mart**. It does not mean that every relation is
 sanitized or intended for external distribution; the Polygon settlement mart
 has a separate allowlisted exporter.
 
+### Global Polymarket graph catalog
+
+Schema: `polymarket_catalog_marts`
+
+| Relation | Grain | Contract |
+| --- | --- | --- |
+| `polymarket_graph_catalog` | One row per namespaced `record_id` | Cumulative event nodes, qualifying market nodes, and event-market edges observed by completed four-pass global Gamma crawls. Rows contain deterministic textual representations and observation provenance for downstream graph construction. |
+
+The only record types are `event`, `market`, and `event_market`. Node IDs are
+`event:<event_id>` and `market:<market_id>`; edge IDs are
+`event_market:<event_id>:<market_id>`. Every edge references included nodes,
+every event has an edge, and qualifying orphan markets remain included.
+
+Market qualification is cumulative and requires explicit evidence under the
+manifested tradability predicate: CLOB tokens, order-book enablement,
+accepting-orders time, funding time, or a deployed condition paired with ready
+or funded state. Volume, active state, and a bare condition ID do not qualify.
+`first_observed_at`, `last_observed_at`, `latest_catalog_crawl_id`, and
+`present_in_latest_crawl` distinguish retained history from current presence.
+
+The release contract is `oddsfox.polymarket.graph-catalog.v1`. It contains one
+sorted Parquet mart plus manifest, schema, quality report, and checksums. It is
+complete only from the first successful crawl onward; source records deleted
+before that crawl are unknowable. See the
+[manual runbook](../guides/polymarket-graph-catalog.md).
+
 Schema: `polymarket_wc2026_marts`
 
 | Relation | Grain | Pipeline | Contract |

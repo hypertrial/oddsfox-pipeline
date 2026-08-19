@@ -26,6 +26,10 @@ from oddsfox_pipeline.orchestration.assets_polymarket import (
     polymarket_wc2026_raw_match_token_odds_history_minute,
     polymarket_wc2026_raw_token_odds_history_hourly,
 )
+from oddsfox_pipeline.orchestration.assets_polymarket_catalog import (
+    polymarket_catalog_raw_catalog_crawl,
+    polymarket_catalog_release_graph_catalog,
+)
 from oddsfox_pipeline.orchestration.assets_soccer import (
     polymarket_soccer_catalog_check,
     polymarket_soccer_minute_mart_check,
@@ -54,6 +58,8 @@ __all__ = [
     "kalshi_wc2026_raw_markets",
     "kalshi_wc2026_raw_markets_snapshot",
     "oddsfox_dbt",
+    "polymarket_catalog_raw_catalog_crawl",
+    "polymarket_catalog_release_graph_catalog",
     "polymarket_soccer_monitoring_dbt",
     "polymarket_soccer_ops_match_result_registry",
     "polymarket_soccer_ops_pipeline_preflight",

@@ -319,6 +319,25 @@ class DbtBuildConfig(GuardrailConfig):
     expected_duckdb_path: str | None = None
 
 
+class PolymarketCatalogSyncConfig(Config):
+    crawl_id: str | None = None
+    max_pages: int | None = Field(default=None, ge=1)
+
+
+class PolymarketCatalogReleaseConfig(Config):
+    dataset_version: str = "1.0.0"
+    output_root: str = "artifacts/polymarket_catalog/releases"
+
+
+def polymarket_catalog_dbt_build_run_config() -> dict:
+    dbt = DbtBuildConfig(
+        full_refresh=False,
+        dbt_select="+polymarket_graph_catalog",
+        dbt_exclude=None,
+    )
+    return {"ops": {"oddsfox_dbt": {"config": dbt.model_dump()}}}
+
+
 def polymarket_wc2026_dbt_build_run_config() -> dict:
     dbt_cfg = DbtBuildConfig(
         full_refresh=False,

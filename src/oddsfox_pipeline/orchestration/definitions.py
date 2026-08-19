@@ -13,6 +13,8 @@ from oddsfox_pipeline.orchestration.assets import (
     kalshi_wc2026_raw_markets,
     kalshi_wc2026_raw_markets_snapshot,
     oddsfox_dbt,
+    polymarket_catalog_raw_catalog_crawl,
+    polymarket_catalog_release_graph_catalog,
     polymarket_soccer_catalog_check,
     polymarket_soccer_minute_mart_check,
     polymarket_soccer_minute_reconciliation_check,
@@ -42,6 +44,9 @@ from oddsfox_pipeline.orchestration.jobs import (
     kalshi_wc2026_full_pipeline,
     kalshi_wc2026_hourly_odds_ingest,
     kalshi_wc2026_market_scope_registry_refresh,
+    polymarket_catalog_dbt_build,
+    polymarket_catalog_full_pipeline,
+    polymarket_catalog_release,
     polymarket_soccer_dbt_build,
     polymarket_soccer_full_pipeline,
     polymarket_soccer_market_scope_registry_refresh,
@@ -68,6 +73,8 @@ from oddsfox_pipeline.orchestration.schedules import (
 defs = Definitions(
     assets=[
         *reference_assets,
+        polymarket_catalog_raw_catalog_crawl,
+        polymarket_catalog_release_graph_catalog,
         kalshi_wc2026_raw_markets,
         kalshi_wc2026_raw_markets_snapshot,
         kalshi_wc2026_ops_market_scope_registry,
@@ -100,6 +107,9 @@ defs = Definitions(
         polymarket_soccer_production_health_check,
     ],
     jobs=[
+        polymarket_catalog_full_pipeline,
+        polymarket_catalog_dbt_build,
+        polymarket_catalog_release,
         kalshi_wc2026_hourly_odds_ingest,
         kalshi_wc2026_market_scope_registry_refresh,
         kalshi_wc2026_dbt_build,

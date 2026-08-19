@@ -11,10 +11,8 @@ import duckdb
 
 from oddsfox_pipeline.naming import SCOPE_SOCCER, SCOPE_WC2026
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
-    POLYMARKET_CATALOG_RAW_SCHEMA,
     polymarket_ops_schema,
     polymarket_ops_tbl,
-    polymarket_q,
     polymarket_raw_schema,
     polymarket_raw_tbl,
     polymarket_wc2026_ops_tbl,
@@ -1098,6 +1096,11 @@ def bootstrap_all_polymarket_tables(conn: duckdb.DuckDBPyConnection) -> None:
         conn.execute(f"CREATE SCHEMA IF NOT EXISTS {polymarket_raw_schema(scope_name)}")
         conn.execute(f"CREATE SCHEMA IF NOT EXISTS {polymarket_ops_schema(scope_name)}")
         bootstrap_polymarket_tables(conn, scope_name=scope_name)
+    from oddsfox_pipeline.storage.duckdb.polymarket_catalog import (
+        ensure_catalog_tables,
+    )
+
+    ensure_catalog_tables(conn)
 
 
 def ensure_all_polymarket_indexes(conn: duckdb.DuckDBPyConnection) -> None:
@@ -1153,17 +1156,19 @@ def create_test_markets_table(
     conn.execute(f"CREATE TABLE IF NOT EXISTS {m} ({_MARKETS_TEST_DDL})")
 
 
-def create_test_catalog_markets_table(conn: duckdb.DuckDBPyConnection) -> None:
-    """Empty platform-wide catalog markets fixture for dbt CI builds."""
-    conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_CATALOG_RAW_SCHEMA}"')
-    m = polymarket_q(POLYMARKET_CATALOG_RAW_SCHEMA, "markets")
-    conn.execute(f"CREATE TABLE IF NOT EXISTS {m} ({_MARKETS_TEST_DDL})")
+def create_test_catalog_tables(conn: duckdb.DuckDBPyConnection) -> None:
+    """Empty global catalog fixtures for dbt CI builds."""
+    from oddsfox_pipeline.storage.duckdb.polymarket_catalog import (
+        ensure_catalog_tables,
+    )
+
+    ensure_catalog_tables(conn)
 
 
 def create_all_scope_test_markets_tables(conn: duckdb.DuckDBPyConnection) -> None:
     for scope_name in _POLYMARKET_SCOPES:
         create_test_markets_table(conn, scope_name=scope_name)
-    create_test_catalog_markets_table(conn)
+    create_test_catalog_tables(conn)
 
 
 def seed_test_ingestion_run_event(conn: duckdb.DuckDBPyConnection) -> None:
@@ -1210,7 +1215,7 @@ __all__ = [
     "bootstrap_all_polymarket_tables",
     "bootstrap_polymarket_tables",
     "create_all_scope_test_markets_tables",
-    "create_test_catalog_markets_table",
+    "create_test_catalog_tables",
     "create_test_markets_table",
     "ensure_all_polymarket_indexes",
     "ensure_polymarket_indexes",

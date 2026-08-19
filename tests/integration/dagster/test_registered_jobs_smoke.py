@@ -21,11 +21,17 @@ from oddsfox_pipeline.orchestration import (
     assets_polygon_settlement as polygon_assets_mod,
 )
 from oddsfox_pipeline.orchestration import assets_polymarket as assets_mod
+from oddsfox_pipeline.orchestration import (
+    assets_polymarket_catalog as catalog_assets_mod,
+)
 from oddsfox_pipeline.orchestration import assets_soccer as soccer_assets_mod
 from oddsfox_pipeline.orchestration.definitions import defs
 from oddsfox_pipeline.orchestration.shipped_scopes import SCOPE_STEPS, iter_scope_specs
 
 _NON_SCOPE_JOB_NAMES = {
+    "polymarket_catalog_full_pipeline",
+    "polymarket_catalog_dbt_build",
+    "polymarket_catalog_release",
     "polymarket_wc2026_event_catalog_recall_audit",
     "polymarket_wc2026_match_minute_odds_backfill",
     "polymarket_wc2026_minute_odds_backfill",
@@ -155,6 +161,21 @@ oddsfox:
     monkeypatch.setattr(assets_mod, "format_raw_snapshot_log", lambda _snapshot: "")
     monkeypatch.setattr(assets_mod, "format_dbt_snapshot_log", lambda _snapshot: "")
     monkeypatch.setattr(assets_mod.ops, "stream_dbt_build", stream_dbt_build)
+    monkeypatch.setattr(catalog_assets_mod, "get_connection", mock_connection)
+    monkeypatch.setattr(
+        catalog_assets_mod,
+        "collect_polymarket_catalog",
+        lambda *_args, **_kwargs: {"crawl_id": "catalog-smoke"},
+    )
+    monkeypatch.setattr(
+        catalog_assets_mod,
+        "build_polymarket_catalog_release",
+        lambda *_args, **_kwargs: {
+            "rows": 3,
+            "dataset_version": "1.0.0",
+            "release_dir": "mocked",
+        },
+    )
     monkeypatch.setattr(order_book_assets_mod, "get_connection", mock_connection)
     monkeypatch.setattr(
         order_book_assets_mod,

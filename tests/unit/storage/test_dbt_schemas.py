@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
     assert dbt_schemas.qualified_relation("schema", "model") == "schema.model"
     assert (
-        dbt_schemas.resolve_source_slug({"name": "stg_polymarket_catalog_markets"})
+        dbt_schemas.resolve_source_slug({"name": "stg_polymarket_catalog_events"})
         == dbt_schemas.DBT_SOURCE_POLYMARKET_CATALOG
     )
     assert (
@@ -76,15 +76,15 @@ def test_dbt_schema_helpers_cover_fallback_and_polymarket_names():
         fqn=["oddsfox", "wc2026", "custom_model"],
     ) == AssetKey(["wc2026", "marts", "custom_model"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
-        "stg_polymarket_catalog_markets",
+        "stg_polymarket_catalog_events",
         dbt_schemas.DBT_SOURCE_POLYMARKET_CATALOG,
         fqn=[
             "oddsfox",
             "polymarket_catalog",
             "staging",
-            "stg_polymarket_catalog_markets",
+            "stg_polymarket_catalog_events",
         ],
-    ) == AssetKey(["polymarket", "catalog", "staging", "markets"])
+    ) == AssetKey(["polymarket", "catalog", "staging", "events"])
     assert dbt_schemas.dbt_model_asset_key_for_name(
         "stg_polymarket_wc2026_markets",
         dbt_schemas.DBT_SOURCE_POLYMARKET_WC2026,

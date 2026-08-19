@@ -13,6 +13,7 @@ from oddsfox_pipeline.config import settings as _settings
 from oddsfox_pipeline.storage.duckdb.schemas.constants import (
     KALSHI_WC2026_OPS_SCHEMA,
     KALSHI_WC2026_RAW_SCHEMA,
+    POLYMARKET_CATALOG_OPS_SCHEMA,
     POLYMARKET_CATALOG_RAW_SCHEMA,
     POLYMARKET_SOCCER_OPS_SCHEMA,
     POLYMARKET_SOCCER_RAW_SCHEMA,
@@ -220,10 +221,11 @@ def init_duck_db() -> None:
         conn = open_writable_duckdb_connection(path)
         if not _SCHEMA_LOGGED:
             logger.info(
-                "Ensuring prediction-market DuckDB raw/ops schemas (%s, %s, %s, %s, %s, %s, %s)",
+                "Ensuring prediction-market DuckDB raw/ops schemas (%s, %s, %s, %s, %s, %s, %s, %s)",
                 POLYMARKET_WC2026_RAW_SCHEMA,
                 POLYMARKET_WC2026_OPS_SCHEMA,
                 POLYMARKET_CATALOG_RAW_SCHEMA,
+                POLYMARKET_CATALOG_OPS_SCHEMA,
                 POLYMARKET_SOCCER_RAW_SCHEMA,
                 POLYMARKET_SOCCER_OPS_SCHEMA,
                 KALSHI_WC2026_RAW_SCHEMA,
@@ -243,6 +245,9 @@ def init_duck_db() -> None:
             )
             conn.execute(
                 f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_CATALOG_RAW_SCHEMA}"'
+            )
+            conn.execute(
+                f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_CATALOG_OPS_SCHEMA}"'
             )
             conn.execute(
                 f'CREATE SCHEMA IF NOT EXISTS "{POLYMARKET_SOCCER_RAW_SCHEMA}"'

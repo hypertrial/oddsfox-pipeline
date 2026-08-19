@@ -20,9 +20,23 @@ to Polymarket, PMXT, Kalshi, and Polygon data.
 
 Schema: `polymarket_catalog_raw`
 
-- `markets`: platform-wide Gamma market landing table written by
-  `scripts/sync_polymarket_markets_catalog.py` (`GET /markets/keyset`,
-  volume ≥ $100k, open + closed). Replaced each sync; not a Dagster scope asset.
+- `event_snapshots`: append-only event observations from completed global
+  catalog crawls, keyed by crawl and event identity.
+- `market_snapshots`: append-only market observations from completed global
+  catalog crawls. It retains every source market; the mart applies the versioned
+  durable-tradability predicate cumulatively.
+- `event_market_snapshots`: append-only observed event-market memberships from
+  both Gamma endpoint directions.
+
+Schema: `polymarket_catalog_ops`
+
+- `crawl_runs`: one row per catalog crawl attempt with its shared timestamp,
+  completion state, source counts, and four-pass inventory.
+- `crawl_pages`: resumable page checkpoints and staged payloads. Pages affect
+  raw observations only when all four endpoint passes complete naturally.
+- `crawl_issues`: deterministic quarantine records for malformed payloads,
+  malformed IDs, and identity conflicts. The associated staged pages remain
+  available for audit; affected crawls cannot activate.
 
 Schema: `polymarket_wc2026_raw`
 

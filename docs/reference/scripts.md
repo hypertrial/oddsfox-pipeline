@@ -26,7 +26,14 @@ Soccer operator targets:
   Scraper `oddsfox.reference.v1` bundle. The script has no source-specific
   parser or endpoint knowledge.
 - `profile_warehouse.py`: inspect schemas, relations, row counts, and stats.
-- `sync_polymarket_markets_catalog.py`: sync every Gamma market with volume ≥ $100k via `/markets/keyset` (`volume_num_min`, `after_cursor`; open + closed passes) into `polymarket_catalog_raw.markets`. Optional operator utility; not required for the golden WC2026 hourly mart.
+- `make polymarket-catalog-refresh`: manually run the complete four-pass Gamma
+  event/market keyset crawl, activate it atomically, and build the cumulative
+  textual graph mart.
+- `make polymarket-catalog-dbt-build`: rebuild the graph mart from completed
+  observations without network access.
+- `build_polymarket_catalog_release.py`: validate the graph mart and publish an
+  immutable `oddsfox.polymarket.graph-catalog.v1` Parquet release. Prefer
+  `make polymarket-catalog-release RELEASE_VERSION=<semver>`.
 - `export_polymarket_wc2026_market_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds` to Parquet under `artifacts/polymarket_wc2026_exports/`.
 - `cleanup_polymarket_wc2026_registry_hygiene.py`: dry-run (default) or `--apply` deletion of synthetic catalog contamination (`evt-A` / `evt-B` / `m-shared`) and ineligible `events_api` / `markets_api` registry orphans. Prefer `make cleanup-polymarket-wc2026-registry-hygiene` (set `APPLY=1` to write). Stop Dagster and other DuckDB writers first.
 - `export_marts_parquet.py`: export every present table or view in the shipped `*_marts` schemas (Polymarket, Kalshi, and `wc2026_marts`) to Parquet under `artifacts/marts_exports/<utc>/`. Prefer `make export-marts-parquet`. Includes isolated marts when built; for the allowlisted Polygon technical dossier use the dedicated Polygon exporter.

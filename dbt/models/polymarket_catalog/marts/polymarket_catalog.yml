@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: polymarket_graph_catalog
+    description: >
+      Cumulative Polymarket graph contract with one row per unique event node,
+      tradable market node, or event-market edge.
+    columns:
+      - name: record_id
+        tests: [not_null, unique]
+      - name: record_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: [event, market, event_market]
+      - name: content_text
+        tests: [not_null]
+      - name: content_text_sha256
+        tests: [not_null]
+      - name: relationship_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: [contains_market]
