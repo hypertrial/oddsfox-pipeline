@@ -351,7 +351,10 @@ def _coverage(
     target_match_status: str,
 ) -> tuple[str, str]:
     if home.status == "ambiguous" or away.status == "ambiguous":
-        return "missing_team_mapping", "one or both target names map to multiple pools"
+        return (
+            "ambiguous_target_match",
+            "one or both target team identities were reviewed as ambiguous",
+        )
     if home.team_id is None or away.team_id is None:
         return "missing_team_mapping", "one or both target team names are not reviewed"
     if home.rating_pool not in RATING_POOLS or away.rating_pool not in RATING_POOLS:
@@ -533,8 +536,12 @@ def _identity_rows(
 ) -> list[dict[str, object]]:
     output = [
         {
-            **asdict(row),
-            "candidate_team_ids_json": "[]",
+            **{
+                key: value
+                for key, value in asdict(row).items()
+                if key != "candidate_team_ids"
+            },
+            "candidate_team_ids_json": json.dumps(row.candidate_team_ids),
         }
         for row in registry.rows
     ]
@@ -577,6 +584,17 @@ def _dimension_values(row: Mapping[str, object]) -> Iterable[tuple[str, str]]:
     yield "mapping_method", f"{row['home_mapping_status']}+{row['away_mapping_status']}"
     yield "quality", f"{row['home_quality']}+{row['away_quality']}"
     yield "missing_reason", str(row["coverage_reason"])
+    for component in sorted(
+        {
+            str(value)
+            for value in (
+                row.get("home_connected_component_id"),
+                row.get("away_connected_component_id"),
+            )
+            if value
+        }
+    ):
+        yield "connected_component", component
     for country in sorted(
         {
             str(value)
@@ -739,7 +757,11 @@ def build_release(
             for name in (event.home_source_name, event.away_source_name)
         }
     )
+    if not isinstance(identity_review, dict):
+        raise EloReleaseError("identity review provenance is incomplete")
     decision_counts = identity_review.get("decision_counts")
+    reviewer_labels = identity_review.get("reviewer_labels")
+    reviewed_at_utc = identity_review.get("reviewed_at_utc")
     if (
         set(identity_review) != required_review_fields
         or identity_review["target_snapshot_sha256"] != target_sha
@@ -747,11 +769,20 @@ def build_release(
         or identity_review["identity_map_sha256"] != sha256_file(identity_map)
         or identity_review["authoring_version"] != "oddsfox.soccer.identity-review.v1"
         or not _SHA256.fullmatch(str(identity_review["review_ledger_sha256"]))
-        or not identity_review["reviewer_labels"]
-        or not identity_review["reviewed_at_utc"]
+        or not isinstance(reviewer_labels, list)
+        or not reviewer_labels
+        or any(not isinstance(value, str) or not value for value in reviewer_labels)
+        or not isinstance(reviewed_at_utc, list)
+        or not reviewed_at_utc
+        or any(
+            not isinstance(value, str) or not value.endswith("Z")
+            for value in reviewed_at_utc
+        )
         or identity_review["target_label_count"] != target_label_count
         or identity_review["compiled_identity_rows"] != len(identity_records)
         or not isinstance(decision_counts, dict)
+        or not decision_counts
+        or set(decision_counts) - {"approve", "target_only", "ambiguous"}
         or any(
             type(value) is not int or value < 0 for value in decision_counts.values()
         )

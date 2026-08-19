@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import json
 import re
 import unicodedata
 from collections import defaultdict
@@ -12,7 +13,7 @@ from typing import Final
 
 from oddsfox_pipeline.features.pre_match_elo.elo import RATING_POOLS
 
-MAPPING_STATUSES: Final = frozenset({"exact", "reviewed_alias"})
+MAPPING_STATUSES: Final = frozenset({"exact", "reviewed_alias", "ambiguous"})
 
 
 class IdentityContractError(ValueError):
@@ -29,28 +30,32 @@ def normalize_team_name(value: str) -> str:
 class IdentityRow:
     source_system: str
     source_name: str
-    team_id: str
-    canonical_display_name: str
-    rating_pool: str
+    team_id: str | None
+    canonical_display_name: str | None
+    rating_pool: str | None
     country: str | None
     confederation: str | None
     mapping_status: str
+    candidate_team_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.rating_pool not in RATING_POOLS:
-            raise IdentityContractError(f"invalid rating pool: {self.rating_pool}")
         if self.mapping_status not in MAPPING_STATUSES:
             raise IdentityContractError(
-                "identity rows must be exact or reviewed_alias mappings"
+                f"invalid mapping status: {self.mapping_status}"
             )
-        if not all(
-            (
-                self.source_system,
-                self.source_name,
-                self.team_id,
-                self.canonical_display_name,
-            )
-        ):
+        if not self.source_system or not self.source_name:
+            raise IdentityContractError("identity source fields must be non-empty")
+        if self.mapping_status == "ambiguous":
+            if self.rating_pool is not None and self.rating_pool not in RATING_POOLS:
+                raise IdentityContractError(f"invalid rating pool: {self.rating_pool}")
+            if self.team_id is not None or self.canonical_display_name is not None:
+                raise IdentityContractError(
+                    "ambiguous identities cannot assert a canonical team"
+                )
+            return
+        if self.rating_pool not in RATING_POOLS:
+            raise IdentityContractError(f"invalid rating pool: {self.rating_pool}")
+        if not self.team_id or not self.canonical_display_name:
             raise IdentityContractError("identity fields must be non-empty")
 
 
@@ -73,8 +78,24 @@ class IdentityRegistry:
         self._aliases: dict[tuple[str, str, str], IdentityRow] = {}
         self._canonical: dict[tuple[str, str], list[IdentityRow]] = defaultdict(list)
         self._systems: dict[tuple[str, str], list[IdentityRow]] = defaultdict(list)
+        self._ambiguous: dict[tuple[str, str], IdentityRow] = {}
         teams: dict[str, tuple[str, str, str | None, str | None]] = {}
         for row in self.rows:
+            source_key = (row.source_system, normalize_team_name(row.source_name))
+            if row.mapping_status == "ambiguous":
+                if source_key in self._ambiguous or source_key in self._systems:
+                    raise IdentityContractError(
+                        f"contradictory ambiguous identity: {row.source_system}/{row.source_name}"
+                    )
+                self._ambiguous[source_key] = row
+                continue
+            if source_key in self._ambiguous:
+                raise IdentityContractError(
+                    f"contradictory ambiguous identity: {row.source_system}/{row.source_name}"
+                )
+            assert row.team_id is not None
+            assert row.canonical_display_name is not None
+            assert row.rating_pool is not None
             identity = (
                 row.rating_pool,
                 normalize_team_name(row.canonical_display_name),
@@ -117,6 +138,19 @@ class IdentityRegistry:
         self, source_system: str, source_name: str, rating_pool: str
     ) -> Resolution:
         normalized = normalize_team_name(source_name)
+        ambiguous = self._ambiguous.get((source_system, normalized))
+        if ambiguous:
+            return Resolution(
+                source_system,
+                source_name,
+                ambiguous.rating_pool,
+                None,
+                None,
+                None,
+                None,
+                "ambiguous",
+                ambiguous.candidate_team_ids,
+            )
         row = self._aliases.get((rating_pool, source_system, normalized))
         status = row.mapping_status if row else None
         if row:
@@ -144,6 +178,11 @@ class IdentityRegistry:
         )
 
     def resolve_without_pool(self, source_system: str, source_name: str) -> Resolution:
+        ambiguous = self._ambiguous.get(
+            (source_system, normalize_team_name(source_name))
+        )
+        if ambiguous:
+            return self.resolve(source_system, source_name, ambiguous.rating_pool or "")
         candidates = self._unscoped_rows(source_system, source_name)
         unique = {(row.rating_pool, row.team_id): row for row in candidates}
         if len(unique) == 1:
@@ -294,21 +333,35 @@ def canonicalize_and_deduplicate(
 
 
 def rows_from_mappings(rows: Iterable[Mapping[str, object]]) -> tuple[IdentityRow, ...]:
-    return tuple(
-        IdentityRow(
-            source_system=str(row["source_system"]),
-            source_name=str(row["source_name"]),
-            team_id=str(row["team_id"]),
-            canonical_display_name=str(row["canonical_display_name"]),
-            rating_pool=str(row["rating_pool"]),
-            country=str(row["country"]) if row.get("country") else None,
-            confederation=str(row["confederation"])
-            if row.get("confederation")
-            else None,
-            mapping_status=str(row["mapping_status"]),
+    output = []
+    for row in rows:
+        raw_candidates = row.get("candidate_team_ids_json") or "[]"
+        try:
+            candidates = json.loads(str(raw_candidates))
+        except json.JSONDecodeError as exc:
+            raise IdentityContractError("invalid candidate team IDs") from exc
+        if not isinstance(candidates, list) or any(
+            not isinstance(value, str) for value in candidates
+        ):
+            raise IdentityContractError("invalid candidate team IDs")
+        output.append(
+            IdentityRow(
+                source_system=str(row["source_system"]),
+                source_name=str(row["source_name"]),
+                team_id=str(row["team_id"]) if row.get("team_id") else None,
+                canonical_display_name=str(row["canonical_display_name"])
+                if row.get("canonical_display_name")
+                else None,
+                rating_pool=str(row["rating_pool"]) if row.get("rating_pool") else None,
+                country=str(row["country"]) if row.get("country") else None,
+                confederation=str(row["confederation"])
+                if row.get("confederation")
+                else None,
+                mapping_status=str(row["mapping_status"]),
+                candidate_team_ids=tuple(candidates),
+            )
         )
-        for row in rows
-    )
+    return tuple(output)
 
 
 __all__ = [

@@ -200,6 +200,31 @@ def test_release_all_pools_conflict_unmapped_determinism_and_benchmark_independe
                         "mapping_status": "exact",
                     }
                 )
+    mappings.extend(
+        [
+            {
+                "source_system": "polymarket",
+                "source_name": "U",
+                "team_id": None,
+                "canonical_display_name": None,
+                "rating_pool": "club_men",
+                "country": None,
+                "confederation": None,
+                "mapping_status": "ambiguous",
+                "candidate_team_ids_json": '["club_men:u-one","club_men:u-two"]',
+            },
+            {
+                "source_system": "polymarket",
+                "source_name": "V",
+                "team_id": "club_men:v",
+                "canonical_display_name": "V",
+                "rating_pool": "club_men",
+                "country": None,
+                "confederation": None,
+                "mapping_status": "exact",
+            },
+        ]
+    )
     identity = tmp_path / "identity.yml"
     _write_identity(identity, mappings)
     target = tmp_path / "target.parquet"
@@ -245,10 +270,13 @@ def test_release_all_pools_conflict_unmapped_determinism_and_benchmark_independe
         "national_women",
     }
     assert by_id["e1"]["coverage_status"] == "rated_provisional"
-    assert by_id["e5"]["coverage_status"] == "missing_team_mapping"
+    assert by_id["e5"]["coverage_status"] == "ambiguous_target_match"
+    assert by_id["e5"]["home_mapping_status"] == "ambiguous"
     assert by_id["e6"]["coverage_status"] == "source_conflict"
     assert {row["coverage_status"] for row in rows} <= COVERAGE_STATUSES
     assert len(rows) == len({row["event_id"] for row in rows}) == 6
+    coverage = pq.read_table(first / "coverage_by_competition.parquet").to_pylist()
+    assert any(row["dimension"] == "connected_component" for row in coverage)
 
     benchmark = tmp_path / "benchmarks.parquet"
     pq.write_table(

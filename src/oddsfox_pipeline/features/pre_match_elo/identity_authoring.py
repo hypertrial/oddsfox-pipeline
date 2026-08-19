@@ -616,11 +616,26 @@ def review_identity_candidates(
             elif row["decision"] == "approve":
                 row["decision"] = "target_only"
                 row["selected_candidate_id"] = ""
+    dispositions_by_normalized: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for row in dispositions:
+        dispositions_by_normalized[str(row["target_normalized_name"])].append(row)
     ambiguous_names = {
         str(row["target_normalized_name"])
         for row in dispositions
         if row["decision"] == "ambiguous"
     }
+    ambiguous_names.update(
+        normalized
+        for normalized, rows in dispositions_by_normalized.items()
+        if len(
+            {
+                str(row.get("inferred_rating_pool") or "")
+                for row in rows
+                if row.get("inferred_rating_pool")
+            }
+        )
+        > 1
+    )
     for row in dispositions:
         if row["target_normalized_name"] in ambiguous_names:
             row["decision"] = "ambiguous"
@@ -675,6 +690,14 @@ def compile_identity_map(
     dispositions = pl.read_csv(
         workspace / "target_dispositions.csv", infer_schema_length=10_000
     ).to_dicts()
+    inventory_by_key = {
+        (
+            str(row["source_system"]),
+            str(row["source_name"]),
+            str(row["rating_pool"]),
+        ): row
+        for row in inventory
+    }
     candidate_by_id = {str(row["candidate_id"]): row for row in aliases}
     if len(candidate_by_id) != len(aliases):
         raise IdentityAuthoringError("candidate_id must be unique")
@@ -682,6 +705,33 @@ def compile_identity_map(
         raise IdentityAuthoringError("every alias candidate requires approve or reject")
     if any(row.get("decision") not in TARGET_DECISIONS for row in dispositions):
         raise IdentityAuthoringError("every target label requires a final disposition")
+    target_names = [str(row["target_source_name"]) for row in dispositions]
+    if len(target_names) != len(set(target_names)):
+        raise IdentityAuthoringError("target dispositions must be unique")
+    if len(dispositions) != summary.get("target_labels"):
+        raise IdentityAuthoringError("target disposition inventory is stale")
+    if len(inventory) != summary.get("source_labels"):
+        raise IdentityAuthoringError("source team inventory is stale")
+    for alias in aliases:
+        inventory_row = inventory_by_key.get(
+            (
+                str(alias["candidate_source_system"]),
+                str(alias["candidate_source_name"]),
+                str(alias["candidate_rating_pool"]),
+            )
+        )
+        if (
+            inventory_row is None
+            or alias["candidate_team_id"] != inventory_row["source_team_id"]
+            or alias["candidate_id"]
+            != _candidate_id(str(alias["target_source_name"]), inventory_row)
+            or alias["target_source_name"] not in set(target_names)
+        ):
+            raise IdentityAuthoringError("stale or contradictory candidate row")
+        if alias["decision"] == "approve" and (
+            not alias.get("reviewer") or not alias.get("reviewed_at_utc")
+        ):
+            raise IdentityAuthoringError("approved alias lacks review provenance")
     rows = [
         {
             "source_system": row["source_system"],
@@ -720,18 +770,36 @@ def compile_identity_map(
             f"normalized target aliases select multiple teams: {conflicting_groups[0]}"
         )
     unresolved = 0
+    ambiguous_targets: dict[str, dict[str, set[str]]] = {}
     for disposition in dispositions:
         decision = str(disposition["decision"])
         pool = str(disposition.get("inferred_rating_pool") or "")
         candidate_id = str(disposition.get("selected_candidate_id") or "")
         target_name = str(disposition["target_source_name"])
-        if decision == "ambiguous":
-            unresolved += 1
-            continue
         if not disposition.get("reviewer") or not disposition.get("reviewed_at_utc"):
             raise IdentityAuthoringError(
                 f"missing target review provenance: {target_name}"
             )
+        if decision == "ambiguous":
+            unresolved += 1
+            normalized = normalize_team_name(target_name)
+            ambiguous = ambiguous_targets.setdefault(
+                normalized,
+                {
+                    "source_names": set(),
+                    "rating_pools": set(),
+                    "candidate_team_ids": set(),
+                },
+            )
+            ambiguous["source_names"].add(target_name)
+            if pool:
+                ambiguous["rating_pools"].add(pool)
+            ambiguous["candidate_team_ids"].update(
+                str(row["candidate_team_id"])
+                for row in aliases
+                if row["target_source_name"] == target_name
+            )
+            continue
         if decision == "approve":
             candidate = candidate_by_id.get(candidate_id)
             if candidate is None or candidate.get("decision") != "approve":
@@ -780,12 +848,31 @@ def compile_identity_map(
                 "candidate_team_ids_json": "[]",
             }
         )
+    for ambiguous in ambiguous_targets.values():
+        pools = sorted(ambiguous["rating_pools"])
+        rows.append(
+            {
+                "source_system": "polymarket",
+                "source_name": min(ambiguous["source_names"]),
+                "team_id": None,
+                "canonical_display_name": None,
+                "rating_pool": pools[0] if len(pools) == 1 else None,
+                "country": None,
+                "confederation": None,
+                "mapping_status": "ambiguous",
+                "candidate_team_ids_json": json.dumps(
+                    sorted(ambiguous["candidate_team_ids"])
+                ),
+            }
+        )
     keys: dict[tuple[str, str, str], str] = {}
+    polymarket_identities: dict[str, tuple[str | None, str | None]] = {}
     for row in rows:
+        normalized_name = normalize_team_name(str(row["source_name"]))
         key = (
             str(row["source_system"]),
-            normalize_team_name(str(row["source_name"])),
-            str(row["rating_pool"]),
+            normalized_name,
+            str(row["rating_pool"] or ""),
         )
         team_id = str(row["team_id"])
         if key in keys and keys[key] != team_id:
@@ -793,6 +880,17 @@ def compile_identity_map(
                 f"source alias maps to multiple teams: {row['source_system']}/{row['source_name']}"
             )
         keys[key] = team_id
+        if row["source_system"] == "polymarket":
+            identity = (
+                str(row["team_id"]) if row["team_id"] else None,
+                str(row["rating_pool"]) if row["rating_pool"] else None,
+            )
+            existing = polymarket_identities.get(normalized_name)
+            if existing is not None and existing != identity:
+                raise IdentityAuthoringError(
+                    f"normalized target alias is contradictory: {row['source_name']}"
+                )
+            polymarket_identities[normalized_name] = identity
     rows.sort(
         key=lambda row: (
             str(row["source_system"]),

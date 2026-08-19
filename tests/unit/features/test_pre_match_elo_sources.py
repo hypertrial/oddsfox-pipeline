@@ -218,6 +218,25 @@ def test_identity_resolution_pool_isolation_fuzzy_review_and_conflicts() -> None
     assert source_local.resolve("one", "United", "club_men").team_id == "one:united"
     assert source_local.resolve("polymarket", "United", "club_men").team_id is None
 
+    ambiguous_registry = IdentityRegistry(
+        [
+            IdentityRow(
+                "polymarket",
+                "United",
+                None,
+                None,
+                None,
+                None,
+                None,
+                "ambiguous",
+                ("one:united", "two:united"),
+            )
+        ]
+    )
+    ambiguous = ambiguous_registry.resolve_without_pool("polymarket", "United")
+    assert ambiguous.status == "ambiguous"
+    assert ambiguous.candidate_team_ids == ("one:united", "two:united")
+
     duplicate_registry = IdentityRegistry(
         [
             identity("one", "A", "club:a"),
