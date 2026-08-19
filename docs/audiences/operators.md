@@ -20,7 +20,7 @@ Schedules stay disabled until manual jobs and dbt builds are healthy.
 | `polymarket:wc2026` | Public Gamma/CLOB; CLOB auth optional unless a live job requires it | `.env` only for the ordinary full run |
 | `polymarket:soccer` | Public Gamma/CLOB | `.env` only; the daily schedule is stopped by default |
 | `kalshi:wc2026` | Public trade API; no API credentials | `.env` only |
-| FIFA / international results | Public CSV feeds pulled by WC2026 jobs | `.env` only |
+| Scraper references | No upstream access from Pipeline | Validated `oddsfox.reference.v1` bundle |
 | Match-minute odds (mature, isolated) | Live APIs or completed raw warehouse | Populated schedule overlay (tracked shell) |
 | Match order book (mature, isolated) | Live APIs or completed raw warehouse; PMXT API key | Reviewed target manifest for match 95 |
 | Market portrait (mature, isolated) | Completed order-book + trades scan; PMXT API key | Reviewed `TARGET_MANIFEST` for one approved match |
@@ -40,7 +40,7 @@ Pipeline operators only load a validated `oddsfox.reference.v1` bundle with
 
 After a first Polymarket WC2026 full run you should have `oddsfox.duckdb` with
 `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds`. After a Kalshi
-full run, confirm the stage and group-winner marts plus shared FIFA fixtures.
+full run, confirm the stage and group-winner marts plus Scraper-bundle fixtures.
 Those local checks verify technical shape;
 they are not Hypertrial certification of data rights or fitness for trading.
 See [Operator responsibilities](../concepts/operator-responsibilities.md).

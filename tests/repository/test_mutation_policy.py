@@ -17,14 +17,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 TARGETS = [
     "src/oddsfox_pipeline/resources/outbound_url.py",
-    "src/oddsfox_pipeline/contracts/raw_snapshots.py",
+    "src/oddsfox_pipeline/contracts/reference_bundle.py",
     "src/oddsfox_pipeline/ingestion/polymarket/market_scope/predicates.py",
     "src/oddsfox_pipeline/ingestion/polymarket/markets/persistence.py",
     "src/oddsfox_pipeline/ingestion/polymarket/odds/planning.py",
 ]
 TESTS = [
     "tests/unit/resources/test_outbound_url.py",
-    "tests/unit/contracts/test_raw_snapshots.py",
+    "tests/unit/contracts/test_reference_bundle.py",
     "tests/unit/ingestion/market_scope/test_predicates.py",
     "tests/unit/ingestion/test_market_persistence.py",
     "tests/unit/ingestion/test_odds_planning.py",
