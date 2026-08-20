@@ -12,12 +12,12 @@ authored by Hypertrial. It tests replay parsing and credential filtering; it
 does not contain a captured PMXT order book or API key.
 
 `cassettes/pmxt_trades.yml` is a fully synthetic PMXT-shaped trades response
-authored by Hypertrial for the same reviewed match-95 manifest. It tests replay
+authored by Hypertrial for the same reviewed match-104 manifest. It tests replay
 parsing only; it does not contain a captured PMXT trade stream or API key.
 
-`market_portrait/match-95-target.yml` is a fully synthetic operator-review
+`market_portrait/match-104-target.yml` is a fully synthetic operator-review
 target manifest for the market-portrait pipeline. It mirrors the committed
-order-book target identities for match 95 and is used by
+order-book target identities for match 104 and is used by
 `dbt-market-portrait-ci`; it is not an operator-approved production manifest.
 
 The match-minute dbt integration contract is generated in-test by

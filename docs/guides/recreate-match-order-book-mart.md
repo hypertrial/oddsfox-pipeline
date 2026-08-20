@@ -11,9 +11,9 @@ The default configuration reserves at most 20,000 locally counted attempts per
 UTC month and paces at 50 requests per minute. Retries count again before each
 HTTP attempt. PMXT provider limits and terms remain independently governed.
 
-The initial reviewed target is the Argentina–Egypt FIFA match-95 team-to-advance
-market and both outcome tokens. This path is not part of ordinary WC2026
-ingestion or any schedule.
+The initial reviewed target is the Spain–Argentina FIFA final (match 104)
+team-to-advance market and both outcome tokens. This path is not part of
+ordinary WC2026 ingestion or any schedule.
 
 Copy `.env.example` to `.env` and set:
 
@@ -86,5 +86,5 @@ without Gamma or PMXT calls and leave raw hashes and mart rows unchanged.
 
 Downloaded snapshots, DuckDB/dlt state, and exports are operator-local and
 ignored by Git. See
-[Data contracts](../reference/data-contracts.md#pmxt-historical-match-order-book)
+[Data contracts](../reference/data-contracts.md#documented-marts)
 for the exact grain and publication guarantees.

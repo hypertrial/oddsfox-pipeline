@@ -3,10 +3,10 @@ interactions:
       body: null
       headers: {}
       method: GET
-      uri: https://api.pmxt.dev/api/polymarket/fetchTrades?outcomeId=62322024443983575289896387710034399425619931224187000571202629586505505867789&start=2026-07-04T10%3A34%3A02Z&end=2026-07-07T18%3A18%3A44Z&limit=1000
+      uri: https://api.pmxt.dev/api/polymarket/fetchTrades?outcomeId=21489275813654264105403246157265887827595023709508765470113828829105196462288&start=2026-07-16T03%3A06%3A20Z&end=2026-07-19T22%3A28%3A00Z&limit=1000
     response:
       body:
-        string: '{"success":true,"data":[{"id":"pmxt-trade-home-1","timestamp":1783161243000,"outcomeId":"62322024443983575289896387710034399425619931224187000571202629586505505867789","price":"0.6","amount":"3"}]}'
+        string: '{"success":true,"data":[{"id":"pmxt-trade-home-1","timestamp":1784171181000,"outcomeId":"21489275813654264105403246157265887827595023709508765470113828829105196462288","price":"0.6","amount":"3"}]}'
       headers:
         Content-Type:
           - application/json

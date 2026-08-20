@@ -18,6 +18,9 @@ from tests.integration.duckdb.match_analysis_seed import (
 )
 
 import oddsfox_pipeline.storage.duckdb.connection as connection
+from oddsfox_pipeline.ingestion.polymarket.match_order_book import (
+    default_order_book_targets_path,
+)
 from oddsfox_pipeline.publishing.market_portrait import (
     MatchFacts,
     build_market_portrait_bundle,
@@ -28,7 +31,7 @@ PORTRAIT_TARGET_FIXTURE = (
     Path(__file__).resolve().parents[2]
     / "fixtures"
     / "market_portrait"
-    / "match-95-target.yml"
+    / "match-104-target.yml"
 )
 
 
@@ -37,19 +40,19 @@ def _run_dbt(args: list[str], *, profiles_dir: Path, env: dict[str, str]) -> Non
 
 
 def _match_facts() -> MatchFacts:
-    kickoff = datetime(2026, 7, 4, 10, 34, 2, tzinfo=UTC)
-    first_half = datetime(2026, 7, 4, 10, 35, tzinfo=UTC)
+    kickoff = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
+    first_half = datetime(2026, 7, 19, 19, 1, tzinfo=UTC)
     return MatchFacts(
-        fifa_match_id=95,
-        stage="round_of_16",
-        home_team="Argentina",
-        away_team="Egypt",
+        fifa_match_id=104,
+        stage="final",
+        home_team="Spain",
+        away_team="Argentina",
         kickoff_at_utc=kickoff,
         first_half_started_at=first_half,
-        first_half_ended_at=datetime(2026, 7, 4, 11, 23, tzinfo=UTC),
-        second_half_started_at=datetime(2026, 7, 4, 11, 38, tzinfo=UTC),
-        second_half_ended_at=datetime(2026, 7, 4, 12, 27, tzinfo=UTC),
-        match_ended_at=datetime(2026, 7, 4, 12, 27, tzinfo=UTC),
+        first_half_ended_at=datetime(2026, 7, 19, 19, 49, tzinfo=UTC),
+        second_half_started_at=datetime(2026, 7, 19, 20, 4, tzinfo=UTC),
+        second_half_ended_at=datetime(2026, 7, 19, 20, 53, tzinfo=UTC),
+        match_ended_at=datetime(2026, 7, 19, 20, 53, tzinfo=UTC),
         source_provenance_sha256="a" * 64,
     )
 
@@ -61,6 +64,9 @@ def test_portrait_fixture_manifest_hash_is_stable():
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     assert declared == actual
+    assert payload == yaml.safe_load(
+        default_order_book_targets_path().read_text(encoding="utf-8")
+    )
 
 
 def test_market_portrait_graph_builds_bundle_from_dbt_marts(
@@ -102,7 +108,7 @@ def test_market_portrait_graph_builds_bundle_from_dbt_marts(
         )
         first = build_market_portrait_bundle(
             conn,
-            fifa_match_id=95,
+            fifa_match_id=104,
             match_facts=facts,
             football_events=[],
             output_root=tmp_path / "bundles",
@@ -111,7 +117,7 @@ def test_market_portrait_graph_builds_bundle_from_dbt_marts(
         )
         second = build_market_portrait_bundle(
             conn,
-            fifa_match_id=95,
+            fifa_match_id=104,
             match_facts=facts,
             football_events=[],
             output_root=tmp_path / "bundles",
@@ -121,7 +127,7 @@ def test_market_portrait_graph_builds_bundle_from_dbt_marts(
 
     assert first["bundle_id"] == second["bundle_id"]
     assert second["noop"] is True
-    bundle = tmp_path / "bundles" / "95" / first["bundle_id"]
+    bundle = tmp_path / "bundles" / "104" / first["bundle_id"]
     manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
     trades = [
         json.loads(line)

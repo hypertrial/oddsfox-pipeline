@@ -111,19 +111,19 @@ def _write_manifest(path: Path, payload: dict) -> Path:
     return path
 
 
-def test_manifest_pins_argentina_egypt_contract_and_hash_is_stable():
+def test_manifest_pins_spain_argentina_final_contract_and_hash_is_stable():
     first = subject.load_order_book_manifest()
     second = subject.load_order_book_manifest()
     target = first.targets[0]
 
     assert first.sha256 == second.sha256
-    assert target.fifa_match_id == 95
-    assert target.market_id == "2793969"
-    assert target.event_id == "665733"
+    assert target.fifa_match_id == 104
+    assert target.market_id == "2942083"
+    assert target.event_id == "708641"
     assert target.market_type == "soccer_team_to_advance"
-    assert [outcome.label for outcome in target.outcomes] == ["Argentina", "Egypt"]
-    assert target.window_start_ms == 1_783_161_242_000
-    assert target.window_end_ms == 1_783_448_324_000
+    assert [outcome.label for outcome in target.outcomes] == ["Spain", "Argentina"]
+    assert target.window_start_ms == 1_784_171_180_000
+    assert target.window_end_ms == 1_784_500_080_000
 
 
 @pytest.mark.parametrize(
@@ -137,7 +137,7 @@ def test_manifest_pins_argentina_egypt_contract_and_hash_is_stable():
         ),
         (
             lambda payload: payload["targets"][0].update(
-                {"closed_at": "2026-07-04T10:34:02Z"}
+                {"closed_at": "2026-07-16T03:06:20Z"}
             ),
             "must precede",
         ),
@@ -293,13 +293,13 @@ def test_manifest_rejects_invalid_container_shapes(tmp_path, payload, match):
         ),
         (
             lambda target: target.update(
-                {"accepting_orders_at": "2026-07-04T10:34:02"}
+                {"accepting_orders_at": "2026-07-16T03:06:20"}
             ),
             "include a timezone",
         ),
         (lambda target: target.update({"outcomes": []}), "exactly two outcomes"),
         (
-            lambda target: target.update({"outcomes": ["Argentina", "Egypt"]}),
+            lambda target: target.update({"outcomes": ["Spain", "Argentina"]}),
             "outcome must be a mapping",
         ),
         (
@@ -307,7 +307,7 @@ def test_manifest_rejects_invalid_container_shapes(tmp_path, payload, match):
             "Invalid clob_token_id",
         ),
         (
-            lambda target: target["outcomes"][1].update({"label": "ARGENTINA"}),
+            lambda target: target["outcomes"][1].update({"label": "SPAIN"}),
             "labels must be distinct",
         ),
     ],
@@ -354,7 +354,7 @@ def test_gamma_preflight_requires_pinned_token_order_and_boundaries():
     manifest = subject.load_order_book_manifest()
     payload = _gamma_payload(manifest)
     payload["clobTokenIds"] = list(reversed(payload["clobTokenIds"]))
-    payload["closedTime"] = "2026-07-07T18:18:45Z"
+    payload["closedTime"] = "2026-07-19T22:28:01Z"
 
     with pytest.raises(ValueError, match="clob_token_ids, closed_at"):
         subject.validate_gamma_targets(manifest, GammaClient(payload))
@@ -363,10 +363,10 @@ def test_gamma_preflight_requires_pinned_token_order_and_boundaries():
 def test_gamma_preflight_accepts_json_lists_and_default_client(monkeypatch):
     manifest = subject.load_order_book_manifest()
     payload = _gamma_payload(manifest)
-    payload["outcomes"] = '["Argentina", "Egypt"]'
+    payload["outcomes"] = '["Spain", "Argentina"]'
     payload["clobTokenIds"] = (
-        '["62322024443983575289896387710034399425619931224187000571202629586505505867789",'
-        '"65153945878003754040337604701661751644439825992768932338975436339166807792069"]'
+        '["21489275813654264105403246157265887827595023709508765470113828829105196462288",'
+        '"59470269118682771304947535994646971819417763580663925170396066961563339373816"]'
     )
     gamma = GammaClient(payload)
     monkeypatch.setattr(subject, "build_gamma_client", lambda: gamma)
@@ -379,7 +379,7 @@ def test_gamma_preflight_accepts_json_lists_and_default_client(monkeypatch):
 def test_gamma_preflight_accepts_short_utc_offset():
     manifest = subject.load_order_book_manifest()
     payload = _gamma_payload(manifest)
-    payload["closedTime"] = "2026-07-07 18:18:44+00"
+    payload["closedTime"] = "2026-07-19 22:28:00+00"
 
     subject.validate_gamma_targets(manifest, GammaClient(payload))
 
@@ -435,9 +435,9 @@ def test_gamma_preflight_rejects_missing_market_and_identity_fields():
 
     payload = _gamma_payload(manifest)
     payload["events"] = {}
-    payload["outcomes"] = ["Egypt", "Argentina"]
+    payload["outcomes"] = ["Argentina", "Spain"]
     payload["closed"] = False
-    payload["acceptingOrdersTimestamp"] = "2026-07-04T10:34:03Z"
+    payload["acceptingOrdersTimestamp"] = "2026-07-16T03:06:21Z"
     with pytest.raises(
         ValueError,
         match="accepting_orders_at, closed, event_id, event_slug, outcomes",
@@ -499,7 +499,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
     [
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [{"price": "0.2", "size": "1"}, {"price": "0.3", "size": "1"}],
                 "asks": [],
             },
@@ -507,7 +507,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [{"price": "0.2", "size": "0"}],
                 "asks": [],
             },
@@ -515,7 +515,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [{"price": "NaN", "size": "1"}],
                 "asks": [],
             },
@@ -523,7 +523,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [
                     {"price": "0.2", "size": "1"},
                     {"price": "0.20", "size": "2"},
@@ -534,7 +534,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [{"price": "1.1", "size": "1"}],
                 "asks": [],
             },
@@ -542,7 +542,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [{"price": "not-a-decimal", "size": "1"}],
                 "asks": [],
             },
@@ -550,7 +550,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [{"price": "0.1234567890123456789", "size": "1"}],
                 "asks": [],
             },
@@ -558,7 +558,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [{"price": "0.2", "size": "123456789012345678901"}],
                 "asks": [],
             },
@@ -566,7 +566,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [{"price": "-0.1", "size": "1"}],
                 "asks": [],
             },
@@ -574,7 +574,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [{"price": "0.2", "size": "1", "orderCount": True}],
                 "asks": [],
             },
@@ -582,7 +582,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [{"price": "0.2", "size": "1", "orderCount": -1}],
                 "asks": [],
             },
@@ -590,7 +590,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": ["not-an-object"],
                 "asks": [],
             },
@@ -598,7 +598,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": {},
                 "asks": [],
             },
@@ -606,7 +606,7 @@ def test_normalize_snapshot_preserves_exact_decimals_and_allowlisted_fields():
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [],
                 "asks": [
                     {"price": "0.4", "size": "1"},
@@ -642,16 +642,16 @@ def test_normalize_snapshot_rejects_invalid_levels(book, match):
             "timestamp must be an integer",
         ),
         (
-            {"timestamp": "1783161242000.5", "bids": [], "asks": []},
+            {"timestamp": "1784171180000.5", "bids": [], "asks": []},
             "timestamp must be an integer",
         ),
         (
-            {"timestamp": 1_783_161_241_999, "bids": [], "asks": []},
+            {"timestamp": 1_784_171_179_999, "bids": [], "asks": []},
             "outside requested range",
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [],
                 "asks": [],
                 "isNegRisk": "false",
@@ -660,7 +660,7 @@ def test_normalize_snapshot_rejects_invalid_levels(book, match):
         ),
         (
             {
-                "timestamp": 1_783_161_242_000,
+                "timestamp": 1_784_171_180_000,
                 "bids": [],
                 "asks": [],
                 "lastTradePrice": "2",
@@ -929,10 +929,10 @@ def test_missing_api_key_fails_without_network_or_secret_persistence(duck):
 
 def test_irreducibly_saturated_one_millisecond_window_fails(duck):
     window = {
-        "fifa_match_id": 95,
-        "market_id": "2793969",
+        "fifa_match_id": 104,
+        "market_id": "2942083",
         "condition_id": "0x" + ("1" * 64),
-        "outcome_label": "Argentina",
+        "outcome_label": "Spain",
         "clob_token_id": "1",
         "window_start_ms": 100,
         "window_end_ms": 101,

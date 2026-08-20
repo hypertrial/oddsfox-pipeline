@@ -97,7 +97,7 @@ def test_pmxt_order_book_payload_replay_contract():
             headers={"Authorization": "Bearer synthetic-replay-key"},
             json={
                 "args": [
-                    target.market_id,
+                    target.condition_id,
                     None,
                     {
                         "since": target.window_start_ms,

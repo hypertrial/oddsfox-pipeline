@@ -122,7 +122,7 @@ aged operational conditions require intervention.
 | Property | Value |
 | --- | --- |
 | Grain | One row per `(fifa_match_id, market_id, clob_token_id, snapshot_timestamp_ms, snapshot_sha256, book_side, level_rank)` |
-| Coverage | FIFA match 95, Argentina–Egypt team-to-advance market; both outcome-token streams from accepting orders through closure |
+| Coverage | FIFA match 104, Spain–Argentina final team-to-advance market; both outcome-token streams from accepting orders through closure |
 | Intended use | Historical L2 depth, spread, midpoint, and liquidity analysis |
 | Prices and size | Exact `DECIMAL(38,18)` levels; bids rank high-to-low and asks low-to-high |
 | Depth | `level_notional`, `cumulative_size`, and `cumulative_notional` are calculated independently per snapshot side |

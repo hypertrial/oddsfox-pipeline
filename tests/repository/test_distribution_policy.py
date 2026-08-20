@@ -77,7 +77,7 @@ ALLOWED_DATA_LIKE_FILES = {
     "tests/fixtures/cassettes/polymarket_gamma_market_event.yml",
     "tests/fixtures/cassettes/pmxt_order_book.yml",
     "tests/fixtures/cassettes/pmxt_trades.yml",
-    "tests/fixtures/market_portrait/match-95-target.yml",
+    "tests/fixtures/market_portrait/match-104-target.yml",
     "tests/fixtures/golden/kalshi_wc2026_hourly_odds.csv",
     "tests/fixtures/golden/polymarket_wc2026_market_hourly_odds.csv",
     "vercel.json",

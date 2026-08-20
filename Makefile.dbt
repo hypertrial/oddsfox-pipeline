@@ -44,7 +44,7 @@ dbt-soccer-minute-ci: match-analysis-runtime-dirs
 	$(RUN_IN_REPO) $(MATCH_ANALYSIS_RUNTIME_ENV) "$(PYTHON)" -m pytest tests/integration/test_soccer_minute_dbt.py -q -n 0 $(PYTEST_DURATION_ARGS)
 
 market-portrait-target-validate:
-	$(RUN_IN_REPO) "$(PYTHON)" -c "import hashlib, json; from pathlib import Path; import yaml; path = Path('tests/fixtures/market_portrait/match-95-target.yml'); payload = yaml.safe_load(path.read_text(encoding='utf-8')); declared = str(payload.pop('content_sha256')); actual = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest(); assert declared == actual, (declared, actual); print(f'match-95 portrait target validated, sha256 {declared}')"
+	$(RUN_IN_REPO) "$(PYTHON)" -c "import hashlib, json; from pathlib import Path; import yaml; path = Path('tests/fixtures/market_portrait/match-104-target.yml'); payload = yaml.safe_load(path.read_text(encoding='utf-8')); declared = str(payload.pop('content_sha256')); actual = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest(); assert declared == actual, (declared, actual); print(f'match-104 portrait target validated, sha256 {declared}')"
 
 dbt-market-portrait-ci: match-analysis-runtime-dirs market-portrait-target-validate
 	$(MAKE) ODDSFOX_RUNTIME_ROOT="$(MATCH_ANALYSIS_RUNTIME_ROOT)" dbt-prepare

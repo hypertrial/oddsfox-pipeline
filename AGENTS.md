@@ -164,7 +164,7 @@ curl -fsSL https://raw.githubusercontent.com/hypertrial/costguard/main/scripts/i
 | `make dbt-match-order-book-ci` | Build the isolated PMXT order-book graph against replay fixtures |
 | `make dbt-match-minute-ci` | Build the isolated match-minute graph against a synthetic 104/248/496 contract |
 | `make dbt-market-portrait-ci` | Build the isolated market-portrait graph and bundle contract against replay fixtures |
-| `make market-portrait-target-validate` | Validate the committed synthetic match-95 portrait target manifest |
+| `make market-portrait-target-validate` | Validate the committed synthetic match-104 portrait target manifest |
 | `make data-quality` | Safe local dbt build-and-test wrapper against disposable state |
 | `make mutation` | Resume the focused Mutmut run and enforce its exported statistics |
 | `make mutation-ci` | Delete cached mutants and run the deterministic focused mutation gate |

@@ -285,14 +285,14 @@ issues as (
         'inventory' as issue_key,
         'error' as severity,
         1 as affected_rows,
-        'expected FIFA match 95 with 1 advance market and 2 tokens' as details
+        'expected FIFA match 104 with 1 final market and 2 tokens' as details
     from inventory
     where
         snapshot_count = 0
         or scan_count != 1
         or manifest_count != 1
         or match_count != 1
-        or fifa_match_id != 95
+        or fifa_match_id != 104
         or market_count != 1
         or token_count != 2
 

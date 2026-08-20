@@ -21,10 +21,10 @@ def seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute(
         """
         insert into oddsfox_reference.openfootball_wc2026_schedule_fixtures values (
-            95, 'round_of_16', 2, null, timestamp '2026-07-07 17:00:00',
-            'Argentina', 'Egypt', 'Test Venue', 'completed',
-            'https://example.com/fixture', 95, 'fixture-hash',
-            timestamp '2026-07-07 19:00:00'
+            104, 'final', 5, null, timestamp '2026-07-19 19:00:00',
+            'Spain', 'Argentina', 'Test Venue', 'completed',
+            'https://example.com/fixture', 104, 'fixture-hash',
+            timestamp '2026-07-19 22:30:00'
         )
         """
     )
@@ -37,9 +37,9 @@ def seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
             last_checkpoint_at, finished_at
         ) values (
             ?, ?, ?, 1, 2, 'published', true, 2, 2, ?,
-            timestamp '2026-07-07 18:00:00',
-            timestamp '2026-07-07 18:20:00',
-            timestamp '2026-07-07 18:20:00'
+            timestamp '2026-07-19 22:00:00',
+            timestamp '2026-07-19 22:20:00',
+            timestamp '2026-07-19 22:20:00'
         )
         """,
         [scan_id, manifest.version, manifest.sha256, "f" * 64],
@@ -52,8 +52,8 @@ def seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
                 outcome_label, clob_token_id, window_start_ms,
                 window_end_ms, depth, status, api_attempt_count,
                 snapshot_count, content_sha256, updated_at
-            ) values (?, 95, ?, ?, ?, ?, ?, ?, 0, 'loaded', 1, 1, ?,
-                timestamp '2026-07-07 18:20:00')
+            ) values (?, 104, ?, ?, ?, ?, ?, ?, 0, 'loaded', 1, 1, ?,
+                timestamp '2026-07-19 22:20:00')
             """,
             [
                 scan_id,
@@ -101,11 +101,11 @@ def seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
                 landscape_role, bids_json, asks_json,
                 is_neg_risk, last_trade_price, source_endpoint, ingested_at
             ) values (
-                ?, ?, 95, 'round_of_16', 'Argentina', 'Egypt', ?, ?, ?, ?,
+                ?, ?, 104, 'final', 'Spain', 'Argentina', ?, ?, ?, ?,
                 'soccer_team_to_advance', ?, ?, ?, ?, ?, ?,
                 to_timestamp(? / 1000.0), ?, 0, ?, ?, ?, false, '0.5',
                 'api.pmxt.dev/api/polymarket/fetchOrderBook',
-                timestamp '2026-07-07 18:20:00'
+                timestamp '2026-07-19 22:20:00'
             )
             """,
             [
@@ -151,8 +151,8 @@ def seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
             started_at, finished_at
         ) values (
             ?, ?, 'published', 2, ?,
-            timestamp '2026-07-07 18:20:00',
-            timestamp '2026-07-07 18:25:00'
+            timestamp '2026-07-19 22:20:00',
+            timestamp '2026-07-19 22:25:00'
         )
         """,
         [scan_id, manifest.sha256, aggregate],
@@ -168,8 +168,8 @@ def seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
                 landscape_role, window_start_ms, window_end_ms, depth, status,
                 api_attempt_count, trade_count, trade_ids_sha256, updated_at
             ) values (
-                ?, 95, ?, ?, ?, ?, ?, 0, 'loaded', 1, 1, ?,
-                timestamp '2026-07-07 18:25:00'
+                ?, 104, ?, ?, ?, ?, ?, 0, 'loaded', 1, 1, ?,
+                timestamp '2026-07-19 22:25:00'
             )
             """,
             [
@@ -189,9 +189,9 @@ def seed_order_book_contract(conn: duckdb.DuckDBPyConnection) -> None:
                 clob_token_id, landscape_role, trade_id, trade_timestamp_ms,
                 event_sequence, price, amount, source_endpoint, ingested_at
             ) values (
-                ?, ?, 95, ?, ?, ?, ?, ?, 0, '0.6', '3',
+                ?, ?, 104, ?, ?, ?, ?, ?, 0, '0.6', '3',
                 'api.pmxt.dev/api/polymarket/fetchTrades',
-                timestamp '2026-07-07 18:25:00'
+                timestamp '2026-07-19 22:25:00'
             )
             """,
             [
@@ -229,7 +229,7 @@ def seed_portrait_alignment_contract(
         """
         DELETE FROM polymarket_wc2026_intermediate
             .int_polymarket_wc2026_match_working_set
-        WHERE fifa_match_id = 95
+        WHERE fifa_match_id = 104
         """
     )
     conn.execute(
@@ -238,7 +238,7 @@ def seed_portrait_alignment_contract(
             .int_polymarket_wc2026_match_working_set (
             fifa_match_id, scheduled_kickoff_at_utc, match_started_at_utc,
             fixture_mapping_count, primary_mapping_count
-        ) VALUES (95, ?, ?, 1, 1)
+        ) VALUES (104, ?, ?, 1, 1)
         """,
         [kickoff_at_utc, match_started_at_utc],
     )

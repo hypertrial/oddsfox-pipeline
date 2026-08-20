@@ -265,7 +265,7 @@ def test_wc2026_contract_fingerprint_covers_documented_strategy_relations():
     assert tokens == list(required)
 
 
-def test_match_order_book_inventory_requires_fifa_match_95():
+def test_match_order_book_inventory_requires_fifa_match_104():
     dbt_root = Path(__file__).resolve().parents[3] / "dbt"
     quality = (
         dbt_root
@@ -285,7 +285,7 @@ def test_match_order_book_inventory_requires_fifa_match_95():
         / "polymarket_wc2026_match_order_book_data_quality.sql"
     ).read_text(encoding="utf-8")
 
-    assert "fifa_match_id != 95" in quality
+    assert "fifa_match_id != 104" in quality
     assert "fifa_match_id <= 72" not in quality
-    assert "fifa_match_id != 95" in inventory
+    assert "fifa_match_id != 104" in inventory
     assert "as fifa_match_id" in data_quality

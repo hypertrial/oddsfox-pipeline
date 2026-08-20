@@ -18,7 +18,7 @@ Build the normal World Cup market working set, then create a review candidate:
 
 ```bash
 uv run python scripts/generate_polymarket_wc2026_market_portrait_target.py \
-  --fifa-match-id 95
+  --fifa-match-id 104
 ```
 
 Generation calls Gamma for fresh identities but does not consume PMXT credits.
@@ -26,7 +26,7 @@ Review the ignored YAML, then authorize the resumable book-and-trade scan:
 
 ```bash
 make market-portrait-live-backfill \
-  TARGET_MANIFEST=/absolute/path/to/match-95.yml
+  TARGET_MANIFEST=/absolute/path/to/match-104.yml
 ```
 
 The manifest must resolve exactly three literal `Yes` tokens for a group match,

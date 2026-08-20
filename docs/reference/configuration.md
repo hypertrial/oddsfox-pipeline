@@ -101,7 +101,7 @@ limits or set `force=true` to create a separate scan. It cannot provide
 arbitrary event, market, condition, token, or timestamp values; reviewed
 targets live in
 `src/oddsfox_pipeline/ingestion/polymarket/seeds/order_book_targets.yml`.
-The initial manifest contains only FIFA match 95, Argentina–Egypt.
+The initial manifest contains only FIFA match 104, the Spain–Argentina final.
 
 The pipeline is backfill-only. It has no schedule flag and is excluded from
 ordinary dbt and full-pipeline jobs with `tag:pmxt_order_book`. See

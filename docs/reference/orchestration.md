@@ -262,7 +262,7 @@ All three jobs are manual-only. No schedule targets them.
 **Isolated: Match order book**
 
 - `polymarket_wc2026_match_order_book_backfill`: validates the reviewed
-  Argentina–Egypt match-95 manifest against one exact Gamma market lookup,
+  Spain–Argentina final match-104 manifest against one exact Gamma market lookup,
   retrieves both independent outcome-token snapshot streams from PMXT, and
   builds only `+tag:pmxt_order_book` and excludes `tag:match_minute` alongside
   `tag:polygon_settlement`. Saturated 1,000-snapshot ranges split

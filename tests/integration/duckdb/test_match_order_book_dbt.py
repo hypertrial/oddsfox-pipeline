@@ -103,7 +103,7 @@ def test_order_book_graph_expands_levels_and_blocks_fixture_mismatch(
             """
             update oddsfox_reference.openfootball_wc2026_schedule_fixtures
             set away_team = 'Morocco'
-            where fifa_match_id = 95
+            where fifa_match_id = 104
             """
         )
     failure = _run_dbt_fails(
@@ -168,7 +168,7 @@ def test_order_book_graph_blocks_malformed_optional_numerics(
                     '"order_count":"bad"'
                 ),
                 last_trade_price = 'bad'
-            where outcome_label = 'Argentina'
+            where outcome_label = 'Spain'
             """
         )
     failure = _run_dbt_fails(

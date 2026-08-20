@@ -6,6 +6,6 @@ where
     mapped_games != 1
     or mapped_markets != 1
     or mapped_tokens != 2
-    or fifa_match_id != 95
+    or fifa_match_id != 104
     or snapshot_count = 0
     or error_issue_count != 0

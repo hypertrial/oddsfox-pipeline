@@ -22,7 +22,7 @@ Schedules stay disabled until manual jobs and dbt builds are healthy.
 | `kalshi:wc2026` | Public trade API; no API credentials | `.env` only |
 | Scraper references | No upstream access from Pipeline | Validated `oddsfox.reference.v1` bundle |
 | Match-minute odds (mature, isolated) | Live APIs or completed raw warehouse | Populated schedule overlay (tracked shell) |
-| Match order book (mature, isolated) | Live APIs or completed raw warehouse; PMXT API key | Reviewed target manifest for match 95 |
+| Match order book (mature, isolated) | Live APIs or completed raw warehouse; PMXT API key | Reviewed target manifest for match 104 |
 | Market portrait (mature, isolated) | Completed order-book + trades scan; PMXT API key | Reviewed `TARGET_MANIFEST` for one approved match |
 | Polygon settlement (advanced) | Finalized-capable Polygon JSON-RPC | Reviewed 248-row manifest + resolution attestation (tracked seed is a header-only shell) |
 | Soccer pre-match Elo | Owned and operated by `oddsfox-scraper` | Pipeline has no Elo command or source access |

@@ -46,7 +46,7 @@ maturity definitions live in the
 | --- | --- | --- |
 | Match-minute odds | Live APIs or completed raw warehouse | Populated schedule overlay (tracked shell) |
 | Minute odds (unified) | Live APIs or completed raw warehouse | Same schedule overlay as match-minute |
-| Match order book | Live APIs or completed raw warehouse; PMXT API key | Reviewed target manifest for match 95 |
+| Match order book | Live APIs or completed raw warehouse; PMXT API key | Reviewed target manifest for match 104 |
 | Market portrait | Completed order-book + trades scan; PMXT API key | Reviewed `TARGET_MANIFEST` for one approved match |
 | Polygon settlement | Finalized-capable Polygon JSON-RPC | Reviewed 248-row manifest + resolution attestation (tracked seed is a header-only shell) |
 

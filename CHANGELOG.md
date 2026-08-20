@@ -31,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Retargeted the reviewed WC2026 match order-book and market-portrait contract
+  from Argentina–Egypt match 95 to the Spain–Argentina final, FIFA match 104.
+
 - Replaced the volume-filtered `sync_polymarket_markets_catalog.py` utility and
   replace-in-place raw market table with registered Dagster jobs, completed-crawl
   activation, durable tradability evidence, event/market/edge graph records, and
