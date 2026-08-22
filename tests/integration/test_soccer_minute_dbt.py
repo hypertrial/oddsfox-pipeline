@@ -108,13 +108,14 @@ def _seed_soccer_contract(
             )
             for offset, base_price in minute_prices:
                 price = base_price + index * 0.1
+                no_price = 0.55 + index * 0.05
                 at = started + timedelta(minutes=offset)
                 raw_rows.append(
                     (
                         market_id,
                         token_id,
                         int(at.replace(tzinfo=timezone.utc).timestamp()),
-                        price if token_id == yes_token else 1 - price,
+                        price if token_id == yes_token else no_price,
                         1,
                         started,
                         finished,
@@ -123,19 +124,37 @@ def _seed_soccer_contract(
                 )
         for offset, base_price in minute_prices:
             price = base_price + index * 0.1
+            no_price = 0.55 + index * 0.05
             at = started + timedelta(minutes=offset)
             minute_at = at.replace(second=0, microsecond=0)
+            epoch = int(minute_at.replace(tzinfo=timezone.utc).timestamp())
             primary_rows.append(
                 (
                     market_id,
                     yes_token,
-                    int(minute_at.replace(tzinfo=timezone.utc).timestamp()),
+                    epoch,
                     minute_at,
                     price,
                     price,
                     price,
                     price,
                     price,
+                    1,
+                    at,
+                    at,
+                )
+            )
+            primary_rows.append(
+                (
+                    market_id,
+                    no_token,
+                    epoch,
+                    minute_at,
+                    no_price,
+                    no_price,
+                    no_price,
+                    no_price,
+                    no_price,
                     1,
                     at,
                     at,
@@ -277,14 +296,18 @@ def test_soccer_modeling_mart_publishes_fully_priced_games(
                         or low_odds is null or close_odds is null
                         or avg_odds is null
                 ),
+                count(*) filter (
+                    where no_open_odds is null or abs(no_open_odds + open_odds - 1) < 1e-9
+                ),
                 min(observed_minute_coverage_percent),
-                max(maximum_consecutive_gap_minutes)
+                max(maximum_consecutive_gap_minutes),
+                min(no_observed_minute_coverage_percent)
             from polymarket_soccer_marts.
                 polymarket_soccer_match_result_minute_odds_modeling
             """
         ).fetchone()
 
-    assert result == (900, 3, 0, 99.0, 3)
+    assert result == (900, 3, 0, 0, 99.0, 3, 99.0)
 
 
 def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
@@ -345,7 +368,7 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
             "polymarket_soccer_match_result_minute_odds_modeling"
         ).fetchone()[0]
         carried = conn.execute(
-            "select open_odds, high_odds, low_odds, close_odds, minutes_since_observation from polymarket_soccer_marts.polymarket_soccer_match_result_minute_odds where market_id = 'market-0' and odds_minute_utc = timestamp '2025-01-02 12:02:00'"
+            "select open_odds, high_odds, low_odds, close_odds, minutes_since_observation, no_open_odds, is_no_observed, no_minutes_since_observation from polymarket_soccer_marts.polymarket_soccer_match_result_minute_odds where market_id = 'market-0' and odds_minute_utc = timestamp '2025-01-02 12:02:00'"
         ).fetchone()
         raw_sides = conn.execute(
             "select count(distinct clobTokenId) from polymarket_soccer_raw.match_minute_odds_history"
@@ -381,7 +404,7 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
     assert observed_rows == (6, 3, 0)
     assert dense_rows == (15, 6, 9, 0)
     assert modeling_rows == 0
-    assert carried == (0.2, 0.2, 0.2, 0.2, 2)
+    assert carried == (0.2, 0.2, 0.2, 0.2, 2, 0.55, False, 2)
     assert raw_sides == 6
     assert retry == ("error", True, True)
     assert quality == (0, 6)
@@ -635,7 +658,8 @@ def test_soccer_minute_graph_publishes_sparse_and_dense_contracts(
             "update polymarket_soccer_raw.match_primary_minute_ohlc "
             "set open_price = 0.77, high_price = 0.77, low_price = 0.77, "
             "close_price = 0.77, avg_price = 0.77 "
-            "where market_id = 'market-0' and odds_minute_epoch = "
+            "where market_id = 'market-0' and clob_token_id = 'yes-0' "
+            "and odds_minute_epoch = "
             "(select min(odds_minute_epoch) from "
             "polymarket_soccer_raw.match_primary_minute_ohlc where market_id = 'market-0')"
         )

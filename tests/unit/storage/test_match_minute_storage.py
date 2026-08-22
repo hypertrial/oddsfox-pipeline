@@ -476,3 +476,33 @@ def test_resolve_primary_token_ids_reuse_only_picks_one_per_market():
             ],
         )
     assert primary == {"m1-yes", "aaa"}
+
+
+def test_resolve_primary_token_ids_soccer_keeps_native_no_tokens():
+    from oddsfox_pipeline.storage.duckdb.dlt_batch import _resolve_primary_token_ids
+
+    with duckdb.connect(":memory:") as conn:
+        conn.execute("create schema polymarket_soccer_ops")
+        conn.execute(
+            """
+            create table polymarket_soccer_ops.match_result_registry (
+                yes_token_id text,
+                no_token_id text
+            )
+            """
+        )
+        conn.execute(
+            "insert into polymarket_soccer_ops.match_result_registry "
+            "values ('yes-0', 'no-0')"
+        )
+        primary = _resolve_primary_token_ids(
+            conn,
+            [],
+            extra_token_market_rows=[
+                ("market-0", "yes-0"),
+                ("market-0", "no-0"),
+                ("market-0", "other"),
+            ],
+            scope_name=SCOPE_SOCCER,
+        )
+    assert primary == {"yes-0", "no-0"}

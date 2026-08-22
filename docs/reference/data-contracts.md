@@ -75,16 +75,19 @@ Schema: `polymarket_soccer_marts`
 | Relation | Grain | Contract |
 | --- | --- | --- |
 | `polymarket_soccer_matches` | One row per admitted soccer event | Exact canonical-soccer-tag event identity, series metadata, home/away labels, inclusive kickoff/finish bounds, timing provenance/confidence, coverage tier, and the three distinct result-market IDs. |
-| `polymarket_soccer_match_result_minute_odds_observed` | One row per `(market_id, odds_minute_epoch)` | Source Yes-token minute OHLC for `home_win`, `draw`, or `away_win`; no normalization and no generated rows. |
-| `polymarket_soccer_match_result_minute_odds` | One row per `(market_id, odds_minute_epoch)` | Inclusive kickoff-to-finish minute spine. Before the first observation prices are null; later quiet minutes carry the prior close into OHLC and expose `is_observed`, `minutes_since_observation`, `last_observed_at`, and `observed_points`. |
-| `polymarket_soccer_match_result_minute_odds_modeling` | One row per `(market_id, odds_minute_epoch)` | Modeling-ready subset of the dense mart. A game must contain all three result markets, have non-null OHLC prices for every row, have at least 99% observed-minute coverage across its complete three-market spine, and have no consecutive unobserved run longer than three minutes in any market. Each row includes the game-level coverage percentage and maximum gap. |
+| `polymarket_soccer_match_result_minute_odds_observed` | One row per `(market_id, odds_minute_epoch)` | Source Yes-token and native No-token minute OHLC for `home_win`, `draw`, or `away_win`; no normalization and no generated rows. Missing native No minutes stay null. |
+| `polymarket_soccer_match_result_minute_odds` | One row per `(market_id, odds_minute_epoch)` | Inclusive kickoff-to-finish minute spine. Before the first observation prices are null; later quiet minutes carry the prior close into OHLC independently for Yes and No, exposing `is_observed`, `is_no_observed`, carry age, last observed time, and observed point counts. |
+| `polymarket_soccer_match_result_minute_odds_modeling` | One row per `(market_id, odds_minute_epoch)` | Modeling-ready subset of the dense mart. A game must contain all three result markets, have non-null Yes OHLC prices for every row, have at least 99% Yes observed-minute coverage across its complete three-market spine, and have no consecutive unobserved Yes run longer than three minutes in any market. Native No prices and `no_*` coverage fields are diagnostic and do not admit or exclude a game. Each row includes the game-level Yes and No coverage percentages and maximum gaps. |
 
 An event publishes only when its three roles, distinct markets, binary token
 pairs, teams, and timing map without ambiguity. Every mart row is filtered
-through the current registry and the latest successfully published audit for
-the exact token window. Raw storage keeps both Yes and No token sides; these
-marts expose only the unmodified source Yes-token price. Catalog completeness
-and CLOB price completeness are reported separately.
+through the current registry and the latest successfully published Yes-token
+audit for the exact token window; a published No-token audit participates in
+source-revision dirty detection without blocking Yes admission. Raw storage
+keeps both Yes and No token sides; these marts expose unmodified source
+Yes-token prices and native No-token prices. No prices are never derived as
+`1 - Yes`. Catalog completeness and CLOB price completeness are reported
+separately.
 
 The modeling mart applies its quality policy at the game grain and retains the
 same complete minute rows and observation flags as the dense mart. The

@@ -81,23 +81,27 @@ distinguishes the guaranteed tag era from pre-tag best effort.
 | --- | --- | --- |
 | Relation | `polymarket_soccer_match_result_minute_odds_observed` | `polymarket_soccer_match_result_minute_odds` |
 | Grain | `(market_id, odds_minute_epoch)` | `(market_id, odds_minute_epoch)` |
-| Rows | Source-observed Yes-token minutes only | Every inclusive match-window minute |
-| Quiet minutes | Absent | Prior close copied to OHLC only after the first observation |
-| Provenance | Source point count and first/last timestamps | `is_observed`, carry age, last observed time, and observed point count |
+| Rows | Source-observed Yes or native No minutes | Every inclusive match-window minute |
+| Quiet minutes | Absent | Prior close copied to OHLC only after the first observation, independently for Yes and No |
+| Provenance | Source point count and first/last timestamps for each token side | `is_observed`, `is_no_observed`, carry age, last observed time, and observed point counts |
 
-Do not sum or normalize home/draw/away prices. Join roles within `event_id`, and
-never interpret a carried row as a source observation.
+Do not sum or normalize home/draw/away prices, and do not treat No as
+`1 - Yes`. Join roles within `event_id`, and never interpret a carried row as a
+source observation. Missing native No minutes stay null and fail closed for
+No-side research only.
 
 ### Soccer modeling minute odds
 
 `polymarket_soccer_match_result_minute_odds_modeling` is ready for direct
-minute-level analysis without an additional coverage filter. It contains only
-games with all three result markets, non-null OHLC prices on every row, at
-least 99% observed-minute coverage across the game, and no unobserved run over
-three minutes in any market. `observed_minute_coverage_percent` and
-`maximum_consecutive_gap_minutes` repeat the game-level qualification on every
-row. Use `is_observed` to distinguish source observations from forward-filled
-quiet minutes.
+minute-level analysis without an additional Yes coverage filter. It contains only
+games with all three result markets, non-null Yes OHLC prices on every row, at
+least 99% Yes observed-minute coverage across the game, and no unobserved Yes run
+over three minutes in any market. `observed_minute_coverage_percent` and
+`maximum_consecutive_gap_minutes` repeat the game-level Yes qualification on
+every row. `no_observed_minute_coverage_percent` and
+`no_maximum_consecutive_gap_minutes` are diagnostic. Use `is_observed` and
+`is_no_observed` to distinguish source observations from forward-filled quiet
+minutes.
 
 ### Soccer pipeline monitoring
 

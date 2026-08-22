@@ -432,7 +432,14 @@ def polymarket_soccer_minute_mart_check(
                         PARTITION BY market_id
                         ORDER BY odds_minute_epoch
                         ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-                    ) AS expected_carried_close
+                    ) AS expected_carried_close,
+                    last_value(
+                        case when is_no_observed then no_close_odds end ignore nulls
+                    ) over (
+                        PARTITION BY market_id
+                        ORDER BY odds_minute_epoch
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                    ) AS expected_carried_no_close
                 FROM {dense}
             ), carried_invalid AS (
                 SELECT count(*) AS invalid_rows
@@ -442,6 +449,11 @@ def polymarket_soccer_minute_mart_check(
                         open_odds IS NOT NULL OR high_odds IS NOT NULL
                         OR low_odds IS NOT NULL OR close_odds IS NOT NULL
                         OR avg_odds IS NOT NULL
+                    ))
+                    OR (no_last_observed_at IS NULL AND (
+                        no_open_odds IS NOT NULL OR no_high_odds IS NOT NULL
+                        OR no_low_odds IS NOT NULL OR no_close_odds IS NOT NULL
+                        OR no_avg_odds IS NOT NULL
                     ))
                     OR (
                         NOT is_observed AND close_odds IS NOT NULL
@@ -458,6 +470,21 @@ def polymarket_soccer_minute_mart_check(
                                 )
                         )
                     )
+                    OR (
+                        NOT is_no_observed AND no_close_odds IS NOT NULL
+                        AND (
+                            no_open_odds IS DISTINCT FROM no_close_odds
+                            OR no_high_odds IS DISTINCT FROM no_close_odds
+                            OR no_low_odds IS DISTINCT FROM no_close_odds
+                            OR no_avg_odds IS DISTINCT FROM no_close_odds
+                            OR no_close_odds
+                                IS DISTINCT FROM expected_carried_no_close
+                            OR no_minutes_since_observation IS DISTINCT FROM
+                                date_diff(
+                                    'minute', no_last_observed_at, odds_minute_utc
+                                )
+                        )
+                    )
             ), sparse_missing_from_dense AS (
                 SELECT count(*) AS invalid_rows
                 FROM {observed} AS observed_rows
@@ -465,26 +492,52 @@ def polymarket_soccer_minute_mart_check(
                   ON dense_rows.market_id = observed_rows.market_id
                  AND dense_rows.odds_minute_epoch = observed_rows.odds_minute_epoch
                 WHERE
-                    dense_rows.market_id IS NULL OR NOT dense_rows.is_observed
-                    OR dense_rows.open_odds
-                        IS DISTINCT FROM observed_rows.open_odds
-                    OR dense_rows.high_odds
-                        IS DISTINCT FROM observed_rows.high_odds
-                    OR dense_rows.low_odds
-                        IS DISTINCT FROM observed_rows.low_odds
-                    OR dense_rows.close_odds
-                        IS DISTINCT FROM observed_rows.close_odds
-                    OR dense_rows.avg_odds
-                        IS DISTINCT FROM observed_rows.avg_odds
-                    OR dense_rows.observed_points
-                        IS DISTINCT FROM observed_rows.observed_points
+                    dense_rows.market_id IS NULL
+                    OR (
+                        observed_rows.close_odds IS NOT NULL
+                        AND (
+                            NOT dense_rows.is_observed
+                            OR dense_rows.open_odds
+                                IS DISTINCT FROM observed_rows.open_odds
+                            OR dense_rows.high_odds
+                                IS DISTINCT FROM observed_rows.high_odds
+                            OR dense_rows.low_odds
+                                IS DISTINCT FROM observed_rows.low_odds
+                            OR dense_rows.close_odds
+                                IS DISTINCT FROM observed_rows.close_odds
+                            OR dense_rows.avg_odds
+                                IS DISTINCT FROM observed_rows.avg_odds
+                            OR dense_rows.observed_points
+                                IS DISTINCT FROM observed_rows.observed_points
+                        )
+                    )
+                    OR (
+                        observed_rows.no_close_odds IS NOT NULL
+                        AND (
+                            NOT dense_rows.is_no_observed
+                            OR dense_rows.no_open_odds
+                                IS DISTINCT FROM observed_rows.no_open_odds
+                            OR dense_rows.no_high_odds
+                                IS DISTINCT FROM observed_rows.no_high_odds
+                            OR dense_rows.no_low_odds
+                                IS DISTINCT FROM observed_rows.no_low_odds
+                            OR dense_rows.no_close_odds
+                                IS DISTINCT FROM observed_rows.no_close_odds
+                            OR dense_rows.no_avg_odds
+                                IS DISTINCT FROM observed_rows.no_avg_odds
+                            OR dense_rows.no_observed_points
+                                IS DISTINCT FROM observed_rows.no_observed_points
+                        )
+                    )
             ), dense_missing_from_sparse AS (
                 SELECT count(*) AS invalid_rows
                 FROM {dense} AS dense_rows
                 LEFT JOIN {observed} AS observed_rows
                   ON dense_rows.market_id = observed_rows.market_id
                  AND dense_rows.odds_minute_epoch = observed_rows.odds_minute_epoch
-                WHERE dense_rows.is_observed AND observed_rows.market_id IS NULL
+                WHERE
+                    (dense_rows.is_observed OR dense_rows.is_no_observed)
+                    AND observed_rows.market_id IS NULL
             )
             SELECT
                 (SELECT count(*) - count(DISTINCT (market_id, odds_minute_epoch))

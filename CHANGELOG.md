@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Soccer minute marts now publish native No-token OHLC, independent No
+  observation/carry flags, and diagnostic No coverage beside the existing Yes
+  columns. No prices are never derived as `1 - Yes`. Game admission still uses
+  Yes completeness only.
 - Added the manual, source-complete-from-first-crawl global Polymarket catalog:
   independent open/closed Gamma event and market keyset passes, atomic
   cumulative observations, the textual

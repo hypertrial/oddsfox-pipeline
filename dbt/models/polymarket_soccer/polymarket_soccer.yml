@@ -4,11 +4,11 @@ models:
   - name: int_polymarket_soccer_match_result_market_state
     description: Current exact-window market metadata and deterministic source revision.
   - name: int_polymarket_soccer_match_result_observed
-    description: Private dirty-market incremental sparse Yes-token minute OHLC state.
+    description: Private dirty-market incremental sparse Yes and native No token minute OHLC state.
   - name: int_polymarket_soccer_match_result_minute_odds
-    description: Private dirty-market incremental inclusive dense minute state.
+    description: Private dirty-market incremental inclusive dense minute state with independent Yes and No observation flags.
   - name: int_polymarket_soccer_match_result_modeling_games
-    description: Games with three result markets, fully populated prices, at least 99 percent observed-minute coverage, and no observation gap over three minutes.
+    description: Games with three result markets, fully populated Yes prices, at least 99 percent Yes observed-minute coverage, and no Yes observation gap over three minutes. Native No coverage is diagnostic only.
     columns:
       - name: event_id
         tests: [not_null, unique]
@@ -18,13 +18,13 @@ models:
       - name: event_id
         tests: [not_null, unique]
   - name: polymarket_soccer_match_result_minute_odds_observed
-    description: Sparse observed Yes-token minute OHLC for home, draw, and away result markets.
+    description: Sparse observed Yes-token and native No-token minute OHLC for home, draw, and away result markets.
     tests:
       - no_duplicate_grain:
           arguments:
             grain_columns: [market_id, odds_minute_epoch]
   - name: polymarket_soccer_match_result_minute_odds
-    description: Dense in-game minute odds with explicit observation and carry age.
+    description: Dense in-game minute odds with explicit Yes and native No observation and carry age.
     tests:
       - no_duplicate_grain:
           arguments:
@@ -36,7 +36,7 @@ models:
               arguments:
                 values: [home_win, draw, away_win]
   - name: polymarket_soccer_match_result_minute_odds_modeling
-    description: Modeling-ready, fully priced dense minute odds for three-market games with at least 99 percent observed coverage and no gap over three minutes.
+    description: Modeling-ready, fully priced dense minute odds for three-market games with at least 99 percent Yes observed coverage and no Yes gap over three minutes. Native No prices and coverage are diagnostic and may be null.
     tests:
       - no_duplicate_grain:
           arguments:

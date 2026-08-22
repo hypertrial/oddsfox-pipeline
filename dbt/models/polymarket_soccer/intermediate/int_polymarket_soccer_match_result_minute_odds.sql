@@ -26,6 +26,7 @@ with markets as (
         source_observed.home_team,
         source_observed.away_team,
         source_observed.clob_token_id,
+        source_observed.no_token_id,
         source_observed.match_started_at_utc,
         source_observed.match_finished_at_utc,
         source_observed.kickoff_source,
@@ -67,6 +68,14 @@ joined as (
         observed_row.observed_points,
         observed_row.first_observed_at,
         observed_row.last_observed_at,
+        observed_row.no_open_odds as observed_no_open_odds,
+        observed_row.no_high_odds as observed_no_high_odds,
+        observed_row.no_low_odds as observed_no_low_odds,
+        observed_row.no_close_odds as observed_no_close_odds,
+        observed_row.no_avg_odds as observed_no_avg_odds,
+        observed_row.no_observed_points,
+        observed_row.no_first_observed_at,
+        observed_row.no_last_observed_at,
         last_value(observed_row.close_odds ignore nulls) over (
             partition by spine.market_id order by spine.odds_minute_epoch
             rows between unbounded preceding and current row
@@ -74,7 +83,15 @@ joined as (
         last_value(observed_row.last_observed_at ignore nulls) over (
             partition by spine.market_id order by spine.odds_minute_epoch
             rows between unbounded preceding and current row
-        ) as latest_observed_at
+        ) as latest_observed_at,
+        last_value(observed_row.no_close_odds ignore nulls) over (
+            partition by spine.market_id order by spine.odds_minute_epoch
+            rows between unbounded preceding and current row
+        ) as carried_no_close_odds,
+        last_value(observed_row.no_last_observed_at ignore nulls) over (
+            partition by spine.market_id order by spine.odds_minute_epoch
+            rows between unbounded preceding and current row
+        ) as latest_no_observed_at
     from spine
     left join {{ observed }} as observed_row
         on
@@ -87,7 +104,10 @@ select
         observed_open_odds, observed_high_odds, observed_low_odds,
         observed_close_odds, observed_avg_odds, observed_points,
         first_observed_at, last_observed_at, carried_close_odds,
-        latest_observed_at
+        latest_observed_at, observed_no_open_odds, observed_no_high_odds,
+        observed_no_low_odds, observed_no_close_odds, observed_no_avg_odds,
+        no_observed_points, no_first_observed_at, no_last_observed_at,
+        carried_no_close_odds, latest_no_observed_at
     ),
     latest_observed_at as last_observed_at,
     observed_close_odds is not null as is_observed,
@@ -112,5 +132,29 @@ select
     case
         when latest_observed_at is not null
             then date_diff('minute', latest_observed_at, odds_minute_utc)
-    end as minutes_since_observation
+    end as minutes_since_observation,
+    latest_no_observed_at as no_last_observed_at,
+    observed_no_close_odds is not null as is_no_observed,
+    case
+        when observed_no_close_odds is not null then observed_no_open_odds
+        else carried_no_close_odds
+    end as no_open_odds,
+    case
+        when observed_no_close_odds is not null then observed_no_high_odds
+        else carried_no_close_odds
+    end as no_high_odds,
+    case
+        when observed_no_close_odds is not null then observed_no_low_odds
+        else carried_no_close_odds
+    end as no_low_odds,
+    coalesce(observed_no_close_odds, carried_no_close_odds) as no_close_odds,
+    case
+        when observed_no_close_odds is not null then observed_no_avg_odds
+        else carried_no_close_odds
+    end as no_avg_odds,
+    coalesce(no_observed_points, 0) as no_observed_points,
+    case
+        when latest_no_observed_at is not null
+            then date_diff('minute', latest_no_observed_at, odds_minute_utc)
+    end as no_minutes_since_observation
 from joined

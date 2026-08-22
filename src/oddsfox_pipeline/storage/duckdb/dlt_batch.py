@@ -516,7 +516,7 @@ def _resolve_primary_token_ids(
     extra_token_market_rows: Sequence[tuple[str, str]] | None = None,
     scope_name: str = SCOPE_WC2026,
 ) -> set[str]:
-    """Prefer Yes outcome tokens per market; fall back to lowest token id."""
+    """Prefer Yes tokens per market; soccer also keeps native No tokens."""
     extra_rows = [(str(m), str(t)) for m, t in (extra_token_market_rows or ())]
     if not parquet_paths and not extra_rows:
         return set()
@@ -541,7 +541,13 @@ def _resolve_primary_token_ids(
         registry = polymarket_ops_tbl(scope_name, "match_result_registry")
         return {
             str(row[0])
-            for row in conn.execute(f"SELECT yes_token_id FROM {registry}").fetchall()
+            for row in conn.execute(
+                f"""
+                SELECT yes_token_id FROM {registry}
+                UNION
+                SELECT no_token_id FROM {registry}
+                """
+            ).fetchall()
             if str(row[0]) in present
         }
     markets = polymarket_raw_tbl(scope_name, "markets")
