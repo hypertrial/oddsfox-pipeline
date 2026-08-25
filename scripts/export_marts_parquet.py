@@ -2,7 +2,7 @@
 """Export every present ``*_marts`` table from the local DuckDB warehouse to Parquet.
 
 Discovers base tables and views in the shipped market mart schemas (Polymarket
-WC2026, Kalshi WC2026, and ``wc2026_marts``) and writes
+WC2026, Polymarket Soccer, Kalshi WC2026, and ``wc2026_marts``) and writes
 one Parquet file per relation under a timestamped output directory.
 
 This is a local operator dump. It includes isolated pipeline marts when they
