@@ -1,0 +1,20 @@
+[
+  {
+    "proxyWallet": "0x1111111111111111111111111111111111111111",
+    "timestamp": 1751328001,
+    "conditionId": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "type": "TRADE",
+    "size": "12.345678",
+    "usdcSize": "4.938271",
+    "transactionHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "price": "0.4",
+    "asset": "123456789",
+    "side": "BUY",
+    "outcomeIndex": 0,
+    "title": "Will the home team win?",
+    "slug": "generic-home-team-win",
+    "eventSlug": "generic-match",
+    "outcome": "Yes",
+    "isCombo": false
+  }
+]

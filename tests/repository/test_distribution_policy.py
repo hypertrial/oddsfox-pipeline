@@ -80,6 +80,7 @@ ALLOWED_DATA_LIKE_FILES = {
     "tests/fixtures/market_portrait/match-104-target.yml",
     "tests/fixtures/golden/kalshi_wc2026_hourly_odds.csv",
     "tests/fixtures/golden/polymarket_wc2026_market_hourly_odds.csv",
+    "tests/fixtures/contracts/polymarket_user_activity_page.json",
     "vercel.json",
     "workspace.yaml",
 }

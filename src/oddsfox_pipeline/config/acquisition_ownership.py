@@ -22,7 +22,7 @@ ACQUISITION_SOURCES: Final = {
         AcquisitionSource(
             "polymarket",
             "oddsfox-pipeline",
-            "public prediction-market catalog, prices, and books",
+            "public prediction-market catalog, prices, books, and user activity",
             frozenset(
                 {
                     "gamma-api.polymarket.com",
