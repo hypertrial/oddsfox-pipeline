@@ -35,6 +35,13 @@ Soccer operator targets:
   immutable `oddsfox.polymarket.graph-catalog.v1` Parquet release. Prefer
   `make polymarket-catalog-release RELEASE_VERSION=<semver>`.
 - `export_polymarket_wc2026_market_hourly_odds.py`: export `polymarket_wc2026_marts.polymarket_wc2026_market_hourly_odds` to Parquet under `artifacts/polymarket_wc2026_exports/`.
+- `export_polymarket_user_activity.py`: manually export one wallet's bounded
+  public activity history as resumable daily Parquet partitions. The command
+  requires explicit half-open UTC bounds, validates existing partition
+  checksums before resuming, and writes contract
+  `oddsfox.polymarket.user-activity.v1` plus `_manifest.json`. Keep the output
+  operator-local and use `--replace` only to replace requested partitions that
+  cannot be resumed.
 - `cleanup_polymarket_wc2026_registry_hygiene.py`: dry-run (default) or `--apply` deletion of synthetic catalog contamination (`evt-A` / `evt-B` / `m-shared`) and ineligible `events_api` / `markets_api` registry orphans. Prefer `make cleanup-polymarket-wc2026-registry-hygiene` (set `APPLY=1` to write). Stop Dagster and other DuckDB writers first.
 - `export_marts_parquet.py`: export every present table or view in the shipped `*_marts` schemas (Polymarket WC2026, Polymarket Soccer, Kalshi WC2026, and `wc2026_marts`) to Parquet under `artifacts/marts_exports/<utc>/`. Prefer `make export-marts-parquet`. Includes isolated marts when built; for the allowlisted Polygon technical dossier use the dedicated Polygon exporter.
 - `export_polymarket_wc2026_match_minute_odds.py`: write the 104-game match-minute mart to a temporary Parquet, validate its grain, 104/248/496 inventory, proposition mix, timing, elapsed-axis invariants, and immutable results provenance, then atomically replace the prior artifact. It prints completeness, boundary nulls, pair warnings, elapsed range and over-120-minute games, revision/hash, file size, and SHA-256; quality warnings do not fail export.
@@ -221,6 +228,11 @@ uv run python scripts/run_scope.py polymarket:wc2026 --step full
 uv run python scripts/run_scope.py polymarket:wc2026 kalshi:wc2026 --step dbt
 uv run python scripts/profile_warehouse.py --snapshot-copy
 uv run python scripts/export_polymarket_wc2026_market_hourly_odds.py
+uv run python scripts/export_polymarket_user_activity.py \
+  --wallet 0x1111111111111111111111111111111111111111 \
+  --start-utc 2025-07-01T00:00:00Z \
+  --end-utc 2025-07-02T00:00:00Z \
+  --output-dir .cache/operator-exports/user-activity
 uv run make export-marts-parquet
 uv run python scripts/export_polymarket_wc2026_match_minute_odds.py
 export ODDSFOX_DATA_DIR="${ODDSFOX_DATA_DIR:-.runtime}"
