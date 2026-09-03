@@ -29,6 +29,7 @@ EXPECTED_DIRECT_LICENSES = {
     "pyyaml": "MIT",
     "requests": "Apache-2.0",
     "tqdm": "MPL-2.0 AND MIT",
+    "websockets": "BSD-3-Clause",
 }
 LICENSE_ALIASES = {
     "Apache-2": "Apache-2.0",

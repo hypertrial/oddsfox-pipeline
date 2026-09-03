@@ -22,6 +22,11 @@ crawls Gamma events and markets, builds one cumulative textual graph mart, and
 publishes the consumer-neutral `oddsfox.polymarket.graph-catalog.v1` Parquet
 contract. It has no schedule and does not collect prices, trades, or profiles.
 
+The separate [sports data command](docs/guides/polymarket-sports-data.md)
+maintains a cumulative sports catalog, records native-token displayed books,
+and replays free PMXT archives. Runs are operator-started, bounded and local;
+existing graph, soccer and WC2026 contracts are unchanged.
+
 The enforced ownership decision is documented in
 [`docs/architecture/source-ownership.md`](docs/architecture/source-ownership.md).
 

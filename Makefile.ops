@@ -1,6 +1,35 @@
 package-smoke:
 	$(RUN_IN_REPO) "$(PYTHON)" -m pytest tests/package/test_package_distribution.py -q -n 0
 
+.PHONY: sports-data-catalog sports-data-record sports-data-backfill sports-data-build sports-data-verify sports-data-quote integration-sports-data
+SPORTS_DATA_ROOT ?= $(REPO_ROOT)/data/polymarket_sports
+
+sports-data-catalog:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/polymarket_sports_data.py --data-root "$(SPORTS_DATA_ROOT)" catalog-refresh
+
+sports-data-record:
+	@test -n "$(DURATION_SECONDS)" || (echo "DURATION_SECONDS is required" >&2; exit 2)
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/polymarket_sports_data.py --data-root "$(SPORTS_DATA_ROOT)" record --duration-seconds "$(DURATION_SECONDS)"
+
+sports-data-backfill:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/polymarket_sports_data.py --data-root "$(SPORTS_DATA_ROOT)" backfill --start-utc "$(START_UTC)" --end-utc "$(END_UTC)" $(if $(filter true,$(DRY_RUN)),--dry-run,) $(if $(MAX_FILES),--max-files "$(MAX_FILES)",)
+
+sports-data-build:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/polymarket_sports_data.py --data-root "$(SPORTS_DATA_ROOT)" build --start-utc "$(START_UTC)" --end-utc "$(END_UTC)"
+
+sports-data-verify:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/polymarket_sports_data.py --data-root "$(SPORTS_DATA_ROOT)" verify
+
+sports-data-quote:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/polymarket_sports_data.py --data-root "$(SPORTS_DATA_ROOT)" quote --source "$(SOURCE)" --token-id "$(TOKEN_ID)" --side "$(SIDE)" --quantity "$(QUANTITY)" --as-of "$(AS_OF)"
+
+integration-sports-data:
+	$(RUN_IN_REPO) "$(PYTHON)" -m pytest -q tests/unit/ingestion/test_polymarket_sports_data.py tests/integration/test_polymarket_sports_data_integration.py -o addopts=
+
+.PHONY: sports-data-scale
+sports-data-scale:
+	$(RUN_IN_REPO) "$(PYTHON)" scripts/benchmark_polymarket_sports_data.py --data-root "$(SPORTS_DATA_ROOT)"
+
 .PHONY: polymarket-catalog-refresh polymarket-catalog-dbt-build polymarket-catalog-release
 
 polymarket-catalog-refresh: runtime-dirs dbt-prepare

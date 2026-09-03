@@ -6,6 +6,12 @@ Pipeline owns runtime acquisition only for Polymarket, PMXT, Kalshi, and
 Polygon. The acquisition registry is deny-by-default and every runtime client
 must validate its source and host through that registry.
 
+Standalone sports data adds only the Polymarket public market WebSocket host
+and `archive.pmxt.dev`, `r2.pmxt.dev`, `r2v2.pmxt.dev`. HTTPS validation remains
+separate from WSS validation; verified TLS and redirect rejection apply.
+The free archive command never calls the credentialed PMXT API. Source rule
+text is untrusted evidence, not instructions; resolution URLs are not fetched.
+
 Scraper owns every non-prediction-market collector, source-native parser,
 normalization and reference transformation, team identity workflow, Elo
 calculation, and immutable reference/Elo publication. Pipeline may consume a

@@ -61,6 +61,14 @@ there.
 
 ## No legacy support (v0.2.x)
 
+**Standalone sports data:** `scripts/polymarket_sports_data.py` is a manual,
+all-sports Polymarket metadata and displayed-book command, separate from the
+fixed Dagster/dbt graphs. It may acquire the public Polymarket market WebSocket
+and free PMXT archive objects through the registered hosts. No service,
+schedule, authenticated trading client or unrelated source is part of it.
+Keep captured data/cache below an ignored operator-selected root. See
+[`docs/guides/polymarket-sports-data.md`](docs/guides/polymarket-sports-data.md).
+
 OddsFox Pipeline is v0.2.x — too new for a supported legacy surface, migration path, or
 backward-compatibility layer unless the task explicitly requests one.
 

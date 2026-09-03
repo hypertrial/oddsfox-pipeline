@@ -1,5 +1,11 @@
 # Data Contracts
 
+The standalone `oddsfox.polymarket.sports-catalog.v1` and
+`oddsfox.polymarket.sports-order-books.v1` operator-local contracts are specified
+in the [sports data guide](../guides/polymarket-sports-data.md). They add no
+Dagster asset, dbt model or existing mart column. Consumers must validate
+committed manifests and source/continuity status before using book evidence.
+
 This page is the formal analytics **contract** for warehouse marts that
 notebooks, scripts, and open-source integrators should rely on: grains, scope
 rules, and guarantees. A **contract** is a named guarantee about a relation set,

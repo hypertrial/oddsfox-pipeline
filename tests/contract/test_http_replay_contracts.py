@@ -34,6 +34,39 @@ from oddsfox_pipeline.resources.http import APIClient
 
 pytestmark = pytest.mark.contract
 
+
+def test_public_sports_market_channel_replay_contract():
+    import json
+    from decimal import Decimal
+
+    import yaml
+
+    from oddsfox_pipeline.ingestion.polymarket.sports_data.books import (
+        Book,
+        normalize_message,
+    )
+
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "fixtures/contracts/polymarket_sports_book.yml"
+    )
+    book = Book()
+    messages = yaml.safe_load(fixture.read_text())["messages"]
+    for sequence, message in enumerate(messages):
+        rows = normalize_message(
+            json.dumps(message).encode(),
+            source="fixture",
+            stream="fixture/1",
+            sequence=sequence,
+            received_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            identity=str(sequence),
+        )
+        for row in rows:
+            book.apply(row)
+    assert book.bids == {Decimal(".39"): Decimal("5")}
+    assert book.quote("BUY", "2")["gross_amount"] == Decimal("1.2")
+
+
 CASSETTES = Path(__file__).resolve().parents[1] / "fixtures" / "cassettes"
 
 

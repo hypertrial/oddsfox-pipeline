@@ -1,0 +1,23 @@
+# Hypertrial-authored synthetic public market-channel shapes, not captured data.
+messages:
+  - event_type: book
+    market: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    asset_id: '11'
+    timestamp: '1767225600000'
+    hash: synthetic-unverified-hash
+    bids:
+      - {price: '0.40', size: '10'}
+    asks:
+      - {price: '0.60', size: '8'}
+  - event_type: price_change
+    market: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    timestamp: '1767225600000'
+    price_changes:
+      - {asset_id: '11', side: BUY, price: '0.40', size: '0'}
+      - {asset_id: '11', side: BUY, price: '0.39', size: '5'}
+  - event_type: tick_size_change
+    market: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    asset_id: '11'
+    timestamp: '1767225601000'
+    old_tick_size: '0.01'
+    new_tick_size: '0.001'

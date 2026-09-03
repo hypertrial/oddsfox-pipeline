@@ -13,7 +13,14 @@ pytestmark = pytest.mark.repo_check
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "src" / "oddsfox_pipeline"
-NETWORK_IMPORTS = {"aiohttp", "curl_cffi", "httpx", "requests", "urllib.request"}
+NETWORK_IMPORTS = {
+    "aiohttp",
+    "curl_cffi",
+    "httpx",
+    "requests",
+    "urllib.request",
+    "websockets",
+}
 ALLOWED_NETWORK_PATHS = (
     "ingestion/polymarket/",
     "publishing/stage_execution_archive.py",
@@ -55,6 +62,25 @@ def test_only_prediction_market_sources_are_registered() -> None:
     assert all(
         source.owner == "oddsfox-pipeline" for source in ACQUISITION_SOURCES.values()
     )
+
+
+def test_sports_data_transports_have_exact_registered_hosts() -> None:
+    from oddsfox_pipeline.config.acquisition_ownership import require_acquisition_url
+
+    for source, url in (
+        ("polymarket", "wss://ws-subscriptions-clob.polymarket.com/ws/market"),
+        ("pmxt", "https://archive.pmxt.dev/Polymarket/v2"),
+        ("pmxt", "https://r2.pmxt.dev/a.parquet"),
+        ("pmxt", "https://r2v2.pmxt.dev/a.parquet"),
+    ):
+        assert require_acquisition_url(source, url) == url
+        with pytest.raises(ValueError):
+            require_acquisition_url(
+                source,
+                url.replace(".dev", ".dev.evil.example").replace(
+                    ".com", ".com.evil.example"
+                ),
+            )
 
 
 def test_non_market_collectors_and_elo_are_absent() -> None:

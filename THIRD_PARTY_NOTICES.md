@@ -89,6 +89,14 @@ The project references these independently governed upstream materials:
   The file identifies the adaptation and retains the required attribution.
 
 Runtime and development dependencies remain governed by their own licences.
+
+Standalone sports data may download the free
+[PMXT public archives](https://archive.pmxt.dev/docs/v2-data-overview), published
+under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Local manifests
+identify PMXT as creator, link source/licence, and describe normalization and
+filtering. No archive data is bundled or covered by this project's MIT grant.
+Retain attribution when redistributing. Native v1/v2 archive layouts do not
+establish contract or collateral versions.
 Installed distributions retain their licence metadata.
 
 No third-party material is relicensed under the project's MIT License.

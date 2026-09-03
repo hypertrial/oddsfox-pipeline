@@ -28,6 +28,7 @@ ACQUISITION_SOURCES: Final = {
                     "gamma-api.polymarket.com",
                     "clob.polymarket.com",
                     "data-api.polymarket.com",
+                    "ws-subscriptions-clob.polymarket.com",
                 }
             ),
             "prediction_market_api",
@@ -36,7 +37,9 @@ ACQUISITION_SOURCES: Final = {
             "pmxt",
             "oddsfox-pipeline",
             "prediction-market historical order books and trades",
-            frozenset({"api.pmxt.dev"}),
+            frozenset(
+                {"api.pmxt.dev", "archive.pmxt.dev", "r2.pmxt.dev", "r2v2.pmxt.dev"}
+            ),
             "prediction_market_api",
         ),
         AcquisitionSource(

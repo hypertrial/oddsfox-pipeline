@@ -18,6 +18,7 @@ from oddsfox_pipeline.resources.outbound_url import (
     clear_outbound_url_host_cache,
     join_under_base,
     validate_outbound_https_url,
+    validate_outbound_wss_url,
 )
 
 
@@ -45,6 +46,23 @@ def test_validate_outbound_https_url_accepts_public_https(monkeypatch):
     assert validate_outbound_https_url("https://example.com/path") == (
         "https://example.com/path"
     )
+
+
+def test_wss_is_separate_from_https(monkeypatch):
+    _mock_public_dns(monkeypatch)
+    url = "wss://example.com/ws/market"
+    assert validate_outbound_wss_url(url) == url
+    with pytest.raises(OutboundUrlError):
+        validate_outbound_https_url(url)
+    for unsafe in (
+        "ws://example.com",
+        "wss://user:secret@example.com",
+        "wss://example.com:8080",
+        "wss://example.com/#fragment",
+        "wss://127.0.0.1",
+    ):
+        with pytest.raises(OutboundUrlError):
+            validate_outbound_wss_url(unsafe)
 
 
 @given(st.from_regex(r"[a-z][a-z0-9-]{0,16}", fullmatch=True))

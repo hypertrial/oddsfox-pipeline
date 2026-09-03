@@ -25,6 +25,7 @@ dependencies = [
   "python-dotenv>=1.0.0",
   "requests>=2.34.2",
   "tqdm>=4.68.4",
+  "websockets==16.0",
 ]
 
 [tool.uv]

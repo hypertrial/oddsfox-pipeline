@@ -24,3 +24,8 @@ The match-minute dbt integration contract is generated in-test by
 `tests/integration/match_minute_seed.py` (104 games, 248 markets, 496
 tokens, 24,304 mart rows). No operator minute-history or schedule rows are
 committed.
+
+`contracts/polymarket_sports_book.yml` contains Hypertrial-authored synthetic
+market-channel snapshots, multi-item deltas and tick-size messages. It contains
+no captured source data, account identifiers or credentials. PMXT v1/v2 Parquet
+fixtures for standalone sports data are generated in tests from synthetic rows.

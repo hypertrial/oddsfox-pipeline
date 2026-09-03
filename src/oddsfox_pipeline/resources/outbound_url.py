@@ -96,6 +96,17 @@ def validate_outbound_https_url(url: str) -> str:
     return raw
 
 
+def validate_outbound_wss_url(url: str) -> str:
+    """Validate TLS WebSocket endpoints without accepting WSS in HTTP clients."""
+    parsed = urlparse(url)
+    if parsed.scheme != "wss" or parsed.username or parsed.password:
+        raise OutboundUrlError("WebSocket URL must use wss without credentials")
+    if parsed.fragment or parsed.port not in (None, 443):
+        raise OutboundUrlError("WebSocket URL must use the standard TLS origin")
+    validate_outbound_https_url(parsed._replace(scheme="https").geturl())
+    return url
+
+
 def assert_same_origin(url: str, base_url: str) -> str:
     """Return url when its origin matches base_url."""
     validated = validate_outbound_https_url(url)

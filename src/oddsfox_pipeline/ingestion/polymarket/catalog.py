@@ -524,6 +524,36 @@ def normalize_catalog_pages(
     )
 
 
+def fetch_catalog_page(
+    client, endpoint, result_key, closed, cursor=None, *, pass_name=None
+):
+    """One validated global keyset page, shared by independent catalog consumers."""
+    params = {"limit": 500 if result_key == "events" else 100, "closed": closed}
+    if result_key == "markets":
+        params["include_tag"] = True
+    if cursor:
+        params["after_cursor"] = cursor
+    payload = gamma_get(client, endpoint, params=params)
+    label = pass_name or endpoint
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"catalog pass {label} returned a non-object payload")
+    if result_key not in payload:
+        raise ValueError(f"catalog pass {label} omitted {result_key}")
+    rows = payload[result_key]
+    if not isinstance(rows, list):
+        raise ValueError(f"catalog pass {label} returned non-array {result_key}")
+    next_cursor = payload.get("next_cursor")
+    if next_cursor is not None and (
+        not isinstance(next_cursor, str) or not next_cursor
+    ):
+        raise ValueError(f"catalog pass {label} returned a malformed cursor")
+    if cursor and next_cursor == cursor:
+        raise RuntimeError(f"non-advancing Gamma cursor for {label}")
+    if next_cursor and not rows:
+        raise RuntimeError(f"Gamma returned an unresolved cursor for {label}")
+    return payload
+
+
 def _fetch_pass(
     conn,
     client: Any,
@@ -541,31 +571,10 @@ def _fetch_pass(
     if existing and existing[-1]["is_complete"]:
         return
     while True:
-        params: dict[str, Any] = {
-            "limit": 500 if result_key == "events" else 100,
-            "closed": closed,
-        }
-        if result_key == "markets":
-            params["include_tag"] = True
-        if cursor:
-            params["after_cursor"] = cursor
-        payload = gamma_get(client, endpoint, params=params)
-        if not isinstance(payload, Mapping):
-            raise ValueError(f"catalog pass {pass_name} returned a non-object payload")
-        rows = payload.get(result_key, [])
-        if not isinstance(rows, list):
-            raise ValueError(
-                f"catalog pass {pass_name} returned non-array {result_key}"
-            )
+        payload = fetch_catalog_page(
+            client, endpoint, result_key, closed, cursor, pass_name=pass_name
+        )
         next_cursor = payload.get("next_cursor")
-        if next_cursor is not None and (
-            not isinstance(next_cursor, str) or not next_cursor
-        ):
-            raise ValueError(f"catalog pass {pass_name} returned a malformed cursor")
-        if cursor and next_cursor == cursor:
-            raise RuntimeError(f"non-advancing Gamma cursor for {pass_name}")
-        if next_cursor and not rows:
-            raise RuntimeError(f"Gamma returned an unresolved cursor for {pass_name}")
         is_complete = next_cursor is None
         save_catalog_page(
             conn,

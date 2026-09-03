@@ -81,6 +81,7 @@ ALLOWED_DATA_LIKE_FILES = {
     "tests/fixtures/golden/kalshi_wc2026_hourly_odds.csv",
     "tests/fixtures/golden/polymarket_wc2026_market_hourly_odds.csv",
     "tests/fixtures/contracts/polymarket_user_activity_page.json",
+    "tests/fixtures/contracts/polymarket_sports_book.yml",
     "vercel.json",
     "workspace.yaml",
 }
